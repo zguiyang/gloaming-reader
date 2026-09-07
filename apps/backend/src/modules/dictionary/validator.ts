@@ -2,7 +2,11 @@ import { zValidator } from '@hono/zod-validator';
 import type { Context, ValidationTargets } from 'hono';
 import type { ZodType } from 'zod';
 
-import { lookupDictionaryQuerySchema, putDictionaryConfigBodySchema, testDictionaryBodySchema } from '@gloaming/shared';
+import {
+  lookupDictionaryQuerySchema,
+  putDictionaryConfigBodySchema,
+  testDictionaryBodySchema,
+} from '@gloaming/shared/dictionary';
 
 import { sendValidationError } from '@/lib/response';
 

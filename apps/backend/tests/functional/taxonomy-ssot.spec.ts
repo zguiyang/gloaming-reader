@@ -10,7 +10,7 @@ import {
   tag as tagTable,
   user as userTable,
 } from '@gloaming/db';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared';
+import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { db } from '@/db';

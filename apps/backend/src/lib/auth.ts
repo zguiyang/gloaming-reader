@@ -11,7 +11,7 @@ import {
   AUTH_USERNAME_POLICY,
   bootstrapRoleForNewUser,
   isValidUsername,
-} from '@gloaming/shared';
+} from '@gloaming/shared/auth';
 
 import { db } from '@/db';
 import { buildVerificationUrl, logDevAuthLink } from '@/lib/auth-mail';

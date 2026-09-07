@@ -22,7 +22,6 @@ import {
   type AdminWorkListData,
   type AdminWorkListQuery,
   type AdminWorkSummary,
-  buildPaginationMeta,
   type CatalogListData,
   type CatalogListQuery,
   type CreateAdminTextWorkBody,
@@ -36,6 +35,7 @@ import {
   WORKFLOW_STEPS,
   type WorkflowStep,
 } from '@gloaming/shared';
+import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';

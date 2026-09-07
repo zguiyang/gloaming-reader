@@ -2,7 +2,7 @@ import { and, eq, like } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { user as userTable, verification as verificationTable } from '@gloaming/db';
-import { AUTH_ADMIN_ROLE, AUTH_USER_ROLE } from '@gloaming/shared';
+import { AUTH_ADMIN_ROLE, AUTH_USER_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { db } from '@/db';

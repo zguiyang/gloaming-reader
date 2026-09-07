@@ -11,7 +11,7 @@ import {
 import type { ReaderAudioTrack, ReaderPartData } from '@gloaming/shared';
 import type { AdminWork } from '@gloaming/shared';
 import { audioKindForRole } from '@gloaming/shared';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared';
+import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { db } from '@/db';

@@ -52,7 +52,7 @@ assertTestDatabaseIsolation();
 async function consumeBootstrapAdminSlot(): Promise<void> {
   const { count } = await import('drizzle-orm');
   const { user: userTable } = await import('@gloaming/db');
-  const { AUTH_ADMIN_ROLE } = await import('@gloaming/shared');
+  const { AUTH_ADMIN_ROLE } = await import('@gloaming/shared/auth');
   const { db } = await import('@/db');
 
   const [row] = await db.select({ value: count() }).from(userTable);

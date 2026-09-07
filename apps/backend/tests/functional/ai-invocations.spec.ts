@@ -4,9 +4,13 @@ import { eq, inArray } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { aiInvocationLog as aiInvocationLogTable, user as userTable } from '@gloaming/db';
-import type { AiInvocationListData, AiInvocationStats } from '@gloaming/shared';
-import { AI_INVOCATION_DEFAULT_PAGE_SIZE, AI_INVOCATION_STATS_DAYS } from '@gloaming/shared';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared';
+import {
+  AI_INVOCATION_DEFAULT_PAGE_SIZE,
+  AI_INVOCATION_STATS_DAYS,
+  type AiInvocationListData,
+  type AiInvocationStats,
+} from '@gloaming/shared/ai-invocations';
+import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { HTTP_STATUS } from '@/constants';

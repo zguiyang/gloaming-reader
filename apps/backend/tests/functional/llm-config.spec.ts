@@ -4,7 +4,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { llmAppSetting as llmAppSettingTable, llmProvider as llmProviderTable, user as userTable } from '@gloaming/db';
 import type { LlmAppSettingView, LlmModel, LlmProvider } from '@gloaming/shared';
 import { AI_PURPOSE_TO_SETTING_KEY } from '@gloaming/shared';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared';
+import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { db } from '@/db';

@@ -8,7 +8,7 @@ import {
 } from '@gloaming/db';
 import type { AdminWork } from '@gloaming/shared';
 import { ASSIST_SSE_EVENT, type AssistSseDone, type AssistSseError } from '@gloaming/shared';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared';
+import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { HTTP_STATUS } from '@/constants';

@@ -3,7 +3,7 @@ import {
   type DictionaryDefinition,
   type DictionaryMeaning,
   type DictionaryPhonetic,
-} from '@gloaming/shared';
+} from '@gloaming/shared/dictionary';
 
 import { HTTP_STATUS } from '@/constants';
 import { AppError } from '@/lib/errors';

@@ -2,8 +2,12 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { dictionaryConfig as dictionaryConfigTable, user as userTable } from '@gloaming/db';
-import { DICTIONARY_PROVIDER_FREE, type DictionaryConfigView, type TestDictionaryResult } from '@gloaming/shared';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared';
+import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+import {
+  DICTIONARY_PROVIDER_FREE,
+  type DictionaryConfigView,
+  type TestDictionaryResult,
+} from '@gloaming/shared/dictionary';
 
 import app from '@/app';
 import { db } from '@/db';

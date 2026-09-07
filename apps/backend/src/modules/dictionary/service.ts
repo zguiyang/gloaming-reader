@@ -20,7 +20,7 @@ import {
   type PutDictionaryConfigBody,
   type TestDictionaryBody,
   type TestDictionaryResult,
-} from '@gloaming/shared';
+} from '@gloaming/shared/dictionary';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';

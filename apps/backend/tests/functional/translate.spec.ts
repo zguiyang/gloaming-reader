@@ -8,7 +8,7 @@ import {
   type TranslateSseMeta,
   type TranslateSseSentence,
   type TranslateSseTitle,
-} from '@gloaming/shared';
+} from '@gloaming/shared/translate';
 
 import app from '@/app';
 import { db } from '@/db';

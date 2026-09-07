@@ -1,7 +1,11 @@
 import { and, eq } from 'drizzle-orm';
 
 import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
-import { type BilingualCachePayload, bilingualCachePayloadSchema, type TranslatePartBody } from '@gloaming/shared';
+import {
+  type BilingualCachePayload,
+  bilingualCachePayloadSchema,
+  type TranslatePartBody,
+} from '@gloaming/shared/translate';
 
 import { db } from '@/db';
 import { NotFoundError } from '@/lib/errors';

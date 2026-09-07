@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { contentAsset as contentAssetTable, readingWork as readingWorkTable } from '@gloaming/db';
-import { isAdminRole } from '@gloaming/shared';
+import { isAdminRole } from '@gloaming/shared/auth';
 
 import { db } from '@/db';
 import type { AuthSessionUser } from '@/lib/auth';

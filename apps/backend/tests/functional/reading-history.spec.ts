@@ -16,7 +16,7 @@ import {
   READING_HEARTBEAT_MAX_CREDIT_SECONDS,
   type ReadingHistoryData,
 } from '@gloaming/shared';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared';
+import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { HTTP_STATUS } from '@/constants';

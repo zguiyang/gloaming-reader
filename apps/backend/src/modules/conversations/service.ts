@@ -8,7 +8,6 @@ import {
   type ConversationMessageMetadata,
 } from '@gloaming/db';
 import {
-  buildPaginationMeta,
   CONVERSATION_CONTENT_MAX,
   CONVERSATION_DETAIL_MESSAGE_CAP,
   CONVERSATION_PREVIEW_MAX,
@@ -22,6 +21,7 @@ import {
   type ConversationSurface,
   type CreateConversationBody,
 } from '@gloaming/shared';
+import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
