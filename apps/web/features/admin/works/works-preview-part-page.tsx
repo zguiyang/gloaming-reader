@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { ADMIN_ROUTES } from '@/constants';
-import { formatWorksApiError, useAdminWorkQuery } from '@/features/admin/works-api';
+import { formatWorksApiError, useAdminWorkQuery } from '@/features/admin/works/works-api';
 import { ReadingPartView } from '@/features/content/reading-part-view';
 
 type WorksPreviewPartPageProps = {

@@ -3,7 +3,7 @@
 import DOMPurify from 'dompurify';
 import { type MouseEvent, type ReactNode, useMemo } from 'react';
 
-import type { TranslateSentenceEn } from '@gloaming/shared';
+import type { TranslateSentenceEn } from '@gloaming/shared/translate';
 
 import type { BilingualTranslationData } from '@/features/reader/use-reader-translate';
 import { cn } from '@/lib/utils';

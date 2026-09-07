@@ -3,7 +3,7 @@
 import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
 import { useMemo } from 'react';
 
-import type { DictionaryEntry } from '@gloaming/shared';
+import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { ReaderDictionaryCard } from '@/features/reader/reader-dictionary-card';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';

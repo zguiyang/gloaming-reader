@@ -11,7 +11,7 @@ import {
   DICTIONARY_PROVIDER_YOUDAO,
   type DictionaryConfigView,
   type TestDictionaryResult,
-} from '@gloaming/shared';
+} from '@gloaming/shared/dictionary';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ import {
   getDictionaryConfig,
   putDictionaryConfig,
   testDictionary,
-} from '@/features/admin/dictionary-config-api';
+} from '@/features/admin/dictionary/dictionary-config-api';
 
 const PROVIDER_OPTIONS = [
   { value: DICTIONARY_PROVIDER_YOUDAO, label: '有道词典开放接口（中文释义 + 英美发音 · 国内极速推荐）' },

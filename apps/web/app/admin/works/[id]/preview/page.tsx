@@ -1,4 +1,4 @@
-import { WorksPreviewPage } from '@/features/admin/works-preview-page';
+import { WorksPreviewPage } from '@/features/admin/works/works-preview-page';
 
 type PageProps = {
   params: Promise<{ id: string }>;

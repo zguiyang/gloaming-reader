@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { AUTH_PASSWORD_POLICY, AUTH_USERNAME_POLICY } from '@gloaming/shared';
+import { AUTH_PASSWORD_POLICY, AUTH_USERNAME_POLICY } from '@gloaming/shared/auth';
 
 const passwordSchema = z.string().min(AUTH_PASSWORD_POLICY.minLength).max(AUTH_PASSWORD_POLICY.maxLength);
 

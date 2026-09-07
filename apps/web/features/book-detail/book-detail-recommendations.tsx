@@ -1,6 +1,6 @@
 'use client';
 
-import type { RecommendationStrategy } from '@gloaming/shared';
+import type { RecommendationStrategy } from '@gloaming/shared/recommendations';
 
 import {
   useRecommendationsQuery,

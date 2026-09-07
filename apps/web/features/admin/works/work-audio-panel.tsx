@@ -20,8 +20,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { WorkAudioPartRowView } from '@/features/admin/work-audio-part-row';
-import { formatWorksApiError } from '@/features/admin/works-api';
+import { WorkAudioPartRowView } from '@/features/admin/works/work-audio-part-row';
+import { formatWorksApiError } from '@/features/admin/works/works-api';
 import { apiRequest } from '@/lib/api-request';
 import { cn } from '@/lib/utils';
 

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ADMIN_ROUTES } from '@/constants';
-import { formatWorksApiError, useAdminWorkQuery } from '@/features/admin/works-api';
+import { formatWorksApiError, useAdminWorkQuery } from '@/features/admin/works/works-api';
 import type { AdminWorkView } from '@/features/works-http';
 
 function Cover({ work }: { work: AdminWorkView }) {

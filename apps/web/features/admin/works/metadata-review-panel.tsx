@@ -22,7 +22,7 @@ import {
   retryAdminWorkflow,
   updateAdminWork,
   useInvalidateAdminWorks,
-} from '@/features/admin/works-api';
+} from '@/features/admin/works/works-api';
 import type { AdminWorkView } from '@/features/works-http';
 import { cn } from '@/lib/utils';
 

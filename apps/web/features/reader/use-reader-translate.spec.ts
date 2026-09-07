@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { TRANSLATE_SSE_EVENT } from '@gloaming/shared';
+import { TRANSLATE_SSE_EVENT } from '@gloaming/shared/translate';
 
 import { streamTranslatePart } from '@/features/reader/reader-translate-api';
 

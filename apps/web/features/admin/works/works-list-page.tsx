@@ -31,7 +31,7 @@ import {
   unpublishAdminWork,
   useAdminWorksListQuery,
   useInvalidateAdminWorks,
-} from '@/features/admin/works-api';
+} from '@/features/admin/works/works-api';
 import type { AdminWorkSummaryView } from '@/features/works-http';
 
 const STATUS_FILTERS: { value: WorkStatus | 'all' | 'busy'; label: string }[] = [

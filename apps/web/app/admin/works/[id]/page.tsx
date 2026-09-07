@@ -1,4 +1,4 @@
-import { WorksEditPage } from '@/features/admin/works-edit-page';
+import { WorksEditPage } from '@/features/admin/works/works-edit-page';
 
 type PageProps = {
   params: Promise<{ id: string }>;

@@ -10,7 +10,7 @@ import {
   translateSseSentenceSchema,
   type TranslateSseTitle,
   translateSseTitleSchema,
-} from '@gloaming/shared';
+} from '@gloaming/shared/translate';
 
 import { ApiRequestError } from '@/lib/api-request';
 

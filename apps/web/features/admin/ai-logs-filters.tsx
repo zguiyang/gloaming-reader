@@ -8,7 +8,7 @@ import {
   type AiInvocationPresetDays,
   type AiInvocationStatus,
   aiInvocationWindowForDays,
-} from '@gloaming/shared';
+} from '@gloaming/shared/ai-invocations';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';

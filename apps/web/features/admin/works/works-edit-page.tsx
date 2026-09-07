@@ -17,8 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { ADMIN_ROUTES } from '@/constants';
-import { MetadataReviewPanel } from '@/features/admin/metadata-review-panel';
-import { WorkAudioPanel } from '@/features/admin/work-audio-panel';
+import { MetadataReviewPanel } from '@/features/admin/works/metadata-review-panel';
+import { WorkAudioPanel } from '@/features/admin/works/work-audio-panel';
 import {
   checkEpubWorkReuse,
   deleteAdminWork,
@@ -29,7 +29,7 @@ import {
   uploadAdminEpub,
   useAdminWorkQuery,
   useInvalidateAdminWorks,
-} from '@/features/admin/works-api';
+} from '@/features/admin/works/works-api';
 import type { AdminWorkView } from '@/features/works-http';
 import { cn } from '@/lib/utils';
 
