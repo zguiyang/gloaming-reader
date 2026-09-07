@@ -6,7 +6,7 @@ import {
   emptyToUndefined,
   paginationMetaSchema,
   paginationQuerySchema,
-} from './pagination.ts';
+} from '../pagination/index.ts';
 
 export const CONVERSATION_SURFACES = ['assist-read'] as const;
 export type ConversationSurface = (typeof CONVERSATION_SURFACES)[number];

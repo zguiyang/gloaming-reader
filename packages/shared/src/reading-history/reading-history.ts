@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { READING_STATE_STATUSES } from './reader.ts';
+import { READING_STATE_STATUSES } from '../reader/index.ts';
 
 /** Calendar day for reading activity (history heatmap). */
 export const READING_DAY_TIME_ZONE = 'Asia/Shanghai';

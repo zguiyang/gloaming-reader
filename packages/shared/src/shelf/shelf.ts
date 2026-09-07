@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { readerWorkSummarySchema, readingStateSchema } from './reader.ts';
+import { readerWorkSummarySchema, readingStateSchema } from '../reader/index.ts';
 
 /** Soft ceiling for shelf grid items (excludes `current`). */
 export const SHELF_ITEMS_LIMIT = 48 as const;

@@ -24,7 +24,7 @@ export {
   aiInvocationWindowForDays,
   DEFAULT_AI_INVOCATION_SORT_BY,
   resolveAiInvocationWindow,
-} from './api/ai-invocations.ts';
+} from './ai-invocations/index.ts';
 export {
   ASSIST_ACTION_IDS,
   ASSIST_SSE_EVENT,
@@ -38,7 +38,17 @@ export {
   type AssistSseError,
   assistSseErrorSchema,
   type AssistSseEventName,
-} from './api/assist.ts';
+} from './assist/index.ts';
+export {
+  AUTH_ADMIN_ROLE,
+  AUTH_PASSWORD_POLICY,
+  AUTH_USER_ROLE,
+  AUTH_USERNAME_POLICY,
+  type AuthRole,
+  bootstrapRoleForNewUser,
+  isAdminRole,
+  isValidUsername,
+} from './auth/index.ts';
 export {
   audioKindForRole,
   type AudioTimelineSegment,
@@ -73,7 +83,7 @@ export {
   workAudioSummarySchema,
   type WorkAudioView,
   workAudioViewSchema,
-} from './api/content-assets.ts';
+} from './content-assets/index.ts';
 export {
   CONVERSATION_CONTENT_MAX,
   CONVERSATION_DETAIL_MESSAGE_CAP,
@@ -103,7 +113,7 @@ export {
   type CreateConversationBody,
   createConversationBodySchema,
   DEFAULT_CONVERSATION_SORT_BY,
-} from './api/conversations.ts';
+} from './conversations/index.ts';
 export {
   DEFAULT_DICTIONARY_CONFIG,
   DICTIONARY_PROVIDER_CUSTOM,
@@ -134,15 +144,30 @@ export {
   testDictionaryBodySchema,
   type TestDictionaryResult,
   testDictionaryResultSchema,
-} from './api/dictionary.ts';
+} from './dictionary/index.ts';
 export {
+  AI_PURPOSE_TO_SETTING_KEY,
+  AI_SETTING_KEY_VALUES,
+  type AiPurposeName,
+  type AiSettingKey,
+  assertWireVariantForFamily,
   type CreateLlmModelBody,
   createLlmModelBodySchema,
   type CreateLlmProviderBody,
   createLlmProviderBodySchema,
   type FetchProviderModelsResult,
   fetchProviderModelsResultSchema,
+  getDefaultWireVariant,
+  getWireFamilyDefinition,
+  getWireVariantLabel,
+  isLlmApiFamily,
+  isRuntimeImplemented,
+  isWireVariantForFamily,
+  listWireFamilies,
+  LLM_API_FAMILIES,
+  LLM_WIRE_REGISTRY,
   type LlmApiFamily,
+  type LlmApiFamilyDefinition,
   llmApiFamilySchema,
   llmAppSettingSchema,
   type LlmAppSettingView,
@@ -151,7 +176,9 @@ export {
   llmModelListQuerySchema,
   llmModelSchema,
   type LlmProvider,
+  type LlmProviderOptionalField,
   llmProviderSchema,
+  type LlmWireVariantDefinition,
   type ProviderBalanceOk,
   providerBalanceOkSchema,
   type ProviderBalanceResult,
@@ -160,6 +187,7 @@ export {
   providerBalanceUnsupportedSchema,
   type ProviderModelCandidate,
   providerModelCandidateSchema,
+  providerSupportsOptionalField,
   type PutLlmAppSettingBody,
   putLlmAppSettingBodySchema,
   type TestLlmProviderBody,
@@ -170,13 +198,8 @@ export {
   updateLlmModelBodySchema,
   type UpdateLlmProviderBody,
   updateLlmProviderBodySchema,
-} from './api/llm-config.ts';
-export {
-  AI_PURPOSE_TO_SETTING_KEY,
-  AI_SETTING_KEY_VALUES,
-  type AiPurposeName,
-  type AiSettingKey,
-} from './api/llm-config-keys.ts';
+  validateWireRegistry,
+} from './llm/index.ts';
 export {
   buildPaginationMeta,
   createSortByQuerySchema,
@@ -190,7 +213,7 @@ export {
   paginationQuerySchema,
   SORT_ORDERS,
   type SortOrder,
-} from './api/pagination.ts';
+} from './pagination/index.ts';
 export {
   computeChapterProgress,
   mergeReadingCompletion,
@@ -228,7 +251,7 @@ export {
   readingStateStatusSchema,
   type UpdateReadingStateBody,
   updateReadingStateBodySchema,
-} from './api/reader.ts';
+} from './reader/index.ts';
 export {
   calendarDateInTimeZone,
   READING_DAY_ENGAGED_SECONDS_CAP,
@@ -247,7 +270,7 @@ export {
   readingHistorySummarySchema,
   type ReadingHistoryWork,
   readingHistoryWorkSchema,
-} from './api/reading-history.ts';
+} from './reading-history/index.ts';
 export {
   DIFFICULTY_SCORE_MAX,
   DIFFICULTY_SCORE_MIN,
@@ -259,7 +282,7 @@ export {
   READING_WPM,
   WORK_STATS_PROVENANCES,
   type WorkStatsProvenance,
-} from './api/reading-stats.ts';
+} from './reading-stats/index.ts';
 export {
   clampRecommendationLimit,
   RECOMMENDATION_LIMIT_DEFAULT,
@@ -271,8 +294,8 @@ export {
   type RecommendationsQuery,
   recommendationsQuerySchema,
   type RecommendationStrategy,
-} from './api/recommendations.ts';
-export { SHELF_ITEMS_LIMIT, type ShelfData, shelfDataSchema, type ShelfItem, shelfItemSchema } from './api/shelf.ts';
+} from './recommendations/index.ts';
+export { SHELF_ITEMS_LIMIT, type ShelfData, shelfDataSchema, type ShelfItem, shelfItemSchema } from './shelf/index.ts';
 export {
   type CreateTaxonomyBody,
   createTaxonomyBodySchema,
@@ -294,7 +317,7 @@ export {
   type TaxonomyOrigin,
   type UpdateTaxonomyBody,
   updateTaxonomyBodySchema,
-} from './api/taxonomy.ts';
+} from './taxonomy/index.ts';
 export {
   type BilingualCachePayload,
   bilingualCachePayloadSchema,
@@ -314,7 +337,7 @@ export {
   translateSseSentenceSchema,
   type TranslateSseTitle,
   translateSseTitleSchema,
-} from './api/translate.ts';
+} from './translate/index.ts';
 export {
   DEFAULT_TTS_VOICES,
   type PutTtsConfigBody,
@@ -335,7 +358,7 @@ export {
   ttsVoiceRoleValues,
   type TtsWordTiming,
   ttsWordTimingSchema,
-} from './api/tts.ts';
+} from './tts/index.ts';
 export {
   DEFAULT_TTS_INVOCATION_SORT_BY,
   resolveTtsInvocationWindow,
@@ -358,7 +381,7 @@ export {
   ttsInvocationStatsSchema,
   type TtsInvocationStatus,
   ttsInvocationWindowForDays,
-} from './api/tts-invocations.ts';
+} from './tts-invocations/index.ts';
 export {
   ADMIN_WORK_SORT_FIELDS,
   type AdminOriginAsset,
@@ -439,32 +462,4 @@ export {
   workStatusSchema,
   type WorkVisibility,
   workVisibilitySchema,
-} from './api/works.ts';
-export {
-  AUTH_ADMIN_ROLE,
-  AUTH_PASSWORD_POLICY,
-  AUTH_USER_ROLE,
-  AUTH_USERNAME_POLICY,
-  type AuthRole,
-  bootstrapRoleForNewUser,
-  isAdminRole,
-  isValidUsername,
-} from './auth/policy.ts';
-export {
-  assertWireVariantForFamily,
-  getDefaultWireVariant,
-  getWireFamilyDefinition,
-  getWireVariantLabel,
-  isLlmApiFamily,
-  isRuntimeImplemented,
-  isWireVariantForFamily,
-  listWireFamilies,
-  LLM_API_FAMILIES,
-  LLM_WIRE_REGISTRY,
-  type LlmApiFamilyDefinition,
-  type LlmProviderOptionalField,
-  type LlmWireVariantDefinition,
-  providerSupportsOptionalField,
-  validateWireRegistry,
-  type LlmApiFamily as WireLlmApiFamily,
-} from './llm/wire-registry.ts';
+} from './works/index.ts';

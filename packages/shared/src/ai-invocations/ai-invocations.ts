@@ -5,7 +5,7 @@ import {
   emptyToUndefined,
   paginationMetaSchema,
   paginationQuerySchema,
-} from './pagination.ts';
+} from '../pagination/index.ts';
 
 export const AI_INVOCATION_STATUSES = ['success', 'failure'] as const;
 export type AiInvocationStatus = (typeof AI_INVOCATION_STATUSES)[number];

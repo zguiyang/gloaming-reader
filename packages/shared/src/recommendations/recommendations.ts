@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { emptyToUndefined } from './pagination.ts';
-import { workSchema } from './works.ts';
+import { emptyToUndefined } from '../pagination/index.ts';
+import { workSchema } from '../works/index.ts';
 
 /** Frontend may request fewer; API clamps into this inclusive range. */
 export const RECOMMENDATION_LIMIT_MIN = 1 as const;

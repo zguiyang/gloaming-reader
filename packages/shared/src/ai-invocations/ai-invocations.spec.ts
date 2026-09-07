@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '../pagination/index.ts';
 import {
   AI_INVOCATION_DEFAULT_PAGE_SIZE,
   AI_INVOCATION_STATS_DAYS,
@@ -11,7 +12,6 @@ import {
   DEFAULT_AI_INVOCATION_SORT_BY,
   resolveAiInvocationWindow,
 } from './ai-invocations.ts';
-import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from './pagination.ts';
 
 describe('ai invocation list query', () => {
   it('defaults to page 1, 20 rows, createdAt desc, no extra filters', () => {

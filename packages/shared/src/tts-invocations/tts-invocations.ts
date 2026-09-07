@@ -5,8 +5,8 @@ import {
   emptyToUndefined,
   paginationMetaSchema,
   paginationQuerySchema,
-} from './pagination.ts';
-import { ttsVoiceRoleValues } from './tts.ts';
+} from '../pagination/index.ts';
+import { ttsVoiceRoleValues } from '../tts/index.ts';
 
 export const TTS_INVOCATION_STATUSES = ['success', 'failure'] as const;
 export type TtsInvocationStatus = (typeof TTS_INVOCATION_STATUSES)[number];

@@ -6,8 +6,8 @@ import {
   emptyToUndefined,
   paginationMetaSchema,
   paginationQuerySchema,
-} from './pagination.ts';
-import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, WORK_STATS_PROVENANCES } from './reading-stats.ts';
+} from '../pagination/index.ts';
+import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, WORK_STATS_PROVENANCES } from '../reading-stats/index.ts';
 
 /** Work lifecycle statuses. */
 export const WORK_STATUSES = [

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { LLM_API_FAMILIES } from '../llm/wire-registry.ts';
 import { AI_SETTING_KEY_VALUES } from './llm-config-keys.ts';
+import { LLM_API_FAMILIES } from './wire-registry.ts';
 
 export const llmApiFamilySchema = z.enum(LLM_API_FAMILIES);
 

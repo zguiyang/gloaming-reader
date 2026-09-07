@@ -5,7 +5,25 @@
   "type": "module",
   "license": "GPL-3.0-or-later OR Commercial",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./ai-invocations": "./src/ai-invocations/index.ts",
+    "./assist": "./src/assist/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./content-assets": "./src/content-assets/index.ts",
+    "./conversations": "./src/conversations/index.ts",
+    "./dictionary": "./src/dictionary/index.ts",
+    "./llm": "./src/llm/index.ts",
+    "./pagination": "./src/pagination/index.ts",
+    "./reader": "./src/reader/index.ts",
+    "./reading-history": "./src/reading-history/index.ts",
+    "./reading-stats": "./src/reading-stats/index.ts",
+    "./recommendations": "./src/recommendations/index.ts",
+    "./shelf": "./src/shelf/index.ts",
+    "./taxonomy": "./src/taxonomy/index.ts",
+    "./translate": "./src/translate/index.ts",
+    "./tts": "./src/tts/index.ts",
+    "./tts-invocations": "./src/tts-invocations/index.ts",
+    "./works": "./src/works/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
