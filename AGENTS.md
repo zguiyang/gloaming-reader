@@ -53,6 +53,20 @@ fact document(s), then state that loaded set in the plan or first progress
 update. Repeat this gate after a material scope change or handoff. Do not claim
 a rule, Skill, or document was read unless it was actually opened.
 
+For architecture or repository-structure work, also declare the current phase:
+investigation, decision, implementation, or verification. Keep confirmed facts,
+confirmed decisions, open decisions, non-goals, and completion criteria separate.
+Do not implement during investigation, turn an open decision into a non-goal,
+or declare a partial migration complete. Architecture-level changes require an
+explicit decision gate before implementation; an AI-generated prompt or draft
+ADR cannot silently close that gate.
+
+Draft or proposed ADRs are evidence and proposals, not active project policy.
+When rules are changed in the working tree but code has not migrated, report
+the rules as target intent and the code as current reality; do not silently
+choose either side. A governance task is not complete merely because a rule
+file changed: its stated failure scenario must also pass a read-only dry run.
+
 ## UI boundary
 
 For UI work, `DESIGN.md` owns visual tokens, interaction philosophy, and the
@@ -79,7 +93,7 @@ with user approval. Global Skills remain user-environment dependencies.
 | `apps/web/**`                                                            | [frontend.mdc](.cursor/rules/frontend.mdc); add `DESIGN.md` for UI creation, visual change, or interaction work; add a product flow only when flow, IA, or product behavior changes; at most one visual Skill when polish is in scope |
 | `packages/**`                                                            | [packages.mdc](.cursor/rules/packages.mdc); add domain SSOT + vocabulary only when a shared content-domain public contract changes                                                                                                    |
 | Database writes, migrations, seeds, integration/functional tests         | `test-database-workflow` plus this file's test boundary                                                                                                                                                                               |
-| Add, delete, split, move, promote, or assess an overloaded code unit     | `repository-structure` plus applicable path rule                                                                                                                                                                                      |
+| Add, delete, split, move, promote, or assess an overloaded code unit     | `.cursor/rules/repository-structure.mdc`, `repository-structure`, plus the applicable path rule                                                                                                                                       |
 | Deployment, containers, environment, runtime diagnosis                   | `infrastructure-operations` plus repository configuration                                                                                                                                                                             |
 | Named-symbol change, cross-module exploration/refactor/complex debugging | matching global GitNexus Skill when available                                                                                                                                                                                         |
 | Product scope or feature decision                                        | only the relevant document under `docs/product/` or `docs/adr/`                                                                                                                                                                       |

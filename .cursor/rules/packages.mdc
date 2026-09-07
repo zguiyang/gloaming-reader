@@ -19,10 +19,27 @@ new layer. For a structural change or a question of sharing, load
 
 ## Ownership
 
-- Password/username/mail-cooldown policy SSOT → the `@gloaming/shared` root facade.
-- The shared package root is the only supported package entrypoint; add exports
-  explicitly and keep them limited to cross-layer contracts, controlled values,
-  types, and pure functions.
+- Password/username/mail-cooldown policy SSOT → the `@gloaming/shared/auth`
+  module. The compatibility root may re-export it during migration.
+- The shared package exposes intentional public module boundaries. A stable
+  semantic module may have an official subpath declared in `package.json`,
+  backed by that module's own `index.ts`. The exact module map is an
+  architecture decision, not an automatic consequence of file count or export
+  count.
+- Use explicit `package.json` exports per public module, for example
+  `"./works": "./src/works/index.ts"`; do not create one export per source
+  file. An official subpath is not an implementation deep import such as
+  `@gloaming/shared/src/...`. Module entrypoints use explicit exports and keep
+  internal implementation private. Never rebuild a giant root facade merely to
+  avoid official module subpaths.
+- Keep exports limited to cross-layer contracts, controlled values, types, and
+  pure functions. The root entrypoint, if retained for compatibility, is a
+  deliberate compatibility boundary: new consumers must use the owning public
+  module, and its removal or reduction requires a separate migration decision.
+- While the module map or root compatibility policy is not recorded in an
+  accepted ADR, the current `package.json` exports are repository reality, not
+  permission to invent a migration. Report the gap and stop at the architecture
+  decision gate.
 - Packages export contracts or policy, never application feature workflows.
 - Runtime workflow policy belongs to `apps/backend`; admin APIs may expose its
   read-only projection through shared response contracts.

@@ -1,0 +1,140 @@
+---
+description: Gloaming architecture and repository-structure decision protocol
+globs: **/*
+alwaysApply: false
+---
+
+# Repository structure and architecture decisions
+
+This rule applies to adding, deleting, moving, splitting, promoting, or
+exporting modules, features, shared code, or package entrypoints. It defines
+how an agent decides; path-specific rules define the resulting code shape.
+
+When the user's goal is to prevent recurring AI architecture mistakes, perform
+a rule-coverage review and update the governing rules before implementing the
+associated code example. Do not use a local refactor as a substitute for an
+AI-governance fix.
+
+## Governing principles
+
+- Business semantics take priority over technical category or file size.
+- Colocate behavior with the capability and owner that change for the same
+  business reason.
+- Keep small cohesive capabilities simple.
+- Let stable sub-capabilities acquire structure when their ownership,
+  lifecycle, dependencies, or public boundary becomes clear.
+- Use the path to express ownership. Internal implementation is private by
+  default; public APIs require an intentional boundary.
+- Official package subpaths declared in `package.json` are different from
+  implementation deep imports that bypass the declared boundary.
+- Do not split, promote, or export code using LOC, file count, or consumer
+  count as a mechanical threshold.
+- Prefer the simplest stable structure that serves both humans and agents.
+
+## Required decision workflow
+
+Before an edit, the agent must produce a bounded structure ledger containing:
+
+1. **Facts** — current paths, owners, exports, imports, consumers, and tests
+   confirmed from the repository.
+2. **Intent** — the user's requested outcome and the exact contact surface.
+3. **Candidate boundaries** — semantic responsibility, lifecycle, change
+   reason, dependencies, and public consumers for each proposed module.
+4. **Open decisions** — choices that depend on user or architecture intent.
+5. **Non-goals** — explicitly excluded work, without using them to hide open
+   decisions.
+6. **Acceptance criteria** — observable conditions for a complete migration.
+
+An assessment label such as `Mostly Fit` is descriptive, not a disposition. A
+deferred finding must state why it is deferred, who owns the follow-up, and what
+observable trigger reopens it. A finding that leaves ownership, public/private
+boundaries, or governance coverage unresolved cannot be used to close the
+architecture task.
+
+The agent must keep these phases separate:
+
+```text
+investigate -> decide -> plan -> implement -> verify
+```
+
+Investigation may identify candidate boundaries but must not finalize them.
+Implementation may not change a confirmed boundary without reopening the
+decision gate. Verification must check the intended whole migration, not only
+the files that happened to change.
+
+## Module-boundary test
+
+Create a module or subdirectory only when the code has a meaningful semantic
+owner and at least one structural reason for a boundary: independent change
+reason, lifecycle, dependency set, state, test surface, or intentional public
+contract. Multiple consumers are evidence of a boundary, not an automatic
+promotion rule. A one-file cohesive capability may remain flat.
+
+For every proposed module, state:
+
+- what the module owns;
+- what it deliberately does not own;
+- which dependencies point inward and which cross the boundary;
+- what its public surface is;
+- why the current location is insufficient; and
+- why the proposed structure is simpler over the expected maintenance life.
+
+If ownership or dependency direction remains ambiguous after bounded research,
+stop and report the alternatives. Do not resolve the ambiguity by moving files
+or creating a generic `shared`/`common` layer.
+
+## Public-boundary test
+
+Use an explicit module entrypoint when a stable capability has a public
+consumer. The entrypoint must expose only intentional symbols. Keep internal
+files private unless a package or application rule explicitly declares them
+public. `export *` is not a substitute for deciding the public surface.
+
+For package exports, distinguish:
+
+- **official subpath** — explicitly declared in `package.json` and backed by a
+  module entrypoint; and
+- **implementation deep import** — a consumer reaching into `src/` or an
+  internal file outside the declared boundary.
+
+Never infer that avoiding deep imports requires one giant root facade.
+
+## Cross-boundary and migration rules
+
+- A fact, contract, policy, or normalization rule has one authoritative owner.
+- A consumer may use another module's public surface, but not its private
+  implementation files.
+- A cross-feature helper must have a named owner or an explicitly named
+  app-level boundary; usage by several features alone does not justify a new
+  generic layer.
+- A move is not a migration until all intended imports, exports, tests, and
+  configuration references are handled and the old boundary is either removed
+  or deliberately retained as a compatibility boundary.
+- A temporary legacy import across a private boundary is allowed only when the
+  migration ledger names the owner, target public entrypoint, affected scope,
+  and exit condition. It is an explicit transition exception, not a standing
+  convention and not permission to close the task.
+- Report partial, blocked, deferred, and complete as different states.
+- Do not mark an architecture task complete while a confirmed decision,
+  intended consumer migration, or required rule update remains open.
+
+## Agent handoff and final report
+
+Every structural task report must include:
+
+- loaded rules and Skills;
+- current-state evidence;
+- decisions made and who or what authorized them;
+- open decisions and conflicts;
+- files changed and why;
+- acceptance checks actually run and their results; and
+- remaining partial or deferred work.
+
+An ADR may record a proposal before implementation, but `Accepted` is reserved
+for a confirmed architecture decision. A task prompt can invoke this protocol;
+it cannot replace or weaken it.
+
+For an AI-governance task, completion additionally requires that the governing
+rule coverage was actually updated, the relevant failure scenario was run as a
+read-only dry run, and no material rule gap remains unresolved. A code example
+that happens to be corrected does not prove future-agent governance is fixed.

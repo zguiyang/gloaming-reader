@@ -29,7 +29,39 @@ template. For a structural change or an overloaded component, load
 - TanStack Query owns server state. Zustand is UI-only and never an API or
   server source of truth.
 - Form validation uses Zod; password and username bounds come from the
-  controlled `@gloaming/shared` root facade, not a web-local duplicate.
+  controlled `@gloaming/shared/auth` module, not a web-local duplicate. Existing
+  root imports may remain only as documented migration exceptions.
+
+## Feature ownership and structure
+
+Feature directories express business capability ownership, not a mandatory
+directory template. Keep a small cohesive capability flat. Create a child
+module when a stable sub-capability has its own semantic owner, lifecycle,
+change reason, dependency boundary, test surface, or intentional public API.
+Do not split by LOC, file count, or filename prefix alone.
+
+When one Feature is consumed by another Feature, expose an intentional public
+surface (a feature `index.ts` or another explicitly named public entrypoint)
+and keep implementation files private. A direct import of another Feature's
+private file is an ownership violation unless the rule or an accepted ADR
+explicitly permits it.
+
+During an approved migration, a legacy private import may remain only as a
+named transition exception with an owner, target public entrypoint, affected
+scope, and exit condition. Without those four fields it is a violation, not an
+implicit grace period.
+
+Cross-Feature code must have a named owner. A root-level helper under
+`features/` is allowed only when it is genuinely app-wide transport,
+coordination, or infrastructure and its name makes that scope clear. Reuse by
+several Features is evidence to investigate, not automatic permission to create
+`shared` or `common`.
+
+For a structural migration, record the intended source set, destination owner,
+all consumers, public entrypoints, and the old-boundary disposition. Moving
+some files or updating some imports is a partial migration, never a completed
+one. Do not close the task while ownership, public/internal boundaries, or
+known consumer migrations remain unresolved.
 
 ## Styling
 
