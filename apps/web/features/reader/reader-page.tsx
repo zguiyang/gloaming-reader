@@ -49,7 +49,7 @@ import { ReaderTts } from '@/features/reader/reader-tts';
 import { ReaderUnavailable } from '@/features/reader/reader-unavailable';
 import { useReaderAssist } from '@/features/reader/use-reader-assist';
 import { useReaderTranslate } from '@/features/reader/use-reader-translate';
-import { isReadingStateRevisionConflict } from '@/features/reading-state-command';
+import { isReadingStateRevisionConflict } from '@/features/reading-state/reading-state-api';
 import { authClient } from '@/lib/auth';
 
 type ReaderPageProps = {

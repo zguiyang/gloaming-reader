@@ -18,7 +18,7 @@ import { recommendationsQueryKey } from '@/features/book-detail/book-detail-reco
 import { BookDetailStats } from '@/features/book-detail/book-detail-stats';
 import { BookDetailToc } from '@/features/book-detail/book-detail-toc';
 import { BookDetailUnavailable } from '@/features/book-detail/book-detail-unavailable';
-import { useAddToShelfMutation } from '@/features/reading-state-command';
+import { useAddToShelfMutation } from '@/features/reading-state/reading-state-client';
 import { cn } from '@/lib/utils';
 
 function BookDetailSkeleton() {

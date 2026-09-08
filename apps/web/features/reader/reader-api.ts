@@ -18,7 +18,7 @@ import {
   isReadingStateRevisionConflict,
   patchReadingState,
   withExpectedReadingStateRevision,
-} from '@/features/reading-state-command';
+} from '@/features/reading-state/reading-state-api';
 import { getWorkParts } from '@/features/works-http';
 import { apiRequest, formatApiError } from '@/lib/api-request';
 import { authClient } from '@/lib/auth';
