@@ -5,7 +5,7 @@ import { type MouseEvent, type ReactNode, useMemo } from 'react';
 
 import type { TranslateSentenceEn } from '@gloaming/shared/translate';
 
-import type { BilingualTranslationData } from '@/features/reader/use-reader-translate';
+import type { BilingualTranslationData } from '@/features/content/bilingual-translation';
 import { cn } from '@/lib/utils';
 
 export type ReadingPartFontSize = 'sm' | 'md' | 'lg';

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 
-import type { BilingualTranslationData } from '@/features/reader/use-reader-translate';
+import type { BilingualTranslationData } from '@/features/content/bilingual-translation';
 
 import { transformBilingualHtml } from './reading-part-view';
 

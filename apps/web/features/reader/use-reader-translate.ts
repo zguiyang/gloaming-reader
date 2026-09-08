@@ -8,14 +8,6 @@ import type { TranslateSentenceEn } from '@gloaming/shared/translate';
 import { streamTranslatePart } from '@/features/reader/reader-translate-api';
 import { ApiRequestError } from '@/lib/api-request';
 
-export type BilingualTranslationData = {
-  sentences: TranslateSentenceEn[];
-  translationsByIndex: Record<number, string>;
-  titleZh: string | null;
-  isLoading: boolean;
-  isStreaming: boolean;
-};
-
 type UseReaderTranslateOptions = {
   partId: string | null;
   isAuthenticated: boolean;

@@ -2,9 +2,8 @@
 
 import type { MouseEvent, ReactNode, Ref, UIEvent } from 'react';
 
-import { ReadingPartView } from '@/features/content/reading-part-view';
+import { type BilingualTranslationData, ReadingPartView } from '@/features/content';
 import type { ReaderFontSize, ReaderSelectionRect } from '@/features/reader/reader-model';
-import type { BilingualTranslationData } from '@/features/reader/use-reader-translate';
 import { cn } from '@/lib/utils';
 
 type ReaderPartProps = {
