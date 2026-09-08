@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ShelfItem } from '@gloaming/shared';
-import type { CatalogWork } from '@gloaming/shared';
+import type { ShelfItem } from '@gloaming/shared/shelf';
+import type { CatalogWork } from '@gloaming/shared/works';
 
 import { resolveShelfStatus, toDiscoverItem } from '@/features/discover/discover-api';
 

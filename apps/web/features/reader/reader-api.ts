@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { PartSummary } from '@gloaming/shared';
 import {
   readerAudioTrackSchema,
   type ReaderPartData,
@@ -11,7 +10,8 @@ import {
   readingStateDataSchema,
   type ReadingStateStatus,
   type UpdateReadingStateBody,
-} from '@gloaming/shared';
+} from '@gloaming/shared/reader';
+import type { PartSummary } from '@gloaming/shared/works';
 
 import type { ReaderViewModel } from '@/features/reader/reader-model';
 import {

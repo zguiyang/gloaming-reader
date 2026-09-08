@@ -1,4 +1,4 @@
-import type { AdminWorkflowPolicy } from '@gloaming/shared';
+import type { AdminWorkflowPolicy } from '@gloaming/shared/works';
 
 /** Backend-owned workflow switches. Manual pipeline and TTS-off remain the defaults. */
 export const WORKFLOW_AUTO_CHAIN = false;

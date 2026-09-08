@@ -20,9 +20,9 @@ import {
   roleForAudioKind,
   type WorkAudioSummary,
   type WorkAudioView,
-} from '@gloaming/shared';
-import { type ReaderAudioTrack } from '@gloaming/shared';
-import { type TtsVoiceRole } from '@gloaming/shared';
+} from '@gloaming/shared/content-assets';
+import { type ReaderAudioTrack } from '@gloaming/shared/reader';
+import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';

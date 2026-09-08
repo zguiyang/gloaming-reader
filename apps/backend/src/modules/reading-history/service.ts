@@ -9,18 +9,18 @@ import {
   readingState as readingStateTable,
   readingWork as readingWorkTable,
 } from '@gloaming/db';
-import type { ReadingStateStatus } from '@gloaming/shared';
+import type { ReadingStateStatus } from '@gloaming/shared/reader';
 import type {
   ReadingHeartbeatResult,
   ReadingHistoryData,
   ReadingHistorySummary,
   ReadingHistoryWork,
-} from '@gloaming/shared';
+} from '@gloaming/shared/reading-history';
 import {
   calendarDateInTimeZone,
   READING_DAY_ENGAGED_SECONDS_CAP,
   READING_HEARTBEAT_MAX_CREDIT_SECONDS,
-} from '@gloaming/shared';
+} from '@gloaming/shared/reading-history';
 
 import { db } from '@/db';
 

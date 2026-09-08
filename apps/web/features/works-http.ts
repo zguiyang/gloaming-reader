@@ -1,6 +1,12 @@
-import { type ReaderPartsData, readerPartsDataSchema } from '@gloaming/shared';
-import { type ShelfData, shelfDataSchema, type ShelfItem } from '@gloaming/shared';
-import { type AdminOriginAsset, type AdminWork, type AdminWorkSummary, type Work, workSchema } from '@gloaming/shared';
+import { type ReaderPartsData, readerPartsDataSchema } from '@gloaming/shared/reader';
+import { type ShelfData, shelfDataSchema, type ShelfItem } from '@gloaming/shared/shelf';
+import {
+  type AdminOriginAsset,
+  type AdminWork,
+  type AdminWorkSummary,
+  type Work,
+  workSchema,
+} from '@gloaming/shared/works';
 
 import { apiRequest } from '@/lib/api-request';
 

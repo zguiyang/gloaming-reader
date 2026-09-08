@@ -3,7 +3,7 @@
 import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { useState } from 'react';
 
-import type { TaxonomyItem } from '@gloaming/shared';
+import type { TaxonomyItem } from '@gloaming/shared/taxonomy';
 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';

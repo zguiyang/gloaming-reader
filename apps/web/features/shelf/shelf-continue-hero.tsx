@@ -3,7 +3,7 @@
 import { BookOpenIcon } from 'lucide-react';
 import Link from 'next/link';
 
-import type { ShelfItem } from '@gloaming/shared';
+import type { ShelfItem } from '@gloaming/shared/shelf';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';

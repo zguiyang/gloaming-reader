@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import type { TtsWordTiming } from '@gloaming/shared';
+import type { TtsWordTiming } from '@gloaming/shared/tts';
 
 import { useAuthDialog } from '@/features/auth';
 import { ReaderAiDrawer } from '@/features/reader/reader-ai-drawer';

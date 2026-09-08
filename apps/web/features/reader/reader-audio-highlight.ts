@@ -2,7 +2,7 @@
 
 import { type RefObject, useCallback, useLayoutEffect, useRef } from 'react';
 
-import type { TtsWordTiming } from '@gloaming/shared';
+import type { TtsWordTiming } from '@gloaming/shared/tts';
 
 import { activeWordSyncKey, buildTimingRanges, findActiveWordTiming } from '@/features/reader/reader-audio-sync';
 import type { ReaderAudioStatus } from '@/features/reader/reader-model';

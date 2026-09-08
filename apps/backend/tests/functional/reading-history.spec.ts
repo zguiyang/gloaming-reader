@@ -9,14 +9,14 @@ import {
   readingWork as readingWorkTable,
   user as userTable,
 } from '@gloaming/db';
-import type { AdminWork } from '@gloaming/shared';
+import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import {
   calendarDateInTimeZone,
   READING_DAY_ENGAGED_SECONDS_CAP,
   READING_HEARTBEAT_MAX_CREDIT_SECONDS,
   type ReadingHistoryData,
-} from '@gloaming/shared';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+} from '@gloaming/shared/reading-history';
+import type { AdminWork } from '@gloaming/shared/works';
 
 import app from '@/app';
 import { HTTP_STATUS } from '@/constants';

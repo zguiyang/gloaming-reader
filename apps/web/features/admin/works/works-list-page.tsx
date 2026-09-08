@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { WORK_STATUSES, type WorkStatus } from '@gloaming/shared';
+import { WORK_STATUSES, type WorkStatus } from '@gloaming/shared/works';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

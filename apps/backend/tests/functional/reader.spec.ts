@@ -9,8 +9,8 @@ import {
   readingWork as readingWorkTable,
   user as userTable,
 } from '@gloaming/db';
-import { type ReaderPartsData, type ReadingState } from '@gloaming/shared';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+import { type ReaderPartsData, type ReadingState } from '@gloaming/shared/reader';
 
 import app from '@/app';
 import { db } from '@/db';

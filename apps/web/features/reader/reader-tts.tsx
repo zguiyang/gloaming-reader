@@ -2,7 +2,7 @@
 
 import { Loader2Icon, PauseIcon, PlayIcon } from 'lucide-react';
 
-import type { ReaderAudioAvailability } from '@gloaming/shared';
+import type { ReaderAudioAvailability } from '@gloaming/shared/reader';
 
 import { Button } from '@/components/ui/button';
 import {

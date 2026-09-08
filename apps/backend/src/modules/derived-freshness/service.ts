@@ -1,7 +1,7 @@
 import { inArray } from 'drizzle-orm';
 
 import { contentAsset as contentAssetTable } from '@gloaming/db';
-import { type DerivedFreshness, type DerivedState } from '@gloaming/shared';
+import { type DerivedFreshness, type DerivedState } from '@gloaming/shared/works';
 
 import { db } from '@/db';
 import { hashPartContent } from '@/modules/works/content-hash';

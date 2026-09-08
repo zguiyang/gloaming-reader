@@ -4,7 +4,7 @@ import {
   assistSseDeltaSchema,
   assistSseDoneSchema,
   assistSseErrorSchema,
-} from '@gloaming/shared';
+} from '@gloaming/shared/assist';
 
 import { ApiRequestError } from '@/lib/api-request';
 

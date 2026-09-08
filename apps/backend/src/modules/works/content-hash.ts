@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { buildPartAudioText } from '@gloaming/shared';
+import { buildPartAudioText } from '@gloaming/shared/content-assets';
 
 import { htmlToPlainText, normalizePartText } from '@/lib/part-text';
 

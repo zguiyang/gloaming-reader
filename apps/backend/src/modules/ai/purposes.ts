@@ -3,7 +3,7 @@ import {
   AI_SETTING_KEY_VALUES,
   type AiPurposeName,
   type AiSettingKey,
-} from '@gloaming/shared';
+} from '@gloaming/shared/llm';
 
 export const AI_PURPOSE = AI_PURPOSE_TO_SETTING_KEY;
 export type AiPurpose = AiPurposeName;

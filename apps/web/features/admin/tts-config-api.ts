@@ -9,7 +9,7 @@ import {
   type TtsConfigView,
   type TtsVoicePreset,
   ttsVoicePresetSchema,
-} from '@gloaming/shared';
+} from '@gloaming/shared/tts';
 
 import { apiRequest, formatApiError } from '@/lib/api-request';
 

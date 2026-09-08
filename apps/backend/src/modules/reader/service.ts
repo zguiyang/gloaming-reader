@@ -14,8 +14,8 @@ import {
   type ReaderPartsData,
   type ReadingState,
   type UpdateReadingStateBody,
-} from '@gloaming/shared';
-import { estimatedMinutesFromWordCount } from '@gloaming/shared';
+} from '@gloaming/shared/reader';
+import { estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
 
 import { db } from '@/db';
 import { AppError, NotFoundError } from '@/lib/errors';

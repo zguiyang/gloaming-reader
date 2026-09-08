@@ -7,7 +7,7 @@ import {
   estimatedMinutesFromWordCount,
   isEnglishLanguage,
   LEXICAL_COVERAGE_TARGET,
-} from '@gloaming/shared';
+} from '@gloaming/shared/reading-stats';
 
 const nlp = winkNLP(model, ['pos', 'ner']);
 const its = nlp.its;

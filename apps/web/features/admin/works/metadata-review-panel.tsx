@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
-import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, difficultyLabelFromScore } from '@gloaming/shared';
-import { type UpdateWorkBody, type WorkflowStep, type WorkMetadataProvenance } from '@gloaming/shared';
+import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, difficultyLabelFromScore } from '@gloaming/shared/reading-stats';
+import { type UpdateWorkBody, type WorkflowStep, type WorkMetadataProvenance } from '@gloaming/shared/works';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

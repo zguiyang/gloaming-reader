@@ -9,8 +9,8 @@ import {
   uploadedObject as uploadedObjectTable,
   user as userTable,
 } from '@gloaming/db';
-import type { CreateEpubWorkResult, EpubReuseResult } from '@gloaming/shared';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+import type { CreateEpubWorkResult, EpubReuseResult } from '@gloaming/shared/works';
 
 import app from '@/app';
 import { db } from '@/db';

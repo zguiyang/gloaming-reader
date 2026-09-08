@@ -6,7 +6,7 @@ import {
   conversationMessage as conversationMessageTable,
   user as userTable,
 } from '@gloaming/db';
-import type { ConversationDetail, ConversationListData, ConversationSummary } from '@gloaming/shared';
+import type { ConversationDetail, ConversationListData, ConversationSummary } from '@gloaming/shared/conversations';
 
 import app from '@/app';
 import { HTTP_STATUS } from '@/constants';

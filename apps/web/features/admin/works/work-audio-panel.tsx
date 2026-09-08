@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import type { TtsVoiceRole } from '@gloaming/shared';
-import { enqueueAudioResultSchema, type WorkAudioView, workAudioViewSchema } from '@gloaming/shared';
+import { enqueueAudioResultSchema, type WorkAudioView, workAudioViewSchema } from '@gloaming/shared/content-assets';
+import type { TtsVoiceRole } from '@gloaming/shared/tts';
 
 import {
   AlertDialog,

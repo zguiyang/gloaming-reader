@@ -20,7 +20,7 @@ import {
   type ConversationSummary,
   type ConversationSurface,
   type CreateConversationBody,
-} from '@gloaming/shared';
+} from '@gloaming/shared/conversations';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
 import { HTTP_STATUS } from '@/constants';

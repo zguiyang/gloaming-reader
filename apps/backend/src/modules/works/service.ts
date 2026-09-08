@@ -16,6 +16,7 @@ import {
   type WorkMetadataProvenance,
   type WorkMetadataProvenanceMap,
 } from '@gloaming/db';
+import { buildPaginationMeta } from '@gloaming/shared/pagination';
 import {
   type AdminOriginAsset,
   type AdminWork,
@@ -34,8 +35,7 @@ import {
   type Work,
   WORKFLOW_STEPS,
   type WorkflowStep,
-} from '@gloaming/shared';
-import { buildPaginationMeta } from '@gloaming/shared/pagination';
+} from '@gloaming/shared/works';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';

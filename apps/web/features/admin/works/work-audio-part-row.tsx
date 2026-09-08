@@ -3,7 +3,7 @@
 import { Pause, Play, RotateCcw } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-import type { ContentAssetTrack, WorkAudioPartRow } from '@gloaming/shared';
+import type { ContentAssetTrack, WorkAudioPartRow } from '@gloaming/shared/content-assets';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

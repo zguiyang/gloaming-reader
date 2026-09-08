@@ -11,7 +11,7 @@ import {
   EPUB_UPLOAD_MAX_BYTES,
   getPublishWorkIssues,
   type WorkflowStep,
-} from '@gloaming/shared';
+} from '@gloaming/shared/works';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

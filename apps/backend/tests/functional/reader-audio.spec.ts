@@ -8,10 +8,10 @@ import {
   ttsConfig as ttsConfigTable,
   user as userTable,
 } from '@gloaming/db';
-import type { ReaderAudioTrack, ReaderPartData } from '@gloaming/shared';
-import type { AdminWork } from '@gloaming/shared';
-import { audioKindForRole } from '@gloaming/shared';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+import { audioKindForRole } from '@gloaming/shared/content-assets';
+import type { ReaderAudioTrack, ReaderPartData } from '@gloaming/shared/reader';
+import type { AdminWork } from '@gloaming/shared/works';
 
 import app from '@/app';
 import { db } from '@/db';

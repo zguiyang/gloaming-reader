@@ -11,7 +11,7 @@ import {
   type RetryWorkflowBody,
   type UpdateWorkBody,
   type WorkflowStep,
-} from '@gloaming/shared';
+} from '@gloaming/shared/works';
 
 import {
   type AdminWorkSummaryView,

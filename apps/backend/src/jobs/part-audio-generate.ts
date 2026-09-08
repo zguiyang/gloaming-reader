@@ -1,4 +1,4 @@
-import type { TtsVoiceRole } from '@gloaming/shared';
+import type { TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { runPartAudioGenerate } from '@/modules/content-assets/service';
 

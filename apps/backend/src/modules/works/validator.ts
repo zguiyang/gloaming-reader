@@ -9,7 +9,7 @@ import {
   createAdminTextWorkBodySchema,
   retryWorkflowBodySchema,
   updateWorkBodySchema,
-} from '@gloaming/shared';
+} from '@gloaming/shared/works';
 
 import { sendValidationError } from '@/lib/response';
 

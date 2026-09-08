@@ -15,7 +15,7 @@ import {
   type TtsConfigView,
   type TtsVoicePreset,
   type TtsVoiceRole,
-} from '@gloaming/shared';
+} from '@gloaming/shared/tts';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';

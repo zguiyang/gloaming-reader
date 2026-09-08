@@ -2,7 +2,7 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
 import { tool } from 'langchain';
 import { z } from 'zod';
 
-import { type AssistAskBody } from '@gloaming/shared';
+import { type AssistAskBody } from '@gloaming/shared/assist';
 
 import { lookupWord } from '@/modules/dictionary/service';
 

@@ -2,7 +2,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Context, ValidationTargets } from 'hono';
 import type { ZodType } from 'zod';
 
-import { assistAskBodySchema } from '@gloaming/shared';
+import { assistAskBodySchema } from '@gloaming/shared/assist';
 
 import { sendValidationError } from '@/lib/response';
 

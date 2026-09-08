@@ -2,7 +2,7 @@
 
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 
-import type { PartSummary } from '@gloaming/shared';
+import type { PartSummary } from '@gloaming/shared/works';
 
 import { Button } from '@/components/ui/button';
 import { adjacentPart } from '@/features/reader/reader-model';

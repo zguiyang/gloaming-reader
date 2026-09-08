@@ -1,6 +1,6 @@
 import type { llmProvider as llmProviderTable } from '@gloaming/db';
-import type { ProviderBalanceResult, ProviderModelCandidate } from '@gloaming/shared';
-import { getWireFamilyDefinition, isLlmApiFamily } from '@gloaming/shared';
+import type { ProviderBalanceResult, ProviderModelCandidate } from '@gloaming/shared/llm';
+import { getWireFamilyDefinition, isLlmApiFamily } from '@gloaming/shared/llm';
 
 import { resolveProviderBalanceUrl } from '@/lib/llm/outbound-url';
 import { buildProxiedFetch } from '@/lib/llm/proxy';

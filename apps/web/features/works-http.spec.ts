@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ShelfData, ShelfItem } from '@gloaming/shared';
+import type { ShelfData, ShelfItem } from '@gloaming/shared/shelf';
 
 import { buildShelfItemMap, coverUrlFromAssetId } from '@/features/works-http';
 

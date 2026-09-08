@@ -3,9 +3,8 @@
 import { ChevronDown, Plug, Plus, Trash2, Wallet } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 
-import type { LlmModel, LlmProvider, ProviderBalanceResult } from '@gloaming/shared';
-import type { LlmApiFamily } from '@gloaming/shared';
-import { getWireFamilyDefinition, listWireFamilies } from '@gloaming/shared';
+import type { LlmApiFamily, LlmModel, LlmProvider, ProviderBalanceResult } from '@gloaming/shared/llm';
+import { getWireFamilyDefinition, listWireFamilies } from '@gloaming/shared/llm';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

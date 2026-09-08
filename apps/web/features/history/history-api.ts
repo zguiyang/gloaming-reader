@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { readingHistoryDataSchema } from '@gloaming/shared';
+import { readingHistoryDataSchema } from '@gloaming/shared/reading-history';
 
 import { type HistoryViewModel, toHistoryViewModel } from '@/features/history/history-model';
 import { apiRequest, formatApiError } from '@/lib/api-request';

@@ -1,4 +1,8 @@
-import type { ReadingHistoryActivityDay, ReadingHistoryData, ReadingHistoryWork } from '@gloaming/shared';
+import type {
+  ReadingHistoryActivityDay,
+  ReadingHistoryData,
+  ReadingHistoryWork,
+} from '@gloaming/shared/reading-history';
 
 export type HistoryViewModel = {
   today: string;

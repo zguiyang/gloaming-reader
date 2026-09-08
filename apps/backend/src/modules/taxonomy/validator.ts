@@ -2,7 +2,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Context, ValidationTargets } from 'hono';
 import type { ZodType } from 'zod';
 
-import { createTaxonomyBodySchema, taxonomyListQuerySchema, updateTaxonomyBodySchema } from '@gloaming/shared';
+import { createTaxonomyBodySchema, taxonomyListQuerySchema, updateTaxonomyBodySchema } from '@gloaming/shared/taxonomy';
 
 import { sendValidationError } from '@/lib/response';
 

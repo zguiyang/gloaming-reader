@@ -1,6 +1,6 @@
 'use client';
 
-import type { ShelfItem } from '@gloaming/shared';
+import type { ShelfItem } from '@gloaming/shared/shelf';
 
 import { ShelfBookCard } from '@/features/shelf/shelf-book-card';
 

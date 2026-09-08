@@ -5,10 +5,10 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import type { ReadingState } from '@gloaming/shared';
-import type { ShelfItem } from '@gloaming/shared';
-import type { PartSummary, Work } from '@gloaming/shared';
-import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloaming/shared';
+import type { ReadingState } from '@gloaming/shared/reader';
+import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
+import type { ShelfItem } from '@gloaming/shared/shelf';
+import type { PartSummary, Work } from '@gloaming/shared/works';
 
 import {
   type BookChapter,
