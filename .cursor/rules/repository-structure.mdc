@@ -35,6 +35,10 @@ AI-governance fix.
 - Do not split, promote, or export code using LOC, file count, or consumer
   count as a mechanical threshold.
 - Prefer the simplest stable structure that serves both humans and agents.
+- Make stable ownership and dependency roles discoverable from the path and
+  module map. A flat root is valid only when bounded evidence supports one
+  cohesive owner; the absence of a cross-boundary consumer does not by itself
+  prove that a root has no internal boundaries.
 
 ## Required decision workflow
 
@@ -87,6 +91,35 @@ For every proposed module, state:
 If ownership or dependency direction remains ambiguous after bounded research,
 stop and report the alternatives. Do not resolve the ambiguity by moving files
 or creating a generic `shared`/`common` layer.
+
+## Structure discoverability and placement test
+
+Repeated filename prefixes, repeated role patterns, or parallel API/UI/test
+families are investigation signals that a flat directory may be hiding stable
+sub-capabilities. They are evidence to inspect, not automatic split criteria.
+Use semantic owner, lifecycle, change reason, dependency set, state, test
+surface, and public/private boundary to decide whether the path should express
+another level of ownership.
+
+Before adding a file or module, state:
+
+1. the semantic owner and reason to change;
+2. whether it belongs to the feature root or an existing stable sub-capability;
+3. its inward, outward, and public dependencies; and
+4. why the chosen path makes ownership and placement legible to a new human or
+   agent reader.
+
+If two owners or paths remain plausible after bounded research, report the
+alternatives and stop at the decision boundary. Do not resolve the ambiguity
+with a generic `shared`/`common` layer or with a directory created only for
+visual symmetry.
+
+When a Feature contains multiple stable capability clusters, distinguish
+composition/orchestration nodes from capability internals in the dependency
+map. Composition may depend on capability modules; capability internals must
+not infer ownership from the composition location or depend on composition
+private implementation. This is a direction check, not a requirement for a
+universal tree or a fixed directory depth.
 
 ## Public-boundary test
 

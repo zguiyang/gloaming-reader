@@ -45,6 +45,12 @@ module when a stable sub-capability has its own semantic owner, lifecycle,
 change reason, dependency boundary, test surface, or intentional public API.
 Do not split by LOC, file count, or filename prefix alone.
 
+A flat Feature root is not presumed cohesive merely because no other Feature
+consumes its internals. Repeated prefixes, role patterns, or parallel API/UI/
+test files are signals to apply the repository structure discoverability and
+placement test; they do not require a split without ownership and dependency
+evidence.
+
 Do not promote a unit to a public or shared module merely because reuse looks
 plausible, the code looks generic, or “future reuse” is expected. Keep it
 private when there is neither a real cross-boundary consumer nor an explicit
@@ -189,6 +195,11 @@ constants
 - Symbol ownership follows semantic responsibility, lifecycle, dependencies,
   and reason to change — not consumer path, directory name, or consumer count
   (see `repository-structure.mdc`).
+- Within a Feature, keep composition/orchestration distinct from capability
+  internals in the dependency map. A composition point may assemble capability
+  modules, while capability internals must not depend on composition private
+  implementation. Do not infer internal cohesion from a composition point that
+  happens to import several capabilities.
 
 ## Styling
 
