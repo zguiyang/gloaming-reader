@@ -28,9 +28,14 @@ template. For a structural change or an overloaded component, load
   use the shadcn CLI for additions, and ask before editing their source.
 - TanStack Query owns server state. Zustand is UI-only and never an API or
   server source of truth.
-- Form validation uses Zod; password and username bounds come from the
-  controlled `@gloaming/shared/auth` module, not a web-local duplicate. Existing
-  root imports may remain only as documented migration exceptions.
+- Form validation uses Zod; password and username bounds come from
+  `@gloaming/shared/auth`, not a web-local duplicate. Import Shared contracts
+  from the owning module subpath (`@gloaming/shared/<module>`). There is no
+  executable Shared root entry; do not restore a root facade.
+
+Before inventing a new boundary, read source and accepted architecture records
+(ADRs / equivalent engineering notes). Do not treat a remembered directory
+list as the decision.
 
 ## Feature ownership and structure
 
@@ -40,30 +45,91 @@ module when a stable sub-capability has its own semantic owner, lifecycle,
 change reason, dependency boundary, test surface, or intentional public API.
 Do not split by LOC, file count, or filename prefix alone.
 
+Do not promote a unit to a public or shared module merely because reuse looks
+plausible, the code looks generic, or “future reuse” is expected. Keep it
+private when there is neither a real cross-boundary consumer nor an explicit
+non-hypothetical stable public contract / framework requirement.
+
 ### Feature public entry
 
 A Feature `index.ts` is optional, not a required template. Keep one only when
-there are real cross-boundary consumers or an explicit stable public-API
-commitment. Named exports only; never `export *`. A zero-consumer entry with no
-stable commitment is a deletion candidate, not an automatic violation. App
-Router routes may import a Feature page file by deep path. Presence of
-`index.ts` does not make other Feature files public.
+the public-seam gate below is satisfied. Named exports only; never `export *`.
+A zero-consumer entry with no recorded non-hypothetical stable public contract
+or framework requirement is a deletion candidate, not an automatic violation.
+Presence of `index.ts` does not make other Feature files public.
 
-### Cross-feature seam
+### Application-composition boundaries
 
-Features must not import another Feature's private implementation files.
-Allowed intentional public seams:
+Judge application-composition by semantic role, lifecycle, and composition
+responsibility — not by directory name alone. Units that assemble site-wide
+chrome, shell layout, or app-level providers are application-composition when
+they own cross-route assembly rather than a single business capability.
 
-- Feature `index.ts` (optional named entry)
-- `*-public.ts`
-- explicitly named `*-api.ts`
-- explicitly named `*-client.ts`
+- Ordinary Features must not depend on application-composition implementation.
+- Application-composition may depend on generic UI, `lib`, `constants`, and
+  Feature intentional public seams. It must not import Feature private
+  implementation files.
+- Living under `components/` or `features/` does not automatically grant or
+  deny application-composition status; re-read ownership evidence when the
+  boundary is unclear.
+- Accepted ADRs may record a concrete owner and entry for a settled decision.
+  Those records are decision evidence, not a permanent directory template for
+  every future Feature or chrome surface.
 
-Do not require every public capability to funnel through `index.ts`. API access
-and React Query / client runtime may live in separate seams. A legacy private
-import may remain only as a named transition exception with an owner, target
-public entrypoint, affected scope, and exit condition. Without those four
-fields it is a violation, not an implicit grace period.
+### Route / page / layout composition
+
+App Router `page` / `layout` (and other framework-required route modules) may
+compose page-level Feature implementations and application-composition
+surfaces. That is a framework composition exception, not a license for
+ordinary Feature internals to deep-import another Feature’s private files or
+application-composition internals.
+
+Route modules should keep capability behavior with its owner; they assemble,
+they do not become a second home for Feature logic.
+
+### Cross-boundary public seams
+
+Features must not import another Feature’s private implementation files.
+Filename and directory name alone never grant public permission.
+
+`index.ts`, `*-public.ts`, `*-api.ts`, and `*-client.ts` are naming
+conventions only. A path becomes a cross-boundary public seam only when all of
+the following hold:
+
+```text
+owner
+AND
+explicit entry path
+AND
+documented public intent
+AND
+(
+  real cross-boundary consumer
+  OR
+  explicit non-hypothetical stable public contract / framework requirement
+)
+```
+
+Documented public intent alone is not enough: an ADR (or equivalent) that
+merely asserts “public” without a real consumer and without a concrete,
+non-hypothetical stable contract or framework requirement does not satisfy the
+gate. “May be reused later” and “looks generic” are not stable public
+contracts. With neither a real consumer nor such a contract/requirement, keep
+the implementation private.
+
+When the stable-contract / framework branch is used, the record must state the
+concrete reason (what contract or framework boundary requires the entry now).
+Owner, entry path, and that reason belong in an ADR or equivalent engineering
+evidence — not as a permanent whitelist inside this rule file.
+
+`*-api.ts` and `*-client.ts` are private by default. API transport and React
+Query / client runtime may live in separate recorded seams when that split is
+intentional. Do not require every public capability to funnel through
+`index.ts`.
+
+A legacy private import may remain only as a named transition exception with
+an owner, target public entrypoint, affected scope, and exit condition.
+Without those four fields it is a violation, not an implicit grace period.
 
 Cross-Feature code must have a named owner. A root-level helper under
 `features/` is allowed only when it is genuinely app-wide transport,
@@ -71,66 +137,54 @@ coordination, or infrastructure and its name makes that scope clear. Reuse by
 several Features is evidence to investigate, not automatic permission to create
 `shared` or `common`.
 
-For a structural migration, record the intended source set, destination owner,
-all consumers, public entrypoints, and the old-boundary disposition. Moving
-some files or updating some imports is a partial migration, never a completed
-one. Do not close the task while ownership, public/internal boundaries, or
-known consumer migrations remain unresolved.
+### Structural change protocol
+
+For add / delete / split / merge / rename / promote of a frontend boundary:
+
+```text
+investigate → decide → plan → implement → verify
+```
+
+Re-confirm owner, public entry, consumers (if any), stable-contract /
+framework reason when that branch applies, and old-boundary disposition before
+treating the migration as complete. Moving some files or updating some imports
+is a partial migration. Do not close the task while ownership, public/internal
+boundaries, or known consumer migrations remain unresolved. Concrete path and
+symbol choices belong in an Accepted ADR or equivalent record when they are
+architecture decisions; this rule file keeps the reusable judgment criteria.
 
 ### Semantic dependency layers
 
-Depend by semantic role, not by folder name alone. The filesystem path
-`components/` may hold both generic UI and app-composition code; only the
-latter may depend on Feature public seams.
+Depend by semantic role, not by folder name alone.
 
 ```text
-app
-  → features
-  → app-shell
-  → generic components
-  → app-composition code
-  → lib
-  → constants
+route / layout / page composition
+  → application-composition boundaries
+  → Feature public seams
+  → generic UI / lib / constants
 
-features
-  → components/ui or generic components
-  → lib
-  → constants
-  → other Features' intentional public seams
+ordinary Feature
+  → generic UI / lib / constants
+  → other Feature public seams
 
-components/ui or generic components
-  → lib
-  → constants
-  → components/ui
+application-composition
+  → generic UI / lib / constants
+  → Feature public seams (recorded only)
 
-app-composition code
-  → components/ui
-  → lib
-  → constants
-  → Feature intentional public seams
+generic UI
+  → lib / constants / UI primitives
+  → never ordinary Feature internals
 
 lib
-  → lib internals
-  → constants
-  → @gloaming/shared
+  → lib internals / constants / @gloaming/shared/<module>
 
 constants
-  → @gloaming/shared
+  → @gloaming/shared/<module>
 ```
 
-- `components/ui` and other generic components must not depend on Features.
-- App-composition code may depend on a Feature only through an intentional
-  public seam. It must not import a Feature's private implementation files.
-  App Router route files remain the explicit exception for direct page
-  composition.
-- App-composition examples include root providers (`components/providers.tsx`)
-  and site chrome / navigation assembly. They may use Feature intentional
-  public seams only (`index.ts`, `*-public.ts`, `*-api.ts`, `*-client.ts`).
-  Living under `components/` does not grant Feature-dependency rights to
-  every file in that directory.
-- `app/**` route files may deep-path import a Feature page for page
-  composition (see Feature public entry). That exception does not extend to
-  app-composition or generic components.
+- Generic UI must not depend on Features.
+- Application-composition must not import Feature private implementation.
+- Ordinary Features must not depend on application-composition implementation.
 - `lib` must not import from `components/*`.
 - Symbol ownership follows semantic responsibility, lifecycle, dependencies,
   and reason to change — not consumer path, directory name, or consumer count
@@ -165,7 +219,7 @@ Do not hand-roll a parallel control system. Do not ship “used shadcn but ugly/
 Soft UX only: cookie presence in `proxy.ts` (`better-auth.session_token` / `__Secure-…`), session + **401 → sign-in** in the client.
 **Real auth** is Better Auth on `apps/backend` (`auth.api.getSession` / `requireAuth`) — not the Next soft gate.
 `/admin/**` must check session `user.role` with the auth policy exported from
-`@gloaming/shared` before rendering admin content; hiding nav links is UX only,
+`@gloaming/shared/auth` before rendering admin content; hiding nav links is UX only,
 not authorization.
 Any backend-backed admin data must also be protected by Hono `requireAdmin`; never rely on `proxy.ts` or client checks as the security boundary.
 `DELETE /api/auth/logout` is a Next handler so HttpOnly BA session cookie(s) clear on this origin, then Hono `sign-out`.
