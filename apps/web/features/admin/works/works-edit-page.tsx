@@ -30,7 +30,7 @@ import {
   useAdminWorkQuery,
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
-import type { AdminWorkView } from '@/features/works-http';
+import type { AdminWorkView } from '@/features/admin/works/works-model';
 import { cn } from '@/lib/utils';
 
 const WORKFLOW_STEPS = [

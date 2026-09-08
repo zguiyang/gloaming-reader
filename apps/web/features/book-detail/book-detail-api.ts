@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReadingState } from '@gloaming/shared/reader';
 import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
 import type { ShelfItem } from '@gloaming/shared/shelf';
-import type { PartSummary, Work } from '@gloaming/shared/works';
+import { type PartSummary, type Work, workSchema } from '@gloaming/shared/works';
 
 import {
   type BookChapter,
@@ -17,9 +17,17 @@ import {
   readingStatusFromProgress,
   teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
-import { buildShelfItemMap, getPublishedWork, getShelf, getWorkParts } from '@/features/works-http';
-import { ApiRequestError, formatApiError } from '@/lib/api-request';
+import { getWorkParts } from '@/features/reader/reader-parts-public';
+import { buildShelfItemMap, getShelf } from '@/features/shelf/shelf-public';
+import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
+
+async function getPublishedWork(workId: string, init?: { signal?: AbortSignal }): Promise<Work> {
+  return apiRequest(`/api/catalog/works/${encodeURIComponent(workId)}`, {
+    schema: workSchema,
+    signal: init?.signal,
+  });
+}
 
 export const bookDetailQueryKey = {
   all: ['book-detail'] as const,

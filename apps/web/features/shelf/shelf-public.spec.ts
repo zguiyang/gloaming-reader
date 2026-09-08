@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import type { ShelfData, ShelfItem } from '@gloaming/shared/shelf';
 
-import { buildShelfItemMap } from '@/features/works-http';
+import { buildShelfItemMap } from '@/features/shelf/shelf-public';
 
-describe('works-http read-model mappings', () => {
+describe('buildShelfItemMap', () => {
   it('indexes current and shelf items by work id', () => {
     const current = { work: { id: 'current-work' } } as ShelfItem;
     const item = { work: { id: 'shelf-work' } } as ShelfItem;

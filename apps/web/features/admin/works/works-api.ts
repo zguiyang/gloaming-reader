@@ -18,7 +18,7 @@ import {
   type AdminWorkView,
   normalizeAdminWork,
   normalizeAdminWorkSummary,
-} from '@/features/works-http';
+} from '@/features/admin/works/works-model';
 import { apiRequest, formatApiError } from '@/lib/api-request';
 
 export const adminWorksQueryKey = {

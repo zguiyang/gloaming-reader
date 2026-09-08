@@ -32,7 +32,7 @@ import {
   useAdminWorksListQuery,
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
-import type { AdminWorkSummaryView } from '@/features/works-http';
+import type { AdminWorkSummaryView } from '@/features/admin/works/works-model';
 
 const STATUS_FILTERS: { value: WorkStatus | 'all' | 'busy'; label: string }[] = [
   { value: 'all', label: '全部' },

@@ -16,7 +16,7 @@ import {
   type DiscoverShelfStatus,
   type DiscoverTagFilter,
 } from '@/features/discover/discover-model';
-import { buildShelfItemMap, getShelf } from '@/features/works-http';
+import { buildShelfItemMap, getShelf } from '@/features/shelf/shelf-public';
 import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 

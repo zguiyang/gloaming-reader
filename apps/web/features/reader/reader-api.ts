@@ -14,12 +14,12 @@ import {
 import type { PartSummary } from '@gloaming/shared/works';
 
 import type { ReaderViewModel } from '@/features/reader/reader-model';
+import { getWorkParts } from '@/features/reader/reader-parts-public';
 import {
   isReadingStateRevisionConflict,
   patchReadingState,
   withExpectedReadingStateRevision,
 } from '@/features/reading-state/reading-state-api';
-import { getWorkParts } from '@/features/works-http';
 import { apiRequest, formatApiError } from '@/lib/api-request';
 import { authClient } from '@/lib/auth';
 

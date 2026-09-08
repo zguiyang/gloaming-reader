@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getShelf } from '@/features/works-http';
+import { getShelf } from '@/features/shelf/shelf-public';
 import { formatApiError } from '@/lib/api-request';
 
 export const shelfQueryKey = {
