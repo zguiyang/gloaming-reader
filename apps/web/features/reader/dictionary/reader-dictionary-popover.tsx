@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 
 import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
-import { ReaderDictionaryCard } from '@/features/reader/reader-dictionary-card';
+import { ReaderDictionaryCard } from '@/features/reader/dictionary/reader-dictionary-card';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';
 import { cn } from '@/lib/utils';
 

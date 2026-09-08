@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ReaderMarkdown } from '@/features/reader/reader-markdown';
+import { ReaderMarkdown } from '@/features/reader/assist/reader-markdown';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';
 import { cn } from '@/lib/utils';
 

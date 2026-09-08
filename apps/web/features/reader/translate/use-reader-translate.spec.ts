@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TRANSLATE_SSE_EVENT } from '@gloaming/shared/translate';
 
-import { streamTranslatePart } from '@/features/reader/reader-translate-api';
+import { streamTranslatePart } from '@/features/reader/translate/reader-translate-api';
 
 describe('streamTranslatePart', () => {
   it('parses meta, title, sentence, and done events properly', async () => {

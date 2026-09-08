@@ -6,7 +6,7 @@ import {
   buildDrawerAssistRequestBody,
   buildInlineAssistRequestBody,
   conversationDetailToReaderAiMessages,
-} from '@/features/reader/use-reader-assist';
+} from '@/features/reader/assist/use-reader-assist';
 
 describe('reader assist request body builders', () => {
   it('starts inline explain in a new conversation context', () => {

@@ -4,8 +4,8 @@ import { useSyncExternalStore } from 'react';
 
 import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
-import { ReaderDictionaryPopover } from '@/features/reader/reader-dictionary-popover';
-import { ReaderDictionarySheet } from '@/features/reader/reader-dictionary-sheet';
+import { ReaderDictionaryPopover } from '@/features/reader/dictionary/reader-dictionary-popover';
+import { ReaderDictionarySheet } from '@/features/reader/dictionary/reader-dictionary-sheet';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';
 
 function subscribeMd(onChange: () => void) {

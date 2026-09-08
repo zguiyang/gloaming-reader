@@ -3,7 +3,7 @@
 import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ReaderDictionaryCard } from '@/features/reader/reader-dictionary-card';
+import { ReaderDictionaryCard } from '@/features/reader/dictionary/reader-dictionary-card';
 import { cn } from '@/lib/utils';
 
 type ReaderDictionarySheetProps = {

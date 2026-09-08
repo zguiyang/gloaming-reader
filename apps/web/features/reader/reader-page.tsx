@@ -7,8 +7,13 @@ import { toast } from 'sonner';
 import type { TtsWordTiming } from '@gloaming/shared/tts';
 
 import { useAuthDialog } from '@/features/auth';
-import { ReaderAiDrawer } from '@/features/reader/reader-ai-drawer';
-import { ReaderAiInline } from '@/features/reader/reader-ai-inline';
+import { ReaderAiDrawer } from '@/features/reader/assist/reader-ai-drawer';
+import { ReaderAiInline } from '@/features/reader/assist/reader-ai-inline';
+import { useReaderAssist } from '@/features/reader/assist/use-reader-assist';
+import { useReaderListenHighlight } from '@/features/reader/audio/reader-audio-highlight';
+import { ReaderTts } from '@/features/reader/audio/reader-tts';
+import { useDictionaryLookupQuery } from '@/features/reader/dictionary/reader-dictionary-api';
+import { ReaderDictionaryView } from '@/features/reader/dictionary/reader-dictionary-view';
 import {
   formatReaderApiError,
   getReaderAudioTrack,
@@ -20,11 +25,8 @@ import {
   useReaderStateMutation,
   useReadingStateQuery,
 } from '@/features/reader/reader-api';
-import { useReaderListenHighlight } from '@/features/reader/reader-audio-highlight';
 import { ReaderChapterNav } from '@/features/reader/reader-chapter-nav';
 import { ReaderChrome } from '@/features/reader/reader-chrome';
-import { useDictionaryLookupQuery } from '@/features/reader/reader-dictionary-api';
-import { ReaderDictionaryView } from '@/features/reader/reader-dictionary-view';
 import { useReadingHeartbeat } from '@/features/reader/reader-heartbeat';
 import type {
   ReaderAudioRole,
@@ -45,10 +47,8 @@ import {
 import { ReaderPart, ReaderPartSkeleton } from '@/features/reader/reader-part';
 import { ReaderSelectionToolbar } from '@/features/reader/reader-selection-toolbar';
 import { ReaderTocSidebar } from '@/features/reader/reader-toc-sidebar';
-import { ReaderTts } from '@/features/reader/reader-tts';
 import { ReaderUnavailable } from '@/features/reader/reader-unavailable';
-import { useReaderAssist } from '@/features/reader/use-reader-assist';
-import { useReaderTranslate } from '@/features/reader/use-reader-translate';
+import { useReaderTranslate } from '@/features/reader/translate/use-reader-translate';
 import { isReadingStateRevisionConflict } from '@/features/reading-state/reading-state-api';
 import { authClient } from '@/lib/auth';
 

@@ -6,7 +6,7 @@ import {
   collectReadableTextNodes,
   findActiveWordTiming,
   isPunctuationOnlyTimingText,
-} from '@/features/reader/reader-audio-sync';
+} from '@/features/reader/audio/reader-audio-sync';
 
 describe('reader audio sync', () => {
   const timings = [

@@ -8,7 +8,7 @@ import type { ConversationSummary } from '@gloaming/shared/conversations';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ReaderMarkdown } from '@/features/reader/reader-markdown';
+import { ReaderMarkdown } from '@/features/reader/assist/reader-markdown';
 import type { ReaderAiMessage } from '@/features/reader/reader-model';
 import { cn } from '@/lib/utils';
 

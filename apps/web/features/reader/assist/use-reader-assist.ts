@@ -7,13 +7,13 @@ import { toast } from 'sonner';
 import type { AssistAskBody } from '@gloaming/shared/assist';
 import type { ConversationDetail, ConversationSummary } from '@gloaming/shared/conversations';
 
-import { formatReaderApiError } from '@/features/reader/reader-api';
-import { streamAssistAsk } from '@/features/reader/reader-assist-api';
+import { streamAssistAsk } from '@/features/reader/assist/reader-assist-api';
 import {
   getReaderAssistConversation,
   readerConversationsQueryKey,
   useReaderAssistConversationsQuery,
-} from '@/features/reader/reader-conversations-api';
+} from '@/features/reader/assist/reader-conversations-api';
+import { formatReaderApiError } from '@/features/reader/reader-api';
 import type {
   ReaderAiMessage,
   ReaderAiMessageSource,
