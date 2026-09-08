@@ -55,7 +55,7 @@ Audit date: **2026-08-24** (domain docs aligned; **Phase 3A complete** — Readi
 | Discover API      | `GET /api/articles`                                                                                  | `GET /api/catalog/works`                  |
 | Reader API        | `/api/reader/articles/:articleId`                                                                    | `/api/reader/works/:workId`               |
 | Admin API         | `/api/admin/articles`                                                                                | `/api/admin/works`                        |
-| Shared types      | Legacy Article contracts retired behind the shared root facade                                       | `@gloaming/shared`                        |
+| Shared types      | Legacy Article contracts retired; Shared exposes domain module subpaths                              | `@gloaming/shared/<module>` (ADR-003)     |
 | Short-article era | [`docs/archive/feature-short-article-library-v1.md`](../archive/feature-short-article-library-v1.md) | **Archived** — not product                |
 
 ### 2.3 DELETE / REMOVED (do not reintroduce)
@@ -140,11 +140,14 @@ See [`engineering-vocabulary.md`](./engineering-vocabulary.md) for product ↔ e
 | Auth, admin LLM/TTS config                     | Origin ContentAsset for EPUB | Learn* modules   |
 | `conversation` (`subject_type = reading_work`) | —                            | Article as SSOT  |
 
-### 4.3 Shared facade and workflow policy
+### 4.3 Shared package and workflow policy
 
-`@gloaming/shared` is the only supported shared package entrypoint. It exposes
-cross-layer DTOs, Zod schemas, controlled values, types, and pure functions;
-application workflow flags and queue/retry/lease behavior do not belong there.
+`@gloaming/shared` has no root public entrypoint. The only public entrypoints
+are `@gloaming/shared/<module>` owning-module subpaths (ADR-003). Consumers must
+import from the owning module; implementation deep imports such as
+`@gloaming/shared/src/...` remain forbidden. Shared exposes cross-layer DTOs,
+Zod schemas, controlled values, types, and pure functions; application workflow
+flags and queue/retry/lease behavior remain owned by the backend layer.
 
 The backend owns runtime workflow policy and keeps the current defaults as a
 manual pipeline with TTS disabled. Admin work and work-summary responses expose

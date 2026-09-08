@@ -2,11 +2,12 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-07  
+**Amended:** 2026-09-08 (root facade removal)
 **Scope:** `@gloaming/shared` package public entrypoints only
 
 Related: [`.cursor/rules/packages.mdc`](../../.cursor/rules/packages.mdc) ·
 [`packages/shared/package.json`](../../packages/shared/package.json) ·
-[`packages/shared/src/index.spec.ts`](../../packages/shared/src/index.spec.ts)
+[`packages/shared/src/public-exports.spec.ts`](../../packages/shared/src/public-exports.spec.ts)
 
 ---
 
@@ -16,15 +17,18 @@ Related: [`.cursor/rules/packages.mdc`](../../.cursor/rules/packages.mdc) ·
 pure policy used by `apps/web` and `apps/backend`. It must not own application
 workflows or leak runtime implementation.
 
-The package already exposes a large explicit root facade (hundreds of named
-exports from many source modules). Most consumers still import from a single
-logical area, but the flat root namespace and long `index.ts` invite a recurring
+### Historical background (pre-amendment)
+
+The package previously exposed a large explicit root facade (hundreds of named
+exports from many source modules). Most consumers imported from a single
+logical area, but the flat root namespace and long `index.ts` invited a recurring
 question: should Shared grow official domain public subpaths?
 
 Earlier governance collapsed historical multi-path / deep-import usage into a
 single root facade so that package internals could not become an accidental
-public API. That boundary remains useful, but the root facade is now defined as
-a compatibility layer while semantic module entrypoints become the target API.
+public API. That root facade then served as a **temporary compatibility layer**
+while semantic module entrypoints became the target API and apps consumers
+migrated in bounded waves.
 
 ---
 
@@ -34,16 +38,40 @@ a compatibility layer while semantic module entrypoints become the target API.
 2. Each public module is a directory with its own explicit `index.ts`.
 3. `package.json` declares one export per public module, targeting that module
    entrypoint; it does not declare one export per source file.
-4. The root `@gloaming/shared` entrypoint remains temporarily as a compatibility
-   facade for existing consumers. It must not grow with new module exports.
+4. **(Superseded 2026-09-08 — see Amendment.)** The original decision temporarily
+   retained the root `@gloaming/shared` entrypoint as a compatibility facade
+   during consumer migration. That temporary policy no longer applies.
 5. New consumers use the owning module subpath. Existing root consumers migrate
-   in bounded waves.
+   in bounded waves (completed before root removal).
 6. Internal implementation files remain private, and official subpaths must not
    expose `src/` deep imports.
 
+### Amendment: Root facade removal (2026-09-08)
+
+An independent package public-boundary decision (separate from ordinary module
+lifecycle or consumer-migration waves) confirmed removal of the root facade
+after a full-workspace consumer audit found no supported apps or workspace
+executable root consumers, and after verifying the root re-exported only symbols
+already present on module entrypoints (no unique root surface).
+
+**Current policy:**
+
+- The only public entrypoints are the 18 official module subpaths listed below.
+- `package.json` must not declare `exports["."]`.
+- `packages/shared/src/index.ts` is removed and must not be restored as a giant
+  facade.
+- `packages/shared/src/public-exports.spec.ts` guards package exports and module
+  entrypoints; it does **not** assert root compatibility.
+- New consumers must import `@gloaming/shared/<module>` from the owning module.
+- Shared module lifecycle rules (add / remove / merge / rename) remain in force
+  via `.cursor/rules/packages.mdc` and the repository-structure protocol.
+- Reintroducing a root entrypoint requires a new independent ADR or Accepted
+  amendment plus an explicit compatibility decision; it is not a default.
+
 ### Initial public module map
 
-The following semantic modules are accepted for the first migration baseline:
+The following semantic modules are accepted for the first migration baseline
+and remain the current public module map after root removal:
 
 | Module          | Public subpath                     | Scope                                           |
 | --------------- | ---------------------------------- | ----------------------------------------------- |
@@ -91,8 +119,11 @@ declares it and `src/works/index.ts` owns its public surface;
   and agents.
 - **Encapsulation** — `package.json` and module entrypoints prevent source files
   from becoming accidental public APIs.
-- **Controlled compatibility** — Existing root imports do not need a flag-day
-  migration, while new work follows the target boundary.
+- **Controlled migration (historical)** — The temporary root facade allowed
+  existing root imports to migrate in waves without a single flag day.
+- **Post-migration simplicity** — After consumers moved to module subpaths, the
+  compatibility root added no unique surface and was removed by a separate
+  decision rather than left as an accidental default.
 - **Semantic grouping** — A module may contain multiple internal files without
   exposing every file as a package entrypoint.
 - **Simple evolution** — Adding or removing a domain module changes one explicit
@@ -105,10 +136,11 @@ declares it and `src/works/index.ts` owns its public surface;
 
 ### Accepted trade-offs
 
-- The compatibility root remains large during migration.
 - Every public module needs an intentional entrypoint and migration ownership.
 - Moving or merging a public module is an API change and needs compatibility
   analysis.
+- Call sites that still used the root package entry (none confirmed in-repo at
+  removal time) would break until migrated to owning module subpaths.
 
 ### Non-goals of this ADR
 
@@ -116,20 +148,30 @@ declares it and `src/works/index.ts` owns its public surface;
 - Splitting every existing source file into a public module
 - Creating `works/admin`, `works/catalog`, or other nested public subpaths in
   the first migration without a separate boundary decision
-- Removing the root compatibility entrypoint during the first migration wave
+- Treating root removal as a side effect of an ordinary module add/remove/rename
+  (root removal required this independent decision)
 
 ---
 
 ## Migration and evolution policy
 
-During migration:
+**Historical (during root compatibility window):**
 
-- The root facade may re-export existing symbols for compatibility.
-- New public symbols are added to their owning module entrypoint first.
+- The root facade could re-export existing symbols for compatibility.
+- New public symbols were added to their owning module entrypoint first.
+- New consumers were required to import the owning module subpath.
+- Each migration wave recorded consumers, old-boundary disposition, and checks.
+- The root entrypoint was removable only after a consumer audit and a separate
+  decision confirmed removal.
+
+**Current (after 2026-09-08 amendment):**
+
+- There is no root package entrypoint.
+- New public symbols are added only to their owning module entrypoint and
+  `package.json` module export.
 - New consumers must import the owning module subpath.
-- Each migration wave records consumers, old-boundary disposition, and checks.
-- The root entrypoint is removable only after a consumer audit proves that no
-  supported consumer depends on it and a separate decision confirms removal.
+- Module lifecycle changes follow `.cursor/rules/packages.mdc` (Shared public
+  module lifecycle) and the repository-structure decision protocol.
 
 For future module changes, do **not** treat export count, `index.ts` line count,
 file count, or consumer count as automatic split thresholds. Apply the
@@ -139,16 +181,24 @@ plan, and acceptance checks.
 
 ## Acceptance criteria
 
-The first migration is complete only when:
+The first module-subpath migration was complete when:
 
-- every accepted module has a directory and explicit `index.ts`;
-- `package.json` exports each accepted module and no internal source file;
-- module entrypoints expose intentional symbols only;
-- root compatibility exports remain behaviorally compatible during migration;
-- intended backend, web, test, and configuration consumers are migrated or
-  explicitly recorded as transition exceptions; and
-- typecheck/lint/tests relevant to the package and consumers are run and
+- every accepted module had a directory and explicit `index.ts`;
+- `package.json` exported each accepted module and no internal source file;
+- module entrypoints exposed intentional symbols only;
+- intended backend, web, test, and configuration consumers were migrated; and
+- typecheck/lint/tests relevant to the package and consumers were run and
   reported with actual results.
+
+The root facade removal is complete when:
+
+- ADR current policy records the independent removal decision;
+- `exports["."]` is absent;
+- `packages/shared/src/index.ts` is absent;
+- public-export tests assert module subpaths only (no root compatibility);
+- stale current guidance no longer recommends the root entry;
+- executable root and deep imports remain absent; and
+- shared/backend/web verification for the change is reported with actual results.
 
 It must not restore implementation deep imports such as
 `@gloaming/shared/src/...`.
@@ -159,5 +209,5 @@ It must not restore implementation deep imports such as
 
 The active package rule governs the public-boundary mechanics, and the project
 repository-structure rule governs future module decisions. This ADR records the
-accepted Shared baseline and migration policy; it does not authorize a code
-change outside the explicitly planned migration waves.
+accepted Shared baseline, the completed consumer migration to module subpaths,
+and the Accepted amendment that removed the root compatibility entrypoint.

@@ -5,7 +5,6 @@
   "type": "module",
   "license": "GPL-3.0-or-later OR Commercial",
   "exports": {
-    ".": "./src/index.ts",
     "./ai-invocations": "./src/ai-invocations/index.ts",
     "./assist": "./src/assist/index.ts",
     "./auth": "./src/auth/index.ts",
