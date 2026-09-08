@@ -6,7 +6,7 @@ import type { ShelfItem } from '@gloaming/shared/shelf';
 
 import { AUTH_ROUTES } from '@/constants';
 import { BookDetailCover } from '@/features/book-detail/book-detail-cover';
-import { coverUrlFromAssetId } from '@/features/book-detail/book-detail-model';
+import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { cn } from '@/lib/utils';
 
 function statusLabel(entry: ShelfItem): string {

@@ -14,11 +14,11 @@ import type { Work } from '@gloaming/shared/works';
 
 import {
   type BookDetail,
-  coverUrlFromAssetId,
   languageLabelFromCode,
   teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
 import { apiRequest, formatApiError } from '@/lib/api-request';
+import { coverUrlFromAssetId } from '@/lib/asset-url';
 
 export const recommendationsQueryKey = {
   all: ['recommendations'] as const,

@@ -91,13 +91,6 @@ export function buildShelfItemMap(data: ShelfData): Map<string, ShelfItem> {
   return map;
 }
 
-export function coverUrlFromAssetId(coverAssetId: string | null): string | null {
-  if (!coverAssetId) {
-    return null;
-  }
-  return `/api/assets/${encodeURIComponent(coverAssetId)}`;
-}
-
 export function normalizeWork(raw: Work): WorkView {
   return {
     id: raw.id,

@@ -17,14 +17,9 @@ import {
   readingStatusFromProgress,
   teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
-import {
-  buildShelfItemMap,
-  coverUrlFromAssetId,
-  getPublishedWork,
-  getShelf,
-  getWorkParts,
-} from '@/features/works-http';
+import { buildShelfItemMap, getPublishedWork, getShelf, getWorkParts } from '@/features/works-http';
 import { ApiRequestError, formatApiError } from '@/lib/api-request';
+import { coverUrlFromAssetId } from '@/lib/asset-url';
 
 export const bookDetailQueryKey = {
   all: ['book-detail'] as const,

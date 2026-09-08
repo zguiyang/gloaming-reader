@@ -16,8 +16,9 @@ import {
   type DiscoverShelfStatus,
   type DiscoverTagFilter,
 } from '@/features/discover/discover-model';
-import { buildShelfItemMap, coverUrlFromAssetId, getShelf } from '@/features/works-http';
+import { buildShelfItemMap, getShelf } from '@/features/works-http';
 import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
+import { coverUrlFromAssetId } from '@/lib/asset-url';
 
 export type DiscoverListParams = Partial<Pick<CatalogListQuery, 'page' | 'pageSize' | 'tag' | 'q'>>;
 

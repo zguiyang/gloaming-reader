@@ -4,7 +4,6 @@ import { chaptersFromParts, toBookDetail } from '@/features/book-detail/book-det
 import {
   chapterOrdinalLabel,
   chapterStatusLabel,
-  coverUrlFromAssetId,
   difficultyStarCount,
   formatMinutes,
   formatRelativeReadTime,
@@ -56,11 +55,9 @@ describe('book-detail-model', () => {
     expect(teaserFromDescription('')).toBe('');
   });
 
-  it('maps language and cover asset URLs', () => {
+  it('maps language labels', () => {
     expect(languageLabelFromCode('en')).toBe('英文原版');
     expect(languageLabelFromCode('zh')).toBe('zh');
-    expect(coverUrlFromAssetId('abc')).toBe('/api/assets/abc');
-    expect(coverUrlFromAssetId(null)).toBeNull();
   });
   it('maps chapter status labels including unread', () => {
     expect(chapterStatusLabel('unread')).toBe('未读');

@@ -4,9 +4,9 @@ import { ChevronRightIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { AUTH_ROUTES } from '@/constants';
-import { coverUrlFromAssetId } from '@/features/book-detail/book-detail-model';
 import { coverTintForVolume } from '@/features/content/content-model';
 import { formatHistoryCalendarDate, type HistoryViewModel } from '@/features/history/history-model';
+import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { cn } from '@/lib/utils';
 
 function WorkCover({ title, coverImageUrl }: { title: string; coverImageUrl: string | null }) {

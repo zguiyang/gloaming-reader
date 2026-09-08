@@ -7,8 +7,8 @@ import { useSyncExternalStore } from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { AUTH_ROUTES } from '@/constants';
 import { BookDetailCover } from '@/features/book-detail/book-detail-cover';
-import { coverUrlFromAssetId } from '@/features/book-detail/book-detail-model';
 import { isCurrentChapter, type ReaderViewModel, sortedParts } from '@/features/reader/reader-model';
+import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { cn } from '@/lib/utils';
 
 type ReaderTocSidebarProps = {
