@@ -4,32 +4,9 @@ import { ChevronRightIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { AUTH_ROUTES } from '@/constants';
-import { coverTintForVolume } from '@/features/content/content-model';
 import { formatHistoryCalendarDate, type HistoryViewModel } from '@/features/history/history-model';
+import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
-import { cn } from '@/lib/utils';
-
-function WorkCover({ title, coverImageUrl }: { title: string; coverImageUrl: string | null }) {
-  const tint = coverTintForVolume([], title);
-
-  return (
-    <div
-      className={cn(
-        'relative h-20 w-14 shrink-0 overflow-hidden rounded-sm shadow-sm ring-1 ring-foreground/8 md:h-24 md:w-16',
-        !coverImageUrl && tint,
-      )}
-    >
-      {coverImageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- cover assets via API proxy
-        <img src={coverImageUrl} alt="" className="size-full object-cover" />
-      ) : (
-        <p className="font-heading line-clamp-4 p-1.5 text-[10px] font-semibold leading-tight text-foreground/80 md:p-2 md:text-xs">
-          {title}
-        </p>
-      )}
-    </div>
-  );
-}
 
 export function HistoryWorks({ works }: { works: HistoryViewModel['works'] }) {
   if (works.length === 0) {
@@ -56,7 +33,7 @@ export function HistoryWorks({ works }: { works: HistoryViewModel['works'] }) {
                 href={AUTH_ROUTES.readBook(item.workId)}
                 className="group flex items-center gap-4 py-4 transition-colors md:gap-6 md:py-6"
               >
-                <WorkCover title={item.title} coverImageUrl={coverImageUrl} />
+                <WorkCover appearance="compact" title={item.title} coverImageUrl={coverImageUrl} />
 
                 <div className="min-w-0 flex-1">
                   <h3 className="font-heading truncate text-base font-medium text-foreground transition-colors group-hover:text-primary md:text-xl">

@@ -7,7 +7,7 @@ import type { ShelfItem } from '@gloaming/shared/shelf';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
-import { BookDetailCover } from '@/features/book-detail/book-detail-cover';
+import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { cn } from '@/lib/utils';
 
@@ -40,7 +40,7 @@ export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
           className="mx-auto shrink-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:mx-0"
           aria-label={`查看《${entry.work.title}》详情`}
         >
-          <BookDetailCover
+          <WorkCover
             title={entry.work.title}
             tags={entry.work.tags}
             coverImageUrl={coverImageUrl}

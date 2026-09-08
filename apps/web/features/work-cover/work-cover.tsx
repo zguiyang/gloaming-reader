@@ -2,17 +2,40 @@
 
 import { useState } from 'react';
 
-import { coverTintForVolume } from '@/features/content/content-model';
+import { coverTintForVolume } from '@/features/work-cover/work-cover-tint';
 import { cn } from '@/lib/utils';
 
-type BookDetailCoverProps = {
+export type WorkCoverAppearance = 'standard' | 'compact';
+
+export type WorkCoverProps = {
+  title: string;
+  /** Used by `standard` tint seeding; ignored by `compact` (always empty tags). */
+  tags?: string[];
+  coverImageUrl?: string | null;
+  /** Layout size overrides for `standard` only. Must not be used to fake `compact`. */
+  className?: string;
+  appearance?: WorkCoverAppearance;
+};
+
+export function WorkCover({ title, tags = [], coverImageUrl, className, appearance = 'standard' }: WorkCoverProps) {
+  if (appearance === 'compact') {
+    return <WorkCoverCompact title={title} coverImageUrl={coverImageUrl ?? null} />;
+  }
+
+  return <WorkCoverStandard title={title} tags={tags} coverImageUrl={coverImageUrl} className={className} />;
+}
+
+function WorkCoverStandard({
+  title,
+  tags,
+  coverImageUrl,
+  className,
+}: {
   title: string;
   tags: string[];
   coverImageUrl?: string | null;
   className?: string;
-};
-
-export function BookDetailCover({ title, tags, coverImageUrl, className }: BookDetailCoverProps) {
+}) {
   const tint = coverTintForVolume(tags, title);
   const [hasImageFailed, setHasImageFailed] = useState(false);
   const canShowImage = Boolean(coverImageUrl) && !hasImageFailed;
@@ -48,6 +71,28 @@ export function BookDetailCover({ title, tags, coverImageUrl, className }: BookD
             {title}
           </p>
         </div>
+      )}
+    </div>
+  );
+}
+
+function WorkCoverCompact({ title, coverImageUrl }: { title: string; coverImageUrl: string | null }) {
+  const tint = coverTintForVolume([], title);
+
+  return (
+    <div
+      className={cn(
+        'relative h-20 w-14 shrink-0 overflow-hidden rounded-sm shadow-sm ring-1 ring-foreground/8 md:h-24 md:w-16',
+        !coverImageUrl && tint,
+      )}
+    >
+      {coverImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- cover assets via API proxy
+        <img src={coverImageUrl} alt="" className="size-full object-cover" />
+      ) : (
+        <p className="font-heading line-clamp-4 p-1.5 text-[10px] font-semibold leading-tight text-foreground/80 md:p-2 md:text-xs">
+          {title}
+        </p>
       )}
     </div>
   );

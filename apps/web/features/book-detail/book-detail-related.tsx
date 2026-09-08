@@ -1,9 +1,9 @@
 import Link from 'next/link';
 
 import { AUTH_ROUTES } from '@/constants';
-import { BookDetailCover } from '@/features/book-detail/book-detail-cover';
 import type { BookDetail } from '@/features/book-detail/book-detail-model';
 import { formatMinutes } from '@/features/book-detail/book-detail-model';
+import { WorkCover } from '@/features/work-cover';
 import { cn } from '@/lib/utils';
 
 export function BookDetailRelated({
@@ -33,7 +33,7 @@ export function BookDetailRelated({
               'focus-visible:ring-3 focus-visible:ring-ring/50',
             )}
           >
-            <BookDetailCover
+            <WorkCover
               title={book.title}
               tags={book.tags}
               coverImageUrl={book.coverImageUrl}

@@ -6,8 +6,8 @@ import { useSyncExternalStore } from 'react';
 
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { AUTH_ROUTES } from '@/constants';
-import { BookDetailCover } from '@/features/book-detail/book-detail-cover';
 import { isCurrentChapter, type ReaderViewModel, sortedParts } from '@/features/reader/reader-model';
+import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { cn } from '@/lib/utils';
 
@@ -55,7 +55,7 @@ export function ReaderTocSidebar({
           <ChevronsLeftIcon className="size-5" strokeWidth={1.5} />
         </button>
         <div className="mt-2 flex gap-4">
-          <BookDetailCover
+          <WorkCover
             title={reader.workTitle}
             tags={reader.tags}
             coverImageUrl={coverImageUrl}

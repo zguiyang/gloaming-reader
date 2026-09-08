@@ -5,13 +5,13 @@ import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
-import { BookDetailCover } from '@/features/book-detail/book-detail-cover';
 import {
   type BookDetail,
   formatMinutes,
   formatRelativeReadTime,
   primaryReadLabel,
 } from '@/features/book-detail/book-detail-model';
+import { WorkCover } from '@/features/work-cover';
 import { cn } from '@/lib/utils';
 
 type BookDetailHeroProps = {
@@ -35,7 +35,7 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
   return (
     <section className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-12 lg:gap-16">
       <div className="flex justify-center md:col-span-4 md:justify-start lg:col-span-3">
-        <BookDetailCover
+        <WorkCover
           title={book.title}
           tags={book.tags}
           coverImageUrl={book.coverImageUrl}

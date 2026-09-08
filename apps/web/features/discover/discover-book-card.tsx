@@ -3,8 +3,8 @@
 import Link from 'next/link';
 
 import { AUTH_ROUTES } from '@/constants';
-import { BookDetailCover } from '@/features/book-detail/book-detail-cover';
 import type { DiscoverItem } from '@/features/discover/discover-model';
+import { WorkCover } from '@/features/work-cover';
 import { cn } from '@/lib/utils';
 
 type DiscoverBookCardProps = {
@@ -33,7 +33,7 @@ export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
         )}
         aria-label={`查看《${item.title}》详情`}
       >
-        <BookDetailCover
+        <WorkCover
           title={item.title}
           tags={item.tags}
           coverImageUrl={item.coverImageUrl}
