@@ -20,12 +20,31 @@ new layer. For a structural change or a question of sharing, load
 ## Ownership
 
 - Password/username/mail-cooldown policy SSOT → the `@gloaming/shared/auth`
-  module. The compatibility root may re-export it during migration.
+  module. The current Shared policy has no root public entrypoint.
 - The shared package exposes intentional public module boundaries. A stable
   semantic module may have an official subpath declared in `package.json`,
   backed by that module's own `index.ts`. The exact module map is an
   architecture decision, not an automatic consequence of file count or export
   count.
+- A Shared symbol's owner is the module that defines its semantic contract.
+  Consumer directory, app feature name, backend module path, and usage count do
+  not decide which Shared public module owns the symbol. Example of incorrect
+  inference: `reader` uses `TtsWordTiming` does not make it a `reader` symbol;
+  `works` uses `buildPartAudioText` does not make it a `works` symbol;
+  `modules/ai` uses `AiSettingKey` does not make it an `ai` Shared module.
+- Import Shared symbols from the owning module's public entrypoint
+  (`@gloaming/shared/<module>` → that module's `index.ts`). Do not deep-import
+  Shared internals. When one file needs symbols from several Shared modules,
+  split the imports by owning module; migrate only symbols that belong to the
+  wave's target module.
+- Consumer-migration judgment order: (1) read the symbol's definition and
+  owning Shared module; (2) list the symbols the file actually uses; (3) split
+  mixed imports by symbol owner; (4) migrate only symbols that belong to the
+  target module; (5) if ownership is unclear, stop and report; (6) do not merge
+  modules because of call-site directory or co-use in one file.
+- When adding, moving, or deleting a Shared public symbol, verify the owner,
+  the module `index.ts`, `package.json` exports, and real consumers in the same
+  change. Do not invent a public module from a consumer path.
 - Use explicit `package.json` exports per public module, for example
   `"./works": "./src/works/index.ts"`; do not create one export per source
   file. An official subpath is not an implementation deep import such as
@@ -33,16 +52,62 @@ new layer. For a structural change or a question of sharing, load
   internal implementation private. Never rebuild a giant root facade merely to
   avoid official module subpaths.
 - Keep exports limited to cross-layer contracts, controlled values, types, and
-  pure functions. The root entrypoint, if retained for compatibility, is a
-  deliberate compatibility boundary: new consumers must use the owning public
-  module, and its removal or reduction requires a separate migration decision.
+  pure functions. The current Shared policy exposes only owning module
+  subpaths; new consumers must use them. Reintroducing a root entrypoint, or
+  reducing this boundary, requires a separate Accepted migration decision.
 - While the module map or root compatibility policy is not recorded in an
   accepted ADR, the current `package.json` exports are repository reality, not
   permission to invent a migration. Report the gap and stop at the architecture
-  decision gate.
+  decision gate. Accepted ADR module map and root policy remain authoritative
+  when present; this rule does not change that map.
 - Packages export contracts or policy, never application feature workflows.
 - Runtime workflow policy belongs to `apps/backend`; admin APIs may expose its
   read-only projection through shared response contracts.
+
+## Shared public module lifecycle
+
+When adding, removing, merging, or renaming a Shared public module, keep the
+`repository-structure` phases separate:
+
+```text
+investigate → decide → plan → implement → verify
+```
+
+- **investigate** — facts, module map, and consumer inventory (backend, web,
+  tests, scripts, docs, tooling).
+- **decide** — semantic owner, Accepted ADR/module-map change, and compatibility
+  strategy. Do not change the module map without an Accepted ADR (or successor).
+- **plan** — migration order, transition window, and acceptance checks.
+- **implement** — synchronized updates across the surfaces below.
+- **verify** — stale paths, exports, deep imports, typecheck, lint, tests, and
+  report `partial` / `deferred` / `blocked` / `complete` honestly.
+
+In the same governance task, check all of:
+
+1. semantic owner and Accepted ADR / module map;
+2. module directory and that module's `index.ts`;
+3. `package.json` official export (one subpath per module, not per file);
+4. current root policy — the root entrypoint is absent under ADR-003; if a
+   future decision proposes reintroducing or changing it, handle that as a
+   separate Accepted migration decision, not as an ordinary module lifecycle
+   task;
+5. real consumers in backend, web, tests, scripts, docs, and tooling;
+6. old path, compatibility alias or transition behavior, deprecation window,
+   and removal condition — or an explicit statement of no compatibility window
+   and why;
+7. ADR status, decision record, and migration scope;
+8. final verification: no stale paths or deep imports; typecheck, lint, and
+   relevant tests reported with actual results.
+
+Adding a module is not complete after creating a directory. Removing a module
+is not complete after deleting a directory. Renaming a module is not complete
+after changing `package.json`. A temporary transition exception is not a
+standing convention. Do not report `complete` while intended consumers,
+exports, root re-exports, ADR updates, or removal conditions remain open.
+
+For rename or remove with a transition period, record: old path, new path,
+compatibility alias or transition behavior, affected consumers,
+deprecation/removal condition, and the owner of follow-up.
 
 ## Zod
 

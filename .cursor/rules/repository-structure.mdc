@@ -25,6 +25,11 @@ AI-governance fix.
   lifecycle, dependencies, or public boundary becomes clear.
 - Use the path to express ownership. Internal implementation is private by
   default; public APIs require an intentional boundary.
+- A symbol's ownership follows its semantic responsibility, authoritative
+  definition, lifecycle, dependencies, and reason to change — not the
+  directory, feature name, or call site of a consumer. Consumer location and
+  usage count are evidence about dependency, not ownership and not automatic
+  promotion into the consumer's module.
 - Official package subpaths declared in `package.json` are different from
   implementation deep imports that bypass the declared boundary.
 - Do not split, promote, or export code using LOC, file count, or consumer
@@ -103,7 +108,12 @@ Never infer that avoiding deep imports requires one giant root facade.
 
 - A fact, contract, policy, or normalization rule has one authoritative owner.
 - A consumer may use another module's public surface, but not its private
-  implementation files.
+  implementation files. Using a public symbol from `reader`, `admin`,
+  `recommendations`, `workflow`, or any other call site does not transfer
+  ownership of that symbol to the consumer's directory.
+- When a file uses symbols from multiple domains, import each symbol from its
+  owning public module. Do not merge modules because co-used symbols appear in
+  the same consumer file.
 - A cross-feature helper must have a named owner or an explicitly named
   app-level boundary; usage by several features alone does not justify a new
   generic layer.
@@ -117,6 +127,9 @@ Never infer that avoiding deep imports requires one giant root facade.
 - Report partial, blocked, deferred, and complete as different states.
 - Do not mark an architecture task complete while a confirmed decision,
   intended consumer migration, or required rule update remains open.
+- If symbol ownership remains ambiguous after checking the authoritative
+  definition and module map, stop and report; do not invent an owner from the
+  consumer path.
 
 ## Agent handoff and final report
 
