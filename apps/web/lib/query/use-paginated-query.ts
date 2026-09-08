@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 
 import { type PaginationMeta } from '@gloaming/shared/pagination';
 
-import { useMinimumHold } from '@/components/use-minimum-hold';
+import { useMinimumHold } from '@/lib/query/use-minimum-hold';
 
 export type PaginatedListData<TItem> = {
   items: TItem[];

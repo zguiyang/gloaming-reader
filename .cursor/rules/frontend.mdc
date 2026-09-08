@@ -40,16 +40,30 @@ module when a stable sub-capability has its own semantic owner, lifecycle,
 change reason, dependency boundary, test surface, or intentional public API.
 Do not split by LOC, file count, or filename prefix alone.
 
-When one Feature is consumed by another Feature, expose an intentional public
-surface (a feature `index.ts` or another explicitly named public entrypoint)
-and keep implementation files private. A direct import of another Feature's
-private file is an ownership violation unless the rule or an accepted ADR
-explicitly permits it.
+### Feature public entry
 
-During an approved migration, a legacy private import may remain only as a
-named transition exception with an owner, target public entrypoint, affected
-scope, and exit condition. Without those four fields it is a violation, not an
-implicit grace period.
+A Feature `index.ts` is optional, not a required template. Keep one only when
+there are real cross-boundary consumers or an explicit stable public-API
+commitment. Named exports only; never `export *`. A zero-consumer entry with no
+stable commitment is a deletion candidate, not an automatic violation. App
+Router routes may import a Feature page file by deep path. Presence of
+`index.ts` does not make other Feature files public.
+
+### Cross-feature seam
+
+Features must not import another Feature's private implementation files.
+Allowed intentional public seams:
+
+- Feature `index.ts` (optional named entry)
+- `*-public.ts`
+- explicitly named `*-api.ts`
+- explicitly named `*-client.ts`
+
+Do not require every public capability to funnel through `index.ts`. API access
+and React Query / client runtime may live in separate seams. A legacy private
+import may remain only as a named transition exception with an owner, target
+public entrypoint, affected scope, and exit condition. Without those four
+fields it is a violation, not an implicit grace period.
 
 Cross-Feature code must have a named owner. A root-level helper under
 `features/` is allowed only when it is genuinely app-wide transport,
@@ -62,6 +76,65 @@ all consumers, public entrypoints, and the old-boundary disposition. Moving
 some files or updating some imports is a partial migration, never a completed
 one. Do not close the task while ownership, public/internal boundaries, or
 known consumer migrations remain unresolved.
+
+### Semantic dependency layers
+
+Depend by semantic role, not by folder name alone. The filesystem path
+`components/` may hold both generic UI and app-composition code; only the
+latter may depend on Feature public seams.
+
+```text
+app
+  → features
+  → app-shell
+  → generic components
+  → app-composition code
+  → lib
+  → constants
+
+features
+  → components/ui or generic components
+  → lib
+  → constants
+  → other Features' intentional public seams
+
+components/ui or generic components
+  → lib
+  → constants
+  → components/ui
+
+app-composition code
+  → components/ui
+  → lib
+  → constants
+  → Feature intentional public seams
+
+lib
+  → lib internals
+  → constants
+  → @gloaming/shared
+
+constants
+  → @gloaming/shared
+```
+
+- `components/ui` and other generic components must not depend on Features.
+- App-composition code may depend on a Feature only through an intentional
+  public seam. It must not import a Feature's private implementation files.
+  App Router route files remain the explicit exception for direct page
+  composition.
+- App-composition examples include root providers (`components/providers.tsx`)
+  and site chrome / navigation assembly. They may use Feature intentional
+  public seams only (`index.ts`, `*-public.ts`, `*-api.ts`, `*-client.ts`).
+  Living under `components/` does not grant Feature-dependency rights to
+  every file in that directory.
+- `app/**` route files may deep-path import a Feature page for page
+  composition (see Feature public entry). That exception does not extend to
+  app-composition or generic components.
+- `lib` must not import from `components/*`.
+- Symbol ownership follows semantic responsibility, lifecycle, dependencies,
+  and reason to change — not consumer path, directory name, or consumer count
+  (see `repository-structure.mdc`).
 
 ## Styling
 
