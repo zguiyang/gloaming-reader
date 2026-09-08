@@ -1,1 +1,2 @@
-export { LandingPage } from '@/features/landing/landing-page';
+export { LandingNavEntrance } from './landing-motion';
+export { LandingPage } from './landing-page';

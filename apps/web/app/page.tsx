@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
-import { LandingPage } from '@/features/landing';
+import { SiteNav } from '@/components/navigation';
+import { LandingNavEntrance, LandingPage } from '@/features/landing';
 
 export const metadata: Metadata = {
   title: `Gloaming — 回来，继续读你想读的英文`,
@@ -8,5 +9,12 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <LandingPage />;
+  return (
+    <div className="relative z-10 flex min-h-full flex-1 flex-col">
+      <LandingNavEntrance>
+        <SiteNav />
+      </LandingNavEntrance>
+      <LandingPage />
+    </div>
+  );
 }

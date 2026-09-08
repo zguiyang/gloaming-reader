@@ -3,8 +3,7 @@
 import { createContext, type ReactNode, useContext } from 'react';
 
 import { GlobalLoading } from '@/components/global-loading';
-import { MobileBottomNav } from '@/components/navigation/mobile-bottom-nav';
-import { SiteNav } from '@/components/navigation/site-nav';
+import { MobileBottomNav, SiteNav } from '@/components/navigation';
 import { authClient, type User } from '@/lib/auth';
 
 /**
