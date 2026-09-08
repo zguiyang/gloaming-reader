@@ -3,13 +3,6 @@
 import { CalendarIcon } from 'lucide-react';
 import { zhCN } from 'react-day-picker/locale';
 
-import {
-  AI_INVOCATION_PRESET_DAYS,
-  type AiInvocationPresetDays,
-  type AiInvocationStatus,
-  aiInvocationWindowForDays,
-} from '@gloaming/shared/ai-invocations';
-
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
@@ -18,24 +11,30 @@ import { Tabs } from '@/components/ui/tabs';
 import { AdminSegmentedTabsList, AdminSegmentedTabsTrigger } from '@/features/admin/admin-segmented-tabs';
 import { cn } from '@/lib/utils';
 
-export type AiLogsRangeTab = `${AiInvocationPresetDays}` | 'custom';
-export type AiLogsStatusFilter = 'all' | AiInvocationStatus;
+/** Neutral Admin logs filter presets; domain window helpers stay on each page. */
+export const INVOCATION_LOGS_PRESET_DAYS = [3, 7, 15, 30] as const;
+export type InvocationLogsPresetDays = (typeof INVOCATION_LOGS_PRESET_DAYS)[number];
 
-export type AiLogsRange = {
+export type InvocationLogsRangePreset = `${InvocationLogsPresetDays}` | 'custom';
+export type InvocationLogsStatusFilter = 'all' | 'success' | 'failure';
+
+export type InvocationLogsRange = {
   from: Date;
   to: Date;
 };
 
-type AiLogsFiltersProps = {
-  rangeTab: AiLogsRangeTab;
-  range: AiLogsRange;
-  status: AiLogsStatusFilter;
-  onRangeTabChange: (tab: AiLogsRangeTab) => void;
-  onRangeChange: (range: AiLogsRange) => void;
-  onStatusChange: (status: AiLogsStatusFilter) => void;
+type InvocationLogsFiltersProps = {
+  rangeTab: InvocationLogsRangePreset;
+  range: InvocationLogsRange;
+  status: InvocationLogsStatusFilter;
+  /** Domain-owned window strategy (AI / TTS / future invocation logs). */
+  windowForDays: (days: InvocationLogsPresetDays) => InvocationLogsRange;
+  onRangeTabChange: (tab: InvocationLogsRangePreset) => void;
+  onRangeChange: (range: InvocationLogsRange) => void;
+  onStatusChange: (status: InvocationLogsStatusFilter) => void;
 };
 
-const STATUS_FILTERS: { value: AiLogsStatusFilter; label: string }[] = [
+const STATUS_FILTERS: { value: InvocationLogsStatusFilter; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'success', label: '成功' },
   { value: 'failure', label: '失败' },
@@ -83,7 +82,7 @@ function applyClock(date: Date, timeValue: string): Date | null {
   return next;
 }
 
-function orderedRange(from: Date, to: Date): AiLogsRange {
+function orderedRange(from: Date, to: Date): InvocationLogsRange {
   return from.getTime() <= to.getTime() ? { from, to } : { from: to, to: from };
 }
 
@@ -153,17 +152,18 @@ function DateTimeEndpoint({ id, label, value, onChange }: DateTimeEndpointProps)
   );
 }
 
-export function AiLogsFilters({
+export function InvocationLogsFilters({
   rangeTab,
   range,
   status,
+  windowForDays,
   onRangeTabChange,
   onRangeChange,
   onStatusChange,
-}: AiLogsFiltersProps) {
-  function applyPreset(days: AiInvocationPresetDays) {
-    onRangeTabChange(String(days) as AiLogsRangeTab);
-    onRangeChange(aiInvocationWindowForDays(days));
+}: InvocationLogsFiltersProps) {
+  function applyPreset(days: InvocationLogsPresetDays) {
+    onRangeTabChange(String(days) as InvocationLogsRangePreset);
+    onRangeChange(windowForDays(days));
   }
 
   function applyFrom(next: Date) {
@@ -188,12 +188,12 @@ export function AiLogsFilters({
               return;
             }
             if (value === '3' || value === '7' || value === '15' || value === '30') {
-              applyPreset(Number(value) as AiInvocationPresetDays);
+              applyPreset(Number(value) as InvocationLogsPresetDays);
             }
           }}
         >
           <AdminSegmentedTabsList aria-label="快捷时间范围">
-            {AI_INVOCATION_PRESET_DAYS.map((days) => (
+            {INVOCATION_LOGS_PRESET_DAYS.map((days) => (
               <AdminSegmentedTabsTrigger key={days} value={String(days)} className="px-3.5">
                 {days} 天
               </AdminSegmentedTabsTrigger>
@@ -206,9 +206,9 @@ export function AiLogsFilters({
 
         {rangeTab === 'custom' ? (
           <div className="flex h-[3.25rem] min-w-0 max-w-2xl flex-1 items-center rounded-xl bg-muted/80 p-1.5">
-            <DateTimeEndpoint id="ai-logs-from-time" label="开始时间" value={range.from} onChange={applyFrom} />
+            <DateTimeEndpoint id="invocation-logs-from-time" label="开始时间" value={range.from} onChange={applyFrom} />
             <span className="shrink-0 px-2 text-sm text-muted-foreground">至</span>
-            <DateTimeEndpoint id="ai-logs-to-time" label="结束时间" value={range.to} onChange={applyTo} />
+            <DateTimeEndpoint id="invocation-logs-to-time" label="结束时间" value={range.to} onChange={applyTo} />
           </div>
         ) : null}
       </div>

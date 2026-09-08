@@ -13,9 +13,9 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Tabs } from '@/components/ui/tabs';
 import { AdminSegmentedTabsList, AdminSegmentedTabsTrigger } from '@/features/admin/admin-segmented-tabs';
-import { AiModelForm, type ModelFormValues } from '@/features/admin/ai-model-form';
-import { AiModelList } from '@/features/admin/ai-model-list';
-import { AiProviderForm, type ProviderFormValues } from '@/features/admin/ai-provider-form';
+import { AiModelForm, type ModelFormValues } from '@/features/admin/ai/ai-model-form';
+import { AiModelList } from '@/features/admin/ai/ai-model-list';
+import { AiProviderForm, type ProviderFormValues } from '@/features/admin/ai/ai-provider-form';
 import { cn } from '@/lib/utils';
 
 export type ProviderTestResult = {

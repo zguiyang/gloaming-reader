@@ -19,7 +19,7 @@ import {
   listTtsVoicePresets,
   putTtsConfig,
   testTts,
-} from '@/features/admin/tts-config-api';
+} from '@/features/admin/tts/tts-config-api';
 
 type TestRoleValue = 'default' | TtsVoiceRole;
 

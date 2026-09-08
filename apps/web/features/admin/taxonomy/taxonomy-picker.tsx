@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
-import { useTaxonomyQuery } from '@/features/admin/taxonomy-api';
+import { useTaxonomyQuery } from '@/features/admin/taxonomy/taxonomy-api';
 import { cn } from '@/lib/utils';
 
 function OptionRow({ item, selected, onSelect }: { item: TaxonomyItem; selected: boolean; onSelect: () => void }) {

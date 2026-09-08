@@ -25,8 +25,8 @@ import {
 } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { adminLlmQueryKey, listLlmProviders } from '@/features/admin/ai-config-api';
-import { AiLogDetailSheet } from '@/features/admin/ai-log-detail-sheet';
+import { adminLlmQueryKey, listLlmProviders } from '@/features/admin/ai/ai-config-api';
+import { AiLogDetailSheet } from '@/features/admin/ai/ai-log-detail-sheet';
 import {
   adminAiLogsQueryKey,
   type AdminInvocationListParams,
@@ -34,14 +34,14 @@ import {
   formatAdminAiLogsApiError,
   getAdminInvocationStats,
   listAdminInvocations,
-} from '@/features/admin/ai-logs-api';
+} from '@/features/admin/ai/ai-logs-api';
+import { AiProviderBalanceCards } from '@/features/admin/ai/ai-provider-balance-cards';
 import {
-  AiLogsFilters,
-  type AiLogsRange,
-  type AiLogsRangeTab,
-  type AiLogsStatusFilter,
-} from '@/features/admin/ai-logs-filters';
-import { AiProviderBalanceCards } from '@/features/admin/ai-provider-balance-cards';
+  InvocationLogsFilters,
+  type InvocationLogsRange,
+  type InvocationLogsRangePreset,
+  type InvocationLogsStatusFilter,
+} from '@/features/admin/invocation-logs-filters';
 import { usePaginatedQuery } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
@@ -170,9 +170,9 @@ function StatsRow({ stats }: { stats: AiInvocationStats }) {
 export function AiLogsPage() {
   const [page, setPage] = useState<number>(DEFAULT_PAGE);
   const [selected, setSelected] = useState<AiInvocationLog | null>(null);
-  const [rangeTab, setRangeTab] = useState<AiLogsRangeTab>('30');
-  const [range, setRange] = useState<AiLogsRange>(() => aiInvocationWindowForDays(30));
-  const [status, setStatus] = useState<AiLogsStatusFilter>('all');
+  const [rangeTab, setRangeTab] = useState<InvocationLogsRangePreset>('30');
+  const [range, setRange] = useState<InvocationLogsRange>(() => aiInvocationWindowForDays(30));
+  const [status, setStatus] = useState<InvocationLogsStatusFilter>('all');
 
   const listParams: AdminInvocationListParams = {
     page,
@@ -229,10 +229,11 @@ export function AiLogsPage() {
         ) : null}
 
         <div className="flex flex-col gap-5">
-          <AiLogsFilters
+          <InvocationLogsFilters
             rangeTab={rangeTab}
             range={range}
             status={status}
+            windowForDays={aiInvocationWindowForDays}
             onRangeTabChange={(tab) => {
               setRangeTab(tab);
               setPage(DEFAULT_PAGE);

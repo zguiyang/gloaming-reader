@@ -8,7 +8,7 @@ import type { LlmProvider, ProviderBalanceResult } from '@gloaming/shared/llm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { queryLlmProviderBalance } from '@/features/admin/ai-config-api';
+import { queryLlmProviderBalance } from '@/features/admin/ai/ai-config-api';
 
 function formatBalance(result: ProviderBalanceResult): string {
   if (!result.supported) {

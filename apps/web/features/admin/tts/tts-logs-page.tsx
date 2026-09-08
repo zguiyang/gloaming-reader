@@ -25,11 +25,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  AiLogsFilters,
-  type AiLogsRange,
-  type AiLogsRangeTab,
-  type AiLogsStatusFilter,
-} from '@/features/admin/ai-logs-filters';
+  InvocationLogsFilters,
+  type InvocationLogsRange,
+  type InvocationLogsRangePreset,
+  type InvocationLogsStatusFilter,
+} from '@/features/admin/invocation-logs-filters';
 import {
   type AdminTtsInvocationListParams,
   type AdminTtsInvocationListResult,
@@ -37,7 +37,7 @@ import {
   formatAdminTtsLogsApiError,
   getAdminTtsInvocationStats,
   listAdminTtsInvocations,
-} from '@/features/admin/tts-logs-api';
+} from '@/features/admin/tts/tts-logs-api';
 import { usePaginatedQuery } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
@@ -158,9 +158,9 @@ function StatsRow({ stats }: { stats: TtsInvocationStats }) {
 
 export function TtsLogsPage() {
   const [page, setPage] = useState<number>(DEFAULT_PAGE);
-  const [rangeTab, setRangeTab] = useState<AiLogsRangeTab>('30');
-  const [range, setRange] = useState<AiLogsRange>(() => ttsInvocationWindowForDays(30));
-  const [status, setStatus] = useState<AiLogsStatusFilter>('all');
+  const [rangeTab, setRangeTab] = useState<InvocationLogsRangePreset>('30');
+  const [range, setRange] = useState<InvocationLogsRange>(() => ttsInvocationWindowForDays(30));
+  const [status, setStatus] = useState<InvocationLogsStatusFilter>('all');
 
   const listParams: AdminTtsInvocationListParams = {
     page,
@@ -208,10 +208,11 @@ export function TtsLogsPage() {
         ) : null}
 
         <div className="flex flex-col gap-5">
-          <AiLogsFilters
+          <InvocationLogsFilters
             rangeTab={rangeTab}
             range={range}
             status={status}
+            windowForDays={ttsInvocationWindowForDays}
             onRangeTabChange={(tab) => {
               setRangeTab(tab);
               setPage(DEFAULT_PAGE);

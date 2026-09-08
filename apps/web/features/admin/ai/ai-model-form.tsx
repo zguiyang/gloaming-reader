@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
-import { fetchLlmProviderModels, formatAdminLlmApiError } from '@/features/admin/ai-config-api';
+import { fetchLlmProviderModels, formatAdminLlmApiError } from '@/features/admin/ai/ai-config-api';
 
 export type ModelFormValues = {
   modelId: string;

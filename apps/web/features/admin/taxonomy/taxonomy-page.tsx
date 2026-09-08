@@ -24,7 +24,7 @@ import {
   useDeleteTaxonomy,
   useTaxonomyQuery,
   useUpdateTaxonomy,
-} from '@/features/admin/taxonomy-api';
+} from '@/features/admin/taxonomy/taxonomy-api';
 import { cn } from '@/lib/utils';
 
 const KIND_TABS: { value: TaxonomyKind; label: string }[] = [

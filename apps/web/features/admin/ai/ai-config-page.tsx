@@ -34,11 +34,11 @@ import {
   testLlmProvider,
   updateLlmModel,
   updateLlmProvider,
-} from '@/features/admin/ai-config-api';
-import type { ModelFormValues } from '@/features/admin/ai-model-form';
-import type { ProviderFormValues } from '@/features/admin/ai-provider-form';
-import { AiProviderWorkspace, type ProviderTestResult } from '@/features/admin/ai-provider-workspace';
-import { AiPurposePanel } from '@/features/admin/ai-purpose-panel';
+} from '@/features/admin/ai/ai-config-api';
+import type { ModelFormValues } from '@/features/admin/ai/ai-model-form';
+import type { ProviderFormValues } from '@/features/admin/ai/ai-provider-form';
+import { AiProviderWorkspace, type ProviderTestResult } from '@/features/admin/ai/ai-provider-workspace';
+import { AiPurposePanel } from '@/features/admin/ai/ai-purpose-panel';
 
 type DeleteTarget = { kind: 'provider'; provider: LlmProvider } | { kind: 'model'; model: LlmModel } | null;
 

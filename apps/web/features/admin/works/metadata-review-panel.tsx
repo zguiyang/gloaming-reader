@@ -16,7 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { ADMIN_ROUTES } from '@/constants';
-import { TaxonomyMultiPicker, TaxonomySelect } from '@/features/admin/taxonomy-picker';
+import { TaxonomyMultiPicker, TaxonomySelect } from '@/features/admin/taxonomy/taxonomy-picker';
 import {
   formatWorksApiError,
   retryAdminWorkflow,
