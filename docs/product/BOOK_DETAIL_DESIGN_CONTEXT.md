@@ -218,13 +218,13 @@ Short-article era (`ARTICLE_BODY_MAX_WORDS`, level bands) is **archived product*
 
 **Current learner routes (Phase 3A):** `features/shelf/**`, `discover/**`, `book-detail/**`, `reader/**`, `history/**`; admin **`works-*`** also contains the implemented EPUB workflow.
 
-| Area          | Path                                                                   |
-| ------------- | ---------------------------------------------------------------------- |
-| Shelf         | `features/shelf/**` → `/my-shelf`                                      |
-| Discover      | `features/discover/**` → `/discover` (lists **ReadingWork**)           |
-| Book detail   | `features/book-detail/**` → `/discover/[workId]`                       |
-| Reader        | `features/reader/**` → `/read/[workId]` (renders **ReadingPart**)      |
-| History       | `features/history/**` → `/reading-history` (completions by **workId**) |
+| Area          | Path                                                                       |
+| ------------- | -------------------------------------------------------------------------- |
+| Shelf         | `features/shelf/**` → `/my-shelf`                                          |
+| Discover      | `features/discover/**` → `/discover` (lists **ReadingWork**)               |
+| Book detail   | `features/book-detail/**` → `/discover/[workId]`                           |
+| Reader        | `features/reader/**` → `/read/[workId]` (renders **ReadingPart**)          |
+| History       | `features/history/**` → `/reading-history` (completions by **workId**)     |
 | Admin catalog | `features/admin/works-*`; EPUB upload + processing workflow is implemented |
 
 **Removed (do not reference):** `features/dashboard/**`, `features/library/**`, `features/learn/**`, `/progress`, `/dashboard`.
@@ -424,21 +424,21 @@ Constraints for any Stitch / prototype pass (facts + Locked rules — still **no
 
 ## Source index
 
-| Kind                         | Path                                                                                                        |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Vision / principles          | `docs/product/product-vision.md`, `product-principles.md`                                                   |
-| MVP capabilities             | `docs/product/mvp-scope.md`                                                                                 |
-| Module IA (Locked)           | `docs/product/mvp-1-modules.md`                                                                             |
-| Nav journeys (Locked)        | `docs/product/prototype-flows.md`                                                                           |
-| Content / fields intent      | `docs/product/content-strategy.md`                                                                          |
-| Code vs product              | `docs/product/feature-audit.md`                                                                             |
-| Guardrails                   | `docs/product/design-guardrails.md`                                                                         |
-| Roadmap                      | `docs/product/roadmap.md`                                                                                   |
-| Visual SSOT                  | `DESIGN.md`, `apps/web/app/globals.css`                                                                     |
-| Domain SSOT                  | `docs/adr/001-reading-content-domain-model.md`, `docs/product/engineering-vocabulary.md`                    |
-| Schema / domain              | `packages/db/src/schema.ts`; `docs/adr/001-reading-content-domain-model.md` — `ReadingWork`, `ReadingPart`, `ReadingState`, `ContentAsset` |
-| Shared DTOs                  | `packages/shared/src/api/works.ts`, reader, shelf, content-assets — current Work/Part/State/asset contracts     |
-| Shelf / Discover / Reader UI | `apps/web/features/shelf/**`, `discover/**`, `book-detail/**`, `reader/**`                                  |
+| Kind                         | Path                                                                                                                                                                                                                                                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vision / principles          | `docs/product/product-vision.md`, `product-principles.md`                                                                                                                                                                                                                                          |
+| MVP capabilities             | `docs/product/mvp-scope.md`                                                                                                                                                                                                                                                                        |
+| Module IA (Locked)           | `docs/product/mvp-1-modules.md`                                                                                                                                                                                                                                                                    |
+| Nav journeys (Locked)        | `docs/product/prototype-flows.md`                                                                                                                                                                                                                                                                  |
+| Content / fields intent      | `docs/product/content-strategy.md`                                                                                                                                                                                                                                                                 |
+| Code vs product              | `docs/product/feature-audit.md`                                                                                                                                                                                                                                                                    |
+| Guardrails                   | `docs/product/design-guardrails.md`                                                                                                                                                                                                                                                                |
+| Roadmap                      | `docs/product/roadmap.md`                                                                                                                                                                                                                                                                          |
+| Visual SSOT                  | `DESIGN.md`, `apps/web/app/globals.css`                                                                                                                                                                                                                                                            |
+| Domain SSOT                  | `docs/adr/001-reading-content-domain-model.md`, `docs/product/engineering-vocabulary.md`                                                                                                                                                                                                           |
+| Schema / domain              | `packages/db/src/schema.ts`; `docs/adr/001-reading-content-domain-model.md` — `ReadingWork`, `ReadingPart`, `ReadingState`, `ContentAsset`                                                                                                                                                         |
+| Shared DTOs                  | `packages/shared/src/api/works.ts`, reader, shelf, content-assets — current Work/Part/State/asset contracts                                                                                                                                                                                        |
+| Shelf / Discover / Reader UI | `apps/web/features/shelf/**`, `discover/**`, `book-detail/**`, `reader/**`                                                                                                                                                                                                                         |
 | Admin EPUB workflow          | `apps/backend/src/modules/works/route.ts`, `apps/web/features/admin/works-api.ts`, `apps/backend/src/modules/epub-ingest/epub.ts`, `apps/backend/src/modules/content-parser/service.ts`, `apps/backend/src/modules/metadata-fill/service.ts`, `apps/backend/src/modules/content-assets/service.ts` |
-| Workflow status / jobs       | `packages/shared/src/api/works.ts`, `apps/backend/src/lib/workflow.ts`, `apps/backend/src/jobs/content-parse.ts`, `apps/backend/src/jobs/work-metadata-fill.ts` |
-| TextStack reference          | https://github.com/mrviduus/textstack (`BookDetailPage`, `BookDetailHero`, `BookDetail` type)               |
+| Workflow status / jobs       | `packages/shared/src/api/works.ts`, `apps/backend/src/lib/workflow.ts`, `apps/backend/src/jobs/content-parse.ts`, `apps/backend/src/jobs/work-metadata-fill.ts`                                                                                                                                    |
+| TextStack reference          | https://github.com/mrviduus/textstack (`BookDetailPage`, `BookDetailHero`, `BookDetail` type)                                                                                                                                                                                                      |
