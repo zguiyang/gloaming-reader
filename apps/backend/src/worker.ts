@@ -11,6 +11,7 @@ import {
 import type { PingJobData } from '@/jobs/ping';
 import { JOB_PING, processPing } from '@/jobs/ping';
 import { JOB_METADATA_FILL, processWorkMetadataFill, type WorkMetadataFillJobData } from '@/jobs/work-metadata-fill';
+import { env } from '@/lib/env';
 import { workerLogger } from '@/lib/logger';
 import { closeQueue, getQueueConnection, QUEUE_NAME } from '@/lib/queue';
 
@@ -46,7 +47,7 @@ async function main(): Promise<void> {
     workerLogger.error({ err }, 'Worker error');
   });
 
-  workerLogger.info({ queue: QUEUE_NAME }, 'Worker listening');
+  workerLogger.info({ queue: QUEUE_NAME, nodeEnv: env.NODE_ENV }, 'Worker listening');
 
   let shuttingDown = false;
   const shutdown = async (signal: string) => {

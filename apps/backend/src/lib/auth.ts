@@ -18,7 +18,7 @@ import { buildVerificationUrl, logDevAuthLink } from '@/lib/auth-mail';
 import { env } from '@/lib/env';
 import { authLogger } from '@/lib/logger';
 
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+const resend = new Resend(env.RESEND_API_KEY);
 
 const DICEBEAR_STYLES = ['lorelei', 'adventurer', 'big-smile', 'croodles', 'personas', 'avataaars'] as const;
 
@@ -28,11 +28,6 @@ function diceBearAvatarUrl(seed: string): string {
 }
 
 async function sendMail(input: { to: string; subject: string; text: string }): Promise<void> {
-  if (!resend) {
-    authLogger.warn({ to: input.to, subject: input.subject }, 'RESEND_API_KEY unset; email not sent');
-    return;
-  }
-
   const { error } = await resend.emails.send({
     from: `${env.MAIL_FROM_NAME} <${env.MAIL_FROM_ADDRESS}>`,
     to: input.to,
