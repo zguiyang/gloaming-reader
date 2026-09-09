@@ -38,15 +38,11 @@ export async function getReaderPart(partId: string, init?: { signal?: AbortSigna
 }
 
 export async function getReadingState(workId: string, init?: { signal?: AbortSignal }): Promise<ReadingState | null> {
-  try {
-    const data = await apiRequest(`/api/reader/works/${encodeURIComponent(workId)}/state`, {
-      schema: readingStateDataSchema,
-      signal: init?.signal,
-    });
-    return data.state;
-  } catch {
-    return null;
-  }
+  const data = await apiRequest(`/api/reader/works/${encodeURIComponent(workId)}/state`, {
+    schema: readingStateDataSchema,
+    signal: init?.signal,
+  });
+  return data.state;
 }
 
 export async function getReaderAudioTrack(partId: string, role: 'us' | 'uk', init?: { signal?: AbortSignal }) {

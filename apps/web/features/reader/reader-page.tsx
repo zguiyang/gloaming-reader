@@ -142,7 +142,12 @@ export function ReaderPage({ workId }: ReaderPageProps) {
 
   useEffect(() => {
     if (!partsData || bootstrapStartedRef.current) return;
-    if (isAuthenticated && stateQuery.isPending) return;
+    if (isAuthenticated) {
+      // Wait for a settled reading-state result. Real fetch/schema/auth errors
+      // must not be treated as "no state" and must not trigger first-open.
+      if (stateQuery.isPending) return;
+      if (stateQuery.isError) return;
+    }
 
     bootstrapStartedRef.current = true;
     const partId = resolvePartId(partsData.parts, stateData, preferredPartId);
@@ -174,7 +179,16 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         setActivePartId(partId);
       }
     })();
-  }, [partsData, stateData, stateQuery.isPending, isAuthenticated, preferredPartId, refetchState, stateMutation]);
+  }, [
+    partsData,
+    stateData,
+    stateQuery.isPending,
+    stateQuery.isError,
+    isAuthenticated,
+    preferredPartId,
+    refetchState,
+    stateMutation,
+  ]);
 
   useEffect(() => {
     if (!partsData || !activePartId) return;
@@ -359,10 +373,12 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     }
   }
 
+  const isWaitingForReadingStateBootstrap =
+    isAuthenticated && !stateQuery.isError && (stateQuery.isPending || (Boolean(partsData) && activePartId === null));
+
+  // Disabled part queries stay isPending in TanStack Query v5; only wait when a part is selected.
   const isLoading =
-    partsQuery.isPending ||
-    partQuery.isPending ||
-    (isAuthenticated && (stateQuery.isPending || (Boolean(partsData) && activePartId === null)));
+    partsQuery.isPending || (Boolean(activePartId) && partQuery.isPending) || isWaitingForReadingStateBootstrap;
 
   if (isLoading) {
     return (
@@ -372,7 +388,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     );
   }
 
-  if (partsQuery.isError || partQuery.isError || !reader) {
+  if (partsQuery.isError || partQuery.isError || stateQuery.isError || !reader) {
     return (
       <ReaderUnavailable
         onRetry={() => {
@@ -385,7 +401,9 @@ export function ReaderPage({ workId }: ReaderPageProps) {
             ? formatReaderApiError(partsQuery.error)
             : partQuery.error
               ? formatReaderApiError(partQuery.error)
-              : undefined
+              : stateQuery.error
+                ? formatReaderApiError(stateQuery.error)
+                : undefined
         }
       />
     );
