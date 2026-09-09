@@ -11,12 +11,6 @@ export const dictionaryProviderValues = [
 ] as const;
 export type DictionaryProviderType = (typeof dictionaryProviderValues)[number];
 
-export const DICTIONARY_PROVIDER_LABELS: Record<string, string> = {
-  [DICTIONARY_PROVIDER_YOUDAO]: '有道词典开放接口（中文释义 + 英美发音 · 国内极速推荐）',
-  [DICTIONARY_PROVIDER_FREE]: 'Free Dictionary API（英文骨架 · 海外直连/需代理）',
-  [DICTIONARY_PROVIDER_CUSTOM]: '自定义 REST 兼容接口',
-};
-
 export const DEFAULT_DICTIONARY_CONFIG = {
   provider: DICTIONARY_PROVIDER_YOUDAO,
   isEnabled: true,

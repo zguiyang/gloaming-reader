@@ -1,10 +1,15 @@
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { dictionaryConfig as dictionaryConfigTable, user as userTable } from '@gloaming/db';
+import {
+  dictionaryConfig as dictionaryConfigTable,
+  dictionaryEntry as dictionaryEntryTable,
+  user as userTable,
+} from '@gloaming/db';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import {
   DICTIONARY_PROVIDER_FREE,
+  DICTIONARY_PROVIDER_YOUDAO,
   type DictionaryConfigView,
   type TestDictionaryResult,
 } from '@gloaming/shared/dictionary';
@@ -12,6 +17,7 @@ import {
 import app from '@/app';
 import { db } from '@/db';
 import * as redisLib from '@/lib/redis';
+import { YoudaoDictionaryProvider } from '@/modules/dictionary/providers/youdao-dictionary';
 import { DICTIONARY_CONFIG_ID } from '@/modules/dictionary/service';
 
 const password = 'password123';
@@ -103,6 +109,73 @@ async function restorePriorConfig(): Promise<void> {
   }
 }
 
+const createdLookupWords: string[] = [];
+
+function trackLookupWord(word: string): string {
+  const clean = word.trim().toLowerCase();
+  createdLookupWords.push(clean);
+  return clean;
+}
+
+async function cleanupCreatedLookupWords(): Promise<void> {
+  const words = [...new Set(createdLookupWords)];
+  createdLookupWords.length = 0;
+  for (const word of words) {
+    await db.delete(dictionaryEntryTable).where(eq(dictionaryEntryTable.word, word));
+  }
+}
+
+function requestUrl(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
+function isFreeDictionaryUrl(url: string): boolean {
+  return url.includes('dictionaryapi.dev') || url.includes('/entries/en/');
+}
+
+function isYoudaoDictionaryUrl(url: string): boolean {
+  return url.includes('dict.youdao.com') || url.includes('/jsonapi');
+}
+
+function youdaoSuccessPayload(word: string) {
+  return {
+    ec: {
+      word: [
+        {
+          usphone: 'ˈfɔːlbæk',
+          ukphone: 'ˈfɔːlbæk',
+          trs: [{ tr: [{ l: { i: [`n. fallback gloss for ${word}`] } }] }],
+        },
+      ],
+    },
+    ee: {
+      word: {
+        trs: [{ pos: 'n.', tr: [{ l: { i: `a fallback definition for ${word}` } }] }],
+      },
+    },
+  };
+}
+
+async function putDictionaryProvider(
+  cookie: string,
+  provider: typeof DICTIONARY_PROVIDER_FREE | typeof DICTIONARY_PROVIDER_YOUDAO,
+): Promise<void> {
+  const putRes = await app.request('/api/admin/dictionary/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({
+      provider,
+      isEnabled: true,
+      enableAiEnrichment: false,
+      timeoutMs: 5000,
+      cacheTtlDays: 30,
+    }),
+  });
+  expect(putRes.status).toBe(200);
+}
+
 beforeAll(async () => {
   const rows = await db
     .select()
@@ -112,7 +185,14 @@ beforeAll(async () => {
   priorConfig = rows[0] ?? null;
 });
 
+afterEach(async () => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  await cleanupCreatedLookupWords();
+});
+
 afterAll(async () => {
+  await cleanupCreatedLookupWords();
   await restorePriorConfig();
 });
 
@@ -263,5 +343,129 @@ describe('Dictionary config & lookup API', () => {
     expect(testData.ok).toBe(true);
     expect(testData.entry.word).toBe('serendipity');
     expect(testData.entry.meanings[0]?.definitions[0]?.definitionZh).toContain('意外发现美好事物的运气');
+  });
+
+  it('falls back from Free transient transport failure to Youdao and returns Youdao entry source', async () => {
+    const admin = await createSession('admin');
+    const memory = createMemoryRedis();
+    vi.spyOn(redisLib, 'getRedis').mockReturnValue(memory.client as never);
+    await putDictionaryProvider(admin.cookie, DICTIONARY_PROVIDER_FREE);
+
+    const word = trackLookupWord(`fb_ok_${Date.now().toString(36)}`);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (isFreeDictionaryUrl(url)) {
+        throw new TypeError('fetch failed');
+      }
+      if (isYoudaoDictionaryUrl(url)) {
+        return new Response(JSON.stringify(youdaoSuccessPayload(word)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      throw new Error(`Unexpected fetch URL in fallback success test: ${url}`);
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock as never);
+
+    const testRes = await app.request('/api/admin/dictionary/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      body: JSON.stringify({ word }),
+    });
+    expect(testRes.status).toBe(200);
+    const testData = (await testRes.json()) as TestDictionaryResult;
+    expect(testData.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(testData.entry.source).toBe(DICTIONARY_PROVIDER_YOUDAO);
+    expect(testData.entry.meanings[0]?.definitions[0]?.definitionZh).toContain(`fallback gloss for ${word}`);
+    // Configured primary remains Free; DB persistence uses config.provider (not asserted here).
+    expect(testData.provider).toBe(DICTIONARY_PROVIDER_FREE);
+  });
+
+  it('does not call Youdao fallback when Free returns a payload error', async () => {
+    const admin = await createSession('admin');
+    const memory = createMemoryRedis();
+    vi.spyOn(redisLib, 'getRedis').mockReturnValue(memory.client as never);
+    await putDictionaryProvider(admin.cookie, DICTIONARY_PROVIDER_FREE);
+
+    const word = trackLookupWord(`fb_payload_${Date.now().toString(36)}`);
+    const youdaoLookup = vi.spyOn(YoudaoDictionaryProvider.prototype, 'lookup');
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      expect(isFreeDictionaryUrl(url)).toBe(true);
+      expect(isYoudaoDictionaryUrl(url)).toBe(false);
+      return new Response(JSON.stringify({ not: 'an-array' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock as never);
+
+    const testRes = await app.request('/api/admin/dictionary/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      body: JSON.stringify({ word }),
+    });
+    expect(testRes.status).toBe(400);
+    const body = (await testRes.json()) as { error: string };
+    expect(body.error).toMatch(/malformed response|must be an array/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(youdaoLookup).not.toHaveBeenCalled();
+  });
+
+  it('preserves primary Free error when Youdao fallback also fails', async () => {
+    const admin = await createSession('admin');
+    const memory = createMemoryRedis();
+    vi.spyOn(redisLib, 'getRedis').mockReturnValue(memory.client as never);
+    await putDictionaryProvider(admin.cookie, DICTIONARY_PROVIDER_FREE);
+
+    const word = trackLookupWord(`fb_both_fail_${Date.now().toString(36)}`);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      if (isFreeDictionaryUrl(url) || isYoudaoDictionaryUrl(url)) {
+        throw new TypeError('fetch failed');
+      }
+      throw new Error(`Unexpected fetch URL in fallback failure test: ${url}`);
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock as never);
+
+    const testRes = await app.request('/api/admin/dictionary/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      body: JSON.stringify({ word }),
+    });
+    expect(testRes.status).toBe(502);
+    const body = (await testRes.json()) as { error: string };
+    expect(body.error).toMatch(/Free Dictionary API/i);
+    expect(body.error).toMatch(/fetch failed/i);
+    expect(body.error).not.toMatch(/Youdao Dictionary API/i);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not self-fallback when Youdao is the primary provider', async () => {
+    const admin = await createSession('admin');
+    const memory = createMemoryRedis();
+    vi.spyOn(redisLib, 'getRedis').mockReturnValue(memory.client as never);
+    await putDictionaryProvider(admin.cookie, DICTIONARY_PROVIDER_YOUDAO);
+
+    const word = trackLookupWord(`yd_primary_${Date.now().toString(36)}`);
+    const youdaoLookup = vi.spyOn(YoudaoDictionaryProvider.prototype, 'lookup');
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = requestUrl(input);
+      expect(isYoudaoDictionaryUrl(url)).toBe(true);
+      throw new TypeError('fetch failed');
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock as never);
+
+    const testRes = await app.request('/api/admin/dictionary/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      body: JSON.stringify({ word }),
+    });
+    expect(testRes.status).toBe(502);
+    const body = (await testRes.json()) as { error: string };
+    expect(body.error).toMatch(/Youdao Dictionary API/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(youdaoLookup).toHaveBeenCalledTimes(1);
   });
 });

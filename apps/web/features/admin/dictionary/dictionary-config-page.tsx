@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Volume2 } from 'lucide-react';
+import { TriangleAlert, Volume2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -13,6 +13,7 @@ import {
   type TestDictionaryResult,
 } from '@gloaming/shared/dictionary';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -29,11 +30,52 @@ import {
   testDictionary,
 } from '@/features/admin/dictionary/dictionary-config-api';
 
-const PROVIDER_OPTIONS = [
+const SUPPORTED_PROVIDER_OPTIONS = [
   { value: DICTIONARY_PROVIDER_YOUDAO, label: '有道词典开放接口（中文释义 + 英美发音 · 国内极速推荐）' },
   { value: DICTIONARY_PROVIDER_FREE, label: 'Free Dictionary API（英文骨架 · 海外直连/需代理）' },
-  { value: DICTIONARY_PROVIDER_CUSTOM, label: '自定义 REST 兼容接口' },
-];
+] as const;
+
+const SUPPORTED_PROVIDER_VALUES = new Set<string>(SUPPORTED_PROVIDER_OPTIONS.map((opt) => opt.value));
+
+type ProviderSelectOption = {
+  value: string;
+  label: string;
+  disabled?: boolean;
+};
+
+function providerDisplayName(id: string): string {
+  switch (id) {
+    case DICTIONARY_PROVIDER_YOUDAO:
+      return '有道词典';
+    case DICTIONARY_PROVIDER_FREE:
+      return 'Free Dictionary';
+    case DICTIONARY_PROVIDER_CUSTOM:
+      return '自定义 Provider';
+    default:
+      return id ? `未知「${id}」` : '未知';
+  }
+}
+
+function legacyUnsupportedProviderOption(providerId: string): ProviderSelectOption {
+  if (providerId === DICTIONARY_PROVIDER_CUSTOM) {
+    return {
+      value: DICTIONARY_PROVIDER_CUSTOM,
+      label: '自定义 Provider（暂未实现）',
+      disabled: true,
+    };
+  }
+  return {
+    value: providerId,
+    label: `未知 Provider「${providerId}」（暂未实现）`,
+    disabled: true,
+  };
+}
+
+/** Actual entry source present and different from configured provider → fallback. */
+function isDictionaryTestFallback(result: TestDictionaryResult): boolean {
+  const actual = result.entry.source?.trim() ?? '';
+  return actual.length > 0 && actual !== result.provider;
+}
 
 function playAudioUrl(url: string) {
   const audio = new Audio(url);
@@ -45,7 +87,7 @@ function playAudioUrl(url: string) {
 function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
   const queryClient = useQueryClient();
 
-  const [provider, setProvider] = useState(config.provider || DICTIONARY_PROVIDER_FREE);
+  const [provider, setProvider] = useState(config.provider || DICTIONARY_PROVIDER_YOUDAO);
   const [isEnabled, setIsEnabled] = useState(config.isEnabled);
   const [enableAiEnrichment, setEnableAiEnrichment] = useState(config.enableAiEnrichment);
   const [customEndpoint, setCustomEndpoint] = useState(config.customEndpoint || '');
@@ -58,6 +100,11 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
     'Finding this cozy bookshop on a rainy evening was pure serendipity.',
   );
   const [testResult, setTestResult] = useState<TestDictionaryResult | null>(null);
+
+  const isSupportedProvider = SUPPORTED_PROVIDER_VALUES.has(provider);
+  const providerSelectOptions: ProviderSelectOption[] = isSupportedProvider
+    ? [...SUPPORTED_PROVIDER_OPTIONS]
+    : [...SUPPORTED_PROVIDER_OPTIONS, legacyUnsupportedProviderOption(provider)];
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -88,13 +135,25 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
       }),
     onSuccess: (result) => {
       setTestResult(result);
-      toast.success(`查词成功 · ${result.entry.word} · ${result.latencyMs} ms`);
+      if (isDictionaryTestFallback(result)) {
+        toast.warning(
+          `查词成功（已回退）· ${result.entry.word} · ${result.latencyMs} ms · 实际命中 ${providerDisplayName(result.entry.source?.trim() ?? '')}`,
+        );
+      } else {
+        toast.success(`查词成功 · ${result.entry.word} · ${result.latencyMs} ms`);
+      }
     },
     onError: (error) => {
       setTestResult(null);
       toast.error(formatAdminDictionaryApiError(error));
     },
   });
+
+  const testConfiguredProvider = testResult?.provider ?? '';
+  const testActualSource = testResult?.entry.source?.trim() ?? '';
+  const hasTestUsedFallback =
+    testResult != null && testActualSource.length > 0 && testActualSource !== testConfiguredProvider;
+  const isTestSourceUnknown = testResult != null && testActualSource.length === 0;
 
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto flex w-full max-w-3xl flex-col gap-10">
@@ -123,20 +182,33 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
         <FieldGroup className="gap-5">
           <Field>
             <FieldLabel>服务提供商 (Provider)</FieldLabel>
-            <Select items={PROVIDER_OPTIONS} value={provider} onValueChange={(val) => val && setProvider(val)}>
+            <Select
+              items={providerSelectOptions}
+              value={provider}
+              onValueChange={(val) => {
+                if (val && SUPPORTED_PROVIDER_VALUES.has(val)) {
+                  setProvider(val);
+                }
+              }}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="选择词典服务商" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {PROVIDER_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
+                  {providerSelectOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} disabled={Boolean(opt.disabled)}>
                       {opt.label}
                     </SelectItem>
                   ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
+            {!isSupportedProvider ? (
+              <p className="mt-2 text-sm text-destructive">
+                当前 Provider「{provider}」尚未实现。请切换到有道或 Free Dictionary 后再保存。
+              </p>
+            ) : null}
           </Field>
 
           <div className="flex items-center justify-between rounded-xl border border-border/60 bg-surface-container-lowest p-4">
@@ -207,7 +279,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
             <Button
               type="button"
               className="rounded-full px-6"
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || !isSupportedProvider}
               onClick={() => saveMutation.mutate()}
             >
               {saveMutation.isPending ? '保存中...' : '保存配置'}
@@ -262,16 +334,34 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
           {testResult ? (
             <div className="mt-6 rounded-xl border border-border/80 bg-surface-container-lowest p-5 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <span className="font-heading text-xl font-bold text-foreground">{testResult.entry.word}</span>
                   <Badge variant="secondary" className="text-xs">
-                    {testResult.provider}
+                    {providerDisplayName(testConfiguredProvider)}
                   </Badge>
+                  {isTestSourceUnknown ? <span className="text-xs text-muted-foreground">实际来源未知</span> : null}
+                  {hasTestUsedFallback ? (
+                    <Badge variant="outline" className="text-xs text-amber-700 dark:text-amber-400">
+                      实际：{providerDisplayName(testActualSource)}
+                    </Badge>
+                  ) : null}
                 </div>
                 <span className="text-xs text-muted-foreground">
                   耗时: <strong className="text-foreground">{testResult.latencyMs} ms</strong>
                 </span>
               </div>
+
+              {hasTestUsedFallback ? (
+                <Alert className="border-amber-500/40 bg-amber-500/5 text-foreground">
+                  <TriangleAlert className="text-amber-600 dark:text-amber-400" />
+                  <AlertTitle>已使用备用 Provider</AlertTitle>
+                  <AlertDescription className="space-y-1 text-foreground/90">
+                    <p>配置 Provider：{providerDisplayName(testConfiguredProvider)}</p>
+                    <p>实际命中：{providerDisplayName(testActualSource)}</p>
+                    <p>当前 Provider 请求失败，已使用备用 Provider。</p>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
 
               {/* Phonetics & Audio */}
               {testResult.entry.phonetics.length > 0 ? (

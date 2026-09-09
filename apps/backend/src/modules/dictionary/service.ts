@@ -29,6 +29,7 @@ import { decryptApiKey, encryptApiKey, maskApiKey } from '@/lib/llm';
 import { rootLogger } from '@/lib/logger';
 import { getRedis } from '@/lib/redis';
 import { invokeAi } from '@/modules/ai/service';
+import { isTransientDictionaryProviderFailure } from '@/modules/dictionary/provider-errors';
 import { FreeDictionaryProvider } from '@/modules/dictionary/providers/free-dictionary';
 import { YoudaoDictionaryProvider } from '@/modules/dictionary/providers/youdao-dictionary';
 import type { DictionaryProvider, RawProviderResult } from '@/modules/dictionary/types';
@@ -57,7 +58,7 @@ const providerRegistry = new Map<string, DictionaryProvider>([
 export function getDictionaryProvider(providerId: string): DictionaryProvider {
   const provider = providerRegistry.get(providerId);
   if (!provider) {
-    return youdaoDictionaryProvider;
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, `词典 Provider「${providerId}」尚未实现或不支持`);
   }
   return provider;
 }
@@ -133,6 +134,11 @@ export async function getDictionaryConfig(): Promise<DictionaryConfigView> {
 }
 
 export async function putDictionaryConfig(body: PutDictionaryConfigBody): Promise<DictionaryConfigView> {
+  const providerId = body.provider.trim();
+  if (!providerRegistry.has(providerId)) {
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, `词典 Provider「${providerId}」尚未实现或不支持，无法保存`);
+  }
+
   const existing = await loadConfigRow();
 
   let apiKeyCiphertext: string | null = null;
@@ -144,7 +150,7 @@ export async function putDictionaryConfig(body: PutDictionaryConfigBody): Promis
 
   const values = {
     id: DICTIONARY_CONFIG_ID,
-    provider: body.provider.trim(),
+    provider: providerId,
     isEnabled: body.isEnabled,
     enableAiEnrichment: body.enableAiEnrichment,
     customEndpoint: body.customEndpoint?.trim() || null,
@@ -376,21 +382,27 @@ export async function lookupWord(options: LookupWordOptions): Promise<Dictionary
       timeoutMs: config.timeoutMs,
     });
   } catch (providerError) {
+    const shouldTryFallback =
+      config.provider !== DICTIONARY_PROVIDER_YOUDAO && isTransientDictionaryProviderFailure(providerError);
+
+    if (!shouldTryFallback) {
+      logger.warn(
+        { err: providerError, provider: config.provider, word: cleanWord },
+        'Primary dictionary provider failed; not attempting fallback',
+      );
+      throw providerError;
+    }
+
     logger.warn(
       { err: providerError, provider: config.provider, word: cleanWord },
       'Primary dictionary provider failed; trying fallback provider',
     );
-    // If primary provider was not Youdao, try Youdao as fallback to avoid 504 timeouts
-    if (config.provider !== DICTIONARY_PROVIDER_YOUDAO) {
-      try {
-        providerResult = await youdaoDictionaryProvider.lookup(cleanWord, {
-          timeoutMs: config.timeoutMs,
-        });
-      } catch (fallbackError) {
-        logger.error({ err: fallbackError, word: cleanWord }, 'Fallback dictionary provider also failed');
-        throw providerError;
-      }
-    } else {
+    try {
+      providerResult = await youdaoDictionaryProvider.lookup(cleanWord, {
+        timeoutMs: config.timeoutMs,
+      });
+    } catch (fallbackError) {
+      logger.error({ err: fallbackError, word: cleanWord }, 'Fallback dictionary provider also failed');
       throw providerError;
     }
   }

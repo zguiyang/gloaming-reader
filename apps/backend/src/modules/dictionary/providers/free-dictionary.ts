@@ -5,12 +5,16 @@ import {
   type DictionaryPhonetic,
 } from '@gloaming/shared/dictionary';
 
-import { HTTP_STATUS } from '@/constants';
 import { AppError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
+import {
+  appErrorFromUpstreamDictionaryStatus,
+  rethrowClassifiedDictionaryProviderError,
+} from '@/modules/dictionary/provider-errors';
 import type { DictionaryProvider, ProviderLookupOptions, RawProviderResult } from '@/modules/dictionary/types';
 
 const logger = rootLogger.child({ module: 'FreeDictionaryProvider' });
+const PROVIDER_LABEL = 'Free Dictionary API';
 
 const DEFAULT_API_BASE = 'https://api.dictionaryapi.dev/api/v2/entries/en';
 
@@ -64,6 +68,89 @@ function inferPhoneticRole(phonetic: FreeDictPhonetic): 'us' | 'uk' | 'general' 
   return 'general';
 }
 
+function normalizeFreeDictionaryPayload(raw: unknown, cleanWord: string): RawProviderResult | null {
+  if (!Array.isArray(raw)) {
+    throw new TypeError('Free Dictionary response root must be an array');
+  }
+  if (raw.length === 0) {
+    return null;
+  }
+
+  const first = raw[0];
+  if (first === null || typeof first !== 'object' || Array.isArray(first)) {
+    throw new TypeError('Free Dictionary entry root must be an object');
+  }
+
+  const entry = first as FreeDictEntry;
+  const phonetics: DictionaryPhonetic[] = [];
+
+  // If top-level phonetic text exists, add as fallback general phonetic
+  if (entry.phonetic && (!entry.phonetics || entry.phonetics.length === 0)) {
+    phonetics.push({
+      text: entry.phonetic,
+      role: 'general',
+    });
+  }
+
+  if (entry.phonetics != null) {
+    if (!Array.isArray(entry.phonetics)) {
+      throw new TypeError('Free Dictionary phonetics must be an array');
+    }
+    for (const p of entry.phonetics) {
+      if (p === null || typeof p !== 'object') {
+        throw new TypeError('Free Dictionary phonetic items must be objects');
+      }
+      if (!p.text && !p.audio) continue;
+      phonetics.push({
+        text: p.text || entry.phonetic,
+        audio: normalizeAudioUrl(p.audio),
+        sourceUrl: p.sourceUrl,
+        role: inferPhoneticRole(p),
+      });
+    }
+  }
+
+  if (entry.meanings != null && !Array.isArray(entry.meanings)) {
+    throw new TypeError('Free Dictionary meanings must be an array');
+  }
+
+  const meanings: DictionaryMeaning[] = (entry.meanings || []).map((m) => {
+    if (m === null || typeof m !== 'object') {
+      throw new TypeError('Free Dictionary meaning items must be objects');
+    }
+    if (m.definitions != null && !Array.isArray(m.definitions)) {
+      throw new TypeError('Free Dictionary definitions must be an array');
+    }
+    return {
+      partOfSpeech: m.partOfSpeech || 'unknown',
+      definitions: (m.definitions || []).map((d): DictionaryDefinition => {
+        if (d === null || typeof d !== 'object') {
+          throw new TypeError('Free Dictionary definition items must be objects');
+        }
+        return {
+          definition: d.definition,
+          example: d.example,
+          synonyms: d.synonyms?.length ? d.synonyms : undefined,
+          antonyms: d.antonyms?.length ? d.antonyms : undefined,
+        };
+      }),
+      synonyms: m.synonyms?.length ? m.synonyms : undefined,
+      antonyms: m.antonyms?.length ? m.antonyms : undefined,
+    };
+  });
+
+  return {
+    entry: {
+      word: entry.word || cleanWord,
+      phonetics,
+      meanings,
+      source: DICTIONARY_PROVIDER_FREE,
+      fromCache: false,
+    },
+    rawData: raw,
+  };
+}
+
 export class FreeDictionaryProvider implements DictionaryProvider {
   public readonly id = DICTIONARY_PROVIDER_FREE;
 
@@ -81,87 +168,47 @@ export class FreeDictionaryProvider implements DictionaryProvider {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-          ...(options?.apiKey ? { Authorization: `Bearer ${options.apiKey}` } : {}),
-        },
-      });
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            Accept: 'application/json',
+            ...(options?.apiKey ? { Authorization: `Bearer ${options.apiKey}` } : {}),
+          },
+        });
+      } catch (error) {
+        if (!(error instanceof Error && error.name === 'AbortError')) {
+          logger.error({ err: error, word: cleanWord }, 'Failed to lookup word from Free Dictionary');
+        }
+        rethrowClassifiedDictionaryProviderError(error, {
+          timeoutMs,
+          providerLabel: PROVIDER_LABEL,
+          phase: 'transport',
+        });
+      }
 
       if (response.status === 404) {
         return null;
       }
 
       if (!response.ok) {
-        throw new AppError(
-          HTTP_STATUS.BAD_GATEWAY,
-          `Free Dictionary API returned status ${response.status}: ${response.statusText}`,
-        );
+        throw appErrorFromUpstreamDictionaryStatus(response.status, response.statusText, PROVIDER_LABEL);
       }
 
-      const raw = (await response.json()) as FreeDictEntry[];
-      if (!Array.isArray(raw) || raw.length === 0) {
-        return null;
-      }
-
-      const first = raw[0];
-      const phonetics: DictionaryPhonetic[] = [];
-
-      // If top-level phonetic text exists, add as fallback general phonetic
-      if (first.phonetic && (!first.phonetics || first.phonetics.length === 0)) {
-        phonetics.push({
-          text: first.phonetic,
-          role: 'general',
+      try {
+        const raw: unknown = await response.json();
+        return normalizeFreeDictionaryPayload(raw, cleanWord);
+      } catch (error) {
+        if (!(error instanceof AppError) && !(error instanceof Error && error.name === 'AbortError')) {
+          logger.error({ err: error, word: cleanWord }, 'Failed to lookup word from Free Dictionary');
+        }
+        rethrowClassifiedDictionaryProviderError(error, {
+          timeoutMs,
+          providerLabel: PROVIDER_LABEL,
+          phase: 'payload',
         });
       }
-
-      if (first.phonetics && Array.isArray(first.phonetics)) {
-        for (const p of first.phonetics) {
-          if (!p.text && !p.audio) continue;
-          phonetics.push({
-            text: p.text || first.phonetic,
-            audio: normalizeAudioUrl(p.audio),
-            sourceUrl: p.sourceUrl,
-            role: inferPhoneticRole(p),
-          });
-        }
-      }
-
-      const meanings: DictionaryMeaning[] = (first.meanings || []).map((m) => ({
-        partOfSpeech: m.partOfSpeech || 'unknown',
-        definitions: (m.definitions || []).map((d): DictionaryDefinition => ({
-          definition: d.definition,
-          example: d.example,
-          synonyms: d.synonyms?.length ? d.synonyms : undefined,
-          antonyms: d.antonyms?.length ? d.antonyms : undefined,
-        })),
-        synonyms: m.synonyms?.length ? m.synonyms : undefined,
-        antonyms: m.antonyms?.length ? m.antonyms : undefined,
-      }));
-
-      return {
-        entry: {
-          word: first.word || cleanWord,
-          phonetics,
-          meanings,
-          source: DICTIONARY_PROVIDER_FREE,
-          fromCache: false,
-        },
-        rawData: raw,
-      };
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new AppError(HTTP_STATUS.GATEWAY_TIMEOUT, `Dictionary request timed out after ${timeoutMs}ms`);
-      }
-      logger.error({ err: error, word: cleanWord }, 'Failed to lookup word from Free Dictionary');
-      throw new AppError(
-        HTTP_STATUS.BAD_GATEWAY,
-        `Failed to fetch from Dictionary Provider: ${error instanceof Error ? error.message : String(error)}`,
-      );
     } finally {
       clearTimeout(timer);
     }
