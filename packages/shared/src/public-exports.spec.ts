@@ -6,6 +6,7 @@ import * as works from './works/index.ts';
 
 const ACCEPTED_MODULES = [
   'ai-invocations',
+  'assets',
   'assist',
   'auth',
   'content-assets',
