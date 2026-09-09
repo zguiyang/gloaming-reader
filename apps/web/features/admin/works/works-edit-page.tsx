@@ -61,7 +61,7 @@ const STATUS_LABEL: Record<AdminWorkView['status'], string> = {
   parsed: '待完善原数据',
   metadata: '原数据完善中…',
   tts: '音频生成中…',
-  ready: '已完成',
+  ready: '待发布',
   failed: '处理失败',
   published: '已发布',
 };
