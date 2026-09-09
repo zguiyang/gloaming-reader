@@ -1,6 +1,17 @@
 'use client';
 
-import { ArrowLeft, AudioLines, BookA, FileText, Menu, ScrollText, Sparkles, Tags, Volume2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  AudioLines,
+  BookA,
+  FileText,
+  HardDrive,
+  Menu,
+  ScrollText,
+  Sparkles,
+  Tags,
+  Volume2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useState } from 'react';
@@ -34,6 +45,12 @@ function adminNavItems(pathname: string): AdminNavItem[] {
       label: '作品',
       icon: FileText,
       isActive: pathname.startsWith(ADMIN_ROUTES.works),
+    },
+    {
+      href: ADMIN_ROUTES.assets,
+      label: '资产管理',
+      icon: HardDrive,
+      isActive: pathname === ADMIN_ROUTES.assets || pathname.startsWith(`${ADMIN_ROUTES.assets}/`),
     },
     {
       href: ADMIN_ROUTES.ai,
