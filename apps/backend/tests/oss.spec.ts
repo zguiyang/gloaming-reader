@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto';
 
-import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import { describe, expect, it, vi } from 'vitest';
 
-import { type Env, env, isR2ObjectStorageConfigured } from '@/lib/env';
+import { type Env, env, isS3ObjectStorageConfigured } from '@/lib/env';
 import { AppError } from '@/lib/errors';
-import { createObjectStoreFromEnv, createR2ObjectStore } from '@/lib/oss';
+import { createObjectStoreFromEnv, createS3ObjectStore } from '@/lib/oss';
 import { putObject, resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 
 function baseEnv(overrides: Partial<Env> = {}): Env {
@@ -22,36 +28,37 @@ function baseEnv(overrides: Partial<Env> = {}): Env {
     MAIL_FROM_ADDRESS: 'noreply@example.com',
     MAIL_FROM_NAME: 'Gloaming',
     LLM_CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-    OSS_DRIVER: 'r2',
-    R2_ACCOUNT_ID: 'acct',
-    R2_BUCKET: 'bucket',
-    R2_ACCESS_KEY_ID: 'key',
-    R2_SECRET_ACCESS_KEY: 'secret',
+    S3_ENDPOINT: 'https://s3.example.com',
+    S3_REGION: 'auto',
+    S3_BUCKET: 'bucket',
+    S3_ACCESS_KEY_ID: 'key',
+    S3_SECRET_ACCESS_KEY: 'secret',
+    S3_FORCE_PATH_STYLE: false,
     ...overrides,
   };
 }
 
 describe('createObjectStoreFromEnv', () => {
-  it('returns null when R2 credentials are incomplete', () => {
+  it('returns null when S3 credentials are incomplete', () => {
     expect(
       createObjectStoreFromEnv(
         baseEnv({
-          R2_ACCOUNT_ID: '',
-          R2_BUCKET: '',
-          R2_ACCESS_KEY_ID: '',
-          R2_SECRET_ACCESS_KEY: '',
+          S3_REGION: '',
+          S3_BUCKET: '',
+          S3_ACCESS_KEY_ID: '',
+          S3_SECRET_ACCESS_KEY: '',
         }),
       ),
     ).toBeNull();
   });
 
-  it('builds an R2 store when all R2 credentials are present', () => {
+  it('builds an S3 store when all S3 credentials are present', () => {
     const store = createObjectStoreFromEnv(baseEnv());
     expect(store).not.toBeNull();
   });
 });
 
-describe('createR2ObjectStore', () => {
+describe('createS3ObjectStore', () => {
   it('maps put/get/exists/delete to S3 commands', async () => {
     const send = vi.fn(async (command: unknown) => {
       if (command instanceof PutObjectCommand) {
@@ -71,11 +78,18 @@ describe('createR2ObjectStore', () => {
       if (command instanceof DeleteObjectCommand) {
         return {};
       }
+      if (command instanceof ListObjectsV2Command) {
+        return {
+          Contents: [{ Key: 'a.mp3', Size: 3, ETag: 'etag' }],
+          IsTruncated: false,
+        };
+      }
       throw new Error(`unexpected command ${String(command)}`);
     });
 
-    const store = createR2ObjectStore({
-      accountId: 'acct',
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
       bucket: 'my-bucket',
       accessKeyId: 'key',
       secretAccessKey: 'secret',
@@ -94,6 +108,13 @@ describe('createR2ObjectStore', () => {
 
     await store.delete('a.mp3');
     expect(send.mock.calls[3]?.[0]).toBeInstanceOf(DeleteObjectCommand);
+
+    await expect(store.list('audio/')).resolves.toEqual({
+      objects: [{ key: 'a.mp3', size: 3, lastModified: null, etag: 'etag' }],
+      nextCursor: null,
+      hasMore: false,
+    });
+    expect(send.mock.calls[4]?.[0]).toBeInstanceOf(ListObjectsV2Command);
   });
 
   it('treats missing objects as null / false', async () => {
@@ -102,8 +123,9 @@ describe('createR2ObjectStore', () => {
       (error as { name?: string }).name = 'NoSuchKey';
       throw error;
     });
-    const store = createR2ObjectStore({
-      accountId: 'acct',
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
       bucket: 'my-bucket',
       accessKeyId: 'key',
       secretAccessKey: 'secret',
@@ -126,13 +148,13 @@ describe('oss facade', () => {
 });
 
 /**
- * Live R2 is opt-in: Vitest setup loads developer `.env`, so R2_* may be present
+ * Live S3 is opt-in: Vitest setup loads developer `.env`, so S3_* may be present
  * even when `.env.test` omits them. Default `pnpm test` must not depend on DNS/network
- * to Cloudflare. Set GLOAMING_R2_LIVE_TEST=1 to run the probe.
+ * to the provider. Set GLOAMING_S3_LIVE_TEST=1 to run the probe.
  */
-const runR2LiveConnectivity = process.env.GLOAMING_R2_LIVE_TEST === '1' && isR2ObjectStorageConfigured();
+const runS3LiveConnectivity = process.env.GLOAMING_S3_LIVE_TEST === '1' && isS3ObjectStorageConfigured();
 
-describe.skipIf(!runR2LiveConnectivity)('R2 live connectivity', () => {
+describe.skipIf(!runS3LiveConnectivity)('S3 live connectivity', () => {
   it('puts, reads, and deletes a namespaced probe object', async () => {
     const store = createObjectStoreFromEnv(env);
     expect(store).not.toBeNull();
@@ -141,7 +163,7 @@ describe.skipIf(!runR2LiveConnectivity)('R2 live connectivity', () => {
     }
 
     const key = `gloaming-dev-connectivity/${randomUUID()}.txt`;
-    const body = Buffer.from('gloaming-r2-probe', 'utf8');
+    const body = Buffer.from('gloaming-s3-probe', 'utf8');
     try {
       await store.put({ key, body, contentType: 'text/plain' });
       await expect(store.exists(key)).resolves.toBe(true);

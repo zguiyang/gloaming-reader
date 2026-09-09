@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type Env,
   formatEnvValidationError,
-  isR2ObjectStorageConfigured,
+  isS3ObjectStorageConfigured,
   loadEnvConfig,
   parseEnvConfig,
 } from '@/lib/env';
@@ -22,11 +22,12 @@ function validEnv(overrides: Record<string, string | undefined> = {}): NodeJS.Pr
     MAIL_FROM_ADDRESS: 'noreply@example.com',
     MAIL_FROM_NAME: 'Gloaming',
     LLM_CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
-    OSS_DRIVER: 'r2',
-    R2_ACCOUNT_ID: 'acct',
-    R2_BUCKET: 'bucket',
-    R2_ACCESS_KEY_ID: 'key',
-    R2_SECRET_ACCESS_KEY: 'secret',
+    S3_ENDPOINT: 'https://s3.example.com',
+    S3_REGION: 'auto',
+    S3_BUCKET: 'bucket',
+    S3_ACCESS_KEY_ID: 'key',
+    S3_SECRET_ACCESS_KEY: 'secret',
+    S3_FORCE_PATH_STYLE: 'false',
     ...overrides,
   };
 }
@@ -37,7 +38,7 @@ describe('parseEnvConfig', () => {
     expect(config.FRONTEND_URL).toBe('http://localhost:3000');
     expect(config.DATABASE_URL).toContain('postgresql://');
     expect(config.RESEND_API_KEY).toBe('re_test_key');
-    expect(isR2ObjectStorageConfigured(config)).toBe(true);
+    expect(isS3ObjectStorageConfigured(config)).toBe(true);
   });
 
   it('fails when a required field is missing', () => {
@@ -52,10 +53,10 @@ describe('parseEnvConfig', () => {
     expect(() => parseEnvConfig(env)).toThrow(/RESEND_API_KEY/);
   });
 
-  it('fails when any R2 field is missing', () => {
+  it('fails when any S3 field is missing', () => {
     const env = validEnv();
-    delete env.R2_BUCKET;
-    expect(() => parseEnvConfig(env)).toThrow(/R2_BUCKET/);
+    delete env.S3_BUCKET;
+    expect(() => parseEnvConfig(env)).toThrow(/S3_BUCKET/);
   });
 
   it('fails on invalid URL format', () => {
@@ -71,17 +72,17 @@ describe('parseEnvConfig', () => {
     expect(() => parseEnvConfig(validEnv({ BETTER_AUTH_SECRET: 'short' }))).toThrow(/BETTER_AUTH_SECRET/);
   });
 
-  it('fails when R2 fields are empty strings', () => {
+  it('fails when S3 fields are empty strings', () => {
     expect(() =>
       parseEnvConfig(
         validEnv({
-          R2_ACCOUNT_ID: '',
-          R2_BUCKET: '',
-          R2_ACCESS_KEY_ID: '',
-          R2_SECRET_ACCESS_KEY: '',
+          S3_REGION: '',
+          S3_BUCKET: '',
+          S3_ACCESS_KEY_ID: '',
+          S3_SECRET_ACCESS_KEY: '',
         }),
       ),
-    ).toThrow(/R2_/);
+    ).toThrow(/S3_/);
   });
 
   it('treats empty RESEND_API_KEY as missing', () => {
@@ -122,10 +123,11 @@ describe('parseEnvConfig', () => {
       MAIL_FROM_ADDRESS: expect.any(String),
       MAIL_FROM_NAME: expect.any(String),
       RESEND_API_KEY: expect.any(String),
-      R2_ACCOUNT_ID: expect.any(String),
-      R2_BUCKET: expect.any(String),
-      R2_ACCESS_KEY_ID: expect.any(String),
-      R2_SECRET_ACCESS_KEY: expect.any(String),
+      S3_ENDPOINT: expect.any(String),
+      S3_REGION: expect.any(String),
+      S3_BUCKET: expect.any(String),
+      S3_ACCESS_KEY_ID: expect.any(String),
+      S3_SECRET_ACCESS_KEY: expect.any(String),
     });
   });
 });
