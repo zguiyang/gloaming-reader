@@ -200,10 +200,77 @@ const aiEnrichmentOutputSchema = z.object({
   contextNote: z.string().optional(),
 });
 
-async function enrichEntryWithAi(
+const aiContextOnlyOutputSchema = z.object({
+  contextSentenceZh: z.string().optional(),
+  contextNote: z.string().optional(),
+});
+
+type LookupContext = { sentence?: string; workId?: string; partId?: string; workTitle?: string };
+
+/** Shared Redis/DB must never retain request-scoped contextExamples. */
+export function toGenericDictionaryEntry(entry: DictionaryEntry): DictionaryEntry {
+  const { contextExamples: _ignored, ...rest } = entry;
+  return {
+    ...rest,
+    contextExamples: undefined,
+  };
+}
+
+function applyAiMeaningTranslations(
   entry: DictionaryEntry,
-  context?: { sentence?: string; workId?: string; partId?: string; workTitle?: string },
-): Promise<DictionaryEntry> {
+  aiMeanings: Array<{ partOfSpeech?: string; definitionsZh?: string[] }>,
+): DictionaryMeaning[] {
+  return entry.meanings.map((meaning) => {
+    const matchedAiMeaning = aiMeanings.find(
+      (m) => m?.partOfSpeech?.toLowerCase() === meaning.partOfSpeech.toLowerCase(),
+    );
+    const enrichedDefinitions: DictionaryDefinition[] = meaning.definitions.map((def, idx) => {
+      const zh = matchedAiMeaning?.definitionsZh?.[idx];
+      return {
+        ...def,
+        definitionZh: zh || def.definitionZh,
+      };
+    });
+    return {
+      ...meaning,
+      definitions: enrichedDefinitions,
+    };
+  });
+}
+
+function buildRequestContextExample(
+  context: LookupContext,
+  extras?: { sentenceZh?: string; note?: string },
+): DictionaryContextExample | null {
+  const sentence = context.sentence?.trim();
+  if (!sentence) {
+    return null;
+  }
+  return {
+    sentence,
+    sentenceZh: extras?.sentenceZh,
+    note: extras?.note,
+    workId: context.workId,
+    partId: context.partId,
+    workTitle: context.workTitle,
+  };
+}
+
+function withRequestContextExample(
+  entry: DictionaryEntry,
+  contextExample: DictionaryContextExample | null,
+): DictionaryEntry {
+  if (!contextExample) {
+    return toGenericDictionaryEntry(entry);
+  }
+  return {
+    ...toGenericDictionaryEntry(entry),
+    contextExamples: [contextExample],
+  };
+}
+
+/** Generic meaning enrichment only — safe to persist. */
+async function enrichGenericMeaningsWithAi(entry: DictionaryEntry): Promise<DictionaryEntry> {
   try {
     const promptLines: string[] = [
       `You are an expert English-to-Chinese lexicographer and reading companion.`,
@@ -220,11 +287,55 @@ async function enrichEntryWithAi(
       ),
     ];
 
-    if (context?.sentence?.trim()) {
+    const aiResult = await invokeAi({
+      purpose: 'assist',
+      source: 'dictionary:enrichment',
+      messages: [{ role: 'user', content: promptLines.join('\n') }],
+      outputSchema: aiEnrichmentOutputSchema,
+      timeoutMs: 15000,
+    });
+
+    const aiMeanings = Array.isArray(aiResult.content?.meanings) ? aiResult.content.meanings : [];
+    return {
+      ...toGenericDictionaryEntry(entry),
+      meanings: applyAiMeaningTranslations(entry, aiMeanings),
+    };
+  } catch (error) {
+    logger.warn({ err: error, word: entry.word }, 'AI dictionary enrichment failed; proceeding with base entry');
+    return toGenericDictionaryEntry(entry);
+  }
+}
+
+/**
+ * Fresh provider lookup with optional context: one AI call may enrich meanings and
+ * request-scoped context. Callers must persist only the generic half.
+ */
+async function enrichFreshEntryWithAi(
+  entry: DictionaryEntry,
+  context?: LookupContext,
+): Promise<{ generic: DictionaryEntry; response: DictionaryEntry }> {
+  const hasContext = Boolean(context?.sentence?.trim());
+  try {
+    const promptLines: string[] = [
+      `You are an expert English-to-Chinese lexicographer and reading companion.`,
+      `Provide accurate, natural, and concise Chinese translations for the following dictionary word: "${entry.word}".`,
+      ``,
+      `English meanings:`,
+      JSON.stringify(
+        entry.meanings.map((m) => ({
+          partOfSpeech: m.partOfSpeech,
+          definitions: m.definitions.map((d) => d.definition),
+        })),
+        null,
+        2,
+      ),
+    ];
+
+    if (hasContext && context) {
       promptLines.push(
         ``,
         `Context sentence from the book "${context.workTitle || 'Reading Material'}":`,
-        `"${context.sentence.trim()}"`,
+        `"${context.sentence!.trim()}"`,
         ``,
         `Translate the context sentence into natural Chinese (contextSentenceZh), and provide a brief (1-2 sentences) reading note (contextNote) explaining how "${entry.word}" functions or is nuanced in this context.`,
       );
@@ -240,54 +351,82 @@ async function enrichEntryWithAi(
 
     const parsed = aiResult.content;
     const aiMeanings = Array.isArray(parsed?.meanings) ? parsed.meanings : [];
-    const enrichedMeanings: DictionaryMeaning[] = entry.meanings.map((meaning) => {
-      const matchedAiMeaning = aiMeanings.find(
-        (m) => m?.partOfSpeech?.toLowerCase() === meaning.partOfSpeech.toLowerCase(),
-      );
-      const enrichedDefinitions: DictionaryDefinition[] = meaning.definitions.map((def, idx) => {
-        const zh = matchedAiMeaning?.definitionsZh?.[idx];
-        return {
-          ...def,
-          definitionZh: zh || def.definitionZh,
-        };
-      });
-      return {
-        ...meaning,
-        definitions: enrichedDefinitions,
-      };
-    });
-
-    const contextExamples: DictionaryContextExample[] = [...(entry.contextExamples || [])];
-    if (context?.sentence?.trim()) {
-      contextExamples.unshift({
-        sentence: context.sentence.trim(),
-        sentenceZh: parsed?.contextSentenceZh,
-        note: parsed?.contextNote,
-        workId: context.workId,
-        partId: context.partId,
-        workTitle: context.workTitle,
-      });
-    }
+    const generic: DictionaryEntry = {
+      ...toGenericDictionaryEntry(entry),
+      meanings: applyAiMeaningTranslations(entry, aiMeanings),
+    };
+    const contextExample = hasContext
+      ? buildRequestContextExample(context!, {
+          sentenceZh: parsed?.contextSentenceZh,
+          note: parsed?.contextNote,
+        })
+      : null;
 
     return {
-      ...entry,
-      meanings: enrichedMeanings,
-      contextExamples: contextExamples.length > 0 ? contextExamples : undefined,
+      generic,
+      response: withRequestContextExample(generic, contextExample),
     };
   } catch (error) {
     logger.warn({ err: error, word: entry.word }, 'AI dictionary enrichment failed; proceeding with base entry');
-    // Graceful fallback to raw entry without breaking lookup
-    if (context?.sentence?.trim()) {
-      const contextExamples: DictionaryContextExample[] = [...(entry.contextExamples || [])];
-      contextExamples.unshift({
-        sentence: context.sentence.trim(),
-        workId: context.workId,
-        partId: context.partId,
-        workTitle: context.workTitle,
-      });
-      return { ...entry, contextExamples };
-    }
-    return entry;
+    const generic = toGenericDictionaryEntry(entry);
+    const contextExample = hasContext ? buildRequestContextExample(context!) : null;
+    return {
+      generic,
+      response: withRequestContextExample(generic, contextExample),
+    };
+  }
+}
+
+/** Request-scoped context only — must never be written to shared Redis/DB. */
+async function attachRequestScopedContext(entry: DictionaryEntry, context: LookupContext): Promise<DictionaryEntry> {
+  const generic = toGenericDictionaryEntry(entry);
+  const sentence = context.sentence?.trim();
+  if (!sentence) {
+    return generic;
+  }
+
+  try {
+    const promptLines: string[] = [
+      `You are an expert English-to-Chinese lexicographer and reading companion.`,
+      `Word: "${entry.word}"`,
+      ``,
+      `English meanings:`,
+      JSON.stringify(
+        entry.meanings.map((m) => ({
+          partOfSpeech: m.partOfSpeech,
+          definitions: m.definitions.map((d) => ({
+            definition: d.definition,
+            definitionZh: d.definitionZh,
+          })),
+        })),
+        null,
+        2,
+      ),
+      ``,
+      `Context sentence from the book "${context.workTitle || 'Reading Material'}":`,
+      `"${sentence}"`,
+      ``,
+      `Translate the context sentence into natural Chinese (contextSentenceZh), and provide a brief (1-2 sentences) reading note (contextNote) explaining how "${entry.word}" functions or is nuanced in this context.`,
+    ];
+
+    const aiResult = await invokeAi({
+      purpose: 'assist',
+      source: 'dictionary:context',
+      messages: [{ role: 'user', content: promptLines.join('\n') }],
+      outputSchema: aiContextOnlyOutputSchema,
+      timeoutMs: 15000,
+    });
+
+    return withRequestContextExample(
+      generic,
+      buildRequestContextExample(context, {
+        sentenceZh: aiResult.content?.contextSentenceZh,
+        note: aiResult.content?.contextNote,
+      }),
+    );
+  } catch (error) {
+    logger.warn({ err: error, word: entry.word }, 'AI dictionary context enrichment failed; returning sentence only');
+    return withRequestContextExample(generic, buildRequestContextExample(context));
   }
 }
 
@@ -298,6 +437,93 @@ export type LookupWordOptions = {
   partId?: string;
   bypassCache?: boolean;
 };
+
+async function resolveWorkTitle(workId?: string): Promise<string | undefined> {
+  if (!workId) {
+    return undefined;
+  }
+  try {
+    const [work] = await db
+      .select({ title: readingWork.title })
+      .from(readingWork)
+      .where(eq(readingWork.id, workId))
+      .limit(1);
+    return work?.title;
+  } catch {
+    return undefined;
+  }
+}
+
+async function persistGenericDictionaryEntry(params: {
+  cleanWord: string;
+  genericEntry: DictionaryEntry;
+  providerResult: RawProviderResult;
+  providerId: string;
+  cacheKey: string;
+  cacheTtlSeconds: number;
+}): Promise<void> {
+  const persistable = toGenericDictionaryEntry(params.genericEntry);
+  const entryId = persistable.id || `dict_${randomUUID()}`;
+
+  try {
+    await db
+      .insert(dictionaryEntryTable)
+      .values({
+        id: entryId,
+        word: params.cleanWord,
+        phonetics: persistable.phonetics,
+        meanings: persistable.meanings,
+        // Shared DB stores only generic entries — never request contextExamples.
+        contextExamples: [],
+        rawProviderData: params.providerResult.rawData,
+        source: params.providerId,
+      })
+      .onConflictDoUpdate({
+        target: dictionaryEntryTable.word,
+        set: {
+          phonetics: persistable.phonetics,
+          meanings: persistable.meanings,
+          contextExamples: [],
+          rawProviderData: params.providerResult.rawData,
+          source: params.providerId,
+          updatedAt: new Date(),
+        },
+      });
+  } catch (err) {
+    logger.error({ err, word: params.cleanWord }, 'Failed to persist dictionary entry in DB');
+  }
+
+  try {
+    await getRedis().set(params.cacheKey, JSON.stringify(persistable), 'EX', params.cacheTtlSeconds);
+  } catch (err) {
+    logger.warn({ err, word: params.cleanWord }, 'Redis dictionary cache write failed');
+  }
+}
+
+async function attachContextForResponse(
+  entry: DictionaryEntry,
+  options: LookupWordOptions,
+  config: DictionaryConfigView,
+): Promise<DictionaryEntry> {
+  const sentence = options.contextSentence?.trim();
+  if (!sentence) {
+    return toGenericDictionaryEntry(entry);
+  }
+
+  const workTitle = await resolveWorkTitle(options.workId);
+  const context: LookupContext = {
+    sentence,
+    workId: options.workId,
+    partId: options.partId,
+    workTitle,
+  };
+
+  if (config.enableAiEnrichment) {
+    return attachRequestScopedContext(entry, context);
+  }
+
+  return withRequestContextExample(entry, buildRequestContextExample(context));
+}
 
 export async function lookupWord(options: LookupWordOptions): Promise<DictionaryEntry | null> {
   const cleanWord = options.word.trim().toLowerCase();
@@ -312,54 +538,64 @@ export async function lookupWord(options: LookupWordOptions): Promise<Dictionary
 
   const cacheKey = wordCacheKey(cleanWord);
   const cacheTtlSeconds = (config.cacheTtlDays || 30) * 86400;
+  const hasContext = Boolean(options.contextSentence?.trim());
 
-  // L1: Redis Cache
+  let cachedGeneric: DictionaryEntry | null = null;
+
+  // L1/L2: shared caches hold generic entries only. Always strip historical contextExamples.
   if (!options.bypassCache) {
     try {
       const raw = await getRedis().get(cacheKey);
       if (raw) {
-        const entry = JSON.parse(raw) as DictionaryEntry;
-        return {
-          ...entry,
-          fromCache: true,
-        };
+        const entry = toGenericDictionaryEntry(JSON.parse(raw) as DictionaryEntry);
+        cachedGeneric = { ...entry, fromCache: true };
       }
     } catch (err) {
       logger.warn({ err, word: cleanWord }, 'Redis dictionary cache read failed');
     }
 
-    // L2: PostgreSQL DB Cache
-    try {
-      const [dbEntry] = await db
-        .select()
-        .from(dictionaryEntryTable)
-        .where(eq(dictionaryEntryTable.word, cleanWord))
-        .limit(1);
+    if (!cachedGeneric) {
+      try {
+        const [dbEntry] = await db
+          .select()
+          .from(dictionaryEntryTable)
+          .where(eq(dictionaryEntryTable.word, cleanWord))
+          .limit(1);
 
-      if (dbEntry) {
-        const entry: DictionaryEntry = {
-          id: dbEntry.id,
-          word: dbEntry.word,
-          phonetics: dbEntry.phonetics,
-          meanings: dbEntry.meanings,
-          contextExamples: dbEntry.contextExamples,
-          source: dbEntry.source,
-          fromCache: true,
-          createdAt: dbEntry.createdAt.toISOString(),
-          updatedAt: dbEntry.updatedAt.toISOString(),
-        };
+        if (dbEntry) {
+          const entry = toGenericDictionaryEntry({
+            id: dbEntry.id,
+            word: dbEntry.word,
+            phonetics: dbEntry.phonetics,
+            meanings: dbEntry.meanings,
+            // Drop any legacy contextExamples before promoting to Redis or returning.
+            contextExamples: undefined,
+            source: dbEntry.source,
+            fromCache: true,
+            createdAt: dbEntry.createdAt.toISOString(),
+            updatedAt: dbEntry.updatedAt.toISOString(),
+          });
+          cachedGeneric = entry;
 
-        try {
-          await getRedis().set(cacheKey, JSON.stringify(entry), 'EX', cacheTtlSeconds);
-        } catch (err) {
-          logger.warn({ err, word: cleanWord }, 'Redis dictionary cache write failed');
+          try {
+            await getRedis().set(cacheKey, JSON.stringify(entry), 'EX', cacheTtlSeconds);
+          } catch (err) {
+            logger.warn({ err, word: cleanWord }, 'Redis dictionary cache write failed');
+          }
         }
-
-        return entry;
+      } catch (err) {
+        logger.warn({ err, word: cleanWord }, 'Database dictionary lookup failed');
       }
-    } catch (err) {
-      logger.warn({ err, word: cleanWord }, 'Database dictionary lookup failed');
     }
+  }
+
+  if (cachedGeneric) {
+    if (!hasContext) {
+      return cachedGeneric;
+    }
+    // Context is request-scoped: build on top of the shared generic entry without writing back.
+    const withContext = await attachContextForResponse(cachedGeneric, options, config);
+    return { ...withContext, fromCache: true };
   }
 
   // L3: External Provider Lookup
@@ -411,70 +647,44 @@ export async function lookupWord(options: LookupWordOptions): Promise<Dictionary
     return null;
   }
 
-  let finalEntry: DictionaryEntry = providerResult.entry;
+  const baseGeneric = toGenericDictionaryEntry(providerResult.entry);
+  let genericToPersist = baseGeneric;
+  let responseEntry = baseGeneric;
 
-  // Resolve work title if workId is present
-  let workTitle: string | undefined;
-  if (options.workId) {
-    try {
-      const [work] = await db
-        .select({ title: readingWork.title })
-        .from(readingWork)
-        .where(eq(readingWork.id, options.workId))
-        .limit(1);
-      workTitle = work?.title;
-    } catch {
-      workTitle = undefined;
-    }
-  }
+  const workTitle = await resolveWorkTitle(options.workId);
+  const lookupContext: LookupContext | undefined = hasContext
+    ? {
+        sentence: options.contextSentence,
+        workId: options.workId,
+        partId: options.partId,
+        workTitle,
+      }
+    : undefined;
 
-  // L4: AI Enrichment (if enabled)
+  // L4: AI Enrichment (if enabled). Context examples stay on the response only.
   if (config.enableAiEnrichment) {
-    finalEntry = await enrichEntryWithAi(finalEntry, {
-      sentence: options.contextSentence,
-      workId: options.workId,
-      partId: options.partId,
-      workTitle,
-    });
+    if (hasContext) {
+      const enriched = await enrichFreshEntryWithAi(baseGeneric, lookupContext);
+      genericToPersist = enriched.generic;
+      responseEntry = enriched.response;
+    } else {
+      genericToPersist = await enrichGenericMeaningsWithAi(baseGeneric);
+      responseEntry = genericToPersist;
+    }
+  } else if (hasContext && lookupContext) {
+    responseEntry = withRequestContextExample(baseGeneric, buildRequestContextExample(lookupContext));
   }
 
-  // Persist to L2 (Database)
-  const entryId = `dict_${randomUUID()}`;
-  try {
-    await db
-      .insert(dictionaryEntryTable)
-      .values({
-        id: entryId,
-        word: cleanWord,
-        phonetics: finalEntry.phonetics,
-        meanings: finalEntry.meanings,
-        contextExamples: finalEntry.contextExamples || [],
-        rawProviderData: providerResult.rawData,
-        source: config.provider,
-      })
-      .onConflictDoUpdate({
-        target: dictionaryEntryTable.word,
-        set: {
-          phonetics: finalEntry.phonetics,
-          meanings: finalEntry.meanings,
-          contextExamples: finalEntry.contextExamples || [],
-          rawProviderData: providerResult.rawData,
-          source: config.provider,
-          updatedAt: new Date(),
-        },
-      });
-  } catch (err) {
-    logger.error({ err, word: cleanWord }, 'Failed to persist dictionary entry in DB');
-  }
+  await persistGenericDictionaryEntry({
+    cleanWord,
+    genericEntry: genericToPersist,
+    providerResult,
+    providerId: config.provider,
+    cacheKey,
+    cacheTtlSeconds,
+  });
 
-  // Persist to L1 (Redis)
-  try {
-    await getRedis().set(cacheKey, JSON.stringify(finalEntry), 'EX', cacheTtlSeconds);
-  } catch (err) {
-    logger.warn({ err, word: cleanWord }, 'Redis dictionary cache write failed');
-  }
-
-  return finalEntry;
+  return responseEntry;
 }
 
 export async function testDictionary(body: TestDictionaryBody): Promise<TestDictionaryResult> {

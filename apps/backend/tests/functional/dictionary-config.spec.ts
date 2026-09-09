@@ -280,19 +280,94 @@ describe('Dictionary config & lookup API', () => {
     expect(testData.ok).toBe(true);
     expect(testData.entry.word).toBe('testword');
     expect(testData.entry.meanings[0]?.partOfSpeech).toBe('noun');
+    // Context may appear on the response when AI enrichment is enabled, but must never be cached.
+    const cachedAfterTest = [...memory.store.entries()].find(([key]) => key.includes('gloaming:dictionary:v1:word:'));
+    if (cachedAfterTest) {
+      const cachedEntry = JSON.parse(cachedAfterTest[1]) as { contextExamples?: unknown[] };
+      expect(cachedEntry.contextExamples == null || cachedEntry.contextExamples.length === 0).toBe(true);
+    }
 
     // Guest user lookup without auth cookie
     const guestLookupRes = await app.request('/api/dictionary/lookup?word=testword');
     expect(guestLookupRes.status).toBe(200);
     const guestLookupData = (await guestLookupRes.json()) as {
       ok: boolean;
-      entry: { word: string; fromCache?: boolean };
+      entry: { word: string; fromCache?: boolean; contextExamples?: unknown[] };
     };
     expect(guestLookupData.ok).toBe(true);
     expect(guestLookupData.entry.word).toBe('testword');
     expect(guestLookupData.entry.fromCache).toBe(true);
+    expect(guestLookupData.entry.contextExamples == null || guestLookupData.entry.contextExamples.length === 0).toBe(
+      true,
+    );
   });
 
+  it('keeps lookup context request-scoped across two users for the same word', async () => {
+    const memory = createMemoryRedis();
+    vi.spyOn(redisLib, 'getRedis').mockReturnValue(memory.client as never);
+    const admin = await createSession('admin');
+    await putDictionaryProvider(admin.cookie, DICTIONARY_PROVIDER_FREE);
+
+    const word = trackLookupWord(`ctx_iso_${Date.now().toString(36)}`);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            word,
+            phonetics: [{ text: '/ˈtɛst/' }],
+            meanings: [
+              {
+                partOfSpeech: 'noun',
+                definitions: [{ definition: 'A shared dictionary gloss' }],
+              },
+            ],
+          },
+        ]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    const userA = await app.request(
+      `/api/dictionary/lookup?word=${encodeURIComponent(word)}&contextSentence=${encodeURIComponent('User A private sentence.')}`,
+    );
+    expect(userA.status).toBe(200);
+    const userABody = (await userA.json()) as {
+      ok: boolean;
+      entry: { contextExamples?: Array<{ sentence: string }> };
+    };
+    expect(userABody.ok).toBe(true);
+    expect(userABody.entry.contextExamples?.[0]?.sentence).toBe('User A private sentence.');
+
+    const cached = [...memory.store.entries()].find(([key]) => key.includes(`word:${encodeURIComponent(word)}`));
+    expect(cached).toBeTruthy();
+    const cachedEntry = JSON.parse(cached![1]) as { contextExamples?: unknown[] };
+    expect(cachedEntry.contextExamples == null || cachedEntry.contextExamples.length === 0).toBe(true);
+
+    const [dbRow] = await db
+      .select({ contextExamples: dictionaryEntryTable.contextExamples })
+      .from(dictionaryEntryTable)
+      .where(eq(dictionaryEntryTable.word, word))
+      .limit(1);
+    expect(dbRow).toBeTruthy();
+    expect(dbRow!.contextExamples).toEqual([]);
+
+    const userB = await app.request(
+      `/api/dictionary/lookup?word=${encodeURIComponent(word)}&contextSentence=${encodeURIComponent('User B different sentence.')}`,
+    );
+    expect(userB.status).toBe(200);
+    const userBBody = (await userB.json()) as {
+      ok: boolean;
+      entry: { fromCache?: boolean; contextExamples?: Array<{ sentence: string }> };
+    };
+    expect(userBBody.ok).toBe(true);
+    expect(userBBody.entry.fromCache).toBe(true);
+    expect(userBBody.entry.contextExamples?.[0]?.sentence).toBe('User B different sentence.');
+    expect(userBBody.entry.contextExamples?.[0]?.sentence).not.toBe(userABody.entry.contextExamples?.[0]?.sentence);
+
+    const liveCached = memory.store.get(cached![0]);
+    const liveEntry = JSON.parse(liveCached!) as { contextExamples?: unknown[] };
+    expect(liveEntry.contextExamples == null || liveEntry.contextExamples.length === 0).toBe(true);
+  });
   it('supports Youdao dictionary provider parsing', async () => {
     const admin = await createSession('admin');
     const memory = createMemoryRedis();
