@@ -96,7 +96,7 @@ export const readerWorkSummarySchema = workSchema.pick({
 
 export type ReaderWorkSummary = z.infer<typeof readerWorkSummarySchema>;
 
-/** DB-derived: ready asset for current part content hash — not a live R2 existence check. */
+/** DB-derived: ready asset for current part content hash — not a live object-store existence check. */
 export const readerAudioAvailabilitySchema = z.object({
   us: z.boolean(),
   uk: z.boolean(),

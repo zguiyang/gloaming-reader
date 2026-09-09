@@ -29,12 +29,12 @@ separate `validate:env` command and no `prestart` / `preworker` hook.
 
 ### Notable variable names (values not documented here)
 
-| Area                | Names (see examples)                                                                                            |
-| ------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Backend core        | `DATABASE_URL`, `REDIS_URL`, `FRONTEND_URL`, `BETTER_AUTH_SECRET`, `HOST`, `PORT`                               |
-| Mail (Resend)       | `RESEND_API_KEY` (required), `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`                                              |
-| Object storage (R2) | `OSS_DRIVER`, `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (all four R2_* required) |
-| Web → API           | `API_INTERNAL_URL` (required; Hono origin for Next `/api` rewrites)                                             |
+| Area                           | Names (see examples)                                                                                       |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Backend core                   | `DATABASE_URL`, `REDIS_URL`, `FRONTEND_URL`, `BETTER_AUTH_SECRET`, `HOST`, `PORT`                          |
+| Mail (Resend)                  | `RESEND_API_KEY` (required), `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`                                         |
+| Object storage (S3-compatible) | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` |
+| Web → API                      | `API_INTERNAL_URL` (required; Hono origin for Next `/api` rewrites)                                        |
 
 On the VPS, set backend `HOST=0.0.0.0` and point `DATABASE_URL` / `REDIS_URL` at
 the Compose published ports (local example ports: `5433` / `6380`). Set web
@@ -137,15 +137,15 @@ With an admin session, call `POST /api/admin/jobs/ping`. Expect a successful
 enqueue/response and a matching worker log for the ping job. Failure usually
 means Redis, worker down, or missing admin auth — not “API alone is healthy.”
 
-### 8. Verify Resend, R2, and Redis (real connectivity)
+### 8. Verify Resend, S3-compatible storage, and Redis (real connectivity)
 
 Zod env checks prove **shape**, not live connectivity. Before go-live:
 
-| Dependency | What to verify (no secrets in logs)                                                                                       |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Redis      | Queue ping above succeeds; Redis container/process healthy                                                                |
-| Resend     | Trigger a real transactional path (e.g. email verification or password reset) and confirm delivery                        |
-| R2         | Exercise an upload/read path that persists a content asset or part audio; confirm object appears in the configured bucket |
+| Dependency            | What to verify (no secrets in logs)                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Redis                 | Queue ping above succeeds; Redis container/process healthy                                                                |
+| Resend                | Trigger a real transactional path (e.g. email verification or password reset) and confirm delivery                        |
+| S3-compatible storage | Exercise an upload/read path that persists a content asset or part audio; confirm object appears in the configured bucket |
 
 ### 9. Verify the core reading path
 
@@ -154,7 +154,7 @@ As a signed-in user (admin is fine for this check):
 1. Open or ingest a reading work available in this environment.
 2. Open the reader for a part; content loads.
 3. Confirm dictionary lookup and AI Assist return real results (LLM, not mock).
-4. Confirm audio generation/playback that depends on the worker + R2.
+4. Confirm audio generation/playback that depends on the worker + S3-compatible storage.
 
 Stop and fix failures before inviting the public.
 
