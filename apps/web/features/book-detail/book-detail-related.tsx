@@ -1,8 +1,7 @@
 import Link from 'next/link';
 
 import { AUTH_ROUTES } from '@/constants';
-import type { BookDetail } from '@/features/book-detail/book-detail-model';
-import { formatMinutes } from '@/features/book-detail/book-detail-model';
+import { formatMinutes, type RelatedBookCard } from '@/features/book-detail/book-detail-model';
 import { WorkCover } from '@/features/work-cover';
 import { cn } from '@/lib/utils';
 
@@ -11,7 +10,7 @@ export function BookDetailRelated({
   title = '您可能也会喜欢',
   showDivider = true,
 }: {
-  books: BookDetail[];
+  books: RelatedBookCard[];
   title?: string;
   showDivider?: boolean;
 }) {

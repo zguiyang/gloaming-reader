@@ -37,6 +37,16 @@ export type BookDetail = {
   relatedIds: string[];
 };
 
+/** Display fields for the book-detail related / recommendations rail only. */
+export type RelatedBookCard = {
+  id: string;
+  title: string;
+  tags: string[];
+  coverImageUrl: string | null;
+  difficultyLabel: string | null;
+  estimatedMinutes: number | null;
+};
+
 export function primaryReadLabel(status: BookReadingStatus): string {
   if (status === 'in_progress') {
     return '继续阅读';

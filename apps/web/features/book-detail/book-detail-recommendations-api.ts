@@ -12,11 +12,7 @@ import {
 } from '@gloaming/shared/recommendations';
 import type { Work } from '@gloaming/shared/works';
 
-import {
-  type BookDetail,
-  languageLabelFromCode,
-  teaserFromDescription,
-} from '@/features/book-detail/book-detail-model';
+import { type RelatedBookCard } from '@/features/book-detail/book-detail-model';
 import { apiRequest, formatApiError } from '@/lib/api-request';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 
@@ -44,28 +40,14 @@ export async function fetchRecommendations(
   });
 }
 
-export function workToRecommendationCard(work: Work): BookDetail {
+export function workToRecommendationCard(work: Work): RelatedBookCard {
   return {
     id: work.id,
     title: work.title,
-    author: work.author,
-    difficultyScore: work.difficultyScore,
-    difficultyLabel: work.difficultyScore != null ? difficultyLabelFromScore(work.difficultyScore) : null,
-    category: work.tags[0] ?? '读物',
     tags: work.tags,
-    estimatedMinutes: work.estimatedMinutes,
-    suggestedVocabSize: work.suggestedVocabSize,
-    teaser: teaserFromDescription(work.description),
-    sourceLabel: '官方',
-    languageLabel: languageLabelFromCode(work.language),
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
-    shelfStatus: 'available',
-    readingStatus: 'unread',
-    progressRatio: null,
-    lastReadAt: null,
-    completedAt: null,
-    chapters: [],
-    relatedIds: [],
+    difficultyLabel: work.difficultyScore != null ? difficultyLabelFromScore(work.difficultyScore) : null,
+    estimatedMinutes: work.estimatedMinutes,
   };
 }
 
