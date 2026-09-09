@@ -2,6 +2,7 @@ export {
   deleteObject,
   getObject,
   getObjectStream,
+  listObjects,
   objectExists,
   putObject,
   resetObjectStoreCache,
