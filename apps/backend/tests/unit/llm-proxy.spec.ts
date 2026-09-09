@@ -1,8 +1,19 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildProxiedFetch } from '@/lib/llm/proxy';
 
+/** Clear inherited shell proxy vars so cases assert the intended path only. */
+function clearProxyEnv(): void {
+  for (const key of ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'all_proxy'] as const) {
+    vi.stubEnv(key, '');
+  }
+}
+
 describe('buildProxiedFetch', () => {
+  beforeEach(() => {
+    clearProxyEnv();
+  });
+
   afterEach(() => {
     vi.unstubAllEnvs();
   });

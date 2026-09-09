@@ -18,33 +18,35 @@ function baseEnv(overrides: Partial<Env> = {}): Env {
     BETTER_AUTH_SECRET: 'test-secret-at-least-16',
     DATABASE_URL: 'postgresql://localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
-    RESEND_API_KEY: undefined,
+    RESEND_API_KEY: 're_test_key',
     MAIL_FROM_ADDRESS: 'noreply@example.com',
     MAIL_FROM_NAME: 'Gloaming',
     LLM_CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
     OSS_DRIVER: 'r2',
-    R2_ACCOUNT_ID: undefined,
-    R2_BUCKET: undefined,
-    R2_ACCESS_KEY_ID: undefined,
-    R2_SECRET_ACCESS_KEY: undefined,
+    R2_ACCOUNT_ID: 'acct',
+    R2_BUCKET: 'bucket',
+    R2_ACCESS_KEY_ID: 'key',
+    R2_SECRET_ACCESS_KEY: 'secret',
     ...overrides,
   };
 }
 
 describe('createObjectStoreFromEnv', () => {
-  it('returns null when R2 credentials are omitted', () => {
-    expect(createObjectStoreFromEnv(baseEnv())).toBeNull();
+  it('returns null when R2 credentials are incomplete', () => {
+    expect(
+      createObjectStoreFromEnv(
+        baseEnv({
+          R2_ACCOUNT_ID: '',
+          R2_BUCKET: '',
+          R2_ACCESS_KEY_ID: '',
+          R2_SECRET_ACCESS_KEY: '',
+        }),
+      ),
+    ).toBeNull();
   });
 
   it('builds an R2 store when all R2 credentials are present', () => {
-    const store = createObjectStoreFromEnv(
-      baseEnv({
-        R2_ACCOUNT_ID: 'acct',
-        R2_BUCKET: 'bucket',
-        R2_ACCESS_KEY_ID: 'key',
-        R2_SECRET_ACCESS_KEY: 'secret',
-      }),
-    );
+    const store = createObjectStoreFromEnv(baseEnv());
     expect(store).not.toBeNull();
   });
 });
@@ -123,7 +125,14 @@ describe('oss facade', () => {
   });
 });
 
-describe.skipIf(!isR2ObjectStorageConfigured())('R2 live connectivity', () => {
+/**
+ * Live R2 is opt-in: Vitest setup loads developer `.env`, so R2_* may be present
+ * even when `.env.test` omits them. Default `pnpm test` must not depend on DNS/network
+ * to Cloudflare. Set GLOAMING_R2_LIVE_TEST=1 to run the probe.
+ */
+const runR2LiveConnectivity = process.env.GLOAMING_R2_LIVE_TEST === '1' && isR2ObjectStorageConfigured();
+
+describe.skipIf(!runR2LiveConnectivity)('R2 live connectivity', () => {
   it('puts, reads, and deletes a namespaced probe object', async () => {
     const store = createObjectStoreFromEnv(env);
     expect(store).not.toBeNull();
