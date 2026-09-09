@@ -35,11 +35,12 @@ async function removeDerivedAssetRows(client: DbClient, workId: string): Promise
     .select({ id: contentAssetTable.id, storageKey: contentAssetTable.storageKey, kind: contentAssetTable.kind })
     .from(contentAssetTable)
     .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'image')));
+  // Collect every cover key: rows are deleted for the whole work, so a limit(1)
+  // select would leave orphaned objects when multiple cover rows exist (re-parse tests).
   const cover = await client
     .select({ id: contentAssetTable.id, storageKey: contentAssetTable.storageKey })
     .from(contentAssetTable)
-    .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'cover')))
-    .limit(1);
+    .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'cover')));
 
   if (rows.length > 0) {
     await client
