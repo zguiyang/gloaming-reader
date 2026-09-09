@@ -39,5 +39,16 @@ export function createMemoryObjectStore(): ObjectStore & { store: Map<string, { 
     async delete(key) {
       store.delete(key);
     },
+    async list(prefix, cursor) {
+      const keys = [...store.keys()].filter((key) => !prefix || key.startsWith(prefix)).sort();
+      const start = cursor ? Number(cursor) : 0;
+      const page = keys.slice(start, start + 1000);
+      const next = start + page.length < keys.length ? String(start + page.length) : null;
+      return {
+        objects: page.map((key) => ({ key, size: store.get(key)?.body.length ?? 0, lastModified: null, etag: null })),
+        nextCursor: next,
+        hasMore: next !== null,
+      };
+    },
   };
 }

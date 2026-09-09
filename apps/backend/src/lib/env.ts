@@ -20,8 +20,8 @@ const SECRET_ENV_KEYS = new Set([
   'DATABASE_URL',
   'REDIS_URL',
   'RESEND_API_KEY',
-  'R2_SECRET_ACCESS_KEY',
-  'R2_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
+  'S3_ACCESS_KEY_ID',
   'LLM_CONFIG_ENCRYPTION_KEY',
   'TEST_DATABASE_URL',
 ]);
@@ -76,7 +76,7 @@ const emptyToUndefined = (value: unknown) => (value === '' || value === undefine
 /**
  * Single env schema for API, Worker, and scripts.
  * No NODE_ENV-specific required-field branches: boot always needs full runtime config.
- * RESEND_API_KEY and all four R2_* variables are required (no half-configured R2).
+ * RESEND_API_KEY and the required S3_* credentials are validated (custom endpoint is optional for AWS S3).
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -100,12 +100,16 @@ const envSchema = z.object({
    */
   LLM_CONFIG_ENCRYPTION_KEY: z.string().min(1),
 
-  /** Object storage driver — only `r2` is implemented today. */
-  OSS_DRIVER: z.enum(['r2']).default('r2'),
-  R2_ACCOUNT_ID: z.preprocess(emptyToUndefined, z.string().min(1)),
-  R2_BUCKET: z.preprocess(emptyToUndefined, z.string().min(1)),
-  R2_ACCESS_KEY_ID: z.preprocess(emptyToUndefined, z.string().min(1)),
-  R2_SECRET_ACCESS_KEY: z.preprocess(emptyToUndefined, z.string().min(1)),
+  /** S3-compatible object storage configuration. */
+  S3_ENDPOINT: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  S3_REGION: z.preprocess(emptyToUndefined, z.string().min(1)),
+  S3_BUCKET: z.preprocess(emptyToUndefined, z.string().min(1)),
+  S3_ACCESS_KEY_ID: z.preprocess(emptyToUndefined, z.string().min(1)),
+  S3_SECRET_ACCESS_KEY: z.preprocess(emptyToUndefined, z.string().min(1)),
+  S3_FORCE_PATH_STYLE: z.preprocess(
+    (value) => (value === '' || value === undefined ? 'false' : value),
+    z.enum(['true', 'false']).transform((value) => value === 'true'),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -161,7 +165,7 @@ export function getEnvConfig(processEnv: NodeJS.ProcessEnv = process.env): Env {
 /** Eager boot validation for API / Worker / any module that imports `env`. */
 export const env = loadEnvConfig();
 
-/** Always true under the required R2 schema; retained for call-site clarity and tests. */
-export function isR2ObjectStorageConfigured(config: Env = env): boolean {
-  return Boolean(config.R2_ACCOUNT_ID && config.R2_BUCKET && config.R2_ACCESS_KEY_ID && config.R2_SECRET_ACCESS_KEY);
+/** Always true under the required S3 schema; retained for call-site clarity and tests. */
+export function isS3ObjectStorageConfigured(config: Env = env): boolean {
+  return Boolean(config.S3_REGION && config.S3_BUCKET && config.S3_ACCESS_KEY_ID && config.S3_SECRET_ACCESS_KEY);
 }

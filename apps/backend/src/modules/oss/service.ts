@@ -6,6 +6,7 @@ import {
   createObjectStoreFromEnv,
   type ObjectGetResult,
   type ObjectGetStreamResult,
+  type ObjectListResult,
   type ObjectPutInput,
   type ObjectRange,
   type ObjectStore,
@@ -44,7 +45,7 @@ export function resetObjectStoreCache(): void {
   cachedStore = undefined;
 }
 
-/** Test seam — inject a store (e.g. in-memory) without R2 credentials. */
+/** Test seam — inject a store (e.g. in-memory) without S3 credentials. */
 export function setObjectStoreForTests(store: ObjectStore | null): void {
   cachedStore = store;
 }
@@ -67,4 +68,8 @@ export async function objectExists(key: string): Promise<boolean> {
 
 export async function deleteObject(key: string): Promise<void> {
   await resolveStore().delete(key);
+}
+
+export async function listObjects(prefix?: string, cursor?: string): Promise<ObjectListResult> {
+  return resolveStore().list(prefix, cursor);
 }

@@ -27,9 +27,22 @@ export type ObjectGetStreamResult = {
   etag: string | null;
 };
 
+export type ObjectListItem = {
+  key: string;
+  size: number;
+  lastModified: Date | null;
+  etag: string | null;
+};
+
+export type ObjectListResult = {
+  objects: ObjectListItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
 /**
  * Provider-facing object store. Implementations must not read env or DB.
- * Multi-tier strategies (cache + R2) can wrap this later without changing callers.
+ * Multi-tier strategies (cache + object storage) can wrap this later without changing callers.
  */
 export type ObjectStore = {
   put(input: ObjectPutInput): Promise<void>;
@@ -38,4 +51,5 @@ export type ObjectStore = {
   getStream(key: string, range?: ObjectRange): Promise<ObjectGetStreamResult | null>;
   exists(key: string): Promise<boolean>;
   delete(key: string): Promise<void>;
+  list(prefix?: string, cursor?: string): Promise<ObjectListResult>;
 };

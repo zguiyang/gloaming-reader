@@ -2,12 +2,11 @@
  * Dev-only content reset: wipes all content rows (works, parts, states, assets,
  * conversations, uploads, reading days), content-derived Redis caches
  * (TTS audio, bilingual translation), the BullMQ job queue, and object-storage
- * files (R2).
+ * files (S3-compatible).
  *
  * Keeps: users/sessions/accounts, LLM config, TTS config.
  * Run: pnpm --filter @gloaming/backend reset:content
  */
-import { ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
 import Redis from 'ioredis';
 
 import {
@@ -23,6 +22,7 @@ import {
 
 import { db } from '../src/db/index.ts';
 import { env } from '../src/lib/env.ts';
+import { deleteObject, listObjects } from '../src/modules/oss/index.ts';
 
 const CACHE_PATTERNS = ['gloaming:tts:v1:*', 'gloaming:bilingual:v2:*'] as const;
 
@@ -64,36 +64,23 @@ async function flushJobQueue(redis: Redis): Promise<void> {
   console.log(`Deleted ${total} BullMQ queue keys`);
 }
 
-/** Wipe every object in R2 (dev bucket — all content is throwaway). */
+/** Wipe every object in the configured S3-compatible bucket (dev bucket — all content is throwaway). */
 async function flushObjectStorage(): Promise<void> {
-  if (env.OSS_DRIVER !== 'r2' || !env.R2_ACCOUNT_ID || !env.R2_BUCKET) {
-    console.log('R2 not configured — skipping object storage flush');
+  if (!env.S3_BUCKET) {
+    console.log('S3-compatible object storage not configured — skipping object storage flush');
     return;
   }
-  const s3 = new S3Client({
-    region: 'auto',
-    endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
-    },
-  });
   let total = 0;
   let token: string | undefined;
   do {
-    const result = await s3.send(new ListObjectsV2Command({ Bucket: env.R2_BUCKET, ContinuationToken: token }));
-    for (const object of result.Contents ?? []) {
-      await s3.send(
-        new (await import('@aws-sdk/client-s3')).DeleteObjectCommand({
-          Bucket: env.R2_BUCKET,
-          Key: object.Key,
-        }),
-      );
+    const result = await listObjects(undefined, token);
+    for (const object of result.objects) {
+      await deleteObject(object.key);
       total += 1;
     }
-    token = result.IsTruncated ? result.NextContinuationToken : undefined;
+    token = result.nextCursor ?? undefined;
   } while (token);
-  console.log(`Deleted ${total} R2 objects`);
+  console.log(`Deleted ${total} S3-compatible objects`);
 }
 
 async function main() {

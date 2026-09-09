@@ -4,18 +4,28 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
   type S3ClientConfig,
 } from '@aws-sdk/client-s3';
 
-import type { ObjectGetResult, ObjectGetStreamResult, ObjectPutInput, ObjectRange, ObjectStore } from '@/lib/oss/types';
+import type {
+  ObjectGetResult,
+  ObjectGetStreamResult,
+  ObjectListResult,
+  ObjectPutInput,
+  ObjectRange,
+  ObjectStore,
+} from '@/lib/oss/types';
 
-export type R2ObjectStoreConfig = {
-  accountId: string;
+export type S3ObjectStoreConfig = {
+  endpoint?: string;
+  region: string;
   bucket: string;
   accessKeyId: string;
   secretAccessKey: string;
+  forcePathStyle?: boolean;
   /** Injected for tests — production builds a real S3Client. */
   client?: Pick<S3Client, 'send'>;
 };
@@ -36,7 +46,7 @@ async function streamBodyToBuffer(body: unknown): Promise<Buffer> {
       return Buffer.from(await transform.call(body));
     }
   }
-  throw new Error('Unsupported R2 object body type');
+  throw new Error('Unsupported S3 object body type');
 }
 
 function isNotFoundError(error: unknown): boolean {
@@ -67,16 +77,15 @@ function toWebStream(body: unknown): ReadableStream<Uint8Array> {
       return (body as Blob).stream() as ReadableStream<Uint8Array>;
     }
   }
-  throw new Error('Unsupported R2 stream body type');
+  throw new Error('Unsupported S3 stream body type');
 }
 
-/**
- * Low-level R2 adapter via the S3-compatible API. Credentials are passed explicitly.
- */
-export function createR2ObjectStore(config: R2ObjectStoreConfig): ObjectStore {
+/** Low-level adapter for any S3-compatible object storage service. */
+export function createS3ObjectStore(config: S3ObjectStoreConfig): ObjectStore {
   const clientConfig: S3ClientConfig = {
-    region: 'auto',
-    endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
+    region: config.region,
+    endpoint: config.endpoint,
+    forcePathStyle: config.forcePathStyle,
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
@@ -102,20 +111,13 @@ export function createR2ObjectStore(config: R2ObjectStoreConfig): ObjectStore {
 
     async get(key: string): Promise<ObjectGetResult | null> {
       try {
-        const response = await client.send(
-          new GetObjectCommand({
-            Bucket: bucket,
-            Key: key,
-          }),
-        );
+        const response = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
         return {
           body: await streamBodyToBuffer(response.Body),
           contentType: response.ContentType?.trim() || 'application/octet-stream',
         };
       } catch (error) {
-        if (isNotFoundError(error)) {
-          return null;
-        }
+        if (isNotFoundError(error)) return null;
         throw error;
       }
     },
@@ -137,37 +139,45 @@ export function createR2ObjectStore(config: R2ObjectStoreConfig): ObjectStore {
           etag: response.ETag ?? null,
         };
       } catch (error) {
-        if (isNotFoundError(error)) {
-          return null;
-        }
+        if (isNotFoundError(error)) return null;
         throw error;
       }
     },
 
     async exists(key: string): Promise<boolean> {
       try {
-        await client.send(
-          new HeadObjectCommand({
-            Bucket: bucket,
-            Key: key,
-          }),
-        );
+        await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
         return true;
       } catch (error) {
-        if (isNotFoundError(error)) {
-          return false;
-        }
+        if (isNotFoundError(error)) return false;
         throw error;
       }
     },
 
     async delete(key: string): Promise<void> {
-      await client.send(
-        new DeleteObjectCommand({
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    },
+
+    async list(prefix?: string, cursor?: string): Promise<ObjectListResult> {
+      const response = await client.send(
+        new ListObjectsV2Command({
           Bucket: bucket,
-          Key: key,
+          Prefix: prefix,
+          ContinuationToken: cursor,
         }),
       );
+      return {
+        objects: (response.Contents ?? [])
+          .filter((object): object is typeof object & { Key: string } => typeof object.Key === 'string')
+          .map((object) => ({
+            key: object.Key,
+            size: object.Size ?? 0,
+            lastModified: object.LastModified ?? null,
+            etag: object.ETag ?? null,
+          })),
+        nextCursor: response.NextContinuationToken ?? null,
+        hasMore: response.IsTruncated === true,
+      };
     },
   };
 }
