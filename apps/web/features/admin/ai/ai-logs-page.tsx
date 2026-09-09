@@ -54,11 +54,14 @@ const SOURCE_LABELS: Record<string, string> = {
   'translate.part': '双语翻译',
   'translate.article': '双语翻译',
   'admin.provider_test': '连通测试',
+  'metadata-enrich.fill': '元数据完善',
+  'dictionary:enrichment': '词典 AI 增强',
 };
 
 const PURPOSE_LABELS: Record<string, string> = {
   assist: '阅读助手',
   translate: '双语翻译',
+  'metadata-enrich': '元数据完善',
 };
 
 function sourceLabel(source: string): string {
