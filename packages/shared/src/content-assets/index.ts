@@ -9,6 +9,8 @@ export {
   type ContentAssetAudioKind,
   type ContentAssetGenerationClaim,
   contentAssetGenerationClaimSchema,
+  type ContentAssetMeta,
+  contentAssetMetaSchema,
   type ContentAssetStatus,
   type ContentAssetTrack,
   contentAssetTrackSchema,
