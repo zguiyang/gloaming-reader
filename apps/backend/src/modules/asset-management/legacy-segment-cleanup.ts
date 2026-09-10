@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { inArray } from 'drizzle-orm';
@@ -12,10 +12,17 @@ import {
 } from '@gloaming/shared/assets';
 
 import { db } from '@/db';
+import { env } from '@/lib/env';
 import { rootLogger } from '@/lib/logger';
 import type { ObjectListItem } from '@/lib/oss';
 import { CLEANUP_BATCH_SIZE } from '@/modules/asset-management/cleanup-store';
-import { collectReferencedStorageKeys } from '@/modules/asset-management/service';
+import {
+  type ApprovedLegacySegmentCleanupManifest,
+  assertLegacyCleanupExecuteArgs,
+  assertLegacyCleanupExecuteAuthorized,
+  validateApprovedLegacyCleanupManifest,
+} from '@/modules/asset-management/legacy-segment-cleanup-guards';
+import { collectReferencedStorageKeys, type ReferencedKeyIndex } from '@/modules/asset-management/service';
 import { deleteManyObjects, listObjects, objectExists } from '@/modules/oss';
 
 const logger = rootLogger.child({ module: 'LegacySegmentCleanup' });
@@ -36,16 +43,8 @@ export type LegacySegmentDecision =
   | { key: string; size: number; eligible: true; candidate: LegacySegmentCandidate }
   | { key: string; size: number; eligible: false; reason: LegacySegmentSkipReason; detail?: string };
 
-export type LegacySegmentCleanupManifest = {
-  createdAt: string;
-  mode: 'dry-run' | 'execute';
-  scanComplete: boolean;
-  listedSegmentCount: number;
-  referencedSkippedCount: number;
-  eligibleKeys: string[];
+export type LegacySegmentCleanupManifest = ApprovedLegacySegmentCleanupManifest & {
   skipped: Array<{ key: string; reason: LegacySegmentSkipReason; detail?: string }>;
-  deletedKeys: string[];
-  failed: Array<{ key: string; error: string }>;
 };
 
 type AudioAssetRow = {
@@ -69,16 +68,20 @@ export function isActiveAudioGeneration(asset: {
   return lease.getTime() > now.getTime();
 }
 
+function isFormallyOrExternallyReferenced(key: string, referenced: ReferencedKeyIndex): boolean {
+  return referenced.formalKeys.has(key) || referenced.externalReferencedKeys.has(key);
+}
+
 /** Pure eligibility check once listing, reference set, and asset rows are known. */
 export function evaluateLegacySegmentCandidate(input: {
   object: Pick<ObjectListItem, 'key' | 'size'>;
-  referencedKeys: Set<string>;
+  referenced: ReferencedKeyIndex;
   assetByPartKind: Map<string, AudioAssetRow>;
   chapterExistsByKey: Map<string, boolean>;
   now?: Date;
 }): LegacySegmentDecision {
-  const { object, referencedKeys, assetByPartKind, chapterExistsByKey, now } = input;
-  if (referencedKeys.has(object.key)) {
+  const { object, referenced, assetByPartKind, chapterExistsByKey, now } = input;
+  if (isFormallyOrExternallyReferenced(object.key, referenced)) {
     return { key: object.key, size: object.size, eligible: false, reason: 'still_referenced' };
   }
 
@@ -167,12 +170,34 @@ function assetPartKindKey(partId: string, kind: string): string {
  * Build a precise legacy-segment cleanup manifest.
  * Default mode is dry-run; execute deletes only keys that pass live revalidation.
  */
+async function loadApprovedManifest(manifestPath: string): Promise<ApprovedLegacySegmentCleanupManifest> {
+  const raw = await readFile(manifestPath, 'utf8');
+  return JSON.parse(raw) as ApprovedLegacySegmentCleanupManifest;
+}
+
 export async function runLegacySegmentCleanup(options: {
   execute?: boolean;
   manifestPath?: string;
+  approvedManifestPath?: string;
+  expectedBucket?: string;
   objectLimit?: number;
 }): Promise<{ manifest: LegacySegmentCleanupManifest; manifestPath: string }> {
   const execute = options.execute === true;
+  assertLegacyCleanupExecuteAuthorized(execute);
+  assertLegacyCleanupExecuteArgs({
+    execute,
+    approvedManifestPath: options.approvedManifestPath ?? (execute ? options.manifestPath : undefined),
+    expectedBucket: options.expectedBucket,
+  });
+
+  if (execute) {
+    return runLegacySegmentCleanupExecute({
+      approvedManifestPath: options.approvedManifestPath ?? options.manifestPath!,
+      expectedBucket: options.expectedBucket!,
+      manifestPath: options.manifestPath,
+    });
+  }
+
   const objectLimit = options.objectLimit ?? ASSET_SCAN_OBJECT_LIMIT;
   const createdAt = new Date().toISOString();
 
@@ -227,7 +252,7 @@ export async function runLegacySegmentCleanup(options: {
   const decisions = segmentObjects.map((object) =>
     evaluateLegacySegmentCandidate({
       object,
-      referencedKeys: referenced.keys,
+      referenced,
       assetByPartKind,
       chapterExistsByKey,
     }),
@@ -246,51 +271,114 @@ export async function runLegacySegmentCleanup(options: {
 
   const manifest: LegacySegmentCleanupManifest = {
     createdAt,
-    mode: execute ? 'execute' : 'dry-run',
+    mode: 'dry-run',
+    targetBucket: env.S3_BUCKET,
     scanComplete: listed.complete,
     listedSegmentCount: segmentObjects.length,
     referencedSkippedCount: skipped.filter((entry) => entry.reason === 'still_referenced').length,
     eligibleKeys: eligible.map((entry) => entry.key),
+    eligibleCount: eligible.length,
+    eligibleBytes: eligible.reduce((sum, entry) => sum + entry.size, 0),
     skipped,
     deletedKeys: [],
     failed: [],
   };
 
-  if (!execute) {
-    const written = await writeLegacyCleanupManifest(manifest, options.manifestPath);
-    logger.info(
-      {
-        mode: 'dry-run',
-        eligibleCount: manifest.eligibleKeys.length,
-        skippedCount: manifest.skipped.length,
-        scanComplete: manifest.scanComplete,
-        manifestPath: written,
-      },
-      'Legacy segment cleanup dry-run finished',
-    );
-    return { manifest, manifestPath: written };
-  }
+  const written = await writeLegacyCleanupManifest(manifest, options.manifestPath);
+  logger.info(
+    {
+      mode: 'dry-run',
+      eligibleCount: manifest.eligibleKeys.length,
+      skippedCount: manifest.skipped.length,
+      scanComplete: manifest.scanComplete,
+      manifestPath: written,
+    },
+    'Legacy segment cleanup dry-run finished',
+  );
+  return { manifest, manifestPath: written };
+}
 
-  if (!listed.complete) {
-    manifest.failed.push({
-      key: '*',
-      error:
-        'Incomplete object listing; refusing execute. Re-run with a smaller bucket or higher limit after confirming coverage.',
-    });
-    const written = await writeLegacyCleanupManifest(manifest, options.manifestPath);
-    return { manifest, manifestPath: written };
+async function loadAudioAssetsForPartIds(partIds: string[]): Promise<Map<string, AudioAssetRow>> {
+  if (partIds.length === 0) {
+    return new Map();
   }
+  const assets = await db
+    .select({
+      id: contentAssetTable.id,
+      partId: contentAssetTable.partId,
+      kind: contentAssetTable.kind,
+      storageKey: contentAssetTable.storageKey,
+      status: contentAssetTable.status,
+      generationLeaseExpiresAt: contentAssetTable.generationLeaseExpiresAt,
+    })
+    .from(contentAssetTable)
+    .where(inArray(contentAssetTable.partId, partIds));
+  const audioAssets = assets.filter((asset) => asset.kind.startsWith('audio_') && asset.partId);
+  return new Map(audioAssets.map((asset) => [assetPartKindKey(asset.partId!, asset.kind), asset as AudioAssetRow]));
+}
 
-  // Live revalidation before each batch — never delete from a stale dry-run list alone.
-  let pending = [...manifest.eligibleKeys];
+async function runLegacySegmentCleanupExecute(options: {
+  approvedManifestPath: string;
+  expectedBucket: string;
+  manifestPath?: string;
+}): Promise<{ manifest: LegacySegmentCleanupManifest; manifestPath: string }> {
+  const approved = await loadApprovedManifest(options.approvedManifestPath);
+  validateApprovedLegacyCleanupManifest(approved, options.expectedBucket, env.S3_BUCKET);
+
+  const createdAt = new Date().toISOString();
+  const manifest: LegacySegmentCleanupManifest = {
+    ...approved,
+    createdAt,
+    mode: 'execute',
+    deletedKeys: [],
+    failed: [],
+    skipped: approved.skipped.map((entry) => ({
+      key: entry.key,
+      reason: entry.reason as LegacySegmentSkipReason,
+      detail: entry.detail,
+    })),
+  };
+
+  let pending = [...approved.eligibleKeys];
   while (pending.length > 0) {
     const batch = pending.slice(0, CLEANUP_BATCH_SIZE);
     pending = pending.slice(CLEANUP_BATCH_SIZE);
     const liveReferenced = await collectReferencedStorageKeys();
+    const partIds = [
+      ...new Set(
+        batch
+          .map((key) => parseLegacyAudioSegmentKey(key)?.partId)
+          .filter((partId): partId is string => Boolean(partId)),
+      ),
+    ];
+    const assetByPartKind = await loadAudioAssetsForPartIds(partIds);
+    const chapterKeys = [
+      ...new Set(
+        [
+          ...batch.map((key) => siblingChapterKeyForSegment(key)),
+          ...[...assetByPartKind.values()].map((asset) => asset.storageKey),
+        ].filter((key): key is string => Boolean(key)),
+      ),
+    ];
+    const chapterExistsByKey = new Map<string, boolean>();
+    for (const key of chapterKeys) {
+      chapterExistsByKey.set(key, await objectExists(key));
+    }
+
     const stillEligible: string[] = [];
     for (const key of batch) {
-      if (liveReferenced.keys.has(key)) {
-        manifest.skipped.push({ key, reason: 'still_referenced', detail: 'became referenced before delete' });
+      const decision = evaluateLegacySegmentCandidate({
+        object: { key, size: 0 },
+        referenced: liveReferenced,
+        assetByPartKind,
+        chapterExistsByKey,
+      });
+      if (!decision.eligible) {
+        manifest.skipped.push({
+          key,
+          reason: decision.reason,
+          detail: decision.detail ?? 'revalidation failed before delete',
+        });
         continue;
       }
       stillEligible.push(key);
