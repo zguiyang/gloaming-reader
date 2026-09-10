@@ -2,9 +2,9 @@
 
 import { HardDrive, RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
-import type { AssetCleanupResult, AssetObjectListQuery, AssetScanReport } from '@gloaming/shared/assets';
+import type { AssetCleanupJobStatus, AssetObjectListQuery, AssetScanReport } from '@gloaming/shared/assets';
 import { ASSET_OBJECT_DEFAULT_PAGE_SIZE, DEFAULT_ASSET_OBJECT_SORT_BY } from '@gloaming/shared/assets';
 import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
 
@@ -13,13 +13,25 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import {
   formatAssetsApiError,
-  useCleanupOrphanAssetsMutation,
+  useCleanupJobQuery,
+  useEnqueueOrphanCleanupMutation,
+  useRetryCleanupJobMutation,
   useScanAssetsMutation,
 } from '@/features/admin/assets/assets-api';
+import { AssetsCleanupCard } from '@/features/admin/assets/assets-cleanup-card';
 import { AssetsCleanupDialog } from '@/features/admin/assets/assets-cleanup-dialog';
-import { formatMeasuredAt, formatStorageBytes } from '@/features/admin/assets/assets-format';
+import {
+  clearStoredCleanupJob,
+  deriveAssetsPageStatus,
+  getStoredCleanupJobId,
+  shouldRefreshScanAfterCleanupTransition,
+  subscribeStoredCleanupJob,
+  writeStoredCleanupJob,
+} from '@/features/admin/assets/assets-cleanup-state';
+import { formatDurationMs, formatMeasuredAt, formatStorageBytes } from '@/features/admin/assets/assets-format';
 import { AssetsLargestList } from '@/features/admin/assets/assets-largest-list';
 import { AssetsObjectTable } from '@/features/admin/assets/assets-object-table';
 import { AssetsSummary } from '@/features/admin/assets/assets-summary';
@@ -50,19 +62,34 @@ const INITIAL_OBJECT_QUERY: AssetObjectListQuery = {
 
 export function AssetsPage() {
   const scanMutation = useScanAssetsMutation();
-  const cleanupMutation = useCleanupOrphanAssetsMutation();
+  const enqueueMutation = useEnqueueOrphanCleanupMutation();
+  const retryMutation = useRetryCleanupJobMutation();
   const [report, setReport] = useState<AssetScanReport | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
-  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
   const [isCleanupOpen, setIsCleanupOpen] = useState(false);
   const [objectQuery, setObjectQuery] = useState<AssetObjectListQuery>(INITIAL_OBJECT_QUERY);
+  const jobId = useSyncExternalStore(subscribeStoredCleanupJob, getStoredCleanupJobId, () => null);
+  const previousJobStatusRef = useRef<AssetCleanupJobStatus | undefined>(undefined);
 
+  const jobQuery = useCleanupJobQuery(jobId);
+  const job = jobQuery.data ?? null;
   const isScanning = scanMutation.isPending;
   const hasReport = report !== null;
+  const pageStatus = deriveAssetsPageStatus({ isScanning, hasReport, job });
+  const hasJobForCurrentScan = Boolean(report && job && job.scanId === report.scanId);
+  const canOpenCleanup =
+    Boolean(report?.scanComplete) &&
+    (report?.orphanCount ?? 0) > 0 &&
+    !hasJobForCurrentScan &&
+    !enqueueMutation.isPending;
+
+  useEffect(() => {
+    if (!jobQuery.isError) return;
+    clearStoredCleanupJob();
+  }, [jobQuery.isError]);
 
   async function runScan() {
     setScanError(null);
-    setCleanupMessage(null);
     try {
       const next = await scanMutation.mutateAsync();
       setReport(next);
@@ -72,50 +99,67 @@ export function AssetsPage() {
     }
   }
 
-  async function runCleanup() {
+  useEffect(() => {
+    const status = job?.status;
+    const previous = previousJobStatusRef.current;
+    previousJobStatusRef.current = status;
+    if (!shouldRefreshScanAfterCleanupTransition(previous, status)) return;
+    void runScan();
+    // Refresh the scan snapshot only when an in-flight job reaches a terminal status.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- depends on job status transitions
+  }, [job]);
+
+  async function enqueueCleanup() {
     if (!report) return;
+    setIsCleanupOpen(false);
+    setScanError(null);
     try {
-      const result = await cleanupMutation.mutateAsync(report.scanId);
-      setIsCleanupOpen(false);
-      setCleanupMessage(formatCleanupMessage(result));
-      await runScan();
+      const accepted = await enqueueMutation.mutateAsync(report.scanId);
+      writeStoredCleanupJob({ jobId: accepted.jobId, scanId: accepted.scanId });
     } catch (error) {
-      setIsCleanupOpen(false);
-      setScanError(formatAssetsApiError(error) || '清理失败，请重新扫描后再试。');
+      setScanError(formatAssetsApiError(error) || '无法创建清理任务，请重新扫描后再试。');
+    }
+  }
+
+  async function retryCleanup() {
+    if (!job) return;
+    setScanError(null);
+    try {
+      const accepted = await retryMutation.mutateAsync(job.jobId);
+      writeStoredCleanupJob({ jobId: accepted.jobId, scanId: accepted.scanId });
+    } catch (error) {
+      setScanError(formatAssetsApiError(error) || '无法重试清理任务。');
     }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6" data-page-status={pageStatus}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">资产管理</h1>
           <p className="text-muted-foreground text-sm">对象存储扫描占用（非供应商账单）。用于发现大对象与孤儿对象。</p>
           {report ? (
             <p className="text-muted-foreground text-sm">
-              最近扫描：{formatMeasuredAt(report.measuredAt)} · 扫描状态：
-              {report.scanComplete ? '已完成' : '未完成'}
+              最近扫描：{formatMeasuredAt(report.measuredAt)} · {report.scanComplete ? '已完成' : '未完成'} ·{' '}
+              {formatDurationMs(report.durationMs)}
             </p>
           ) : null}
         </div>
-        <Button onClick={() => void runScan()} disabled={isScanning || cleanupMutation.isPending}>
-          <RefreshCw className={isScanning ? 'animate-spin' : undefined} />
+        <Button onClick={() => void runScan()} disabled={isScanning}>
+          {isScanning ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
           {isScanning ? '扫描中…' : '立即扫描'}
         </Button>
       </div>
 
       {scanError ? (
         <Alert variant="destructive">
-          <AlertTitle>扫描失败</AlertTitle>
+          <AlertTitle>操作失败</AlertTitle>
           <AlertDescription>{scanError}</AlertDescription>
         </Alert>
       ) : null}
 
-      {cleanupMessage ? (
-        <Alert>
-          <AlertTitle>清理结果</AlertTitle>
-          <AlertDescription>{cleanupMessage}</AlertDescription>
-        </Alert>
+      {job ? (
+        <AssetsCleanupCard job={job} retrying={retryMutation.isPending} onRetry={() => void retryCleanup()} />
       ) : null}
 
       {!hasReport && !isScanning ? (
@@ -135,6 +179,13 @@ export function AssetsPage() {
 
       {report ? (
         <>
+          {!report.scanComplete ? (
+            <Alert>
+              <AlertTitle>扫描未完成</AlertTitle>
+              <AlertDescription>对象数量达到上限，本次扫描不可清理。请缩小存储范围后重新扫描。</AlertDescription>
+            </Alert>
+          ) : null}
+
           <AssetsSummary report={report} loading={isScanning} />
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -147,7 +198,7 @@ export function AssetsPage() {
                   {report.totalBytes > 0 ? `${((report.orphanBytes / report.totalBytes) * 100).toFixed(1)}%` : '0%'}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="flex flex-col gap-4">
                 <p className="text-2xl font-semibold tracking-tight text-destructive">
                   可释放 {formatStorageBytes(report.orphanBytes)}
                 </p>
@@ -159,11 +210,7 @@ export function AssetsPage() {
                   >
                     查看孤儿对象
                   </Button>
-                  <Button
-                    variant="destructive"
-                    disabled={report.orphanCount === 0 || isScanning || cleanupMutation.isPending}
-                    onClick={() => setIsCleanupOpen(true)}
-                  >
+                  <Button variant="destructive" disabled={!canOpenCleanup} onClick={() => setIsCleanupOpen(true)}>
                     清理孤儿对象
                   </Button>
                 </div>
@@ -178,22 +225,11 @@ export function AssetsPage() {
             open={isCleanupOpen}
             onOpenChange={setIsCleanupOpen}
             report={report}
-            pending={cleanupMutation.isPending}
-            onConfirm={() => void runCleanup()}
+            pending={enqueueMutation.isPending}
+            onConfirm={() => void enqueueCleanup()}
           />
         </>
       ) : null}
     </div>
   );
-}
-
-function formatCleanupMessage(result: AssetCleanupResult): string {
-  if (result.failedCount === 0 && result.skippedReferencedCount === 0) {
-    return `已清理 ${result.deletedCount} 个对象，释放约 ${formatStorageBytes(result.deletedBytes)}。`;
-  }
-  return [
-    `已删除 ${result.deletedCount} 个对象`,
-    `${result.skippedReferencedCount} 个对象因重新被引用而跳过`,
-    `${result.failedCount} 个对象删除失败`,
-  ].join(' · ');
 }

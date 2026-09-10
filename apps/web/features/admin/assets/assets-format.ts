@@ -1,4 +1,9 @@
-import type { AssetCategory, AssetCategorySummary, AssetObjectStatus } from '@gloaming/shared/assets';
+import type {
+  AssetCategory,
+  AssetCategorySummary,
+  AssetCleanupJobStatus,
+  AssetObjectStatus,
+} from '@gloaming/shared/assets';
 
 const CATEGORY_LABELS: Record<AssetCategory, string> = {
   audio: '音频',
@@ -12,6 +17,14 @@ const STATUS_LABELS: Record<AssetObjectStatus, string> = {
   referenced: '正常',
   orphan: '孤儿',
   missing: '缺失',
+};
+
+const CLEANUP_JOB_STATUS_LABELS: Record<AssetCleanupJobStatus, string> = {
+  queued: '排队中',
+  running: '清理中',
+  completed: '已完成',
+  partial: '部分失败',
+  failed: '失败',
 };
 
 const CHART_COLORS = [
@@ -28,6 +41,17 @@ export function assetCategoryLabel(category: AssetCategory): string {
 
 export function assetStatusLabel(status: AssetObjectStatus): string {
   return STATUS_LABELS[status];
+}
+
+export function assetCleanupJobStatusLabel(status: AssetCleanupJobStatus): string {
+  return CLEANUP_JOB_STATUS_LABELS[status];
+}
+
+/** Compact duration for admin scan metadata. */
+export function formatDurationMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '0 ms';
+  if (ms < 1000) return `${Math.round(ms)} ms`;
+  return `${(ms / 1000).toFixed(1)} s`;
 }
 
 /** Human-readable byte size for admin storage summaries. */

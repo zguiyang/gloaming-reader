@@ -35,7 +35,7 @@ export function AssetsCleanupDialog({ open, onOpenChange, report, pending, onCon
               {report.orphanCount} 个对象 · {formatStorageBytes(report.orphanBytes)}
             </strong>
             <br />
-            这些对象当前没有数据库引用，删除后无法恢复。清理前服务端会再次对账，已重新被引用的对象会跳过。
+            这些对象当前没有数据库引用，删除后无法恢复。确认后立即创建后台任务，可在本页查看进度。清理前服务端会再次对账，已重新被引用的对象会跳过。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -48,7 +48,7 @@ export function AssetsCleanupDialog({ open, onOpenChange, report, pending, onCon
               onConfirm();
             }}
           >
-            {pending ? '清理中…' : '确认清理'}
+            {pending ? '提交中…' : '确认清理'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCategoryChartData, formatStorageBytes, shortObjectKey } from './assets-format.ts';
+import { buildCategoryChartData, formatDurationMs, formatStorageBytes, shortObjectKey } from './assets-format.ts';
 
 describe('formatStorageBytes', () => {
   it('formats common sizes', () => {
@@ -8,6 +8,13 @@ describe('formatStorageBytes', () => {
     expect(formatStorageBytes(512)).toBe('512 B');
     expect(formatStorageBytes(1024)).toBe('1.00 KB');
     expect(formatStorageBytes(964984832)).toBe('920.3 MB');
+  });
+});
+
+describe('formatDurationMs', () => {
+  it('formats milliseconds and seconds', () => {
+    expect(formatDurationMs(12)).toBe('12 ms');
+    expect(formatDurationMs(1500)).toBe('1.5 s');
   });
 });
 
