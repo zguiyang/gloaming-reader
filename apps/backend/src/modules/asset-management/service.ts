@@ -20,6 +20,7 @@ import {
   type AssetScanReport,
   buildPaginationMeta,
   classifyAssetKey,
+  isLegacyAudioSegmentKey,
 } from '@gloaming/shared/assets';
 
 import { HTTP_STATUS } from '@/constants';
@@ -59,6 +60,7 @@ type ScanSnapshot = {
   report: AssetScanReport;
   objects: AssetObjectItem[];
   orphanKeys: string[];
+  legacyDuplicateKeys: string[];
 };
 
 export type ReferencedKeyIndex = {
@@ -183,7 +185,12 @@ export function reconcileObjects(input: {
   largestLimit?: number;
   scanComplete?: boolean;
   durationMs?: number;
-}): { report: AssetScanReport; objects: AssetObjectItem[]; orphanKeys: string[] } {
+}): {
+  report: AssetScanReport;
+  objects: AssetObjectItem[];
+  orphanKeys: string[];
+  legacyDuplicateKeys: string[];
+} {
   const measuredAt = (input.measuredAt ?? new Date()).toISOString();
   const scanId = input.scanId ?? `scan_${randomUUID()}`;
   const largestLimit = input.largestLimit ?? ASSET_LARGEST_OBJECTS_DEFAULT;
@@ -193,12 +200,15 @@ export function reconcileObjects(input: {
   const listedKeys = new Set(input.listed.map((object) => object.key));
   const objects: AssetObjectItem[] = [];
   const orphanKeys: string[] = [];
+  const legacyDuplicateKeys: string[] = [];
 
   let totalBytes = 0;
   let referencedObjectCount = 0;
   let referencedBytes = 0;
   let orphanCount = 0;
   let orphanBytes = 0;
+  let legacyDuplicateCount = 0;
+  let legacyDuplicateBytes = 0;
 
   const categoryTotals = new Map<AssetCategory, { objectCount: number; bytes: number }>();
   for (const category of ASSET_CATEGORIES) {
@@ -209,7 +219,11 @@ export function reconcileObjects(input: {
     const kind = input.referenced.kindByKey.get(listed.key);
     const category = classifyAssetKey(listed.key, kind);
     const referenced = input.referenced.keys.has(listed.key);
-    const status = referenced ? 'referenced' : 'orphan';
+    const status = referenced
+      ? 'referenced'
+      : isLegacyAudioSegmentKey(listed.key)
+        ? 'legacy_duplicate_audio'
+        : 'orphan';
     const item: AssetObjectItem = {
       key: listed.key,
       category,
@@ -228,6 +242,10 @@ export function reconcileObjects(input: {
     if (referenced) {
       referencedObjectCount += 1;
       referencedBytes += listed.size;
+    } else if (status === 'legacy_duplicate_audio') {
+      legacyDuplicateCount += 1;
+      legacyDuplicateBytes += listed.size;
+      legacyDuplicateKeys.push(listed.key);
     } else {
       orphanCount += 1;
       orphanBytes += listed.size;
@@ -270,13 +288,15 @@ export function reconcileObjects(input: {
     referencedBytes,
     orphanCount,
     orphanBytes,
+    legacyDuplicateCount,
+    legacyDuplicateBytes,
     missingCount,
     durationMs,
     categories,
     largestObjects,
   };
 
-  return { report, objects, orphanKeys };
+  return { report, objects, orphanKeys, legacyDuplicateKeys };
 }
 
 async function saveSnapshot(snapshot: ScanSnapshot): Promise<void> {
@@ -289,7 +309,21 @@ async function loadSnapshot(scanId: string): Promise<ScanSnapshot> {
     throw new AppError(HTTP_STATUS.CONFLICT, 'Scan snapshot expired or not found; please scan again');
   }
   try {
-    return JSON.parse(raw) as ScanSnapshot;
+    const parsed = JSON.parse(raw) as Partial<ScanSnapshot> & {
+      report: AssetScanReport;
+      objects: AssetObjectItem[];
+    };
+    const legacyDuplicateKeys =
+      parsed.legacyDuplicateKeys ??
+      parsed.objects.filter((item) => item.status === 'legacy_duplicate_audio').map((item) => item.key);
+    const orphanKeys =
+      parsed.orphanKeys ?? parsed.objects.filter((item) => item.status === 'orphan').map((item) => item.key);
+    return {
+      report: parsed.report,
+      objects: parsed.objects,
+      orphanKeys,
+      legacyDuplicateKeys,
+    };
   } catch (error) {
     logger.warn({ err: error, scanId }, 'Failed to parse scan snapshot');
     throw new AppError(HTTP_STATUS.CONFLICT, 'Scan snapshot expired or not found; please scan again');
@@ -312,7 +346,7 @@ export async function scanAssets(): Promise<AssetScanReport> {
       collectReferencedStorageKeys(),
     ]);
     const durationMs = Date.now() - startedAt;
-    const { report, objects, orphanKeys } = reconcileObjects({
+    const { report, objects, orphanKeys, legacyDuplicateKeys } = reconcileObjects({
       listed: listed.objects,
       referenced,
       scanId,
@@ -320,7 +354,7 @@ export async function scanAssets(): Promise<AssetScanReport> {
       scanComplete: listed.complete,
       durationMs,
     });
-    await saveSnapshot({ report, objects, orphanKeys });
+    await saveSnapshot({ report, objects, orphanKeys, legacyDuplicateKeys });
     logger.info(
       {
         scanId,
