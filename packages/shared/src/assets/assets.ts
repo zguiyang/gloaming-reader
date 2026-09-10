@@ -12,9 +12,48 @@ import {
 export const ASSET_CATEGORIES = ['audio', 'cover', 'image', 'origin', 'other'] as const;
 export type AssetCategory = (typeof ASSET_CATEGORIES)[number];
 
-/** Reconciliation status of a storage object relative to database references. */
-export const ASSET_OBJECT_STATUSES = ['referenced', 'orphan', 'missing'] as const;
+/**
+ * Reconciliation status of a storage object relative to database references.
+ * `legacy_duplicate_audio` is an unreferenced historical segment under
+ * `part-audio/.../seg/*.mp3` left after chapter-only upload; it must not be
+ * mixed into ordinary orphan cleanup.
+ */
+export const ASSET_OBJECT_STATUSES = ['referenced', 'orphan', 'missing', 'legacy_duplicate_audio'] as const;
 export type AssetObjectStatus = (typeof ASSET_OBJECT_STATUSES)[number];
+
+/** `part-audio/{partId}/{kind}/{contentHash}/seg/{file}.mp3` */
+const LEGACY_AUDIO_SEGMENT_KEY_RE = /^part-audio\/([^/]+)\/([^/]+)\/([^/]+)\/seg\/([^/]+\.mp3)$/i;
+
+export type LegacyAudioSegmentKeyParts = {
+  partId: string;
+  kind: string;
+  contentHash: string;
+  segmentFile: string;
+};
+
+/** True for historical TTS segment object keys (never for chapter.mp3). */
+export function isLegacyAudioSegmentKey(key: string): boolean {
+  return LEGACY_AUDIO_SEGMENT_KEY_RE.test(key);
+}
+
+/** Parse a segment key into part/kind/hash components; null when not a segment path. */
+export function parseLegacyAudioSegmentKey(key: string): LegacyAudioSegmentKeyParts | null {
+  const match = key.match(LEGACY_AUDIO_SEGMENT_KEY_RE);
+  if (!match) return null;
+  return {
+    partId: match[1]!,
+    kind: match[2]!,
+    contentHash: match[3]!,
+    segmentFile: match[4]!,
+  };
+}
+
+/** Sibling formal chapter key for the same part/kind/hash prefix. */
+export function siblingChapterKeyForSegment(key: string): string | null {
+  const parts = parseLegacyAudioSegmentKey(key);
+  if (!parts) return null;
+  return `part-audio/${parts.partId}/${parts.kind}/${parts.contentHash}/chapter.mp3`;
+}
 
 export const ASSET_OBJECT_SORT_FIELDS = ['size', 'lastModified', 'key'] as const;
 export type AssetObjectSortField = (typeof ASSET_OBJECT_SORT_FIELDS)[number];
@@ -70,6 +109,8 @@ export const assetScanReportSchema = z.object({
   referencedBytes: z.number().int().nonnegative(),
   orphanCount: z.number().int().nonnegative(),
   orphanBytes: z.number().int().nonnegative(),
+  legacyDuplicateCount: z.number().int().nonnegative(),
+  legacyDuplicateBytes: z.number().int().nonnegative(),
   missingCount: z.number().int().nonnegative(),
   durationMs: z.number().int().nonnegative(),
   categories: z.array(assetCategorySummarySchema),

@@ -13,7 +13,10 @@ import {
   assetObjectListQuerySchema,
   assetScanReportSchema,
   classifyAssetKey,
+  isLegacyAudioSegmentKey,
+  parseLegacyAudioSegmentKey,
   publicFailedSample,
+  siblingChapterKeyForSegment,
 } from './assets.ts';
 
 function sampleFailures(count: number) {
@@ -58,6 +61,21 @@ describe('classifyAssetKey', () => {
   });
 });
 
+describe('legacy audio segment key helpers', () => {
+  it('detects and parses part-audio segment paths', () => {
+    const key = 'part-audio/p1/audio_us/h/seg/0000.mp3';
+    expect(isLegacyAudioSegmentKey(key)).toBe(true);
+    expect(isLegacyAudioSegmentKey('part-audio/p1/audio_us/h/chapter.mp3')).toBe(false);
+    expect(parseLegacyAudioSegmentKey(key)).toEqual({
+      partId: 'p1',
+      kind: 'audio_us',
+      contentHash: 'h',
+      segmentFile: '0000.mp3',
+    });
+    expect(siblingChapterKeyForSegment(key)).toBe('part-audio/p1/audio_us/h/chapter.mp3');
+  });
+});
+
 describe('assetScanReportSchema', () => {
   it('accepts a complete scan report', () => {
     const report = assetScanReportSchema.parse({
@@ -70,6 +88,8 @@ describe('assetScanReportSchema', () => {
       referencedBytes: 40,
       orphanCount: 1,
       orphanBytes: 60,
+      legacyDuplicateCount: 0,
+      legacyDuplicateBytes: 0,
       missingCount: 0,
       durationMs: 12,
       categories: [{ category: 'audio', objectCount: 2, bytes: 100 }],
@@ -103,7 +123,7 @@ describe('assetObjectListQuerySchema', () => {
   it('accepts filter and sort overrides', () => {
     expect(
       assetObjectListQuerySchema.parse({
-        status: 'orphan',
+        status: 'legacy_duplicate_audio',
         category: 'audio',
         sortBy: 'key',
         sortOrder: 'asc',
@@ -111,7 +131,7 @@ describe('assetObjectListQuerySchema', () => {
         pageSize: '10',
       }),
     ).toMatchObject({
-      status: 'orphan',
+      status: 'legacy_duplicate_audio',
       category: 'audio',
       sortBy: 'key',
       sortOrder: 'asc',

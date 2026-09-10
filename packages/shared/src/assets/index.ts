@@ -43,5 +43,9 @@ export {
   buildPaginationMeta,
   classifyAssetKey,
   DEFAULT_ASSET_OBJECT_SORT_BY,
+  isLegacyAudioSegmentKey,
+  type LegacyAudioSegmentKeyParts,
+  parseLegacyAudioSegmentKey,
   publicFailedSample,
+  siblingChapterKeyForSegment,
 } from './assets.ts';

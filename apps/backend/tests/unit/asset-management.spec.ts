@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  evaluateLegacySegmentCandidate,
+  isActiveAudioGeneration,
+} from '@/modules/asset-management/legacy-segment-cleanup';
+import {
   collectKeysFromContentAssetRow,
   collectKeysFromOriginMeta,
   reconcileObjects,
@@ -75,7 +79,7 @@ describe('reconcileObjects', () => {
   }
 
   it('classifies referenced, orphan, and missing objects', () => {
-    const { report, objects, orphanKeys } = reconcileObjects({
+    const { report, objects, orphanKeys, legacyDuplicateKeys } = reconcileObjects({
       scanId: 'scan_test',
       measuredAt: new Date('2026-09-09T00:00:00.000Z'),
       listed: [
@@ -99,15 +103,37 @@ describe('reconcileObjects', () => {
     expect(report.referencedBytes).toBe(140);
     expect(report.orphanCount).toBe(1);
     expect(report.orphanBytes).toBe(60);
+    expect(report.legacyDuplicateCount).toBe(0);
     expect(report.missingCount).toBe(1);
     expect(report.durationMs).toBe(0);
     expect(report.scanComplete).toBe(true);
     expect(orphanKeys).toEqual(['orphan/old.mp3']);
+    expect(legacyDuplicateKeys).toEqual([]);
 
     expect(objects.filter((item) => item.status === 'orphan')).toHaveLength(1);
     expect(objects.filter((item) => item.status === 'missing')).toEqual([
       expect.objectContaining({ key: 'covers/missing.jpg', category: 'cover', size: 0 }),
     ]);
+  });
+
+  it('classifies unreferenced historical segments as legacy_duplicate_audio, not orphan', () => {
+    const chapter = 'part-audio/p1/audio_us/new/chapter.mp3';
+    const staleSeg = 'part-audio/p1/audio_us/old/seg/0000.mp3';
+    const { report, orphanKeys, legacyDuplicateKeys, objects } = reconcileObjects({
+      listed: [
+        { key: chapter, size: 100, lastModified: null, etag: null },
+        { key: staleSeg, size: 40, lastModified: null, etag: null },
+        { key: 'orphan/noise.bin', size: 5, lastModified: null, etag: null },
+      ],
+      referenced: refs([chapter], { [chapter]: 'audio_us' }),
+    });
+
+    expect(report.orphanCount).toBe(1);
+    expect(report.legacyDuplicateCount).toBe(1);
+    expect(report.legacyDuplicateBytes).toBe(40);
+    expect(orphanKeys).toEqual(['orphan/noise.bin']);
+    expect(legacyDuplicateKeys).toEqual([staleSeg]);
+    expect(objects.find((item) => item.key === staleSeg)?.status).toBe('legacy_duplicate_audio');
   });
 
   it('aggregates category bytes and ranks largest objects', () => {
@@ -142,6 +168,7 @@ describe('reconcileObjects', () => {
       referenced: refs([chapter, seg], { [chapter]: 'audio_us', [seg]: 'audio_us' }),
     });
     expect(report.orphanCount).toBe(0);
+    expect(report.legacyDuplicateCount).toBe(0);
     expect(report.referencedObjectCount).toBe(2);
   });
 
@@ -165,5 +192,87 @@ describe('reconcileObjects', () => {
     expect(orphanKeys).toHaveLength(1_000);
     expect(report.largestObjects).toHaveLength(3);
     expect(report.largestObjects[0]?.key).toBe('orphan/999.bin');
+  });
+});
+
+describe('evaluateLegacySegmentCandidate', () => {
+  const seg = 'part-audio/p1/audio_us/old/seg/0000.mp3';
+  const chapter = 'part-audio/p1/audio_us/new/chapter.mp3';
+
+  function readyAsset(overrides: Partial<{ status: string; generationLeaseExpiresAt: Date | null }> = {}) {
+    return {
+      id: 'asset_1',
+      partId: 'p1',
+      kind: 'audio_us',
+      storageKey: chapter,
+      status: overrides.status ?? 'ready',
+      generationLeaseExpiresAt: overrides.generationLeaseExpiresAt ?? null,
+    };
+  }
+
+  it('marks a safe unreferenced segment eligible', () => {
+    const decision = evaluateLegacySegmentCandidate({
+      object: { key: seg, size: 40 },
+      referencedKeys: new Set([chapter]),
+      assetByPartKind: new Map([['p1:audio_us', readyAsset()]]),
+      chapterExistsByKey: new Map([[chapter, true]]),
+    });
+    expect(decision.eligible).toBe(true);
+    if (decision.eligible) {
+      expect(decision.candidate.chapterKey).toBe(chapter);
+    }
+  });
+
+  it('skips referenced segments, generating assets, and missing chapters', () => {
+    expect(
+      evaluateLegacySegmentCandidate({
+        object: { key: seg, size: 40 },
+        referencedKeys: new Set([seg]),
+        assetByPartKind: new Map([['p1:audio_us', readyAsset()]]),
+        chapterExistsByKey: new Map([[chapter, true]]),
+      }).eligible,
+    ).toBe(false);
+
+    expect(
+      evaluateLegacySegmentCandidate({
+        object: { key: seg, size: 40 },
+        referencedKeys: new Set(),
+        assetByPartKind: new Map([
+          [
+            'p1:audio_us',
+            readyAsset({ status: 'generating', generationLeaseExpiresAt: new Date(Date.now() + 60_000) }),
+          ],
+        ]),
+        chapterExistsByKey: new Map([[chapter, true]]),
+      }),
+    ).toMatchObject({ eligible: false, reason: 'generation_running' });
+
+    expect(
+      evaluateLegacySegmentCandidate({
+        object: { key: seg, size: 40 },
+        referencedKeys: new Set(),
+        assetByPartKind: new Map([['p1:audio_us', readyAsset()]]),
+        chapterExistsByKey: new Map([[chapter, false]]),
+      }),
+    ).toMatchObject({ eligible: false, reason: 'chapter_missing' });
+  });
+});
+
+describe('isActiveAudioGeneration', () => {
+  it('treats generating with a future lease as active', () => {
+    expect(
+      isActiveAudioGeneration({
+        status: 'generating',
+        generationLeaseExpiresAt: new Date('2099-01-01T00:00:00.000Z'),
+      }),
+    ).toBe(true);
+    expect(
+      isActiveAudioGeneration({
+        status: 'generating',
+        generationLeaseExpiresAt: new Date('2000-01-01T00:00:00.000Z'),
+        now: new Date('2026-09-10T00:00:00.000Z'),
+      }),
+    ).toBe(false);
+    expect(isActiveAudioGeneration({ status: 'ready', generationLeaseExpiresAt: null })).toBe(false);
   });
 });

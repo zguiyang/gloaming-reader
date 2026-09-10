@@ -306,6 +306,48 @@ describe('asset management admin APIs', () => {
     expect(referenced.items.some((item) => item.key === timelineOnly)).toBe(true);
   });
 
+  it('classifies unreferenced historical segments as legacy_duplicate_audio and excludes them from orphan cleanup', async () => {
+    const workId = await insertWork();
+    const chapter = `part-audio/${workId}/audio_us/new/chapter.mp3`;
+    const staleSeg = `part-audio/${workId}/audio_us/old/seg/0000.mp3`;
+    const plainOrphan = `orphan/${workId}/leftover.bin`;
+
+    await insertAsset({
+      workId,
+      kind: 'audio_us',
+      storageKey: chapter,
+      meta: { objectKeys: [chapter] },
+    });
+    await putObject(chapter, 90);
+    await putObject(staleSeg, 30);
+    await putObject(plainOrphan, 15);
+
+    const scan = await app.request('/api/admin/assets/scan', {
+      method: 'POST',
+      headers: { Cookie: adminCookie },
+    });
+    const report = assetScanReportSchema.parse(await scan.json());
+    expect(report.legacyDuplicateCount).toBeGreaterThanOrEqual(1);
+
+    const legacyList = assetObjectListDataSchema.parse(
+      await (
+        await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=legacy_duplicate_audio`, {
+          headers: { Cookie: adminCookie },
+        })
+      ).json(),
+    );
+    const orphanList = assetObjectListDataSchema.parse(
+      await (
+        await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=orphan`, {
+          headers: { Cookie: adminCookie },
+        })
+      ).json(),
+    );
+    expect(legacyList.items.some((item) => item.key === staleSeg)).toBe(true);
+    expect(orphanList.items.some((item) => item.key === staleSeg)).toBe(false);
+    expect(orphanList.items.some((item) => item.key === plainOrphan)).toBe(true);
+  });
+
   it('cleans only still-orphan objects and skips keys that become referenced', async () => {
     const workId = await insertWork();
     const orphanKeep = `orphan/${workId}/keep.mp3`;
