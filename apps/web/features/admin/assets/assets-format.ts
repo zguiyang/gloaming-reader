@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<AssetObjectStatus, string> = {
   referenced: '正常',
   orphan: '孤儿',
   missing: '缺失',
+  legacy_duplicate_audio: '历史重复音频',
 };
 
 const CLEANUP_JOB_STATUS_LABELS: Record<AssetCleanupJobStatus, string> = {

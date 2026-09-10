@@ -40,6 +40,7 @@ const STATUS_TABS: { value: AssetStatusFilter; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'referenced', label: '正常' },
   { value: 'orphan', label: '孤儿' },
+  { value: 'legacy_duplicate_audio', label: '历史重复音频' },
   { value: 'missing', label: '缺失' },
 ];
 
@@ -51,8 +52,17 @@ const CATEGORY_TABS: { value: AssetCategoryFilter; label: string }[] = [
 function StatusBadge({ status }: { status: AssetObjectStatus }) {
   return (
     <Badge
-      variant={status === 'orphan' ? 'destructive' : status === 'missing' ? 'outline' : 'secondary'}
-      className={cn(status === 'missing' && 'border-destructive/40 text-destructive')}
+      variant={
+        status === 'orphan'
+          ? 'destructive'
+          : status === 'missing' || status === 'legacy_duplicate_audio'
+            ? 'outline'
+            : 'secondary'
+      }
+      className={cn(
+        status === 'missing' && 'border-destructive/40 text-destructive',
+        status === 'legacy_duplicate_audio' && 'border-amber-500/40 text-amber-700 dark:text-amber-400',
+      )}
     >
       {assetStatusLabel(status)}
     </Badge>
