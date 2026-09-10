@@ -115,6 +115,7 @@ export function collectAudioObjectKeys(asset: { storageKey: string | null; meta:
   const keys = [
     asset.storageKey,
     ...(asset.meta.objectKeys ?? []),
+    // Legacy timeline.storageKey (pre chapter-only upload) — keep for cleanup of old assets.
     ...(asset.meta.timeline ?? []).map((segment) => segment.storageKey),
   ];
   return [...new Set(keys.filter((key): key is string => Boolean(key)))];
@@ -122,6 +123,12 @@ export function collectAudioObjectKeys(asset: { storageKey: string | null; meta:
 
 function audioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
   return collectAudioObjectKeys(asset);
+}
+
+/** Formal stored objects only (column storageKey + meta.objectKeys) — not legacy timeline keys. */
+function formalAudioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
+  const keys = [asset.storageKey, ...(asset.meta.objectKeys ?? [])];
+  return [...new Set(keys.filter((key): key is string => Boolean(key)))];
 }
 
 export async function deleteAudioAssetObjects(asset: {
@@ -327,7 +334,7 @@ export async function getWorkAudio(workId: string, role: TtsVoiceRole): Promise<
 
 /** Admin/enqueue only (`needsRegen`) — not used on the learner read path. */
 async function objectsExistForAsset(asset: AssetRow): Promise<boolean> {
-  const keys = audioObjectKeys(asset);
+  const keys = formalAudioObjectKeys(asset);
   if (keys.length === 0) {
     return false;
   }
@@ -777,7 +784,11 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
   const started = Date.now();
   const objectKeys: string[] = [];
   const segBuffers: Buffer[] = [];
-  const timeline: NonNullable<ContentAssetMeta['timeline']> = [];
+  // Timing-only segments; storageKey omitted until shared/db make it optional (Agent G).
+  type TimingSegment = Omit<NonNullable<ContentAssetMeta['timeline']>[number], 'storageKey'> & {
+    storageKey?: string;
+  };
+  const timeline: TimingSegment[] = [];
   let voice = '';
   let cursorMs = 0;
   let textCursor = 0;
@@ -794,10 +805,8 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
         bypassCache: input.force,
       });
       voice = result.voice;
-      const segKey = partAudioSegmentKey(input.partId, kind, contentHash, i);
       await assertAndRenewGenerationLease(input, kind);
-      await putObject({ key: segKey, body: result.audio, contentType: result.mimeType });
-      objectKeys.push(segKey);
+      // Segments stay in memory (and concat temp dir); do not putObject(seg/*.mp3).
       segBuffers.push(result.audio);
 
       const durationMs = intMs(
@@ -811,7 +820,6 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
         textHash: segmentTextHash(segText),
         startMs: cursorMs,
         durationMs,
-        storageKey: segKey,
         wordTimings: result.wordTimings.map((w) => ({
           ...w,
           audioOffsetMs: intMs(w.audioOffsetMs + cursorMs),
@@ -835,7 +843,8 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
       voice,
       durationMs: cursorMs,
       generatedAt,
-      timeline,
+      // Compatible until packages make timeline.storageKey optional.
+      timeline: timeline as NonNullable<ContentAssetMeta['timeline']>,
       objectKeys,
     };
 
