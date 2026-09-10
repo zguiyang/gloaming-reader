@@ -284,6 +284,8 @@ describe('learner part audio', () => {
       .limit(1);
     expect(usAfterEnqueueFailure?.status).toBe('ready');
     expect(usAfterEnqueueFailure?.meta.objectKeys).toEqual(originalUsKeys);
+    expect(originalUsKeys).toEqual([partAudioObjectKey(partId, usKind, hashPartAudioContent('Listen body here.'))]);
+    expect(usBeforeEnqueueFailure?.meta.timeline?.every((seg) => !('storageKey' in seg) || !seg.storageKey)).toBe(true);
     queueSpy.mockImplementation(async (name, data, options) => {
       if (name === 'part-audio-generate') {
         const job = data as Parameters<typeof processPartAudioGenerate>[0];
@@ -405,8 +407,10 @@ describe('learner part audio', () => {
 
     const contentHash = hashPartAudioContent('Listen body here.');
 
-    // Segments are not required for playback — only storageKey (chapter) is streamed.
-    objectStore.store.delete(partAudioSegmentKey(partId, audioKindForRole('us'), contentHash, 0));
+    // Chapter-only upload: segment objects are never written to object storage.
+    const usSegKey = partAudioSegmentKey(partId, audioKindForRole('us'), contentHash, 0);
+    expect(objectStore.store.has(usSegKey)).toBe(false);
+    expect(objectStore.store.has(partAudioObjectKey(partId, audioKindForRole('us'), contentHash))).toBe(true);
     expect(await partAudioAvail()).toEqual({ us: true, uk: true });
     expect((await app.request(`/api/assets/${usBody.assetId}`, { headers: { Cookie: learner.cookie } })).status).toBe(
       200,

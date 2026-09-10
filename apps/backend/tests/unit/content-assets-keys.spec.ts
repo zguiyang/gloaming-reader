@@ -86,4 +86,32 @@ describe('collectAudioObjectKeys', () => {
       }).toSorted(),
     ).toEqual(['part-audio/p1/audio_us/h/seg/0000.mp3', 'part-audio/p1/audio_us/h/seg/0001.mp3']);
   });
+
+  it('ignores timing-only timeline segments without storageKey', () => {
+    expect(
+      collectAudioObjectKeys({
+        storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
+        meta: {
+          objectKeys: ['part-audio/p1/audio_us/h/chapter.mp3'],
+          // Compatible with generation that no longer writes timeline.storageKey.
+          timeline: [
+            {
+              index: 0,
+              textHash: 't0',
+              startMs: 0,
+              durationMs: 1000,
+              wordTimings: [],
+            },
+          ] as {
+            index: number;
+            textHash: string;
+            startMs: number;
+            durationMs: number;
+            storageKey?: string;
+            wordTimings: [];
+          }[],
+        },
+      }),
+    ).toEqual(['part-audio/p1/audio_us/h/chapter.mp3']);
+  });
 });
