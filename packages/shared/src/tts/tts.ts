@@ -86,7 +86,25 @@ export const testTtsResultSchema = z.object({
 
 export type TestTtsResult = z.infer<typeof testTtsResultSchema>;
 
-/** Redis payload for successful TTS synthesis (30-day TTL). */
+/** Legacy Redis TTS cache key prefix (`gloaming:tts:v1:{digest}`). */
+export const TTS_CACHE_KEY_PREFIX_V1 = 'gloaming:tts:v1:' as const;
+
+/** Current Redis TTS cache key prefix (`gloaming:tts:v2:{digest}`). */
+export const TTS_CACHE_KEY_PREFIX_V2 = 'gloaming:tts:v2:' as const;
+
+/**
+ * Cache payload / key material version embedded in v2 digests.
+ * Bump when the Redis value schema or digest inputs change.
+ */
+export const TTS_CACHE_SCHEMA_VERSION = 1 as const;
+
+/** Absolute TTL for TTS Redis cache entries (7 days). Reads do not renew. */
+export const TTS_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+/** Skip writing TTS Redis cache when raw audio exceeds this size (2 MiB). */
+export const TTS_CACHE_MAX_RAW_AUDIO_BYTES = 2 * 1024 * 1024;
+
+/** Redis payload for successful TTS synthesis (see `TTS_CACHE_TTL_SECONDS`). */
 export const ttsCachePayloadSchema = z.object({
   mimeType: z.string().min(1),
   voice: z.string().min(1),

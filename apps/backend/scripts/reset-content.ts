@@ -24,7 +24,7 @@ import { db } from '../src/db/index.ts';
 import { env } from '../src/lib/env.ts';
 import { deleteObject, listObjects } from '../src/modules/oss/index.ts';
 
-const CACHE_PATTERNS = ['gloaming:tts:v1:*', 'gloaming:bilingual:v2:*'] as const;
+const CACHE_PATTERNS = ['gloaming:tts:v2:*', 'gloaming:tts:v1:*', 'gloaming:bilingual:v2:*'] as const;
 
 async function deleteAll(table: Parameters<typeof db.delete>[0], label: string): Promise<number> {
   const rows = await db.delete(table).returning({ id: table.id });

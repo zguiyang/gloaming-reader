@@ -8,6 +8,11 @@ import {
   type PutTtsConfigBody,
   type TestTtsBody,
   type TestTtsResult,
+  TTS_CACHE_KEY_PREFIX_V1,
+  TTS_CACHE_KEY_PREFIX_V2,
+  TTS_CACHE_MAX_RAW_AUDIO_BYTES,
+  TTS_CACHE_SCHEMA_VERSION,
+  TTS_CACHE_TTL_SECONDS,
   TTS_PROVIDER_AZURE,
   TTS_VOICE_PRESETS,
   type TtsCachePayload,
@@ -30,8 +35,6 @@ export const TTS_CONFIG_ID = 'default';
 
 const ttsLogger = rootLogger.child({ module: 'Tts' });
 
-/** 30 days — same horizon as bilingual translation cache. */
-const TTS_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 const TTS_OUTPUT_MIME = 'audio/mpeg';
 
 type TtsConfigRow = typeof ttsConfigTable.$inferSelect;
@@ -57,6 +60,13 @@ export type SynthesizeTtsResult = {
     textOffset: number;
   }>;
   cached: boolean;
+};
+
+type TtsCacheLookup = {
+  payload: TtsCachePayload;
+  key: string;
+  version: 'v2' | 'v1';
+  cachePayloadBytes: number;
 };
 
 function emptyConfigView(): TtsConfigView {
@@ -113,40 +123,128 @@ function resolveVoice(row: TtsConfigRow, options: { voice?: string; role?: TtsVo
   return row.defaultVoice;
 }
 
-function normalizeTtsText(text: string): string {
+export function normalizeTtsText(text: string): string {
   return text.trim().replace(/\s+/g, ' ');
 }
 
-function ttsCacheKey(normalizedText: string, voice: string, region: string): string {
+/** Legacy v1 digest: text + voice + mime + region (no schema version). */
+export function buildTtsCacheKeyV1(normalizedText: string, voice: string, region: string): string {
   const digest = createHash('sha256')
     .update(`${normalizedText}\0${voice}\0${TTS_OUTPUT_MIME}\0${region}`, 'utf8')
     .digest('hex');
-  return `gloaming:tts:v1:${digest}`;
+  return `${TTS_CACHE_KEY_PREFIX_V1}${digest}`;
 }
 
-async function readTtsCache(key: string): Promise<TtsCachePayload | null> {
+/** v2 digest: schema version + text + voice + mime + region. */
+export function buildTtsCacheKeyV2(normalizedText: string, voice: string, region: string): string {
+  const digest = createHash('sha256')
+    .update(`${TTS_CACHE_SCHEMA_VERSION}\0${normalizedText}\0${voice}\0${TTS_OUTPUT_MIME}\0${region}`, 'utf8')
+    .digest('hex');
+  return `${TTS_CACHE_KEY_PREFIX_V2}${digest}`;
+}
+
+export function shouldWriteTtsCache(rawAudioBytes: number): boolean {
+  return rawAudioBytes <= TTS_CACHE_MAX_RAW_AUDIO_BYTES;
+}
+
+async function readTtsCacheKey(key: string): Promise<{ payload: TtsCachePayload; cachePayloadBytes: number } | null> {
   try {
     const raw = await getRedis().get(key);
     if (!raw) {
       return null;
     }
+    const cachePayloadBytes = Buffer.byteLength(raw, 'utf8');
     const parsed = ttsCachePayloadSchema.safeParse(JSON.parse(raw) as unknown);
     if (!parsed.success) {
-      ttsLogger.warn({ key }, 'Invalid TTS cache payload; ignoring');
+      ttsLogger.warn({ key, cachePayloadBytes }, 'Invalid TTS cache payload; ignoring');
       return null;
     }
-    return parsed.data;
+    return { payload: parsed.data, cachePayloadBytes };
   } catch (error) {
     ttsLogger.warn({ err: error, key }, 'Redis TTS cache read failed');
-    return null;
+    throw error;
   }
 }
 
-async function writeTtsCache(key: string, payload: TtsCachePayload): Promise<void> {
+/**
+ * Prefer v2; fall back to v1 when present. Redis errors are logged and treated as miss
+ * so synthesis continues via the provider.
+ */
+async function lookupTtsCache(normalizedText: string, voice: string, region: string): Promise<TtsCacheLookup | null> {
+  const v2Key = buildTtsCacheKeyV2(normalizedText, voice, region);
   try {
-    await getRedis().set(key, JSON.stringify(payload), 'EX', TTS_CACHE_TTL_SECONDS);
+    const v2Hit = await readTtsCacheKey(v2Key);
+    if (v2Hit) {
+      return { ...v2Hit, key: v2Key, version: 'v2' };
+    }
   } catch (error) {
-    ttsLogger.warn({ err: error, key }, 'Redis TTS cache write failed');
+    ttsLogger.warn(
+      {
+        err: error,
+        key: v2Key,
+        cacheOutcome: 'redis_error',
+        ttlSeconds: TTS_CACHE_TTL_SECONDS,
+      },
+      'Redis TTS v2 cache read failed; continuing to provider',
+    );
+    return null;
+  }
+
+  const v1Key = buildTtsCacheKeyV1(normalizedText, voice, region);
+  try {
+    const v1Hit = await readTtsCacheKey(v1Key);
+    if (v1Hit) {
+      return { ...v1Hit, key: v1Key, version: 'v1' };
+    }
+  } catch (error) {
+    ttsLogger.warn(
+      {
+        err: error,
+        key: v1Key,
+        cacheOutcome: 'redis_error',
+        ttlSeconds: TTS_CACHE_TTL_SECONDS,
+      },
+      'Redis TTS v1 cache read failed; continuing to provider',
+    );
+    return null;
+  }
+
+  return null;
+}
+
+async function writeTtsCache(
+  key: string,
+  payload: TtsCachePayload,
+  meta: {
+    rawAudioBytes: number;
+    cachePayloadBytes: number;
+  },
+): Promise<void> {
+  try {
+    // Absolute TTL via SET EX — reads never renew.
+    await getRedis().set(key, JSON.stringify(payload), 'EX', TTS_CACHE_TTL_SECONDS);
+    ttsLogger.info(
+      {
+        key,
+        cacheOutcome: 'miss_write',
+        rawAudioBytes: meta.rawAudioBytes,
+        cachePayloadBytes: meta.cachePayloadBytes,
+        ttlSeconds: TTS_CACHE_TTL_SECONDS,
+      },
+      'TTS cache miss; wrote v2 entry',
+    );
+  } catch (error) {
+    ttsLogger.warn(
+      {
+        err: error,
+        key,
+        cacheOutcome: 'redis_error',
+        rawAudioBytes: meta.rawAudioBytes,
+        cachePayloadBytes: meta.cachePayloadBytes,
+        ttlSeconds: TTS_CACHE_TTL_SECONDS,
+      },
+      'Redis TTS cache write failed',
+    );
   }
 }
 
@@ -224,20 +322,41 @@ export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<Synt
   }
 
   const voice = resolveVoice(row, options);
-  const cacheKey = ttsCacheKey(text, voice, row.region);
   const useCache = !options.bypassCache;
+  const v2Key = buildTtsCacheKeyV2(text, voice, row.region);
 
   if (useCache) {
-    const cached = await readTtsCache(cacheKey);
+    const cached = await lookupTtsCache(text, voice, row.region);
     if (cached) {
+      const audio = Buffer.from(cached.payload.audioBase64, 'base64');
+      ttsLogger.info(
+        {
+          key: cached.key,
+          cacheVersion: cached.version,
+          cacheOutcome: 'hit',
+          rawAudioBytes: audio.byteLength,
+          cachePayloadBytes: cached.cachePayloadBytes,
+          ttlSeconds: TTS_CACHE_TTL_SECONDS,
+        },
+        'TTS cache hit',
+      );
       return {
-        audio: Buffer.from(cached.audioBase64, 'base64'),
-        mimeType: cached.mimeType,
-        voice: cached.voice,
-        wordTimings: cached.wordTimings,
+        audio,
+        mimeType: cached.payload.mimeType,
+        voice: cached.payload.voice,
+        wordTimings: cached.payload.wordTimings,
         cached: true,
       };
     }
+
+    ttsLogger.info(
+      {
+        key: v2Key,
+        cacheOutcome: 'miss',
+        ttlSeconds: TTS_CACHE_TTL_SECONDS,
+      },
+      'TTS cache miss',
+    );
   }
 
   const synthesized = await synthesizeAzureTts({
@@ -256,12 +375,31 @@ export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<Synt
   };
 
   if (useCache) {
-    await writeTtsCache(cacheKey, {
-      mimeType: result.mimeType,
-      voice: result.voice,
-      audioBase64: result.audio.toString('base64'),
-      wordTimings: result.wordTimings,
-    });
+    const rawAudioBytes = result.audio.byteLength;
+    if (!shouldWriteTtsCache(rawAudioBytes)) {
+      ttsLogger.info(
+        {
+          key: v2Key,
+          cacheOutcome: 'skipped_size',
+          rawAudioBytes,
+          ttlSeconds: TTS_CACHE_TTL_SECONDS,
+          maxRawAudioBytes: TTS_CACHE_MAX_RAW_AUDIO_BYTES,
+        },
+        'TTS result exceeds cache size cap; skipping Redis write',
+      );
+    } else {
+      const payload: TtsCachePayload = {
+        mimeType: result.mimeType,
+        voice: result.voice,
+        audioBase64: result.audio.toString('base64'),
+        wordTimings: result.wordTimings,
+      };
+      const serialized = JSON.stringify(payload);
+      await writeTtsCache(v2Key, payload, {
+        rawAudioBytes,
+        cachePayloadBytes: Buffer.byteLength(serialized, 'utf8'),
+      });
+    }
   }
 
   return result;
@@ -289,6 +427,7 @@ export async function testTts(body: TestTtsBody, options: { userId?: string } = 
       textPreview: body.text,
       textLength: body.text.length,
       latencyMs,
+      // Admin connectivity probe always bypasses cache.
       cached: false,
     });
 
