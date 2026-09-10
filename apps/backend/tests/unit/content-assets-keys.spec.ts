@@ -1,11 +1,43 @@
 import { describe, expect, it } from 'vitest';
 
-import { collectAudioObjectKeys } from '@/modules/content-assets/service';
+import {
+  allAudioObjectKeysForLegacyCleanup,
+  collectAudioObjectKeys,
+  collectLegacyAudioSegmentKeysFromAsset,
+  formalAudioObjectKeys,
+} from '@/modules/content-assets/service';
 
-describe('collectAudioObjectKeys', () => {
+describe('formalAudioObjectKeys', () => {
+  it('returns only chapter and non-segment objectKeys from legacy metadata', () => {
+    expect(
+      formalAudioObjectKeys({
+        storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
+        meta: {
+          objectKeys: [
+            'part-audio/p1/audio_us/h/chapter.mp3',
+            'part-audio/p1/audio_us/h/seg/0000.mp3',
+            'part-audio/p1/audio_us/h/seg/0001.mp3',
+          ],
+          timeline: [
+            {
+              index: 0,
+              textHash: 't0',
+              startMs: 0,
+              durationMs: 1000,
+              storageKey: 'part-audio/p1/audio_us/h/seg/0000.mp3',
+              wordTimings: [],
+            },
+          ],
+        },
+      }),
+    ).toEqual(['part-audio/p1/audio_us/h/chapter.mp3']);
+  });
+});
+
+describe('allAudioObjectKeysForLegacyCleanup', () => {
   it('collects storageKey, objectKeys, and timeline keys without duplicates', () => {
     expect(
-      collectAudioObjectKeys({
+      allAudioObjectKeysForLegacyCleanup({
         storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
         meta: {
           objectKeys: ['part-audio/p1/audio_us/h/seg/0000.mp3', 'part-audio/p1/audio_us/h/chapter.mp3', ''],
@@ -38,7 +70,7 @@ describe('collectAudioObjectKeys', () => {
 
   it('returns a timeline segment key that is absent from objectKeys and storageKey', () => {
     expect(
-      collectAudioObjectKeys({
+      allAudioObjectKeysForLegacyCleanup({
         storageKey: 'part-audio/p1/audio_us/old/chapter.mp3',
         meta: {
           objectKeys: ['part-audio/p1/audio_us/old/chapter.mp3'],
@@ -59,19 +91,20 @@ describe('collectAudioObjectKeys', () => {
 
   it('handles empty objectKeys and a missing timeline', () => {
     expect(
-      collectAudioObjectKeys({
+      allAudioObjectKeysForLegacyCleanup({
         storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
         meta: { objectKeys: [] },
       }),
     ).toEqual(['part-audio/p1/audio_us/h/chapter.mp3']);
   });
+});
 
-  it('collects objectKeys and timeline when storageKey is null', () => {
+describe('collectLegacyAudioSegmentKeysFromAsset', () => {
+  it('collects segment keys from objectKeys and timeline only', () => {
     expect(
-      collectAudioObjectKeys({
-        storageKey: null,
+      collectLegacyAudioSegmentKeysFromAsset({
         meta: {
-          objectKeys: ['part-audio/p1/audio_us/h/seg/0000.mp3'],
+          objectKeys: ['part-audio/p1/audio_us/h/chapter.mp3', 'part-audio/p1/audio_us/h/seg/0000.mp3'],
           timeline: [
             {
               index: 0,
@@ -86,32 +119,17 @@ describe('collectAudioObjectKeys', () => {
       }).toSorted(),
     ).toEqual(['part-audio/p1/audio_us/h/seg/0000.mp3', 'part-audio/p1/audio_us/h/seg/0001.mp3']);
   });
+});
 
-  it('ignores timing-only timeline segments without storageKey', () => {
-    expect(
-      collectAudioObjectKeys({
-        storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
-        meta: {
-          objectKeys: ['part-audio/p1/audio_us/h/chapter.mp3'],
-          // Compatible with generation that no longer writes timeline.storageKey.
-          timeline: [
-            {
-              index: 0,
-              textHash: 't0',
-              startMs: 0,
-              durationMs: 1000,
-              wordTimings: [],
-            },
-          ] as {
-            index: number;
-            textHash: string;
-            startMs: number;
-            durationMs: number;
-            storageKey?: string;
-            wordTimings: [];
-          }[],
-        },
-      }),
-    ).toEqual(['part-audio/p1/audio_us/h/chapter.mp3']);
+describe('collectAudioObjectKeys (legacy alias)', () => {
+  it('delegates to allAudioObjectKeysForLegacyCleanup', () => {
+    const asset = {
+      storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
+      meta: {
+        objectKeys: ['part-audio/p1/audio_us/h/seg/0000.mp3'],
+        timeline: [] as [],
+      },
+    };
+    expect(collectAudioObjectKeys(asset)).toEqual(allAudioObjectKeysForLegacyCleanup(asset));
   });
 });

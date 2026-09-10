@@ -20,7 +20,10 @@ const mocks = vi.hoisted(() => {
     loadCleanupJob: vi.fn(),
     saveCleanupJob: vi.fn(async () => true),
     collectReferencedStorageKeys: vi.fn(async () => ({
-      keys: new Set<string>(),
+      formalKeys: new Set<string>(),
+      legacyAudioSegmentKeys: new Set<string>(),
+      externalReferencedKeys: new Set<string>(),
+      allReferencedKeys: new Set<string>(),
       kindByKey: new Map<string, string>(),
     })),
     deleteManyObjects: vi.fn(async (keys: string[]) => ({ deleted: keys, failed: [] })),
@@ -135,7 +138,13 @@ describe('runAssetCleanupJob lock fencing', () => {
     mocks.saveCleanupJob.mockReset();
     mocks.saveCleanupJob.mockResolvedValue(true);
     mocks.collectReferencedStorageKeys.mockReset();
-    mocks.collectReferencedStorageKeys.mockResolvedValue({ keys: new Set(), kindByKey: new Map() });
+    mocks.collectReferencedStorageKeys.mockResolvedValue({
+      formalKeys: new Set(),
+      legacyAudioSegmentKeys: new Set(),
+      externalReferencedKeys: new Set(),
+      allReferencedKeys: new Set(),
+      kindByKey: new Map(),
+    });
     mocks.deleteManyObjects.mockReset();
     mocks.deleteManyObjects.mockImplementation(async (keys: string[]) => ({ deleted: keys, failed: [] }));
     mocks.listObjects.mockReset();
@@ -362,7 +371,13 @@ describe('runAssetCleanupJob verification and resume', () => {
     mocks.saveCleanupJob.mockReset();
     mocks.saveCleanupJob.mockResolvedValue(true);
     mocks.collectReferencedStorageKeys.mockReset();
-    mocks.collectReferencedStorageKeys.mockResolvedValue({ keys: new Set(), kindByKey: new Map() });
+    mocks.collectReferencedStorageKeys.mockResolvedValue({
+      formalKeys: new Set(),
+      legacyAudioSegmentKeys: new Set(),
+      externalReferencedKeys: new Set(),
+      allReferencedKeys: new Set(),
+      kindByKey: new Map(),
+    });
     mocks.deleteManyObjects.mockReset();
     mocks.deleteManyObjects.mockImplementation(async (keys: string[]) => ({ deleted: keys, failed: [] }));
     mocks.listObjects.mockReset();

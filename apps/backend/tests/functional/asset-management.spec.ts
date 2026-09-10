@@ -238,7 +238,8 @@ describe('asset management admin APIs', () => {
     const report = assetScanReportSchema.parse(await scan.json());
     expect(report.orphanCount).toBeGreaterThanOrEqual(2);
     expect(report.missingCount).toBeGreaterThanOrEqual(1);
-    expect(report.referencedObjectCount).toBeGreaterThanOrEqual(2);
+    expect(report.referencedObjectCount).toBeGreaterThanOrEqual(1);
+    expect(report.legacyDuplicateCount).toBeGreaterThanOrEqual(1);
     expect(report.durationMs).toBeGreaterThanOrEqual(0);
     expect(report.scanComplete).toBe(true);
 
@@ -258,7 +259,7 @@ describe('asset management admin APIs', () => {
     expect(missingList.items.some((item) => item.key === missing)).toBe(true);
   });
 
-  it('treats timeline-only audio segments as referenced', async () => {
+  it('classifies timeline-only legacy audio segments as legacy_duplicate_audio', async () => {
     const workId = await insertWork();
     const chapter = `part-audio/${workId}/audio_us/legacy/chapter.mp3`;
     const timelineOnly = `part-audio/${workId}/audio_us/legacy/seg/0000.mp3`;
@@ -295,15 +296,15 @@ describe('asset management admin APIs', () => {
         })
       ).json(),
     );
-    const referenced = assetObjectListDataSchema.parse(
+    const legacyDuplicates = assetObjectListDataSchema.parse(
       await (
-        await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=referenced`, {
+        await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=legacy_duplicate_audio`, {
           headers: { Cookie: adminCookie },
         })
       ).json(),
     );
     expect(orphans.items.some((item) => item.key === timelineOnly)).toBe(false);
-    expect(referenced.items.some((item) => item.key === timelineOnly)).toBe(true);
+    expect(legacyDuplicates.items.some((item) => item.key === timelineOnly)).toBe(true);
   });
 
   it('classifies unreferenced historical segments as legacy_duplicate_audio and excludes them from orphan cleanup', async () => {

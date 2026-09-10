@@ -118,7 +118,7 @@ describe('synthesizeTts Redis governance', () => {
     expect(synthesizeSpy).not.toHaveBeenCalled();
   });
 
-  it('falls back to v1 on read and never writes v1', async () => {
+  it('does not read legacy v1 keys and writes only v2 on miss', async () => {
     const v1Key = buildTtsCacheKeyV1('hello world', 'en-US-JennyNeural', 'eastasia');
     memory.store.set(v1Key, {
       value: JSON.stringify({
@@ -130,11 +130,14 @@ describe('synthesizeTts Redis governance', () => {
       ttl: 1000,
     });
 
-    const hit = await synthesizeTts({ text: 'hello world', source: 'unit' });
-    expect(hit.cached).toBe(true);
-    expect(hit.audio.toString()).toBe('legacy-mp3');
-    expect(synthesizeSpy).not.toHaveBeenCalled();
-    expect(memory.client.set).not.toHaveBeenCalled();
+    const result = await synthesizeTts({ text: 'hello world', source: 'unit' });
+    expect(result.cached).toBe(false);
+    expect(result.audio.toString()).toBe('cached-mp3');
+    expect(synthesizeSpy).toHaveBeenCalledTimes(1);
+    expect(memory.store.has(v1Key)).toBe(true);
+    const v2Key = buildTtsCacheKeyV2('hello world', 'en-US-JennyNeural', 'eastasia');
+    expect(memory.store.has(v2Key)).toBe(true);
+    expect(memory.client.set).toHaveBeenCalledWith(v2Key, expect.any(String), 'EX', TTS_CACHE_TTL_SECONDS);
   });
 
   it('skips Redis write when raw audio exceeds 2 MiB but still returns audio', async () => {

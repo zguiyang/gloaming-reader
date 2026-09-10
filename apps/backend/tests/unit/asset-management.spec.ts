@@ -5,11 +5,59 @@ import {
   isActiveAudioGeneration,
 } from '@/modules/asset-management/legacy-segment-cleanup';
 import {
+  collectFormalKeysFromContentAssetRow,
   collectKeysFromContentAssetRow,
   collectKeysFromOriginMeta,
+  collectLegacySegmentKeysFromContentAssetRow,
   reconcileObjects,
-  type ReferencedKeyIndex,
+  referencedKeyIndexFromKeys,
 } from '@/modules/asset-management/service';
+
+describe('collectFormalKeysFromContentAssetRow', () => {
+  it('returns only chapter for audio assets with legacy segment metadata', () => {
+    expect(
+      collectFormalKeysFromContentAssetRow({
+        storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
+        kind: 'audio_us',
+        meta: {
+          objectKeys: ['part-audio/p1/audio_us/h/seg/0000.mp3', 'part-audio/p1/audio_us/h/chapter.mp3'],
+          timeline: [
+            {
+              index: 0,
+              textHash: 't0',
+              startMs: 0,
+              durationMs: 1000,
+              storageKey: 'part-audio/p1/audio_us/h/seg/0000.mp3',
+              wordTimings: [],
+            },
+          ],
+        },
+      }),
+    ).toEqual(['part-audio/p1/audio_us/h/chapter.mp3']);
+  });
+});
+
+describe('collectLegacySegmentKeysFromContentAssetRow', () => {
+  it('collects legacy segment keys from objectKeys and timeline', () => {
+    expect(
+      collectLegacySegmentKeysFromContentAssetRow({
+        meta: {
+          objectKeys: ['part-audio/p1/audio_us/h/seg/0000.mp3', 'part-audio/p1/audio_us/h/chapter.mp3'],
+          timeline: [
+            {
+              index: 0,
+              textHash: 't0',
+              startMs: 0,
+              durationMs: 1000,
+              storageKey: 'part-audio/p1/audio_us/h/seg/0001.mp3',
+              wordTimings: [],
+            },
+          ],
+        },
+      }).toSorted(),
+    ).toEqual(['part-audio/p1/audio_us/h/seg/0000.mp3', 'part-audio/p1/audio_us/h/seg/0001.mp3']);
+  });
+});
 
 describe('collectKeysFromContentAssetRow', () => {
   it('collects storageKey, objectKeys, and timeline storageKeys without duplicates', () => {
@@ -71,46 +119,38 @@ describe('collectKeysFromOriginMeta', () => {
 });
 
 describe('reconcileObjects', () => {
-  function refs(keys: string[], kinds: Record<string, string> = {}): ReferencedKeyIndex {
-    return {
-      keys: new Set(keys),
-      kindByKey: new Map(Object.entries(kinds)),
-    };
-  }
-
   it('classifies referenced, orphan, and missing objects', () => {
+    const chapter = 'part-audio/p1/audio_us/h/chapter.mp3';
+    const seg = 'part-audio/p1/audio_us/h/seg/0000.mp3';
     const { report, objects, orphanKeys, legacyDuplicateKeys } = reconcileObjects({
       scanId: 'scan_test',
       measuredAt: new Date('2026-09-09T00:00:00.000Z'),
       listed: [
-        { key: 'part-audio/p1/audio_us/h/chapter.mp3', size: 100, lastModified: null, etag: null },
-        { key: 'part-audio/p1/audio_us/h/seg/0000.mp3', size: 40, lastModified: null, etag: null },
+        { key: chapter, size: 100, lastModified: null, etag: null },
+        { key: seg, size: 40, lastModified: null, etag: null },
         { key: 'orphan/old.mp3', size: 60, lastModified: null, etag: null },
       ],
-      referenced: refs(
-        ['part-audio/p1/audio_us/h/chapter.mp3', 'part-audio/p1/audio_us/h/seg/0000.mp3', 'covers/missing.jpg'],
-        {
-          'part-audio/p1/audio_us/h/chapter.mp3': 'audio_us',
-          'part-audio/p1/audio_us/h/seg/0000.mp3': 'audio_us',
-          'covers/missing.jpg': 'cover',
-        },
-      ),
+      referenced: referencedKeyIndexFromKeys([chapter, seg, 'covers/missing.jpg'], {
+        kinds: { [chapter]: 'audio_us', [seg]: 'audio_us', 'covers/missing.jpg': 'cover' },
+      }),
     });
 
     expect(report.objectCount).toBe(3);
     expect(report.totalBytes).toBe(200);
-    expect(report.referencedObjectCount).toBe(2);
-    expect(report.referencedBytes).toBe(140);
+    expect(report.referencedObjectCount).toBe(1);
+    expect(report.referencedBytes).toBe(100);
     expect(report.orphanCount).toBe(1);
     expect(report.orphanBytes).toBe(60);
-    expect(report.legacyDuplicateCount).toBe(0);
+    expect(report.legacyDuplicateCount).toBe(1);
+    expect(report.legacyDuplicateBytes).toBe(40);
     expect(report.missingCount).toBe(1);
     expect(report.durationMs).toBe(0);
     expect(report.scanComplete).toBe(true);
     expect(orphanKeys).toEqual(['orphan/old.mp3']);
-    expect(legacyDuplicateKeys).toEqual([]);
+    expect(legacyDuplicateKeys).toEqual([seg]);
 
     expect(objects.filter((item) => item.status === 'orphan')).toHaveLength(1);
+    expect(objects.find((item) => item.key === seg)?.status).toBe('legacy_duplicate_audio');
     expect(objects.filter((item) => item.status === 'missing')).toEqual([
       expect.objectContaining({ key: 'covers/missing.jpg', category: 'cover', size: 0 }),
     ]);
@@ -125,7 +165,7 @@ describe('reconcileObjects', () => {
         { key: staleSeg, size: 40, lastModified: null, etag: null },
         { key: 'orphan/noise.bin', size: 5, lastModified: null, etag: null },
       ],
-      referenced: refs([chapter], { [chapter]: 'audio_us' }),
+      referenced: referencedKeyIndexFromKeys([chapter], { kinds: { [chapter]: 'audio_us' } }),
     });
 
     expect(report.orphanCount).toBe(1);
@@ -143,7 +183,7 @@ describe('reconcileObjects', () => {
         { key: 'covers/a.jpg', size: 10, lastModified: null, etag: null },
         { key: 'part-audio/big.mp3', size: 90, lastModified: null, etag: null },
       ],
-      referenced: refs(['epub/a.epub', 'covers/a.jpg']),
+      referenced: referencedKeyIndexFromKeys(['epub/a.epub', 'covers/a.jpg']),
       largestLimit: 2,
     });
 
@@ -157,19 +197,33 @@ describe('reconcileObjects', () => {
     expect(report.largestObjects.map((item) => item.key)).toEqual(['part-audio/big.mp3', 'epub/a.epub']);
   });
 
-  it('does not treat audio segment keys as orphans when referenced via meta', () => {
+  it('classifies legacy-metadata segments as legacy_duplicate_audio, not referenced', () => {
     const chapter = 'part-audio/p1/audio_us/h/chapter.mp3';
     const seg = 'part-audio/p1/audio_us/h/seg/0000.mp3';
-    const { report } = reconcileObjects({
+    const { report, objects } = reconcileObjects({
       listed: [
         { key: chapter, size: 100, lastModified: null, etag: null },
         { key: seg, size: 40, lastModified: null, etag: null },
       ],
-      referenced: refs([chapter, seg], { [chapter]: 'audio_us', [seg]: 'audio_us' }),
+      referenced: referencedKeyIndexFromKeys([chapter, seg], {
+        kinds: { [chapter]: 'audio_us', [seg]: 'audio_us' },
+      }),
     });
     expect(report.orphanCount).toBe(0);
+    expect(report.legacyDuplicateCount).toBe(1);
+    expect(report.referencedObjectCount).toBe(1);
+    expect(objects.find((item) => item.key === seg)?.status).toBe('legacy_duplicate_audio');
+  });
+
+  it('keeps externally referenced segments as referenced', () => {
+    const seg = 'part-audio/p1/audio_us/h/seg/0000.mp3';
+    const { report, objects } = reconcileObjects({
+      listed: [{ key: seg, size: 40, lastModified: null, etag: null }],
+      referenced: referencedKeyIndexFromKeys([seg], { external: [seg] }),
+    });
+    expect(report.referencedObjectCount).toBe(1);
     expect(report.legacyDuplicateCount).toBe(0);
-    expect(report.referencedObjectCount).toBe(2);
+    expect(objects[0]?.status).toBe('referenced');
   });
 
   it('records incomplete scans and duration without treating missing as listed objects', () => {
@@ -181,7 +235,7 @@ describe('reconcileObjects', () => {
     }));
     const { report, orphanKeys } = reconcileObjects({
       listed,
-      referenced: refs([]),
+      referenced: referencedKeyIndexFromKeys([]),
       scanComplete: false,
       durationMs: 42,
       largestLimit: 3,
@@ -213,7 +267,7 @@ describe('evaluateLegacySegmentCandidate', () => {
   it('marks a safe unreferenced segment eligible', () => {
     const decision = evaluateLegacySegmentCandidate({
       object: { key: seg, size: 40 },
-      referencedKeys: new Set([chapter]),
+      referenced: referencedKeyIndexFromKeys([chapter], { kinds: { [chapter]: 'audio_us' } }),
       assetByPartKind: new Map([['p1:audio_us', readyAsset()]]),
       chapterExistsByKey: new Map([[chapter, true]]),
     });
@@ -223,11 +277,33 @@ describe('evaluateLegacySegmentCandidate', () => {
     }
   });
 
-  it('skips referenced segments, generating assets, and missing chapters', () => {
+  it('marks legacy-metadata-only segments eligible when chapter exists', () => {
+    const legacySeg = 'part-audio/p1/audio_us/h/seg/0000.mp3';
+    const chapterKey = 'part-audio/p1/audio_us/h/chapter.mp3';
+    const decision = evaluateLegacySegmentCandidate({
+      object: { key: legacySeg, size: 40 },
+      referenced: referencedKeyIndexFromKeys([chapterKey, legacySeg], {
+        kinds: { [chapterKey]: 'audio_us', [legacySeg]: 'audio_us' },
+      }),
+      assetByPartKind: new Map([
+        [
+          'p1:audio_us',
+          {
+            ...readyAsset(),
+            storageKey: chapterKey,
+          },
+        ],
+      ]),
+      chapterExistsByKey: new Map([[chapterKey, true]]),
+    });
+    expect(decision.eligible).toBe(true);
+  });
+
+  it('skips formally referenced segments, generating assets, and missing chapters', () => {
     expect(
       evaluateLegacySegmentCandidate({
         object: { key: seg, size: 40 },
-        referencedKeys: new Set([seg]),
+        referenced: referencedKeyIndexFromKeys([seg], { external: [seg] }),
         assetByPartKind: new Map([['p1:audio_us', readyAsset()]]),
         chapterExistsByKey: new Map([[chapter, true]]),
       }).eligible,
@@ -236,7 +312,7 @@ describe('evaluateLegacySegmentCandidate', () => {
     expect(
       evaluateLegacySegmentCandidate({
         object: { key: seg, size: 40 },
-        referencedKeys: new Set(),
+        referenced: referencedKeyIndexFromKeys([]),
         assetByPartKind: new Map([
           [
             'p1:audio_us',
@@ -250,7 +326,7 @@ describe('evaluateLegacySegmentCandidate', () => {
     expect(
       evaluateLegacySegmentCandidate({
         object: { key: seg, size: 40 },
-        referencedKeys: new Set(),
+        referenced: referencedKeyIndexFromKeys([]),
         assetByPartKind: new Map([['p1:audio_us', readyAsset()]]),
         chapterExistsByKey: new Map([[chapter, false]]),
       }),
