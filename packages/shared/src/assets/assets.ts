@@ -14,9 +14,10 @@ export type AssetCategory = (typeof ASSET_CATEGORIES)[number];
 
 /**
  * Reconciliation status of a storage object relative to database references.
- * `legacy_duplicate_audio` is an unreferenced historical segment under
- * `part-audio/.../seg/*.mp3` left after chapter-only upload; it must not be
- * mixed into ordinary orphan cleanup.
+ * `legacy_duplicate_audio` covers historical segments under
+ * `part-audio/.../seg/*.mp3` that are not formally referenced (chapter/cover/etc.)
+ * — including segments still listed only in legacy audio metadata fields.
+ * Must not be mixed into ordinary orphan cleanup.
  */
 export const ASSET_OBJECT_STATUSES = ['referenced', 'orphan', 'missing', 'legacy_duplicate_audio'] as const;
 export type AssetObjectStatus = (typeof ASSET_OBJECT_STATUSES)[number];

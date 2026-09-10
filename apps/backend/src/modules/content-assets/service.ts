@@ -8,6 +8,7 @@ import {
   readingPart as readingPartTable,
   readingWork as readingWorkTable,
 } from '@gloaming/db';
+import { isLegacyAudioSegmentKey } from '@gloaming/shared/assets';
 import {
   audioKindForRole,
   buildContentAssetGenerationKey,
@@ -111,24 +112,54 @@ async function deleteObjectKeys(keys: string[], context: Record<string, unknown>
   }
 }
 
-export function collectAudioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
+/**
+ * Formal stored objects for needsRegen, ready checks, and asset integrity.
+ * Excludes legacy segment keys that may still appear in historical meta.objectKeys.
+ */
+export function formalAudioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
+  const keys = [asset.storageKey, ...(asset.meta.objectKeys ?? []).filter((key) => !isLegacyAudioSegmentKey(key))];
+  return [...new Set(keys.filter((key): key is string => Boolean(key)))];
+}
+
+/**
+ * All object keys referenced by audio metadata, including historical segments.
+ * Used for legacy cleanup and deleting obsolete audio assets.
+ */
+export function allAudioObjectKeysForLegacyCleanup(asset: {
+  storageKey: string | null;
+  meta: ContentAssetMeta;
+}): string[] {
   const keys = [
     asset.storageKey,
     ...(asset.meta.objectKeys ?? []),
-    // Legacy timeline.storageKey (pre chapter-only upload) — keep for cleanup of old assets.
     ...(asset.meta.timeline ?? []).map((segment) => segment.storageKey),
   ];
   return [...new Set(keys.filter((key): key is string => Boolean(key)))];
 }
 
-function audioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
-  return collectAudioObjectKeys(asset);
+/** @deprecated Prefer allAudioObjectKeysForLegacyCleanup or formalAudioObjectKeys explicitly. */
+export function collectAudioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
+  return allAudioObjectKeysForLegacyCleanup(asset);
 }
 
-/** Formal stored objects only (column storageKey + meta.objectKeys) — not legacy timeline keys. */
-function formalAudioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
-  const keys = [asset.storageKey, ...(asset.meta.objectKeys ?? [])];
-  return [...new Set(keys.filter((key): key is string => Boolean(key)))];
+/** Segment keys still recorded in legacy audio metadata (objectKeys or timeline.storageKey). */
+export function collectLegacyAudioSegmentKeysFromAsset(asset: { meta: ContentAssetMeta }): string[] {
+  const keys: string[] = [];
+  for (const key of asset.meta.objectKeys ?? []) {
+    if (isLegacyAudioSegmentKey(key)) {
+      keys.push(key);
+    }
+  }
+  for (const segment of asset.meta.timeline ?? []) {
+    if (segment.storageKey && isLegacyAudioSegmentKey(segment.storageKey)) {
+      keys.push(segment.storageKey);
+    }
+  }
+  return [...new Set(keys)];
+}
+
+function audioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
+  return allAudioObjectKeysForLegacyCleanup(asset);
 }
 
 export async function deleteAudioAssetObjects(asset: {
