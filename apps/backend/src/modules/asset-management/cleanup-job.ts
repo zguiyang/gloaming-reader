@@ -69,7 +69,7 @@ export async function runAssetCleanupJob(data: AssetCleanupJobData): Promise<{ o
       const referenced = await collectReferencedStorageKeys();
       const stillOrphan: string[] = [];
       for (const key of batch) {
-        if (referenced.keys.has(key)) {
+        if (referenced.allReferencedKeys.has(key)) {
           record.skippedReferencedCount += 1;
         } else {
           stillOrphan.push(key);
