@@ -92,7 +92,13 @@ export const TTS_CACHE_KEY_PREFIX_V1 = 'gloaming:tts:v1:' as const;
 /** Current Redis TTS cache key prefix (`gloaming:tts:v2:{digest}`). */
 export const TTS_CACHE_KEY_PREFIX_V2 = 'gloaming:tts:v2:' as const;
 
-/** Absolute TTL for TTS Redis cache entries (7 days). */
+/**
+ * Cache payload / key material version embedded in v2 digests.
+ * Bump when the Redis value schema or digest inputs change.
+ */
+export const TTS_CACHE_SCHEMA_VERSION = 1 as const;
+
+/** Absolute TTL for TTS Redis cache entries (7 days). Reads do not renew. */
 export const TTS_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 /** Skip writing TTS Redis cache when raw audio exceeds this size (2 MiB). */

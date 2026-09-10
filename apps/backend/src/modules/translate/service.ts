@@ -24,6 +24,7 @@ import {
 
 const translateLogger = rootLogger.child({ module: 'Translate' });
 
+/** Absolute bilingual translation cache TTL (30 days). Independent of TTS Redis TTL (7 days). */
 const BILINGUAL_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 export type TranslateStreamMetaEvent = {
