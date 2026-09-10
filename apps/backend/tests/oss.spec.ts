@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
@@ -11,8 +12,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { type Env, env, isS3ObjectStorageConfigured } from '@/lib/env';
 import { AppError } from '@/lib/errors';
-import { createObjectStoreFromEnv, createS3ObjectStore } from '@/lib/oss';
-import { putObject, resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
+import { createObjectStoreFromEnv, createS3ObjectStore, type ObjectStore } from '@/lib/oss';
+import { deleteManyObjects, putObject, resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
+
+import { createMemoryObjectStore } from './helpers/memory-oss';
 
 function baseEnv(overrides: Partial<Env> = {}): Env {
   return {
@@ -134,7 +137,114 @@ describe('createS3ObjectStore', () => {
     await expect(store.get('missing.mp3')).resolves.toBeNull();
     await expect(store.exists('missing.mp3')).resolves.toBe(false);
   });
+
+  it('uses DeleteObjectsCommand for deleteMany and reports partial Errors', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      expect(command).toBeInstanceOf(DeleteObjectsCommand);
+      const input = (command as DeleteObjectsCommand).input;
+      expect(input.Delete?.Quiet).toBe(false);
+      expect(input.Delete?.Objects).toEqual([{ Key: 'ok' }, { Key: 'bad' }, { Key: 'missing' }]);
+      return {
+        Deleted: [{ Key: 'ok' }],
+        Errors: [{ Key: 'bad', Code: 'AccessDenied', Message: 'denied' }],
+      };
+    });
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+
+    await expect(store.deleteMany?.(['ok', 'bad', 'missing'])).resolves.toEqual({
+      deleted: ['ok'],
+      failed: [
+        { key: 'bad', error: 'AccessDenied: denied' },
+        { key: 'missing', error: 'Object store did not report a delete result' },
+      ],
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send DeleteObjects for empty keys', async () => {
+    const send = vi.fn();
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+    await expect(store.deleteMany?.([])).resolves.toEqual({ deleted: [], failed: [] });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('marks every key in a chunk failed when DeleteObjects throws', async () => {
+    const send = vi.fn(async () => {
+      throw new Error('network down');
+    });
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+    await expect(store.deleteMany?.(['a', 'b'])).resolves.toEqual({
+      deleted: [],
+      failed: [
+        { key: 'a', error: 'network down' },
+        { key: 'b', error: 'network down' },
+      ],
+    });
+  });
+
+  it('chunks DeleteObjects at 1000 keys', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      expect(command).toBeInstanceOf(DeleteObjectsCommand);
+      const objects = (command as DeleteObjectsCommand).input.Delete?.Objects ?? [];
+      expect(objects.length).toBeLessThanOrEqual(1000);
+      return { Deleted: objects.map((object) => ({ Key: object.Key })) };
+    });
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+    const keys = Array.from({ length: 1001 }, (_, index) => `k${index}`);
+    const result = await store.deleteMany?.(keys);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(result?.deleted).toHaveLength(1001);
+    expect(result?.failed).toEqual([]);
+  });
 });
+
+function stubStore(overrides: Partial<ObjectStore>): ObjectStore {
+  return {
+    async put() {},
+    async get() {
+      return null;
+    },
+    async getStream() {
+      return null;
+    },
+    async exists() {
+      return false;
+    },
+    async delete() {},
+    async list() {
+      return { objects: [], nextCursor: null, hasMore: false };
+    },
+    ...overrides,
+  };
+}
 
 describe('oss facade', () => {
   it('Fail Fast with 503 when unconfigured', async () => {
@@ -143,6 +253,86 @@ describe('oss facade', () => {
     await expect(putObject({ key: 'x', body: Buffer.from('x'), contentType: 'text/plain' })).rejects.toSatisfy(
       (error: unknown) => error instanceof AppError && error.statusCode === 503,
     );
+    resetObjectStoreCache();
+  });
+
+  it('deleteManyObjects returns empty result for empty keys without resolving the store', async () => {
+    resetObjectStoreCache();
+    setObjectStoreForTests(null);
+    await expect(deleteManyObjects([])).resolves.toEqual({ deleted: [], failed: [] });
+    resetObjectStoreCache();
+  });
+
+  it('deleteManyObjects uses store.deleteMany when present', async () => {
+    resetObjectStoreCache();
+    const memory = createMemoryObjectStore();
+    await memory.put({ key: 'a', body: Buffer.from('a'), contentType: 'text/plain' });
+    await memory.put({ key: 'b', body: Buffer.from('b'), contentType: 'text/plain' });
+    setObjectStoreForTests(memory);
+    await expect(deleteManyObjects(['a', 'b'])).resolves.toEqual({ deleted: ['a', 'b'], failed: [] });
+    expect(memory.store.has('a')).toBe(false);
+    expect(memory.store.has('b')).toBe(false);
+    resetObjectStoreCache();
+  });
+
+  it('chunks at 1000 when calling store.deleteMany', async () => {
+    resetObjectStoreCache();
+    const calls: number[] = [];
+    setObjectStoreForTests(
+      stubStore({
+        async deleteMany(keys) {
+          calls.push(keys.length);
+          return { deleted: keys, failed: [] };
+        },
+      }),
+    );
+    const keys = Array.from({ length: 1001 }, (_, index) => `k${index}`);
+    const result = await deleteManyObjects(keys);
+    expect(calls).toEqual([1000, 1]);
+    expect(result.deleted).toHaveLength(1001);
+    expect(result.failed).toEqual([]);
+    resetObjectStoreCache();
+  });
+
+  it('falls back to concurrency 8 when store has no deleteMany', async () => {
+    resetObjectStoreCache();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const keys = Array.from({ length: 16 }, (_, index) => `k${index}`);
+    setObjectStoreForTests(
+      stubStore({
+        async delete() {
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          inFlight -= 1;
+        },
+      }),
+    );
+
+    const result = await deleteManyObjects(keys);
+    expect(result.deleted).toEqual(keys);
+    expect(result.failed).toEqual([]);
+    expect(maxInFlight).toBeGreaterThan(1);
+    expect(maxInFlight).toBeLessThanOrEqual(8);
+    resetObjectStoreCache();
+  });
+
+  it('collects per-key failures on the fallback path', async () => {
+    resetObjectStoreCache();
+    setObjectStoreForTests(
+      stubStore({
+        async delete(key) {
+          if (key === 'bad') {
+            throw new Error('boom');
+          }
+        },
+      }),
+    );
+    await expect(deleteManyObjects(['ok', 'bad'])).resolves.toEqual({
+      deleted: ['ok'],
+      failed: [{ key: 'bad', error: 'boom' }],
+    });
     resetObjectStoreCache();
   });
 });

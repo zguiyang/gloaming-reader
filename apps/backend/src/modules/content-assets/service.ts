@@ -111,10 +111,17 @@ async function deleteObjectKeys(keys: string[], context: Record<string, unknown>
   }
 }
 
-function audioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
-  return [
-    ...new Set([...(asset.meta.objectKeys ?? []), asset.storageKey].filter((key): key is string => Boolean(key))),
+export function collectAudioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
+  const keys = [
+    asset.storageKey,
+    ...(asset.meta.objectKeys ?? []),
+    ...(asset.meta.timeline ?? []).map((segment) => segment.storageKey),
   ];
+  return [...new Set(keys.filter((key): key is string => Boolean(key)))];
+}
+
+function audioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
+  return collectAudioObjectKeys(asset);
 }
 
 export async function deleteAudioAssetObjects(asset: {

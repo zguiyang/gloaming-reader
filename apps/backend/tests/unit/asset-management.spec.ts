@@ -28,6 +28,27 @@ describe('collectKeysFromContentAssetRow', () => {
     });
     expect(keys.sort()).toEqual(['part-audio/p1/audio_us/h/chapter.mp3', 'part-audio/p1/audio_us/h/seg/0000.mp3']);
   });
+
+  it('keeps a timeline-only segment key that is absent from objectKeys', () => {
+    const keys = collectKeysFromContentAssetRow({
+      storageKey: 'part-audio/p1/audio_us/old/chapter.mp3',
+      kind: 'audio_us',
+      meta: {
+        objectKeys: ['part-audio/p1/audio_us/old/chapter.mp3'],
+        timeline: [
+          {
+            index: 0,
+            textHash: 'legacy',
+            startMs: 0,
+            durationMs: 800,
+            storageKey: 'part-audio/p1/audio_us/old/seg/0000.mp3',
+            wordTimings: [],
+          },
+        ],
+      },
+    });
+    expect(keys.sort()).toEqual(['part-audio/p1/audio_us/old/chapter.mp3', 'part-audio/p1/audio_us/old/seg/0000.mp3']);
+  });
 });
 
 describe('collectKeysFromOriginMeta', () => {
@@ -79,6 +100,8 @@ describe('reconcileObjects', () => {
     expect(report.orphanCount).toBe(1);
     expect(report.orphanBytes).toBe(60);
     expect(report.missingCount).toBe(1);
+    expect(report.durationMs).toBe(0);
+    expect(report.scanComplete).toBe(true);
     expect(orphanKeys).toEqual(['orphan/old.mp3']);
 
     expect(objects.filter((item) => item.status === 'orphan')).toHaveLength(1);
@@ -120,5 +143,27 @@ describe('reconcileObjects', () => {
     });
     expect(report.orphanCount).toBe(0);
     expect(report.referencedObjectCount).toBe(2);
+  });
+
+  it('records incomplete scans and duration without treating missing as listed objects', () => {
+    const listed = Array.from({ length: 1_000 }, (_, index) => ({
+      key: `orphan/${index}.bin`,
+      size: index + 1,
+      lastModified: null,
+      etag: null,
+    }));
+    const { report, orphanKeys } = reconcileObjects({
+      listed,
+      referenced: refs([]),
+      scanComplete: false,
+      durationMs: 42,
+      largestLimit: 3,
+    });
+    expect(report.scanComplete).toBe(false);
+    expect(report.durationMs).toBe(42);
+    expect(report.objectCount).toBe(1_000);
+    expect(orphanKeys).toHaveLength(1_000);
+    expect(report.largestObjects).toHaveLength(3);
+    expect(report.largestObjects[0]?.key).toBe('orphan/999.bin');
   });
 });

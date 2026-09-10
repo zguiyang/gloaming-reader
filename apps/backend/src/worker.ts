@@ -1,6 +1,7 @@
-import type { Job } from 'bullmq';
-import { Worker } from 'bullmq';
+import type { Job, Worker } from 'bullmq';
+import { Worker as BullWorker } from 'bullmq';
 
+import { JOB_ASSET_CLEANUP, processAssetCleanup } from '@/jobs/asset-cleanup';
 import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from '@/jobs/content-parse';
 import { JOB_METADATA_ENRICH, type MetadataEnrichJobData, processMetadataEnrich } from '@/jobs/metadata-enrich';
 import {
@@ -13,9 +14,11 @@ import { JOB_PING, processPing } from '@/jobs/ping';
 import { JOB_METADATA_FILL, processWorkMetadataFill, type WorkMetadataFillJobData } from '@/jobs/work-metadata-fill';
 import { env } from '@/lib/env';
 import { workerLogger } from '@/lib/logger';
-import { closeQueue, getQueueConnection, QUEUE_NAME } from '@/lib/queue';
+import { CLEANUP_QUEUE_NAME, closeQueue, getQueueConnection, QUEUE_NAME } from '@/lib/queue';
 
-async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
+export const CLEANUP_WORKER_CONCURRENCY = 1;
+
+export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
   switch (job.name) {
     case JOB_PING:
       return processPing(job.data as PingJobData);
@@ -32,22 +35,46 @@ async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
   }
 }
 
-async function main(): Promise<void> {
-  const worker = new Worker(QUEUE_NAME, async (job) => processJob(job), {
-    connection: getQueueConnection(),
-  });
+export async function processCleanupJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
+  if (job.name !== JOB_ASSET_CLEANUP) {
+    throw new Error(`Unknown cleanup job name: ${job.name}`);
+  }
+  return processAssetCleanup(job.data as { jobId: string; scanId: string });
+}
 
+function attachWorkerEvents(worker: Worker, queue: string): void {
   worker.on('completed', (job) => {
-    workerLogger.info({ jobId: job.id, name: job.name }, 'Job completed');
+    workerLogger.info({ jobId: job.id, name: job.name, queue }, 'Job completed');
   });
   worker.on('failed', (job, err) => {
-    workerLogger.error({ err, jobId: job?.id, name: job?.name }, 'Job failed');
+    workerLogger.error({ err, jobId: job?.id, name: job?.name, queue }, 'Job failed');
   });
   worker.on('error', (err) => {
-    workerLogger.error({ err }, 'Worker error');
+    workerLogger.error({ err, queue }, 'Worker error');
+  });
+}
+
+export function createWorkers(): { worker: Worker; cleanupWorker: Worker } {
+  const connection = getQueueConnection();
+
+  const worker = new BullWorker(QUEUE_NAME, async (job) => processJob(job), {
+    connection,
+  });
+  const cleanupWorker = new BullWorker(CLEANUP_QUEUE_NAME, async (job) => processCleanupJob(job), {
+    connection,
+    concurrency: CLEANUP_WORKER_CONCURRENCY,
   });
 
-  workerLogger.info({ queue: QUEUE_NAME, nodeEnv: env.NODE_ENV }, 'Worker listening');
+  attachWorkerEvents(worker, QUEUE_NAME);
+  attachWorkerEvents(cleanupWorker, CLEANUP_QUEUE_NAME);
+
+  return { worker, cleanupWorker };
+}
+
+async function main(): Promise<void> {
+  const { worker, cleanupWorker } = createWorkers();
+
+  workerLogger.info({ queue: QUEUE_NAME, cleanupQueue: CLEANUP_QUEUE_NAME, nodeEnv: env.NODE_ENV }, 'Worker listening');
 
   let shuttingDown = false;
   const shutdown = async (signal: string) => {
@@ -56,7 +83,7 @@ async function main(): Promise<void> {
     }
     shuttingDown = true;
     workerLogger.info({ signal }, 'Worker shutting down');
-    await worker.close();
+    await Promise.all([worker.close(), cleanupWorker.close()]);
     await closeQueue();
     process.exit(0);
   };
@@ -69,7 +96,9 @@ async function main(): Promise<void> {
   });
 }
 
-main().catch((err: unknown) => {
-  workerLogger.error({ err }, 'Worker failed to start');
-  process.exit(1);
-});
+if (!process.env.VITEST) {
+  main().catch((err: unknown) => {
+    workerLogger.error({ err }, 'Worker failed to start');
+    process.exit(1);
+  });
+}

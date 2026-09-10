@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 
+import { HTTP_STATUS } from '@/constants';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
 import * as assetManagementService from '@/modules/asset-management/service';
 import { validateAssetCleanupBody, validateAssetObjectListQuery } from '@/modules/asset-management/validator';
@@ -26,7 +27,22 @@ assetManagementRoutes.post(
   requireAdmin,
   validateAssetCleanupBody,
   async (c) => {
-    const result = await assetManagementService.cleanupOrphanObjects(c.req.param('scanId'));
-    return c.json(result);
+    const result = await assetManagementService.enqueueOrphanCleanup(c.req.param('scanId'));
+    return c.json(result, HTTP_STATUS.ACCEPTED);
+  },
+);
+
+assetManagementRoutes.get('/api/admin/assets/cleanup-jobs/:jobId', requireAdmin, async (c) => {
+  const job = await assetManagementService.getCleanupJob(c.req.param('jobId'));
+  return c.json(job);
+});
+
+assetManagementRoutes.post(
+  '/api/admin/assets/cleanup-jobs/:jobId/retry',
+  requireAdmin,
+  validateAssetCleanupBody,
+  async (c) => {
+    const result = await assetManagementService.retryCleanupJob(c.req.param('jobId'));
+    return c.json(result, HTTP_STATUS.ACCEPTED);
   },
 );

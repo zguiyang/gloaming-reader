@@ -9,9 +9,11 @@ import {
 import {
   ASSET_CATEGORIES,
   ASSET_LARGEST_OBJECTS_DEFAULT,
+  ASSET_SCAN_OBJECT_LIMIT,
   type AssetCategory,
   type AssetCategorySummary,
-  type AssetCleanupResult,
+  type AssetCleanupJob,
+  type AssetCleanupJobAccepted,
   type AssetObjectItem,
   type AssetObjectListData,
   type AssetObjectListQuery,
@@ -25,15 +27,33 @@ import { db } from '@/db';
 import { AppError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import type { ObjectListItem } from '@/lib/oss';
+import { enqueueCleanup } from '@/lib/queue';
 import { getRedis } from '@/lib/redis';
-import { deleteObject, listObjects } from '@/modules/oss';
+import {
+  acquireLock,
+  applyCleanupRetryState,
+  collectCleanupRetryKeys,
+  createQueuedCleanupJob,
+  isInFlightStatus,
+  isRetryableStatus,
+  loadCleanupJob,
+  loadCleanupJobIdForScan,
+  releaseLock,
+  saveCleanupJob,
+  SCAN_LOCK_KEY,
+  SCAN_LOCK_TTL_SECONDS,
+  snapshotTtlSeconds,
+  startLockRenewal,
+  toPublicCleanupJob,
+} from '@/modules/asset-management/cleanup-store';
+import { collectAudioObjectKeys } from '@/modules/content-assets/service';
+import { listObjects } from '@/modules/oss';
 
 const logger = rootLogger.child({ module: 'AssetManagement' });
 
-const SCAN_TTL_SECONDS = 15 * 60;
-const SCAN_LOCK_TTL_SECONDS = 120;
+/** Must match `JOB_ASSET_CLEANUP` in jobs/asset-cleanup.ts */
+const CLEANUP_JOB_NAME = 'asset-cleanup';
 const SCAN_KEY_PREFIX = 'asset-management:scan:';
-const SCAN_LOCK_KEY = 'asset-management:scan:lock';
 
 type ScanSnapshot = {
   report: AssetScanReport;
@@ -95,12 +115,8 @@ export async function collectReferencedStorageKeys(): Promise<ReferencedKeyIndex
 
   for (const asset of assets) {
     const meta = asset.meta as ContentAssetMeta;
-    addReferencedKey(index, asset.storageKey, asset.kind);
-    for (const key of meta.objectKeys ?? []) {
+    for (const key of collectAudioObjectKeys({ storageKey: asset.storageKey, meta })) {
       addReferencedKey(index, key, asset.kind);
-    }
-    for (const segment of meta.timeline ?? []) {
-      addReferencedKey(index, segment.storageKey, asset.kind);
     }
   }
 
@@ -127,27 +143,29 @@ export function collectKeysFromContentAssetRow(asset: {
   kind: string;
   meta: ContentAssetMeta;
 }): string[] {
-  const keys = new Set<string>();
-  keys.add(asset.storageKey);
-  for (const key of asset.meta.objectKeys ?? []) keys.add(key);
-  for (const segment of asset.meta.timeline ?? []) keys.add(segment.storageKey);
-  return [...keys];
+  return collectAudioObjectKeys({ storageKey: asset.storageKey, meta: asset.meta });
 }
 
 export function collectKeysFromOriginMeta(originMeta: unknown): string[] {
   return parseArtifactManifests(originMeta).flatMap((manifest) => manifest.keys);
 }
 
-async function listAllObjects(): Promise<ObjectListItem[]> {
+async function listAllObjects(limit: number): Promise<{ objects: ObjectListItem[]; complete: boolean }> {
   const objects: ObjectListItem[] = [];
   let cursor: string | undefined;
   for (;;) {
     const page = await listObjects(undefined, cursor);
-    objects.push(...page.objects);
-    if (!page.hasMore || !page.nextCursor) break;
+    for (const object of page.objects) {
+      if (objects.length >= limit) {
+        return { objects, complete: false };
+      }
+      objects.push(object);
+    }
+    if (!page.hasMore || !page.nextCursor) {
+      return { objects, complete: true };
+    }
     cursor = page.nextCursor;
   }
-  return objects;
 }
 
 function toIso(value: Date | string | null): string | null {
@@ -163,10 +181,14 @@ export function reconcileObjects(input: {
   measuredAt?: Date;
   scanId?: string;
   largestLimit?: number;
+  scanComplete?: boolean;
+  durationMs?: number;
 }): { report: AssetScanReport; objects: AssetObjectItem[]; orphanKeys: string[] } {
   const measuredAt = (input.measuredAt ?? new Date()).toISOString();
   const scanId = input.scanId ?? `scan_${randomUUID()}`;
   const largestLimit = input.largestLimit ?? ASSET_LARGEST_OBJECTS_DEFAULT;
+  const scanComplete = input.scanComplete ?? true;
+  const durationMs = input.durationMs ?? 0;
 
   const listedKeys = new Set(input.listed.map((object) => object.key));
   const objects: AssetObjectItem[] = [];
@@ -241,7 +263,7 @@ export function reconcileObjects(input: {
   const report: AssetScanReport = {
     scanId,
     measuredAt,
-    scanComplete: true,
+    scanComplete,
     objectCount: input.listed.length,
     totalBytes,
     referencedObjectCount,
@@ -249,6 +271,7 @@ export function reconcileObjects(input: {
     orphanCount,
     orphanBytes,
     missingCount,
+    durationMs,
     categories,
     largestObjects,
   };
@@ -257,7 +280,7 @@ export function reconcileObjects(input: {
 }
 
 async function saveSnapshot(snapshot: ScanSnapshot): Promise<void> {
-  await getRedis().set(scanRedisKey(snapshot.report.scanId), JSON.stringify(snapshot), 'EX', SCAN_TTL_SECONDS);
+  await getRedis().set(scanRedisKey(snapshot.report.scanId), JSON.stringify(snapshot), 'EX', snapshotTtlSeconds());
 }
 
 async function loadSnapshot(scanId: string): Promise<ScanSnapshot> {
@@ -273,39 +296,47 @@ async function loadSnapshot(scanId: string): Promise<ScanSnapshot> {
   }
 }
 
-async function invalidateSnapshot(scanId: string): Promise<void> {
-  try {
-    await getRedis().del(scanRedisKey(scanId));
-  } catch (error) {
-    logger.warn({ err: error, scanId }, 'Failed to invalidate scan snapshot');
-  }
-}
-
 export async function scanAssets(): Promise<AssetScanReport> {
   const scanId = `scan_${randomUUID()}`;
-  const redis = getRedis();
-
-  const locked = await redis.set(SCAN_LOCK_KEY, scanId, 'EX', SCAN_LOCK_TTL_SECONDS, 'NX');
-  if (locked !== 'OK') {
+  const locked = await acquireLock(SCAN_LOCK_KEY, scanId, SCAN_LOCK_TTL_SECONDS);
+  if (!locked) {
     throw new AppError(HTTP_STATUS.CONFLICT, 'A scan is already in progress');
   }
 
+  const scanLockRenewal = startLockRenewal(SCAN_LOCK_KEY, scanId, SCAN_LOCK_TTL_SECONDS);
+  const heapUsedBefore = process.memoryUsage().heapUsed;
+  const startedAt = Date.now();
   try {
-    const [listed, referenced] = await Promise.all([listAllObjects(), collectReferencedStorageKeys()]);
+    const [listed, referenced] = await Promise.all([
+      listAllObjects(ASSET_SCAN_OBJECT_LIMIT),
+      collectReferencedStorageKeys(),
+    ]);
+    const durationMs = Date.now() - startedAt;
     const { report, objects, orphanKeys } = reconcileObjects({
-      listed,
+      listed: listed.objects,
       referenced,
       scanId,
       measuredAt: new Date(),
+      scanComplete: listed.complete,
+      durationMs,
     });
     await saveSnapshot({ report, objects, orphanKeys });
+    logger.info(
+      {
+        scanId,
+        durationMs,
+        objectCount: report.objectCount,
+        scanComplete: report.scanComplete,
+        heapUsedBefore,
+        heapUsedAfter: process.memoryUsage().heapUsed,
+      },
+      'Asset scan finished',
+    );
     return report;
   } finally {
+    scanLockRenewal.stop();
     try {
-      const current = await redis.get(SCAN_LOCK_KEY);
-      if (current === scanId) {
-        await redis.del(SCAN_LOCK_KEY);
-      }
+      await releaseLock(SCAN_LOCK_KEY, scanId);
     } catch (error) {
       logger.warn({ err: error }, 'Failed to release scan lock');
     }
@@ -359,47 +390,113 @@ export async function listScanObjects(scanId: string, query: AssetObjectListQuer
   };
 }
 
-export async function cleanupOrphanObjects(scanId: string): Promise<AssetCleanupResult> {
+export async function enqueueOrphanCleanup(scanId: string): Promise<AssetCleanupJobAccepted> {
   const snapshot = await loadSnapshot(scanId);
-  const requestedCount = snapshot.orphanKeys.length;
-  const referenced = await collectReferencedStorageKeys();
-
-  const stillOrphan: string[] = [];
-  let skippedReferencedCount = 0;
-  for (const key of snapshot.orphanKeys) {
-    if (referenced.keys.has(key)) {
-      skippedReferencedCount += 1;
-      continue;
-    }
-    stillOrphan.push(key);
+  if (!snapshot.report.scanComplete) {
+    throw new AppError(
+      HTTP_STATUS.CONFLICT,
+      'Incomplete scan cannot be cleaned up; rescan with a smaller bucket or retry later',
+    );
+  }
+  if (snapshot.orphanKeys.length === 0) {
+    throw new AppError(HTTP_STATUS.CONFLICT, 'No orphan objects to clean up');
   }
 
-  const sizeByKey = new Map(snapshot.objects.map((item) => [item.key, item.size]));
-  let deletedCount = 0;
-  let deletedBytes = 0;
-  const failed: AssetCleanupResult['failed'] = [];
-
-  for (const key of stillOrphan) {
-    try {
-      await deleteObject(key);
-      deletedCount += 1;
-      deletedBytes += sizeByKey.get(key) ?? 0;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Delete failed';
-      failed.push({ key, error: message });
-      logger.warn({ err: error, key, scanId }, 'Failed to delete orphan object');
+  const existingJobId = await loadCleanupJobIdForScan(scanId);
+  if (existingJobId) {
+    const existing = await loadCleanupJob(existingJobId);
+    if (existing && isInFlightStatus(existing.status)) {
+      return { jobId: existing.jobId, scanId: existing.scanId, status: existing.status };
+    }
+    if (existing && !isRetryableStatus(existing.status) && existing.status === 'completed') {
+      throw new AppError(
+        HTTP_STATUS.CONFLICT,
+        'Cleanup already completed for this scan; scan again to start a new job',
+      );
+    }
+    if (existing && isRetryableStatus(existing.status)) {
+      throw new AppError(HTTP_STATUS.CONFLICT, 'Cleanup already finished with failures; retry the existing job');
     }
   }
 
-  await invalidateSnapshot(scanId);
+  const sizeByKey: Record<string, number> = {};
+  for (const item of snapshot.objects) {
+    if (item.status === 'orphan') {
+      sizeByKey[item.key] = item.size;
+    }
+  }
 
-  return {
+  const record = createQueuedCleanupJob({
     scanId,
-    requestedCount,
-    deletedCount,
-    skippedReferencedCount,
-    failedCount: failed.length,
-    deletedBytes,
-    failed,
-  };
+    pendingKeys: snapshot.orphanKeys,
+    sizeByKey,
+  });
+  await saveCleanupJob(record);
+  try {
+    await enqueueCleanup(
+      CLEANUP_JOB_NAME,
+      { jobId: record.jobId, scanId: record.scanId },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5_000 },
+        jobId: `${CLEANUP_JOB_NAME}:${record.scanId}:${record.attempt}`,
+      },
+    );
+  } catch (error) {
+    record.status = 'failed';
+    record.error = error instanceof Error ? error.message : 'Failed to enqueue cleanup job';
+    await saveCleanupJob(record);
+    throw error;
+  }
+
+  logger.info({ jobId: record.jobId, scanId, requestedCount: record.requestedCount }, 'Asset cleanup job enqueued');
+  return { jobId: record.jobId, scanId: record.scanId, status: record.status };
+}
+
+export async function getCleanupJob(jobId: string): Promise<AssetCleanupJob> {
+  const record = await loadCleanupJob(jobId);
+  if (!record) {
+    throw new AppError(HTTP_STATUS.NOT_FOUND, 'Cleanup job not found');
+  }
+  return toPublicCleanupJob(record);
+}
+
+export async function retryCleanupJob(jobId: string): Promise<AssetCleanupJobAccepted> {
+  const record = await loadCleanupJob(jobId);
+  if (!record) {
+    throw new AppError(HTTP_STATUS.NOT_FOUND, 'Cleanup job not found');
+  }
+  if (isInFlightStatus(record.status)) {
+    return { jobId: record.jobId, scanId: record.scanId, status: record.status };
+  }
+  if (!isRetryableStatus(record.status)) {
+    throw new AppError(HTTP_STATUS.CONFLICT, 'Cleanup job has no failed objects to retry');
+  }
+  const retryKeys = collectCleanupRetryKeys(record);
+  if (retryKeys.length === 0) {
+    throw new AppError(HTTP_STATUS.CONFLICT, 'Cleanup job has no failed objects to retry');
+  }
+
+  applyCleanupRetryState(record, retryKeys);
+  await saveCleanupJob(record);
+
+  try {
+    await enqueueCleanup(
+      CLEANUP_JOB_NAME,
+      { jobId: record.jobId, scanId: record.scanId },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5_000 },
+        jobId: `${CLEANUP_JOB_NAME}:${record.scanId}:${record.attempt}`,
+      },
+    );
+  } catch (error) {
+    record.status = 'failed';
+    record.error = error instanceof Error ? error.message : 'Failed to enqueue cleanup retry';
+    await saveCleanupJob(record);
+    throw error;
+  }
+
+  logger.info({ jobId: record.jobId, scanId: record.scanId, attempt: record.attempt }, 'Asset cleanup retry enqueued');
+  return { jobId: record.jobId, scanId: record.scanId, status: record.status };
 }

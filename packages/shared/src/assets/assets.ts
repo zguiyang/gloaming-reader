@@ -23,6 +23,13 @@ export const DEFAULT_ASSET_OBJECT_SORT_BY = 'size' as const satisfies AssetObjec
 export const ASSET_OBJECT_DEFAULT_PAGE_SIZE = 20 as const;
 export const ASSET_LARGEST_OBJECTS_DEFAULT = 10 as const;
 export const ASSET_LARGEST_OBJECTS_MAX = 20 as const;
+/** Hard cap for a single health scan. Incomplete scans must not be cleaned up. */
+export const ASSET_SCAN_OBJECT_LIMIT = 20_000 as const;
+
+export const ASSET_CLEANUP_JOB_STATUSES = ['queued', 'running', 'completed', 'partial', 'failed'] as const;
+export type AssetCleanupJobStatus = (typeof ASSET_CLEANUP_JOB_STATUSES)[number];
+/** Max failure entries returned on the public cleanup-job projection. */
+export const ASSET_CLEANUP_FAILED_SAMPLE_LIMIT = 50 as const;
 
 /** Filter query values that include an "all" sentinel for UI tabs. */
 export const ASSET_STATUS_FILTERS = ['all', ...ASSET_OBJECT_STATUSES] as const;
@@ -64,6 +71,7 @@ export const assetScanReportSchema = z.object({
   orphanCount: z.number().int().nonnegative(),
   orphanBytes: z.number().int().nonnegative(),
   missingCount: z.number().int().nonnegative(),
+  durationMs: z.number().int().nonnegative(),
   categories: z.array(assetCategorySummarySchema),
   largestObjects: z.array(assetObjectItemSchema).max(ASSET_LARGEST_OBJECTS_MAX),
 });
@@ -95,12 +103,20 @@ export const assetCleanupRequestSchema = z.object({
 
 export type AssetCleanupRequest = z.infer<typeof assetCleanupRequestSchema>;
 
+export const assetCleanupRetryRequestSchema = assetCleanupRequestSchema;
+export type AssetCleanupRetryRequest = AssetCleanupRequest;
+
 export const assetCleanupFailureSchema = z.object({
   key: z.string().min(1),
   error: z.string().min(1),
 });
 
 export type AssetCleanupFailure = z.infer<typeof assetCleanupFailureSchema>;
+
+/** Public job payloads expose only a bounded sample of failures. */
+export function publicFailedSample(failed: AssetCleanupFailure[]): AssetCleanupFailure[] {
+  return failed.slice(0, ASSET_CLEANUP_FAILED_SAMPLE_LIMIT);
+}
 
 export const assetCleanupResultSchema = z.object({
   scanId: z.string().min(1),
@@ -113,6 +129,47 @@ export const assetCleanupResultSchema = z.object({
 });
 
 export type AssetCleanupResult = z.infer<typeof assetCleanupResultSchema>;
+
+const assetCleanupJobStatusSchema = z.enum(ASSET_CLEANUP_JOB_STATUSES);
+
+/** 202 Accepted payload after enqueueing an orphan-cleanup job. */
+export const assetCleanupJobAcceptedSchema = z.object({
+  jobId: z.string().min(1),
+  scanId: z.string().min(1),
+  status: assetCleanupJobStatusSchema,
+});
+
+export type AssetCleanupJobAccepted = z.infer<typeof assetCleanupJobAcceptedSchema>;
+
+export const assetCleanupJobVerificationSchema = z.object({
+  ran: z.boolean(),
+  orphanCount: z.number().int().nonnegative().optional(),
+  missingCount: z.number().int().nonnegative().optional(),
+  scanComplete: z.boolean().optional(),
+  scanId: z.string().min(1).optional(),
+});
+
+export type AssetCleanupJobVerification = z.infer<typeof assetCleanupJobVerificationSchema>;
+
+/** Redis-backed cleanup job projection. Keys only — never object payloads. */
+export const assetCleanupJobSchema = z.object({
+  jobId: z.string().min(1),
+  scanId: z.string().min(1),
+  status: assetCleanupJobStatusSchema,
+  requestedCount: z.number().int().nonnegative(),
+  processedCount: z.number().int().nonnegative(),
+  deletedCount: z.number().int().nonnegative(),
+  skippedReferencedCount: z.number().int().nonnegative(),
+  failedCount: z.number().int().nonnegative(),
+  deletedBytes: z.number().int().nonnegative(),
+  failedSample: z.array(assetCleanupFailureSchema).max(ASSET_CLEANUP_FAILED_SAMPLE_LIMIT),
+  verification: assetCleanupJobVerificationSchema.optional(),
+  error: z.string().min(1).optional(),
+  createdAt: z.union([z.string(), z.date()]),
+  updatedAt: z.union([z.string(), z.date()]),
+});
+
+export type AssetCleanupJob = z.infer<typeof assetCleanupJobSchema>;
 
 /**
  * Classify an object by ContentAsset kind (when known) or key prefix.

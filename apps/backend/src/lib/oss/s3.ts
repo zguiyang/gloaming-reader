@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
@@ -11,6 +12,8 @@ import {
 } from '@aws-sdk/client-s3';
 
 import type {
+  ObjectDeleteFailure,
+  ObjectDeleteManyResult,
   ObjectGetResult,
   ObjectGetStreamResult,
   ObjectListResult,
@@ -18,6 +21,9 @@ import type {
   ObjectRange,
   ObjectStore,
 } from '@/lib/oss/types';
+
+/** S3 DeleteObjects accepts at most 1000 keys per request. */
+const DELETE_MANY_CHUNK_SIZE = 1000;
 
 export type S3ObjectStoreConfig = {
   endpoint?: string;
@@ -58,6 +64,54 @@ function isNotFoundError(error: unknown): boolean {
     return true;
   }
   return record.$metadata?.httpStatusCode === 404;
+}
+
+function chunkKeys(keys: string[], size: number): string[][] {
+  const chunks: string[][] = [];
+  for (let index = 0; index < keys.length; index += size) {
+    chunks.push(keys.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function formatS3DeleteError(code?: string, message?: string): string {
+  const parts = [code, message].filter((part): part is string => typeof part === 'string' && part.length > 0);
+  return parts.length > 0 ? parts.join(': ') : 'Unknown delete error';
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function mapDeleteObjectsChunk(
+  chunk: string[],
+  deletedEntries: Array<{ Key?: string }> | undefined,
+  errorEntries: Array<{ Key?: string; Code?: string; Message?: string }> | undefined,
+): ObjectDeleteManyResult {
+  const deletedSet = new Set(
+    (deletedEntries ?? []).flatMap((entry) => (typeof entry.Key === 'string' ? [entry.Key] : [])),
+  );
+  const errorByKey = new Map<string, string>();
+  for (const entry of errorEntries ?? []) {
+    if (typeof entry.Key !== 'string') {
+      continue;
+    }
+    errorByKey.set(entry.Key, formatS3DeleteError(entry.Code, entry.Message));
+  }
+
+  const deleted: string[] = [];
+  const failed: ObjectDeleteFailure[] = [];
+  for (const key of chunk) {
+    const error = errorByKey.get(key);
+    if (error !== undefined) {
+      failed.push({ key, error });
+    } else if (deletedSet.has(key)) {
+      deleted.push(key);
+    } else {
+      failed.push({ key, error: 'Object store did not report a delete result' });
+    }
+  }
+  return { deleted, failed };
 }
 
 /** Normalize S3 response bodies (Node Readable / Blob / Buffer) to a Web ReadableStream. */
@@ -156,6 +210,37 @@ export function createS3ObjectStore(config: S3ObjectStoreConfig): ObjectStore {
 
     async delete(key: string): Promise<void> {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    },
+
+    async deleteMany(keys: string[]): Promise<ObjectDeleteManyResult> {
+      if (keys.length === 0) {
+        return { deleted: [], failed: [] };
+      }
+
+      const deleted: string[] = [];
+      const failed: ObjectDeleteFailure[] = [];
+      for (const chunk of chunkKeys(keys, DELETE_MANY_CHUNK_SIZE)) {
+        try {
+          const response = await client.send(
+            new DeleteObjectsCommand({
+              Bucket: bucket,
+              Delete: {
+                Objects: chunk.map((key) => ({ Key: key })),
+                Quiet: false,
+              },
+            }),
+          );
+          const mapped = mapDeleteObjectsChunk(chunk, response.Deleted, response.Errors);
+          deleted.push(...mapped.deleted);
+          failed.push(...mapped.failed);
+        } catch (error) {
+          const message = errorMessage(error);
+          for (const key of chunk) {
+            failed.push({ key, error: message });
+          }
+        }
+      }
+      return { deleted, failed };
     },
 
     async list(prefix?: string, cursor?: string): Promise<ObjectListResult> {

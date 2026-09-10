@@ -7,11 +7,13 @@ import { env } from '@/lib/env';
 import { queueLogger } from '@/lib/logger';
 
 export const QUEUE_NAME = 'gloaming';
+export const CLEANUP_QUEUE_NAME = 'gloaming-asset-cleanup';
 
 const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
 
 let connection: Redis | null = null;
 let queue: Queue | null = null;
+let cleanupQueue: Queue | null = null;
 
 /** Dedicated BullMQ Redis client. Do not reuse `getRedis()`. */
 export function getQueueConnection(): Redis {
@@ -26,16 +28,29 @@ export function getQueueConnection(): Redis {
   return connection;
 }
 
+function createNamedQueue(name: string): Queue {
+  return new Queue(name, {
+    connection: getQueueConnection(),
+    defaultJobOptions: jobCleanup,
+  });
+}
+
 export function getQueue(): Queue {
   if (queue) {
     return queue;
   }
 
-  queue = new Queue(QUEUE_NAME, {
-    connection: getQueueConnection(),
-    defaultJobOptions: jobCleanup,
-  });
+  queue = createNamedQueue(QUEUE_NAME);
   return queue;
+}
+
+export function getCleanupQueue(): Queue {
+  if (cleanupQueue) {
+    return cleanupQueue;
+  }
+
+  cleanupQueue = createNamedQueue(CLEANUP_QUEUE_NAME);
+  return cleanupQueue;
 }
 
 export type EnqueueJobOptions = {
@@ -44,8 +59,8 @@ export type EnqueueJobOptions = {
   jobId?: string;
 };
 
-export async function enqueue(name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
-  const job = await getQueue().add(name, data, {
+async function addJob(target: Queue, name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
+  const job = await target.add(name, data, {
     attempts: jobOptions?.attempts,
     backoff: jobOptions?.backoff,
     jobId: jobOptions?.jobId,
@@ -56,12 +71,24 @@ export async function enqueue(name: string, data: unknown, jobOptions?: EnqueueJ
   return job.id;
 }
 
+export async function enqueue(name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
+  return addJob(getQueue(), name, data, jobOptions);
+}
+
+export async function enqueueCleanup(name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
+  return addJob(getCleanupQueue(), name, data, jobOptions);
+}
+
 export async function enqueuePing(data?: PingJobData): Promise<string> {
   const payload: PingJobData = data ?? { requestedAt: new Date().toISOString() };
   return enqueue(JOB_PING, payload);
 }
 
 export async function closeQueue(): Promise<void> {
+  if (cleanupQueue) {
+    await cleanupQueue.close();
+    cleanupQueue = null;
+  }
   if (queue) {
     await queue.close();
     queue = null;

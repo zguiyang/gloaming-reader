@@ -1,8 +1,19 @@
-import type { ObjectGetStreamResult, ObjectRange, ObjectStore } from '@/lib/oss';
+import type {
+  ObjectDeleteFailure,
+  ObjectDeleteManyResult,
+  ObjectGetStreamResult,
+  ObjectRange,
+  ObjectStore,
+} from '@/lib/oss';
 
 /** In-memory ObjectStore for functional tests. */
 export function createMemoryObjectStore(): ObjectStore & { store: Map<string, { body: Buffer; contentType: string }> } {
   const store = new Map<string, { body: Buffer; contentType: string }>();
+
+  async function deleteKey(key: string): Promise<void> {
+    store.delete(key);
+  }
+
   return {
     store,
     async put(input) {
@@ -37,7 +48,23 @@ export function createMemoryObjectStore(): ObjectStore & { store: Map<string, { 
       return store.has(key);
     },
     async delete(key) {
-      store.delete(key);
+      await deleteKey(key);
+    },
+    async deleteMany(keys): Promise<ObjectDeleteManyResult> {
+      const deleted: string[] = [];
+      const failed: ObjectDeleteFailure[] = [];
+      for (const key of keys) {
+        try {
+          await deleteKey(key);
+          deleted.push(key);
+        } catch (error) {
+          failed.push({
+            key,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      return { deleted, failed };
     },
     async list(prefix, cursor) {
       const keys = [...store.keys()].filter((key) => !prefix || key.startsWith(prefix)).sort();

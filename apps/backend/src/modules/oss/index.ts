@@ -1,4 +1,5 @@
 export {
+  deleteManyObjects,
   deleteObject,
   getObject,
   getObjectStream,

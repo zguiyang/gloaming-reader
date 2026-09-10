@@ -40,6 +40,10 @@ export type ObjectListResult = {
   hasMore: boolean;
 };
 
+export type ObjectDeleteFailure = { key: string; error: string };
+
+export type ObjectDeleteManyResult = { deleted: string[]; failed: ObjectDeleteFailure[] };
+
 /**
  * Provider-facing object store. Implementations must not read env or DB.
  * Multi-tier strategies (cache + object storage) can wrap this later without changing callers.
@@ -51,5 +55,7 @@ export type ObjectStore = {
   getStream(key: string, range?: ObjectRange): Promise<ObjectGetStreamResult | null>;
   exists(key: string): Promise<boolean>;
   delete(key: string): Promise<void>;
+  /** Optional batch delete. The oss facade falls back to bounded per-key deletes when absent. */
+  deleteMany?(keys: string[]): Promise<ObjectDeleteManyResult>;
   list(prefix?: string, cursor?: string): Promise<ObjectListResult>;
 };
