@@ -523,7 +523,11 @@ export type ContentAssetAudioTimelineSegment = {
   textHash: string;
   startMs: number;
   durationMs: number;
-  storageKey: string;
+  /**
+   * Legacy segment object key. New chapter-only assets omit this and keep
+   * timing fields only; historical rows may still include it.
+   */
+  storageKey?: string;
   wordTimings: ContentAssetWordTiming[];
 };
 
@@ -532,8 +536,12 @@ export type ContentAssetMeta = {
   durationMs?: number;
   lastError?: string;
   generatedAt?: string;
-  /** audio_* — segment index + chapter object keys (required when ready). */
+  /** audio_* — word-timing segments (`storageKey` optional / timing-only). */
   timeline?: ContentAssetAudioTimelineSegment[];
+  /**
+   * Formal persisted object-storage keys only (e.g. chapter.mp3).
+   * Do not list ephemeral or never-persisted segment keys.
+   */
   objectKeys?: string[];
   /** Origin file uploads (kind = origin_file). */
   originalFileName?: string;

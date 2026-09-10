@@ -64,16 +64,51 @@ export const generateWorkAudioBodySchema = z.object({
 
 export type GenerateWorkAudioBody = z.infer<typeof generateWorkAudioBodySchema>;
 
+/**
+ * One timeline segment for part audio.
+ * New writes are timing-only (no `storageKey`); legacy rows may still include a
+ * segment object key during the chapter-only migration window.
+ */
 export const audioTimelineSegmentSchema = z.object({
   index: z.number().int().nonnegative(),
   textHash: z.string().min(1),
   startMs: z.number().int().nonnegative(),
   durationMs: z.number().int().nonnegative(),
-  storageKey: z.string().min(1),
+  /** @deprecated Legacy segment object key; omit for timing-only / chapter-only assets. */
+  storageKey: z.string().min(1).optional(),
   wordTimings: z.array(ttsWordTimingSchema),
 });
 
 export type AudioTimelineSegment = z.infer<typeof audioTimelineSegmentSchema>;
+
+/**
+ * JSON `content_asset.meta` contract (audio and non-audio kinds).
+ * Unknown legacy keys pass through so old rows do not fail whole-asset parsing.
+ */
+export const contentAssetMetaSchema = z
+  .object({
+    voice: z.string().optional(),
+    durationMs: z.number().nonnegative().optional(),
+    lastError: z.string().optional(),
+    generatedAt: z.string().optional(),
+    /** audio_* — word-timing segments (storageKey optional / timing-only). */
+    timeline: z.array(audioTimelineSegmentSchema).optional(),
+    /**
+     * Formal persisted object-storage keys only (e.g. chapter.mp3).
+     * Do not list ephemeral or never-persisted segment keys.
+     */
+    objectKeys: z.array(z.string()).optional(),
+    /** Origin file uploads (kind = origin_file). */
+    originalFileName: z.string().optional(),
+    size: z.number().nonnegative().optional(),
+    /** Original path inside the source EPUB (image / cover assets). */
+    originalPath: z.string().optional(),
+    /** True when the upload reused an already-stored object (dedupe / instant upload). */
+    reused: z.boolean().optional(),
+  })
+  .passthrough();
+
+export type ContentAssetMeta = z.infer<typeof contentAssetMetaSchema>;
 
 /** UI track status — `stale` is ready + contentHash mismatch (not a DB status). */
 export const contentAssetTrackSchema = z.object({
