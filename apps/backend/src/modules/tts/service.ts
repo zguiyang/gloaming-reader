@@ -167,8 +167,8 @@ async function readTtsCacheKey(key: string): Promise<{ payload: TtsCachePayload;
 }
 
 /**
- * Prefer v2; fall back to v1 when present. Redis errors are logged and treated as miss
- * so synthesis continues via the provider.
+ * Read v2 cache only. Legacy v1 keys are not served — they expire via governance scripts
+ * or natural TTL. Redis errors are logged and treated as miss so synthesis continues.
  */
 async function lookupTtsCache(normalizedText: string, voice: string, region: string): Promise<TtsCacheLookup | null> {
   const v2Key = buildTtsCacheKeyV2(normalizedText, voice, region);
@@ -186,25 +186,6 @@ async function lookupTtsCache(normalizedText: string, voice: string, region: str
         ttlSeconds: TTS_CACHE_TTL_SECONDS,
       },
       'Redis TTS v2 cache read failed; continuing to provider',
-    );
-    return null;
-  }
-
-  const v1Key = buildTtsCacheKeyV1(normalizedText, voice, region);
-  try {
-    const v1Hit = await readTtsCacheKey(v1Key);
-    if (v1Hit) {
-      return { ...v1Hit, key: v1Key, version: 'v1' };
-    }
-  } catch (error) {
-    ttsLogger.warn(
-      {
-        err: error,
-        key: v1Key,
-        cacheOutcome: 'redis_error',
-        ttlSeconds: TTS_CACHE_TTL_SECONDS,
-      },
-      'Redis TTS v1 cache read failed; continuing to provider',
     );
     return null;
   }

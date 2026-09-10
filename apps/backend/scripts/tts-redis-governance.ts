@@ -138,6 +138,31 @@ async function scanPrefix(redis: Redis, prefix: string): Promise<PrefixStats> {
   return stats;
 }
 
+type RedisMemoryInfo = {
+  usedMemory: string | null;
+  usedMemoryDataset: string | null;
+  evictedKeys: string | null;
+  maxmemory: string | null;
+  maxmemoryPolicy: string | null;
+};
+
+async function readRedisMemoryInfo(redis: Redis): Promise<RedisMemoryInfo> {
+  const info = await redis.info('memory');
+  const stats = await redis.info('stats');
+  const combined = `${info}\n${stats}`;
+  const readField = (field: string): string | null => {
+    const match = combined.match(new RegExp(`^${field}:(.+)$`, 'm'));
+    return match?.[1]?.trim() ?? null;
+  };
+  return {
+    usedMemory: readField('used_memory_human'),
+    usedMemoryDataset: readField('used_memory_dataset'),
+    evictedKeys: readField('evicted_keys'),
+    maxmemory: readField('maxmemory_human'),
+    maxmemoryPolicy: readField('maxmemory_policy'),
+  };
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const prefixes = selectedPrefixes(options.prefix);
@@ -148,6 +173,18 @@ async function main(): Promise<void> {
   console.log(`[DRY-RUN] prefixes=${prefixes.join(', ')}`);
 
   try {
+    const memory = await readRedisMemoryInfo(redis);
+    console.log('---');
+    console.log('redisMemoryReport');
+    console.log(`used_memory=${memory.usedMemory ?? 'n/a'}`);
+    console.log(`used_memory_dataset=${memory.usedMemoryDataset ?? 'n/a'}`);
+    console.log(`evicted_keys=${memory.evictedKeys ?? 'n/a'}`);
+    console.log(`maxmemory=${memory.maxmemory ?? 'n/a'}`);
+    console.log(`maxmemory_policy=${memory.maxmemoryPolicy ?? 'n/a'}`);
+    console.log(
+      'capacityNote=Per-entry 2MiB cap and 7-day TTL do not guarantee total Redis capacity; no hard global cache ceiling is enforced when BullMQ shares this Redis.',
+    );
+
     const reports: PrefixStats[] = [];
     for (const prefix of prefixes) {
       reports.push(await scanPrefix(redis, prefix));
@@ -165,7 +202,9 @@ async function main(): Promise<void> {
       }
     }
     console.log('---');
-    console.log('[DRY-RUN] complete (no keys deleted)');
+    console.log(
+      '[DRY-RUN] complete (no keys deleted; v1 keys are not read by runtime — expire via TTL or separate governance)',
+    );
   } finally {
     redis.disconnect();
   }
