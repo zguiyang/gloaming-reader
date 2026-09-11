@@ -47,7 +47,9 @@ export const LEGACY_METADATA_MIGRATION_SCHEMA_VERSION = 1;
 export const LEGACY_METADATA_MIGRATION_TOOL_VERSION = 'legacy-metadata-migration@1';
 
 const FORBIDDEN_DB_NAME_PATTERN = /(prod|production|live)/i;
+/** Exact database names permitted for metadata migration dry-run/execute. */
 export const ALLOWED_METADATA_MIGRATION_DATABASE_NAMES = new Set([
+  'gloaming_backend', // local Compose / `.env.example` development database
   'gloaming_test',
   'gloaming_development',
   'gloaming-development',

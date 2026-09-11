@@ -3,6 +3,8 @@
  * Removes legacy segment objectKeys and timeline.storageKey from DB metadata.
  * Does not delete R2 objects.
  *
+ * Local development uses database `gloaming_backend` (see `.env.example` / Compose).
+ *
  * Usage:
  *   pnpm --filter @gloaming/backend exec tsx scripts/migrate-legacy-audio-metadata.ts --manifest ./tmp/metadata-dry-run.json
  *   ALLOW_LEGACY_AUDIO_METADATA_MIGRATION=1 pnpm --filter @gloaming/backend exec tsx scripts/migrate-legacy-audio-metadata.ts \

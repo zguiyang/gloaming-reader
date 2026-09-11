@@ -144,6 +144,10 @@ describe('metadata migration guards', () => {
 
   it('rejects unsafe database names and execute without manifest', () => {
     expect(() => assertSafeMetadataMigrationDatabase('gloaming_production')).toThrow(/production/);
+    expect(() => assertSafeMetadataMigrationDatabase('gloaming_live')).toThrow(/live/);
+    expect(() => assertSafeMetadataMigrationDatabase('')).toThrow(/empty/);
+    expect(() => assertSafeMetadataMigrationDatabase('gloaming_unknown')).toThrow(/Allowed:/);
+    expect(() => assertSafeMetadataMigrationDatabase('gloaming_backend')).not.toThrow();
     expect(() => assertSafeMetadataMigrationDatabase('gloaming_test')).not.toThrow();
     process.env.ALLOW_LEGACY_AUDIO_METADATA_MIGRATION = '1';
     expect(() => assertMetadataMigrationExecuteArgs({ execute: true })).toThrow(/manifest/);
