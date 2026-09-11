@@ -7,8 +7,13 @@
  *   pnpm --filter @gloaming/backend exec tsx scripts/migrate-legacy-audio-metadata.ts --manifest ./tmp/metadata-dry-run.json
  *   ALLOW_LEGACY_AUDIO_METADATA_MIGRATION=1 pnpm --filter @gloaming/backend exec tsx scripts/migrate-legacy-audio-metadata.ts \
  *     --execute --manifest ./tmp/metadata-dry-run.json --output ./tmp/metadata-execute.json
+ *
+ * --manifest is dry-run output, or the approved dry-run input during --execute.
+ * --output is required for --execute and must be a different path so the approved
+ * dry-run manifest is not overwritten.
  */
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { env } from '../src/lib/env.ts';
 import { runLegacyMetadataMigration } from '../src/modules/asset-management/legacy-metadata-migration.ts';
@@ -18,7 +23,11 @@ import {
   databaseNameFromUrl,
 } from '../src/modules/asset-management/legacy-metadata-migration-guards.ts';
 
-function parseArgs(argv: string[]): { execute: boolean; manifestPath?: string; outputPath?: string } {
+export function parseMetadataMigrationArgs(argv: string[]): {
+  execute: boolean;
+  manifestPath?: string;
+  outputPath?: string;
+} {
   const execute = argv.includes('--execute');
   const manifestFlag = argv.findIndex((arg) => arg === '--manifest');
   const manifestPath =
@@ -34,7 +43,7 @@ function parseArgs(argv: string[]): { execute: boolean; manifestPath?: string; o
 }
 
 async function main(): Promise<void> {
-  const options = parseArgs(process.argv.slice(2));
+  const options = parseMetadataMigrationArgs(process.argv.slice(2));
   const databaseName = databaseNameFromUrl(env.DATABASE_URL);
   assertSafeMetadataMigrationDatabase(databaseName);
   assertMetadataMigrationExecuteArgs({
@@ -67,6 +76,8 @@ async function main(): Promise<void> {
         removedObjectKeyCount: manifest.removedObjectKeyCount,
         removedTimelineKeyCount: manifest.removedTimelineKeyCount,
         remainingLegacyReferences: manifest.remainingLegacyReferences,
+        executedAt: manifest.executedAt,
+        approvedManifestPath: options.execute ? options.manifestPath : undefined,
         manifestPath,
       },
       null,
@@ -79,7 +90,17 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
-  console.error('migrate-legacy-audio-metadata failed:', error);
-  process.exit(1);
-});
+function isDirectCliRun(): boolean {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
+  }
+  return import.meta.url === pathToFileURL(path.resolve(entry)).href;
+}
+
+if (isDirectCliRun()) {
+  main().catch((error: unknown) => {
+    console.error('migrate-legacy-audio-metadata failed:', error);
+    process.exit(1);
+  });
+}

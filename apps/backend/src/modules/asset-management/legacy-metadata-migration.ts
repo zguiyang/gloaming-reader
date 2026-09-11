@@ -253,11 +253,18 @@ export async function runLegacyMetadataMigrationExecute(options: {
   const approved = await loadApprovedManifest(options.approvedManifestPath);
   validateApprovedMetadataMigrationManifest(approved, options.databaseName);
 
-  const createdAt = new Date().toISOString();
+  if (!options.outputPath?.trim()) {
+    throw new Error('Refusing --execute without --output <execute-result-manifest>');
+  }
+  if (path.resolve(options.approvedManifestPath) === path.resolve(options.outputPath)) {
+    throw new Error('Refusing --execute: --output must be a different path from --manifest');
+  }
+
+  const executedAt = new Date().toISOString();
   const manifest: LegacyMetadataMigrationManifest = {
     ...approved,
-    createdAt,
     mode: 'execute',
+    executedAt,
     updatedAssetIds: [],
     skipped: [...approved.skipped],
     conflicts: [],
@@ -326,7 +333,7 @@ export async function runLegacyMetadataMigrationExecute(options: {
   }
 
   manifest.remainingLegacyReferences = await countRemainingLegacyReferences();
-  const written = await writeMetadataMigrationManifest(manifest, options.outputPath ?? options.approvedManifestPath);
+  const written = await writeMetadataMigrationManifest(manifest, options.outputPath);
   return { manifest, manifestPath: written };
 }
 
@@ -339,6 +346,12 @@ export async function runLegacyMetadataMigration(options: {
   if (options.execute) {
     if (!options.manifestPath) {
       throw new Error('Refusing --execute without --manifest <approved-dry-run-manifest>');
+    }
+    if (!options.outputPath?.trim()) {
+      throw new Error('Refusing --execute without --output <execute-result-manifest>');
+    }
+    if (path.resolve(options.manifestPath) === path.resolve(options.outputPath)) {
+      throw new Error('Refusing --execute: --output must be a different path from --manifest');
     }
     return runLegacyMetadataMigrationExecute({
       approvedManifestPath: options.manifestPath,

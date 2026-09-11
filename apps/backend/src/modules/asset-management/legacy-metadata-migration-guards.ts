@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import path from 'node:path';
 
 import { isLegacyAudioSegmentKey } from '@gloaming/shared/assets';
 
@@ -38,6 +39,7 @@ export type LegacyMetadataMigrationManifest = {
   conflicts: Array<{ assetId: string; reason: string }>;
   failed: Array<{ assetId: string; error: string }>;
   remainingLegacyReferences: number;
+  executedAt?: string;
 };
 
 export const LEGACY_AUDIO_METADATA_MIGRATION_ENV = 'ALLOW_LEGACY_AUDIO_METADATA_MIGRATION';
@@ -83,6 +85,12 @@ export function assertMetadataMigrationExecuteAuthorized(execute: boolean): void
   }
 }
 
+export function assertDistinctManifestAndOutputPaths(manifestPath: string, outputPath: string): void {
+  if (path.resolve(manifestPath) === path.resolve(outputPath)) {
+    throw new Error('Refusing --execute: --output must be a different path from --manifest');
+  }
+}
+
 export function assertMetadataMigrationExecuteArgs(options: {
   execute: boolean;
   approvedManifestPath?: string;
@@ -95,6 +103,10 @@ export function assertMetadataMigrationExecuteArgs(options: {
   if (!options.approvedManifestPath) {
     throw new Error('Refusing --execute without --manifest <approved-dry-run-manifest>');
   }
+  if (!options.outputPath?.trim()) {
+    throw new Error('Refusing --execute without --output <execute-result-manifest>');
+  }
+  assertDistinctManifestAndOutputPaths(options.approvedManifestPath, options.outputPath);
 }
 
 export function computeMetadataMigrationFingerprint(candidates: LegacyMetadataMigrationCandidate[]): string {

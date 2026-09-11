@@ -181,6 +181,7 @@ export async function runLegacySegmentCleanup(options: {
   execute?: boolean;
   manifestPath?: string;
   approvedManifestPath?: string;
+  outputPath?: string;
   expectedBucket?: string;
   objectLimit?: number;
 }): Promise<{ manifest: LegacySegmentCleanupManifest; manifestPath: string }> {
@@ -190,13 +191,14 @@ export async function runLegacySegmentCleanup(options: {
     execute,
     approvedManifestPath: options.approvedManifestPath ?? (execute ? options.manifestPath : undefined),
     expectedBucket: options.expectedBucket,
+    outputPath: options.outputPath,
   });
 
   if (execute) {
     return runLegacySegmentCleanupExecute({
       approvedManifestPath: options.approvedManifestPath ?? options.manifestPath!,
       expectedBucket: options.expectedBucket!,
-      manifestPath: options.manifestPath,
+      outputPath: options.outputPath!,
     });
   }
 
@@ -366,18 +368,19 @@ export async function verifyLegacySegmentCleanupAfterExecute(input: {
 async function runLegacySegmentCleanupExecute(options: {
   approvedManifestPath: string;
   expectedBucket: string;
-  manifestPath?: string;
+  outputPath: string;
 }): Promise<{ manifest: LegacySegmentCleanupManifest; manifestPath: string }> {
   const approved = await loadApprovedManifest(options.approvedManifestPath);
   validateApprovedLegacyCleanupManifest(approved, options.expectedBucket, env.S3_BUCKET);
 
-  const createdAt = new Date().toISOString();
+  const executedAt = new Date().toISOString();
   const manifest: LegacySegmentCleanupManifest = {
     ...approved,
-    createdAt,
     mode: 'execute',
+    executedAt,
     deletedKeys: [],
     failed: [],
+    remainingEligibleCount: approved.eligibleKeys.length,
     skipped: approved.skipped.map((entry) => ({
       key: entry.key,
       reason: entry.reason as LegacySegmentSkipReason,
@@ -437,6 +440,8 @@ async function runLegacySegmentCleanupExecute(options: {
     }
   }
 
+  const deletedSet = new Set(manifest.deletedKeys);
+  manifest.remainingEligibleCount = approved.eligibleKeys.filter((key) => !deletedSet.has(key)).length;
   manifest.verification = await verifyLegacySegmentCleanupAfterExecute({
     deletedKeys: manifest.deletedKeys,
   });
@@ -452,13 +457,16 @@ async function runLegacySegmentCleanupExecute(options: {
     }
   }
 
-  const written = await writeLegacyCleanupManifest(manifest, options.manifestPath);
+  const written = await writeLegacyCleanupManifest(manifest, options.outputPath);
   logger.info(
     {
       mode: 'execute',
       deletedCount: manifest.deletedKeys.length,
       failedCount: manifest.failed.length,
       eligibleCount: manifest.eligibleKeys.length,
+      remainingEligibleCount: manifest.remainingEligibleCount,
+      executedAt: manifest.executedAt,
+      approvedManifestPath: options.approvedManifestPath,
       manifestPath: written,
     },
     'Legacy segment cleanup execute finished',
