@@ -5,7 +5,8 @@
  * - Only allows explicit TTS key prefixes (`gloaming:tts:v1:` / `gloaming:tts:v2:`).
  * - Uses SCAN only — never KEYS, never FLUSHDB, never allkeys-* policy changes.
  * - Never touches BullMQ keys (`bull:*`).
- * - Default mode is dry-run report (count / TTL / size).
+ * - Default mode is dry-run report (count / TTL / payload length via STRLEN).
+ * - Never GETs cache payloads into Node memory.
  * - v1 deletion requires ALLOW_TTS_REDIS_V1_CLEANUP=1, --delete-v1, and --execute.
  *
  * Usage:
@@ -13,6 +14,9 @@
  *   pnpm --filter @gloaming/backend exec tsx scripts/tts-redis-governance.ts --prefix=v1
  *   ALLOW_TTS_REDIS_V1_CLEANUP=1 pnpm --filter @gloaming/backend exec tsx scripts/tts-redis-governance.ts --delete-v1 --execute
  */
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
 import Redis from 'ioredis';
 
 import { TTS_CACHE_KEY_PREFIX_V1, TTS_CACHE_KEY_PREFIX_V2 } from '@gloaming/shared/tts';
@@ -24,7 +28,7 @@ const ALLOWED_PREFIXES = {
   v2: TTS_CACHE_KEY_PREFIX_V2,
 } as const;
 
-const TTS_REDIS_V1_CLEANUP_ENV = 'ALLOW_TTS_REDIS_V1_CLEANUP';
+export const TTS_REDIS_V1_CLEANUP_ENV = 'ALLOW_TTS_REDIS_V1_CLEANUP';
 const DELETE_BATCH_SIZE = 500;
 
 type PrefixChoice = keyof typeof ALLOWED_PREFIXES | 'both';
@@ -35,16 +39,19 @@ type CliOptions = {
   execute: boolean;
 };
 
-type PrefixStats = {
+export type PrefixStats = {
   prefix: string;
   keyCount: number;
   totalBytes: number;
+  unmeasuredKeyCount: number;
   ttlPresent: number;
   ttlMissing: number;
   ttlMinSeconds: number | null;
   ttlMaxSeconds: number | null;
   sampleKeys: string[];
 };
+
+type RedisKeyInspector = Pick<Redis, 'scan' | 'ttl' | 'strlen' | 'type'>;
 
 type DeleteV1Result = {
   deletedCount: number;
@@ -65,7 +72,7 @@ v2 keys are never deleted by this script.
 `);
 }
 
-function parseArgs(argv: string[]): CliOptions {
+export function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = { prefix: 'both', deleteV1: false, execute: false };
   for (const arg of argv) {
     if (arg === '--help' || arg === '-h') {
@@ -96,7 +103,7 @@ function parseArgs(argv: string[]): CliOptions {
   return options;
 }
 
-function assertDeleteV1Authorized(options: CliOptions): void {
+export function assertDeleteV1Authorized(options: CliOptions): void {
   if (!options.deleteV1) {
     return;
   }
@@ -108,7 +115,7 @@ function assertDeleteV1Authorized(options: CliOptions): void {
   }
 }
 
-function assertTtsPrefix(prefix: string): void {
+export function assertTtsPrefix(prefix: string): void {
   if (prefix.startsWith('bull:')) {
     throw new Error('Refusing BullMQ prefix');
   }
@@ -117,20 +124,50 @@ function assertTtsPrefix(prefix: string): void {
   }
 }
 
-function selectedPrefixes(choice: PrefixChoice): string[] {
+export function selectedPrefixes(choice: PrefixChoice): string[] {
   if (choice === 'both') {
     return [TTS_CACHE_KEY_PREFIX_V2, TTS_CACHE_KEY_PREFIX_V1];
   }
   return [ALLOWED_PREFIXES[choice]];
 }
 
-async function scanPrefix(redis: Redis, prefix: string): Promise<PrefixStats> {
+function recordTtl(stats: PrefixStats, ttl: number): void {
+  if (ttl >= 0) {
+    stats.ttlPresent += 1;
+    stats.ttlMinSeconds = stats.ttlMinSeconds === null ? ttl : Math.min(stats.ttlMinSeconds, ttl);
+    stats.ttlMaxSeconds = stats.ttlMaxSeconds === null ? ttl : Math.max(stats.ttlMaxSeconds, ttl);
+    return;
+  }
+  stats.ttlMissing += 1;
+}
+
+export async function inspectTtsCacheKey(
+  redis: RedisKeyInspector,
+  key: string,
+): Promise<{ ttl: number; payloadBytes: number | null; unmeasured: boolean; keyType: string }> {
+  const keyType = await redis.type(key);
+  if (keyType === 'string') {
+    try {
+      const [ttl, length] = await Promise.all([redis.ttl(key), redis.strlen(key)]);
+      return { ttl, payloadBytes: length, unmeasured: false, keyType };
+    } catch {
+      const ttl = await redis.ttl(key);
+      return { ttl, payloadBytes: null, unmeasured: true, keyType };
+    }
+  }
+
+  const ttl = await redis.ttl(key);
+  return { ttl, payloadBytes: null, unmeasured: keyType !== 'none', keyType };
+}
+
+export async function scanPrefix(redis: RedisKeyInspector, prefix: string): Promise<PrefixStats> {
   assertTtsPrefix(prefix);
   const match = `${prefix}*`;
   const stats: PrefixStats = {
     prefix,
     keyCount: 0,
     totalBytes: 0,
+    unmeasuredKeyCount: 0,
     ttlPresent: 0,
     ttlMissing: 0,
     ttlMinSeconds: null,
@@ -154,24 +191,22 @@ async function scanPrefix(redis: Redis, prefix: string): Promise<PrefixStats> {
         stats.sampleKeys.push(key);
       }
 
-      const [ttl, value] = await Promise.all([redis.ttl(key), redis.get(key)]);
-      if (ttl >= 0) {
-        stats.ttlPresent += 1;
-        stats.ttlMinSeconds = stats.ttlMinSeconds === null ? ttl : Math.min(stats.ttlMinSeconds, ttl);
-        stats.ttlMaxSeconds = stats.ttlMaxSeconds === null ? ttl : Math.max(stats.ttlMaxSeconds, ttl);
-      } else {
-        stats.ttlMissing += 1;
+      const inspection = await inspectTtsCacheKey(redis, key);
+      recordTtl(stats, inspection.ttl);
+      if (inspection.unmeasured || inspection.payloadBytes == null) {
+        if (inspection.keyType !== 'none') {
+          stats.unmeasuredKeyCount += 1;
+        }
+        continue;
       }
-      if (value != null) {
-        stats.totalBytes += Buffer.byteLength(value, 'utf8');
-      }
+      stats.totalBytes += inspection.payloadBytes;
     }
   } while (cursor !== '0');
 
   return stats;
 }
 
-async function collectKeysForPrefix(redis: Redis, prefix: string): Promise<string[]> {
+export async function collectKeysForPrefix(redis: Pick<Redis, 'scan'>, prefix: string): Promise<string[]> {
   assertTtsPrefix(prefix);
   const keys: string[] = [];
   let cursor = '0';
@@ -187,7 +222,7 @@ async function collectKeysForPrefix(redis: Redis, prefix: string): Promise<strin
   return keys;
 }
 
-async function deleteV1Keys(redis: Redis): Promise<DeleteV1Result> {
+export async function deleteV1Keys(redis: Redis): Promise<DeleteV1Result> {
   const prefix = TTS_CACHE_KEY_PREFIX_V1;
   const keys = await collectKeysForPrefix(redis, prefix);
   let deletedCount = 0;
@@ -280,6 +315,10 @@ async function main(): Promise<void> {
       console.log(`prefix=${report.prefix}`);
       console.log(`keyCount=${report.keyCount}`);
       console.log(`totalCachePayloadBytes=${report.totalBytes}`);
+      console.log(`unmeasuredKeyCount=${report.unmeasuredKeyCount}`);
+      console.log(
+        'payloadNote=totalCachePayloadBytes is STRLEN of string values only; unmeasured keys are non-string or measure-failed and are not treated as zero bytes.',
+      );
       console.log(`ttlPresent=${report.ttlPresent} ttlMissing=${report.ttlMissing}`);
       console.log(`ttlMinSeconds=${report.ttlMinSeconds ?? 'n/a'} ttlMaxSeconds=${report.ttlMaxSeconds ?? 'n/a'}`);
       if (report.sampleKeys.length > 0) {
@@ -310,7 +349,17 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exit(1);
-});
+function isDirectCliRun(): boolean {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
+  }
+  return import.meta.url === pathToFileURL(path.resolve(entry)).href;
+}
+
+if (isDirectCliRun()) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}
