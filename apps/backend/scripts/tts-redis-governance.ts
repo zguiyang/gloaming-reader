@@ -1,17 +1,17 @@
 /**
- * Redis TTS cache governance (SCAN-only, dry-run by default).
+ * Redis TTS cache governance (SCAN-only by default).
  *
  * Safety:
  * - Only allows explicit TTS key prefixes (`gloaming:tts:v1:` / `gloaming:tts:v2:`).
  * - Uses SCAN only — never KEYS, never FLUSHDB, never allkeys-* policy changes.
  * - Never touches BullMQ keys (`bull:*`).
- * - Default mode is dry-run report (count / TTL / size). Does not delete v1 or v2.
+ * - Default mode is dry-run report (count / TTL / size).
+ * - v1 deletion requires ALLOW_TTS_REDIS_V1_CLEANUP=1, --delete-v1, and --execute.
  *
  * Usage:
  *   pnpm --filter @gloaming/backend exec tsx scripts/tts-redis-governance.ts
- *   pnpm --filter @gloaming/backend exec tsx scripts/tts-redis-governance.ts --prefix=v2
  *   pnpm --filter @gloaming/backend exec tsx scripts/tts-redis-governance.ts --prefix=v1
- *   pnpm --filter @gloaming/backend exec tsx scripts/tts-redis-governance.ts --prefix=both
+ *   ALLOW_TTS_REDIS_V1_CLEANUP=1 pnpm --filter @gloaming/backend exec tsx scripts/tts-redis-governance.ts --delete-v1 --execute
  */
 import Redis from 'ioredis';
 
@@ -24,10 +24,15 @@ const ALLOWED_PREFIXES = {
   v2: TTS_CACHE_KEY_PREFIX_V2,
 } as const;
 
+const TTS_REDIS_V1_CLEANUP_ENV = 'ALLOW_TTS_REDIS_V1_CLEANUP';
+const DELETE_BATCH_SIZE = 500;
+
 type PrefixChoice = keyof typeof ALLOWED_PREFIXES | 'both';
 
 type CliOptions = {
   prefix: PrefixChoice;
+  deleteV1: boolean;
+  execute: boolean;
 };
 
 type PrefixStats = {
@@ -41,19 +46,27 @@ type PrefixStats = {
   sampleKeys: string[];
 };
 
+type DeleteV1Result = {
+  deletedCount: number;
+  remainingCount: number;
+  failedKeys: string[];
+};
+
 function printUsage(): void {
-  console.log(`Redis TTS governance (SCAN only, dry-run).
+  console.log(`Redis TTS governance (SCAN only by default).
 
 Options:
   --prefix=v1|v2|both   Which TTS prefix to scan (default: both)
+  --delete-v1           Target legacy v1 keys for deletion (requires --execute)
+  --execute             Perform deletion when combined with --delete-v1
 
 Forbidden: KEYS, FLUSHDB, BullMQ key deletion, non-TTS prefixes.
-This script never deletes keys (including legacy v1).
+v2 keys are never deleted by this script.
 `);
 }
 
 function parseArgs(argv: string[]): CliOptions {
-  const options: CliOptions = { prefix: 'both' };
+  const options: CliOptions = { prefix: 'both', deleteV1: false, execute: false };
   for (const arg of argv) {
     if (arg === '--help' || arg === '-h') {
       printUsage();
@@ -67,12 +80,32 @@ function parseArgs(argv: string[]): CliOptions {
       options.prefix = value;
       continue;
     }
-    if (arg === '--execute' || arg === '--delete' || arg === '--delete-v1') {
-      throw new Error('Deletion is not supported by this SCAN-only script (default: never delete v1/v2)');
+    if (arg === '--delete-v1') {
+      options.deleteV1 = true;
+      continue;
+    }
+    if (arg === '--execute') {
+      options.execute = true;
+      continue;
+    }
+    if (arg === '--delete') {
+      throw new Error('Use --delete-v1 with --execute for legacy v1 cleanup');
     }
     throw new Error(`Unknown argument: ${arg}`);
   }
   return options;
+}
+
+function assertDeleteV1Authorized(options: CliOptions): void {
+  if (!options.deleteV1) {
+    return;
+  }
+  if (!options.execute) {
+    throw new Error('Refusing --delete-v1 without --execute (default is dry-run report only)');
+  }
+  if (process.env[TTS_REDIS_V1_CLEANUP_ENV] !== '1') {
+    throw new Error(`Refusing v1 deletion without ${TTS_REDIS_V1_CLEANUP_ENV}=1 (explicit operator consent)`);
+  }
 }
 
 function assertTtsPrefix(prefix: string): void {
@@ -138,6 +171,56 @@ async function scanPrefix(redis: Redis, prefix: string): Promise<PrefixStats> {
   return stats;
 }
 
+async function collectKeysForPrefix(redis: Redis, prefix: string): Promise<string[]> {
+  assertTtsPrefix(prefix);
+  const keys: string[] = [];
+  let cursor = '0';
+  do {
+    const [next, batch] = await redis.scan(cursor, 'MATCH', `${prefix}*`, 'COUNT', 200);
+    cursor = next;
+    for (const key of batch) {
+      if (key.startsWith(prefix) && !key.startsWith('bull:')) {
+        keys.push(key);
+      }
+    }
+  } while (cursor !== '0');
+  return keys;
+}
+
+async function deleteV1Keys(redis: Redis): Promise<DeleteV1Result> {
+  const prefix = TTS_CACHE_KEY_PREFIX_V1;
+  const keys = await collectKeysForPrefix(redis, prefix);
+  let deletedCount = 0;
+  const failedKeys: string[] = [];
+
+  for (let index = 0; index < keys.length; index += DELETE_BATCH_SIZE) {
+    const batch = keys.slice(index, index + DELETE_BATCH_SIZE);
+    const pipeline = redis.pipeline();
+    for (const key of batch) {
+      if (!key.startsWith(prefix)) {
+        throw new Error(`Refusing to delete non-v1 key: ${key}`);
+      }
+      pipeline.unlink(key);
+    }
+    const results = await pipeline.exec();
+    for (let batchIndex = 0; batchIndex < batch.length; batchIndex += 1) {
+      const [error] = results?.[batchIndex] ?? [];
+      if (error) {
+        failedKeys.push(batch[batchIndex]!);
+      } else {
+        deletedCount += 1;
+      }
+    }
+  }
+
+  const remaining = await collectKeysForPrefix(redis, prefix);
+  return {
+    deletedCount,
+    remainingCount: remaining.length,
+    failedKeys,
+  };
+}
+
 type RedisMemoryInfo = {
   usedMemory: string | null;
   usedMemoryDataset: string | null;
@@ -165,12 +248,14 @@ async function readRedisMemoryInfo(redis: Redis): Promise<RedisMemoryInfo> {
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
-  const prefixes = selectedPrefixes(options.prefix);
+  assertDeleteV1Authorized(options);
+  const prefixes = options.deleteV1 ? [TTS_CACHE_KEY_PREFIX_V1] : selectedPrefixes(options.prefix);
   const redis = new Redis(env.REDIS_URL);
 
-  console.log('[DRY-RUN] Redis TTS governance (SCAN only; no deletes)');
-  console.log(`[DRY-RUN] REDIS_URL host=${new URL(env.REDIS_URL).host}`);
-  console.log(`[DRY-RUN] prefixes=${prefixes.join(', ')}`);
+  const modeLabel = options.deleteV1 && options.execute ? 'EXECUTE' : 'DRY-RUN';
+  console.log(`[${modeLabel}] Redis TTS governance (SCAN only; v2 never deleted)`);
+  console.log(`[${modeLabel}] REDIS_URL host=${new URL(env.REDIS_URL).host}`);
+  console.log(`[${modeLabel}] prefixes=${prefixes.join(', ')}`);
 
   try {
     const memory = await readRedisMemoryInfo(redis);
@@ -201,10 +286,25 @@ async function main(): Promise<void> {
         console.log(`sampleKeys=${JSON.stringify(report.sampleKeys)}`);
       }
     }
-    console.log('---');
-    console.log(
-      '[DRY-RUN] complete (no keys deleted; v1 keys are not read by runtime — expire via TTL or separate governance)',
-    );
+
+    if (options.deleteV1 && options.execute) {
+      const result = await deleteV1Keys(redis);
+      console.log('---');
+      console.log('v1DeleteResult');
+      console.log(`deletedCount=${result.deletedCount}`);
+      console.log(`remainingCount=${result.remainingCount}`);
+      console.log(`failedCount=${result.failedKeys.length}`);
+      if (result.failedKeys.length > 0) {
+        console.log(`failedKeys=${JSON.stringify(result.failedKeys.slice(0, 10))}`);
+        process.exitCode = 1;
+      }
+      if (result.remainingCount > 0) {
+        process.exitCode = 1;
+      }
+    } else {
+      console.log('---');
+      console.log('[DRY-RUN] complete (no keys deleted; use --delete-v1 --execute with env consent to remove v1 keys)');
+    }
   } finally {
     redis.disconnect();
   }
