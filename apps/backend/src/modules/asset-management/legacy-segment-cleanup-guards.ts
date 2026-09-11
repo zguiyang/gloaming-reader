@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import path from 'node:path';
 
 import { isLegacyAudioSegmentKey } from '@gloaming/shared/assets';
 
@@ -11,13 +12,20 @@ export type ApprovedLegacySegmentCleanupManifest = {
   scanComplete: boolean;
   listedSegmentCount: number;
   eligibleKeys: string[];
+  /**
+   * SHA-256 of the sorted eligible key set. Required for execute.
+   * Binds keys only — not eligibleBytes or per-object sizes.
+   */
   eligibleKeysFingerprint?: string;
   eligibleCount: number;
+  /** Report-only byte sum from dry-run listing; not a delete-scope integrity bound. */
   eligibleBytes: number;
   referencedSkippedCount: number;
   skipped: Array<{ key: string; reason: string; detail?: string }>; // dry-run uses LegacySegmentSkipReason strings
   deletedKeys: string[];
   failed: Array<{ key: string; error: string }>;
+  executedAt?: string;
+  remainingEligibleCount?: number;
   verification?: LegacySegmentCleanupVerification;
 };
 
@@ -38,10 +46,17 @@ export function assertLegacyCleanupExecuteAuthorized(execute: boolean): void {
   }
 }
 
+export function assertDistinctManifestAndOutputPaths(manifestPath: string, outputPath: string): void {
+  if (path.resolve(manifestPath) === path.resolve(outputPath)) {
+    throw new Error('Refusing --execute: --output must be a different path from --manifest');
+  }
+}
+
 export function assertLegacyCleanupExecuteArgs(options: {
   execute: boolean;
   approvedManifestPath?: string;
   expectedBucket?: string;
+  outputPath?: string;
 }): void {
   if (!options.execute) {
     return;
@@ -53,6 +68,10 @@ export function assertLegacyCleanupExecuteArgs(options: {
   if (!options.expectedBucket?.trim()) {
     throw new Error('Refusing --execute without --expected-bucket <exact-bucket-name>');
   }
+  if (!options.outputPath?.trim()) {
+    throw new Error('Refusing --execute without --output <execute-result-manifest>');
+  }
+  assertDistinctManifestAndOutputPaths(options.approvedManifestPath, options.outputPath);
 }
 
 export function computeLegacyCleanupEligibleKeysFingerprint(eligibleKeys: string[]): string {
@@ -90,10 +109,10 @@ export function validateApprovedLegacyCleanupManifest(
   if (overlap.length > 0) {
     throw new Error(`Refusing execute: manifest eligibleKeys overlap skipped keys: ${overlap.join(', ')}`);
   }
-  if (
-    manifest.eligibleKeysFingerprint &&
-    manifest.eligibleKeysFingerprint !== computeLegacyCleanupEligibleKeysFingerprint(manifest.eligibleKeys)
-  ) {
+  if (typeof manifest.eligibleKeysFingerprint !== 'string' || manifest.eligibleKeysFingerprint.length === 0) {
+    throw new Error('Refusing execute: manifest eligibleKeysFingerprint is missing');
+  }
+  if (manifest.eligibleKeysFingerprint !== computeLegacyCleanupEligibleKeysFingerprint(manifest.eligibleKeys)) {
     throw new Error('Refusing execute: manifest eligibleKeysFingerprint does not match eligibleKeys');
   }
   if (manifest.eligibleKeys.some((key) => key.includes('*'))) {
