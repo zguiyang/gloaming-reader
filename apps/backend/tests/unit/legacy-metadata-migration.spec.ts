@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ContentAssetMeta } from '@gloaming/db';
@@ -7,6 +9,7 @@ import {
   buildMetadataMigrationSkipReason,
   computeMigratedAudioMetadata,
   metadataHash,
+  runLegacyMetadataMigration,
 } from '@/modules/asset-management/legacy-metadata-migration';
 import {
   assertMetadataMigrationExecuteArgs,
@@ -17,6 +20,8 @@ import {
   type LegacyMetadataMigrationManifest,
   validateApprovedMetadataMigrationManifest,
 } from '@/modules/asset-management/legacy-metadata-migration-guards';
+
+import { parseMetadataMigrationArgs } from '../../scripts/migrate-legacy-audio-metadata.ts';
 
 function sampleRow(overrides: Record<string, unknown> = {}) {
   const meta: ContentAssetMeta = {
@@ -142,6 +147,51 @@ describe('metadata migration guards', () => {
     expect(() => assertSafeMetadataMigrationDatabase('gloaming_test')).not.toThrow();
     process.env.ALLOW_LEGACY_AUDIO_METADATA_MIGRATION = '1';
     expect(() => assertMetadataMigrationExecuteArgs({ execute: true })).toThrow(/manifest/);
+    expect(() =>
+      assertMetadataMigrationExecuteArgs({ execute: true, approvedManifestPath: '/tmp/metadata-dry-run.json' }),
+    ).toThrow(/output/);
+    expect(() =>
+      assertMetadataMigrationExecuteArgs({
+        execute: true,
+        approvedManifestPath: '/tmp/metadata-dry-run.json',
+        outputPath: '/tmp/metadata-dry-run.json',
+      }),
+    ).toThrow(/different path/);
+    expect(() =>
+      assertMetadataMigrationExecuteArgs({
+        execute: true,
+        approvedManifestPath: '/tmp/metadata-dry-run.json',
+        outputPath: '/tmp/metadata-execute.json',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects metadata execute without a distinct output path', async () => {
+    process.env.ALLOW_LEGACY_AUDIO_METADATA_MIGRATION = '1';
+    await expect(
+      runLegacyMetadataMigration({
+        execute: true,
+        databaseName: 'gloaming_test',
+        manifestPath: '/tmp/metadata-dry-run.json',
+      }),
+    ).rejects.toThrow(/output/);
+    await expect(
+      runLegacyMetadataMigration({
+        execute: true,
+        databaseName: 'gloaming_test',
+        manifestPath: '/tmp/metadata-dry-run.json',
+        outputPath: '/tmp/metadata-dry-run.json',
+      }),
+    ).rejects.toThrow(/different path/);
+    const parsed = parseMetadataMigrationArgs([
+      '--execute',
+      '--manifest',
+      './tmp/metadata-dry-run.json',
+      '--output',
+      './tmp/metadata-execute.json',
+    ]);
+    expect(parsed.manifestPath).toBe(path.resolve('./tmp/metadata-dry-run.json'));
+    expect(parsed.outputPath).toBe(path.resolve('./tmp/metadata-execute.json'));
   });
 
   it('rejects manifest database mismatch and fingerprint tampering', () => {

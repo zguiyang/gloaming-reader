@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -160,6 +160,7 @@ describe('legacy audio migration to cleanup pipeline', () => {
     scopedManifest.fingerprint = computeMetadataMigrationFingerprint(scopedManifest.candidates);
     await writeFile(scopedDryRunPath, `${JSON.stringify(scopedManifest, null, 2)}\n`);
 
+    const approvedBeforeExecute = JSON.parse(await readFile(scopedDryRunPath, 'utf8'));
     const executeManifestPath = path.join(tempDir, `metadata-execute-${randomUUID()}.json`);
     const execute = await runLegacyMetadataMigration({
       execute: true,
@@ -169,6 +170,13 @@ describe('legacy audio migration to cleanup pipeline', () => {
     });
     expect(execute.manifest.updatedAssetIds).toEqual([assetId]);
     expect(execute.manifest.conflicts).toEqual([]);
+    expect(execute.manifestPath).toBe(executeManifestPath);
+    expect(execute.manifest.mode).toBe('execute');
+    expect(execute.manifest.executedAt).toEqual(expect.any(String));
+    const approvedAfterExecute = JSON.parse(await readFile(scopedDryRunPath, 'utf8'));
+    expect(approvedAfterExecute.mode).toBe('dry-run');
+    expect(approvedAfterExecute.fingerprint).toBe(approvedBeforeExecute.fingerprint);
+    expect(approvedAfterExecute.candidates).toEqual(approvedBeforeExecute.candidates);
 
     const [row] = await db.select().from(contentAssetTable).where(eq(contentAssetTable.id, assetId)).limit(1);
     expect(row?.meta.objectKeys).toEqual([chapterKey]);
@@ -184,15 +192,34 @@ describe('legacy audio migration to cleanup pipeline', () => {
     expect(cleanupDryRun.manifest.eligibleKeys.toSorted()).toEqual([seg0, seg1]);
     expect(cleanupDryRun.manifest.scanComplete).toBe(true);
 
+    const cleanupApprovedBefore = JSON.parse(await readFile(cleanupDryRunPath, 'utf8'));
     setObjectStoreForTests(memory);
+    const cleanupExecutePath = path.join(tempDir, `cleanup-execute-${randomUUID()}.json`);
     const cleanupExecute = await runLegacySegmentCleanup({
       execute: true,
       approvedManifestPath: cleanupDryRunPath,
       expectedBucket: process.env.S3_BUCKET!,
-      manifestPath: path.join(tempDir, `cleanup-execute-${randomUUID()}.json`),
+      outputPath: cleanupExecutePath,
     });
+    expect(cleanupExecute.manifestPath).toBe(cleanupExecutePath);
+    expect(cleanupExecute.manifest.mode).toBe('execute');
+    expect(cleanupExecute.manifest.executedAt).toEqual(expect.any(String));
     expect(cleanupExecute.manifest.deletedKeys.toSorted()).toEqual([seg0, seg1]);
+    expect(cleanupExecute.manifest.remainingEligibleCount).toBe(0);
     expect(cleanupExecute.manifest.verification?.passed).toBe(true);
+    expect(cleanupExecute.manifest.failed).toEqual([]);
+    const cleanupApprovedAfter = JSON.parse(await readFile(cleanupDryRunPath, 'utf8'));
+    expect(cleanupApprovedAfter.mode).toBe('dry-run');
+    expect(cleanupApprovedAfter.eligibleKeysFingerprint).toBe(cleanupApprovedBefore.eligibleKeysFingerprint);
+    expect(cleanupApprovedAfter.eligibleKeys).toEqual(cleanupApprovedBefore.eligibleKeys);
+    const cleanupExecuteWritten = JSON.parse(await readFile(cleanupExecutePath, 'utf8'));
+    expect(cleanupExecuteWritten.mode).toBe('execute');
+    expect(cleanupExecuteWritten.deletedKeys.toSorted()).toEqual([seg0, seg1]);
+    expect(cleanupExecuteWritten.skipped).toEqual(expect.any(Array));
+    expect(cleanupExecuteWritten.failed).toEqual([]);
+    expect(cleanupExecuteWritten.verification?.passed).toBe(true);
+    expect(cleanupExecuteWritten.executedAt).toEqual(expect.any(String));
+    expect(cleanupExecuteWritten.remainingEligibleCount).toBe(0);
     expect(memory.store.has(seg0)).toBe(false);
     expect(memory.store.has(seg1)).toBe(false);
     expect(memory.store.has(chapterKey)).toBe(true);

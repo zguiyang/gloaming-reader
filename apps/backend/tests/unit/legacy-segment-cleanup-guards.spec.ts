@@ -11,14 +11,16 @@ import {
 function sampleManifest(
   overrides: Partial<ApprovedLegacySegmentCleanupManifest> = {},
 ): ApprovedLegacySegmentCleanupManifest {
+  const eligibleKeys = overrides.eligibleKeys ?? ['part-audio/p1/audio_us/h/seg/0000.mp3'];
   return {
     createdAt: '2026-09-10T00:00:00.000Z',
     mode: 'dry-run',
     targetBucket: 'test-bucket',
     scanComplete: true,
     listedSegmentCount: 1,
-    eligibleKeys: ['part-audio/p1/audio_us/h/seg/0000.mp3'],
-    eligibleCount: 1,
+    eligibleKeys,
+    eligibleKeysFingerprint: computeLegacyCleanupEligibleKeysFingerprint(eligibleKeys),
+    eligibleCount: eligibleKeys.length,
     eligibleBytes: 40,
     referencedSkippedCount: 0,
     skipped: [],
@@ -44,12 +46,27 @@ describe('legacy segment cleanup execute guards', () => {
     expect(() => assertLegacyCleanupExecuteAuthorized(true)).toThrow(/ALLOW_LEGACY_AUDIO_SEGMENT_CLEANUP/);
   });
 
-  it('rejects execute without manifest and expected bucket', () => {
+  it('rejects execute without manifest, expected bucket, or distinct output', () => {
     process.env.ALLOW_LEGACY_AUDIO_SEGMENT_CLEANUP = '1';
     expect(() => assertLegacyCleanupExecuteArgs({ execute: true })).toThrow(/manifest/);
     expect(() => assertLegacyCleanupExecuteArgs({ execute: true, approvedManifestPath: '/tmp/manifest.json' })).toThrow(
       /expected-bucket/,
     );
+    expect(() =>
+      assertLegacyCleanupExecuteArgs({
+        execute: true,
+        approvedManifestPath: '/tmp/manifest.json',
+        expectedBucket: 'test-bucket',
+      }),
+    ).toThrow(/output/);
+    expect(() =>
+      assertLegacyCleanupExecuteArgs({
+        execute: true,
+        approvedManifestPath: '/tmp/manifest.json',
+        expectedBucket: 'test-bucket',
+        outputPath: '/tmp/manifest.json',
+      }),
+    ).toThrow(/different path/);
   });
 
   it('rejects manifest bucket mismatch and invalid keys', () => {
@@ -95,5 +112,53 @@ describe('legacy segment cleanup execute guards', () => {
     ).toThrow(/eligibleKeysFingerprint/);
     const keys = ['part-audio/p1/audio_us/h/seg/0000.mp3'];
     expect(computeLegacyCleanupEligibleKeysFingerprint(keys)).toHaveLength(64);
+  });
+
+  it('rejects missing, empty, or deleted fingerprints fail-closed', () => {
+    const { eligibleKeysFingerprint: _omitted, ...missingFingerprint } = sampleManifest();
+    expect(() =>
+      validateApprovedLegacyCleanupManifest(
+        missingFingerprint as ApprovedLegacySegmentCleanupManifest,
+        'test-bucket',
+        'test-bucket',
+      ),
+    ).toThrow(/eligibleKeysFingerprint is missing/);
+    expect(() =>
+      validateApprovedLegacyCleanupManifest(
+        sampleManifest({ eligibleKeysFingerprint: '' }),
+        'test-bucket',
+        'test-bucket',
+      ),
+    ).toThrow(/eligibleKeysFingerprint is missing/);
+
+    const tamperedKeys = sampleManifest({
+      eligibleKeys: ['part-audio/p1/audio_us/h/seg/0000.mp3', 'part-audio/p1/audio_us/h/seg/0001.mp3'],
+      eligibleCount: 2,
+    });
+    delete tamperedKeys.eligibleKeysFingerprint;
+    expect(() => validateApprovedLegacyCleanupManifest(tamperedKeys, 'test-bucket', 'test-bucket')).toThrow(
+      /eligibleKeysFingerprint is missing/,
+    );
+  });
+
+  it('does not treat eligibleBytes as a delete-scope integrity bound', () => {
+    expect(() =>
+      validateApprovedLegacyCleanupManifest(sampleManifest({ eligibleBytes: 999_999 }), 'test-bucket', 'test-bucket'),
+    ).not.toThrow();
+  });
+
+  it('accepts a matching required fingerprint', () => {
+    const keys = ['part-audio/p1/audio_us/h/seg/0000.mp3'];
+    expect(() =>
+      validateApprovedLegacyCleanupManifest(
+        sampleManifest({
+          eligibleKeys: keys,
+          eligibleCount: 1,
+          eligibleKeysFingerprint: computeLegacyCleanupEligibleKeysFingerprint(keys),
+        }),
+        'test-bucket',
+        'test-bucket',
+      ),
+    ).not.toThrow();
   });
 });

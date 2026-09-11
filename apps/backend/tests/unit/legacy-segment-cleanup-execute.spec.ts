@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import path from 'node:path';
 
-import { verifyLegacySegmentCleanupAfterExecute } from '@/modules/asset-management/legacy-segment-cleanup';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  runLegacySegmentCleanup,
+  verifyLegacySegmentCleanupAfterExecute,
+} from '@/modules/asset-management/legacy-segment-cleanup';
 import {
   type ApprovedLegacySegmentCleanupManifest,
   computeLegacyCleanupEligibleKeysFingerprint,
@@ -8,6 +13,8 @@ import {
 } from '@/modules/asset-management/legacy-segment-cleanup-guards';
 import * as assetService from '@/modules/asset-management/service';
 import * as ossModule from '@/modules/oss';
+
+import { parseCleanupLegacyAudioSegmentArgs } from '../../scripts/cleanup-legacy-audio-segments.ts';
 
 function sampleManifest(
   overrides: Partial<ApprovedLegacySegmentCleanupManifest> = {},
@@ -32,6 +39,24 @@ function sampleManifest(
 }
 
 describe('legacy cleanup manifest integrity', () => {
+  it('rejects missing or empty fingerprints fail-closed', () => {
+    const { eligibleKeysFingerprint: _omitted, ...missingFingerprint } = sampleManifest();
+    expect(() =>
+      validateApprovedLegacyCleanupManifest(
+        missingFingerprint as ApprovedLegacySegmentCleanupManifest,
+        'gloaming-test',
+        'gloaming-test',
+      ),
+    ).toThrow(/eligibleKeysFingerprint is missing/);
+    expect(() =>
+      validateApprovedLegacyCleanupManifest(
+        sampleManifest({ eligibleKeysFingerprint: '' }),
+        'gloaming-test',
+        'gloaming-test',
+      ),
+    ).toThrow(/eligibleKeysFingerprint is missing/);
+  });
+
   it('rejects count mismatch, duplicates, and eligible/skipped overlap', () => {
     expect(() =>
       validateApprovedLegacyCleanupManifest(sampleManifest(), 'gloaming-test', 'gloaming-test'),
@@ -65,6 +90,53 @@ describe('legacy cleanup manifest integrity', () => {
         'gloaming-test',
       ),
     ).toThrow(/eligibleKeysFingerprint/);
+  });
+});
+
+describe('legacy cleanup execute output isolation', () => {
+  const originalEnv = process.env.ALLOW_LEGACY_AUDIO_SEGMENT_CLEANUP;
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env.ALLOW_LEGACY_AUDIO_SEGMENT_CLEANUP;
+    } else {
+      process.env.ALLOW_LEGACY_AUDIO_SEGMENT_CLEANUP = originalEnv;
+    }
+  });
+
+  it('rejects execute without a distinct output path', async () => {
+    process.env.ALLOW_LEGACY_AUDIO_SEGMENT_CLEANUP = '1';
+    await expect(
+      runLegacySegmentCleanup({
+        execute: true,
+        approvedManifestPath: '/tmp/legacy-dry-run.json',
+        expectedBucket: 'gloaming-test',
+      }),
+    ).rejects.toThrow(/output/);
+    await expect(
+      runLegacySegmentCleanup({
+        execute: true,
+        approvedManifestPath: '/tmp/legacy-dry-run.json',
+        outputPath: '/tmp/legacy-dry-run.json',
+        expectedBucket: 'gloaming-test',
+      }),
+    ).rejects.toThrow(/different path/);
+  });
+
+  it('parses execute --manifest and --output as distinct resolved paths', () => {
+    const parsed = parseCleanupLegacyAudioSegmentArgs([
+      '--execute',
+      '--manifest',
+      './tmp/legacy-dry-run.json',
+      '--output',
+      './tmp/legacy-execute.json',
+      '--expected-bucket',
+      'test-bucket',
+    ]);
+    expect(parsed.execute).toBe(true);
+    expect(parsed.manifestPath).toBe(path.resolve('./tmp/legacy-dry-run.json'));
+    expect(parsed.outputPath).toBe(path.resolve('./tmp/legacy-execute.json'));
+    expect(parsed.manifestPath).not.toBe(parsed.outputPath);
   });
 });
 
