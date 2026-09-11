@@ -74,7 +74,7 @@ async function main() {
     ),
   );
 
-  if (manifest.failed.length > 0) {
+  if (manifest.failed.length > 0 || manifest.verification?.passed === false) {
     process.exitCode = 1;
   }
 }

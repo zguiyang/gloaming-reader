@@ -4,6 +4,7 @@ import {
   type ApprovedLegacySegmentCleanupManifest,
   assertLegacyCleanupExecuteArgs,
   assertLegacyCleanupExecuteAuthorized,
+  computeLegacyCleanupEligibleKeysFingerprint,
   validateApprovedLegacyCleanupManifest,
 } from '@/modules/asset-management/legacy-segment-cleanup-guards';
 
@@ -79,5 +80,20 @@ describe('legacy segment cleanup execute guards', () => {
 
   it('accepts a valid approved dry-run manifest', () => {
     expect(() => validateApprovedLegacyCleanupManifest(sampleManifest(), 'test-bucket', 'test-bucket')).not.toThrow();
+  });
+
+  it('rejects eligible count mismatch and fingerprint tampering', () => {
+    expect(() =>
+      validateApprovedLegacyCleanupManifest(sampleManifest({ eligibleCount: 2 }), 'test-bucket', 'test-bucket'),
+    ).toThrow(/eligibleCount/);
+    expect(() =>
+      validateApprovedLegacyCleanupManifest(
+        sampleManifest({ eligibleKeysFingerprint: 'deadbeef' }),
+        'test-bucket',
+        'test-bucket',
+      ),
+    ).toThrow(/eligibleKeysFingerprint/);
+    const keys = ['part-audio/p1/audio_us/h/seg/0000.mp3'];
+    expect(computeLegacyCleanupEligibleKeysFingerprint(keys)).toHaveLength(64);
   });
 });

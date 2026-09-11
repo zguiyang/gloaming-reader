@@ -20,6 +20,8 @@ import {
   type ApprovedLegacySegmentCleanupManifest,
   assertLegacyCleanupExecuteArgs,
   assertLegacyCleanupExecuteAuthorized,
+  computeLegacyCleanupEligibleKeysFingerprint,
+  type LegacySegmentCleanupVerification,
   validateApprovedLegacyCleanupManifest,
 } from '@/modules/asset-management/legacy-segment-cleanup-guards';
 import { collectReferencedStorageKeys, type ReferencedKeyIndex } from '@/modules/asset-management/service';
@@ -269,6 +271,7 @@ export async function runLegacySegmentCleanup(options: {
       detail: decision.detail,
     }));
 
+  const eligibleKeys = eligible.map((entry) => entry.key);
   const manifest: LegacySegmentCleanupManifest = {
     createdAt,
     mode: 'dry-run',
@@ -276,7 +279,8 @@ export async function runLegacySegmentCleanup(options: {
     scanComplete: listed.complete,
     listedSegmentCount: segmentObjects.length,
     referencedSkippedCount: skipped.filter((entry) => entry.reason === 'still_referenced').length,
-    eligibleKeys: eligible.map((entry) => entry.key),
+    eligibleKeys,
+    eligibleKeysFingerprint: computeLegacyCleanupEligibleKeysFingerprint(eligibleKeys),
     eligibleCount: eligible.length,
     eligibleBytes: eligible.reduce((sum, entry) => sum + entry.size, 0),
     skipped,
@@ -315,6 +319,48 @@ async function loadAudioAssetsForPartIds(partIds: string[]): Promise<Map<string,
     .where(inArray(contentAssetTable.partId, partIds));
   const audioAssets = assets.filter((asset) => asset.kind.startsWith('audio_') && asset.partId);
   return new Map(audioAssets.map((asset) => [assetPartKindKey(asset.partId!, asset.kind), asset as AudioAssetRow]));
+}
+
+export async function verifyLegacySegmentCleanupAfterExecute(input: {
+  deletedKeys: string[];
+}): Promise<LegacySegmentCleanupVerification> {
+  const deletedKeysStillPresent: string[] = [];
+  for (const key of input.deletedKeys) {
+    if (await objectExists(key)) {
+      deletedKeysStillPresent.push(key);
+    }
+  }
+
+  const chapterKeys = [
+    ...new Set(
+      input.deletedKeys.map((key) => siblingChapterKeyForSegment(key)).filter((key): key is string => Boolean(key)),
+    ),
+  ];
+  const missingChapterKeys: string[] = [];
+  for (const key of chapterKeys) {
+    if (!(await objectExists(key))) {
+      missingChapterKeys.push(key);
+    }
+  }
+
+  const referenced = await collectReferencedStorageKeys();
+  const missingFormalAssetKeys: string[] = [];
+  for (const key of chapterKeys) {
+    if (!referenced.formalKeys.has(key)) {
+      missingFormalAssetKeys.push(key);
+    }
+  }
+
+  const passed =
+    deletedKeysStillPresent.length === 0 && missingChapterKeys.length === 0 && missingFormalAssetKeys.length === 0;
+
+  return {
+    ran: true,
+    deletedKeysStillPresent: [...new Set(deletedKeysStillPresent)],
+    missingChapterKeys,
+    missingFormalAssetKeys,
+    passed,
+  };
 }
 
 async function runLegacySegmentCleanupExecute(options: {
@@ -388,6 +434,21 @@ async function runLegacySegmentCleanupExecute(options: {
     manifest.deletedKeys.push(...deleted.deleted);
     for (const failure of deleted.failed) {
       manifest.failed.push({ key: failure.key, error: failure.error });
+    }
+  }
+
+  manifest.verification = await verifyLegacySegmentCleanupAfterExecute({
+    deletedKeys: manifest.deletedKeys,
+  });
+  if (!manifest.verification.passed) {
+    for (const key of manifest.verification.deletedKeysStillPresent) {
+      manifest.failed.push({ key, error: 'post_delete_verification_still_present' });
+    }
+    for (const key of manifest.verification.missingChapterKeys) {
+      manifest.failed.push({ key, error: 'post_delete_verification_chapter_missing' });
+    }
+    for (const key of manifest.verification.missingFormalAssetKeys) {
+      manifest.failed.push({ key, error: 'post_delete_verification_formal_reference_missing' });
     }
   }
 

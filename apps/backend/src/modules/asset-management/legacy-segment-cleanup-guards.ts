@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { isLegacyAudioSegmentKey } from '@gloaming/shared/assets';
 
 export const LEGACY_AUDIO_SEGMENT_CLEANUP_ENV = 'ALLOW_LEGACY_AUDIO_SEGMENT_CLEANUP';
@@ -9,12 +11,22 @@ export type ApprovedLegacySegmentCleanupManifest = {
   scanComplete: boolean;
   listedSegmentCount: number;
   eligibleKeys: string[];
+  eligibleKeysFingerprint?: string;
   eligibleCount: number;
   eligibleBytes: number;
   referencedSkippedCount: number;
   skipped: Array<{ key: string; reason: string; detail?: string }>; // dry-run uses LegacySegmentSkipReason strings
   deletedKeys: string[];
   failed: Array<{ key: string; error: string }>;
+  verification?: LegacySegmentCleanupVerification;
+};
+
+export type LegacySegmentCleanupVerification = {
+  ran: boolean;
+  deletedKeysStillPresent: string[];
+  missingChapterKeys: string[];
+  missingFormalAssetKeys: string[];
+  passed: boolean;
 };
 
 export function assertLegacyCleanupExecuteAuthorized(execute: boolean): void {
@@ -43,6 +55,11 @@ export function assertLegacyCleanupExecuteArgs(options: {
   }
 }
 
+export function computeLegacyCleanupEligibleKeysFingerprint(eligibleKeys: string[]): string {
+  const sorted = [...eligibleKeys].toSorted();
+  return createHash('sha256').update(JSON.stringify(sorted), 'utf8').digest('hex');
+}
+
 export function validateApprovedLegacyCleanupManifest(
   manifest: ApprovedLegacySegmentCleanupManifest,
   expectedBucket: string,
@@ -61,6 +78,23 @@ export function validateApprovedLegacyCleanupManifest(
   }
   if (manifest.mode !== 'dry-run') {
     throw new Error('Refusing execute: approved manifest must be from a dry-run scan');
+  }
+  if (manifest.eligibleCount !== manifest.eligibleKeys.length) {
+    throw new Error('Refusing execute: manifest eligibleCount does not match eligibleKeys length');
+  }
+  if (new Set(manifest.eligibleKeys).size !== manifest.eligibleKeys.length) {
+    throw new Error('Refusing execute: manifest eligibleKeys contains duplicates');
+  }
+  const skippedKeySet = new Set(manifest.skipped.map((entry) => entry.key));
+  const overlap = manifest.eligibleKeys.filter((key) => skippedKeySet.has(key));
+  if (overlap.length > 0) {
+    throw new Error(`Refusing execute: manifest eligibleKeys overlap skipped keys: ${overlap.join(', ')}`);
+  }
+  if (
+    manifest.eligibleKeysFingerprint &&
+    manifest.eligibleKeysFingerprint !== computeLegacyCleanupEligibleKeysFingerprint(manifest.eligibleKeys)
+  ) {
+    throw new Error('Refusing execute: manifest eligibleKeysFingerprint does not match eligibleKeys');
   }
   if (manifest.eligibleKeys.some((key) => key.includes('*'))) {
     throw new Error('Refusing execute: manifest contains wildcard key');
