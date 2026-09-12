@@ -1,3 +1,4 @@
+export type { PaginationMeta, PaginationQuery, SortOrder } from './pagination.ts';
 export {
   buildPaginationMeta,
   createSortByQuerySchema,
@@ -5,10 +6,7 @@ export {
   DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_ORDER,
   emptyToUndefined,
-  type PaginationMeta,
   paginationMetaSchema,
-  type PaginationQuery,
   paginationQuerySchema,
   SORT_ORDERS,
-  type SortOrder,
 } from './pagination.ts';

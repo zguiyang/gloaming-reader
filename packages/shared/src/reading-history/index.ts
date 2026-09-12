@@ -1,19 +1,21 @@
+export type {
+  ReadingHeartbeatBody,
+  ReadingHeartbeatResult,
+  ReadingHistoryActivityDay,
+  ReadingHistoryData,
+  ReadingHistorySummary,
+  ReadingHistoryWork,
+} from './reading-history.ts';
 export {
   calendarDateInTimeZone,
   READING_DAY_ENGAGED_SECONDS_CAP,
   READING_DAY_TIME_ZONE,
   READING_HEARTBEAT_INTERVAL_MS,
   READING_HEARTBEAT_MAX_CREDIT_SECONDS,
-  type ReadingHeartbeatBody,
   readingHeartbeatBodySchema,
-  type ReadingHeartbeatResult,
   readingHeartbeatResultSchema,
-  type ReadingHistoryActivityDay,
   readingHistoryActivityDaySchema,
-  type ReadingHistoryData,
   readingHistoryDataSchema,
-  type ReadingHistorySummary,
   readingHistorySummarySchema,
-  type ReadingHistoryWork,
   readingHistoryWorkSchema,
 } from './reading-history.ts';

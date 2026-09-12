@@ -1,10 +1,2 @@
-export {
-  forgotPasswordSchema,
-  type ForgotPasswordValues,
-  resetPasswordSchema,
-  type ResetPasswordValues,
-  signInSchema,
-  type SignInValues,
-  signUpSchema,
-  type SignUpValues,
-} from './auth';
+export type { ForgotPasswordValues, ResetPasswordValues, SignInValues, SignUpValues } from './auth';
+export { forgotPasswordSchema, resetPasswordSchema, signInSchema, signUpSchema } from './auth';

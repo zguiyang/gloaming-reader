@@ -15,7 +15,17 @@ const nodeSourceFiles = [
   'apps/backend/**/*.{js,mjs,ts}',
 ];
 
+/** Node packages/apps TypeScript files covered by a TSConfig project (excludes shared *.spec.ts). */
+const typedNodeFiles = [
+  'packages/shared/src/**/*.ts',
+  'packages/db/src/**/*.ts',
+  'apps/backend/src/**/*.ts',
+  'apps/backend/tests/**/*.ts',
+];
+
 const nextFiles = ['apps/web/**/*.{js,jsx,mjs,ts,tsx}'];
+
+const typedNextFiles = ['apps/web/**/*.{ts,tsx}'];
 
 const allSourceFiles = [...nodeSourceFiles, ...nextFiles];
 
@@ -154,6 +164,14 @@ export default defineConfig([
           fixStyle: 'separate-type-imports',
         },
       ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ExportNamedDeclaration[exportKind="value"] > ExportSpecifier[exportKind="type"]',
+          message:
+            'Split mixed type and value exports into separate `export type { ... }` and `export { ... }` declarations.',
+        },
+      ],
     },
   },
 
@@ -177,6 +195,26 @@ export default defineConfig([
         },
       ],
       '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+
+  {
+    files: typedNodeFiles,
+    ignores: ['packages/shared/src/**/*.spec.ts'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/consistent-type-exports': [
+        'error',
+        {
+          fixMixedExportsWithInlineTypeSpecifier: false,
+        },
+      ],
     },
   },
 
@@ -205,6 +243,29 @@ export default defineConfig([
           types: ['boolean'],
           format: ['camelCase', 'PascalCase'],
           prefix: ['is', 'has', 'can', 'should', 'enable'],
+        },
+      ],
+    },
+  },
+  {
+    files: typedNextFiles,
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    settings: {
+      next: {
+        rootDir: 'apps/web',
+      },
+    },
+    rules: {
+      '@typescript-eslint/consistent-type-exports': [
+        'error',
+        {
+          fixMixedExportsWithInlineTypeSpecifier: false,
         },
       ],
     },

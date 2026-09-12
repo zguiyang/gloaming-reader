@@ -1,16 +1,9 @@
-export {
-  ASSIST_ACTION_TEMPLATE,
-  PROMPT_ROLE,
-  PROMPT_SCENE,
-  type PromptRoleId,
-  type PromptSceneId,
-} from '@/lib/prompts/ids';
+export type { PromptRoleId, PromptSceneId } from '@/lib/prompts/ids';
+export { ASSIST_ACTION_TEMPLATE, PROMPT_ROLE, PROMPT_SCENE } from '@/lib/prompts/ids';
+export type { ComposePromptInput, PromptMessage, PromptVars } from '@/lib/prompts/service';
 export {
   clearPromptTemplateCache,
-  type ComposePromptInput,
   composePromptMessages,
   getPromptTemplate,
-  type PromptMessage,
-  type PromptVars,
   renderPrompt,
 } from '@/lib/prompts/service';

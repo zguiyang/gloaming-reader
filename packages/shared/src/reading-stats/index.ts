@@ -1,3 +1,4 @@
+export type { WorkStatsProvenance } from './reading-stats.ts';
 export {
   DIFFICULTY_SCORE_MAX,
   DIFFICULTY_SCORE_MIN,
@@ -8,5 +9,4 @@ export {
   LEXICAL_COVERAGE_TARGET,
   READING_WPM,
   WORK_STATS_PROVENANCES,
-  type WorkStatsProvenance,
 } from './reading-stats.ts';

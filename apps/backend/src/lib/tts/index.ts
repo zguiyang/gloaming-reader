@@ -1,6 +1,2 @@
-export {
-  type AzureTtsSynthesizeInput,
-  type AzureTtsSynthesizeResult,
-  type AzureTtsWordTiming,
-  synthesizeAzureTts,
-} from '@/lib/tts/azure';
+export type { AzureTtsSynthesizeInput, AzureTtsSynthesizeResult, AzureTtsWordTiming } from '@/lib/tts/azure';
+export { synthesizeAzureTts } from '@/lib/tts/azure';
