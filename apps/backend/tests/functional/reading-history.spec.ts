@@ -24,6 +24,8 @@ import { db } from '@/db';
 import * as conversationsService from '@/modules/conversations/service';
 import { recordReadingHeartbeat } from '@/modules/reading-history/service';
 
+import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';
+
 const password = 'password123';
 
 function uniqueEmail(prefix: string) {
@@ -106,6 +108,8 @@ async function createPublishedWork(adminCookie: string, title: string): Promise<
       })
     ).status,
   ).toBe(200);
+
+  await seedReadyDefaultAudioForWork(work.id);
 
   const publish = await app.request(`/api/admin/works/${work.id}/publish`, {
     method: 'POST',

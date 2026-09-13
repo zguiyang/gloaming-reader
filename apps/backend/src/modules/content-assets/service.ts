@@ -14,6 +14,7 @@ import {
   buildContentAssetGenerationKey,
   buildPartAudioText,
   type ContentAssetTrack,
+  deriveAudioTrackStatus,
   type EnqueueAudioResult,
   type GeneratePartAudioBody,
   type GenerateWorkAudioBody,
@@ -242,19 +243,7 @@ function toTrack(role: TtsVoiceRole, currentContentHash: string, asset: AssetRow
 
   const meta = asset.meta ?? {};
   const contentStale = asset.contentHash !== currentContentHash;
-  let status: ContentAssetTrack['status'];
-  if (asset.status === 'generating') {
-    status = 'generating';
-  } else if (asset.status === 'failed') {
-    status = 'failed';
-  } else if (asset.status === 'ready' && contentStale) {
-    status = 'stale';
-  } else if (asset.status === 'ready') {
-    status = 'ready';
-  } else {
-    status = 'failed';
-  }
-
+  const status = deriveAudioTrackStatus(asset, currentContentHash);
   const playable = status === 'ready';
   return {
     role,

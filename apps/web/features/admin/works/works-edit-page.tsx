@@ -6,12 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import {
-  type CreateEpubWorkResult,
-  EPUB_UPLOAD_MAX_BYTES,
-  getPublishWorkIssues,
-  type WorkflowStep,
-} from '@gloaming/shared/works';
+import { type CreateEpubWorkResult, EPUB_UPLOAD_MAX_BYTES, type WorkflowStep } from '@gloaming/shared/works';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -134,8 +129,16 @@ function stepStates(work: AdminWorkView | null): Record<WorkflowStepId, StepStat
               Boolean(work.originMeta.metadataAt)
             ? 'done'
             : 'todo';
-  // Audio — manual generation via WorkAudioPanel; status `tts` only when auto-pipeline is on.
-  const audioState = work.status === 'tts' ? 'active' : 'todo';
+  // Audio — manual generation via WorkAudioPanel; done when server publish gate passes for default US audio.
+  const audioGateIssues = work.publishIssues.filter((issue) => issue.path.includes('.audio.'));
+  const audioState =
+    work.status === 'tts'
+      ? 'active'
+      : work.originKind === 'admin_epub' && work.parts.length > 0
+        ? audioGateIssues.length === 0
+          ? 'done'
+          : 'active'
+        : 'todo';
   // Publish — the human step; highlighted while the work is ready.
   const publishState = work.status === 'published' ? 'done' : work.status === 'ready' ? 'active' : 'todo';
   return {
@@ -412,12 +415,14 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
   }
 
   const parsed = isEpub ? (work.originMeta.parsed as Record<string, unknown> | undefined) : undefined;
-  const publishIssues = getPublishWorkIssues({
-    title: work.title,
-    sources: work.sources,
-    tags: work.tags,
-    parts: work.parts.map((part) => ({ body: part.body })),
-  });
+  const publishIssues = work.publishIssues;
+  const metadataChecklist = [
+    { path: 'title', label: '标题已填写' },
+    { path: 'sources', label: '至少一个来源' },
+    { path: 'tags', label: '至少一个标签' },
+    { path: 'body', label: '正文内容存在' },
+  ] as const;
+  const audioGateIssues = publishIssues.filter((issue) => issue.path.includes('.audio.'));
   const isRunning = work.status === 'processing' || work.status === 'metadata' || work.status === 'tts';
   const isActing = actingStep !== null;
   const canRerun = isEpub && work.status !== 'published' && !isRunning && !isActing;
@@ -643,7 +648,21 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
           ) : work.parts.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">等待内容解析完成后再生成音频。</p>
           ) : (
-            <WorkAudioPanel workId={work.id} />
+            <>
+              <WorkAudioPanel workId={work.id} />
+              {audioGateIssues.length > 0 ? (
+                <ul className="mt-4 space-y-2 text-sm">
+                  {audioGateIssues.map((issue) => (
+                    <li key={issue.path} className="flex items-start gap-2 text-destructive">
+                      <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+                      <span>{issue.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : work.status === 'ready' || work.status === 'published' ? (
+                <p className="mt-4 text-sm text-muted-foreground">全部有正文章节的默认美音已就绪，可以发布。</p>
+              ) : null}
+            </>
           )}
         </section>
 
@@ -658,19 +677,29 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
           </h2>
           <div className="mt-4">
             <ul className="space-y-2 text-sm">
-              {[
-                { ok: Boolean(work.title.trim()), label: '标题已填写' },
-                { ok: work.sources.length >= 1, label: '至少一个来源' },
-                { ok: work.tags.length >= 1, label: '至少一个标签' },
-                { ok: work.parts.some((part) => part.body.trim()), label: '正文内容存在' },
-              ].map((item) => (
-                <li key={item.label} className="flex items-center gap-2">
-                  {item.ok ? (
-                    <Check className="size-4 text-brand-deep" />
-                  ) : (
-                    <TriangleAlert className="size-4 text-destructive" />
-                  )}
-                  <span className={item.ok ? '' : 'text-destructive'}>{item.label}</span>
+              {metadataChecklist.map((item) => {
+                const isBlocked = publishIssues.some((issue) => issue.path === item.path);
+                return (
+                  <li key={item.path} className="flex items-center gap-2">
+                    {!isBlocked ? (
+                      <Check className="size-4 text-brand-deep" />
+                    ) : (
+                      <TriangleAlert className="size-4 text-destructive" />
+                    )}
+                    <span className={isBlocked ? 'text-destructive' : ''}>{item.label}</span>
+                  </li>
+                );
+              })}
+              {audioGateIssues.length === 0 && work.parts.some((part) => part.body.trim()) ? (
+                <li className="flex items-center gap-2">
+                  <Check className="size-4 text-brand-deep" />
+                  <span>全部有正文章节的默认美音已就绪</span>
+                </li>
+              ) : null}
+              {audioGateIssues.map((issue) => (
+                <li key={issue.path} className="flex items-start gap-2">
+                  <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
+                  <span className="text-destructive">{issue.message}</span>
                 </li>
               ))}
             </ul>

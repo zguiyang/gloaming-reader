@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { type ContentAssetTrack } from '../content-assets/content-assets.ts';
+import { partHasSynthAudioText } from '../content-assets/content-assets.ts';
 import {
   buildPaginationMeta,
   createSortByQuerySchema,
@@ -8,6 +10,7 @@ import {
   paginationQuerySchema,
 } from '../pagination/index.ts';
 import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, WORK_STATS_PROVENANCES } from '../reading-stats/index.ts';
+import { type TtsVoiceRole } from '../tts/tts.ts';
 
 /** Work lifecycle statuses. */
 export const WORK_STATUSES = [
@@ -164,10 +167,19 @@ export const adminWorkflowPolicySchema = z.object({
 
 export type AdminWorkflowPolicy = z.infer<typeof adminWorkflowPolicySchema>;
 
+/** Reader default accent when both tracks exist — matches resolveAudioRole fallback (`us` → `uk`). */
+export const PUBLISH_DEFAULT_AUDIO_ROLE = 'us' as const satisfies TtsVoiceRole;
+
+export const publishWorkIssueSchema = z.object({
+  path: z.string(),
+  message: z.string(),
+});
+
 /** Admin work JSON includes derived projection freshness for ops reminders. */
 export const adminWorkSchema = workSchema.extend({
   workflowPolicy: adminWorkflowPolicySchema,
   derivedFreshness: derivedFreshnessSchema,
+  publishIssues: z.array(publishWorkIssueSchema),
   originMeta: z.record(z.string(), z.unknown()).default({}),
   originAsset: adminOriginAssetSchema.nullable(),
   parts: z.array(partSchema),
@@ -329,7 +341,15 @@ export type CatalogListData = z.infer<typeof catalogListDataSchema>;
 
 export { buildPaginationMeta };
 
-export type PublishWorkIssue = { path: string; message: string };
+export type PublishWorkIssue = z.infer<typeof publishWorkIssueSchema>;
+
+export type PublishPartAudioGateInput = {
+  partId: string;
+  partTitle: string;
+  /** Plain text extracted from HTML — same input as buildPartAudioText. */
+  bodyPlain: string;
+  defaultTrackStatus: ContentAssetTrack['status'];
+};
 
 export function getPublishWorkIssues(work: {
   title: string;
@@ -353,4 +373,47 @@ export function getPublishWorkIssues(work: {
   }
 
   return issues;
+}
+
+function publishPartAudioIssueMessage(partTitle: string, status: ContentAssetTrack['status']): string {
+  const label = partTitle.trim() || '未命名章节';
+  switch (status) {
+    case 'none':
+      return `章节「${label}」缺少默认美音（Reader 默认口音，英音可选）`;
+    case 'generating':
+      return `章节「${label}」默认美音仍在生成中`;
+    case 'stale':
+      return `章节「${label}」默认美音已过期，请重新生成`;
+    case 'failed':
+      return `章节「${label}」默认美音生成失败，请重试`;
+    default:
+      return `章节「${label}」默认美音未就绪`;
+  }
+}
+
+/** Publish gate for default-role audio on parts that require TTS synth text. */
+export function getPublishPartAudioIssues(input: PublishPartAudioGateInput): PublishWorkIssue[] {
+  if (!partHasSynthAudioText(input.bodyPlain)) {
+    return [];
+  }
+  if (input.defaultTrackStatus === 'ready') {
+    return [];
+  }
+  return [
+    {
+      path: `parts.${input.partId}.audio.${PUBLISH_DEFAULT_AUDIO_ROLE}`,
+      message: publishPartAudioIssueMessage(input.partTitle, input.defaultTrackStatus),
+    },
+  ];
+}
+
+export function getPublishAudioIssues(parts: PublishPartAudioGateInput[]): PublishWorkIssue[] {
+  return parts.flatMap((part) => getPublishPartAudioIssues(part));
+}
+
+export function mergePublishWorkIssues(
+  metadata: Parameters<typeof getPublishWorkIssues>[0],
+  audioParts: PublishPartAudioGateInput[],
+): PublishWorkIssue[] {
+  return [...getPublishWorkIssues(metadata), ...getPublishAudioIssues(audioParts)];
 }

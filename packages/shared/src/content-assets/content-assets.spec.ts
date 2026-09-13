@@ -7,7 +7,9 @@ import {
   contentAssetGenerationClaimSchema,
   contentAssetMetaSchema,
   contentAssetTrackSchema,
+  deriveAudioTrackStatus,
   normalizePartAudioWhitespace,
+  partHasSynthAudioText,
 } from './content-assets.ts';
 
 describe('buildContentAssetGenerationKey', () => {
@@ -41,6 +43,23 @@ describe('buildPartAudioText', () => {
     const body = normalizePartAudioWhitespace('A Wolf resolved to disguise himself.');
     expect(buildPartAudioText(body)).toBe(body);
     expect(buildPartAudioText(body)).not.toContain('THE WOLF');
+  });
+});
+
+describe('partHasSynthAudioText', () => {
+  it('treats whitespace-only body as empty', () => {
+    expect(partHasSynthAudioText('   ')).toBe(false);
+    expect(partHasSynthAudioText('Hello')).toBe(true);
+  });
+});
+
+describe('deriveAudioTrackStatus', () => {
+  it('maps DB facts to track status including stale', () => {
+    expect(deriveAudioTrackStatus(null, 'hash-a')).toBe('none');
+    expect(deriveAudioTrackStatus({ status: 'generating', contentHash: 'hash-a' }, 'hash-a')).toBe('generating');
+    expect(deriveAudioTrackStatus({ status: 'failed', contentHash: 'hash-a' }, 'hash-a')).toBe('failed');
+    expect(deriveAudioTrackStatus({ status: 'ready', contentHash: 'hash-a' }, 'hash-a')).toBe('ready');
+    expect(deriveAudioTrackStatus({ status: 'ready', contentHash: 'old' }, 'hash-a')).toBe('stale');
   });
 });
 

@@ -217,17 +217,7 @@ describe('learner part audio', () => {
           headers: { Cookie: admin.cookie },
         })
       ).status,
-    ).toBe(200);
-
-    async function partAudioAvail(): Promise<ReaderPartData['audioAvailable']> {
-      const res = await app.request(`/api/reader/parts/${partId}`, {
-        headers: { Cookie: learner.cookie },
-      });
-      expect(res.status).toBe(200);
-      return ((await res.json()) as ReaderPartData).audioAvailable;
-    }
-
-    expect(await partAudioAvail()).toEqual({ us: false, uk: false });
+    ).toBe(400);
 
     const initialGeneration = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
       method: 'POST',
@@ -242,6 +232,23 @@ describe('learner part audio', () => {
       ],
       skipped: [],
     });
+
+    async function partAudioAvail(): Promise<ReaderPartData['audioAvailable']> {
+      const res = await app.request(`/api/reader/parts/${partId}`, {
+        headers: { Cookie: learner.cookie },
+      });
+      expect(res.status).toBe(200);
+      return ((await res.json()) as ReaderPartData).audioAvailable;
+    }
+
+    expect(
+      (
+        await app.request(`/api/admin/works/${work.id}/publish`, {
+          method: 'POST',
+          headers: { Cookie: admin.cookie },
+        })
+      ).status,
+    ).toBe(200);
 
     expect(await partAudioAvail()).toEqual({ us: true, uk: true });
     expect(ttsCallCount).toBe(2);

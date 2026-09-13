@@ -16,6 +16,7 @@ import {
   type WorkMetadataProvenance,
   type WorkMetadataProvenanceMap,
 } from '@gloaming/db';
+import { audioKindForRole, deriveAudioTrackStatus } from '@gloaming/shared/content-assets';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
 import {
   type AdminOriginAsset,
@@ -28,8 +29,11 @@ import {
   type CreateAdminTextWorkBody,
   type CreateEpubWorkResult,
   EPUB_UPLOAD_MAX_BYTES,
-  getPublishWorkIssues,
+  mergePublishWorkIssues,
   type Part,
+  PUBLISH_DEFAULT_AUDIO_ROLE,
+  type PublishPartAudioGateInput,
+  type PublishWorkIssue,
   type RetryWorkflowBody,
   type UpdateWorkBody,
   type Work,
@@ -43,6 +47,7 @@ import { JOB_CONTENT_PARSE } from '@/jobs/content-parse';
 import { JOB_METADATA_FILL } from '@/jobs/work-metadata-fill';
 import { AppError, NotFoundError, ValidationFailedError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
+import { htmlToPlainText } from '@/lib/part-text';
 import { enqueue } from '@/lib/queue';
 import { normalizeTag } from '@/lib/text';
 import {
@@ -66,6 +71,7 @@ import {
   type UploadedFileMeta,
   type UploadSpec,
 } from '@/modules/uploads/service';
+import { hashPartAudioContent } from '@/modules/works/content-hash';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 type PartRow = typeof readingPartTable.$inferSelect;
@@ -367,6 +373,53 @@ async function loadCategoryForWork(workId: string): Promise<string | null> {
   return row?.name ?? null;
 }
 
+async function loadPublishPartAudioGateInputs(parts: PartRow[]): Promise<PublishPartAudioGateInput[]> {
+  if (parts.length === 0) {
+    return [];
+  }
+  const partIds = parts.map((part) => part.id);
+  const defaultKind = audioKindForRole(PUBLISH_DEFAULT_AUDIO_ROLE);
+  const audioRows = await db
+    .select({
+      partId: contentAssetTable.partId,
+      status: contentAssetTable.status,
+      contentHash: contentAssetTable.contentHash,
+    })
+    .from(contentAssetTable)
+    .where(and(inArray(contentAssetTable.partId, partIds), eq(contentAssetTable.kind, defaultKind)));
+  const assetByPartId = new Map(audioRows.filter((row) => row.partId != null).map((row) => [row.partId!, row]));
+
+  return parts.map((part) => {
+    const bodyPlain = htmlToPlainText(part.body);
+    const currentContentHash = hashPartAudioContent(part.body);
+    const asset = assetByPartId.get(part.id) ?? null;
+    return {
+      partId: part.id,
+      partTitle: part.title,
+      bodyPlain,
+      defaultTrackStatus: deriveAudioTrackStatus(asset, currentContentHash),
+    };
+  });
+}
+
+async function buildPublishIssuesForWork(
+  row: WorkRow,
+  partRows: PartRow[],
+  tags: string[],
+  sources: string[],
+): Promise<PublishWorkIssue[]> {
+  const audioInputs = await loadPublishPartAudioGateInputs(partRows);
+  return mergePublishWorkIssues(
+    {
+      title: row.title,
+      sources,
+      tags,
+      parts: partRows.map((part) => ({ body: part.body })),
+    },
+    audioInputs,
+  );
+}
+
 async function toAdminWork(row: WorkRow, parts?: PartRow[]): Promise<AdminWork> {
   const partRows = parts ?? (await loadPartsForWork(row.id));
   const primaryPart = partRows[0];
@@ -384,10 +437,12 @@ async function toAdminWork(row: WorkRow, parts?: PartRow[]): Promise<AdminWork> 
     loadCategoryProvenanceForWork(row.id),
     loadSourcesForWork(row.id),
   ]);
+  const publishIssues = await buildPublishIssuesForWork(row, partRows, tags, sources);
   return {
     ...toWork(row, tags, sources),
     workflowPolicy: getWorkflowPolicyProjection(),
     derivedFreshness: freshness ?? { audio: 'missing' },
+    publishIssues,
     originMeta: row.originMeta,
     originAsset: await loadOriginFileAsset(row.id),
     parts: partRows.map(toPart),
@@ -964,12 +1019,7 @@ export async function publishWork(id: string): Promise<AdminWork> {
   const parts = await loadPartsForWork(id);
   const tags = await loadTagsForWork(id);
   const sources = await loadSourcesForWork(id);
-  const issues = getPublishWorkIssues({
-    title: existing.title,
-    sources,
-    tags,
-    parts: parts.map((part) => ({ body: part.body })),
-  });
+  const issues = await buildPublishIssuesForWork(existing, parts, tags, sources);
   if (issues.length > 0) {
     throw new ValidationFailedError(issues);
   }

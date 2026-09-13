@@ -26,6 +26,7 @@ export type WorkView = {
 export type AdminWorkView = WorkView & {
   workflowPolicy: AdminWork['workflowPolicy'];
   derivedFreshness: AdminWork['derivedFreshness'];
+  publishIssues: AdminWork['publishIssues'];
   originMeta: AdminWork['originMeta'];
   originAsset: AdminOriginAsset | null;
   parts: AdminWork['parts'];
@@ -78,6 +79,7 @@ export function normalizeAdminWork(raw: AdminWork): AdminWorkView {
     ...normalizeWork(raw),
     workflowPolicy: raw.workflowPolicy,
     derivedFreshness: raw.derivedFreshness,
+    publishIssues: raw.publishIssues,
     originMeta: raw.originMeta,
     originAsset: raw.originAsset,
     parts: raw.parts,

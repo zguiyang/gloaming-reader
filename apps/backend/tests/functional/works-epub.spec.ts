@@ -17,6 +17,7 @@ import { db } from '@/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 
 import { createMemoryObjectStore } from '../helpers/memory-oss';
+import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';
 
 const password = 'password123';
 
@@ -361,6 +362,8 @@ describe('publish / unpublish status guards', () => {
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ sources: ['demo'], tags: ['story'] }),
     });
+
+    await seedReadyDefaultAudioForWork(created.id);
 
     const publish = await publishRequest(created.id);
     expect(publish.status).toBe(200);

@@ -15,6 +15,8 @@ import { type ReaderPartsData, type ReadingState } from '@gloaming/shared/reader
 import app from '@/app';
 import { db } from '@/db';
 
+import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';
+
 const password = 'password123';
 
 function uniqueEmail(prefix: string) {
@@ -124,6 +126,8 @@ describe('Reader HTTP', () => {
       headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
       body: JSON.stringify({ sources: ['demo'], tags: ['science'] }),
     });
+
+    await seedReadyDefaultAudioForWork(work.id);
 
     const publish = await app.request(`/api/admin/works/${work.id}/publish`, {
       method: 'POST',

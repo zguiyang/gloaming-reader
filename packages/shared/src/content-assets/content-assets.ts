@@ -50,6 +50,40 @@ export function buildPartAudioText(bodyPlain: string): string {
   return normalizePartAudioWhitespace(bodyPlain);
 }
 
+/** True when TTS would synthesize non-empty text for this part (body plain, post-normalization). */
+export function partHasSynthAudioText(bodyPlain: string): boolean {
+  return buildPartAudioText(bodyPlain).length > 0;
+}
+
+type AudioTrackAssetFacts = {
+  status: string;
+  contentHash: string;
+};
+
+/** Map DB asset facts to admin/reader track status (includes derived `stale`). */
+export function deriveAudioTrackStatus(
+  asset: AudioTrackAssetFacts | null,
+  currentContentHash: string,
+): ContentAssetTrack['status'] {
+  if (!asset) {
+    return 'none';
+  }
+  const contentStale = asset.contentHash !== currentContentHash;
+  if (asset.status === 'generating') {
+    return 'generating';
+  }
+  if (asset.status === 'failed') {
+    return 'failed';
+  }
+  if (asset.status === 'ready' && contentStale) {
+    return 'stale';
+  }
+  if (asset.status === 'ready') {
+    return 'ready';
+  }
+  return 'failed';
+}
+
 export const generatePartAudioBodySchema = z.object({
   roles: z.array(z.enum(ttsVoiceRoleValues)).min(1).max(2).optional(),
   force: z.boolean().optional(),
