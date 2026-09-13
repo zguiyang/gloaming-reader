@@ -194,7 +194,9 @@ POST /api/admin/works/epub
   → admin publish → published
 ```
 
-The default branch configuration is manual between workflow steps (`WORKFLOW_AUTO_CHAIN = false`). TTS auto-generation is disabled (`TTS_STEP_ENABLED = false`): audio is optional, generated separately as `ContentAsset` kinds `audio_us` / `audio_uk`, and does not block publish. Failures surface as `failed` with the failed workflow step; `published` works can be unpublished before retry.
+The default branch configuration is manual between workflow steps (`WORKFLOW_AUTO_CHAIN = false`). Auto-TTS in the workflow is disabled (`TTS_STEP_ENABLED = false`): operators trigger part audio generation separately as `ContentAsset` kinds `audio_us` / `audio_uk`.
+
+**Publish gate:** `publishWork` blocks publish when any part with synthesizable text lacks **ready default US** whose `content_hash` matches the current part body. UK audio is optional. Failures surface as `failed` with the failed workflow step; `published` works can be unpublished before retry. Reader runtime may still degrade when playback is temporarily unavailable.
 
 ### Legacy Article model — **removed in Phase 3A**
 
@@ -442,3 +444,5 @@ Constraints for any Stitch / prototype pass (facts + Locked rules — still **no
 | Admin EPUB workflow          | `apps/backend/src/modules/works/route.ts`, `apps/web/features/admin/works-api.ts`, `apps/backend/src/modules/epub-ingest/epub.ts`, `apps/backend/src/modules/content-parser/service.ts`, `apps/backend/src/modules/metadata-fill/service.ts`, `apps/backend/src/modules/content-assets/service.ts` |
 | Workflow status / jobs       | `packages/shared/src/api/works.ts`, `apps/backend/src/lib/workflow.ts`, `apps/backend/src/jobs/content-parse.ts`, `apps/backend/src/jobs/work-metadata-fill.ts`                                                                                                                                    |
 | TextStack reference          | https://github.com/mrviduus/textstack (`BookDetailPage`, `BookDetailHero`, `BookDetail` type)                                                                                                                                                                                                      |
+
+**Revision (post baseline `d870d4f`):** Admin EPUB workflow snapshot updated — publish requires ready default US for synth parts; auto workflow/TTS flags remain off.

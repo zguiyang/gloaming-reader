@@ -149,12 +149,13 @@ Retired: Practice / Review nav; Dashboard / 图书馆 / 复习 / 成长 study lo
 
 ## 8. Known drift
 
-| Where           | Issue                                                           | Action                    |
-| --------------- | --------------------------------------------------------------- | ------------------------- |
-| Admin EPUB      | `admin_epub` origin reserved; upload/parse pipeline not shipped | Phase 3B                  |
-| History metrics | Heatmap / year/30d volume may still evolve                      | Evolve with product needs |
+| Where           | Issue                                      | Action                    |
+| --------------- | ------------------------------------------ | ------------------------- |
+| History metrics | Heatmap / year/30d volume may still evolve | Evolve with product needs |
 
 **Resolved (2026-08-24):** Phase 3A — Article → ReadingWork / Part / State / ContentAsset; routes `/read/[workId]`, `/discover/[workId]`; Work APIs live.
+
+**Resolved (admin EPUB):** Admin EPUB upload → parse → metadata → publish is shipped (`admin_epub`). Ops-only — not in learner nav. User import remains Phase **1b**.
 
 **Resolved (2026-08-23):** Nav IA → 我的书架 / 发现 / 阅读历史; legacy `/dashboard`, `/progress`, `/library`, `/learn` removed.
 
@@ -164,9 +165,10 @@ Retired: Practice / Review nav; Dashboard / 图书馆 / 复习 / 成长 study lo
 
 ## 9. Change log
 
-| Date       | Change                                                                                   |
-| ---------- | ---------------------------------------------------------------------------------------- |
-| 2026-08-24 | Phase 3A complete; known drift cleared of articleId / Article code notes.                |
-| 2026-08-24 | ReadingWork / workId routes; admin EPUB in 1a; user upload wording; known drift updated. |
-| 2026-08-23 | Frontend cleanup; nav IA matches mvp-1-modules.                                          |
-| 2026-08-20 | Learner IA locked; Practice/Review retired.                                              |
+| Date       | Change                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| 2026-08-24 | Phase 3A complete; known drift cleared of articleId / Article code notes.                   |
+| 2026-08-24 | ReadingWork / workId routes; admin EPUB in 1a; user upload wording; known drift updated.    |
+| 2026-08-23 | Frontend cleanup; nav IA matches mvp-1-modules.                                             |
+| 2026-08-20 | Learner IA locked; Practice/Review retired.                                                 |
+| (revision) | Admin EPUB drift cleared; publish requires ready default US for synth parts (auto-TTS off). |

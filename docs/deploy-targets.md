@@ -8,7 +8,10 @@ Today the Node adapter already exists (`src/index.ts` + `@hono/node-server`). Wo
 
 **Current online paths:**
 
-- **Docker production (Dokploy):** `web` + `api` + `worker` containers; external Postgres/Redis. Templates: `docker-compose.production.yaml.example`, `apps/*/Dockerfile`. Runbook: [`docs/dokploy-deploy.md`](./dokploy-deploy.md).
+- **Docker production (Dokploy):** three application containers — `web`, `api`,
+  `worker`; Postgres and Redis from external existing containers/services (not
+  in the production Compose example). Templates: `docker-compose.production.yaml.example`,
+  `apps/*/Dockerfile`. Runbook: [`docs/dokploy-deploy.md`](./dokploy-deploy.md).
 - **VPS Node (host processes):** Compose for local/dev Postgres/Redis only; HTTP API + BullMQ worker as supervised Node processes. Runbook: [`docs/vps-run.md`](./vps-run.md).
 
 Cloudflare dual-entry remains deferred.

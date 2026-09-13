@@ -1,8 +1,9 @@
 # Production deploy (Dokploy + Docker)
 
-Containerized production path for Gloaming: **web**, **api**, and **worker** as
-Docker services. **PostgreSQL** and **Redis** are **external** — they are not
-created by the production Compose file.
+Containerized production path for Gloaming: three **application** containers —
+**web**, **api**, and **worker**. **PostgreSQL** and **Redis** are **external**
+(existing operator-managed containers or managed services). They are **not**
+created by the production Compose example.
 
 For host Node + systemd/pm2, see [`vps-run.md`](./vps-run.md). For deferred
 Cloudflare Workers dual-runtime, see [`deploy-targets.md`](./deploy-targets.md).
@@ -151,19 +152,29 @@ deploy compose → verify health.
 With `web` reachable at `FRONTEND_URL`, register the first account through the
 product UI while the user table is still empty.
 
-### 6. Worker smoke: `POST /api/admin/jobs/ping`
+### 6. Worker smoke: queue + TTS path
 
-As admin, call `POST /api/admin/jobs/ping`. Expect enqueue success and worker
-logs. Failure usually means Redis down, worker stopped, or missing admin auth.
+As admin:
+
+1. Call `POST /api/admin/jobs/ping`. Expect enqueue success and worker logs.
+   Failure usually means Redis down, worker stopped, or missing admin auth.
+2. **Publish gate smoke:** ingest or open a `ready` admin EPUB work, generate
+   **default US** audio for parts with synthesizable text (admin TTS actions;
+   worker must process jobs), then confirm `publishWork` succeeds. Publish must
+   **fail** while default US is missing, stale, or not `ready` for a synth part.
+   UK audio is optional.
+
+The **`worker` container must stay running** with restart policy before any
+catalog publish that depends on generated audio.
 
 ### 7. Verify integrations
 
-| Dependency            | Check                                           |
-| --------------------- | ----------------------------------------------- |
-| Redis                 | Queue ping succeeds                             |
-| Resend                | Real transactional email (verification / reset) |
-| S3-compatible storage | Upload/read path for content or part audio      |
-| TTS path              | Reader audio generation (see below)             |
+| Dependency            | Check                                                                    |
+| --------------------- | ------------------------------------------------------------------------ |
+| Redis                 | Queue ping succeeds                                                      |
+| Resend                | Real transactional email (verification / reset)                          |
+| S3-compatible storage | Upload/read path for content or part audio                               |
+| TTS + publish gate    | Worker processes TTS jobs; publish requires ready default US (see below) |
 
 ### 8. Open registration
 
@@ -174,6 +185,13 @@ Only after steps 1–7. Until then, restrict public traffic (firewall, allowlist
 - The **API only enqueues** jobs; it does not run TTS or long background work.
 - The **`worker` service must stay running** with restart policy. If it stops,
   TTS, ingest, metadata, and cleanup jobs stall silently.
+- Auto workflow chaining and auto-TTS steps are **off** in backend policy
+  (`WORKFLOW_AUTO_CHAIN = false`, `TTS_STEP_ENABLED = false`). Operators trigger
+  part audio generation through admin actions.
+- **Publish gate:** `publishWork` requires **ready default US** (`audio_us`) with
+  a current `content_hash` for every part that has synthesizable text. UK
+  (`audio_uk`) is optional. Reader playback may still degrade when audio is
+  temporarily unavailable at runtime.
 - TTS uses Azure Speech (via backend SDK), Redis cache (`gloaming:tts:v2:*`),
   and S3-compatible storage for persisted audio — all configured through backend
   env on **both** `api` and `worker`.
@@ -194,9 +212,9 @@ Only after steps 1–7. Until then, restrict public traffic (firewall, allowlist
 `worker`. Database schema may not downgrade automatically — plan migrations
 accordingly.
 
-**Out of scope for this stack:** creating Postgres/Redis containers, running
-migrations inside `api`/`worker` startup, or committing `docker-compose.yaml`
-with secrets.
+**Out of scope for this stack:** creating Postgres/Redis containers in the
+production Compose example, running migrations inside `api`/`worker` startup, or
+committing `docker-compose.yaml` with secrets.
 
 ## Runtime notes
 
@@ -214,4 +232,4 @@ After deploy, without running local `docker build` in CI unless desired:
 1. `web` serves the public domain over HTTPS (Dokploy Domain).
 2. `GET /api/health` succeeds from inside the `api` container (Compose healthcheck).
 3. Sign-in and reader flows work through the web origin (no direct public API URL).
-4. Worker processes a ping job and TTS-related jobs when triggered.
+4. Worker processes a ping job, TTS jobs when triggered, and the publish default-US gate passes on a smoke work before catalog go-live.

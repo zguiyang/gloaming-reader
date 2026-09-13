@@ -135,11 +135,18 @@ Start or reload the web app with a correct `API_INTERNAL_URL`. Register the
 first account through the product UI while the database is still empty. That
 account receives the admin role. Sign in and confirm admin access.
 
-### 7. Worker smoke: `POST /api/admin/jobs/ping`
+### 7. Worker smoke: queue + publish gate
 
-With an admin session, call `POST /api/admin/jobs/ping`. Expect a successful
-enqueue/response and a matching worker log for the ping job. Failure usually
-means Redis, worker down, or missing admin auth — not “API alone is healthy.”
+With an admin session:
+
+1. Call `POST /api/admin/jobs/ping`. Expect a successful enqueue/response and a
+   matching worker log for the ping job. Failure usually means Redis, worker
+   down, or missing admin auth — not “API alone is healthy.”
+2. **Publish gate smoke:** on a `ready` admin EPUB work, generate **default US**
+   audio for synth parts via admin TTS (worker must run), then confirm publish
+   succeeds. Publish must fail while default US is missing or stale.
+
+The worker **must keep running** with auto-restart before catalog publish.
 
 ### 8. Verify Resend, S3-compatible storage, and Redis (real connectivity)
 
@@ -158,7 +165,9 @@ As a signed-in user (admin is fine for this check):
 1. Open or ingest a reading work available in this environment.
 2. Open the reader for a part; content loads.
 3. Confirm dictionary lookup and AI Assist return real results (LLM, not mock).
-4. Confirm audio generation/playback that depends on the worker + S3-compatible storage.
+4. Confirm audio generation/playback that depends on the worker + S3-compatible
+   storage. Before publishing catalog works, confirm **default US** audio is
+   `ready` with matching content hash for synth parts (publish gate).
 
 Stop and fix failures before inviting the public.
 

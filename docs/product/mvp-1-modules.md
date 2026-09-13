@@ -162,17 +162,19 @@ If AI is off, reading still works.
 
 ### 4.9 Reader — TTS
 
-|                        |                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| **Responsibility**     | Let the user **listen** to the current text when that helps them keep going. |
-| **Rough capabilities** | Play current text audio; degrade gracefully if TTS unavailable.              |
+|                        |                                                                                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------- |
+| **Responsibility**     | Let the user **listen** to the current text when that helps them keep going.                   |
+| **Rough capabilities** | Play current text audio when ready; degrade gracefully if playback is temporarily unavailable. |
+
+**Ops note (not learner UI):** Auto workflow/TTS steps stay off by default. Before **publish**, every part with synthesizable text must have **ready default US** (`audio_us`) matching the current part hash; UK is optional. Operators generate audio via admin actions + worker queue.
 
 ### 4.10 Admin Work Management (catalog ops — supporting)
 
-|                        |                                                                                                                                                         |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Responsibility**     | Keep the official **ReadingWork** catalog that feeds **发现** publishable and maintainable.                                                             |
-| **Rough capabilities** | Upload EPUB → processing → review **ReadingPart[]** → publish (or unpublish) official works; optional **`admin_text`** for internal dev/test seed only. |
+|                        |                                                                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Responsibility**     | Keep the official **ReadingWork** catalog that feeds **发现** publishable and maintainable.                                                                             |
+| **Rough capabilities** | Upload EPUB → parse → metadata → generate default US audio (worker) → publish (or unpublish) official works; optional **`admin_text`** for internal dev/test seed only. |
 
 Ops tool—not the learner product identity. Not in learner shell nav. **`admin_text` is not a product capability** — see [`content-strategy.md`](./content-strategy.md) §2.1.
 
@@ -250,3 +252,4 @@ Before a prototype is accepted for MVP 1:
 | 2026-08-20 | Clarified: modules/IA locked; **layouts not locked** (§0).                                             |
 | 2026-08-20 | Added per-module responsibility + rough capabilities (§4).                                             |
 | 2026-08-20 | Initial MVP 1 module roadmap: 1a catalog-to-shelf; 1b import deferred; nav 我的书架 / 发现 / 阅读历史. |
+| (revision) | §4.9–§4.10: publish default-US gate; auto workflow/TTS flags remain off.                               |

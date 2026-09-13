@@ -44,11 +44,20 @@ Zod schemas, controlled values, types, and pure functions. It does not own
 backend queue, retry, lease, or workflow runtime policy.
 
 `apps/backend` owns workflow policy and preserves the current manual pipeline
-and TTS-off defaults. Admin work responses expose a read-only policy projection
-for the management UI; Web code must render that projection rather than infer
-runtime behavior from shared compile-time flags. This separation leaves the
-ADR-001 `ReadingWork` / `ReadingPart` / `ReadingState` / `ContentAsset` model
-and the `admin_epub` / `admin_text` origin boundary unchanged.
+and auto-chaining / auto-TTS **off** defaults (`WORKFLOW_AUTO_CHAIN = false`,
+`TTS_STEP_ENABLED = false`). Admin work responses expose a read-only policy
+projection for the management UI; Web code must render that projection rather
+than infer runtime behavior from shared compile-time flags.
+
+**Publish gate:** Before `publishWork`, every part with synthesizable text must
+have **ready default US** (`audio_us`, `PUBLISH_DEFAULT_AUDIO_ROLE = us`) whose
+`content_hash` matches the current part body. UK (`audio_uk`) is optional.
+Operators generate default US through admin TTS actions and the worker queue.
+Reader playback may degrade gracefully when audio is temporarily unavailable.
+
+This separation leaves the ADR-001 `ReadingWork` / `ReadingPart` /
+`ReadingState` / `ContentAsset` model and the `admin_epub` / `admin_text`
+origin boundary unchanged.
 
 ---
 
@@ -65,7 +74,8 @@ and the `admin_epub` / `admin_text` origin boundary unchanged.
 | Reader API           | `/api/reader/works/:workId`                       |
 | Conversation subject | `subject_type = reading_work`                     |
 
-**Phase 3A complete.** Do **not** reintroduce Article names — see Retired names below. **Phase 3B** = admin EPUB ingest.
+**Phase 3A complete.** Admin EPUB ingest (`admin_epub`) is shipped. Do **not**
+reintroduce Article names — see Retired names below.
 
 ---
 
@@ -118,8 +128,9 @@ and the `admin_epub` / `admin_text` origin boundary unchanged.
 
 ## Revision log
 
-| Date       | Change                                                                          |
-| ---------- | ------------------------------------------------------------------------------- |
-| 2026-08-24 | Phase 3A complete — Current = Target API/domain table; forbidden list retained. |
-| 2026-08-24 | Rewritten for ReadingWork domain (ADR-001); Article retired; target API table.  |
-| 2026-08-24 | Prior version listed Article as MVP 1a entity.                                  |
+| Date       | Change                                                                           |
+| ---------- | -------------------------------------------------------------------------------- |
+| 2026-08-24 | Phase 3A complete — Current = Target API/domain table; forbidden list retained.  |
+| 2026-08-24 | Rewritten for ReadingWork domain (ADR-001); Article retired; target API table.   |
+| 2026-08-24 | Prior version listed Article as MVP 1a entity.                                   |
+| (revision) | Admin EPUB ingest marked shipped; publish default-US gate; auto-TTS remains off. |
