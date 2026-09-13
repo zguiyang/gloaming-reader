@@ -1,5 +1,7 @@
-import { TtsConfigPage } from '@/features/admin/tts/tts-config-page';
+import { redirect } from 'next/navigation';
+
+import { ADMIN_ROUTES } from '@/constants';
 
 export default function AdminTtsPage() {
-  return <TtsConfigPage />;
+  redirect(ADMIN_ROUTES.configTab('tts'));
 }

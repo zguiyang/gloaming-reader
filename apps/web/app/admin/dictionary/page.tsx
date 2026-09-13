@@ -1,5 +1,7 @@
-import { DictionaryConfigPage } from '@/features/admin/dictionary/dictionary-config-page';
+import { redirect } from 'next/navigation';
+
+import { ADMIN_ROUTES } from '@/constants';
 
 export default function AdminDictionaryPage() {
-  return <DictionaryConfigPage />;
+  redirect(ADMIN_ROUTES.configTab('dictionary'));
 }

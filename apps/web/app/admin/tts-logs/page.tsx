@@ -1,5 +1,7 @@
-import { TtsLogsPage } from '@/features/admin/tts/tts-logs-page';
+import { redirect } from 'next/navigation';
+
+import { ADMIN_ROUTES } from '@/constants';
 
 export default function AdminTtsLogsPage() {
-  return <TtsLogsPage />;
+  redirect(ADMIN_ROUTES.logsTab('tts'));
 }

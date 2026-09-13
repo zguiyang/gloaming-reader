@@ -1,17 +1,6 @@
 'use client';
 
-import {
-  ArrowLeft,
-  AudioLines,
-  BookA,
-  FileText,
-  HardDrive,
-  Menu,
-  ScrollText,
-  Sparkles,
-  Tags,
-  Volume2,
-} from 'lucide-react';
+import { ArrowLeft, FileText, HardDrive, Menu, ScrollText, Settings, Tags } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useState } from 'react';
@@ -53,10 +42,10 @@ function adminNavItems(pathname: string): AdminNavItem[] {
       isActive: pathname === ADMIN_ROUTES.assets || pathname.startsWith(`${ADMIN_ROUTES.assets}/`),
     },
     {
-      href: ADMIN_ROUTES.ai,
-      label: 'AI 配置',
-      icon: Sparkles,
-      isActive: pathname === ADMIN_ROUTES.ai || pathname.startsWith(`${ADMIN_ROUTES.ai}/`),
+      href: ADMIN_ROUTES.config,
+      label: '配置',
+      icon: Settings,
+      isActive: pathname === ADMIN_ROUTES.config || pathname.startsWith(`${ADMIN_ROUTES.config}/`),
     },
     {
       href: ADMIN_ROUTES.taxonomy,
@@ -65,28 +54,10 @@ function adminNavItems(pathname: string): AdminNavItem[] {
       isActive: pathname === ADMIN_ROUTES.taxonomy || pathname.startsWith(`${ADMIN_ROUTES.taxonomy}/`),
     },
     {
-      href: ADMIN_ROUTES.aiLogs,
-      label: 'AI 日志',
+      href: ADMIN_ROUTES.logs,
+      label: '日志',
       icon: ScrollText,
-      isActive: pathname === ADMIN_ROUTES.aiLogs || pathname.startsWith(`${ADMIN_ROUTES.aiLogs}/`),
-    },
-    {
-      href: ADMIN_ROUTES.tts,
-      label: '语音配置',
-      icon: Volume2,
-      isActive: pathname === ADMIN_ROUTES.tts || pathname.startsWith(`${ADMIN_ROUTES.tts}/`),
-    },
-    {
-      href: ADMIN_ROUTES.dictionary,
-      label: '词典配置',
-      icon: BookA,
-      isActive: pathname === ADMIN_ROUTES.dictionary || pathname.startsWith(`${ADMIN_ROUTES.dictionary}/`),
-    },
-    {
-      href: ADMIN_ROUTES.ttsLogs,
-      label: '音频日志',
-      icon: AudioLines,
-      isActive: pathname === ADMIN_ROUTES.ttsLogs || pathname.startsWith(`${ADMIN_ROUTES.ttsLogs}/`),
+      isActive: pathname === ADMIN_ROUTES.logs || pathname.startsWith(`${ADMIN_ROUTES.logs}/`),
     },
   ];
 }

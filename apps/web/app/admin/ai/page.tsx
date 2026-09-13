@@ -1,5 +1,7 @@
-import { AiConfigPage } from '@/features/admin/ai/ai-config-page';
+import { redirect } from 'next/navigation';
+
+import { ADMIN_ROUTES } from '@/constants';
 
 export default function AdminAiPage() {
-  return <AiConfigPage />;
+  redirect(ADMIN_ROUTES.configTab('ai'));
 }

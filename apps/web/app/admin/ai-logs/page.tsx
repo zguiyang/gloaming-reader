@@ -1,5 +1,7 @@
-import { AiLogsPage } from '@/features/admin/ai/ai-logs-page';
+import { redirect } from 'next/navigation';
+
+import { ADMIN_ROUTES } from '@/constants';
 
 export default function AdminAiLogsPage() {
-  return <AiLogsPage />;
+  redirect(ADMIN_ROUTES.logsTab('ai'));
 }
