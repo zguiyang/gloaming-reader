@@ -7,14 +7,19 @@ import * as schema from '@gloaming/db/schema';
 import { AUTH_PASSWORD_POLICY, AUTH_USER_ROLE, AUTH_USERNAME_POLICY, isValidUsername } from '@gloaming/shared/auth';
 
 import { db } from '@/db';
-import { releaseBootstrapUserCreation, resolveBootstrapRoleForNewUser } from '@/lib/auth-bootstrap';
+import {
+  BootstrapLockLeaseLostError,
+  consumeBootstrapLeaseLost,
+  releaseBootstrapUserCreation,
+  resolveBootstrapRoleForNewUser,
+} from '@/lib/auth-bootstrap';
+import { buildVerificationUrl, logDevAuthLink } from '@/lib/auth-mail';
+import { env } from '@/lib/env';
+import { authLogger } from '@/lib/logger';
 
 function bootstrapCorrelationKey(user: { email?: string | null; id: string }): string {
   return user.email?.toLowerCase() ?? user.id;
 }
-import { buildVerificationUrl, logDevAuthLink } from '@/lib/auth-mail';
-import { env } from '@/lib/env';
-import { authLogger } from '@/lib/logger';
 
 const resend = new Resend(env.RESEND_API_KEY);
 
@@ -104,7 +109,12 @@ export const auth = betterAuth({
           };
         },
         after: async (user) => {
-          await releaseBootstrapUserCreation(bootstrapCorrelationKey(user));
+          const correlationKey = bootstrapCorrelationKey(user);
+          const leaseLost = consumeBootstrapLeaseLost(correlationKey);
+          await releaseBootstrapUserCreation(correlationKey);
+          if (leaseLost) {
+            throw new BootstrapLockLeaseLostError();
+          }
         },
       },
     },
