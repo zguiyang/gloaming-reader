@@ -7,7 +7,11 @@ import * as schema from '@gloaming/db/schema';
 import { AUTH_PASSWORD_POLICY, AUTH_USER_ROLE, AUTH_USERNAME_POLICY, isValidUsername } from '@gloaming/shared/auth';
 
 import { db } from '@/db';
-import { resolveBootstrapRoleForNewUser } from '@/lib/auth-bootstrap';
+import { releaseBootstrapUserCreation, resolveBootstrapRoleForNewUser } from '@/lib/auth-bootstrap';
+
+function bootstrapCorrelationKey(user: { email?: string | null; id: string }): string {
+  return user.email?.toLowerCase() ?? user.id;
+}
 import { buildVerificationUrl, logDevAuthLink } from '@/lib/auth-mail';
 import { env } from '@/lib/env';
 import { authLogger } from '@/lib/logger';
@@ -90,7 +94,7 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          const role = await resolveBootstrapRoleForNewUser();
+          const role = await resolveBootstrapRoleForNewUser(bootstrapCorrelationKey(user));
           return {
             data: {
               ...user,
@@ -98,6 +102,9 @@ export const auth = betterAuth({
               role,
             },
           };
+        },
+        after: async (user) => {
+          await releaseBootstrapUserCreation(bootstrapCorrelationKey(user));
         },
       },
     },

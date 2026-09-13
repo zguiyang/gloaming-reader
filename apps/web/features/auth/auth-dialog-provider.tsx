@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 import { AuthDialog, type AuthMode, type AuthReason } from '@/features/auth/auth-dialog';
@@ -23,7 +23,6 @@ const AuthDialogContext = createContext<AuthDialogController | null>(null);
 
 export function AuthDialogProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AuthMode>('login');
   const [reason, setReason] = useState<AuthReason>();
@@ -55,6 +54,7 @@ export function AuthDialogProvider({ children }: { children: ReactNode }) {
   async function handleAuthSuccess() {
     await refresh();
     close();
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined;
     router.replace(consumePostAuthPath(searchParams));
   }
 
