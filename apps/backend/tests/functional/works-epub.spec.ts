@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -15,14 +15,24 @@ import type { CreateEpubWorkResult, EpubReuseResult } from '@gloaming/shared/wor
 import app from '@/app';
 import { db } from '@/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
+import { hashFileContent } from '@/modules/uploads/service';
 
 import { createMemoryObjectStore } from '../helpers/memory-oss';
 import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';
 
 const password = 'password123';
 
-const ZIP_BYTES = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('fake epub content for tests')]);
-const ZIP_HASH = createHash('sha256').update(ZIP_BYTES).digest('hex');
+function createSuiteZipBytes(runId: string): Buffer {
+  return Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from(`fake epub content for tests ${runId}`)]);
+}
+
+function trackContentHash(createdContentHashes: string[], bytes: Buffer): string {
+  const hash = hashFileContent(bytes);
+  if (!createdContentHashes.includes(hash)) {
+    createdContentHashes.push(hash);
+  }
+  return hash;
+}
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
@@ -100,12 +110,18 @@ async function reuseEpub(cookie: string, input: { fileName: string; contentHash:
 describe('POST /api/admin/works/epub (dedupe-aware)', () => {
   const memory = createMemoryObjectStore();
   const createdWorkIds: string[] = [];
+  const createdContentHashes: string[] = [];
+  const suiteRunId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  let suiteZipBytes: Buffer;
+  let suiteZipHash: string;
   let adminCookie = '';
   let userCookie = '';
 
   beforeAll(async () => {
     memory.store.clear();
     setObjectStoreForTests(memory);
+    suiteZipBytes = createSuiteZipBytes(suiteRunId);
+    suiteZipHash = trackContentHash(createdContentHashes, suiteZipBytes);
     adminCookie = (await createSession('admin')).cookie;
     userCookie = (await createSession('user')).cookie;
   });
@@ -114,14 +130,16 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     for (const workId of createdWorkIds) {
       await db.delete(readingWorkTable).where(eq(readingWorkTable.id, workId));
     }
-    await db.delete(uploadedObjectTable).where(eq(uploadedObjectTable.contentHash, ZIP_HASH));
+    if (createdContentHashes.length > 0) {
+      await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdContentHashes));
+    }
     resetObjectStoreCache();
   });
 
   it('requires admin', async () => {
     const response = await uploadEpub(userCookie, {
       fileName: 'book.epub',
-      bytes: ZIP_BYTES,
+      bytes: suiteZipBytes,
       type: 'application/epub+zip',
     });
     expect(response.status).toBe(403);
@@ -130,7 +148,7 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
   it('uploads an EPUB, creates a draft work, an origin_file asset and a dedup row', async () => {
     const response = await uploadEpub(adminCookie, {
       fileName: 'The Great Book.epub',
-      bytes: ZIP_BYTES,
+      bytes: suiteZipBytes,
       type: 'application/epub+zip',
     });
     expect(response.status).toBe(201);
@@ -139,9 +157,9 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     expect(result.title).toBe('The Great Book');
     expect(result.status).toBe('uploaded');
     expect(result.originKind).toBe('admin_epub');
-    expect(result.asset.storageKey).toBe(`epub/${ZIP_HASH}.epub`);
-    expect(result.asset.contentHash).toBe(ZIP_HASH);
-    expect(result.asset.size).toBe(ZIP_BYTES.length);
+    expect(result.asset.storageKey).toBe(`epub/${suiteZipHash}.epub`);
+    expect(result.asset.contentHash).toBe(suiteZipHash);
+    expect(result.asset.size).toBe(suiteZipBytes.length);
     createdWorkIds.push(result.id);
 
     expect(memory.store.has(result.asset.storageKey)).toBe(true);
@@ -156,7 +174,10 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     expect(assetRows[0]?.kind).toBe('origin_file');
     expect(assetRows[0]?.storageKey).toBe(result.asset.storageKey);
 
-    const [dedupRow] = await db.select().from(uploadedObjectTable).where(eq(uploadedObjectTable.contentHash, ZIP_HASH));
+    const [dedupRow] = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, suiteZipHash));
     expect(dedupRow).toBeDefined();
     expect(dedupRow?.refCount).toBe(1);
   });
@@ -165,28 +186,31 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     const objectsBefore = memory.store.size;
     const response = await uploadEpub(adminCookie, {
       fileName: 'The Great Book (copy).epub',
-      bytes: ZIP_BYTES,
+      bytes: suiteZipBytes,
       type: 'application/epub+zip',
     });
     expect(response.status).toBe(201);
 
     const result = (await response.json()) as CreateEpubWorkResult;
     createdWorkIds.push(result.id);
-    expect(result.asset.storageKey).toBe(`epub/${ZIP_HASH}.epub`);
+    expect(result.asset.storageKey).toBe(`epub/${suiteZipHash}.epub`);
     expect(memory.store.size).toBe(objectsBefore);
     expect(result.originMeta).toMatchObject({ reused: true });
 
-    const [dedupRow] = await db.select().from(uploadedObjectTable).where(eq(uploadedObjectTable.contentHash, ZIP_HASH));
+    const [dedupRow] = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, suiteZipHash));
     expect(dedupRow?.refCount).toBe(2);
   });
 
   it('reuse endpoint creates a work instantly when the hash exists', async () => {
-    const response = await reuseEpub(adminCookie, { fileName: 'Reuse Me.epub', contentHash: ZIP_HASH });
+    const response = await reuseEpub(adminCookie, { fileName: 'Reuse Me.epub', contentHash: suiteZipHash });
     expect(response.status).toBe(201);
 
     const result = (await response.json()) as EpubReuseResult & { id: string };
     expect(result.duplicated).toBe(true);
-    expect(result.asset.storageKey).toBe(`epub/${ZIP_HASH}.epub`);
+    expect(result.asset.storageKey).toBe(`epub/${suiteZipHash}.epub`);
     createdWorkIds.push(result.id);
     expect(memory.store.has(result.asset.storageKey)).toBe(true);
   });
@@ -224,7 +248,13 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
   });
 
   it('keeps the shared object until the last referencing work is deleted', async () => {
-    const uniqueBytes = Buffer.concat([ZIP_BYTES, Buffer.from('unique shared-object payload')]);
+    const uniqueBytes = Buffer.concat([
+      suiteZipBytes,
+      Buffer.from(`shared-object-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`),
+    ]);
+    const sharedHash = trackContentHash(createdContentHashes, uniqueBytes);
+    const storageKey = `epub/${sharedHash}.epub`;
+
     const first = (await (
       await uploadEpub(adminCookie, { fileName: 'Shared A.epub', bytes: uniqueBytes, type: 'application/epub+zip' })
     ).json()) as CreateEpubWorkResult;
@@ -232,27 +262,47 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
       await uploadEpub(adminCookie, { fileName: 'Shared B.epub', bytes: uniqueBytes, type: 'application/epub+zip' })
     ).json()) as CreateEpubWorkResult;
     createdWorkIds.push(first.id, second.id);
-    expect(first.asset.storageKey).toBe(second.asset.storageKey);
+    expect(first.asset.storageKey).toBe(storageKey);
+    expect(second.asset.storageKey).toBe(storageKey);
+
+    const [afterTwoUploads] = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, sharedHash));
+    expect(afterTwoUploads?.refCount).toBe(2);
+    expect(memory.store.has(storageKey)).toBe(true);
 
     const deleteFirst = await app.request(`/api/admin/works/${first.id}`, {
       method: 'DELETE',
       headers: { Cookie: adminCookie },
     });
     expect(deleteFirst.status).toBe(204);
-    expect(memory.store.has(first.asset.storageKey)).toBe(true);
+    expect(memory.store.has(storageKey)).toBe(true);
+
+    const [afterFirstDelete] = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, sharedHash));
+    expect(afterFirstDelete?.refCount).toBe(1);
 
     const deleteSecond = await app.request(`/api/admin/works/${second.id}`, {
       method: 'DELETE',
       headers: { Cookie: adminCookie },
     });
     expect(deleteSecond.status).toBe(204);
-    expect(memory.store.has(second.asset.storageKey)).toBe(false);
+    expect(memory.store.has(storageKey)).toBe(false);
+
+    const remainingRows = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, sharedHash));
+    expect(remainingRows).toHaveLength(0);
   });
 
   it('lists works as compact summaries without part bodies', async () => {
     const upload = await uploadEpub(adminCookie, {
       fileName: 'List Summary.epub',
-      bytes: ZIP_BYTES,
+      bytes: suiteZipBytes,
       type: 'application/epub+zip',
     });
     const created = (await upload.json()) as CreateEpubWorkResult;
@@ -273,11 +323,16 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
 describe('publish / unpublish status guards', () => {
   const memory = createMemoryObjectStore();
   const createdWorkIds: string[] = [];
+  const createdContentHashes: string[] = [];
+  const suiteRunId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  let suiteZipBytes: Buffer;
   let adminCookie = '';
 
   beforeAll(async () => {
     memory.store.clear();
     setObjectStoreForTests(memory);
+    suiteZipBytes = createSuiteZipBytes(suiteRunId);
+    trackContentHash(createdContentHashes, suiteZipBytes);
     adminCookie = (await createSession('admin')).cookie;
   });
 
@@ -285,7 +340,9 @@ describe('publish / unpublish status guards', () => {
     for (const workId of createdWorkIds) {
       await db.delete(readingWorkTable).where(eq(readingWorkTable.id, workId));
     }
-    await db.delete(uploadedObjectTable).where(eq(uploadedObjectTable.contentHash, ZIP_HASH));
+    if (createdContentHashes.length > 0) {
+      await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdContentHashes));
+    }
     resetObjectStoreCache();
   });
 
@@ -306,7 +363,7 @@ describe('publish / unpublish status guards', () => {
   it('refuses to publish a processing work', async () => {
     const upload = await uploadEpub(adminCookie, {
       fileName: 'Processing.epub',
-      bytes: ZIP_BYTES,
+      bytes: suiteZipBytes,
       type: 'application/epub+zip',
     });
     const created = (await upload.json()) as CreateEpubWorkResult;
@@ -319,7 +376,7 @@ describe('publish / unpublish status guards', () => {
   it('refuses to publish a failed work', async () => {
     const upload = await uploadEpub(adminCookie, {
       fileName: 'Failed.epub',
-      bytes: ZIP_BYTES,
+      bytes: suiteZipBytes,
       type: 'application/epub+zip',
     });
     const created = (await upload.json()) as CreateEpubWorkResult;
