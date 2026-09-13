@@ -1,9 +1,13 @@
 # Run on a VPS (Node)
 
-Postgres and Redis run in Docker Compose. The Hono **API** and the BullMQ
-**worker** are two independent Node processes on the host. Do not treat them as
-one process. Containerizing those processes can wait; see
-[`deploy-targets.md`](./deploy-targets.md) for the deferred dual-runtime plan.
+**Alternative:** containerized production on Dokploy — see
+[`dokploy-deploy.md`](./dokploy-deploy.md) (`web` / `api` / `worker` images,
+external Postgres/Redis). This document is the **host Node** path.
+
+Postgres and Redis run in Docker Compose (dev/local example only). The Hono
+**API** and the BullMQ **worker** are two independent Node processes on the
+host. Do not treat them as one process. See [`deploy-targets.md`](./deploy-targets.md)
+for deployment targets and the deferred Cloudflare Workers plan.
 
 ## Prerequisites
 
@@ -187,6 +191,5 @@ Package scripts import `env` and run Zod validation at module load.
 ## Out of scope here
 
 - Local `dev:*` workflows
-- Putting the API or worker into Compose until you intentionally containerize
-  them
+- Dokploy / production Docker (`web` / `api` / `worker`) — see `dokploy-deploy.md`
 - Cloudflare Workers dual-runtime (see `deploy-targets.md`)

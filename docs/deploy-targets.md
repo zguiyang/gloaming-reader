@@ -6,7 +6,12 @@
 
 Today the Node adapter already exists (`src/index.ts` + `@hono/node-server`). Workers is a second entry later. Local/VPS stay Docker Postgres + Redis + Node.
 
-**Current online path:** VPS Node — Compose for Postgres/Redis, HTTP API + a BullMQ worker process (two supervised Node processes). Cloudflare dual-entry remains deferred. Runbook and go-live verification order (build → migrate → confirm empty user table → start API → start Worker → first registration becomes admin → jobs/ping → mail/S3-compatible storage/Redis/core path verification → open registration): [`docs/vps-run.md`](./vps-run.md).
+**Current online paths:**
+
+- **Docker production (Dokploy):** `web` + `api` + `worker` containers; external Postgres/Redis. Templates: `docker-compose.production.yaml.example`, `apps/*/Dockerfile`. Runbook: [`docs/dokploy-deploy.md`](./dokploy-deploy.md).
+- **VPS Node (host processes):** Compose for local/dev Postgres/Redis only; HTTP API + BullMQ worker as supervised Node processes. Runbook: [`docs/vps-run.md`](./vps-run.md).
+
+Cloudflare dual-entry remains deferred.
 
 API and Worker import `env`, which runs Zod validation at module
 load. Missing or invalid config exits the process immediately.

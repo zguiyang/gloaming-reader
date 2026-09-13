@@ -12,6 +12,7 @@ if (!process.env.API_INTERNAL_URL?.trim()) {
 const nextConfig: NextConfig = {
   reactCompiler: true,
   transpilePackages: ['@gloaming/shared'],
+  output: 'standalone',
 };
 
 export default nextConfig;
