@@ -1,12 +1,16 @@
 'use client';
 
+import { useEffect } from 'react';
+
 import { Button } from '@/components/ui/button';
+import { useAuthDialog } from '@/features/auth';
 import { formatHistoryApiError, useReadingHistoryQuery } from '@/features/history/history-api';
 import { HistoryEmptyState } from '@/features/history/history-empty-state';
 import { HistoryHeader } from '@/features/history/history-header';
 import { HistoryHeatmap } from '@/features/history/history-heatmap';
 import { HistorySummary } from '@/features/history/history-summary';
 import { HistoryWorks } from '@/features/history/history-works';
+import { isUnauthorizedError } from '@/lib/api-request';
 import { cn } from '@/lib/utils';
 
 function HistorySkeleton() {
@@ -19,9 +23,25 @@ function HistorySkeleton() {
 }
 
 export function HistoryPage() {
+  const { openLogin } = useAuthDialog();
   const historyQuery = useReadingHistoryQuery();
 
+  useEffect(() => {
+    if (historyQuery.isError && isUnauthorizedError(historyQuery.error)) {
+      openLogin({ reason: 'history' });
+    }
+  }, [historyQuery.error, historyQuery.isError, openLogin]);
+
   if (historyQuery.isPending) {
+    return (
+      <div className="flex w-full flex-col gap-10">
+        <HistoryHeader />
+        <HistorySkeleton />
+      </div>
+    );
+  }
+
+  if (historyQuery.isError && isUnauthorizedError(historyQuery.error)) {
     return (
       <div className="flex w-full flex-col gap-10">
         <HistoryHeader />

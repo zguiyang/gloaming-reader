@@ -128,6 +128,10 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions<T>)
   return parsed.data;
 }
 
+export function isUnauthorizedError(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.status === 401;
+}
+
 export function formatApiError(error: unknown): string {
   if (error instanceof ApiRequestError) {
     if (error.details?.length) {

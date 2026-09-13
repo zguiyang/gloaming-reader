@@ -23,7 +23,7 @@ type LandingPrimaryCtaProps = {
 
 export function LandingPrimaryCta({ label, className }: LandingPrimaryCtaProps) {
   const { user, isPending } = useLandingUser();
-  const { openRegister } = useAuthDialog();
+  const { openLogin } = useAuthDialog();
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
 
@@ -44,7 +44,7 @@ export function LandingPrimaryCta({ label, className }: LandingPrimaryCtaProps) 
         if (user) {
           router.push(AUTH_ROUTES.shelf);
         } else {
-          openRegister();
+          openLogin();
         }
       }}
     >

@@ -1,1 +1,1 @@
-export { AuthDialogProvider, useAuthDialog } from './auth-dialog-provider';
+export { AuthDialogProvider, useAuthDialog, useRequireAuth } from './auth-dialog-provider';

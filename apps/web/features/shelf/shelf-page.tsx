@@ -1,13 +1,16 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useAuthDialog } from '@/features/auth';
 import { formatShelfApiError, shelfQueryKey, useShelfQuery } from '@/features/shelf/shelf-api';
 import { ShelfContinueHero } from '@/features/shelf/shelf-continue-hero';
 import { ShelfEmptyState } from '@/features/shelf/shelf-empty-state';
 import { ShelfGrid } from '@/features/shelf/shelf-grid';
 import { ShelfSkeleton } from '@/features/shelf/shelf-skeleton';
+import { isUnauthorizedError } from '@/lib/api-request';
 import { cn } from '@/lib/utils';
 
 function ShelfHeader({ hasResumeHint }: { hasResumeHint: boolean }) {
@@ -39,9 +42,30 @@ function ShelfErrorState({ message, onRetry }: { message: string; onRetry: () =>
 
 export function ShelfPage() {
   const queryClient = useQueryClient();
+  const { openLogin } = useAuthDialog();
   const shelfQuery = useShelfQuery();
 
+  useEffect(() => {
+    if (shelfQuery.isError && isUnauthorizedError(shelfQuery.error)) {
+      openLogin();
+    }
+  }, [openLogin, shelfQuery.error, shelfQuery.isError]);
+
   if (shelfQuery.isPending) {
+    return (
+      <div
+        className={cn(
+          'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700',
+          'flex w-full flex-col',
+        )}
+      >
+        <ShelfHeader hasResumeHint={false} />
+        <ShelfSkeleton />
+      </div>
+    );
+  }
+
+  if (shelfQuery.isError && isUnauthorizedError(shelfQuery.error)) {
     return (
       <div
         className={cn(

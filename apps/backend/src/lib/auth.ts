@@ -1,19 +1,13 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { username } from 'better-auth/plugins';
-import { count } from 'drizzle-orm';
 import { Resend } from 'resend';
 
 import * as schema from '@gloaming/db/schema';
-import {
-  AUTH_PASSWORD_POLICY,
-  AUTH_USER_ROLE,
-  AUTH_USERNAME_POLICY,
-  bootstrapRoleForNewUser,
-  isValidUsername,
-} from '@gloaming/shared/auth';
+import { AUTH_PASSWORD_POLICY, AUTH_USER_ROLE, AUTH_USERNAME_POLICY, isValidUsername } from '@gloaming/shared/auth';
 
 import { db } from '@/db';
+import { resolveBootstrapRoleForNewUser } from '@/lib/auth-bootstrap';
 import { buildVerificationUrl, logDevAuthLink } from '@/lib/auth-mail';
 import { env } from '@/lib/env';
 import { authLogger } from '@/lib/logger';
@@ -96,13 +90,12 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          const [row] = await db.select({ value: count() }).from(schema.user);
-          const existingUserCount = Number(row?.value ?? 0);
+          const role = await resolveBootstrapRoleForNewUser();
           return {
             data: {
               ...user,
               image: user.image ?? diceBearAvatarUrl(user.email || user.id),
-              role: bootstrapRoleForNewUser(existingUserCount),
+              role,
             },
           };
         },

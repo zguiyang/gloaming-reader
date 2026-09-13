@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { apiRequest, ApiRequestError, formatApiError } from './api-request';
+import { apiRequest, ApiRequestError, formatApiError, isUnauthorizedError } from './api-request';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -128,6 +128,14 @@ describe('apiRequest', () => {
 
     await expect(apiRequest('/api/ping', { schema: pingSchema, onError })).rejects.toBeInstanceOf(ApiRequestError);
     expect(onError).toHaveBeenCalledWith(expect.any(ApiRequestError));
+  });
+});
+
+describe('isUnauthorizedError', () => {
+  it('matches only HTTP 401 ApiRequestError instances', () => {
+    expect(isUnauthorizedError(new ApiRequestError({ message: '未登录', status: 401 }))).toBe(true);
+    expect(isUnauthorizedError(new ApiRequestError({ message: 'Forbidden', status: 403 }))).toBe(false);
+    expect(isUnauthorizedError(new Error('未登录'))).toBe(false);
   });
 });
 

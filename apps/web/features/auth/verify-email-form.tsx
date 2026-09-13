@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { authPrimaryButtonClassName } from '@/features/auth/auth-field';
 import { AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { authClient } from '@/lib/auth';
+import { consumePostAuthPath } from '@/lib/auth/post-auth-redirect';
 
 export function VerifyEmailForm() {
   const router = useRouter();
@@ -57,10 +58,10 @@ export function VerifyEmailForm() {
               type="button"
               className={authPrimaryButtonClassName}
               onClick={() => {
-                router.replace('/');
+                router.replace(consumePostAuthPath(searchParams));
               }}
             >
-              去登录
+              进入书架
             </Button>
           ) : null}
           {status === 'error' ? (

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 
 import { AUTH_ROUTES } from '@/constants';
+import { useAuthDialog, useRequireAuth } from '@/features/auth';
 import {
   bookDetailQueryKey,
   formatBookDetailApiError,
@@ -19,6 +20,7 @@ import { BookDetailStats } from '@/features/book-detail/book-detail-stats';
 import { BookDetailToc } from '@/features/book-detail/book-detail-toc';
 import { BookDetailUnavailable } from '@/features/book-detail/book-detail-unavailable';
 import { useAddToShelfMutation } from '@/features/reading-state/reading-state-client';
+import { formatApiError, isUnauthorizedError } from '@/lib/api-request';
 import { cn } from '@/lib/utils';
 
 function BookDetailSkeleton() {
@@ -38,10 +40,16 @@ function BookDetailSkeleton() {
 
 function BookDetailView({ book }: { book: BookDetail }) {
   const queryClient = useQueryClient();
+  const { openLogin } = useAuthDialog();
+  const requireAuth = useRequireAuth();
   const addToShelf = useAddToShelfMutation();
   const isOnShelf = book.shelfStatus === 'on_shelf';
 
   function handleAddToShelf() {
+    if (!requireAuth({ reason: 'bookmark' })) {
+      return;
+    }
+
     addToShelf.mutate(book.id, {
       onSuccess: async () => {
         toast.success('已加入书架');
@@ -50,7 +58,13 @@ function BookDetailView({ book }: { book: BookDetail }) {
           queryClient.invalidateQueries({ queryKey: recommendationsQueryKey.all }),
         ]);
       },
-      onError: (error) => toast.error(formatBookDetailApiError(error)),
+      onError: (error) => {
+        if (isUnauthorizedError(error)) {
+          openLogin({ reason: 'bookmark' });
+          return;
+        }
+        toast.error(formatApiError(error));
+      },
     });
   }
 

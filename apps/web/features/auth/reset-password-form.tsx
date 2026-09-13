@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { authInputClassName, authPrimaryButtonClassName, Field } from '@/features/auth/auth-field';
 import { AuthFooterLink, AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { authClient } from '@/lib/auth';
+import { consumePostAuthPath } from '@/lib/auth/post-auth-redirect';
 import { resetPasswordSchema } from '@/lib/validations';
 
 export function ResetPasswordForm() {
@@ -55,8 +56,8 @@ export function ResetPasswordForm() {
         return;
       }
 
-      toast.success('密码已更新，请登录');
-      router.replace('/');
+      toast.success('密码已更新');
+      router.replace(consumePostAuthPath(searchParams));
     },
   });
 
