@@ -7,19 +7,12 @@ import * as schema from '@gloaming/db/schema';
 import { AUTH_PASSWORD_POLICY, AUTH_USER_ROLE, AUTH_USERNAME_POLICY, isValidUsername } from '@gloaming/shared/auth';
 
 import { db } from '@/db';
-import {
-  BootstrapLockLeaseLostError,
-  consumeBootstrapLeaseLost,
-  releaseBootstrapUserCreation,
-  resolveBootstrapRoleForNewUser,
-} from '@/lib/auth-bootstrap';
+import { bindAuthDatabaseForAdapter, resolveBootstrapRoleForNewUser } from '@/lib/auth-bootstrap';
 import { buildVerificationUrl, logDevAuthLink } from '@/lib/auth-mail';
 import { env } from '@/lib/env';
 import { authLogger } from '@/lib/logger';
 
-function bootstrapCorrelationKey(user: { email?: string | null; id: string }): string {
-  return user.email?.toLowerCase() ?? user.id;
-}
+const authDatabase = bindAuthDatabaseForAdapter(db);
 
 const resend = new Resend(env.RESEND_API_KEY);
 
@@ -49,8 +42,9 @@ export const auth = betterAuth({
   baseURL: env.FRONTEND_URL,
   secret: env.BETTER_AUTH_SECRET,
   trustedOrigins: [env.FRONTEND_URL],
-  database: drizzleAdapter(db, {
+  database: drizzleAdapter(authDatabase, {
     provider: 'pg',
+    transaction: true,
     schema: {
       user: schema.user,
       session: schema.session,
@@ -99,7 +93,7 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          const role = await resolveBootstrapRoleForNewUser(bootstrapCorrelationKey(user));
+          const role = await resolveBootstrapRoleForNewUser();
           return {
             data: {
               ...user,
@@ -107,14 +101,6 @@ export const auth = betterAuth({
               role,
             },
           };
-        },
-        after: async (user) => {
-          const correlationKey = bootstrapCorrelationKey(user);
-          const leaseLost = consumeBootstrapLeaseLost(correlationKey);
-          await releaseBootstrapUserCreation(correlationKey);
-          if (leaseLost) {
-            throw new BootstrapLockLeaseLostError();
-          }
         },
       },
     },

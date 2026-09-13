@@ -54,6 +54,31 @@ describe('first admin bootstrap', () => {
     await restoreHarnessBootstrapAdmin();
   });
 
+  it('assigns admin to exactly one registrant when two signups race on an empty table', async () => {
+    await db.delete(userTable);
+
+    const firstEmail = uniqueEmail('race-first');
+    const secondEmail = uniqueEmail('race-second');
+    const firstUsername = `race_first_${Date.now().toString(36)}`;
+    const secondUsername = `race_second_${Date.now().toString(36)}`;
+    createdEmails.push(firstEmail, secondEmail);
+
+    const [firstRegister, secondRegister] = await Promise.all([
+      signUp({ email: firstEmail, username: firstUsername, name: 'Race First' }),
+      signUp({ email: secondEmail, username: secondUsername, name: 'Race Second' }),
+    ]);
+
+    expect(firstRegister.status).toBe(200);
+    expect(secondRegister.status).toBe(200);
+
+    const roles = [
+      ((await firstRegister.json()) as { user?: { role?: string } }).user?.role,
+      ((await secondRegister.json()) as { user?: { role?: string } }).user?.role,
+    ];
+    expect(roles.filter((role) => role === AUTH_ADMIN_ROLE)).toHaveLength(1);
+    expect(roles.filter((role) => role === AUTH_USER_ROLE)).toHaveLength(1);
+  });
+
   it('assigns admin only to the first registrant on an empty user table', async () => {
     await db.delete(userTable);
 
