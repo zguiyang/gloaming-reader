@@ -822,6 +822,12 @@
         "hintFailedGeneric": "Processing failed: {error}",
         "hintPartial": "{error}. Re-run or edit manually; publishing uses the current content.",
         "hintPartialDefault": "Some fields were not filled",
+        "partialFields": "Fields not filled: {fields}",
+        "gap": {
+          "description": "Description",
+          "tags": "Tags",
+          "category": "Category"
+        },
         "hintDone": "AI filled missing metadata. Review and edit each field; publishing uses the current content.",
         "hintRulesOnly": "Rule-based fields are available. Review and edit each field.",
         "hintAutoFuture": "After parsing, AI will fill missing description, tags, and category.",
@@ -1025,7 +1031,19 @@
         "confirmDelete": "Delete “{name}”?",
         "confirmCleanup": "Delete all unused tags/categories not linked to any work?",
         "cleanupResult": "Cleaned up {count} unused items",
-        "cleanupNone": "No unused items"
+        "cleanupNone": "No unused items",
+        "missingChinese": "Missing Chinese",
+        "missingEnglish": "Missing English",
+        "tableChinese": "Chinese",
+        "tableEnglish": "English",
+        "tableIndex": "#",
+        "tableTranslationStatus": "Translation status",
+        "tableUpdatedAt": "Updated",
+        "translationComplete": "Complete",
+        "translationFilterAll": "All",
+        "translationFilterComplete": "Fully translated",
+        "translationFilterPartial": "Partially translated",
+        "translationPartial": "Partial"
       },
       "sheet": {
         "edit": "Edit",
@@ -1033,6 +1051,8 @@
         "sourceDescription": "Sources are system-reserved and cannot be deleted after creation.",
         "otherDescription": "Available in work editing and AI enrichment after creation.",
         "nameLabel": "Name",
+        "nameZhLabel": "Chinese name",
+        "nameEnLabel": "English name",
         "matchRuleLabel": "Match rule",
         "matchRulePlaceholder": "Domain or keyword, e.g. gutenberg.org",
         "matchRuleHint": "Auto-link this source when EPUB dc:source contains the rule; leave empty to disable auto-match.",
@@ -1271,6 +1291,9 @@
       "internalServerError": "Internal server error",
       "tooManyRequests": "Too many requests. Please try again later.",
       "validationFailed": "Validation failed",
+      "validation": {
+        "invalidInput": "Invalid input"
+      },
       "notFound": {
         "work": "Work not found",
         "part": "Part not found",
@@ -1308,7 +1331,18 @@
         "processingInProgress": "Work is processing; please try again later",
         "manualAudioRequired": "Audio step is not auto-chained; generate audio manually on the work page",
         "stateChanged": "Work state changed; refresh and try again",
-        "unpublishFirst": "Unpublish first"
+        "unpublishFirst": "Unpublish first",
+        "publish": {
+          "titleRequired": "Enter a title before publishing",
+          "sourcesRequired": "Link at least one source before publishing",
+          "tagsRequired": "Add at least one tag before publishing",
+          "bodyRequired": "Add body content before publishing",
+          "audioMissing": "Chapter “{partTitle}” is missing the default US audio (Reader default; UK is optional)",
+          "audioGenerating": "Default US audio is still generating for chapter “{partTitle}”",
+          "audioStale": "Default US audio is stale for chapter “{partTitle}”; regenerate it",
+          "audioFailed": "Default US audio failed for chapter “{partTitle}”; retry it",
+          "audioNotReady": "Default US audio is not ready for chapter “{partTitle}”"
+        }
       },
       "taxonomy": {
         "invalidKind": "kind must be tag, category, or source",

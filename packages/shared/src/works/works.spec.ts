@@ -5,13 +5,46 @@ import {
   getPublishPartAudioIssues,
   mergePublishWorkIssues,
   PUBLISH_DEFAULT_AUDIO_ROLE,
+  updateWorkBodySchema,
 } from './works.ts';
+
+function taxonomyRef(id: string, zh: string, en: string) {
+  return {
+    id,
+    names: { 'zh-CN': zh, 'en-US': en },
+    origin: 'manual' as const,
+  };
+}
+
+describe('update work body contracts', () => {
+  it('accepts taxonomy selections with id only', () => {
+    const body = updateWorkBodySchema.parse({
+      tags: [{ id: 'tag-1' }],
+      sources: [{ id: 'source-1' }],
+      category: { id: 'category-1' },
+    });
+    expect(body.tags).toEqual([{ id: 'tag-1' }]);
+    expect(body.sources).toEqual([{ id: 'source-1' }]);
+    expect(body.category).toEqual({ id: 'category-1' });
+  });
+
+  it('accepts null category to clear the selection', () => {
+    expect(updateWorkBodySchema.parse({ category: null }).category).toBeNull();
+  });
+
+  it('rejects full taxonomy references in update payloads', () => {
+    const fullRef = taxonomyRef('tag-1', '科学', 'Science');
+    expect(updateWorkBodySchema.safeParse({ tags: [fullRef] }).success).toBe(false);
+    expect(updateWorkBodySchema.safeParse({ sources: [fullRef] }).success).toBe(false);
+    expect(updateWorkBodySchema.safeParse({ category: fullRef }).success).toBe(false);
+  });
+});
 
 describe('publish default audio gate', () => {
   const metadataOk = {
     title: 'Title',
-    sources: ['demo'],
-    tags: ['story'],
+    sources: [taxonomyRef('source-1', 'demo', 'demo')],
+    tags: [taxonomyRef('tag-1', 'story', 'story')],
     parts: [{ body: 'Hello world.' }],
   };
 
@@ -36,7 +69,8 @@ describe('publish default audio gate', () => {
     expect(issues).toEqual([
       {
         path: `parts.part-1.audio.${PUBLISH_DEFAULT_AUDIO_ROLE}`,
-        message: '章节「Chapter 1」缺少默认美音（Reader 默认口音，英音可选）',
+        code: 'api.errors.work.publish.audioMissing',
+        params: { partTitle: 'Chapter 1' },
       },
     ]);
   });

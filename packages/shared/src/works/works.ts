@@ -10,6 +10,13 @@ import {
   paginationQuerySchema,
 } from '../pagination/index.ts';
 import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, WORK_STATS_PROVENANCES } from '../reading-stats/index.ts';
+import {
+  TAXONOMY_ORIGINS,
+  type TaxonomyOrigin,
+  type TaxonomyReference,
+  taxonomyReferenceSchema,
+  taxonomySelectionSchema,
+} from '../taxonomy/taxonomy.ts';
 import { type TtsVoiceRole } from '../tts/tts.ts';
 
 /** Work lifecycle statuses. */
@@ -81,13 +88,11 @@ export const PART_BODY_MAX_CHARS = 1_500_000 as const;
 /** Max EPUB upload size (bytes) — enforced by frontend and backend. */
 export const EPUB_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
 
-export const WORK_METADATA_PROVENANCES = ['extracted', 'ai', 'manual'] as const;
-export type WorkMetadataProvenance = (typeof WORK_METADATA_PROVENANCES)[number];
+export const WORK_METADATA_PROVENANCES = TAXONOMY_ORIGINS;
+export type WorkMetadataProvenance = TaxonomyOrigin;
 
-const tagItemSchema = z.string().trim().min(1).max(WORK_TAG_MAX_LEN);
-const tagsSchema = z.array(tagItemSchema).max(WORK_TAG_MAX_ITEMS);
-const sourceItemSchema = z.string().trim().min(1).max(200);
-const sourcesSchema = z.array(sourceItemSchema).max(WORK_SOURCE_MAX_ITEMS);
+const updateTagsSchema = z.array(taxonomySelectionSchema).max(WORK_TAG_MAX_ITEMS);
+const updateSourcesSchema = z.array(taxonomySelectionSchema).max(WORK_SOURCE_MAX_ITEMS);
 
 /** Public work JSON (catalog / discover — no parts body). */
 export const workSchema = z.object({
@@ -99,9 +104,9 @@ export const workSchema = z.object({
   status: workStatusSchema,
   visibility: workVisibilitySchema,
   originKind: workOriginKindSchema,
-  tags: z.array(z.string()),
+  tags: z.array(taxonomyReferenceSchema),
   /** Channel providers (e.g. Project Gutenberg) — auto-filled from EPUB / taxonomy. */
-  sources: z.array(z.string()),
+  sources: z.array(taxonomyReferenceSchema),
   coverAssetId: z.string().nullable(),
   wordCount: z.number().int().nonnegative().nullable(),
   estimatedMinutes: z.number().int().nonnegative().nullable(),
@@ -172,7 +177,8 @@ export const PUBLISH_DEFAULT_AUDIO_ROLE = 'us' as const satisfies TtsVoiceRole;
 
 export const publishWorkIssueSchema = z.object({
   path: z.string(),
-  message: z.string(),
+  code: z.string(),
+  params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
 });
 
 /** Admin work JSON includes derived projection freshness for ops reminders. */
@@ -183,7 +189,7 @@ export const adminWorkSchema = workSchema.extend({
   originMeta: z.record(z.string(), z.unknown()).default({}),
   originAsset: adminOriginAssetSchema.nullable(),
   parts: z.array(partSchema),
-  category: z.string().nullable(),
+  category: taxonomyReferenceSchema.nullable(),
   /** Step that failed when status is `failed` (from originMeta.failedStep). */
   failedStep: z.enum(WORKFLOW_STEPS).nullable(),
   /** Per-field provenance for admin review UI — runtime projection from junction + description_provenance. */
@@ -202,7 +208,7 @@ export const adminWorkSummarySchema = workSchema.extend({
   originMeta: z.record(z.string(), z.unknown()).default({}),
   originAsset: adminOriginAssetSchema.nullable(),
   partCount: z.number().int().nonnegative(),
-  category: z.string().nullable(),
+  category: taxonomyReferenceSchema.nullable(),
   failedStep: z.enum(WORKFLOW_STEPS).nullable(),
   /** Per-field provenance for admin review UI — runtime projection from junction + description_provenance. */
   metadataProvenance: z.record(z.string(), z.enum(WORK_METADATA_PROVENANCES)).default({}),
@@ -255,9 +261,9 @@ export const updateWorkBodySchema = z.object({
   title: z.string().trim().min(1).max(WORK_TITLE_MAX).optional(),
   author: z.string().max(WORK_AUTHOR_MAX).optional(),
   description: z.string().max(WORK_DESCRIPTION_MAX).optional(),
-  tags: tagsSchema.optional(),
-  sources: sourcesSchema.optional(),
-  category: z.string().max(WORK_CATEGORY_MAX).optional(),
+  tags: updateTagsSchema.optional(),
+  sources: updateSourcesSchema.optional(),
+  category: taxonomySelectionSchema.nullable().optional(),
   suggestedVocabSize: z.number().int().positive().nullable().optional(),
   difficultyScore: z.number().int().min(DIFFICULTY_SCORE_MIN).max(DIFFICULTY_SCORE_MAX).nullable().optional(),
 });
@@ -334,7 +340,7 @@ export type CatalogWork = z.infer<typeof catalogWorkSchema>;
 export const catalogListDataSchema = z.object({
   items: z.array(catalogWorkSchema),
   pagination: paginationMetaSchema,
-  tags: z.array(z.string()),
+  tags: z.array(taxonomyReferenceSchema),
 });
 
 export type CatalogListData = z.infer<typeof catalogListDataSchema>;
@@ -342,6 +348,18 @@ export type CatalogListData = z.infer<typeof catalogListDataSchema>;
 export { buildPaginationMeta };
 
 export type PublishWorkIssue = z.infer<typeof publishWorkIssueSchema>;
+
+const PUBLISH_WORK_ISSUE_CODES = {
+  TITLE_REQUIRED: 'api.errors.work.publish.titleRequired',
+  SOURCES_REQUIRED: 'api.errors.work.publish.sourcesRequired',
+  TAGS_REQUIRED: 'api.errors.work.publish.tagsRequired',
+  BODY_REQUIRED: 'api.errors.work.publish.bodyRequired',
+  AUDIO_MISSING: 'api.errors.work.publish.audioMissing',
+  AUDIO_GENERATING: 'api.errors.work.publish.audioGenerating',
+  AUDIO_STALE: 'api.errors.work.publish.audioStale',
+  AUDIO_FAILED: 'api.errors.work.publish.audioFailed',
+  AUDIO_NOT_READY: 'api.errors.work.publish.audioNotReady',
+} as const;
 
 export type PublishPartAudioGateInput = {
   partId: string;
@@ -353,41 +371,40 @@ export type PublishPartAudioGateInput = {
 
 export function getPublishWorkIssues(work: {
   title: string;
-  sources: string[];
-  tags: string[];
+  sources: TaxonomyReference[];
+  tags: TaxonomyReference[];
   parts: Array<{ body: string }>;
 }): PublishWorkIssue[] {
   const issues: PublishWorkIssue[] = [];
 
   if (!work.title.trim()) {
-    issues.push({ path: 'title', message: '发布前请填写标题' });
+    issues.push({ path: 'title', code: PUBLISH_WORK_ISSUE_CODES.TITLE_REQUIRED });
   }
   if (work.sources.length < 1) {
-    issues.push({ path: 'sources', message: '发布前请至少关联一个来源' });
+    issues.push({ path: 'sources', code: PUBLISH_WORK_ISSUE_CODES.SOURCES_REQUIRED });
   }
   if (work.tags.length < 1) {
-    issues.push({ path: 'tags', message: '发布前请至少添加一个标签' });
+    issues.push({ path: 'tags', code: PUBLISH_WORK_ISSUE_CODES.TAGS_REQUIRED });
   }
   if (work.parts.length < 1 || !work.parts.some((part) => part.body.trim())) {
-    issues.push({ path: 'body', message: '发布前请填写正文' });
+    issues.push({ path: 'body', code: PUBLISH_WORK_ISSUE_CODES.BODY_REQUIRED });
   }
 
   return issues;
 }
 
-function publishPartAudioIssueMessage(partTitle: string, status: ContentAssetTrack['status']): string {
-  const label = partTitle.trim() || '未命名章节';
+function publishPartAudioIssueCode(status: ContentAssetTrack['status']): string {
   switch (status) {
     case 'none':
-      return `章节「${label}」缺少默认美音（Reader 默认口音，英音可选）`;
+      return PUBLISH_WORK_ISSUE_CODES.AUDIO_MISSING;
     case 'generating':
-      return `章节「${label}」默认美音仍在生成中`;
+      return PUBLISH_WORK_ISSUE_CODES.AUDIO_GENERATING;
     case 'stale':
-      return `章节「${label}」默认美音已过期，请重新生成`;
+      return PUBLISH_WORK_ISSUE_CODES.AUDIO_STALE;
     case 'failed':
-      return `章节「${label}」默认美音生成失败，请重试`;
+      return PUBLISH_WORK_ISSUE_CODES.AUDIO_FAILED;
     default:
-      return `章节「${label}」默认美音未就绪`;
+      return PUBLISH_WORK_ISSUE_CODES.AUDIO_NOT_READY;
   }
 }
 
@@ -402,7 +419,8 @@ export function getPublishPartAudioIssues(input: PublishPartAudioGateInput): Pub
   return [
     {
       path: `parts.${input.partId}.audio.${PUBLISH_DEFAULT_AUDIO_ROLE}`,
-      message: publishPartAudioIssueMessage(input.partTitle, input.defaultTrackStatus),
+      code: publishPartAudioIssueCode(input.defaultTrackStatus),
+      params: { partTitle: input.partTitle.trim() || '—' },
     },
   ];
 }

@@ -11,7 +11,7 @@ describe('shelf api contracts', () => {
           id: 'w1',
           title: 'Ocean Quiet',
           description: '',
-          tags: ['science'],
+          tags: [{ id: 'tag-1', names: { 'zh-CN': '科学', 'en-US': 'science' }, origin: 'manual' }],
           coverAssetId: null,
           publishedAt: '2026-08-21T00:00:00.000Z',
         },

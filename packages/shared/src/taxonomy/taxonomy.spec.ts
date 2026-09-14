@@ -1,32 +1,80 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  mergeLocalizedName,
-  optionalLocalizedNames,
-  resolveTaxonomyDisplayName,
+  localizedTextSchema,
+  mergeLocalizedText,
+  optionalLocalizedText,
+  resolveLocalizedText,
   taxonomyItemSchema,
   taxonomyListDataSchema,
+  taxonomyReferenceSchema,
+  taxonomySelectionSchema,
 } from './taxonomy.ts';
 
+const sampleNames = { 'zh-CN': '科学', 'en-US': 'Science' };
+
+describe('taxonomy i18n contracts', () => {
+  it('accepts localized text with at least one supported locale', () => {
+    expect(localizedTextSchema.parse({ 'zh-CN': '科学' })).toEqual({ 'zh-CN': '科学' });
+    expect(localizedTextSchema.parse(sampleNames)).toEqual(sampleNames);
+  });
+
+  it('rejects localized text without any supported locale', () => {
+    expect(localizedTextSchema.safeParse({}).success).toBe(false);
+    expect(localizedTextSchema.safeParse({ 'zh-CN': '   ' }).success).toBe(false);
+  });
+
+  it('accepts taxonomy references with id, names, and origin', () => {
+    const ref = taxonomyReferenceSchema.parse({
+      id: 'tag-1',
+      names: sampleNames,
+      origin: 'manual',
+    });
+    expect(ref.id).toBe('tag-1');
+    expect(ref.names).toEqual(sampleNames);
+  });
+
+  it('accepts taxonomy selections with id only', () => {
+    expect(taxonomySelectionSchema.parse({ id: 'tag-1' })).toEqual({ id: 'tag-1' });
+  });
+
+  it('rejects taxonomy selections that include display fields', () => {
+    expect(
+      taxonomySelectionSchema.safeParse({
+        id: 'tag-1',
+        names: sampleNames,
+        origin: 'manual',
+      }).success,
+    ).toBe(false);
+  });
+});
+
 describe('taxonomy api contracts', () => {
-  it('accepts taxonomy items with and without localizedNames', () => {
-    const base = {
+  it('accepts taxonomy items with localized names', () => {
+    const item = taxonomyItemSchema.parse({
       id: 't1',
-      name: 'Science',
+      names: sampleNames,
       usage: 2,
-      origin: 'manual' as const,
+      origin: 'manual',
       matchRule: null,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-    };
-
-    expect(taxonomyItemSchema.parse(base)).toEqual(base);
-
-    const localized = taxonomyItemSchema.parse({
-      ...base,
-      localizedNames: { 'zh-CN': '科学', 'en-US': 'Science' },
     });
-    expect(localized.localizedNames).toEqual({ 'zh-CN': '科学', 'en-US': 'Science' });
+    expect(item.names).toEqual(sampleNames);
+  });
+
+  it('rejects legacy single-string taxonomy return fields', () => {
+    expect(
+      taxonomyItemSchema.safeParse({
+        id: 't1',
+        name: 'Science',
+        usage: 2,
+        origin: 'manual',
+        matchRule: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }).success,
+    ).toBe(false);
   });
 
   it('accepts taxonomy list payloads with localized items', () => {
@@ -34,8 +82,7 @@ describe('taxonomy api contracts', () => {
       items: [
         {
           id: 's1',
-          name: 'NYT',
-          localizedNames: { 'zh-CN': '纽约时报' },
+          names: { 'zh-CN': '纽约时报', 'en-US': 'NYT' },
           usage: 0,
           origin: 'manual',
           matchRule: 'nytimes.com',
@@ -45,35 +92,35 @@ describe('taxonomy api contracts', () => {
       ],
     });
     expect(payload.items).toHaveLength(1);
-    expect(payload.items[0]?.localizedNames?.['zh-CN']).toBe('纽约时报');
+    expect(payload.items[0]?.names['zh-CN']).toBe('纽约时报');
   });
 });
 
 describe('taxonomy locale projection', () => {
-  it('prefers localized_names for the requested locale', () => {
-    expect(resolveTaxonomyDisplayName({ 'zh-CN': '科学', 'en-US': 'Science' }, 'Fallback', 'zh-CN')).toBe('科学');
-    expect(resolveTaxonomyDisplayName({ 'zh-CN': '科学', 'en-US': 'Science' }, 'Fallback', 'en-US')).toBe('Science');
+  it('prefers the requested locale', () => {
+    expect(resolveLocalizedText(sampleNames, 'zh-CN')).toBe('科学');
+    expect(resolveLocalizedText(sampleNames, 'en-US')).toBe('Science');
   });
 
-  it('falls back to canonical name when locale is missing or blank', () => {
-    expect(resolveTaxonomyDisplayName({ 'zh-CN': '科学' }, 'Science', 'en-US')).toBe('Science');
-    expect(resolveTaxonomyDisplayName({ 'en-US': '   ' }, 'Science', 'en-US')).toBe('Science');
-    expect(resolveTaxonomyDisplayName(undefined, 'Science', 'zh-CN')).toBe('Science');
+  it('falls back to the other supported locale when missing or blank', () => {
+    expect(resolveLocalizedText({ 'zh-CN': '科学' }, 'en-US')).toBe('科学');
+    expect(resolveLocalizedText({ 'en-US': '   ' }, 'en-US')).toBe('');
+    expect(resolveLocalizedText(undefined, 'zh-CN')).toBe('');
   });
 
   it('merges locale-specific names without dropping other locales', () => {
-    expect(mergeLocalizedName({ 'zh-CN': '科学' }, 'en-US', 'Science')).toEqual({
+    expect(mergeLocalizedText({ 'zh-CN': '科学' }, 'en-US', 'Science')).toEqual({
       'zh-CN': '科学',
       'en-US': 'Science',
     });
-    expect(mergeLocalizedName({ 'zh-CN': '科学' }, 'zh-CN', '自然科学')).toEqual({
+    expect(mergeLocalizedText({ 'zh-CN': '科学' }, 'zh-CN', '自然科学')).toEqual({
       'zh-CN': '自然科学',
     });
   });
 
-  it('omits empty localizedNames maps from API payloads', () => {
-    expect(optionalLocalizedNames({})).toBeUndefined();
-    expect(optionalLocalizedNames(undefined)).toBeUndefined();
-    expect(optionalLocalizedNames({ 'zh-CN': '科学' })).toEqual({ 'zh-CN': '科学' });
+  it('omits empty localized text maps from API payloads', () => {
+    expect(optionalLocalizedText({})).toBeUndefined();
+    expect(optionalLocalizedText(undefined)).toBeUndefined();
+    expect(optionalLocalizedText({ 'zh-CN': '科学' })).toEqual({ 'zh-CN': '科学' });
   });
 });

@@ -822,6 +822,12 @@
         "hintFailedGeneric": "处理失败：{error}",
         "hintPartial": "{error}。可重新执行或手工编辑；发布时以当前内容为准。",
         "hintPartialDefault": "部分字段未补全",
+        "partialFields": "未补全字段：{fields}",
+        "gap": {
+          "description": "简介",
+          "tags": "标签",
+          "category": "分类"
+        },
         "hintDone": "AI 已自动补全缺失信息，可逐项核对编辑；发布时以当前内容为准。",
         "hintRulesOnly": "规则层已写入可用字段；可逐项核对编辑。",
         "hintAutoFuture": "解析完成后，AI 将自动补全缺失的简介、标签与分类。",
@@ -1025,7 +1031,19 @@
         "confirmDelete": "确定删除「{name}」？",
         "confirmCleanup": "将删除所有未被任何作品使用的标签/分类，确定继续？",
         "cleanupResult": "已清理 {count} 个未使用项",
-        "cleanupNone": "没有未使用的项"
+        "cleanupNone": "没有未使用的项",
+        "missingChinese": "缺失中文",
+        "missingEnglish": "缺失英文",
+        "tableChinese": "中文",
+        "tableEnglish": "英文",
+        "tableIndex": "序号",
+        "tableTranslationStatus": "翻译状态",
+        "tableUpdatedAt": "更新时间",
+        "translationComplete": "完整",
+        "translationFilterAll": "全部",
+        "translationFilterComplete": "完整翻译",
+        "translationFilterPartial": "部分翻译",
+        "translationPartial": "部分"
       },
       "sheet": {
         "edit": "编辑",
@@ -1033,6 +1051,8 @@
         "sourceDescription": "来源为系统保留数据，创建后不可删除。",
         "otherDescription": "创建后即可在作品编辑与 AI 回填中使用。",
         "nameLabel": "名称",
+        "nameZhLabel": "中文名称",
+        "nameEnLabel": "英文名称",
         "matchRuleLabel": "匹配规则",
         "matchRulePlaceholder": "域名或关键词，如 gutenberg.org",
         "matchRuleHint": "EPUB 的 dc:source 包含该规则时自动关联此来源；留空表示不自动匹配。",
@@ -1274,6 +1294,9 @@
       "internalServerError": "服务器内部错误",
       "tooManyRequests": "请求过于频繁，请稍后再试",
       "validationFailed": "验证失败",
+      "validation": {
+        "invalidInput": "输入内容无效"
+      },
       "notFound": {
         "work": "未找到作品",
         "part": "未找到章节",
@@ -1311,7 +1334,18 @@
         "processingInProgress": "作品正在处理中，请稍后再试",
         "manualAudioRequired": "音频步骤未启用自动流程，请在作品页手动生成",
         "stateChanged": "作品状态已变化，请刷新后再试",
-        "unpublishFirst": "请先下架"
+        "unpublishFirst": "请先下架",
+        "publish": {
+          "titleRequired": "发布前请填写标题",
+          "sourcesRequired": "发布前请至少关联一个来源",
+          "tagsRequired": "发布前请至少添加一个标签",
+          "bodyRequired": "发布前请填写正文",
+          "audioMissing": "章节「{partTitle}」缺少默认美音（Reader 默认口音，英音可选）",
+          "audioGenerating": "章节「{partTitle}」默认美音仍在生成中",
+          "audioStale": "章节「{partTitle}」默认美音已过期，请重新生成",
+          "audioFailed": "章节「{partTitle}」默认美音生成失败，请重试",
+          "audioNotReady": "章节「{partTitle}」默认美音未就绪"
+        }
       },
       "taxonomy": {
         "invalidKind": "kind 必须是 tag / category / source",
