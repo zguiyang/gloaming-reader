@@ -1,5 +1,6 @@
 import type { AiMessageInput } from '@/modules/ai';
 import type { MetadataFieldId } from '@/modules/metadata-enrich/fields';
+import { supportedLocalesLabel } from '@/modules/metadata-enrich/taxonomy-localized';
 
 export const EXCERPT_MAX_CHARS = 2500;
 export const TOC_TITLE_MAX = 15;
@@ -45,10 +46,10 @@ export function buildEnrichMessages(input: EnrichPromptInput): AiMessageInput[] 
       ? `Required fields to fill: ${required.join(', ')}. Every required field must be present in your output.`
       : null,
     complete.length > 0 ? `Already complete, do not output: ${complete.join(', ')}.` : null,
-    'For tags and category: call list_existing_tags / list_categories first. Return { id, name } — id is the tool id to reuse, or null to create by name. Never omit a required field.',
-    'description: 2-3 sentences in the book language.',
-    'tags: up to 6 noun phrases, concise and specific — never copy library catalog headings (LCSH) or strings with "--".',
-    'category: exactly one shelf/genre label (reuse or create).',
+    `For tags and category: call list_existing_tags / list_categories first. Return { id, name, localizedNames } where localizedNames is [{ locale, name }] covering every supported locale (${supportedLocalesLabel()}). Use only those locale codes. id is the tool id to reuse, or null to create. name is a fallback label when a locale is omitted — do not invent translations for locales you cannot name.`,
+    'description: 2-3 sentences in the book language only — do not localize the description.',
+    `tags: up to 6 noun phrases with localizedNames for each supported locale (${supportedLocalesLabel()}) — never copy library catalog headings (LCSH) or strings with "--".`,
+    `category: exactly one shelf/genre with localizedNames for each supported locale (${supportedLocalesLabel()}).`,
   ]
     .filter((line): line is string => line !== null)
     .join('\n');

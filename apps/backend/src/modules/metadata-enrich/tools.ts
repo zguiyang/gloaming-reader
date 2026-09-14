@@ -3,9 +3,11 @@ import { tool } from 'langchain/tools';
 import { z } from 'zod';
 
 import { category as categoryTable, readingWorkTag as readingWorkTagTable, tag as tagTable } from '@gloaming/db';
+import { optionalLocalizedNames } from '@gloaming/shared/taxonomy';
 
 import { db } from '@/db';
 import { normalizeTag } from '@/lib/text';
+import { supportedLocalesLabel } from '@/modules/metadata-enrich/taxonomy-localized';
 
 const MAX_TOOL_RESULTS = 20;
 
@@ -24,33 +26,48 @@ export function listExistingTagsTool() {
           .select({
             id: tagTable.id,
             name: tagTable.name,
+            localizedNames: tagTable.localizedNames,
             usage: sql<number>`count(${readingWorkTagTable.tagId})`,
           })
           .from(tagTable)
           .leftJoin(readingWorkTagTable, eq(readingWorkTagTable.tagId, tagTable.id))
           .where(ilike(tagTable.normalized, `%${needle}%`))
-          .groupBy(tagTable.id)
+          .groupBy(tagTable.id, tagTable.name, tagTable.localizedNames)
           .orderBy(desc(sql`count(${readingWorkTagTable.tagId})`))
           .limit(take);
-        return JSON.stringify({ tags: rows.map((r) => ({ id: r.id, name: r.name, usage: Number(r.usage) })) });
+        return JSON.stringify({
+          tags: rows.map((r) => ({
+            id: r.id,
+            name: r.name,
+            localizedNames: optionalLocalizedNames(r.localizedNames),
+            usage: Number(r.usage),
+          })),
+        });
       }
       const rows = await db
         .select({
           id: tagTable.id,
           name: tagTable.name,
+          localizedNames: tagTable.localizedNames,
           usage: sql<number>`count(${readingWorkTagTable.tagId})`,
         })
         .from(tagTable)
         .leftJoin(readingWorkTagTable, eq(readingWorkTagTable.tagId, tagTable.id))
-        .groupBy(tagTable.id)
+        .groupBy(tagTable.id, tagTable.name, tagTable.localizedNames)
         .orderBy(desc(sql`count(${readingWorkTagTable.tagId})`), tagTable.name)
         .limit(take);
-      return JSON.stringify({ tags: rows.map((r) => ({ id: r.id, name: r.name, usage: Number(r.usage) })) });
+      return JSON.stringify({
+        tags: rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          localizedNames: optionalLocalizedNames(r.localizedNames),
+          usage: Number(r.usage),
+        })),
+      });
     },
     {
       name: 'list_existing_tags',
-      description:
-        'List existing tags. Prefer { id, name } with a returned id; use id:null with a short English name when nothing fits.',
+      description: `List existing tags with localizedNames when present. Supported locales only: ${supportedLocalesLabel()}. Prefer { id, name, localizedNames } with a returned id; use id:null when nothing fits.`,
       schema: z.object({
         query: z.string().optional().describe('Optional search term for existing tags'),
         limit: z.number().int().min(1).max(MAX_TOOL_RESULTS).optional().describe('Max results'),
@@ -64,15 +81,20 @@ export function listCategoriesTool() {
   return tool(
     async () => {
       const rows = await db
-        .select({ id: categoryTable.id, name: categoryTable.name })
+        .select({ id: categoryTable.id, name: categoryTable.name, localizedNames: categoryTable.localizedNames })
         .from(categoryTable)
         .orderBy(categoryTable.name);
-      return JSON.stringify({ categories: rows.map((r) => ({ id: r.id, name: r.name })) });
+      return JSON.stringify({
+        categories: rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          localizedNames: optionalLocalizedNames(r.localizedNames),
+        })),
+      });
     },
     {
       name: 'list_categories',
-      description:
-        'List existing categories. Prefer { id, name } with a returned id; use id:null with a short English name when nothing fits (server creates it). Always call before choosing a category.',
+      description: `List existing categories with localizedNames when present. Supported locales only: ${supportedLocalesLabel()}. Prefer { id, name, localizedNames } with a returned id; use id:null when nothing fits (server creates it). Always call before choosing a category.`,
       schema: z.object({}),
     },
   );

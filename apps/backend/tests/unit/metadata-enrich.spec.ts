@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { buildEnrichMessages } from '@/modules/metadata-enrich/prompt';
 import { isShouty, isStopwordTag, isWeakDescription } from '@/modules/metadata-enrich/quality';
-import { buildMetadataOutputSchema, cleanCategoryRef, cleanTagRefs } from '@/modules/metadata-enrich/registry';
+import {
+  buildMetadataOutputSchema,
+  cleanCategoryRef,
+  cleanTagRefs,
+  localizedNameEntrySchema,
+} from '@/modules/metadata-enrich/registry';
+import { areWorkTagsWeak, isCategoryWeak } from '@/modules/metadata-enrich/taxonomy-localized';
 
 describe('metadata-enrich quality heuristics', () => {
   it('treats short, generic and shouty descriptions as weak', () => {
@@ -126,7 +132,33 @@ describe('metadata-enrich prompt (single-book context only)', () => {
     expect(system).toContain('null');
     expect(system).toMatch(/reuse|create|list_categories/i);
   });
+
+  it('requires localized taxonomy names for supported locales and keeps description in book language', () => {
+    const messages = buildEnrichMessages({
+      title: 'T',
+      author: '',
+      language: 'en',
+      existingTags: [],
+      ruleDescription: '',
+      excerpt: 'x'.repeat(200),
+      tocTitles: [],
+      requiredFields: ['tags', 'category'],
+    });
+    const system = messages.find((m) => m.role === 'system')!.content;
+    expect(system).toContain('zh-CN, en-US');
+    expect(system).toContain('localizedNames');
+    expect(system).toContain('do not localize the description');
+  });
 });
+
+const fablesLocalized = [
+  { locale: 'zh-CN' as const, name: '寓言' },
+  { locale: 'en-US' as const, name: 'Fables' },
+];
+const moralityLocalized = [
+  { locale: 'zh-CN' as const, name: '道德' },
+  { locale: 'en-US' as const, name: 'Morality' },
+];
 
 describe('metadata-enrich taxonomy refs and dynamic schema', () => {
   it('builds an output schema containing only the required fields, all required', () => {
@@ -134,7 +166,9 @@ describe('metadata-enrich taxonomy refs and dynamic schema', () => {
     const shape = schema.shape as Record<string, unknown>;
     expect(Object.keys(shape)).toEqual(['category']);
     expect(schema.safeParse({}).success).toBe(false);
-    expect(schema.safeParse({ category: { id: null, name: 'Fables' } }).success).toBe(true);
+    expect(schema.safeParse({ category: { id: null, name: 'Fables', localizedNames: fablesLocalized } }).success).toBe(
+      true,
+    );
     expect(schema.safeParse({ category: null }).success).toBe(false);
 
     const full = buildMetadataOutputSchema(['description', 'tags', 'category']);
@@ -143,31 +177,85 @@ describe('metadata-enrich taxonomy refs and dynamic schema', () => {
     expect(
       full.safeParse({
         description: 'd',
-        tags: [{ id: null, name: 'Adventure' }],
-        category: { id: null, name: 'Fiction' },
+        tags: [{ id: null, name: 'Adventure', localizedNames: fablesLocalized }],
+        category: { id: null, name: 'Fiction', localizedNames: fablesLocalized },
       }).success,
     ).toBe(true);
     expect(full.safeParse({ description: 'd' }).success).toBe(false);
   });
 
-  it('cleanTagRefs keeps reuse ids and drops junk', () => {
+  it('localizedNameEntrySchema accepts only supported locales', () => {
+    expect(localizedNameEntrySchema.safeParse({ locale: 'zh-CN', name: '科学' }).success).toBe(true);
+    expect(localizedNameEntrySchema.safeParse({ locale: 'fr-FR', name: 'Science' }).success).toBe(false);
+  });
+
+  it('cleanTagRefs keeps reuse ids, localized names, and drops junk', () => {
     expect(
       cleanTagRefs([
-        { id: 'tag-1', name: 'Fables' },
-        { id: null, name: 'Morality' },
+        { id: 'tag-1', name: 'Fables', localizedNames: fablesLocalized },
+        { id: null, name: 'Morality', localizedNames: moralityLocalized },
         { id: 'tag-2', name: ' ' },
         'not-an-object',
       ]),
-    ).toEqual([{ name: 'Fables', existingId: 'tag-1' }, { name: 'Morality' }]);
+    ).toEqual([
+      {
+        name: 'Fables',
+        existingId: 'tag-1',
+        localizedNames: { 'zh-CN': '寓言', 'en-US': 'Fables' },
+      },
+      {
+        name: 'Morality',
+        localizedNames: { 'zh-CN': '道德', 'en-US': 'Morality' },
+      },
+    ]);
+  });
+
+  it('cleanTagRefs falls back to ref.name for missing locales', () => {
+    expect(cleanTagRefs([{ id: null, name: 'Science' }])).toEqual([
+      {
+        name: 'Science',
+        localizedNames: { 'zh-CN': 'Science', 'en-US': 'Science' },
+      },
+    ]);
   });
 
   it('cleanCategoryRef returns undefined for null/empty', () => {
     expect(cleanCategoryRef(null)).toBeUndefined();
-    expect(cleanCategoryRef({ id: 'cat-1', name: 'Classic' })).toEqual({
+    const classicLocalized = [
+      { locale: 'zh-CN' as const, name: '经典' },
+      { locale: 'en-US' as const, name: 'Classic' },
+    ];
+    expect(cleanCategoryRef({ id: 'cat-1', name: 'Classic', localizedNames: classicLocalized })).toEqual({
       name: 'Classic',
       existingId: 'cat-1',
+      localizedNames: { 'zh-CN': '经典', 'en-US': 'Classic' },
     });
     expect(cleanCategoryRef({ id: null, name: '  ' })).toBeUndefined();
-    expect(cleanCategoryRef('Children Fiction')).toEqual({ name: 'Children Fiction' });
+    expect(cleanCategoryRef('Children Fiction')).toEqual({
+      name: 'Children Fiction',
+      localizedNames: { 'zh-CN': 'Children Fiction', 'en-US': 'Children Fiction' },
+    });
+  });
+
+  it('treats English-only tags as weak for localization backfill', () => {
+    expect(areWorkTagsWeak([{ name: 'Science', localizedNames: {} }])).toBe(true);
+    expect(
+      areWorkTagsWeak([
+        {
+          name: 'Science',
+          localizedNames: { 'en-US': 'Science', 'zh-CN': '科学' },
+        },
+      ]),
+    ).toBe(false);
+  });
+
+  it('treats categories missing locale translations as weak', () => {
+    expect(isCategoryWeak({ name: 'Fiction', localizedNames: { 'en-US': 'Fiction' } })).toBe(true);
+    expect(
+      isCategoryWeak({
+        name: 'Fiction',
+        localizedNames: { 'en-US': 'Fiction', 'zh-CN': '小说' },
+      }),
+    ).toBe(false);
   });
 });

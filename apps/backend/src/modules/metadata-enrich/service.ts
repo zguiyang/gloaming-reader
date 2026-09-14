@@ -11,6 +11,7 @@ import {
   readingWorkTag as readingWorkTagTable,
   tag as tagTable,
 } from '@gloaming/db';
+import type { TaxonomyLocalizedNames } from '@gloaming/shared/taxonomy';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
@@ -23,9 +24,18 @@ import { TTS_STEP_ENABLED } from '@/lib/workflow-policy';
 import { type AiInvokeResult, invokeAi } from '@/modules/ai';
 import type { MetadataFieldId } from '@/modules/metadata-enrich/fields';
 import { buildEnrichMessages, EXCERPT_MAX_CHARS, TOC_TITLE_MAX } from '@/modules/metadata-enrich/prompt';
-import { aiFillableFields, buildMetadataOutputSchema, metadataFieldRegistry } from '@/modules/metadata-enrich/registry';
+import {
+  aiFillableFields,
+  buildMetadataOutputSchema,
+  type CleanTaxonomyRef,
+  metadataFieldRegistry,
+} from '@/modules/metadata-enrich/registry';
+import {
+  areWorkTagsWeak,
+  isCategoryWeak,
+  mergeTaxonomyLocalizedNames,
+} from '@/modules/metadata-enrich/taxonomy-localized';
 import { listCategoriesTool, listExistingTagsTool } from '@/modules/metadata-enrich/tools';
-import { areProductTagsWeak } from '@/modules/metadata-fill/subjects';
 
 const enrichLogger = rootLogger.child({ module: 'MetadataEnrich' });
 
@@ -56,23 +66,27 @@ async function loadBookContext(workId: string): Promise<{ excerpt: string; tocTi
   return { excerpt, tocTitles };
 }
 
-async function loadCurrentTags(workId: string): Promise<string[]> {
+type WorkTagSnapshot = { name: string; localizedNames: TaxonomyLocalizedNames };
+
+async function loadCurrentTags(workId: string): Promise<WorkTagSnapshot[]> {
   const rows = await db
-    .select({ name: tagTable.name })
+    .select({ name: tagTable.name, localizedNames: tagTable.localizedNames })
     .from(readingWorkTagTable)
     .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
     .where(eq(readingWorkTagTable.workId, workId));
-  return rows.map((row) => row.name);
+  return rows.map((row) => ({ name: row.name, localizedNames: row.localizedNames ?? {} }));
 }
 
-async function loadCurrentCategory(workId: string): Promise<string | undefined> {
+type WorkCategorySnapshot = { name: string; localizedNames: TaxonomyLocalizedNames };
+
+async function loadCurrentCategory(workId: string): Promise<WorkCategorySnapshot | undefined> {
   const [row] = await db
-    .select({ name: categoryTable.name })
+    .select({ name: categoryTable.name, localizedNames: categoryTable.localizedNames })
     .from(readingWorkCategoryTable)
     .innerJoin(categoryTable, eq(readingWorkCategoryTable.categoryId, categoryTable.id))
     .where(eq(readingWorkCategoryTable.workId, workId))
     .limit(1);
-  return row?.name;
+  return row ? { name: row.name, localizedNames: row.localizedNames ?? {} } : undefined;
 }
 
 function loadCatalogSubjects(work: typeof readingWorkTable.$inferSelect): string[] {
@@ -184,12 +198,15 @@ export async function enrichWorkMetadata(
   const needed = new Set<(typeof aiFillableFields)[number]>();
   for (const id of aiFillableFields) {
     if (id === 'tags') {
-      if (areProductTagsWeak(currentTags)) needed.add(id);
+      if (areWorkTagsWeak(currentTags)) needed.add(id);
+      continue;
+    }
+    if (id === 'category') {
+      if (isCategoryWeak(currentCategory)) needed.add(id);
       continue;
     }
     const def = metadataFieldRegistry[id];
-    const current = id === 'description' ? work.description : (currentCategory ?? '');
-    if (def.isWeak(current)) {
+    if (def.isWeak(work.description)) {
       needed.add(id);
     }
   }
@@ -210,7 +227,7 @@ export async function enrichWorkMetadata(
         title: work.title,
         author: work.author,
         language: work.language,
-        existingTags: currentTags,
+        existingTags: currentTags.map((tag) => tag.name),
         catalogSubjects,
         ruleDescription: work.description,
         excerpt: context.excerpt,
@@ -242,8 +259,7 @@ export async function enrichWorkMetadata(
     // ids are validated, and names always fall back to normalized reuse-first upserts
     // (never duplicate dimensions). When AI fills weak tags, replace extracted+ai
     // associations (keep manual).
-    const aiTags = metadataFieldRegistry.tags.normalize(result.content.tags) as
-      Array<{ name: string; existingId?: string }> | undefined;
+    const aiTags = metadataFieldRegistry.tags.normalize(result.content.tags) as CleanTaxonomyRef[] | undefined;
     if (needed.has('tags') && Array.isArray(aiTags)) {
       const tagIds: string[] = [];
       for (const tag of aiTags) {
@@ -264,7 +280,7 @@ export async function enrichWorkMetadata(
 
     // Category — single-select. Same adjudication as tags.
     const aiCategory = metadataFieldRegistry.category.normalize(result.content.category) as
-      { name: string; existingId?: string } | undefined;
+      CleanTaxonomyRef | undefined;
     if (needed.has('category') && aiCategory) {
       const categoryId = await resolveCategoryId(tx, aiCategory);
       if (categoryId) {
@@ -294,12 +310,15 @@ export async function enrichWorkMetadata(
   const gaps: MetadataFieldId[] = [];
   for (const id of needed) {
     if (id === 'tags') {
-      if (areProductTagsWeak(afterTags)) gaps.push(id);
+      if (areWorkTagsWeak(afterTags)) gaps.push(id);
+      continue;
+    }
+    if (id === 'category') {
+      if (isCategoryWeak(afterCategory)) gaps.push(id);
       continue;
     }
     const def = metadataFieldRegistry[id];
-    const current = id === 'description' ? (after?.description ?? '') : (afterCategory ?? '');
-    if (def.isWeak(current)) gaps.push(id);
+    if (def.isWeak(after?.description ?? '')) gaps.push(id);
   }
 
   const completed = await completeMetadataStep(workId, retryJobToken, attemptToken, gaps);
@@ -315,51 +334,103 @@ export async function enrichWorkMetadata(
 /** Resolve a tag ref to a concrete dimension id — reuse validated, then normalized, then create. */
 async function resolveTagId(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  tag: { name: string; existingId?: string },
+  tag: CleanTaxonomyRef,
 ): Promise<string | null> {
   if (tag.existingId) {
-    const [row] = await tx.select({ id: tagTable.id }).from(tagTable).where(eq(tagTable.id, tag.existingId)).limit(1);
-    if (row) return row.id;
+    const [row] = await tx
+      .select({ id: tagTable.id, localizedNames: tagTable.localizedNames })
+      .from(tagTable)
+      .where(eq(tagTable.id, tag.existingId))
+      .limit(1);
+    if (row) {
+      await applyTagLocalizedNames(tx, row.id, row.localizedNames, tag.localizedNames);
+      return row.id;
+    }
   }
-  return upsertTagId(tx, tag.name);
+  return upsertTagId(tx, tag.name, tag.localizedNames);
 }
 
 /** Category ref — same adjudication, single row. */
 async function resolveCategoryId(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  category: { name: string; existingId?: string },
+  category: CleanTaxonomyRef,
 ): Promise<string | null> {
   if (category.existingId) {
     const [row] = await tx
-      .select({ id: categoryTable.id })
+      .select({ id: categoryTable.id, localizedNames: categoryTable.localizedNames })
       .from(categoryTable)
       .where(eq(categoryTable.id, category.existingId))
       .limit(1);
-    if (row) return row.id;
+    if (row) {
+      await applyCategoryLocalizedNames(tx, row.id, row.localizedNames, category.localizedNames);
+      return row.id;
+    }
   }
-  return upsertCategoryId(tx, category.name);
+  return upsertCategoryId(tx, category.name, category.localizedNames);
+}
+
+async function applyTagLocalizedNames(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  id: string,
+  existing: TaxonomyLocalizedNames | null | undefined,
+  incoming: TaxonomyLocalizedNames,
+): Promise<void> {
+  const localizedNames = mergeTaxonomyLocalizedNames(existing, incoming);
+  await tx.update(tagTable).set({ localizedNames }).where(eq(tagTable.id, id));
+}
+
+async function applyCategoryLocalizedNames(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  id: string,
+  existing: TaxonomyLocalizedNames | null | undefined,
+  incoming: TaxonomyLocalizedNames,
+): Promise<void> {
+  const localizedNames = mergeTaxonomyLocalizedNames(existing, incoming);
+  await tx.update(categoryTable).set({ localizedNames }).where(eq(categoryTable.id, id));
 }
 
 async function upsertTagId(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   name: string,
+  localizedNames: TaxonomyLocalizedNames,
 ): Promise<string | null> {
+  const normalized = normalizeTag(name);
+  const [existing] = await tx.select().from(tagTable).where(eq(tagTable.normalized, normalized)).limit(1);
+  if (existing) {
+    const merged = mergeTaxonomyLocalizedNames(existing.localizedNames, localizedNames);
+    await tx.update(tagTable).set({ localizedNames: merged }).where(eq(tagTable.id, existing.id));
+    return existing.id;
+  }
   const [row] = await tx
     .insert(tagTable)
-    .values({ id: randomUUID(), name, normalized: normalizeTag(name), origin: 'ai' })
+    .values({ id: randomUUID(), name, normalized, localizedNames, origin: 'ai' })
     .onConflictDoUpdate({ target: tagTable.normalized, set: { name } })
     .returning();
-  return row?.id ?? null;
+  if (!row) return null;
+  const merged = mergeTaxonomyLocalizedNames(row.localizedNames, localizedNames);
+  await tx.update(tagTable).set({ localizedNames: merged }).where(eq(tagTable.id, row.id));
+  return row.id;
 }
 
 async function upsertCategoryId(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   name: string,
+  localizedNames: TaxonomyLocalizedNames,
 ): Promise<string | null> {
+  const normalized = normalizeTag(name);
+  const [existing] = await tx.select().from(categoryTable).where(eq(categoryTable.normalized, normalized)).limit(1);
+  if (existing) {
+    const merged = mergeTaxonomyLocalizedNames(existing.localizedNames, localizedNames);
+    await tx.update(categoryTable).set({ localizedNames: merged }).where(eq(categoryTable.id, existing.id));
+    return existing.id;
+  }
   const [row] = await tx
     .insert(categoryTable)
-    .values({ id: randomUUID(), name, normalized: normalizeTag(name), origin: 'ai' })
+    .values({ id: randomUUID(), name, normalized, localizedNames, origin: 'ai' })
     .onConflictDoUpdate({ target: categoryTable.normalized, set: { name } })
     .returning();
-  return row?.id ?? null;
+  if (!row) return null;
+  const merged = mergeTaxonomyLocalizedNames(row.localizedNames, localizedNames);
+  await tx.update(categoryTable).set({ localizedNames: merged }).where(eq(categoryTable.id, row.id));
+  return row.id;
 }
