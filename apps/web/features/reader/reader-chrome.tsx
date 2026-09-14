@@ -3,9 +3,12 @@
 import { ArrowLeftIcon, HeadphonesIcon, LanguagesIcon, MenuIcon, SparklesIcon, TypeIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import type { ReaderFontSize } from '@/features/reader/reader-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type ReaderChromeProps = {
@@ -54,6 +57,7 @@ export function ReaderChrome({
   onToggleBilingual,
 }: ReaderChromeProps) {
   const router = useRouter();
+  const { locale } = useLocale();
   const fill = Math.min(100, Math.max(0, Math.round(progressRatio)));
 
   return (
@@ -70,7 +74,7 @@ export function ReaderChrome({
             variant="ghost"
             size="icon"
             className="size-10 shrink-0 text-muted-foreground hover:text-foreground"
-            aria-label="返回"
+            aria-label={t(locale, 'content.reader.chrome.back')}
             onClick={() => navigateReaderBack(router)}
           >
             <ArrowLeftIcon className="size-5" strokeWidth={1.5} />
@@ -80,7 +84,7 @@ export function ReaderChrome({
             variant="ghost"
             size="icon"
             className={cn('size-10 shrink-0 text-muted-foreground hover:text-foreground', tocOpen && 'text-primary')}
-            aria-label="目录"
+            aria-label={t(locale, 'content.reader.chrome.toc')}
             aria-pressed={tocOpen}
             onClick={onToggleToc}
           >
@@ -106,7 +110,7 @@ export function ReaderChrome({
               'size-10 text-muted-foreground hover:text-foreground',
               isBilingual && 'bg-accent text-brand-deep',
             )}
-            aria-label="双语对照"
+            aria-label={t(locale, 'content.reader.chrome.bilingual')}
             aria-pressed={isBilingual}
             disabled={isBilingualLoading}
             onClick={onToggleBilingual}
@@ -118,7 +122,7 @@ export function ReaderChrome({
             variant="ghost"
             size="icon"
             className="size-10 text-muted-foreground hover:text-foreground"
-            aria-label={`字号：${fontSize}`}
+            aria-label={t(locale, 'content.reader.chrome.fontSize', { size: fontSize })}
             onClick={onToggleFontSize}
           >
             <TypeIcon className="size-5" strokeWidth={1.5} />
@@ -128,7 +132,7 @@ export function ReaderChrome({
             variant="ghost"
             size="icon"
             className={cn('size-10 text-muted-foreground hover:text-foreground', aiOpen && 'bg-accent text-brand-deep')}
-            aria-label="AI 辅���"
+            aria-label={t(locale, 'content.reader.chrome.aiAssist')}
             aria-pressed={aiOpen}
             onClick={onToggleAi}
           >
@@ -142,7 +146,7 @@ export function ReaderChrome({
               'size-10 text-muted-foreground hover:text-foreground',
               isListening && 'bg-accent text-brand-deep',
             )}
-            aria-label="听读"
+            aria-label={t(locale, 'content.reader.chrome.listenRead')}
             aria-pressed={isListening}
             onClick={onToggleTts}
           >

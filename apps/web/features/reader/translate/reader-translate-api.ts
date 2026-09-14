@@ -1,3 +1,4 @@
+import { t } from '@gloaming/i18n';
 import {
   TRANSLATE_SSE_EVENT,
   type TranslatePartBody,
@@ -13,7 +14,12 @@ import {
 } from '@gloaming/shared/translate';
 
 import { ApiRequestError } from '@/lib/api-request';
+import { getClientLocale } from '@/lib/client-locale';
 import { applyRequestLocale } from '@/lib/request-language';
+
+function readerTranslateMessage(key: string): string {
+  return t(getClientLocale(), key);
+}
 
 export type TranslateStreamHandlers = {
   onMeta?: (meta: TranslateSseMeta) => void;
@@ -73,9 +79,12 @@ export async function streamTranslatePart(
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new ApiRequestError({ message: '未登录或登录已过期，请重新登录', status: 401 });
+      throw new ApiRequestError({
+        message: readerTranslateMessage('content.reader.api.unauthorized'),
+        status: 401,
+      });
     }
-    let message = '请求翻译失败';
+    let message = readerTranslateMessage('content.reader.api.translateFailed');
     try {
       const json = (await response.json()) as { error?: string };
       if (json.error?.trim()) {
@@ -111,17 +120,17 @@ export async function streamTranslatePart(
     }
     if (chunk.event === TRANSLATE_SSE_EVENT.error) {
       const parsed = translateSseErrorSchema.safeParse(JSON.parse(chunk.data));
-      throw new Error(parsed.success ? parsed.data.error : 'AI unavailable');
+      throw new Error(parsed.success ? parsed.data.error : readerTranslateMessage('content.reader.api.aiUnavailable'));
     }
     if (chunk.event === TRANSLATE_SSE_EVENT.done) {
       const parsed = translateSseDoneSchema.safeParse(JSON.parse(chunk.data));
       if (!parsed.success) {
-        throw new Error('响应格式无效');
+        throw new Error(readerTranslateMessage('content.reader.api.invalidResponse'));
       }
       handlers.onDone?.(parsed.data);
       return parsed.data;
     }
   }
 
-  throw new Error('AI unavailable');
+  throw new Error(readerTranslateMessage('content.reader.api.aiUnavailable'));
 }

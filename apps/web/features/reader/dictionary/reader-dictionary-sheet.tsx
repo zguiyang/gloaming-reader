@@ -1,9 +1,11 @@
 'use client';
 
+import { t } from '@gloaming/i18n';
 import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ReaderDictionaryCard } from '@/features/reader/dictionary/reader-dictionary-card';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type ReaderDictionarySheetProps = {
@@ -25,6 +27,8 @@ export function ReaderDictionarySheet({
   onAskAi,
   onClose,
 }: ReaderDictionarySheetProps) {
+  const { locale } = useLocale();
+
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <SheetContent
@@ -38,8 +42,8 @@ export function ReaderDictionarySheet({
         <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-border/80" />
 
         <SheetHeader className="sr-only">
-          <SheetTitle>单词查词 - {word}</SheetTitle>
-          <SheetDescription>词典释义与语境解读</SheetDescription>
+          <SheetTitle>{t(locale, 'content.reader.dictionary.sheetTitle', { word })}</SheetTitle>
+          <SheetDescription>{t(locale, 'content.reader.dictionary.sheetDescription')}</SheetDescription>
         </SheetHeader>
 
         <ReaderDictionaryCard

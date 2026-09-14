@@ -1,7 +1,10 @@
 /** Reader UI types — aligned with split reader APIs. */
 
+import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
 import type { ReaderAudioAvailability, ReadingStateStatus } from '@gloaming/shared/reader';
 import type { PartSummary } from '@gloaming/shared/works';
+
+export type ReaderInlineAssistKind = 'explain' | 'translate' | 'ask';
 
 export type ReaderFontSize = 'sm' | 'md' | 'lg';
 
@@ -120,4 +123,45 @@ export function nextPlaybackRate(current: ReaderPlaybackRate): ReaderPlaybackRat
 
 export function formatPlaybackRate(rate: ReaderPlaybackRate): string {
   return `${rate}×`;
+}
+
+export function formatReaderChapterTitle(
+  title: string | null | undefined,
+  index: number,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  const trimmed = title?.trim();
+  if (trimmed) {
+    return trimmed;
+  }
+  return t(locale, 'content.bookDetail.chapterFallback', { n: index });
+}
+
+export function formatPhoneticRoleLabel(
+  role: 'us' | 'uk' | 'general' | undefined,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
+  if (role === 'uk') {
+    return t(locale, 'content.reader.tts.ukShort');
+  }
+  return t(locale, 'content.reader.tts.usShort');
+}
+
+export function formatInlineAssistPrompt(
+  locale: Locale,
+  kind: ReaderInlineAssistKind,
+  selectedText: string,
+  question?: string,
+): string {
+  if (kind === 'translate') {
+    return t(locale, 'content.reader.assist.promptTranslate', { text: selectedText });
+  }
+  if (kind === 'ask') {
+    return question?.trim() || t(locale, 'content.reader.assist.promptAsk', { text: selectedText });
+  }
+  return t(locale, 'content.reader.assist.promptExplain', { text: selectedText });
+}
+
+export function formatDictionaryWordDeepDivePrompt(word: string, locale: Locale = DEFAULT_LOCALE): string {
+  return t(locale, 'content.reader.assist.wordDeepDivePrompt', { word });
 }

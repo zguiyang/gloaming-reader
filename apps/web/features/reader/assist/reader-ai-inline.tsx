@@ -3,10 +3,13 @@
 import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
 import { useMemo, useState } from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ReaderMarkdown } from '@/features/reader/assist/reader-markdown';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type ReaderAiInlineProps = {
@@ -40,6 +43,7 @@ export function ReaderAiInline({
   onOpenDrawer,
   onClose,
 }: ReaderAiInlineProps) {
+  const { locale } = useLocale();
   const [draft, setDraft] = useState('');
 
   const anchor = useMemo(() => {
@@ -101,7 +105,7 @@ export function ReaderAiInline({
           <PopoverPrimitive.Popup
             data-reader-ui
             role="dialog"
-            aria-label="AI 短答"
+            aria-label={t(locale, 'content.reader.assist.inlineAria')}
             className={cn(
               'z-50 w-[min(24rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-2xl border border-border/50 bg-card p-4 shadow-card outline-hidden',
               'data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
@@ -122,14 +126,14 @@ export function ReaderAiInline({
                 <Input
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  placeholder="Ask a question about this selection..."
+                  placeholder={t(locale, 'content.reader.assist.questionPlaceholder')}
                   className="h-10 rounded-xl border-border/60 bg-background"
                   disabled={streaming}
                   autoFocus
                 />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={onClose}>
-                    取消
+                    {t(locale, 'content.reader.assist.cancel')}
                   </Button>
                   <Button
                     type="submit"
@@ -137,7 +141,7 @@ export function ReaderAiInline({
                     className="h-8 rounded-lg text-xs hover:bg-brand-deep"
                     disabled={streaming}
                   >
-                    发送
+                    {t(locale, 'content.reader.assist.send')}
                   </Button>
                 </div>
               </form>
@@ -149,7 +153,7 @@ export function ReaderAiInline({
                 {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
                 <div className="mt-4 flex items-center justify-between gap-2">
                   <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={onClose}>
-                    关闭
+                    {t(locale, 'content.reader.assist.close')}
                   </Button>
                   <Button
                     type="button"
@@ -158,7 +162,7 @@ export function ReaderAiInline({
                     onClick={onOpenDrawer}
                     disabled={streaming || !canOpenDrawer}
                   >
-                    继续追问
+                    {t(locale, 'content.reader.assist.continueInDrawer')}
                   </Button>
                 </div>
               </>

@@ -1,3 +1,4 @@
+import { t } from '@gloaming/i18n';
 import {
   ASSIST_SSE_EVENT,
   type AssistAskBody,
@@ -7,7 +8,12 @@ import {
 } from '@gloaming/shared/assist';
 
 import { ApiRequestError } from '@/lib/api-request';
+import { getClientLocale } from '@/lib/client-locale';
 import { applyRequestLocale } from '@/lib/request-language';
+
+function readerAssistMessage(key: string): string {
+  return t(getClientLocale(), key);
+}
 
 export type AssistStreamHandlers = {
   onDelta?: (text: string) => void;
@@ -61,9 +67,12 @@ export async function streamAssistAsk(body: AssistAskBody, handlers: AssistStrea
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new ApiRequestError({ message: '未登录或登录已过期，请重新登录', status: 401 });
+      throw new ApiRequestError({
+        message: readerAssistMessage('content.reader.api.unauthorized'),
+        status: 401,
+      });
     }
-    let message = '请求失败';
+    let message = readerAssistMessage('content.reader.api.requestFailed');
     try {
       const json = (await response.json()) as { error?: string };
       if (json.error?.trim()) {
@@ -85,16 +94,16 @@ export async function streamAssistAsk(body: AssistAskBody, handlers: AssistStrea
     }
     if (chunk.event === ASSIST_SSE_EVENT.error) {
       const parsed = assistSseErrorSchema.safeParse(JSON.parse(chunk.data));
-      throw new Error(parsed.success ? parsed.data.error : 'AI unavailable');
+      throw new Error(parsed.success ? parsed.data.error : readerAssistMessage('content.reader.api.aiUnavailable'));
     }
     if (chunk.event === ASSIST_SSE_EVENT.done) {
       const parsed = assistSseDoneSchema.safeParse(JSON.parse(chunk.data));
       if (!parsed.success) {
-        throw new Error('响应格式无效');
+        throw new Error(readerAssistMessage('content.reader.api.invalidResponse'));
       }
       return parsed.data;
     }
   }
 
-  throw new Error('AI unavailable');
+  throw new Error(readerAssistMessage('content.reader.api.aiUnavailable'));
 }

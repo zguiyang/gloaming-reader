@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
 import type { TtsWordTiming } from '@gloaming/shared/tts';
 
 import { useAuthDialog } from '@/features/auth';
@@ -40,6 +41,7 @@ import type {
 import {
   adjacentPart,
   DEFAULT_READER_PLAYBACK_RATE,
+  formatDictionaryWordDeepDivePrompt,
   nextPlaybackRate,
   partIndex,
   resolveAudioRole,
@@ -51,6 +53,7 @@ import { ReaderUnavailable } from '@/features/reader/reader-unavailable';
 import { useReaderTranslate } from '@/features/reader/translate/use-reader-translate';
 import { isReadingStateRevisionConflict } from '@/features/reading-state/reading-state-api';
 import { authClient } from '@/lib/auth';
+import { useLocale } from '@/lib/locale-context';
 
 type ReaderPageProps = {
   workId: string;
@@ -59,6 +62,7 @@ type ReaderPageProps = {
 const FONT_CYCLE: ReaderFontSize[] = ['sm', 'md', 'lg'];
 
 export function ReaderPage({ workId }: ReaderPageProps) {
+  const { locale } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const preferredPartId = searchParams.get('part')?.trim() || null;
@@ -244,13 +248,13 @@ export function ReaderPage({ workId }: ReaderPageProps) {
             setActivePartId(recoveredPartId);
             router.replace(`/read/${workId}?part=${encodeURIComponent(recoveredPartId)}`, { scroll: false });
           }
-          toast.info('阅读状态已刷新，请继续阅读');
+          toast.info(t(locale, 'content.reader.toast.stateRefreshed'));
           return;
         }
         toast.error(formatReaderApiError(error));
       }
     },
-    [isAuthenticated, openLogin, refetchState, resetAudioPlayback, router, stateMutation, workId],
+    [isAuthenticated, locale, openLogin, refetchState, resetAudioPlayback, router, stateMutation, workId],
   );
 
   function clearSelectionUi() {
@@ -268,7 +272,9 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   async function playPartAudio(role: ReaderAudioRole) {
     if (!reader) return;
     if (!reader.audioAvailable[role]) {
-      toast.error(role === 'us' ? '暂无美音' : '暂无英音');
+      toast.error(
+        role === 'us' ? t(locale, 'content.reader.toast.noUsAudio') : t(locale, 'content.reader.toast.noUkAudio'),
+      );
       return;
     }
 
@@ -323,7 +329,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
 
     const role = resolveAudioRole(reader.audioAvailable, preferredAudioRole);
     if (!role) {
-      toast.error('暂无音频');
+      toast.error(t(locale, 'content.reader.toast.noAudio'));
       return;
     }
 
@@ -333,7 +339,9 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   async function handleAccentSelect(role: ReaderAudioRole) {
     if (!reader) return;
     if (!reader.audioAvailable[role]) {
-      toast.error(role === 'us' ? '暂无美音' : '暂无英音');
+      toast.error(
+        role === 'us' ? t(locale, 'content.reader.toast.noUsAudio') : t(locale, 'content.reader.toast.noUkAudio'),
+      );
       return;
     }
     if (role === resolveAudioRole(reader.audioAvailable, preferredAudioRole)) {
@@ -364,7 +372,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           if (recoveredPartId) {
             setActivePartId(recoveredPartId);
             router.replace(`/read/${workId}?part=${encodeURIComponent(recoveredPartId)}`, { scroll: false });
-            toast.info('阅读状态已刷新，请继续阅读');
+            toast.info(t(locale, 'content.reader.toast.stateRefreshed'));
           }
         }
         return;
@@ -565,7 +573,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
             left: dictionaryState?.left ?? 0,
           };
           setDictionaryState(null);
-          void assist.runInlineAssist('ask', currentSelection, `请结合当前语境深入讲解单词 “${word}” 的含义与用法。`);
+          void assist.runInlineAssist('ask', currentSelection, formatDictionaryWordDeepDivePrompt(word, locale));
         }}
         onClose={() => {
           setDictionaryState(null);
@@ -637,7 +645,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
       {isTapHintVisible ? (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
           <div className="rounded-full bg-[var(--inverse-surface)] px-5 py-2.5 text-sm text-[var(--inverse-on-surface)] shadow-card">
-            点按中央显示菜单
+            {t(locale, 'content.reader.chrome.tapHint')}
           </div>
         </div>
       ) : null}

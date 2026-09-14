@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_LOCALE } from '@gloaming/i18n';
+
 import {
   DEFAULT_READER_PLAYBACK_RATE,
+  formatDictionaryWordDeepDivePrompt,
+  formatInlineAssistPrompt,
+  formatPhoneticRoleLabel,
   formatPlaybackRate,
+  formatReaderChapterTitle,
   isCurrentChapter,
   nextPlaybackRate,
   READER_PLAYBACK_RATES,
@@ -53,5 +59,47 @@ describe('playback rate', () => {
     expect(formatPlaybackRate(0.5)).toBe('0.5×');
     expect(formatPlaybackRate(1.5)).toBe('1.5×');
     expect(formatPlaybackRate(2)).toBe('2×');
+  });
+});
+
+describe('formatReaderChapterTitle', () => {
+  it('falls back to localized chapter label when title is empty', () => {
+    expect(formatReaderChapterTitle('', 3, DEFAULT_LOCALE)).toBe('第 3 章');
+    expect(formatReaderChapterTitle('Custom', 3, DEFAULT_LOCALE)).toBe('Custom');
+  });
+
+  it('localizes chapter fallback for en-US', () => {
+    expect(formatReaderChapterTitle('', 3, 'en-US')).toBe('Chapter 3');
+  });
+});
+
+describe('formatPhoneticRoleLabel', () => {
+  it('returns localized short accent labels', () => {
+    expect(formatPhoneticRoleLabel('us', DEFAULT_LOCALE)).toBe('美');
+    expect(formatPhoneticRoleLabel('uk', DEFAULT_LOCALE)).toBe('英');
+    expect(formatPhoneticRoleLabel('us', 'en-US')).toBe('US');
+    expect(formatPhoneticRoleLabel('uk', 'en-US')).toBe('UK');
+  });
+});
+
+describe('formatInlineAssistPrompt', () => {
+  it('preserves zh-CN inline assist prefixes', () => {
+    expect(formatInlineAssistPrompt(DEFAULT_LOCALE, 'translate', 'hello')).toBe('翻译：hello');
+    expect(formatInlineAssistPrompt(DEFAULT_LOCALE, 'explain', 'hello')).toBe('解释：hello');
+    expect(formatInlineAssistPrompt(DEFAULT_LOCALE, 'ask', 'hello', 'What?')).toBe('What?');
+    expect(formatInlineAssistPrompt(DEFAULT_LOCALE, 'ask', 'hello')).toBe('询问：hello');
+  });
+
+  it('localizes inline assist prefixes for en-US', () => {
+    expect(formatInlineAssistPrompt('en-US', 'translate', 'hello')).toBe('Translate: hello');
+    expect(formatInlineAssistPrompt('en-US', 'explain', 'hello')).toBe('Explain: hello');
+    expect(formatInlineAssistPrompt('en-US', 'ask', 'hello')).toBe('Ask: hello');
+  });
+});
+
+describe('formatDictionaryWordDeepDivePrompt', () => {
+  it('embeds the word in localized deep-dive prompts', () => {
+    expect(formatDictionaryWordDeepDivePrompt('ocean', DEFAULT_LOCALE)).toContain('ocean');
+    expect(formatDictionaryWordDeepDivePrompt('ocean', 'en-US')).toContain('ocean');
   });
 });

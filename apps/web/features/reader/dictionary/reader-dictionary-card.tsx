@@ -4,10 +4,13 @@ import { BookOpenIcon, SparklesIcon, Volume2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
 import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatPhoneticRoleLabel } from '@/features/reader/reader-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type ReaderDictionaryCardProps = {
@@ -29,6 +32,7 @@ export function ReaderDictionaryCard({
   onClose,
   className,
 }: ReaderDictionaryCardProps) {
+  const { locale } = useLocale();
   const [playingAudioUrl, setPlayingAudioUrl] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -40,7 +44,7 @@ export function ReaderDictionaryCard({
 
   function handlePlayAudio(audioUrl?: string) {
     if (!audioUrl) {
-      toast.info('暂无该发音音频');
+      toast.info(t(locale, 'content.reader.dictionary.noAudio'));
       return;
     }
     if (audioRef.current) {
@@ -52,7 +56,7 @@ export function ReaderDictionaryCard({
     audio.onended = () => setPlayingAudioUrl(null);
     audio.onerror = () => {
       setPlayingAudioUrl(null);
-      toast.error('音频播放失败');
+      toast.error(t(locale, 'content.reader.dictionary.audioPlayFailed'));
     };
     audio.play().catch(() => setPlayingAudioUrl(null));
   }
@@ -97,7 +101,7 @@ export function ReaderDictionaryCard({
                       : 'bg-surface-container/50 text-muted-foreground',
                     playingAudioUrl === primaryPhonetic.audio && 'bg-primary/10 text-primary ring-1 ring-primary/40',
                   )}
-                  title={primaryPhonetic.audio ? '点击朗读发音' : undefined}
+                  title={primaryPhonetic.audio ? t(locale, 'content.reader.dictionary.playPronunciation') : undefined}
                 >
                   <Volume2Icon
                     className={cn(
@@ -105,7 +109,7 @@ export function ReaderDictionaryCard({
                       playingAudioUrl === primaryPhonetic.audio && 'animate-pulse text-primary',
                     )}
                   />
-                  <span className="font-medium">{primaryPhonetic.role === 'uk' ? '英' : '美'}</span>
+                  <span className="font-medium">{formatPhoneticRoleLabel(primaryPhonetic.role, locale)}</span>
                   {primaryPhonetic.text && (
                     <span className="font-sans text-muted-foreground">{primaryPhonetic.text}</span>
                   )}
@@ -124,7 +128,7 @@ export function ReaderDictionaryCard({
                       : 'bg-surface-container/50 text-muted-foreground',
                     playingAudioUrl === secondaryPhonetic.audio && 'bg-primary/10 text-primary ring-1 ring-primary/40',
                   )}
-                  title={secondaryPhonetic.audio ? '点击朗读发音' : undefined}
+                  title={secondaryPhonetic.audio ? t(locale, 'content.reader.dictionary.playPronunciation') : undefined}
                 >
                   <Volume2Icon
                     className={cn(
@@ -132,7 +136,7 @@ export function ReaderDictionaryCard({
                       playingAudioUrl === secondaryPhonetic.audio && 'animate-pulse text-primary',
                     )}
                   />
-                  <span className="font-medium">英</span>
+                  <span className="font-medium">{formatPhoneticRoleLabel(secondaryPhonetic.role, locale)}</span>
                   {secondaryPhonetic.text && (
                     <span className="font-sans text-muted-foreground">{secondaryPhonetic.text}</span>
                   )}
@@ -201,13 +205,16 @@ export function ReaderDictionaryCard({
               <div className="mt-3 rounded-xl border border-primary/20 bg-surface-container-low/70 p-3 shadow-xs">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
                   <SparklesIcon className="size-3.5 shrink-0" />
-                  <span>本书语境解读</span>
+                  <span>{t(locale, 'content.reader.dictionary.contextHeading')}</span>
                 </div>
                 {contextExample.sentence && (
                   <p className="mt-1.5 font-heading text-xs italic text-foreground/90">“{contextExample.sentence}”</p>
                 )}
                 {contextExample.sentenceZh && (
-                  <p className="mt-1 text-xs text-muted-foreground">译文：{contextExample.sentenceZh}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t(locale, 'content.reader.dictionary.translationPrefix')}
+                    {contextExample.sentenceZh}
+                  </p>
                 )}
                 {contextExample.note && (
                   <div className="mt-2 rounded-lg bg-surface-container-high/50 p-2 text-xs leading-relaxed text-foreground/90">
@@ -220,8 +227,12 @@ export function ReaderDictionaryCard({
         ) : (
           <div className="flex flex-col items-center justify-center py-6 text-center">
             <BookOpenIcon className="size-8 text-muted-foreground/50" />
-            <p className="mt-2 text-xs font-medium text-foreground/80">未在基础词典中找到该词释义</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">您可以让 AI 助手直接为您深入讲解。</p>
+            <p className="mt-2 text-xs font-medium text-foreground/80">
+              {t(locale, 'content.reader.dictionary.notFoundTitle')}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {t(locale, 'content.reader.dictionary.notFoundHint')}
+            </p>
           </div>
         )}
       </div>
@@ -229,7 +240,7 @@ export function ReaderDictionaryCard({
       {/* Footer Actions */}
       <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-3">
         <Button type="button" variant="ghost" size="sm" className="h-8 rounded-lg text-xs" onClick={onClose}>
-          关闭
+          {t(locale, 'content.reader.dictionary.close')}
         </Button>
         <Button
           type="button"
@@ -237,7 +248,8 @@ export function ReaderDictionaryCard({
           className="h-8 rounded-lg text-xs hover:bg-brand-deep"
           onClick={() => onAskAi(word, contextSentence)}
         >
-          <SparklesIcon className="mr-1 size-3" />问 AI 深入讲解
+          <SparklesIcon className="mr-1 size-3" />
+          {t(locale, 'content.reader.dictionary.askAiDeepDive')}
         </Button>
       </div>
     </div>

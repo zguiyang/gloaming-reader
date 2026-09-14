@@ -3,8 +3,11 @@
 import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
 import { useMemo } from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type ReaderSelectionToolbarProps = {
@@ -30,6 +33,8 @@ export function ReaderSelectionToolbar({
   onTranslate,
   onClose,
 }: ReaderSelectionToolbarProps) {
+  const { locale } = useLocale();
+
   const anchor = useMemo(() => {
     if (rect) {
       return {
@@ -82,7 +87,7 @@ export function ReaderSelectionToolbar({
           <PopoverPrimitive.Popup
             data-reader-ui
             role="toolbar"
-            aria-label="划词工具"
+            aria-label={t(locale, 'content.reader.selection.toolbarAria')}
             className={cn(
               'z-50 flex items-center gap-0.5 rounded-xl border border-border/60 bg-card p-1 shadow-card outline-hidden',
               'data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
@@ -96,7 +101,7 @@ export function ReaderSelectionToolbar({
               className="h-8 rounded-lg px-2.5 text-xs"
               onClick={onExplain}
             >
-              解释
+              {t(locale, 'content.reader.selection.explain')}
             </Button>
             <Button
               type="button"
@@ -104,7 +109,7 @@ export function ReaderSelectionToolbar({
               className="h-8 rounded-lg px-2.5 text-xs hover:bg-brand-deep"
               onClick={onAskAi}
             >
-              问 AI
+              {t(locale, 'content.reader.selection.askAi')}
             </Button>
             <Button
               type="button"
@@ -113,7 +118,7 @@ export function ReaderSelectionToolbar({
               className="h-8 rounded-lg px-2.5 text-xs"
               onClick={onLookup}
             >
-              查词
+              {t(locale, 'content.reader.selection.lookup')}
             </Button>
             <Button
               type="button"
@@ -122,7 +127,7 @@ export function ReaderSelectionToolbar({
               className="h-8 rounded-lg px-2.5 text-xs"
               onClick={onTranslate}
             >
-              翻译
+              {t(locale, 'content.reader.selection.translate')}
             </Button>
           </PopoverPrimitive.Popup>
         </PopoverPrimitive.Positioner>

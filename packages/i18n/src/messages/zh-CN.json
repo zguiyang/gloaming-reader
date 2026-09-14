@@ -147,6 +147,110 @@
       "recommendationsPersonalized": "您可能也会喜欢",
       "difficultyPrefix": "难度: {label}",
       "tagline": "Gloaming — The Quiet Art of Slow Reading."
+    },
+    "reader": {
+      "unavailableTitle": "无法打开这篇文章",
+      "unavailableDefault": "当前无法获取内容，请稍后再试。",
+      "chrome": {
+        "back": "返回",
+        "toc": "目录",
+        "bilingual": "双语对照",
+        "fontSize": "字号：{size}",
+        "aiAssist": "AI 辅助",
+        "listenRead": "听读",
+        "tapHint": "点按中央显示菜单"
+      },
+      "toc": {
+        "label": "目录",
+        "collapse": "收起目录",
+        "viewBookDetail": "查看书籍详情"
+      },
+      "chapterNav": {
+        "upNext": "接下来",
+        "lastChapter": "已是最后一章",
+        "previous": "上一章",
+        "continueReading": "继续阅读",
+        "finishAndReturn": "读完本书，返回书架"
+      },
+      "selection": {
+        "toolbarAria": "划词工具",
+        "explain": "解释",
+        "askAi": "问 AI",
+        "lookup": "查词",
+        "translate": "翻译"
+      },
+      "toast": {
+        "stateRefreshed": "阅读状态已刷新，请继续阅读",
+        "noUsAudio": "暂无美音",
+        "noUkAudio": "暂无英音",
+        "noAudio": "暂无音频",
+        "loginForBilingual": "请先登录以使用双语阅读",
+        "sessionExpired": "登录已过期，请重新登录"
+      },
+      "tts": {
+        "play": "播放",
+        "pause": "暂停",
+        "playbackRate": "播放速度 {rate}，点击切换",
+        "accentGroup": "口音",
+        "usShort": "美",
+        "ukShort": "英",
+        "usAria": "美音",
+        "ukAria": "英音"
+      },
+      "dictionary": {
+        "sheetTitle": "单词查词 - {word}",
+        "sheetDescription": "词典释义与语境解读",
+        "cardAria": "单词卡片",
+        "playPronunciation": "点击朗读发音",
+        "contextHeading": "本书语境解读",
+        "translationPrefix": "译文：",
+        "notFoundTitle": "未在基础词典中找到该词释义",
+        "notFoundHint": "您可以让 AI 助手直接为您深入讲解。",
+        "close": "关闭",
+        "askAiDeepDive": "问 AI 深入讲解",
+        "noAudio": "暂无该发音音频",
+        "audioPlayFailed": "音频播放失败"
+      },
+      "assist": {
+        "inlineAria": "AI 短答",
+        "questionPlaceholder": "针对选中内容提问…",
+        "cancel": "取消",
+        "send": "发送",
+        "close": "关闭",
+        "continueInDrawer": "继续追问",
+        "historyTitle": "历史对话",
+        "historyHint": "只显示当前作品的 AI 记录。",
+        "historyLoading": "加载历史中…",
+        "historyEmptyTitle": "暂无历史对话",
+        "historyEmptyHint": "当前作品还没有 AI 记录。划词解释或提问后的对话将收录在此。",
+        "threadEmptyTitle": "问一句关于正文的问题",
+        "threadEmptyHint": "AI 伴读会结合当前章节上下文进行解答与释义。",
+        "removeQuote": "移除当前引用",
+        "placeholderWithQuote": "针对引用文本提问…",
+        "placeholderDefault": "关于正文提问…",
+        "sending": "发送中",
+        "companionTitle": "Gloaming Companion",
+        "companionHistorySubtitle": "历史对话记录",
+        "companionThreadSubtitle": "沉浸式阅读伴读",
+        "historyAria": "历史对话",
+        "newConversationAria": "新建 AI 对话",
+        "closePanelAria": "关闭 AI 面板",
+        "sheetHistoryDescription": "当前作品的历史对话。",
+        "sheetThreadDescription": "基于当前章节的辅助，不会取代阅读。",
+        "untitledConversation": "未命名对话",
+        "promptTranslate": "翻译：{text}",
+        "promptAsk": "询问：{text}",
+        "promptExplain": "解释：{text}",
+        "wordDeepDivePrompt": "请结合当前语境深入讲解单词「{word}」的含义与用法。"
+      },
+      "api": {
+        "unauthorized": "未登录或登录已过期，请重新登录",
+        "translateFailed": "请求翻译失败",
+        "requestFailed": "请求失败",
+        "invalidResponse": "响应格式无效",
+        "aiUnavailable": "AI 服务不可用",
+        "translateRequestFailed": "翻译请求失败"
+      }
     }
   },
   "meta": {

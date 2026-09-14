@@ -4,11 +4,19 @@ import { ChevronsLeftIcon, ExternalLinkIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useSyncExternalStore } from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { AUTH_ROUTES } from '@/constants';
-import { isCurrentChapter, type ReaderViewModel, sortedParts } from '@/features/reader/reader-model';
+import {
+  formatReaderChapterTitle,
+  isCurrentChapter,
+  type ReaderViewModel,
+  sortedParts,
+} from '@/features/reader/reader-model';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type ReaderTocSidebarProps = {
@@ -38,6 +46,7 @@ export function ReaderTocSidebar({
   currentPartId,
   onSelectChapter,
 }: ReaderTocSidebarProps) {
+  const { locale } = useLocale();
   const isDesktop = useIsDesktopTocLayout();
   const parts = sortedParts(reader.parts);
   const detailHref = AUTH_ROUTES.bookDetail(reader.workId);
@@ -49,7 +58,7 @@ export function ReaderTocSidebar({
         <button
           type="button"
           className="absolute top-4 right-4 rounded-full p-2 text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
-          aria-label="收起目录"
+          aria-label={t(locale, 'content.reader.toc.collapse')}
           onClick={() => onOpenChange(false)}
         >
           <ChevronsLeftIcon className="size-5" strokeWidth={1.5} />
@@ -62,7 +71,9 @@ export function ReaderTocSidebar({
             className="aspect-[2/3] w-16 shrink-0 rounded-sm shadow-sm"
           />
           <div className="flex min-w-0 flex-col justify-center">
-            <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">目录</p>
+            <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+              {t(locale, 'content.reader.toc.label')}
+            </p>
             <h2 className="font-heading text-lg leading-snug font-semibold text-primary">{reader.workTitle}</h2>
           </div>
         </div>
@@ -74,7 +85,7 @@ export function ReaderTocSidebar({
             <TocRow
               key={part.id}
               index={index + 1}
-              title={part.title || `第 ${index + 1} 章`}
+              title={formatReaderChapterTitle(part.title, index + 1, locale)}
               isCurrent={isCurrentChapter(part.id, currentPartId)}
               onClick={() => {
                 onSelectChapter(part.id);
@@ -90,7 +101,7 @@ export function ReaderTocSidebar({
           href={detailHref}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary"
         >
-          查看书籍详情
+          {t(locale, 'content.reader.toc.viewBookDetail')}
           <ExternalLinkIcon className="size-3.5" strokeWidth={1.5} aria-hidden />
         </Link>
       </div>
@@ -111,7 +122,7 @@ export function ReaderTocSidebar({
 
       <Sheet open={open && !isDesktop} onOpenChange={onOpenChange}>
         <SheetContent side="left" className="w-[min(20rem,100vw)] gap-0 border-r p-0 md:hidden" showCloseButton={false}>
-          <SheetTitle className="sr-only">目录</SheetTitle>
+          <SheetTitle className="sr-only">{t(locale, 'content.reader.toc.label')}</SheetTitle>
           {list}
         </SheetContent>
       </Sheet>

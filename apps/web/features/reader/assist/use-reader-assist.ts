@@ -14,15 +14,18 @@ import {
   useReaderAssistConversationsQuery,
 } from '@/features/reader/assist/reader-conversations-api';
 import { formatReaderApiError } from '@/features/reader/reader-api';
-import type {
-  ReaderAiMessage,
-  ReaderAiMessageSource,
-  ReaderAiMode,
-  ReaderSelection,
+import {
+  formatInlineAssistPrompt,
+  type ReaderAiMessage,
+  type ReaderAiMessageSource,
+  type ReaderAiMode,
+  type ReaderInlineAssistKind,
+  type ReaderSelection,
 } from '@/features/reader/reader-model';
 import { ApiRequestError } from '@/lib/api-request';
+import { useLocale } from '@/lib/locale-context';
 
-export type InlineAssistKind = 'explain' | 'translate' | 'ask';
+export type InlineAssistKind = ReaderInlineAssistKind;
 
 export type ReaderInlineSession = {
   kind: InlineAssistKind;
@@ -55,12 +58,6 @@ function actionIdForKind(kind: InlineAssistKind): AssistAskBody['actionId'] {
   if (kind === 'translate') return 'meaning';
   if (kind === 'ask') return 'qa';
   return 'explain';
-}
-
-function inlineUserPrompt(kind: InlineAssistKind, selectedText: string, question?: string): string {
-  if (kind === 'translate') return `翻译：${selectedText}`;
-  if (kind === 'ask') return question?.trim() || `询问：${selectedText}`;
-  return `解释：${selectedText}`;
 }
 
 function messageId(role: ReaderAiMessage['role']): string {
@@ -112,6 +109,7 @@ export function conversationDetailToReaderAiMessages(detail: ConversationDetail)
 }
 
 export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: UseReaderAssistOptions) {
+  const { locale } = useLocale();
   const queryClient = useQueryClient();
   const historyQuery = useReaderAssistConversationsQuery(workId, {
     enabled: isAuthenticated && Boolean(workId),
@@ -198,7 +196,7 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
     assistAbortRef.current?.abort();
     const controller = new AbortController();
     assistAbortRef.current = controller;
-    const userContent = inlineUserPrompt(kind, selection.quote, question);
+    const userContent = formatInlineAssistPrompt(locale, kind, selection.quote, question);
 
     setError(null);
     setAiMode('inline');

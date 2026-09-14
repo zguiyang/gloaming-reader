@@ -3,6 +3,7 @@
 import { HistoryIcon, MessageSquarePlusIcon, QuoteIcon, XIcon } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 
+import { type Locale, t } from '@gloaming/i18n';
 import type { ConversationSummary } from '@gloaming/shared/conversations';
 
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ReaderMarkdown } from '@/features/reader/assist/reader-markdown';
 import type { ReaderAiMessage } from '@/features/reader/reader-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 function subscribeMd(onChange: () => void) {
@@ -45,8 +47,8 @@ type ReaderAiDrawerProps = {
 
 type DrawerPanel = 'thread' | 'history';
 
-function formatConversationTime(value: string | Date): string {
-  return new Intl.DateTimeFormat('zh-CN', {
+function formatConversationTime(value: string | Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -65,21 +67,31 @@ function AiHistory({
   loading?: boolean;
   onSelectConversation: (conversationId: string) => void;
 }) {
+  const { locale } = useLocale();
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-border/40 bg-surface-container-low/70 px-4 py-3">
-        <p className="font-heading text-sm font-semibold text-foreground">历史对话</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">只显示当前作品的 AI 记录。</p>
+        <p className="font-heading text-sm font-semibold text-foreground">
+          {t(locale, 'content.reader.assist.historyTitle')}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t(locale, 'content.reader.assist.historyHint')}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3">
-        {loading ? <p className="py-8 text-center text-xs text-muted-foreground">加载历史中…</p> : null}
+        {loading ? (
+          <p className="py-8 text-center text-xs text-muted-foreground">
+            {t(locale, 'content.reader.assist.historyLoading')}
+          </p>
+        ) : null}
 
         {!loading && conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
-            <p className="font-heading text-sm text-foreground/80">暂无历史对话</p>
+            <p className="font-heading text-sm text-foreground/80">
+              {t(locale, 'content.reader.assist.historyEmptyTitle')}
+            </p>
             <p className="mt-1 max-w-[220px] text-xs leading-relaxed text-muted-foreground">
-              当前作品还没有 AI 记录。划词解释或提问后的对话将收录在此。
+              {t(locale, 'content.reader.assist.historyEmptyHint')}
             </p>
           </div>
         ) : null}
@@ -101,10 +113,10 @@ function AiHistory({
                   onClick={() => onSelectConversation(conversation.id)}
                 >
                   <p className="line-clamp-2 text-xs leading-relaxed">
-                    {conversation.preview || 'Untitled conversation'}
+                    {conversation.preview || t(locale, 'content.reader.assist.untitledConversation')}
                   </p>
                   <span className="text-[11px] text-muted-foreground/75">
-                    {formatConversationTime(conversation.lastMessageAt)}
+                    {formatConversationTime(conversation.lastMessageAt, locale)}
                   </span>
                 </button>
               );
@@ -133,6 +145,7 @@ function AiThread({
   onSend: (text: string) => void;
   onClearQuote?: () => void;
 }) {
+  const { locale } = useLocale();
   const [draft, setDraft] = useState('');
 
   function submit(text: string) {
@@ -147,9 +160,11 @@ function AiThread({
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
-            <p className="font-heading text-sm text-foreground/80">问一句关于正文的问题</p>
+            <p className="font-heading text-sm text-foreground/80">
+              {t(locale, 'content.reader.assist.threadEmptyTitle')}
+            </p>
             <p className="mt-1 max-w-[240px] text-xs leading-relaxed text-muted-foreground">
-              AI 伴读会结合当前章节上下文进行解答与释义。
+              {t(locale, 'content.reader.assist.threadEmptyHint')}
             </p>
           </div>
         ) : (
@@ -212,7 +227,7 @@ function AiThread({
             {onClearQuote ? (
               <button
                 type="button"
-                aria-label="移除当前引用"
+                aria-label={t(locale, 'content.reader.assist.removeQuote')}
                 className="flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-container-highest hover:text-foreground"
                 onClick={onClearQuote}
               >
@@ -226,7 +241,11 @@ function AiThread({
           <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={quote ? '针对引用文本提问...' : '关于正文提问...'}
+            placeholder={
+              quote
+                ? t(locale, 'content.reader.assist.placeholderWithQuote')
+                : t(locale, 'content.reader.assist.placeholderDefault')
+            }
             className="h-9 border-0 bg-transparent px-2 text-sm shadow-none focus-visible:ring-0"
             disabled={isSending}
           />
@@ -236,7 +255,7 @@ function AiThread({
             className="h-8 shrink-0 rounded-xl px-3 text-xs font-medium hover:bg-brand-deep"
             disabled={isSending || !draft.trim()}
           >
-            {isSending ? '发送中' : '发送'}
+            {isSending ? t(locale, 'content.reader.assist.sending') : t(locale, 'content.reader.assist.send')}
           </Button>
         </div>
       </form>
@@ -260,6 +279,7 @@ export function ReaderAiDrawer({
   onSelectConversation,
   onStartNewConversation,
 }: ReaderAiDrawerProps) {
+  const { locale } = useLocale();
   const isDesktop = useIsDesktop();
   const isSheetOpen = open && !isDesktop;
   const [panel, setPanel] = useState<DrawerPanel>('thread');
@@ -298,9 +318,13 @@ export function ReaderAiDrawer({
       >
         <div className="flex h-14 items-center justify-between border-b border-border/40 px-4 bg-surface-container-low/90 backdrop-blur-xs">
           <div className="min-w-0">
-            <p className="font-heading text-base font-semibold text-foreground">Gloaming Companion</p>
+            <p className="font-heading text-base font-semibold text-foreground">
+              {t(locale, 'content.reader.assist.companionTitle')}
+            </p>
             <p className="truncate text-xs text-muted-foreground">
-              {panel === 'history' ? '历史对话记录' : '沉浸式阅读伴读'}
+              {panel === 'history'
+                ? t(locale, 'content.reader.assist.companionHistorySubtitle')
+                : t(locale, 'content.reader.assist.companionThreadSubtitle')}
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -312,7 +336,7 @@ export function ReaderAiDrawer({
                 'size-8 rounded-lg text-muted-foreground hover:bg-surface-container-high hover:text-foreground',
                 panel === 'history' && 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary',
               )}
-              aria-label="历史对话"
+              aria-label={t(locale, 'content.reader.assist.historyAria')}
               aria-pressed={panel === 'history'}
               onClick={() => (panel === 'history' ? openThread() : openHistory())}
             >
@@ -323,7 +347,7 @@ export function ReaderAiDrawer({
               variant="ghost"
               size="icon"
               className="size-8 rounded-lg text-muted-foreground hover:bg-surface-container-high hover:text-foreground"
-              aria-label="新建 AI 对话"
+              aria-label={t(locale, 'content.reader.assist.newConversationAria')}
               onClick={startNewConversation}
             >
               <MessageSquarePlusIcon className="size-4" strokeWidth={1.75} />
@@ -333,7 +357,7 @@ export function ReaderAiDrawer({
               variant="ghost"
               size="icon"
               className="size-8 rounded-lg text-muted-foreground hover:bg-surface-container-high hover:text-foreground"
-              aria-label="关闭 AI 面板"
+              aria-label={t(locale, 'content.reader.assist.closePanelAria')}
               onClick={closeDrawer}
             >
               <XIcon className="size-4" strokeWidth={1.75} />
@@ -370,9 +394,11 @@ export function ReaderAiDrawer({
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-outline-variant" aria-hidden />
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 text-left">
-                <SheetTitle>Gloaming Companion</SheetTitle>
+                <SheetTitle>{t(locale, 'content.reader.assist.companionTitle')}</SheetTitle>
                 <SheetDescription>
-                  {panel === 'history' ? '当前作品的历史对话。' : '基于当前章节的辅助，不会取代阅读。'}
+                  {panel === 'history'
+                    ? t(locale, 'content.reader.assist.sheetHistoryDescription')
+                    : t(locale, 'content.reader.assist.sheetThreadDescription')}
                 </SheetDescription>
               </div>
               <div className="flex shrink-0 items-center gap-1">
@@ -384,7 +410,7 @@ export function ReaderAiDrawer({
                     'size-8 rounded-lg text-muted-foreground hover:bg-surface-container-high hover:text-foreground',
                     panel === 'history' && 'bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary',
                   )}
-                  aria-label="历史对话"
+                  aria-label={t(locale, 'content.reader.assist.historyAria')}
                   aria-pressed={panel === 'history'}
                   onClick={() => (panel === 'history' ? openThread() : openHistory())}
                 >
@@ -395,7 +421,7 @@ export function ReaderAiDrawer({
                   variant="ghost"
                   size="icon"
                   className="size-8 rounded-lg text-muted-foreground hover:bg-surface-container-high hover:text-foreground"
-                  aria-label="新建 AI 对话"
+                  aria-label={t(locale, 'content.reader.assist.newConversationAria')}
                   onClick={startNewConversation}
                 >
                   <MessageSquarePlusIcon className="size-4" strokeWidth={1.75} />

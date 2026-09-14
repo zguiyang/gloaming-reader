@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
 import type { TranslateSentenceEn } from '@gloaming/shared/translate';
 
 import { streamTranslatePart } from '@/features/reader/translate/reader-translate-api';
 import { ApiRequestError } from '@/lib/api-request';
+import { useLocale } from '@/lib/locale-context';
 
 type UseReaderTranslateOptions = {
   partId: string | null;
@@ -41,6 +43,7 @@ const INITIAL_STATE: TranslationState = {
 };
 
 export function useReaderTranslate({ partId, isAuthenticated, openLogin }: UseReaderTranslateOptions) {
+  const { locale } = useLocale();
   const [state, setState] = useState<TranslationState>(INITIAL_STATE);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -86,7 +89,7 @@ export function useReaderTranslate({ partId, isAuthenticated, openLogin }: UseRe
       if (openLogin) {
         openLogin({ reason: 'ai' });
       } else {
-        toast.error('请先登录以使用双语阅读');
+        toast.error(t(locale, 'content.reader.toast.loginForBilingual'));
       }
       return;
     }
@@ -166,12 +169,12 @@ export function useReaderTranslate({ partId, isAuthenticated, openLogin }: UseRe
         if (openLogin) {
           openLogin({ reason: 'ai' });
         } else {
-          toast.error('登录已过期，请重新登录');
+          toast.error(t(locale, 'content.reader.toast.sessionExpired'));
         }
         return;
       }
 
-      const message = err instanceof Error ? err.message : '翻译请求失败';
+      const message = err instanceof Error ? err.message : t(locale, 'content.reader.api.translateRequestFailed');
       setState((prev) => ({
         ...prev,
         isLoading: false,
@@ -184,7 +187,7 @@ export function useReaderTranslate({ partId, isAuthenticated, openLogin }: UseRe
         abortControllerRef.current = null;
       }
     }
-  }, [partId, isAuthenticated, openLogin]);
+  }, [partId, isAuthenticated, locale, openLogin]);
 
   const toggleBilingual = useCallback(() => {
     if (current.isActive) {

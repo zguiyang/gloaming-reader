@@ -147,6 +147,110 @@
       "recommendationsPersonalized": "You may also like",
       "difficultyPrefix": "Difficulty: {label}",
       "tagline": "Gloaming — The Quiet Art of Slow Reading."
+    },
+    "reader": {
+      "unavailableTitle": "Could not open this article",
+      "unavailableDefault": "Content is unavailable right now. Please try again later.",
+      "chrome": {
+        "back": "Back",
+        "toc": "Contents",
+        "bilingual": "Bilingual view",
+        "fontSize": "Font size: {size}",
+        "aiAssist": "AI assist",
+        "listenRead": "Listen & read",
+        "tapHint": "Tap center to show menu"
+      },
+      "toc": {
+        "label": "Contents",
+        "collapse": "Close contents",
+        "viewBookDetail": "View book details"
+      },
+      "chapterNav": {
+        "upNext": "Up next",
+        "lastChapter": "Last chapter",
+        "previous": "Previous",
+        "continueReading": "Continue reading",
+        "finishAndReturn": "Finish book, return to shelf"
+      },
+      "selection": {
+        "toolbarAria": "Selection tools",
+        "explain": "Explain",
+        "askAi": "Ask AI",
+        "lookup": "Look up",
+        "translate": "Translate"
+      },
+      "toast": {
+        "stateRefreshed": "Reading state refreshed — continue reading",
+        "noUsAudio": "US accent unavailable",
+        "noUkAudio": "UK accent unavailable",
+        "noAudio": "No audio available",
+        "loginForBilingual": "Sign in to use bilingual reading",
+        "sessionExpired": "Session expired — please sign in again"
+      },
+      "tts": {
+        "play": "Play",
+        "pause": "Pause",
+        "playbackRate": "Playback speed {rate}, tap to change",
+        "accentGroup": "Accent",
+        "usShort": "US",
+        "ukShort": "UK",
+        "usAria": "US accent",
+        "ukAria": "UK accent"
+      },
+      "dictionary": {
+        "sheetTitle": "Dictionary — {word}",
+        "sheetDescription": "Definitions and in-context notes",
+        "cardAria": "Word card",
+        "playPronunciation": "Tap to hear pronunciation",
+        "contextHeading": "In this book",
+        "translationPrefix": "Translation: ",
+        "notFoundTitle": "No dictionary entry found",
+        "notFoundHint": "Ask the AI assistant for a deeper explanation.",
+        "close": "Close",
+        "askAiDeepDive": "Ask AI for more",
+        "noAudio": "No pronunciation audio",
+        "audioPlayFailed": "Could not play audio"
+      },
+      "assist": {
+        "inlineAria": "AI quick answer",
+        "questionPlaceholder": "Ask about this selection…",
+        "cancel": "Cancel",
+        "send": "Send",
+        "close": "Close",
+        "continueInDrawer": "Continue in panel",
+        "historyTitle": "History",
+        "historyHint": "AI conversations for this work only.",
+        "historyLoading": "Loading history…",
+        "historyEmptyTitle": "No conversations yet",
+        "historyEmptyHint": "Explain or ask about text — conversations will appear here.",
+        "threadEmptyTitle": "Ask about the text",
+        "threadEmptyHint": "The reading companion answers using the current chapter as context.",
+        "removeQuote": "Remove quote",
+        "placeholderWithQuote": "Ask about the quoted text…",
+        "placeholderDefault": "Ask about the text…",
+        "sending": "Sending…",
+        "companionTitle": "Gloaming Companion",
+        "companionHistorySubtitle": "Conversation history",
+        "companionThreadSubtitle": "Immersive reading companion",
+        "historyAria": "Conversation history",
+        "newConversationAria": "New AI conversation",
+        "closePanelAria": "Close AI panel",
+        "sheetHistoryDescription": "Past conversations for this work.",
+        "sheetThreadDescription": "Chapter-aware help — reading stays primary.",
+        "untitledConversation": "Untitled conversation",
+        "promptTranslate": "Translate: {text}",
+        "promptAsk": "Ask: {text}",
+        "promptExplain": "Explain: {text}",
+        "wordDeepDivePrompt": "Explain the meaning and usage of \"{word}\" in the current context."
+      },
+      "api": {
+        "unauthorized": "Unauthorized — please sign in again",
+        "translateFailed": "Translation request failed",
+        "requestFailed": "Request failed",
+        "invalidResponse": "Invalid response format",
+        "aiUnavailable": "AI unavailable",
+        "translateRequestFailed": "Translation request failed"
+      }
     }
   },
   "api": {
