@@ -3,6 +3,15 @@ import { DEFAULT_LOCALE, type Locale, resolveLocale } from '@gloaming/i18n';
 /** Cookie name for persisted UI locale preference. */
 export const LOCALE_COOKIE_NAME = 'gloaming.locale';
 
+/** One year — matches typical UI preference persistence. */
+export const LOCALE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
+export type ClientLocaleOptions = {
+  cookieHeader?: string | null;
+  cookieValue?: string | null;
+  acceptLanguage?: string | null;
+};
+
 function readCookie(name: string, cookieHeader?: string | null): string | undefined {
   const source = cookieHeader ?? (typeof document !== 'undefined' ? document.cookie : undefined);
   if (!source) {
@@ -30,13 +39,24 @@ function readCookie(name: string, cookieHeader?: string | null): string | undefi
   return undefined;
 }
 
+function readLocaleCookie(options?: ClientLocaleOptions): string | undefined {
+  if (options?.cookieValue) {
+    return options.cookieValue;
+  }
+  return readCookie(LOCALE_COOKIE_NAME, options?.cookieHeader);
+}
+
 /**
- * Resolve the active client locale from cookie, then browser language, then default.
+ * Resolve the active client locale from cookie, then Accept-Language / browser language, then default.
  */
-export function getClientLocale(options?: { cookieHeader?: string | null }): Locale {
-  const fromCookie = readCookie(LOCALE_COOKIE_NAME, options?.cookieHeader);
+export function getClientLocale(options?: ClientLocaleOptions): Locale {
+  const fromCookie = readLocaleCookie(options);
   if (fromCookie) {
     return resolveLocale(fromCookie);
+  }
+
+  if (options?.acceptLanguage) {
+    return resolveLocale(options.acceptLanguage);
   }
 
   if (typeof navigator !== 'undefined' && navigator.language) {
@@ -44,4 +64,14 @@ export function getClientLocale(options?: { cookieHeader?: string | null }): Loc
   }
 
   return DEFAULT_LOCALE;
+}
+
+/** Persist UI locale in a first-party cookie and reload on the next navigation. */
+export function setClientLocaleCookie(locale: Locale): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const encoded = encodeURIComponent(locale);
+  document.cookie = `${LOCALE_COOKIE_NAME}=${encoded}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
 }

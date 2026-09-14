@@ -3,16 +3,17 @@
 import { BookMarkedIcon, CompassIcon, HistoryIcon, MoreHorizontalIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 import {
+  getNavCopy,
   getPrimaryNavLink,
   matchesNavPath,
   MOBILE_PRIMARY_TAB_IDS,
-  NAV_COPY,
   type PrimaryNavId,
 } from '@/components/navigation/nav-config';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 const TAB_ICONS: Record<PrimaryNavId, ReactNode> = {
@@ -21,28 +22,36 @@ const TAB_ICONS: Record<PrimaryNavId, ReactNode> = {
   history: <HistoryIcon className="size-5" strokeWidth={1.5} aria-hidden />,
 };
 
-function MoreSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function MoreSheet({
+  open,
+  onOpenChange,
+  navCopy,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  navCopy: ReturnType<typeof getNavCopy>;
+}) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="gap-0 rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <SheetHeader className="border-b border-border/80 px-5 py-4 text-left">
-          <SheetTitle>{NAV_COPY.moreSheetTitle}</SheetTitle>
-          <SheetDescription>{NAV_COPY.moreSheetDescription}</SheetDescription>
+          <SheetTitle>{navCopy.moreSheetTitle}</SheetTitle>
+          <SheetDescription>{navCopy.moreSheetDescription}</SheetDescription>
         </SheetHeader>
         <div className="flex flex-col gap-3 px-3 py-4">
-          <MorePlaceholderRow label={NAV_COPY.morePlaceholderAccount} />
-          <p className="px-2.5 text-xs leading-5 text-muted-foreground">{NAV_COPY.moreFutureHint}</p>
+          <MorePlaceholderRow label={navCopy.morePlaceholderAccount} hint={navCopy.morePlaceholderHint} />
+          <p className="px-2.5 text-xs leading-5 text-muted-foreground">{navCopy.moreFutureHint}</p>
         </div>
       </SheetContent>
     </Sheet>
   );
 }
 
-function MorePlaceholderRow({ label }: { label: string }) {
+function MorePlaceholderRow({ label, hint }: { label: string; hint: string }) {
   return (
     <div className="flex items-center justify-between rounded-xl px-2.5 py-3 text-sm text-muted-foreground">
       <span>{label}</span>
-      <span className="text-xs tracking-wide">{NAV_COPY.morePlaceholderHint}</span>
+      <span className="text-xs tracking-wide">{hint}</span>
     </div>
   );
 }
@@ -52,6 +61,8 @@ function MorePlaceholderRow({ label }: { label: string }) {
  */
 export function MobileBottomNav() {
   const pathname = usePathname() ?? '/';
+  const { locale } = useLocale();
+  const navCopy = useMemo(() => getNavCopy(locale), [locale]);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   return (
@@ -61,11 +72,11 @@ export function MobileBottomNav() {
           'fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/95 backdrop-blur-md md:hidden',
           'pb-[env(safe-area-inset-bottom)]',
         )}
-        aria-label="主导航"
+        aria-label={navCopy.mainNav}
       >
         <div className="mx-auto grid h-14 max-w-lg grid-cols-4">
           {MOBILE_PRIMARY_TAB_IDS.map((id) => {
-            const item = getPrimaryNavLink(id);
+            const item = getPrimaryNavLink(id, locale);
             const isActive = matchesNavPath(pathname, item.href);
             return (
               <Link
@@ -93,11 +104,11 @@ export function MobileBottomNav() {
             onClick={() => setIsMoreOpen(true)}
           >
             <MoreHorizontalIcon className="size-5" strokeWidth={1.5} aria-hidden />
-            <span>{NAV_COPY.more}</span>
+            <span>{navCopy.more}</span>
           </button>
         </div>
       </nav>
-      <MoreSheet open={isMoreOpen} onOpenChange={setIsMoreOpen} />
+      <MoreSheet open={isMoreOpen} onOpenChange={setIsMoreOpen} navCopy={navCopy} />
     </>
   );
 }

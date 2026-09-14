@@ -1,12 +1,15 @@
 'use client';
 
 import { Menu } from '@base-ui/react/menu';
-import { LogOutIcon, Settings2 } from 'lucide-react';
+import { CheckIcon, LogOutIcon, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { NAV_COPY } from '@/components/navigation/nav-config';
+import { t } from '@gloaming/i18n';
+
+import { getNavCopy } from '@/components/navigation/nav-config';
 import { ADMIN_ROUTES, AUTH_ADMIN_ROLE } from '@/constants';
 import { authClient } from '@/lib/auth';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export function UserAvatar({
@@ -43,9 +46,11 @@ export function UserAvatar({
 }
 
 export function useNavAccount() {
+  const { locale } = useLocale();
+  const navCopy = getNavCopy(locale);
   const { data, isPending } = authClient.useSession();
   const user = data?.user ?? null;
-  const username = user?.username?.trim() || user?.name?.trim() || '读者';
+  const username = user?.username?.trim() || user?.name?.trim() || navCopy.defaultReaderName;
   const email = user?.email?.trim() || '';
   const initial = username.slice(0, 1).toUpperCase();
   const image = user?.image?.trim() || null;
@@ -54,10 +59,10 @@ export function useNavAccount() {
   async function signOut() {
     const { error } = await authClient.signOut();
     if (error) {
-      toast.error(error.message || '退出登录失败，请稍后重试');
+      toast.error(error.message || t(locale, 'auth.signOutFailed'));
       return;
     }
-    toast.success('已退出登录');
+    toast.success(t(locale, 'auth.signOutSuccess'));
     window.location.assign('/');
   }
 
@@ -85,6 +90,12 @@ type AccountMenuProps = {
   triggerClassName?: string;
 };
 
+const menuItemClass = cn(
+  'flex cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm',
+  'text-foreground outline-none select-none',
+  'data-highlighted:bg-muted',
+);
+
 export function AccountMenu({
   username,
   email,
@@ -96,6 +107,14 @@ export function AccountMenu({
   onSignOut,
   triggerClassName,
 }: AccountMenuProps) {
+  const { locale, setLocale, localeOptions } = useLocale();
+  const navCopy = getNavCopy(locale);
+  const accountAriaLabel = t(locale, 'nav.accountMenuAria', {
+    username,
+    email,
+    account: navCopy.account,
+  });
+
   return (
     <Menu.Root open={open} onOpenChange={onOpenChange}>
       <Menu.Trigger
@@ -105,7 +124,7 @@ export function AccountMenu({
           'focus-visible:ring-3 focus-visible:ring-ring/50',
           triggerClassName,
         )}
-        aria-label={`${username}，${email}，${NAV_COPY.account}`}
+        aria-label={accountAriaLabel}
       >
         <UserAvatar image={image} initial={initial} sizeClass="size-9 text-sm" />
       </Menu.Trigger>
@@ -126,6 +145,35 @@ export function AccountMenu({
               </div>
             </div>
             <div className="mx-1 my-1 h-px bg-border" role="separator" />
+            <Menu.Group>
+              <Menu.GroupLabel className="px-2.5 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">
+                {navCopy.interfaceLanguage}
+              </Menu.GroupLabel>
+              <Menu.RadioGroup
+                value={locale}
+                onValueChange={(value) => {
+                  if (value === 'zh-CN' || value === 'en-US') {
+                    setLocale(value);
+                  }
+                }}
+              >
+                {localeOptions.map((option) => (
+                  <Menu.RadioItem
+                    key={option.value}
+                    value={option.value}
+                    label={option.label}
+                    aria-label={option.label}
+                    className={menuItemClass}
+                  >
+                    {option.label}
+                    <Menu.RadioItemIndicator className="flex size-4 items-center justify-center text-primary">
+                      <CheckIcon className="size-4" strokeWidth={2} aria-hidden />
+                    </Menu.RadioItemIndicator>
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioGroup>
+            </Menu.Group>
+            <div className="mx-1 my-1 h-px bg-border" role="separator" />
             {isAdmin ? (
               <Menu.Item
                 className={cn(
@@ -138,7 +186,7 @@ export function AccountMenu({
                 }}
               >
                 <Settings2 className="size-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-                {NAV_COPY.admin}
+                {navCopy.admin}
               </Menu.Item>
             ) : null}
             <Menu.Item
@@ -150,7 +198,7 @@ export function AccountMenu({
               onClick={onSignOut}
             >
               <LogOutIcon className="size-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-              {NAV_COPY.signOut}
+              {navCopy.signOut}
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>

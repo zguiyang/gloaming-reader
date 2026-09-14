@@ -3,18 +3,13 @@
 import { Menu } from '@base-ui/react/menu';
 import { CheckIcon, MoonIcon, SunIcon } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 
-import { NAV_COPY } from '@/components/navigation/nav-config';
+import { getNavCopy } from '@/components/navigation/nav-config';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
-
-export const THEME_MODE_OPTIONS: readonly { value: ThemeMode; label: string }[] = [
-  { value: 'light', label: NAV_COPY.themeLight },
-  { value: 'dark', label: NAV_COPY.themeDark },
-  { value: 'system', label: NAV_COPY.themeSystem },
-] as const;
 
 function subscribeNoop() {
   return () => {};
@@ -46,6 +41,17 @@ const menuItemClass = cn(
 
 /** SiteNav — icon button left of avatar; menu for light / dark / system. */
 export function ThemeModeNavButton() {
+  const { locale } = useLocale();
+  const navCopy = useMemo(() => getNavCopy(locale), [locale]);
+  const themeModeOptions = useMemo(
+    () =>
+      [
+        { value: 'light' as const, label: navCopy.themeLight },
+        { value: 'dark' as const, label: navCopy.themeDark },
+        { value: 'system' as const, label: navCopy.themeSystem },
+      ] as const,
+    [navCopy.themeDark, navCopy.themeLight, navCopy.themeSystem],
+  );
   const { theme, setTheme, resolvedTheme } = useTheme();
   const isClient = useIsClient();
   const current = resolveThemeMode(theme, isClient);
@@ -59,7 +65,7 @@ export function ThemeModeNavButton() {
           'outline-none transition-opacity duration-300 ease-out-soft hover:opacity-80',
           'focus-visible:ring-3 focus-visible:ring-ring/50',
         )}
-        aria-label={NAV_COPY.themeAppearance}
+        aria-label={navCopy.themeAppearance}
       >
         <Icon className="size-5" strokeWidth={1.5} aria-hidden />
       </Menu.Trigger>
@@ -74,7 +80,7 @@ export function ThemeModeNavButton() {
           >
             <Menu.Group>
               <Menu.GroupLabel className="px-2.5 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">
-                {NAV_COPY.themeAppearance}
+                {navCopy.themeAppearance}
               </Menu.GroupLabel>
               <Menu.RadioGroup
                 value={current}
@@ -84,7 +90,7 @@ export function ThemeModeNavButton() {
                   }
                 }}
               >
-                {THEME_MODE_OPTIONS.map((option) => (
+                {themeModeOptions.map((option) => (
                   <Menu.RadioItem
                     key={option.value}
                     value={option.value}

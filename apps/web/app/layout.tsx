@@ -5,9 +5,11 @@ import '@fontsource-variable/noto-serif-sc';
 import './globals.css';
 
 import type { Metadata } from 'next';
+import { cookies, headers } from 'next/headers';
 
 import { Providers } from '@/components/providers';
 import { APP_NAME } from '@/constants';
+import { getClientLocale, LOCALE_COOKIE_NAME } from '@/lib/client-locale';
 
 /**
  * Fonts: Fontsource variable packages (self-hosted woff2 via npm).
@@ -19,15 +21,22 @@ export const metadata: Metadata = {
   description: '读自己想读的英语',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const headerStore = await headers();
+  const locale = getClientLocale({
+    cookieValue: cookieStore.get(LOCALE_COOKIE_NAME)?.value,
+    acceptLanguage: headerStore.get('accept-language'),
+  });
+
   return (
-    <html lang="zh-CN" className="h-full antialiased" suppressHydrationWarning>
+    <html lang={locale} className="h-full antialiased" suppressHydrationWarning>
       <body className="flex min-h-full flex-col">
-        <Providers>{children}</Providers>
+        <Providers locale={locale}>{children}</Providers>
       </body>
     </html>
   );

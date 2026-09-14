@@ -4,6 +4,39 @@
     "loading": "加载中…",
     "greeting": "你好，{name}"
   },
+  "nav": {
+    "wordmark": "Gloaming",
+    "discover": "发现",
+    "shelf": "我的书架",
+    "shelfShort": "书架",
+    "history": "阅读历史",
+    "historyShort": "历史",
+    "more": "更多",
+    "signIn": "登录",
+    "account": "账户菜单",
+    "signOut": "退出登录",
+    "admin": "管理后台",
+    "moreSheetTitle": "更多",
+    "moreSheetDescription": "账户与扩展入口",
+    "morePlaceholderAccount": "账户",
+    "morePlaceholderHint": "即将开放",
+    "moreFutureHint": "后续模块入口将出现在这里。",
+    "themeAppearance": "外观",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeSystem": "跟随系统",
+    "siteHeader": "站点顶栏",
+    "mainNav": "主导航",
+    "interfaceLanguage": "界面语言",
+    "localeZhCN": "简体中文",
+    "localeEnUS": "English",
+    "defaultReaderName": "读者",
+    "accountMenuAria": "{username}，{email}，{account}"
+  },
+  "auth": {
+    "signOutFailed": "退出登录失败，请稍后重试",
+    "signOutSuccess": "已退出登录"
+  },
   "meta": {
     "fallbackProbe": "仅中文回退探针"
   },

@@ -4,6 +4,39 @@
     "loading": "Loading…",
     "greeting": "Hello, {name}"
   },
+  "nav": {
+    "wordmark": "Gloaming",
+    "discover": "Discover",
+    "shelf": "My shelf",
+    "shelfShort": "Shelf",
+    "history": "Reading history",
+    "historyShort": "History",
+    "more": "More",
+    "signIn": "Sign in",
+    "account": "Account menu",
+    "signOut": "Sign out",
+    "admin": "Admin",
+    "moreSheetTitle": "More",
+    "moreSheetDescription": "Account and extensions",
+    "morePlaceholderAccount": "Account",
+    "morePlaceholderHint": "Coming soon",
+    "moreFutureHint": "More module entries will appear here.",
+    "themeAppearance": "Appearance",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "siteHeader": "Site header",
+    "mainNav": "Main navigation",
+    "interfaceLanguage": "Interface language",
+    "localeZhCN": "简体中文",
+    "localeEnUS": "English",
+    "defaultReaderName": "Reader",
+    "accountMenuAria": "{username}, {email}, {account}"
+  },
+  "auth": {
+    "signOutFailed": "Sign out failed. Please try again.",
+    "signOutSuccess": "Signed out"
+  },
   "api": {
     "errors": {
       "unauthorized": "Unauthorized",

@@ -4,12 +4,16 @@ import { ThemeProvider, useTheme } from 'next-themes';
 import { type ReactNode, useSyncExternalStore } from 'react';
 import { Toaster } from 'sonner';
 
+import type { Locale } from '@gloaming/i18n';
+
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AuthDialogProvider } from '@/features/auth';
+import { LocaleProvider } from '@/lib/locale-context';
 import { QueryProvider } from '@/lib/query';
 
 type ProvidersProps = {
   children: ReactNode;
+  locale: Locale;
 };
 
 function subscribeNoop() {
@@ -32,17 +36,19 @@ function ThemedToaster() {
   return <Toaster theme={toastTheme} richColors closeButton position="top-right" />;
 }
 
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ children, locale }: ProvidersProps) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <QueryProvider>
-        <TooltipProvider delay={300}>
-          <AuthDialogProvider>
-            {children}
-            <ThemedToaster />
-          </AuthDialogProvider>
-        </TooltipProvider>
-      </QueryProvider>
+      <LocaleProvider locale={locale}>
+        <QueryProvider>
+          <TooltipProvider delay={300}>
+            <AuthDialogProvider>
+              {children}
+              <ThemedToaster />
+            </AuthDialogProvider>
+          </TooltipProvider>
+        </QueryProvider>
+      </LocaleProvider>
     </ThemeProvider>
   );
 }
