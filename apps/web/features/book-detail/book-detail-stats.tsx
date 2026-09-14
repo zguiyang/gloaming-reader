@@ -1,12 +1,18 @@
+'use client';
+
 import { StarIcon } from 'lucide-react';
+
+import { t } from '@gloaming/i18n';
 
 import type { BookDetail } from '@/features/book-detail/book-detail-model';
 import { difficultyStarCount, formatMinutes, formatSuggestedVocabSize } from '@/features/book-detail/book-detail-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 const STAR_TOTAL = 5;
 
 export function BookDetailStats({ book }: { book: BookDetail }) {
+  const { locale } = useLocale();
   const hasDifficulty = book.difficultyScore != null;
   const hasMinutes = book.estimatedMinutes != null;
   const hasVocab = book.suggestedVocabSize != null;
@@ -24,16 +30,22 @@ export function BookDetailStats({ book }: { book: BookDetail }) {
   return (
     <section className="border-b border-border/50 pb-6 md:pb-8">
       <h2 className="font-heading mb-4 text-left text-xl font-semibold text-foreground md:mb-5 md:text-2xl">
-        阅读信息
+        {t(locale, 'content.bookDetail.readInfo')}
       </h2>
       <div className={cn('grid w-full divide-x divide-border/50 text-center', gridClass)}>
         {hasDifficulty ? (
           <div className="px-2 md:px-4">
-            <p className="mb-1 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">难度</p>
+            <p className="mb-1 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+              {t(locale, 'content.bookDetail.difficulty')}
+            </p>
             <div
               className="mt-1 flex items-center justify-center gap-0.5"
               role="img"
-              aria-label={`难度 ${levelLabel}，${filled} 星（共 ${STAR_TOTAL} 星）`}
+              aria-label={t(locale, 'content.bookDetail.difficultyAria', {
+                label: levelLabel,
+                filled,
+                total: STAR_TOTAL,
+              })}
             >
               {Array.from({ length: STAR_TOTAL }, (_, i) => {
                 const isFilled = i < filled;
@@ -56,22 +68,24 @@ export function BookDetailStats({ book }: { book: BookDetail }) {
         {hasMinutes ? (
           <div className="px-2 md:px-4">
             <p className="mb-1 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-              预计阅读时间
+              {t(locale, 'content.bookDetail.estimatedMinutes')}
             </p>
             <p className="mt-1 text-base font-semibold text-foreground md:text-lg">
-              {formatMinutes(book.estimatedMinutes!)}
+              {formatMinutes(book.estimatedMinutes!, locale)}
             </p>
           </div>
         ) : null}
         {hasVocab ? (
           <div className="px-2 md:px-4">
             <p className="mb-1 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-              建议词汇量
+              {t(locale, 'content.bookDetail.suggestedVocab')}
             </p>
             <p className="mt-1 text-base font-semibold text-foreground md:text-lg">
-              约 {formatSuggestedVocabSize(book.suggestedVocabSize!)}
+              {t(locale, 'content.bookDetail.suggestedVocabApprox', {
+                size: formatSuggestedVocabSize(book.suggestedVocabSize!),
+              })}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">建议词汇量</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t(locale, 'content.bookDetail.suggestedVocab')}</p>
           </div>
         ) : null}
       </div>

@@ -4,15 +4,19 @@ import { CheckCircle2Icon, ChevronDownIcon, CircleIcon, PlayIcon } from 'lucide-
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { AUTH_ROUTES } from '@/constants';
 import type { BookChapter, BookDetail } from '@/features/book-detail/book-detail-model';
-import { chapterOrdinalLabel, chapterStatusLabel } from '@/features/book-detail/book-detail-model';
+import { chapterOrdinalLabel, chapterStatusLabel, formatChapterTitle } from '@/features/book-detail/book-detail-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 /** Desktop prototype shows a short preview then “展开全部章节”. */
 const PREVIEW_COUNT = 4;
 
 export function BookDetailToc({ book }: { book: BookDetail }) {
+  const { locale } = useLocale();
   const [isExpanded, setIsExpanded] = useState(false);
   const chapters = book.chapters;
   const visible = isExpanded ? chapters : chapters.slice(0, PREVIEW_COUNT);
@@ -21,8 +25,12 @@ export function BookDetailToc({ book }: { book: BookDetail }) {
   return (
     <section className="w-full space-y-4 md:space-y-5">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-heading text-xl font-semibold text-foreground md:text-2xl">目录</h2>
-        <span className="text-sm text-muted-foreground">共 {chapters.length} 章</span>
+        <h2 className="font-heading text-xl font-semibold text-foreground md:text-2xl">
+          {t(locale, 'content.bookDetail.toc')}
+        </h2>
+        <span className="text-sm text-muted-foreground">
+          {t(locale, 'content.bookDetail.tocChapterCount', { count: chapters.length })}
+        </span>
       </div>
 
       <ul className="space-y-0.5">
@@ -40,7 +48,7 @@ export function BookDetailToc({ book }: { book: BookDetail }) {
             className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors duration-200 ease-out-soft hover:text-brand-deep"
             onClick={() => setIsExpanded((v) => !v)}
           >
-            {isExpanded ? '收起章节' : '展开全部章节'}
+            {isExpanded ? t(locale, 'content.bookDetail.tocCollapse') : t(locale, 'content.bookDetail.tocExpand')}
             <ChevronDownIcon
               className={cn('size-4 transition-transform duration-300 ease-out-soft', isExpanded && 'rotate-180')}
               strokeWidth={1.5}
@@ -54,11 +62,13 @@ export function BookDetailToc({ book }: { book: BookDetail }) {
 }
 
 function ChapterRow({ chapter, workId }: { chapter: BookChapter; workId: string }) {
-  const label = chapterStatusLabel(chapter.status);
+  const { locale } = useLocale();
+  const label = chapterStatusLabel(chapter.status, locale);
   const isCurrent = chapter.status === 'current';
   const isUnread = chapter.status === 'unread';
   const ordinal = chapterOrdinalLabel(chapter.index);
   const href = AUTH_ROUTES.readBook(workId, chapter.id);
+  const chapterTitle = formatChapterTitle(chapter, locale);
 
   return (
     <Link
@@ -83,11 +93,14 @@ function ChapterRow({ chapter, workId }: { chapter: BookChapter; workId: string 
             <span className="mx-1.5 text-border" aria-hidden>
               ·
             </span>
-            {chapter.title}
+            {chapterTitle}
           </p>
           {chapter.estimatedMinutes != null && chapter.wordCount != null ? (
             <p className="mt-0.5 text-xs text-muted-foreground md:text-sm">
-              ~{chapter.estimatedMinutes} 分钟 · {chapter.wordCount.toLocaleString('en-US')} 字
+              {t(locale, 'content.bookDetail.chapterMeta', {
+                minutes: chapter.estimatedMinutes,
+                words: chapter.wordCount.toLocaleString(locale),
+              })}
             </p>
           ) : null}
         </div>

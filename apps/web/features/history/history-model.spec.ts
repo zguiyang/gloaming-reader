@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_LOCALE } from '@gloaming/i18n';
+
 import {
   countHistoryActivityDays,
   engagedSecondsToActivityLevel,
@@ -15,7 +17,7 @@ import {
 
 describe('history-model activity calendar', () => {
   it('formats calendar dates in Chinese', () => {
-    expect(formatHistoryCalendarDate('2026-01-15')).toBe('2026年1月15日');
+    expect(formatHistoryCalendarDate('2026-01-15', DEFAULT_LOCALE)).toBe('2026年1月15日');
   });
 
   it('maps engaged seconds to heatmap levels with max depth at 15 minutes', () => {
@@ -31,8 +33,8 @@ describe('history-model activity calendar', () => {
   });
 
   it('formats engaged minutes for tooltips', () => {
-    expect(formatEngagedMinutesLabel(30)).toBe('约 1 分钟');
-    expect(formatEngagedMinutesLabel(900)).toBe('约 15 分钟');
+    expect(formatEngagedMinutesLabel(30, DEFAULT_LOCALE)).toBe('约 1 分钟');
+    expect(formatEngagedMinutesLabel(900, DEFAULT_LOCALE)).toBe('约 15 分钟');
   });
 
   it('counts week columns for the year window', () => {

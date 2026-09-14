@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
+import { useLocale } from '@/lib/locale-context';
 
 function EmptyShelfIllustration() {
   return (
@@ -40,21 +43,23 @@ function EmptyShelfIllustration() {
 }
 
 export function ShelfEmptyState() {
+  const { locale } = useLocale();
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center px-2 py-16 text-center md:py-24">
       <EmptyShelfIllustration />
       <h2 className="font-heading mt-10 text-2xl font-semibold tracking-tight text-foreground md:text-[2rem] md:leading-10">
-        你的书架还是空的
+        {t(locale, 'content.shelf.emptyTitle')}
       </h2>
       <p className="mt-4 max-w-sm text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
-        去发现一些值得阅读的英文作品。
+        {t(locale, 'content.shelf.emptyDescription')}
       </p>
       <Button
         nativeButton={false}
         className="mt-10 h-12 rounded-full px-10 text-base hover:bg-brand-deep active:scale-[0.98]"
         render={<Link href={AUTH_ROUTES.discover} />}
       >
-        发现一本书开始阅读
+        {t(locale, 'content.common.findBookCta')}
       </Button>
     </div>
   );

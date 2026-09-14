@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { useAuthDialog } from '@/features/auth';
 import { formatHistoryApiError, useReadingHistoryQuery } from '@/features/history/history-api';
@@ -11,6 +13,7 @@ import { HistoryHeatmap } from '@/features/history/history-heatmap';
 import { HistorySummary } from '@/features/history/history-summary';
 import { HistoryWorks } from '@/features/history/history-works';
 import { isUnauthorizedError } from '@/lib/api-request';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 function HistorySkeleton() {
@@ -23,6 +26,7 @@ function HistorySkeleton() {
 }
 
 export function HistoryPage() {
+  const { locale } = useLocale();
   const { openLogin } = useAuthDialog();
   const historyQuery = useReadingHistoryQuery();
 
@@ -54,10 +58,10 @@ export function HistoryPage() {
     return (
       <div className="flex w-full flex-col items-center py-16 text-center">
         <HistoryHeader />
-        <h2 className="font-heading text-2xl font-semibold">无法加载阅读历史</h2>
+        <h2 className="font-heading text-2xl font-semibold">{t(locale, 'content.history.loadFailed')}</h2>
         <p className="mt-4 text-muted-foreground">{formatHistoryApiError(historyQuery.error)}</p>
         <Button className="mt-8 rounded-full px-10" onClick={() => void historyQuery.refetch()}>
-          重试
+          {t(locale, 'content.common.retry')}
         </Button>
       </div>
     );

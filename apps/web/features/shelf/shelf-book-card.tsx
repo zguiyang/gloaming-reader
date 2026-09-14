@@ -2,24 +2,27 @@
 
 import Link from 'next/link';
 
+import { type Locale, t } from '@gloaming/i18n';
 import type { ShelfItem } from '@gloaming/shared/shelf';
 
 import { AUTH_ROUTES } from '@/constants';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-function statusLabel(entry: ShelfItem): string {
+function statusLabel(entry: ShelfItem, locale: Locale): string {
   if (entry.state.status === 'completed') {
-    return '已读完';
+    return t(locale, 'content.shelf.statusCompleted');
   }
   if (entry.state.progressRatio <= 0) {
-    return '未开始';
+    return t(locale, 'content.shelf.statusNotStarted');
   }
-  return `已读 ${entry.state.progressRatio}%`;
+  return t(locale, 'content.shelf.statusReadProgress', { ratio: entry.state.progressRatio });
 }
 
 export function ShelfBookCard({ entry }: { entry: ShelfItem }) {
+  const { locale } = useLocale();
   const { work, state } = entry;
   const detailHref = AUTH_ROUTES.bookDetail(work.id);
   const tagLine = work.tags.slice(0, 2).join(' · ');
@@ -35,7 +38,7 @@ export function ShelfBookCard({ entry }: { entry: ShelfItem }) {
           'transition-transform duration-300 ease-out-soft',
           'hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50',
         )}
-        aria-label={`查看《${work.title}》详情`}
+        aria-label={t(locale, 'content.common.viewBookDetailAria', { title: work.title })}
       >
         <WorkCover
           title={work.title}
@@ -55,7 +58,7 @@ export function ShelfBookCard({ entry }: { entry: ShelfItem }) {
           </h3>
         </Link>
         {tagLine ? <p className="mt-1.5 line-clamp-1 text-xs text-muted-foreground">{tagLine}</p> : null}
-        <p className="mt-1 text-xs text-muted-foreground/90">{statusLabel(entry)}</p>
+        <p className="mt-1 text-xs text-muted-foreground/90">{statusLabel(entry, locale)}</p>
         {hasProgressBar ? (
           <div className="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-muted/80">
             <div

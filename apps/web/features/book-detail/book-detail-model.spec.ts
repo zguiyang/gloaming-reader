@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_LOCALE } from '@gloaming/i18n';
+
 import { chaptersFromParts, toBookDetail } from '@/features/book-detail/book-detail-api';
 import {
   chapterOrdinalLabel,
   chapterStatusLabel,
   difficultyStarCount,
+  formatChapterTitle,
   formatMinutes,
   formatRelativeReadTime,
   formatSuggestedVocabSize,
@@ -16,23 +19,23 @@ import {
 
 describe('book-detail-model', () => {
   it('maps reading status to primary CTA labels', () => {
-    expect(primaryReadLabel('unread')).toBe('开始阅读');
-    expect(primaryReadLabel('in_progress')).toBe('继续阅读');
-    expect(primaryReadLabel('completed')).toBe('再次阅读');
+    expect(primaryReadLabel('unread', DEFAULT_LOCALE)).toBe('开始阅读');
+    expect(primaryReadLabel('in_progress', DEFAULT_LOCALE)).toBe('继续阅读');
+    expect(primaryReadLabel('completed', DEFAULT_LOCALE)).toBe('再次阅读');
   });
 
   it('formats relative last-read times', () => {
     const now = new Date(2026, 7, 21, 10, 0, 0);
     const yesterday = new Date(2026, 7, 20, 20, 30, 0);
-    expect(formatRelativeReadTime(yesterday.toISOString(), now)).toMatch(/^昨天/);
-    expect(formatRelativeReadTime(null, now)).toBeNull();
+    expect(formatRelativeReadTime(yesterday.toISOString(), now, DEFAULT_LOCALE)).toMatch(/^昨天/);
+    expect(formatRelativeReadTime(null, now, DEFAULT_LOCALE)).toBeNull();
   });
 
   it('formats minutes and suggested vocab size for stats', () => {
-    expect(formatMinutes(15)).toBe('15 分钟');
-    expect(formatMinutes(90)).toBe('1 小时 30 分');
-    expect(formatMinutes(450)).toBe('7 小时 30 分');
-    expect(formatMinutes(null)).toBeNull();
+    expect(formatMinutes(15, DEFAULT_LOCALE)).toBe('15 分钟');
+    expect(formatMinutes(90, DEFAULT_LOCALE)).toBe('1 小时 30 分');
+    expect(formatMinutes(450, DEFAULT_LOCALE)).toBe('7 小时 30 分');
+    expect(formatMinutes(null, DEFAULT_LOCALE)).toBeNull();
     expect(formatSuggestedVocabSize(3200)).toBe('3.2k');
     expect(formatSuggestedVocabSize(85000)).toBe('85k');
   });
@@ -56,13 +59,14 @@ describe('book-detail-model', () => {
   });
 
   it('maps language labels', () => {
-    expect(languageLabelFromCode('en')).toBe('英文原版');
-    expect(languageLabelFromCode('zh')).toBe('zh');
+    expect(languageLabelFromCode('en', DEFAULT_LOCALE)).toBe('英文原版');
+    expect(languageLabelFromCode('zh', DEFAULT_LOCALE)).toBe('zh');
   });
+
   it('maps chapter status labels including unread', () => {
-    expect(chapterStatusLabel('unread')).toBe('未读');
-    expect(chapterStatusLabel('current')).toBe('正在阅读');
-    expect(chapterStatusLabel('read')).toBe('已读');
+    expect(chapterStatusLabel('unread', DEFAULT_LOCALE)).toBe('未读');
+    expect(chapterStatusLabel('current', DEFAULT_LOCALE)).toBe('正在阅读');
+    expect(chapterStatusLabel('read', DEFAULT_LOCALE)).toBe('已读');
   });
 
   it('formats Arabic chapter ordinals without zero-pad', () => {
@@ -70,6 +74,11 @@ describe('book-detail-model', () => {
     expect(chapterOrdinalLabel(2)).toBe('2');
     expect(chapterOrdinalLabel(11)).toBe('11');
     expect(chapterOrdinalLabel(21)).toBe('21');
+  });
+
+  it('formats fallback chapter titles from index', () => {
+    expect(formatChapterTitle({ index: 3, title: '' }, DEFAULT_LOCALE)).toBe('第 3 章');
+    expect(formatChapterTitle({ index: 3, title: 'Custom' }, DEFAULT_LOCALE)).toBe('Custom');
   });
 });
 
@@ -185,5 +194,7 @@ describe('toBookDetail', () => {
     const book = toBookDetail(work, parts, undefined);
     expect(book.estimatedMinutes).toBe(2);
     expect(book.suggestedVocabSize).toBeNull();
+    expect(book.sourceLabel).toBe('official');
+    expect(book.language).toBe('en');
   });
 });

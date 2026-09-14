@@ -3,9 +3,12 @@
 import { SlidersHorizontalIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { type Locale, t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { DISCOVER_ALL_TAG, type DiscoverTagFilter } from '@/features/discover/discover-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type DiscoverFiltersProps = {
@@ -13,6 +16,13 @@ type DiscoverFiltersProps = {
   tags: string[];
   onTagChange: (value: DiscoverTagFilter) => void;
 };
+
+function tagDisplayLabel(option: DiscoverTagFilter, locale: Locale): string {
+  if (option === DISCOVER_ALL_TAG) {
+    return t(locale, 'content.discover.allTags');
+  }
+  return option;
+}
 
 function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -38,6 +48,7 @@ function tagOptions(catalogTags: string[]): DiscoverTagFilter[] {
 }
 
 function MobileTuneSheet({ tag, tags, onTagChange }: DiscoverFiltersProps) {
+  const { locale } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const options = tagOptions(tags);
 
@@ -47,20 +58,20 @@ function MobileTuneSheet({ tag, tags, onTagChange }: DiscoverFiltersProps) {
         render={
           <Button variant="outline" size="sm" className="h-9 gap-2 rounded-full border-border/60 bg-card md:hidden">
             <SlidersHorizontalIcon className="size-4" strokeWidth={1.5} aria-hidden />
-            筛选
+            {t(locale, 'content.discover.filter')}
           </Button>
         }
       />
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
-          <SheetTitle>标签筛选</SheetTitle>
-          <SheetDescription>按内容标签浏览目录</SheetDescription>
+          <SheetTitle>{t(locale, 'content.discover.filterSheetTitle')}</SheetTitle>
+          <SheetDescription>{t(locale, 'content.discover.filterSheetDescription')}</SheetDescription>
         </SheetHeader>
         <div className="mt-6 flex flex-wrap gap-2">
           {options.map((option) => (
             <Chip
               key={option}
-              label={option}
+              label={tagDisplayLabel(option, locale)}
               active={tag === option}
               onClick={() => {
                 onTagChange(option);
@@ -75,13 +86,19 @@ function MobileTuneSheet({ tag, tags, onTagChange }: DiscoverFiltersProps) {
 }
 
 export function DiscoverFilters({ tag, tags, onTagChange }: DiscoverFiltersProps) {
+  const { locale } = useLocale();
   const options = tagOptions(tags);
 
   return (
     <div className="mb-8 flex items-center justify-between gap-4 md:mb-10">
       <div className="hidden flex-wrap gap-2 md:flex">
         {options.map((option) => (
-          <Chip key={option} label={option} active={tag === option} onClick={() => onTagChange(option)} />
+          <Chip
+            key={option}
+            label={tagDisplayLabel(option, locale)}
+            active={tag === option}
+            onClick={() => onTagChange(option)}
+          />
         ))}
       </div>
       <MobileTuneSheet tag={tag} tags={tags} onTagChange={onTagChange} />

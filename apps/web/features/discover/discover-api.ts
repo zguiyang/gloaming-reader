@@ -11,6 +11,7 @@ import {
 } from '@gloaming/shared/works';
 
 import {
+  DISCOVER_ALL_TAG,
   DISCOVER_PAGE_SIZE,
   type DiscoverItem,
   type DiscoverShelfStatus,
@@ -122,7 +123,7 @@ export function useDiscoverCatalogQuery(params: DiscoverListParams, options?: { 
 }
 
 export function tagFilterParam(tag: DiscoverTagFilter): string | undefined {
-  return tag === '全部' ? undefined : tag;
+  return tag === DISCOVER_ALL_TAG ? undefined : tag;
 }
 
 export const formatDiscoverApiError = formatApiError;

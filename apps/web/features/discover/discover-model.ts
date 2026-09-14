@@ -18,5 +18,6 @@ export type DiscoverItem = {
 /** 3 rows × 5 columns on large screens. */
 export const DISCOVER_PAGE_SIZE = 15;
 
-export const DISCOVER_ALL_TAG = '全部' as const;
+/** Locale-neutral sentinel for the “all tags” filter chip. */
+export const DISCOVER_ALL_TAG = '__all__' as const;
 export type DiscoverTagFilter = typeof DISCOVER_ALL_TAG | string;

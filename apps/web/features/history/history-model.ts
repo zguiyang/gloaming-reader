@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
 import type {
   ReadingHistoryActivityDay,
   ReadingHistoryData,
@@ -31,32 +32,38 @@ export function toHistoryViewModel(data: ReadingHistoryData): HistoryViewModel {
   };
 }
 
-/** `YYYY-MM-DD` → `2026年1月15日` */
-export function formatHistoryCalendarDate(date: string): string {
+/** `YYYY-MM-DD` → locale-aware calendar date (e.g. `2026年1月15日` / `January 15, 2026`). */
+export function formatHistoryCalendarDate(date: string, locale: Locale = DEFAULT_LOCALE): string {
   const [y, m, d] = date.split('-').map(Number);
   if (!y || !m || !d) {
     return date;
   }
-  return `${y}年${m}月${d}日`;
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
-export const HISTORY_MONTH_LABELS = [
-  '1月',
-  '2月',
-  '3月',
-  '4月',
-  '5月',
-  '6月',
-  '7月',
-  '8月',
-  '9月',
-  '10月',
-  '11月',
-  '12月',
-] as const;
+/** Month labels Jan→Dec for react-activity-calendar. */
+export function getHistoryMonthLabels(locale: Locale = DEFAULT_LOCALE): string[] {
+  return Array.from({ length: 12 }, (_, monthIndex) =>
+    new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(2026, monthIndex, 1)),
+    ),
+  );
+}
 
 /** Weekday labels Sun→Sat for react-activity-calendar. */
-export const HISTORY_WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六'] as const;
+export function getHistoryWeekdayLabels(locale: Locale = DEFAULT_LOCALE): string[] {
+  const sunday = Date.UTC(2026, 0, 4);
+  return Array.from({ length: 7 }, (_, dayOffset) =>
+    new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' }).format(
+      new Date(sunday + dayOffset * DAY_MS),
+    ),
+  );
+}
 
 /** Deepest heatmap cell: ≥ 15 minutes engaged. */
 export const HISTORY_ACTIVITY_MAX_LEVEL = 4 as const;
@@ -162,9 +169,9 @@ export function engagedSecondsToActivityLevel(engagedSeconds: number): number {
 }
 
 /** Whole minutes for tooltips (ceil so 30s still shows as 1 minute). */
-export function formatEngagedMinutesLabel(engagedSeconds: number): string {
+export function formatEngagedMinutesLabel(engagedSeconds: number, locale: Locale = DEFAULT_LOCALE): string {
   const minutes = Math.max(1, Math.ceil(engagedSeconds / 60));
-  return `约 ${minutes} 分钟`;
+  return t(locale, 'content.history.engagedMinutes', { minutes });
 }
 
 function activityPoint(date: string, engagedSeconds: number): HistoryActivityPoint {

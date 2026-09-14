@@ -5,12 +5,14 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import { DEFAULT_LOCALE } from '@gloaming/i18n';
 import type { ReadingState } from '@gloaming/shared/reader';
 import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
 import type { ShelfItem } from '@gloaming/shared/shelf';
 import { type PartSummary, type Work, workSchema } from '@gloaming/shared/works';
 
 import {
+  BOOK_DETAIL_DEFAULT_CATEGORY,
   type BookChapter,
   type BookDetail,
   languageLabelFromCode,
@@ -80,7 +82,7 @@ export function chaptersFromParts(parts: PartSummary[], state: ReadingState | nu
     return sorted.map((part, i) => ({
       id: part.id,
       index: i + 1,
-      title: part.title || `第 ${i + 1} 章`,
+      title: part.title?.trim() ?? '',
       ...partStatsFields(part),
       status: 'unread' as const,
     }));
@@ -90,7 +92,7 @@ export function chaptersFromParts(parts: PartSummary[], state: ReadingState | nu
     return sorted.map((part, i) => ({
       id: part.id,
       index: i + 1,
-      title: part.title || `第 ${i + 1} 章`,
+      title: part.title?.trim() ?? '',
       ...partStatsFields(part),
       status: 'read' as const,
     }));
@@ -108,7 +110,7 @@ export function chaptersFromParts(parts: PartSummary[], state: ReadingState | nu
     return {
       id: part.id,
       index: i + 1,
-      title: part.title || `第 ${i + 1} 章`,
+      title: part.title?.trim() ?? '',
       ...partStatsFields(part),
       status,
     };
@@ -128,13 +130,14 @@ export function toBookDetail(work: Work, parts: PartSummary[], shelfItem: ShelfI
     author: work.author,
     difficultyScore: readingStats.difficultyScore,
     difficultyLabel: readingStats.difficultyLabel,
-    category: work.tags[0] ?? '读物',
+    category: work.tags[0] ?? BOOK_DETAIL_DEFAULT_CATEGORY,
     tags: work.tags,
     estimatedMinutes: readingStats.estimatedMinutes,
     suggestedVocabSize: readingStats.suggestedVocabSize,
     teaser,
-    sourceLabel: '官方',
-    languageLabel: languageLabelFromCode(work.language),
+    sourceLabel: 'official',
+    language: work.language,
+    languageLabel: languageLabelFromCode(work.language, DEFAULT_LOCALE),
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
     shelfStatus: shelfItem ? 'on_shelf' : 'available',
     readingStatus,

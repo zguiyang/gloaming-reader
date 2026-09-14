@@ -1,26 +1,34 @@
+'use client';
+
 import Link from 'next/link';
+
+import { t } from '@gloaming/i18n';
 
 import { AUTH_ROUTES } from '@/constants';
 import { formatMinutes, type RelatedBookCard } from '@/features/book-detail/book-detail-model';
 import { WorkCover } from '@/features/work-cover';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export function BookDetailRelated({
   books,
-  title = '您可能也会喜欢',
+  title,
   showDivider = true,
 }: {
   books: RelatedBookCard[];
   title?: string;
   showDivider?: boolean;
 }) {
+  const { locale } = useLocale();
+  const sectionTitle = title ?? t(locale, 'content.bookDetail.recommendationsPersonalized');
+
   if (books.length === 0) {
     return null;
   }
 
   return (
     <section className={cn('w-full space-y-5 md:space-y-6', showDivider && 'border-t border-border/50 pt-8')}>
-      <h2 className="font-heading text-left text-xl font-semibold text-foreground md:text-2xl">{title}</h2>
+      <h2 className="font-heading text-left text-xl font-semibold text-foreground md:text-2xl">{sectionTitle}</h2>
       <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-4 md:gap-6 md:overflow-visible md:px-0 md:pb-0">
         {books.map((book) => (
           <Link
@@ -42,7 +50,12 @@ export function BookDetailRelated({
               {book.title}
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              {[book.difficultyLabel ? `难度: ${book.difficultyLabel}` : null, formatMinutes(book.estimatedMinutes)]
+              {[
+                book.difficultyLabel
+                  ? t(locale, 'content.bookDetail.difficultyPrefix', { label: book.difficultyLabel })
+                  : null,
+                formatMinutes(book.estimatedMinutes, locale),
+              ]
                 .filter(Boolean)
                 .join(' · ')}
             </p>

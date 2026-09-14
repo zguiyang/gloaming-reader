@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
+import { useLocale } from '@/lib/locale-context';
 
 function EmptyDiscoverIllustration() {
   return (
@@ -37,14 +40,16 @@ type DiscoverEmptyStateProps = {
 };
 
 export function DiscoverEmptyState({ onResetFilters }: DiscoverEmptyStateProps) {
+  const { locale } = useLocale();
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center px-2 py-16 text-center md:py-24">
       <EmptyDiscoverIllustration />
       <h2 className="font-heading mt-10 text-2xl font-semibold tracking-tight text-foreground md:text-[2rem] md:leading-10">
-        暂时没有可发现的内容
+        {t(locale, 'content.discover.emptyTitle')}
       </h2>
       <p className="mt-4 max-w-sm text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
-        换个分类看看，或稍后再来。官方书目会慢慢充实。
+        {t(locale, 'content.discover.emptyDescription')}
       </p>
       <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
         {onResetFilters ? (
@@ -53,7 +58,7 @@ export function DiscoverEmptyState({ onResetFilters }: DiscoverEmptyStateProps) 
             className="h-12 rounded-full px-8 text-base hover:bg-brand-deep active:scale-[0.98]"
             onClick={onResetFilters}
           >
-            查看全部推荐
+            {t(locale, 'content.discover.resetFilters')}
           </Button>
         ) : null}
         <Button
@@ -62,7 +67,7 @@ export function DiscoverEmptyState({ onResetFilters }: DiscoverEmptyStateProps) 
           className="h-12 rounded-full px-8 text-base"
           render={<Link href={AUTH_ROUTES.shelf} />}
         >
-          回到我的书架
+          {t(locale, 'content.common.backToShelf')}
         </Button>
       </div>
     </div>

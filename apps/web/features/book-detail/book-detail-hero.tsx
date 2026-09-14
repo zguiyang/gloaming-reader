@@ -3,15 +3,21 @@
 import { BookmarkIcon, BookOpenIcon, CheckIcon, LanguagesIcon, Loader2Icon } from 'lucide-react';
 import Link from 'next/link';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import {
   type BookDetail,
+  formatBookCategory,
   formatMinutes,
   formatRelativeReadTime,
+  formatSourceLabel,
+  languageLabelFromCode,
   primaryReadLabel,
 } from '@/features/book-detail/book-detail-model';
 import { WorkCover } from '@/features/work-cover';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type BookDetailHeroProps = {
@@ -22,15 +28,19 @@ type BookDetailHeroProps = {
 };
 
 export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }: BookDetailHeroProps) {
+  const { locale } = useLocale();
   const readHref = AUTH_ROUTES.readBook(book.id);
-  const readLabel = primaryReadLabel(book.readingStatus);
-  const lastRead = formatRelativeReadTime(book.lastReadAt);
+  const readLabel = primaryReadLabel(book.readingStatus, locale);
+  const lastRead = formatRelativeReadTime(book.lastReadAt, new Date(), locale);
   const isCompleted = book.readingStatus === 'completed';
   const hasProgress =
     isCompleted || (book.readingStatus === 'in_progress' && book.progressRatio != null && book.progressRatio > 0);
   const progressPercent = isCompleted ? 100 : (book.progressRatio ?? 0);
-  const progressLabel = isCompleted ? '已读完' : `已阅读 ${book.progressRatio}%`;
+  const progressLabel = isCompleted
+    ? t(locale, 'content.bookDetail.progressCompleted')
+    : t(locale, 'content.bookDetail.progressRead', { ratio: book.progressRatio ?? 0 });
   const chips = book.tags.slice(0, 3);
+  const languageLabel = languageLabelFromCode(book.language, locale);
 
   return (
     <section className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-12 lg:gap-16">
@@ -47,12 +57,12 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
         <div className="space-y-2">
           <div className="mb-2 flex flex-wrap items-center justify-center gap-2 md:justify-start">
             <span className="rounded bg-primary/10 px-2 py-1 text-[11px] font-semibold tracking-[0.08em] text-primary uppercase">
-              {book.sourceLabel}
+              {formatSourceLabel(book.sourceLabel, locale)}
             </span>
-            {book.languageLabel ? (
+            {languageLabel ? (
               <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                 <LanguagesIcon className="size-3.5" strokeWidth={1.5} aria-hidden />
-                {book.languageLabel}
+                {languageLabel}
               </span>
             ) : null}
           </div>
@@ -105,7 +115,7 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
             <div className="w-full">
               <div className="mb-2 flex justify-between text-sm text-muted-foreground">
                 <span className="font-medium text-primary">{progressLabel}</span>
-                {lastRead ? <span>上次阅读：{lastRead}</span> : null}
+                {lastRead ? <span>{t(locale, 'content.bookDetail.lastReadPrefix', { time: lastRead })}</span> : null}
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
                 <div
@@ -118,7 +128,9 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
         </div>
 
         <p className="text-sm text-muted-foreground md:hidden">
-          {[formatMinutes(book.estimatedMinutes), book.category].filter(Boolean).join(' · ')}
+          {[formatMinutes(book.estimatedMinutes, locale), formatBookCategory(book.category, locale)]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
       </div>
     </section>
@@ -126,11 +138,13 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
 }
 
 export function BookDetailMobileProgress({ book }: { book: BookDetail }) {
+  const { locale } = useLocale();
+
   if (book.readingStatus === 'unread') {
     return null;
   }
 
-  const lastRead = formatRelativeReadTime(book.lastReadAt);
+  const lastRead = formatRelativeReadTime(book.lastReadAt, new Date(), locale);
   const isCompleted = book.readingStatus === 'completed';
   const ratio = isCompleted ? 100 : (book.progressRatio ?? 0);
 
@@ -138,10 +152,18 @@ export function BookDetailMobileProgress({ book }: { book: BookDetail }) {
     <section className="flex flex-col gap-3 rounded-xl bg-surface-container-highest p-4 md:hidden">
       <div className="flex items-end justify-between">
         <div>
-          <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">阅读进度</p>
-          <p className="font-heading text-2xl font-semibold text-primary">{isCompleted ? '已读完' : `${ratio}%`}</p>
+          <p className="text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+            {t(locale, 'content.bookDetail.readingProgress')}
+          </p>
+          <p className="font-heading text-2xl font-semibold text-primary">
+            {isCompleted ? t(locale, 'content.bookDetail.progressCompleted') : `${ratio}%`}
+          </p>
         </div>
-        {lastRead ? <span className="text-sm text-muted-foreground">上次阅读：{lastRead}</span> : null}
+        {lastRead ? (
+          <span className="text-sm text-muted-foreground">
+            {t(locale, 'content.bookDetail.lastReadPrefix', { time: lastRead })}
+          </span>
+        ) : null}
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
@@ -164,8 +186,9 @@ export function BookDetailStickyCta({
   onAddToShelf: () => void;
   isAddingToShelf?: boolean;
 }) {
+  const { locale } = useLocale();
   const readHref = AUTH_ROUTES.readBook(book.id);
-  const readLabel = primaryReadLabel(book.readingStatus);
+  const readLabel = primaryReadLabel(book.readingStatus, locale);
 
   return (
     <div className="fixed inset-x-0 z-40 border-t border-border/60 bg-background/95 p-4 backdrop-blur-md md:hidden bottom-[var(--app-shell-bottom,0px)]">
@@ -187,7 +210,7 @@ export function BookDetailStickyCta({
             onClick={() => {
               onAddToShelf();
             }}
-            aria-label="加入书架"
+            aria-label={t(locale, 'content.bookDetail.addToShelfAria')}
           >
             {isAddingToShelf ? (
               <Loader2Icon className="size-4 animate-spin" aria-hidden />
@@ -212,6 +235,8 @@ function ShelfButton({
   isAdding?: boolean;
   className?: string;
 }) {
+  const { locale } = useLocale();
+
   if (onShelf) {
     return (
       <Button
@@ -224,7 +249,7 @@ function ShelfButton({
         )}
       >
         <CheckIcon className="size-4" strokeWidth={1.5} aria-hidden />
-        已在书架
+        {t(locale, 'content.bookDetail.onShelf')}
       </Button>
     );
   }
@@ -241,7 +266,7 @@ function ShelfButton({
     >
       {isAdding ? <Loader2Icon className="size-4 animate-spin" aria-hidden /> : null}
       <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
-      加入书架
+      {t(locale, 'content.bookDetail.addToShelf')}
     </Button>
   );
 }

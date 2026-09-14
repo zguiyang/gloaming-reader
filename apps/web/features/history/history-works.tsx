@@ -3,12 +3,17 @@
 import { ChevronRightIcon } from 'lucide-react';
 import Link from 'next/link';
 
+import { t } from '@gloaming/i18n';
+
 import { AUTH_ROUTES } from '@/constants';
 import { formatHistoryCalendarDate, type HistoryViewModel } from '@/features/history/history-model';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
+import { useLocale } from '@/lib/locale-context';
 
 export function HistoryWorks({ works }: { works: HistoryViewModel['works'] }) {
+  const { locale } = useLocale();
+
   if (works.length === 0) {
     return null;
   }
@@ -17,12 +22,17 @@ export function HistoryWorks({ works }: { works: HistoryViewModel['works'] }) {
 
   return (
     <section className="w-full space-y-4 md:space-y-6">
-      <h2 className="font-heading text-xl font-semibold text-foreground md:text-2xl">读过的作品</h2>
+      <h2 className="font-heading text-xl font-semibold text-foreground md:text-2xl">
+        {t(locale, 'content.history.worksRead')}
+      </h2>
       <ul>
         {sorted.map((item) => {
           const coverImageUrl = coverUrlFromAssetId(item.coverAssetId);
-          const dateLabel = formatHistoryCalendarDate(item.date);
-          const statusLabel = item.status === 'completed' ? '已读完' : '正在阅读';
+          const dateLabel = formatHistoryCalendarDate(item.date, locale);
+          const statusLabel =
+            item.status === 'completed'
+              ? t(locale, 'content.history.statusCompleted')
+              : t(locale, 'content.history.statusInProgress');
 
           return (
             <li
@@ -41,7 +51,9 @@ export function HistoryWorks({ works }: { works: HistoryViewModel['works'] }) {
                   </h3>
                   {item.author ? <p className="mt-0.5 truncate text-sm text-muted-foreground">{item.author}</p> : null}
                   <p className="mt-1 text-sm text-muted-foreground md:hidden">
-                    {item.status === 'completed' ? `已读完于 ${dateLabel}` : `最近阅读于 ${dateLabel}`}
+                    {item.status === 'completed'
+                      ? t(locale, 'content.history.completedOn', { date: dateLabel })
+                      : t(locale, 'content.history.lastReadOn', { date: dateLabel })}
                   </p>
                 </div>
 

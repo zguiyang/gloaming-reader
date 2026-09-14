@@ -5,6 +5,8 @@ import { ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
+
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog, useRequireAuth } from '@/features/auth';
 import {
@@ -21,6 +23,7 @@ import { BookDetailToc } from '@/features/book-detail/book-detail-toc';
 import { BookDetailUnavailable } from '@/features/book-detail/book-detail-unavailable';
 import { useAddToShelfMutation } from '@/features/reading-state/reading-state-client';
 import { formatApiError, isUnauthorizedError } from '@/lib/api-request';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 function BookDetailSkeleton() {
@@ -39,6 +42,7 @@ function BookDetailSkeleton() {
 }
 
 function BookDetailView({ book }: { book: BookDetail }) {
+  const { locale } = useLocale();
   const queryClient = useQueryClient();
   const { openLogin } = useAuthDialog();
   const requireAuth = useRequireAuth();
@@ -52,7 +56,7 @@ function BookDetailView({ book }: { book: BookDetail }) {
 
     addToShelf.mutate(book.id, {
       onSuccess: async () => {
-        toast.success('已加入书架');
+        toast.success(t(locale, 'content.bookDetail.addedToShelfToast'));
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: bookDetailQueryKey.detail(book.id) }),
           queryClient.invalidateQueries({ queryKey: recommendationsQueryKey.all }),
@@ -81,7 +85,7 @@ function BookDetailView({ book }: { book: BookDetail }) {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors duration-200 ease-out-soft hover:text-primary"
         >
           <ArrowLeftIcon className="size-4" strokeWidth={1.5} aria-hidden />
-          返回发现
+          {t(locale, 'content.common.backToDiscover')}
         </Link>
       </div>
 
@@ -100,7 +104,7 @@ function BookDetailView({ book }: { book: BookDetail }) {
       </div>
 
       <footer className="border-t border-border/50 pt-8 text-center text-sm text-muted-foreground">
-        <p className="mb-1">Gloaming — The Quiet Art of Slow Reading.</p>
+        <p className="mb-1">{t(locale, 'content.bookDetail.tagline')}</p>
       </footer>
 
       <BookDetailStickyCta

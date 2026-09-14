@@ -2,7 +2,10 @@
 
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type DiscoverPaginationProps = {
@@ -21,6 +24,8 @@ export function DiscoverPagination({
   hasMoreMobile,
   onLoadMore,
 }: DiscoverPaginationProps) {
+  const { locale } = useLocale();
+
   if (totalPages <= 1 && !hasMoreMobile) {
     return null;
   }
@@ -37,13 +42,16 @@ export function DiscoverPagination({
             className="h-10 rounded-full border-border px-6 text-sm text-muted-foreground hover:border-primary hover:text-primary"
             onClick={onLoadMore}
           >
-            加载更多
+            {t(locale, 'content.discover.loadMore')}
           </Button>
         </div>
       ) : null}
 
       {totalPages > 1 ? (
-        <nav className="hidden items-center justify-center gap-6 font-heading text-lg md:flex" aria-label="分页">
+        <nav
+          className="hidden items-center justify-center gap-6 font-heading text-lg md:flex"
+          aria-label={t(locale, 'content.discover.pagination')}
+        >
           <button
             type="button"
             disabled={page <= 1}
@@ -54,7 +62,7 @@ export function DiscoverPagination({
             )}
           >
             <ChevronLeftIcon className="size-5" strokeWidth={1.5} aria-hidden />
-            上一页
+            {t(locale, 'content.discover.prevPage')}
           </button>
           <div className="flex items-center gap-4 text-muted-foreground">
             {pages.map((n) => (
@@ -81,7 +89,7 @@ export function DiscoverPagination({
               'hover:text-primary disabled:pointer-events-none disabled:opacity-40',
             )}
           >
-            下一页
+            {t(locale, 'content.discover.nextPage')}
             <ChevronRightIcon className="size-5" strokeWidth={1.5} aria-hidden />
           </button>
         </nav>

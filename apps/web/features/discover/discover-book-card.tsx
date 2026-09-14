@@ -2,20 +2,20 @@
 
 import Link from 'next/link';
 
+import { t } from '@gloaming/i18n';
+
 import { AUTH_ROUTES } from '@/constants';
 import type { DiscoverItem } from '@/features/discover/discover-model';
 import { WorkCover } from '@/features/work-cover';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type DiscoverBookCardProps = {
   item: DiscoverItem;
 };
 
-function chapterCountLabel(count: number): string {
-  return `${count} 章`;
-}
-
 export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
+  const { locale } = useLocale();
   const detailHref = AUTH_ROUTES.bookDetail(item.id);
   const progress =
     item.shelfStatus === 'in_progress' && item.progressRatio != null && item.progressRatio > 0
@@ -31,7 +31,7 @@ export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
           'transition-transform duration-300 ease-out-soft',
           'hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50',
         )}
-        aria-label={`查看《${item.title}》详情`}
+        aria-label={t(locale, 'content.common.viewBookDetailAria', { title: item.title })}
       >
         <WorkCover
           title={item.title}
@@ -61,7 +61,9 @@ export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
         {item.author ? (
           <p className="mt-1 line-clamp-1 text-xs text-muted-foreground md:text-[13px]">{item.author}</p>
         ) : null}
-        <p className="mt-1 text-xs text-muted-foreground/80">{chapterCountLabel(item.partCount)}</p>
+        <p className="mt-1 text-xs text-muted-foreground/80">
+          {t(locale, 'content.discover.chapterCount', { count: item.partCount })}
+        </p>
       </div>
     </article>
   );

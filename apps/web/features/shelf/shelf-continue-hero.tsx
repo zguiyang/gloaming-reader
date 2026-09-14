@@ -3,12 +3,14 @@
 import { BookOpenIcon } from 'lucide-react';
 import Link from 'next/link';
 
+import { type Locale, t } from '@gloaming/i18n';
 import type { ShelfItem } from '@gloaming/shared/shelf';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 function metaLine(entry: ShelfItem): string {
@@ -19,7 +21,12 @@ function metaLine(entry: ShelfItem): string {
   return parts.join(' · ');
 }
 
+function progressLabel(ratio: number, locale: Locale): string {
+  return t(locale, 'content.shelf.progressRead', { ratio });
+}
+
 export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
+  const { locale } = useLocale();
   const ratio = entry.state.progressRatio;
   const detailHref = AUTH_ROUTES.bookDetail(entry.work.id);
   const readHref = AUTH_ROUTES.readBook(entry.work.id, entry.state.currentPartId ?? undefined);
@@ -28,7 +35,9 @@ export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
   return (
     <section className="mb-10 w-full md:mb-14">
       <div className="mb-4 flex items-center border-b border-border/40 pb-4">
-        <h3 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground uppercase">继续阅读</h3>
+        <h3 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground uppercase">
+          {t(locale, 'content.shelf.continueReading')}
+        </h3>
       </div>
       <div
         className={cn(
@@ -38,7 +47,7 @@ export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
         <Link
           href={detailHref}
           className="mx-auto shrink-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:mx-0"
-          aria-label={`查看《${entry.work.title}》详情`}
+          aria-label={t(locale, 'content.common.viewBookDetailAria', { title: entry.work.title })}
         >
           <WorkCover
             title={entry.work.title}
@@ -50,7 +59,7 @@ export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
 
         <div className="min-w-0 flex-1 text-center md:text-left">
           <p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-            {metaLine(entry) || '阅读中'}
+            {metaLine(entry) || t(locale, 'content.shelf.readingInProgress')}
           </p>
           <Link href={detailHref} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <h2 className="font-heading mb-4 text-2xl leading-tight font-semibold text-foreground transition-colors duration-300 ease-out-soft hover:text-primary md:text-3xl">
@@ -59,7 +68,7 @@ export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
           </Link>
           <div className="mx-auto mb-5 max-w-md md:mx-0">
             <div className="mb-2 flex justify-between text-sm text-muted-foreground">
-              <span className="font-medium text-primary">已读 {ratio}%</span>
+              <span className="font-medium text-primary">{progressLabel(ratio, locale)}</span>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/80">
               <div
@@ -74,7 +83,7 @@ export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
             render={<Link href={readHref} />}
           >
             <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
-            继续阅读
+            {t(locale, 'content.shelf.continueReading')}
           </Button>
         </div>
       </div>

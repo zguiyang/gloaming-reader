@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { LoadingOverlay } from '@/components/loading-overlay';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +24,7 @@ import {
   type DiscoverTagFilter,
 } from '@/features/discover/discover-model';
 import { DiscoverPagination } from '@/features/discover/discover-pagination';
+import { useLocale } from '@/lib/locale-context';
 import { usePaginatedQuery } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +45,7 @@ function DiscoverSkeleton() {
 }
 
 export function DiscoverPage() {
+  const { locale } = useLocale();
   const [tag, setTag] = useState<DiscoverTagFilter>(DISCOVER_ALL_TAG);
   const [page, setPage] = useState(1);
   const [mobileVisible, setMobileVisible] = useState(DISCOVER_PAGE_SIZE);
@@ -108,14 +112,14 @@ export function DiscoverPage() {
         <DiscoverSkeleton />
       ) : list.isError && !list.data ? (
         <div className="flex flex-col items-center py-16 text-center">
-          <h2 className="font-heading text-2xl font-semibold">无法加载目录</h2>
+          <h2 className="font-heading text-2xl font-semibold">{t(locale, 'content.discover.loadFailed')}</h2>
           <p className="mt-4 text-muted-foreground">{formatDiscoverApiError(list.error)}</p>
           <Button className="mt-8 rounded-full px-10" onClick={() => void list.query.refetch()}>
-            重试
+            {t(locale, 'content.common.retry')}
           </Button>
         </div>
       ) : (
-        <LoadingOverlay active={list.isSoftRefreshing} label="书目更新中…">
+        <LoadingOverlay active={list.isSoftRefreshing} label={t(locale, 'content.discover.softRefreshing')}>
           {isCatalogEmpty ? (
             <DiscoverEmptyState />
           ) : items.length === 0 ? (
