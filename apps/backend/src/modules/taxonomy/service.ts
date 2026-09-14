@@ -16,7 +16,8 @@ import type {
   CreateTaxonomyBody,
   LanguageCode,
   LocalizedTextMap,
-  TaxonomyItem,
+  SourceItem,
+  TaxonomyItemResult,
   TaxonomyKind,
   TaxonomyListQuery,
   UpdateTaxonomyBody,
@@ -68,7 +69,7 @@ type DimensionAdapter = {
   searchColumn: AnyPgColumn;
   idColumn: AnyPgColumn;
   nameColumn: AnyPgColumn;
-  localizedNamesColumn: AnyPgColumn;
+  localizedNamesColumn?: AnyPgColumn;
   originColumn: AnyPgColumn;
   createdAtColumn: AnyPgColumn;
   updatedAtColumn: AnyPgColumn;
@@ -110,7 +111,6 @@ function adapter(kind: TaxonomyKind): DimensionAdapter {
         searchColumn: sourceTable.name,
         idColumn: sourceTable.id,
         nameColumn: sourceTable.name,
-        localizedNamesColumn: sourceTable.localizedNames,
         originColumn: sourceTable.origin,
         createdAtColumn: sourceTable.createdAt,
         updatedAtColumn: sourceTable.updatedAt,
@@ -167,14 +167,24 @@ function toItem(
   },
   _locale: Locale,
   usage = 0,
-): TaxonomyItem {
+): TaxonomyItemResult {
+  if (kind === 'source') {
+    return {
+      id: row.id,
+      name: row.name,
+      usage,
+      origin: row.origin,
+      matchRule: row.matchRule ?? null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    } satisfies SourceItem;
+  }
   const names = buildNamesPayload(row.localizedNames, row.name);
   return {
     id: row.id,
     names,
     usage,
     origin: row.origin,
-    matchRule: kind === 'source' ? (row.matchRule ?? null) : null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -186,7 +196,7 @@ export async function listTaxonomy(
   kind: TaxonomyKind,
   query: TaxonomyListQuery,
   locale: Locale,
-): Promise<TaxonomyItem[]> {
+): Promise<TaxonomyItemResult[]> {
   const a = adapter(kind);
   const search = query.search?.trim();
   const needle = search ? (kind === 'source' ? search : normalizeTag(search)) : undefined;
@@ -194,13 +204,15 @@ export async function listTaxonomy(
   const base = {
     id: a.idColumn,
     name: a.nameColumn,
-    localizedNames: a.localizedNamesColumn,
     origin: a.originColumn,
     usage: sql<number>`count(${a.linkKey})::int`,
     createdAt: a.createdAtColumn,
     updatedAt: a.updatedAtColumn,
   };
-  const selectShape = kind === 'source' ? { ...base, matchRule: sourceTable.matchRule } : base;
+  const selectShape =
+    kind === 'source'
+      ? { ...base, matchRule: sourceTable.matchRule }
+      : { ...base, localizedNames: a.localizedNamesColumn! };
 
   const rows = await db
     .select(selectShape)
@@ -218,17 +230,25 @@ export async function createTaxonomyItem(
   kind: TaxonomyKind,
   body: CreateTaxonomyBody,
   locale: Locale,
-): Promise<TaxonomyItem> {
-  const localizedNames = normalizeNamesInput(body.names);
-  const name = canonicalTaxonomyName(localizedNames);
+): Promise<TaxonomyItemResult> {
+  let name = '';
   try {
     if (kind === 'source') {
+      if (!('name' in body)) {
+        throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_INVALID_INPUT);
+      }
+      name = 'name' in body ? body.name : '';
       const [row] = await db
         .insert(sourceTable)
-        .values({ id: randomUUID(), name, localizedNames, matchRule: body.matchRule ?? '', origin: 'manual' })
+        .values({ id: randomUUID(), name, matchRule: body.matchRule ?? '', origin: 'manual' })
         .returning();
       return toItem(kind, row, locale);
     }
+    if (!('names' in body)) {
+      throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_INVALID_INPUT);
+    }
+    const localizedNames = normalizeNamesInput('names' in body ? body.names : {});
+    name = canonicalTaxonomyName(localizedNames);
     const table = kind === 'tag' ? tagTable : categoryTable;
     const [row] = await db
       .insert(table as typeof tagTable)
@@ -248,25 +268,20 @@ export async function updateTaxonomyItem(
   id: string,
   body: UpdateTaxonomyBody,
   locale: Locale,
-): Promise<TaxonomyItem> {
+): Promise<TaxonomyItemResult> {
   try {
     if (kind === 'source') {
-      let localizedNames: LocalizedTextMap | undefined;
+      if ('names' in body) {
+        throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_INVALID_INPUT);
+      }
       let name: string | undefined;
-      if (body.names !== undefined) {
-        const [current] = await db
-          .select({ name: sourceTable.name, localizedNames: sourceTable.localizedNames })
-          .from(sourceTable)
-          .where(eq(sourceTable.id, id))
-          .limit(1);
-        if (!current) throw new NotFoundError(taxonomyNotFoundCode(kind));
-        localizedNames = normalizeNamesInput(body.names);
-        name = canonicalTaxonomyName(localizedNames, current.name);
+      if ('name' in body && body.name !== undefined) {
+        name = body.name.trim();
       }
       const [row] = await db
         .update(sourceTable)
         .set({
-          ...(name !== undefined ? { name, localizedNames } : {}),
+          ...(name !== undefined ? { name } : {}),
           ...(body.matchRule !== undefined ? { matchRule: body.matchRule.trim() } : {}),
         })
         .where(eq(sourceTable.id, id))
@@ -277,7 +292,7 @@ export async function updateTaxonomyItem(
     const table = kind === 'tag' ? tagTable : categoryTable;
     let localizedNames: LocalizedTextMap | undefined;
     let name: string | undefined;
-    if (body.names !== undefined) {
+    if ('names' in body && body.names !== undefined) {
       const [current] = await db
         .select({ name: (table as typeof tagTable).name, localizedNames: (table as typeof tagTable).localizedNames })
         .from(table as typeof tagTable)

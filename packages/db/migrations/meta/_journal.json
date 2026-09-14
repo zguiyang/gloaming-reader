@@ -239,6 +239,13 @@
       "when": 1788750000000,
       "tag": "0033_taxonomy_localized_names",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1788753600000,
+      "tag": "0034_remove_source_localized_names",
+      "breakpoints": true
     }
   ]
 }

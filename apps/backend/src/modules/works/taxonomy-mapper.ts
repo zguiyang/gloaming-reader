@@ -1,12 +1,17 @@
 import type { WorkMetadataProvenance } from '@gloaming/db';
-import { LANGUAGE_CODES, type LocalizedTextMap, type TaxonomyReference } from '@gloaming/shared/taxonomy';
+import {
+  LANGUAGE_CODES,
+  type LocalizedTextMap,
+  type SourceReference,
+  type TaxonomyReference,
+} from '@gloaming/shared/taxonomy';
 
 const CANONICAL_LOCALE = 'en-US' as const;
 
 export type TaxonomyRow = {
   id: string;
   name: string;
-  localizedNames: LocalizedTextMap | null | undefined;
+  localizedNames?: LocalizedTextMap | null;
   origin: WorkMetadataProvenance;
   matchRule?: string | null;
 };
@@ -28,20 +33,22 @@ export function buildTaxonomyNames(
   return payload;
 }
 
-export function toTaxonomyReference(row: TaxonomyRow, options?: { includeMatchRule?: boolean }): TaxonomyReference {
+export function toTaxonomyReference(row: TaxonomyRow): TaxonomyReference {
   const ref: TaxonomyReference = {
     id: row.id,
     names: buildTaxonomyNames(row.localizedNames, row.name),
     origin: row.origin,
   };
-  if (options?.includeMatchRule) {
-    ref.matchRule = row.matchRule ?? null;
-  }
   return ref;
 }
 
-export function toSourceReference(row: TaxonomyRow): TaxonomyReference {
-  return toTaxonomyReference(row, { includeMatchRule: true });
+export function toSourceReference(row: TaxonomyRow): SourceReference {
+  return {
+    id: row.id,
+    name: row.name,
+    origin: row.origin,
+    matchRule: row.matchRule ?? null,
+  };
 }
 
 /** Dedupe taxonomy references by stable id while preserving first-seen order. */

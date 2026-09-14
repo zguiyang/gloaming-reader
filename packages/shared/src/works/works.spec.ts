@@ -16,6 +16,10 @@ function taxonomyRef(id: string, zh: string, en: string) {
   };
 }
 
+function sourceRef(id: string, name: string) {
+  return { id, name, origin: 'manual' as const };
+}
+
 describe('update work body contracts', () => {
   it('accepts taxonomy selections with id only', () => {
     const body = updateWorkBodySchema.parse({
@@ -43,7 +47,7 @@ describe('update work body contracts', () => {
 describe('publish default audio gate', () => {
   const metadataOk = {
     title: 'Title',
-    sources: [taxonomyRef('source-1', 'demo', 'demo')],
+    sources: [sourceRef('source-1', 'demo')],
     tags: [taxonomyRef('tag-1', 'story', 'story')],
     parts: [{ body: 'Hello world.' }],
   };

@@ -210,7 +210,6 @@ export const source = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull().unique(),
-    localizedNames: jsonb('localized_names').$type<TaxonomyLocalizedNames>().notNull().default({}),
     matchRule: text('match_rule').notNull().default(''),
     /** Who first created this row — never rewritten on reuse/rename. */
     origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),

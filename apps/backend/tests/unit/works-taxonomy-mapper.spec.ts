@@ -39,13 +39,12 @@ describe('works taxonomy mapper', () => {
       toSourceReference({
         id: 'source-1',
         name: 'Gutenberg',
-        localizedNames: { 'en-US': 'Project Gutenberg' },
         origin: 'extracted',
         matchRule: 'gutenberg.org',
       }),
     ).toEqual({
       id: 'source-1',
-      names: { 'en-US': 'Project Gutenberg' },
+      name: 'Gutenberg',
       origin: 'extracted',
       matchRule: 'gutenberg.org',
     });

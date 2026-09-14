@@ -20,7 +20,8 @@ const password = 'password123';
 
 type TaxonomyRow = {
   id: string;
-  names: LocalizedTextMap;
+  name?: string;
+  names?: LocalizedTextMap;
   usage: number;
   origin: string;
   matchRule: string | null;
@@ -134,19 +135,19 @@ describe('taxonomy dimensions management', () => {
     const create = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: { 'en-US': 'Fantasy' } });
     expect(create.status).toBe(201);
     const tag = (await create.json()) as TaxonomyRow;
-    expect(tag.names['en-US']).toBe('Fantasy');
+    expect(tag.names?.['en-US']).toBe('Fantasy');
     expect(tag.names).not.toHaveProperty('name');
     expect(tag.usage).toBe(0);
     expect(tag.origin).toBe('manual');
     tagIds.push(tag.id);
 
     const source = await taxRequest(adminCookie, 'POST', taxUrl('source'), {
-      names: { 'en-US': 'Test Press' },
+      name: 'Test Press',
       matchRule: 'testpress.example',
     });
     expect(source.status).toBe(201);
     const sourceRow = (await source.json()) as TaxonomyRow;
-    expect(sourceRow.names['en-US']).toBe('Test Press');
+    expect(sourceRow.name).toBe('Test Press');
     expect(sourceRow.matchRule).toBe('testpress.example');
     expect(sourceRow.origin).toBe('manual');
     sourceIds.push(sourceRow.id);
@@ -154,15 +155,15 @@ describe('taxonomy dimensions management', () => {
     const list = await taxRequest(adminCookie, 'GET', taxUrl('tag'));
     expect(list.status).toBe(200);
     const { items } = (await list.json()) as { items: TaxonomyRow[] };
-    expect(items.some((item) => item.names['en-US'] === 'Fantasy')).toBe(true);
+    expect(items.some((item) => item.names?.['en-US'] === 'Fantasy')).toBe(true);
 
     const sourceList = await taxRequest(adminCookie, 'GET', taxUrl('source'));
     const sourceItems = (await sourceList.json()) as { items: TaxonomyRow[] };
-    const found = sourceItems.items.find((item) => item.names['en-US'] === 'Test Press');
+    const found = sourceItems.items.find((item) => item.name === 'Test Press');
     expect(found?.matchRule).toBe('testpress.example');
   });
 
-  it('returns bilingual names for tag, category, and source with consistent shape', async () => {
+  it('returns bilingual names for tags/categories and a raw name for sources', async () => {
     const bilingual = { 'zh-CN': '科学', 'en-US': 'Science' };
     const tagCreate = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: bilingual });
     const tag = (await tagCreate.json()) as TaxonomyRow;
@@ -173,15 +174,16 @@ describe('taxonomy dimensions management', () => {
     const category = (await categoryCreate.json()) as TaxonomyRow;
     categoryIds.push(category.id);
     expect(category.names).toEqual(bilingual);
-    expect(category.matchRule).toBeNull();
+    expect(category).not.toHaveProperty('matchRule');
 
     const sourceCreate = await taxRequest(adminCookie, 'POST', taxUrl('source'), {
-      names: bilingual,
+      name: 'Science Channel',
       matchRule: 'science.example',
     });
     const source = (await sourceCreate.json()) as TaxonomyRow;
     sourceIds.push(source.id);
-    expect(source.names).toEqual(bilingual);
+    expect(source.name).toBe('Science Channel');
+    expect(source).not.toHaveProperty('names');
     expect(source.matchRule).toBe('science.example');
   });
 
@@ -297,7 +299,7 @@ describe('taxonomy dimensions management', () => {
 
   it('never allows deleting sources', async () => {
     const created = await taxRequest(adminCookie, 'POST', taxUrl('source'), {
-      names: { 'en-US': 'Protected Source' },
+      name: 'Protected Source',
     });
     const source = (await created.json()) as TaxonomyRow;
     sourceIds.push(source.id);
@@ -307,7 +309,7 @@ describe('taxonomy dimensions management', () => {
 
     const stillThere = await taxRequest(adminCookie, 'GET', taxUrl('source'));
     const items = (await stillThere.json()) as { items: TaxonomyRow[] };
-    expect(items.items.some((item) => item.names['en-US'] === 'Protected Source')).toBe(true);
+    expect(items.items.some((item) => item.name === 'Protected Source')).toBe(true);
   });
 
   it('cleanup prunes unused tags/categories but keeps used ones', async () => {

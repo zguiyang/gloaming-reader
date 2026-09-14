@@ -76,11 +76,19 @@ export const taxonomyReferenceSchema = z.object({
   id: z.string(),
   names: localizedTextSchema,
   origin: z.enum(TAXONOMY_ORIGINS),
-  /** Only sources carry a match rule; tags/categories omit or return null. */
-  matchRule: z.string().nullable().optional(),
 });
 
 export type TaxonomyReference = z.infer<typeof taxonomyReferenceSchema>;
+
+/** Source/channel reference — source names are stored and displayed verbatim. */
+export const sourceReferenceSchema = z.object({
+  id: z.string(),
+  name: localizedNameValueSchema,
+  origin: z.enum(TAXONOMY_ORIGINS),
+  matchRule: z.string().nullable().optional(),
+});
+
+export type SourceReference = z.infer<typeof sourceReferenceSchema>;
 
 /** Stable taxonomy id submitted on work mutations — display fields are server-owned. */
 export const taxonomySelectionSchema = z
@@ -94,24 +102,50 @@ export type TaxonomySelection = z.infer<typeof taxonomySelectionSchema>;
 /** One dimension row — `usage` = number of works linked to it. */
 export const taxonomyItemSchema = taxonomyReferenceSchema.extend({
   usage: z.number().int().nonnegative(),
-  matchRule: z.string().nullable(),
   createdAt: z.union([z.string(), z.date()]),
   updatedAt: z.union([z.string(), z.date()]),
 });
 
 export type TaxonomyItem = z.infer<typeof taxonomyItemSchema>;
 
-export const createTaxonomyBodySchema = z.object({
+/** One source/channel row returned by the admin dimension API. */
+export const sourceItemSchema = sourceReferenceSchema.extend({
+  usage: z.number().int().nonnegative(),
+  matchRule: z.string().nullable(),
+  createdAt: z.union([z.string(), z.date()]),
+  updatedAt: z.union([z.string(), z.date()]),
+});
+
+export type SourceItem = z.infer<typeof sourceItemSchema>;
+
+export const taxonomyItemResultSchema = z.union([taxonomyItemSchema, sourceItemSchema]);
+export type TaxonomyItemResult = z.infer<typeof taxonomyItemResultSchema>;
+
+const createLocalizedTaxonomyBodySchema = z.object({
   names: localizedTextSchema,
   matchRule: z.string().trim().max(TAXONOMY_MATCH_RULE_MAX).optional(),
 });
 
+const createSourceBodySchema = z.object({
+  name: localizedNameValueSchema,
+  matchRule: z.string().trim().max(TAXONOMY_MATCH_RULE_MAX).optional(),
+});
+
+export const createTaxonomyBodySchema = z.union([createLocalizedTaxonomyBodySchema, createSourceBodySchema]);
+
 export type CreateTaxonomyBody = z.infer<typeof createTaxonomyBodySchema>;
 
-export const updateTaxonomyBodySchema = z.object({
+const updateLocalizedTaxonomyBodySchema = z.object({
   names: localizedTextSchema.optional(),
   matchRule: z.string().trim().max(TAXONOMY_MATCH_RULE_MAX).optional(),
 });
+
+const updateSourceBodySchema = z.object({
+  name: localizedNameValueSchema.optional(),
+  matchRule: z.string().trim().max(TAXONOMY_MATCH_RULE_MAX).optional(),
+});
+
+export const updateTaxonomyBodySchema = z.union([updateLocalizedTaxonomyBodySchema, updateSourceBodySchema]);
 
 export type UpdateTaxonomyBody = z.infer<typeof updateTaxonomyBodySchema>;
 
@@ -122,7 +156,7 @@ export const taxonomyListQuerySchema = z.object({
 export type TaxonomyListQuery = z.infer<typeof taxonomyListQuerySchema>;
 
 export const taxonomyListDataSchema = z.object({
-  items: z.array(taxonomyItemSchema),
+  items: z.array(taxonomyItemResultSchema),
 });
 
 export type TaxonomyListData = z.infer<typeof taxonomyListDataSchema>;

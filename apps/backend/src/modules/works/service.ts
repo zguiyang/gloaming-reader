@@ -18,7 +18,7 @@ import {
 } from '@gloaming/db';
 import { audioKindForRole, deriveAudioTrackStatus } from '@gloaming/shared/content-assets';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
-import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
+import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 import {
   type AdminOriginAsset,
   type AdminWork,
@@ -224,7 +224,7 @@ async function ensureWorkReadingStatsIfMissing(row: WorkRow): Promise<WorkRow> {
   return updated ?? row;
 }
 
-function toWork(row: WorkRow, tags: TaxonomyReference[], sources: TaxonomyReference[]): Work {
+function toWork(row: WorkRow, tags: TaxonomyReference[], sources: SourceReference[]): Work {
   return {
     id: row.id,
     title: row.title,
@@ -348,7 +348,7 @@ async function loadOriginFileAsset(workId: string): Promise<AdminOriginAsset | n
 }
 
 /** Batch source references keyed by work id. */
-export async function loadSourcesByWorkIds(workIds: string[]): Promise<Map<string, TaxonomyReference[]>> {
+export async function loadSourcesByWorkIds(workIds: string[]): Promise<Map<string, SourceReference[]>> {
   if (workIds.length === 0) {
     return new Map();
   }
@@ -357,7 +357,6 @@ export async function loadSourcesByWorkIds(workIds: string[]): Promise<Map<strin
       workId: readingWorkSourceTable.workId,
       id: sourceTable.id,
       name: sourceTable.name,
-      localizedNames: sourceTable.localizedNames,
       origin: sourceTable.origin,
       matchRule: sourceTable.matchRule,
     })
@@ -365,7 +364,7 @@ export async function loadSourcesByWorkIds(workIds: string[]): Promise<Map<strin
     .innerJoin(sourceTable, eq(readingWorkSourceTable.sourceId, sourceTable.id))
     .where(inArray(readingWorkSourceTable.workId, workIds))
     .orderBy(asc(sourceTable.name));
-  const map = new Map<string, TaxonomyReference[]>();
+  const map = new Map<string, SourceReference[]>();
   for (const row of rows) {
     const list = map.get(row.workId) ?? [];
     list.push(toSourceReference(row));
@@ -374,12 +373,11 @@ export async function loadSourcesByWorkIds(workIds: string[]): Promise<Map<strin
   return map;
 }
 
-async function loadSourcesForWork(workId: string): Promise<TaxonomyReference[]> {
+async function loadSourcesForWork(workId: string): Promise<SourceReference[]> {
   const rows = await db
     .select({
       id: sourceTable.id,
       name: sourceTable.name,
-      localizedNames: sourceTable.localizedNames,
       origin: sourceTable.origin,
       matchRule: sourceTable.matchRule,
     })
@@ -439,7 +437,7 @@ async function buildPublishIssuesForWork(
   row: WorkRow,
   partRows: PartRow[],
   tags: TaxonomyReference[],
-  sources: TaxonomyReference[],
+  sources: SourceReference[],
 ): Promise<PublishWorkIssue[]> {
   const audioInputs = await loadPublishPartAudioGateInputs(partRows);
   return mergePublishWorkIssues(

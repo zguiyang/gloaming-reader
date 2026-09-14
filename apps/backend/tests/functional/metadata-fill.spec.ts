@@ -13,7 +13,7 @@ import {
   user as userTable,
 } from '@gloaming/db';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
-import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
+import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import app from '@/app';
 import { db } from '@/db';
@@ -256,13 +256,11 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     expect(patched.status, await patched.clone().text()).toBe(200);
     const body = (await patched.json()) as {
       tags: TaxonomyReference[];
-      sources: TaxonomyReference[];
+      sources: SourceReference[];
       metadataProvenance: Record<string, string | undefined>;
     };
     expect(body.tags.map((tag) => tag.names['en-US']).sort()).toEqual(['Manual Tag', 'Science'].sort());
-    expect(body.sources.map((source) => source.names['en-US']).sort()).toEqual(
-      ['Standard Ebooks', 'Test Publisher'].sort(),
-    );
+    expect(body.sources.map((source) => source.name).sort()).toEqual(['Standard Ebooks', 'Test Publisher'].sort());
 
     await fillWorkMetadata(workId);
 

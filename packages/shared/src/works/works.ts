@@ -11,6 +11,8 @@ import {
 } from '../pagination/index.ts';
 import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, WORK_STATS_PROVENANCES } from '../reading-stats/index.ts';
 import {
+  type SourceReference,
+  sourceReferenceSchema,
   TAXONOMY_ORIGINS,
   type TaxonomyOrigin,
   type TaxonomyReference,
@@ -106,7 +108,7 @@ export const workSchema = z.object({
   originKind: workOriginKindSchema,
   tags: z.array(taxonomyReferenceSchema),
   /** Channel providers (e.g. Project Gutenberg) — auto-filled from EPUB / taxonomy. */
-  sources: z.array(taxonomyReferenceSchema),
+  sources: z.array(sourceReferenceSchema),
   coverAssetId: z.string().nullable(),
   wordCount: z.number().int().nonnegative().nullable(),
   estimatedMinutes: z.number().int().nonnegative().nullable(),
@@ -371,7 +373,7 @@ export type PublishPartAudioGateInput = {
 
 export function getPublishWorkIssues(work: {
   title: string;
-  sources: TaxonomyReference[];
+  sources: SourceReference[];
   tags: TaxonomyReference[];
   parts: Array<{ body: string }>;
 }): PublishWorkIssue[] {

@@ -5,6 +5,7 @@ import {
   mergeLocalizedText,
   optionalLocalizedText,
   resolveLocalizedText,
+  sourceReferenceSchema,
   taxonomyItemSchema,
   taxonomyListDataSchema,
   taxonomyReferenceSchema,
@@ -34,6 +35,21 @@ describe('taxonomy i18n contracts', () => {
     expect(ref.names).toEqual(sampleNames);
   });
 
+  it('accepts source references with a raw name and rejects localized names', () => {
+    expect(sourceReferenceSchema.parse({ id: 'source-1', name: 'Project Gutenberg', origin: 'extracted' })).toEqual({
+      id: 'source-1',
+      name: 'Project Gutenberg',
+      origin: 'extracted',
+    });
+    expect(
+      sourceReferenceSchema.safeParse({
+        id: 'source-1',
+        names: sampleNames,
+        origin: 'extracted',
+      }).success,
+    ).toBe(false);
+  });
+
   it('accepts taxonomy selections with id only', () => {
     expect(taxonomySelectionSchema.parse({ id: 'tag-1' })).toEqual({ id: 'tag-1' });
   });
@@ -56,7 +72,6 @@ describe('taxonomy api contracts', () => {
       names: sampleNames,
       usage: 2,
       origin: 'manual',
-      matchRule: null,
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
@@ -70,7 +85,6 @@ describe('taxonomy api contracts', () => {
         name: 'Science',
         usage: 2,
         origin: 'manual',
-        matchRule: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       }).success,
@@ -82,7 +96,7 @@ describe('taxonomy api contracts', () => {
       items: [
         {
           id: 's1',
-          names: { 'zh-CN': '纽约时报', 'en-US': 'NYT' },
+          name: 'New York Times',
           usage: 0,
           origin: 'manual',
           matchRule: 'nytimes.com',
@@ -92,7 +106,7 @@ describe('taxonomy api contracts', () => {
       ],
     });
     expect(payload.items).toHaveLength(1);
-    expect(payload.items[0]?.names['zh-CN']).toBe('纽约时报');
+    expect(payload.items[0]?.name).toBe('New York Times');
   });
 });
 

@@ -7,7 +7,7 @@ import {
   readingWorkCategory as readingWorkCategoryTable,
 } from '@gloaming/db';
 import type { RecommendationsData, RecommendationsQuery } from '@gloaming/shared/recommendations';
-import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
+import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 import type { Work } from '@gloaming/shared/works';
 
 import { db } from '@/db';
@@ -26,7 +26,7 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
-function toWork(row: WorkRow, tags: TaxonomyReference[], sources: TaxonomyReference[]): Work {
+function toWork(row: WorkRow, tags: TaxonomyReference[], sources: SourceReference[]): Work {
   return {
     id: row.id,
     title: row.title,
