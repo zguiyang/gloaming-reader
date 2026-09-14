@@ -1,14 +1,17 @@
 'use client';
 
 import { CalendarIcon } from 'lucide-react';
-import { zhCN } from 'react-day-picker/locale';
+
+import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tabs } from '@/components/ui/tabs';
+import { getAdminDayPickerLocale } from '@/features/admin/admin-logs-format';
 import { AdminSegmentedTabsList, AdminSegmentedTabsTrigger } from '@/features/admin/admin-segmented-tabs';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 /** Neutral Admin logs filter presets; domain window helpers stay on each page. */
@@ -34,27 +37,19 @@ type InvocationLogsFiltersProps = {
   onStatusChange: (status: InvocationLogsStatusFilter) => void;
 };
 
-const STATUS_FILTERS: { value: InvocationLogsStatusFilter; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: 'success', label: '成功' },
-  { value: 'failure', label: '失败' },
-];
-
-const dateTimeLabelFormatter = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-});
-
 function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-function formatDateTimeLabel(date: Date): string {
-  return dateTimeLabelFormatter.format(date);
+function formatDateTimeLabel(date: Date, locale: Parameters<typeof getAdminDayPickerLocale>[0]): string {
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
 }
 
 function toTimeValue(date: Date): string {
@@ -94,6 +89,8 @@ type DateTimeEndpointProps = {
 };
 
 function DateTimeEndpoint({ id, label, value, onChange }: DateTimeEndpointProps) {
+  const { locale } = useLocale();
+
   return (
     <Popover>
       <PopoverTrigger
@@ -110,7 +107,7 @@ function DateTimeEndpoint({ id, label, value, onChange }: DateTimeEndpointProps)
       >
         <span className="sr-only">{label}</span>
         <CalendarIcon data-icon="inline-start" className="text-muted-foreground" />
-        <span className="truncate tabular-nums text-foreground">{formatDateTimeLabel(value)}</span>
+        <span className="truncate tabular-nums text-foreground">{formatDateTimeLabel(value, locale)}</span>
       </PopoverTrigger>
       <PopoverContent
         align="start"
@@ -118,7 +115,7 @@ function DateTimeEndpoint({ id, label, value, onChange }: DateTimeEndpointProps)
       >
         <Calendar
           mode="single"
-          locale={zhCN}
+          locale={getAdminDayPickerLocale(locale)}
           defaultMonth={value}
           selected={value}
           onSelect={(day) => {
@@ -130,7 +127,7 @@ function DateTimeEndpoint({ id, label, value, onChange }: DateTimeEndpointProps)
         />
         <div className="flex items-center gap-2 border-t border-border bg-secondary/50 px-3 py-2.5">
           <label className="shrink-0 text-xs text-muted-foreground" htmlFor={id}>
-            时刻
+            {t(locale, 'admin.logs.filters.timeLabel')}
           </label>
           <Input
             id={id}
@@ -161,6 +158,14 @@ export function InvocationLogsFilters({
   onRangeChange,
   onStatusChange,
 }: InvocationLogsFiltersProps) {
+  const { locale } = useLocale();
+
+  const statusFilters: { value: InvocationLogsStatusFilter; label: string }[] = [
+    { value: 'all', label: t(locale, 'admin.logs.filters.statusAll') },
+    { value: 'success', label: t(locale, 'admin.logs.filters.statusSuccess') },
+    { value: 'failure', label: t(locale, 'admin.logs.filters.statusFailure') },
+  ];
+
   function applyPreset(days: InvocationLogsPresetDays) {
     onRangeTabChange(String(days) as InvocationLogsRangePreset);
     onRangeChange(windowForDays(days));
@@ -192,23 +197,35 @@ export function InvocationLogsFilters({
             }
           }}
         >
-          <AdminSegmentedTabsList aria-label="快捷时间范围">
+          <AdminSegmentedTabsList aria-label={t(locale, 'admin.logs.filters.rangePresetAria')}>
             {INVOCATION_LOGS_PRESET_DAYS.map((days) => (
               <AdminSegmentedTabsTrigger key={days} value={String(days)} className="px-3.5">
-                {days} 天
+                {t(locale, 'admin.logs.filters.presetDays', { days })}
               </AdminSegmentedTabsTrigger>
             ))}
             <AdminSegmentedTabsTrigger value="custom" className="px-3.5">
-              自定义
+              {t(locale, 'admin.logs.filters.custom')}
             </AdminSegmentedTabsTrigger>
           </AdminSegmentedTabsList>
         </Tabs>
 
         {rangeTab === 'custom' ? (
           <div className="flex h-[3.25rem] min-w-0 max-w-2xl flex-1 items-center rounded-xl bg-muted/80 p-1.5">
-            <DateTimeEndpoint id="invocation-logs-from-time" label="开始时间" value={range.from} onChange={applyFrom} />
-            <span className="shrink-0 px-2 text-sm text-muted-foreground">至</span>
-            <DateTimeEndpoint id="invocation-logs-to-time" label="结束时间" value={range.to} onChange={applyTo} />
+            <DateTimeEndpoint
+              id="invocation-logs-from-time"
+              label={t(locale, 'admin.logs.filters.startTime')}
+              value={range.from}
+              onChange={applyFrom}
+            />
+            <span className="shrink-0 px-2 text-sm text-muted-foreground">
+              {t(locale, 'admin.logs.filters.rangeSeparator')}
+            </span>
+            <DateTimeEndpoint
+              id="invocation-logs-to-time"
+              label={t(locale, 'admin.logs.filters.endTime')}
+              value={range.to}
+              onChange={applyTo}
+            />
           </div>
         ) : null}
       </div>
@@ -223,8 +240,8 @@ export function InvocationLogsFilters({
           onStatusChange(value);
         }}
       >
-        <AdminSegmentedTabsList aria-label="按状态筛选">
-          {STATUS_FILTERS.map((item) => (
+        <AdminSegmentedTabsList aria-label={t(locale, 'admin.logs.filters.statusFilterAria')}>
+          {statusFilters.map((item) => (
             <AdminSegmentedTabsTrigger key={item.value} value={item.value}>
               {item.label}
             </AdminSegmentedTabsTrigger>

@@ -235,6 +235,147 @@
       "terms": "Terms"
     }
   },
+  "admin": {
+    "shell": {
+      "subtitle": "管理后台",
+      "contentSubtitle": "内容管理",
+      "navWorks": "作品",
+      "navAssets": "资产管理",
+      "navConfig": "配置",
+      "navTaxonomy": "维度管理",
+      "navLogs": "日志",
+      "signInPrompt": "请先登录后再进入管理后台。",
+      "signIn": "登录",
+      "forbiddenEyebrow": "无权限",
+      "forbiddenTitle": "无法进入管理后台",
+      "forbiddenDescription": "当前账号没有管理员权限。管理后台只对内容维护人员开放，你仍然可以返回首页继续阅读。",
+      "backHome": "返回首页",
+      "home": "首页",
+      "openNavAria": "打开管理导航",
+      "navSrOnly": "管理导航"
+    },
+    "config": {
+      "tabAi": "AI",
+      "tabTts": "语音",
+      "tabDictionary": "词典"
+    },
+    "logs": {
+      "centerTabAi": "AI 日志",
+      "centerTabTts": "音频日志",
+      "emptyValue": "—",
+      "latencyMs": "{ms} ms",
+      "costPlaceholder": "¥ 0",
+      "costNotPricedHint": "暂无计价",
+      "paginationSummary": "共 {total} 条 · 第 {page} / {totalPages} 页 · 每页 {pageSize}",
+      "prevPage": "上一页",
+      "nextPage": "下一页",
+      "listRefreshing": "列表更新中…",
+      "filters": {
+        "rangePresetAria": "快捷时间范围",
+        "statusFilterAria": "按状态筛选",
+        "presetDays": "{days} 天",
+        "custom": "自定义",
+        "timeLabel": "时刻",
+        "startTime": "开始时间",
+        "endTime": "结束时间",
+        "rangeSeparator": "至",
+        "statusAll": "全部",
+        "statusSuccess": "成功",
+        "statusFailure": "失败"
+      },
+      "table": {
+        "time": "时间",
+        "source": "来源",
+        "type": "类型",
+        "status": "状态",
+        "model": "模型",
+        "tokens": "Token",
+        "actions": "操作",
+        "segment": "片段",
+        "voice": "Voice",
+        "latency": "延迟",
+        "error": "错误"
+      },
+      "status": {
+        "success": "成功",
+        "failure": "失败"
+      },
+      "ai": {
+        "title": "AI 调用日志",
+        "subtitle": "查看调用消耗与摘要。",
+        "statsInputTokens": "输入 Token",
+        "statsOutputTokens": "输出 Token",
+        "statsCost": "费用",
+        "loadFailedTitle": "无法加载调用日志",
+        "emptyTitle": "当前筛选下没有调用日志",
+        "emptyDescription": "试试调整时间范围或状态。",
+        "detailAction": "详情",
+        "detailTitle": "调用详情",
+        "detailSource": "调用来源",
+        "detailPurpose": "调用类型",
+        "detailModel": "模型",
+        "detailLatency": "延迟",
+        "tokenSectionTitle": "Token 消耗",
+        "tokenTotal": "总消耗",
+        "tokenInput": "输入 Token",
+        "tokenOutput": "输出 Token",
+        "costLine": "费用 {amount}",
+        "refType": "关联类型",
+        "refId": "关联 ID",
+        "errorCode": "错误码",
+        "errorMessage": "错误信息",
+        "requestSummary": "请求摘要",
+        "replySummary": "回复摘要",
+        "providerBalancesTitle": "服务商余额",
+        "providerBalancesDescription": "来自各服务商余额接口，点击卡片按钮查询。",
+        "providerAvailable": "可调用",
+        "providerInsufficient": "余额不足",
+        "providerRefresh": "刷新",
+        "providerRetry": "重试",
+        "providerQuerying": "查询中",
+        "providerQueryBalance": "查询余额",
+        "providerQueryFailed": "查询失败"
+      },
+      "tts": {
+        "title": "音频调用日志",
+        "subtitle": "查看文章 TTS 生成与连通测试记录。",
+        "statsSuccess": "成功",
+        "statsFailure": "失败",
+        "statsTotal": "合计",
+        "loadFailedTitle": "无法加载音频日志",
+        "emptyTitle": "当前筛选下没有音频日志",
+        "emptyDescription": "试试调整时间范围或状态。",
+        "cached": "缓存"
+      },
+      "enum": {
+        "aiSource": {
+          "assistAsk": "阅读提问",
+          "assistAskFollowups": "追问建议",
+          "translatePart": "双语翻译",
+          "translateArticle": "双语翻译",
+          "adminProviderTest": "连通测试",
+          "metadataEnrichFill": "元数据完善",
+          "dictionaryEnrichment": "词典 AI 增强"
+        },
+        "aiPurpose": {
+          "unbound": "未绑定",
+          "assist": "阅读助手",
+          "translate": "双语翻译",
+          "metadataEnrich": "元数据完善"
+        },
+        "ttsSource": {
+          "adminPartAudio": "章节音频",
+          "adminArticleAudio": "章节音频",
+          "adminTtsTest": "连通测试"
+        },
+        "ttsRole": {
+          "default": "默认",
+          "us": "美音",
+          "uk": "英音"
+        }
+      }
+    }
+  },
   "content": {
     "common": {
       "retry": "重试",

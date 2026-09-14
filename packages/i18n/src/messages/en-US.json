@@ -235,6 +235,147 @@
       "terms": "Terms"
     }
   },
+  "admin": {
+    "shell": {
+      "subtitle": "Admin",
+      "contentSubtitle": "Content management",
+      "navWorks": "Works",
+      "navAssets": "Assets",
+      "navConfig": "Configuration",
+      "navTaxonomy": "Taxonomy",
+      "navLogs": "Logs",
+      "signInPrompt": "Sign in to access the admin console.",
+      "signIn": "Sign in",
+      "forbiddenEyebrow": "Access denied",
+      "forbiddenTitle": "Cannot access admin",
+      "forbiddenDescription": "This account does not have admin permissions. The admin console is for content maintainers only—you can still return home to keep reading.",
+      "backHome": "Back to home",
+      "home": "Home",
+      "openNavAria": "Open admin navigation",
+      "navSrOnly": "Admin navigation"
+    },
+    "config": {
+      "tabAi": "AI",
+      "tabTts": "Speech",
+      "tabDictionary": "Dictionary"
+    },
+    "logs": {
+      "centerTabAi": "AI logs",
+      "centerTabTts": "Audio logs",
+      "emptyValue": "—",
+      "latencyMs": "{ms} ms",
+      "costPlaceholder": "¥ 0",
+      "costNotPricedHint": "Not priced yet",
+      "paginationSummary": "{total} total · page {page} / {totalPages} · {pageSize} per page",
+      "prevPage": "Previous",
+      "nextPage": "Next",
+      "listRefreshing": "Updating list…",
+      "filters": {
+        "rangePresetAria": "Quick time range",
+        "statusFilterAria": "Filter by status",
+        "presetDays": "{days} days",
+        "custom": "Custom",
+        "timeLabel": "Time",
+        "startTime": "Start time",
+        "endTime": "End time",
+        "rangeSeparator": "to",
+        "statusAll": "All",
+        "statusSuccess": "Success",
+        "statusFailure": "Failed"
+      },
+      "table": {
+        "time": "Time",
+        "source": "Source",
+        "type": "Type",
+        "status": "Status",
+        "model": "Model",
+        "tokens": "Tokens",
+        "actions": "Actions",
+        "segment": "Segment",
+        "voice": "Voice",
+        "latency": "Latency",
+        "error": "Error"
+      },
+      "status": {
+        "success": "Success",
+        "failure": "Failed"
+      },
+      "ai": {
+        "title": "AI invocation logs",
+        "subtitle": "View usage and summaries.",
+        "statsInputTokens": "Input tokens",
+        "statsOutputTokens": "Output tokens",
+        "statsCost": "Cost",
+        "loadFailedTitle": "Could not load invocation logs",
+        "emptyTitle": "No logs match these filters",
+        "emptyDescription": "Try adjusting the time range or status.",
+        "detailAction": "Details",
+        "detailTitle": "Invocation details",
+        "detailSource": "Source",
+        "detailPurpose": "Purpose",
+        "detailModel": "Model",
+        "detailLatency": "Latency",
+        "tokenSectionTitle": "Token usage",
+        "tokenTotal": "Total",
+        "tokenInput": "Input tokens",
+        "tokenOutput": "Output tokens",
+        "costLine": "Cost {amount}",
+        "refType": "Reference type",
+        "refId": "Reference ID",
+        "errorCode": "Error code",
+        "errorMessage": "Error message",
+        "requestSummary": "Request summary",
+        "replySummary": "Reply summary",
+        "providerBalancesTitle": "Provider balances",
+        "providerBalancesDescription": "From each provider's balance API—click a card to query.",
+        "providerAvailable": "Available",
+        "providerInsufficient": "Insufficient balance",
+        "providerRefresh": "Refresh",
+        "providerRetry": "Retry",
+        "providerQuerying": "Querying",
+        "providerQueryBalance": "Query balance",
+        "providerQueryFailed": "Query failed"
+      },
+      "tts": {
+        "title": "Audio invocation logs",
+        "subtitle": "View TTS generation and connectivity test records.",
+        "statsSuccess": "Success",
+        "statsFailure": "Failed",
+        "statsTotal": "Total",
+        "loadFailedTitle": "Could not load audio logs",
+        "emptyTitle": "No audio logs match these filters",
+        "emptyDescription": "Try adjusting the time range or status.",
+        "cached": "Cached"
+      },
+      "enum": {
+        "aiSource": {
+          "assistAsk": "Reading question",
+          "assistAskFollowups": "Follow-up suggestions",
+          "translatePart": "Bilingual translation",
+          "translateArticle": "Bilingual translation",
+          "adminProviderTest": "Connectivity test",
+          "metadataEnrichFill": "Metadata enrichment",
+          "dictionaryEnrichment": "Dictionary AI enrichment"
+        },
+        "aiPurpose": {
+          "unbound": "Unassigned",
+          "assist": "Reading assistant",
+          "translate": "Bilingual translation",
+          "metadataEnrich": "Metadata enrichment"
+        },
+        "ttsSource": {
+          "adminPartAudio": "Chapter audio",
+          "adminArticleAudio": "Chapter audio",
+          "adminTtsTest": "Connectivity test"
+        },
+        "ttsRole": {
+          "default": "Default",
+          "us": "US English",
+          "uk": "UK English"
+        }
+      }
+    }
+  },
   "content": {
     "common": {
       "retry": "Retry",

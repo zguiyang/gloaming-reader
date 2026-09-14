@@ -1,10 +1,18 @@
 'use client';
 
+import { t } from '@gloaming/i18n';
 import type { AiInvocationLog } from '@gloaming/shared/ai-invocations';
 
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  formatAdminCount,
+  formatAdminDateTime,
+  formatAdminInvocationStatus,
+  formatAdminLatencyMs,
+} from '@/features/admin/admin-logs-format';
+import { useLocale } from '@/lib/locale-context';
 
 type AiLogDetailSheetProps = {
   log: AiInvocationLog | null;
@@ -12,29 +20,6 @@ type AiLogDetailSheetProps = {
   purposeLabel: string;
   onOpenChange: (open: boolean) => void;
 };
-
-function formatDateTime(iso: string | Date): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    }).format(new Date(iso));
-  } catch {
-    return String(iso);
-  }
-}
-
-function formatCount(value: number | null): string {
-  if (value == null) {
-    return '-';
-  }
-  return new Intl.NumberFormat('zh-CN').format(value);
-}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -46,7 +31,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export function AiLogDetailSheet({ log, sourceLabel, purposeLabel, onOpenChange }: AiLogDetailSheetProps) {
+  const { locale } = useLocale();
   const isOpen = log != null;
+  const emptyValue = t(locale, 'admin.logs.emptyValue');
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -55,44 +42,52 @@ export function AiLogDetailSheet({ log, sourceLabel, purposeLabel, onOpenChange 
           <>
             <SheetHeader className="border-b border-border pr-12">
               <div className="flex items-center justify-between gap-3">
-                <SheetTitle>调用详情</SheetTitle>
+                <SheetTitle>{t(locale, 'admin.logs.ai.detailTitle')}</SheetTitle>
                 <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
-                  {log.status === 'success' ? '成功' : '失败'}
+                  {formatAdminInvocationStatus(log.status, locale)}
                 </Badge>
               </div>
-              <SheetDescription>{formatDateTime(log.createdAt)}</SheetDescription>
+              <SheetDescription>{formatAdminDateTime(log.createdAt, locale, true)}</SheetDescription>
             </SheetHeader>
 
             <div className="flex flex-col gap-6 px-4 pb-8">
               <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-4 gap-y-3">
-                <DetailRow label="调用来源" value={sourceLabel} />
-                <DetailRow label="调用类型" value={purposeLabel} />
-                <DetailRow label="模型" value={log.modelId ?? '-'} />
-                <DetailRow label="延迟" value={log.latencyMs != null ? `${log.latencyMs} ms` : '-'} />
+                <DetailRow label={t(locale, 'admin.logs.ai.detailSource')} value={sourceLabel} />
+                <DetailRow label={t(locale, 'admin.logs.ai.detailPurpose')} value={purposeLabel} />
+                <DetailRow label={t(locale, 'admin.logs.ai.detailModel')} value={log.modelId ?? emptyValue} />
+                <DetailRow
+                  label={t(locale, 'admin.logs.ai.detailLatency')}
+                  value={formatAdminLatencyMs(log.latencyMs, locale)}
+                />
               </dl>
 
               <Separator />
 
               <section className="flex flex-col gap-3">
-                <h3 className="text-sm font-medium text-foreground">Token 消耗</h3>
+                <h3 className="text-sm font-medium text-foreground">{t(locale, 'admin.logs.ai.tokenSectionTitle')}</h3>
                 <div className="rounded-2xl bg-secondary/60 px-4 py-4">
-                  <p className="text-sm text-muted-foreground">总消耗</p>
+                  <p className="text-sm text-muted-foreground">{t(locale, 'admin.logs.ai.tokenTotal')}</p>
                   <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-foreground">
-                    {formatCount(log.totalTokens)}
+                    {formatAdminCount(log.totalTokens, locale)}
                   </p>
                   <div className="mt-4 grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs text-muted-foreground">输入 Token</p>
-                      <p className="mt-1 text-base tabular-nums text-foreground">{formatCount(log.inputTokens)}</p>
+                      <p className="text-xs text-muted-foreground">{t(locale, 'admin.logs.ai.tokenInput')}</p>
+                      <p className="mt-1 text-base tabular-nums text-foreground">
+                        {formatAdminCount(log.inputTokens, locale)}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">输出 Token</p>
-                      <p className="mt-1 text-base tabular-nums text-foreground">{formatCount(log.outputTokens)}</p>
+                      <p className="text-xs text-muted-foreground">{t(locale, 'admin.logs.ai.tokenOutput')}</p>
+                      <p className="mt-1 text-base tabular-nums text-foreground">
+                        {formatAdminCount(log.outputTokens, locale)}
+                      </p>
                     </div>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  费用 ¥ 0<span className="ml-2 text-xs">暂无计价</span>
+                  {t(locale, 'admin.logs.ai.costLine', { amount: t(locale, 'admin.logs.costPlaceholder') })}
+                  <span className="ml-2 text-xs">{t(locale, 'admin.logs.costNotPricedHint')}</span>
                 </p>
               </section>
 
@@ -100,8 +95,8 @@ export function AiLogDetailSheet({ log, sourceLabel, purposeLabel, onOpenChange 
                 <>
                   <Separator />
                   <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-4 gap-y-3">
-                    <DetailRow label="关联类型" value={log.refType ?? '-'} />
-                    <DetailRow label="关联 ID" value={log.refId ?? '-'} />
+                    <DetailRow label={t(locale, 'admin.logs.ai.refType')} value={log.refType ?? emptyValue} />
+                    <DetailRow label={t(locale, 'admin.logs.ai.refId')} value={log.refId ?? emptyValue} />
                   </dl>
                 </>
               ) : null}
@@ -110,8 +105,8 @@ export function AiLogDetailSheet({ log, sourceLabel, purposeLabel, onOpenChange 
                 <>
                   <Separator />
                   <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-4 gap-y-3">
-                    <DetailRow label="错误码" value={log.errorCode ?? '-'} />
-                    <DetailRow label="错误信息" value={log.errorMessage ?? '-'} />
+                    <DetailRow label={t(locale, 'admin.logs.ai.errorCode')} value={log.errorCode ?? emptyValue} />
+                    <DetailRow label={t(locale, 'admin.logs.ai.errorMessage')} value={log.errorMessage ?? emptyValue} />
                   </dl>
                 </>
               ) : null}
@@ -122,13 +117,13 @@ export function AiLogDetailSheet({ log, sourceLabel, purposeLabel, onOpenChange 
                   <div className="flex flex-col gap-4">
                     {log.requestSummary?.selectionPreview ? (
                       <div>
-                        <p className="text-sm text-muted-foreground">请求摘要</p>
+                        <p className="text-sm text-muted-foreground">{t(locale, 'admin.logs.ai.requestSummary')}</p>
                         <p className="mt-2 text-sm leading-6 text-foreground">{log.requestSummary.selectionPreview}</p>
                       </div>
                     ) : null}
                     {log.responseSummary?.replyPreview ? (
                       <div>
-                        <p className="text-sm text-muted-foreground">回复摘要</p>
+                        <p className="text-sm text-muted-foreground">{t(locale, 'admin.logs.ai.replySummary')}</p>
                         <p className="mt-2 text-sm leading-6 text-foreground">{log.responseSummary.replyPreview}</p>
                       </div>
                     ) : null}

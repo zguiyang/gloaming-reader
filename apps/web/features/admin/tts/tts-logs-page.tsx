@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Volume2 } from 'lucide-react';
 import { useState } from 'react';
 
+import { t } from '@gloaming/i18n';
 import { DEFAULT_PAGE } from '@gloaming/shared/pagination';
 import {
   TTS_INVOCATION_DEFAULT_PAGE_SIZE,
@@ -25,6 +26,14 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
+  formatAdminCount,
+  formatAdminDateTime,
+  formatAdminInvocationStatus,
+  formatAdminLatencyMs,
+  formatAdminTtsRole,
+  formatAdminTtsSource,
+} from '@/features/admin/admin-logs-format';
+import {
   InvocationLogsFilters,
   type InvocationLogsRange,
   type InvocationLogsRangePreset,
@@ -38,68 +47,39 @@ import {
   getAdminTtsInvocationStats,
   listAdminTtsInvocations,
 } from '@/features/admin/tts/tts-logs-api';
+import { useLocale } from '@/lib/locale-context';
 import { usePaginatedQuery } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
 const TABLE_REFRESH_MIN_MS = 300;
 const TABLE_SKELETON_ROW_COUNT = 6;
 
-const SOURCE_LABELS: Record<string, string> = {
-  'admin.part_audio': '章节音频',
-  'admin.article_audio': '章节音频',
-  'admin.tts_test': '连通测试',
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  us: '美音',
-  uk: '英音',
-};
-
-function sourceLabel(source: string): string {
-  return SOURCE_LABELS[source] ?? source;
-}
-
-function roleLabel(role: string | null): string {
-  if (!role) {
-    return '默认';
-  }
-  return ROLE_LABELS[role] ?? role;
-}
-
-function formatDateTime(iso: string | Date): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(new Date(iso));
-  } catch {
-    return String(iso);
-  }
-}
-
-function formatCount(value: number | null | undefined): string {
-  if (value == null) {
-    return '-';
-  }
-  return new Intl.NumberFormat('zh-CN').format(value);
-}
-
-function LogsTableSkeleton({ rows }: { rows: number }) {
+function LogsTableSkeleton({ rows, locale }: { rows: number; locale: ReturnType<typeof useLocale>['locale'] }) {
   return (
     <Table className="min-w-[48rem]" aria-hidden>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">时间</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">片段</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">Voice</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">来源</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">状态</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">延迟</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">错误</TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.time')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.segment')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.voice')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.source')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.status')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
+            {t(locale, 'admin.logs.table.latency')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.error')}
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -146,17 +126,24 @@ function StatsCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatsRow({ stats }: { stats: TtsInvocationStats }) {
+function StatsRow({ stats, locale }: { stats: TtsInvocationStats; locale: ReturnType<typeof useLocale>['locale'] }) {
   return (
     <div className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-      <StatsCell label="成功" value={formatCount(stats.successCount)} />
-      <StatsCell label="失败" value={formatCount(stats.failureCount)} />
-      <StatsCell label="合计" value={formatCount(stats.totalCount)} />
+      <StatsCell
+        label={t(locale, 'admin.logs.tts.statsSuccess')}
+        value={formatAdminCount(stats.successCount, locale)}
+      />
+      <StatsCell
+        label={t(locale, 'admin.logs.tts.statsFailure')}
+        value={formatAdminCount(stats.failureCount, locale)}
+      />
+      <StatsCell label={t(locale, 'admin.logs.tts.statsTotal')} value={formatAdminCount(stats.totalCount, locale)} />
     </div>
   );
 }
 
 export function TtsLogsPage() {
+  const { locale } = useLocale();
   const [page, setPage] = useState<number>(DEFAULT_PAGE);
   const [rangeTab, setRangeTab] = useState<InvocationLogsRangePreset>('30');
   const [range, setRange] = useState<InvocationLogsRange>(() => ttsInvocationWindowForDays(30));
@@ -192,8 +179,8 @@ export function TtsLogsPage() {
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto max-w-6xl">
       <div className="min-w-0">
-        <h1 className="font-heading text-3xl font-bold tracking-tight">音频调用日志</h1>
-        <p className="mt-3 text-lg text-muted-foreground">查看文章 TTS 生成与连通测试记录。</p>
+        <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.logs.tts.title')}</h1>
+        <p className="mt-3 text-lg text-muted-foreground">{t(locale, 'admin.logs.tts.subtitle')}</p>
       </div>
 
       <div className="mt-10 flex flex-col gap-8">
@@ -204,7 +191,7 @@ export function TtsLogsPage() {
             {formatAdminTtsLogsApiError(statsQuery.error)}
           </p>
         ) : statsQuery.data ? (
-          <StatsRow stats={statsQuery.data} />
+          <StatsRow stats={statsQuery.data} locale={locale} />
         ) : null}
 
         <div className="flex flex-col gap-5">
@@ -232,14 +219,14 @@ export function TtsLogsPage() {
             aria-busy={list.isInitialLoading || list.isSoftRefreshing}
           >
             {list.isInitialLoading ? (
-              <LogsTableSkeleton rows={TABLE_SKELETON_ROW_COUNT} />
+              <LogsTableSkeleton rows={TABLE_SKELETON_ROW_COUNT} locale={locale} />
             ) : list.isError && !list.data ? (
               <Empty className="border-0 py-16">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <Volume2 />
                   </EmptyMedia>
-                  <EmptyTitle>无法加载音频日志</EmptyTitle>
+                  <EmptyTitle>{t(locale, 'admin.logs.tts.loadFailedTitle')}</EmptyTitle>
                   <EmptyDescription>{formatAdminTtsLogsApiError(list.error)}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -249,24 +236,36 @@ export function TtsLogsPage() {
                   <EmptyMedia variant="icon">
                     <Volume2 />
                   </EmptyMedia>
-                  <EmptyTitle>当前筛选下没有音频日志</EmptyTitle>
-                  <EmptyDescription>试试调整时间范围或状态。</EmptyDescription>
+                  <EmptyTitle>{t(locale, 'admin.logs.tts.emptyTitle')}</EmptyTitle>
+                  <EmptyDescription>{t(locale, 'admin.logs.tts.emptyDescription')}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : (
-              <LoadingOverlay active={list.isSoftRefreshing} label="列表更新中…">
+              <LoadingOverlay active={list.isSoftRefreshing} label={t(locale, 'admin.logs.listRefreshing')}>
                 <Table className="min-w-[48rem]">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">时间</TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">片段</TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">Voice</TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">来源</TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">状态</TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
-                        延迟
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.time')}
                       </TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">错误</TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.segment')}
+                      </TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.voice')}
+                      </TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.source')}
+                      </TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.status')}
+                      </TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
+                        {t(locale, 'admin.logs.table.latency')}
+                      </TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.error')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -276,27 +275,33 @@ export function TtsLogsPage() {
                         className="border-border transition-colors duration-300 ease-out-soft hover:bg-surface-container-low"
                       >
                         <TableCell className="px-5 py-4 tabular-nums text-muted-foreground">
-                          {formatDateTime(log.createdAt)}
+                          {formatAdminDateTime(log.createdAt, locale)}
                         </TableCell>
                         <TableCell className="px-5 py-4 text-foreground">
-                          {log.partTitle ?? (log.partId ? log.partId.slice(0, 8) : '—')}
+                          {log.partTitle ?? (log.partId ? log.partId.slice(0, 8) : t(locale, 'admin.logs.emptyValue'))}
                         </TableCell>
                         <TableCell className="px-5 py-4 text-muted-foreground">
-                          <span className="block">{log.voice ?? '—'}</span>
-                          <span className="text-xs">{roleLabel(log.role)}</span>
+                          <span className="block">{log.voice ?? t(locale, 'admin.logs.emptyValue')}</span>
+                          <span className="text-xs">{formatAdminTtsRole(log.role, locale)}</span>
                         </TableCell>
-                        <TableCell className="px-5 py-4 text-muted-foreground">{sourceLabel(log.source)}</TableCell>
+                        <TableCell className="px-5 py-4 text-muted-foreground">
+                          {formatAdminTtsSource(log.source, locale)}
+                        </TableCell>
                         <TableCell className="px-5 py-4">
                           <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
-                            {log.status === 'success' ? '成功' : '失败'}
+                            {formatAdminInvocationStatus(log.status, locale)}
                           </Badge>
-                          {log.cached ? <span className="ml-2 text-xs text-muted-foreground">缓存</span> : null}
+                          {log.cached ? (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {t(locale, 'admin.logs.tts.cached')}
+                            </span>
+                          ) : null}
                         </TableCell>
                         <TableCell className="px-5 py-4 text-right tabular-nums text-muted-foreground">
-                          {log.latencyMs == null ? '—' : `${formatCount(log.latencyMs)} ms`}
+                          {formatAdminLatencyMs(log.latencyMs, locale)}
                         </TableCell>
                         <TableCell className="max-w-[14rem] truncate px-5 py-4 text-muted-foreground">
-                          {log.errorMessage ?? '—'}
+                          {log.errorMessage ?? t(locale, 'admin.logs.emptyValue')}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -311,15 +316,19 @@ export function TtsLogsPage() {
       {!list.isInitialLoading && !list.isError ? (
         <div className="mt-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-sm text-muted-foreground">
-            共 {list.total} 条 · 第 {list.totalPages === 0 ? 0 : list.page} / {list.totalPages} 页 · 每页{' '}
-            {TTS_INVOCATION_DEFAULT_PAGE_SIZE}
+            {t(locale, 'admin.logs.paginationSummary', {
+              total: list.total,
+              page: list.totalPages === 0 ? 0 : list.page,
+              totalPages: list.totalPages,
+              pageSize: TTS_INVOCATION_DEFAULT_PAGE_SIZE,
+            })}
           </p>
           {list.hasPrevPage || list.hasNextPage ? (
             <Pagination className="mx-0 w-auto justify-end">
               <PaginationContent className="gap-2">
                 <PaginationItem>
                   <PaginationPrevious
-                    text="上一页"
+                    text={t(locale, 'admin.logs.prevPage')}
                     href="#"
                     aria-disabled={!list.hasPrevPage}
                     className={cn(
@@ -334,7 +343,7 @@ export function TtsLogsPage() {
                 </PaginationItem>
                 <PaginationItem>
                   <PaginationNext
-                    text="下一页"
+                    text={t(locale, 'admin.logs.nextPage')}
                     href="#"
                     aria-disabled={!list.hasNextPage}
                     className={cn(

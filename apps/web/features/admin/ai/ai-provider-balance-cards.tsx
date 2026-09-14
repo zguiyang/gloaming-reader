@@ -3,25 +3,18 @@
 import { Wallet } from 'lucide-react';
 import { useState } from 'react';
 
+import { t } from '@gloaming/i18n';
 import type { LlmProvider, ProviderBalanceResult } from '@gloaming/shared/llm';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { formatAdminBalance } from '@/features/admin/admin-logs-format';
 import { queryLlmProviderBalance } from '@/features/admin/ai/ai-config-api';
-
-function formatBalance(result: ProviderBalanceResult): string {
-  if (!result.supported) {
-    return '';
-  }
-  const amount = new Intl.NumberFormat('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  }).format(result.balance);
-  return `${result.currency} ${amount}`;
-}
+import { useLocale } from '@/lib/locale-context';
 
 export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[] }) {
+  const { locale } = useLocale();
   const [results, setResults] = useState<Record<string, ProviderBalanceResult>>({});
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
@@ -36,7 +29,7 @@ export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[]
         [provider.id]: {
           supported: false,
           reason: 'request-failed',
-          message: error instanceof Error ? error.message : '查询失败',
+          message: error instanceof Error ? error.message : t(locale, 'admin.logs.ai.providerQueryFailed'),
         },
       }));
     } finally {
@@ -54,8 +47,8 @@ export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[]
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-medium text-foreground">服务商余额</h2>
-          <p className="mt-1 text-sm text-muted-foreground">来自各服务商余额接口，点击卡片按钮查询。</p>
+          <h2 className="text-base font-medium text-foreground">{t(locale, 'admin.logs.ai.providerBalancesTitle')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'admin.logs.ai.providerBalancesDescription')}</p>
         </div>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -69,7 +62,7 @@ export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[]
                 {result?.supported ? (
                   <Badge variant="secondary" className="gap-1 text-xs tabular-nums">
                     <Wallet data-icon="inline-start" />
-                    {formatBalance(result)}
+                    {`${result.currency} ${formatAdminBalance(result.balance, locale)}`}
                   </Badge>
                 ) : null}
               </div>
@@ -78,7 +71,9 @@ export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[]
                   <>
                     {result.isAvailable != null ? (
                       <span className="text-xs text-muted-foreground">
-                        {result.isAvailable ? '可调用' : '余额不足'}
+                        {result.isAvailable
+                          ? t(locale, 'admin.logs.ai.providerAvailable')
+                          : t(locale, 'admin.logs.ai.providerInsufficient')}
                       </span>
                     ) : null}
                     <Button
@@ -89,7 +84,7 @@ export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[]
                       onClick={() => queryBalance(provider)}
                     >
                       {isLoading ? <Spinner data-icon="inline-start" /> : null}
-                      刷新
+                      {t(locale, 'admin.logs.ai.providerRefresh')}
                     </Button>
                   </>
                 ) : result && !result.supported ? (
@@ -103,7 +98,7 @@ export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[]
                       onClick={() => queryBalance(provider)}
                     >
                       {isLoading ? <Spinner data-icon="inline-start" /> : null}
-                      重试
+                      {t(locale, 'admin.logs.ai.providerRetry')}
                     </Button>
                   </>
                 ) : (
@@ -117,12 +112,12 @@ export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[]
                     {isLoading ? (
                       <>
                         <Spinner data-icon="inline-start" />
-                        查询中
+                        {t(locale, 'admin.logs.ai.providerQuerying')}
                       </>
                     ) : (
                       <>
                         <Wallet data-icon="inline-start" />
-                        查询余额
+                        {t(locale, 'admin.logs.ai.providerQueryBalance')}
                       </>
                     )}
                   </Button>

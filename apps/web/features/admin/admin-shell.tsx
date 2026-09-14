@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useState } from 'react';
 
+import { type Locale, t } from '@gloaming/i18n';
 import { isAdminRole } from '@gloaming/shared/auth';
 
 import { BrandMark } from '@/components/brand-mark';
@@ -14,6 +15,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { ADMIN_ROUTES, AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import { authClient } from '@/lib/auth';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type AdminShellProps = {
@@ -27,35 +29,35 @@ type AdminNavItem = {
   isActive: boolean;
 };
 
-function adminNavItems(pathname: string): AdminNavItem[] {
+function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
   return [
     {
       href: ADMIN_ROUTES.works,
-      label: '作品',
+      label: t(locale, 'admin.shell.navWorks'),
       icon: FileText,
       isActive: pathname.startsWith(ADMIN_ROUTES.works),
     },
     {
       href: ADMIN_ROUTES.assets,
-      label: '资产管理',
+      label: t(locale, 'admin.shell.navAssets'),
       icon: HardDrive,
       isActive: pathname === ADMIN_ROUTES.assets || pathname.startsWith(`${ADMIN_ROUTES.assets}/`),
     },
     {
       href: ADMIN_ROUTES.config,
-      label: '配置',
+      label: t(locale, 'admin.shell.navConfig'),
       icon: Settings,
       isActive: pathname === ADMIN_ROUTES.config || pathname.startsWith(`${ADMIN_ROUTES.config}/`),
     },
     {
       href: ADMIN_ROUTES.taxonomy,
-      label: '维度管理',
+      label: t(locale, 'admin.shell.navTaxonomy'),
       icon: Tags,
       isActive: pathname === ADMIN_ROUTES.taxonomy || pathname.startsWith(`${ADMIN_ROUTES.taxonomy}/`),
     },
     {
       href: ADMIN_ROUTES.logs,
-      label: '日志',
+      label: t(locale, 'admin.shell.navLogs'),
       icon: ScrollText,
       isActive: pathname === ADMIN_ROUTES.logs || pathname.startsWith(`${ADMIN_ROUTES.logs}/`),
     },
@@ -85,6 +87,7 @@ function AdminNavButton({ item, onNavigate }: { item: AdminNavItem; onNavigate?:
 
 export function AdminShell({ children }: AdminShellProps) {
   const pathname = usePathname();
+  const { locale } = useLocale();
   const { data, isPending } = authClient.useSession();
   const { openLogin } = useAuthDialog();
   const user = data?.user ?? null;
@@ -98,9 +101,9 @@ export function AdminShell({ children }: AdminShellProps) {
     return (
       <div className="flex h-dvh flex-1 items-center justify-center px-6">
         <div className="text-center">
-          <p className="text-sm text-muted-foreground">请先登录后再进入管理后台。</p>
+          <p className="text-sm text-muted-foreground">{t(locale, 'admin.shell.signInPrompt')}</p>
           <Button type="button" className="mt-5 rounded-full px-6" onClick={() => openLogin()}>
-            登录
+            {t(locale, 'admin.shell.signIn')}
           </Button>
         </div>
       </div>
@@ -112,22 +115,26 @@ export function AdminShell({ children }: AdminShellProps) {
       <div className="flex min-h-dvh items-center justify-center bg-background px-6 py-10">
         <section className="w-full max-w-md rounded-2xl border border-border bg-card px-8 py-10 text-center">
           <div className="mb-8 flex justify-center">
-            <BrandMark href={AUTH_ROUTES.shelf} subtitle="管理后台" />
+            <BrandMark href={AUTH_ROUTES.shelf} subtitle={t(locale, 'admin.shell.subtitle')} />
           </div>
-          <p className="mb-3 text-sm font-medium tracking-[0.16em] text-primary">无权限</p>
-          <h1 className="font-serif text-2xl font-semibold tracking-tight text-foreground">无法进入管理后台</h1>
+          <p className="mb-3 text-sm font-medium tracking-[0.16em] text-primary">
+            {t(locale, 'admin.shell.forbiddenEyebrow')}
+          </p>
+          <h1 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+            {t(locale, 'admin.shell.forbiddenTitle')}
+          </h1>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            当前账号没有管理员权限。管理后台只对内容维护人员开放，你仍然可以返回首页继续阅读。
+            {t(locale, 'admin.shell.forbiddenDescription')}
           </p>
           <Button nativeButton={false} className="mt-8 rounded-xl px-5" render={<Link href={AUTH_ROUTES.shelf} />}>
-            返回首页
+            {t(locale, 'admin.shell.backHome')}
           </Button>
         </section>
       </div>
     );
   }
 
-  const navItems = adminNavItems(pathname);
+  const navItems = adminNavItems(pathname, locale);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden md:flex-row">
@@ -135,16 +142,28 @@ export function AdminShell({ children }: AdminShellProps) {
         <div className="flex min-w-0 items-center gap-2">
           <Sheet open={isNavOpen} onOpenChange={setIsNavOpen}>
             <SheetTrigger
-              render={<Button variant="ghost" size="icon" className="shrink-0" aria-label="打开管理导航" />}
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  aria-label={t(locale, 'admin.shell.openNavAria')}
+                />
+              }
             >
               <Menu />
             </SheetTrigger>
             <SheetContent side="left" className="w-80 bg-sidebar text-sidebar-foreground" showCloseButton={false}>
               <SheetHeader className="border-b border-sidebar-border">
-                <SheetTitle className="sr-only">管理导航</SheetTitle>
+                <SheetTitle className="sr-only">{t(locale, 'admin.shell.navSrOnly')}</SheetTitle>
               </SheetHeader>
               <div className="flex min-h-0 flex-1 flex-col px-6 pt-6 pb-3">
-                <BrandMark href={ADMIN_ROUTES.works} size="md" subtitle="内容管理" className="mb-10" />
+                <BrandMark
+                  href={ADMIN_ROUTES.works}
+                  size="md"
+                  subtitle={t(locale, 'admin.shell.contentSubtitle')}
+                  className="mb-10"
+                />
                 <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                   {navItems.map((item) => (
                     <AdminNavButton key={item.href} item={item} onNavigate={() => setIsNavOpen(false)} />
@@ -157,16 +176,20 @@ export function AdminShell({ children }: AdminShellProps) {
                   render={
                     <Link href={AUTH_ROUTES.shelf} onClick={() => setIsNavOpen(false)}>
                       <ArrowLeft data-icon="inline-start" />
-                      返回首页
+                      {t(locale, 'admin.shell.backHome')}
                     </Link>
                   }
                 >
-                  返回首页
+                  {t(locale, 'admin.shell.backHome')}
                 </Button>
               </div>
             </SheetContent>
           </Sheet>
-          <BrandMark href={ADMIN_ROUTES.works} subtitle="内容管理" className="min-w-0" />
+          <BrandMark
+            href={ADMIN_ROUTES.works}
+            subtitle={t(locale, 'admin.shell.contentSubtitle')}
+            className="min-w-0"
+          />
         </div>
         <Button
           variant="ghost"
@@ -176,13 +199,18 @@ export function AdminShell({ children }: AdminShellProps) {
           render={<Link href={AUTH_ROUTES.shelf} />}
         >
           <ArrowLeft data-icon="inline-start" />
-          首页
+          {t(locale, 'admin.shell.home')}
         </Button>
       </header>
 
       <aside className="hidden h-full w-72 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-7 pt-7 pb-3 md:flex">
         <div className="min-h-0 flex-1">
-          <BrandMark href={ADMIN_ROUTES.works} size="md" subtitle="内容管理" className="mb-12" />
+          <BrandMark
+            href={ADMIN_ROUTES.works}
+            size="md"
+            subtitle={t(locale, 'admin.shell.contentSubtitle')}
+            className="mb-12"
+          />
 
           <nav className="flex flex-col gap-2">
             {navItems.map((item) => (
@@ -198,7 +226,7 @@ export function AdminShell({ children }: AdminShellProps) {
           render={<Link href={AUTH_ROUTES.shelf} />}
         >
           <ArrowLeft data-icon="inline-start" />
-          返回首页
+          {t(locale, 'admin.shell.backHome')}
         </Button>
       </aside>
 

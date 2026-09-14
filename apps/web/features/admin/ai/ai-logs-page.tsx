@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ScrollText } from 'lucide-react';
 import { useState } from 'react';
 
+import { t } from '@gloaming/i18n';
 import {
   AI_INVOCATION_DEFAULT_PAGE_SIZE,
   type AiInvocationLog,
@@ -25,6 +26,13 @@ import {
 } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  formatAdminAiPurpose,
+  formatAdminAiSource,
+  formatAdminCount,
+  formatAdminDateTime,
+  formatAdminInvocationStatus,
+} from '@/features/admin/admin-logs-format';
 import { adminLlmQueryKey, listLlmProviders } from '@/features/admin/ai/ai-config-api';
 import { AiLogDetailSheet } from '@/features/admin/ai/ai-log-detail-sheet';
 import {
@@ -42,74 +50,38 @@ import {
   type InvocationLogsRangePreset,
   type InvocationLogsStatusFilter,
 } from '@/features/admin/invocation-logs-filters';
+import { useLocale } from '@/lib/locale-context';
 import { usePaginatedQuery } from '@/lib/query';
 import { cn } from '@/lib/utils';
 
 const TABLE_REFRESH_MIN_MS = 300;
 const TABLE_SKELETON_ROW_COUNT = 6;
 
-const SOURCE_LABELS: Record<string, string> = {
-  'assist.ask': '阅读提问',
-  'assist.ask.followups': '追问建议',
-  'translate.part': '双语翻译',
-  'translate.article': '双语翻译',
-  'admin.provider_test': '连通测试',
-  'metadata-enrich.fill': '元数据完善',
-  'dictionary:enrichment': '词典 AI 增强',
-};
-
-const PURPOSE_LABELS: Record<string, string> = {
-  assist: '阅读助手',
-  translate: '双语翻译',
-  'metadata-enrich': '元数据完善',
-};
-
-function sourceLabel(source: string): string {
-  return SOURCE_LABELS[source] ?? source;
-}
-
-function purposeLabel(purpose: string | null): string {
-  if (!purpose) {
-    return '未绑定';
-  }
-  return PURPOSE_LABELS[purpose] ?? purpose;
-}
-
-function formatDateTime(iso: string | Date): string {
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(new Date(iso));
-  } catch {
-    return String(iso);
-  }
-}
-
-function formatCount(value: number | null | undefined): string {
-  if (value == null) {
-    return '-';
-  }
-  return new Intl.NumberFormat('zh-CN').format(value);
-}
-
-function LogsTableSkeleton({ rows }: { rows: number }) {
+function LogsTableSkeleton({ rows, locale }: { rows: number; locale: ReturnType<typeof useLocale>['locale'] }) {
   return (
     <Table className="min-w-[48rem]" aria-hidden>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">时间</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">来源</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">类型</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">状态</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">模型</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">Token</TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.time')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.source')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.type')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.status')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.logs.table.model')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
+            {t(locale, 'admin.logs.table.tokens')}
+          </TableHead>
           <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-right text-muted-foreground">
-            操作
+            {t(locale, 'admin.logs.table.actions')}
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -160,17 +132,28 @@ function StatsCell({ label, value, hint }: { label: string; value: string; hint?
   );
 }
 
-function StatsRow({ stats }: { stats: AiInvocationStats }) {
+function StatsRow({ stats, locale }: { stats: AiInvocationStats; locale: ReturnType<typeof useLocale>['locale'] }) {
   return (
     <div className="grid grid-cols-1 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-      <StatsCell label="输入 Token" value={formatCount(stats.inputTokens)} />
-      <StatsCell label="输出 Token" value={formatCount(stats.outputTokens)} />
-      <StatsCell label="费用" value="¥ 0" hint="暂无计价" />
+      <StatsCell
+        label={t(locale, 'admin.logs.ai.statsInputTokens')}
+        value={formatAdminCount(stats.inputTokens, locale)}
+      />
+      <StatsCell
+        label={t(locale, 'admin.logs.ai.statsOutputTokens')}
+        value={formatAdminCount(stats.outputTokens, locale)}
+      />
+      <StatsCell
+        label={t(locale, 'admin.logs.ai.statsCost')}
+        value={t(locale, 'admin.logs.costPlaceholder')}
+        hint={t(locale, 'admin.logs.costNotPricedHint')}
+      />
     </div>
   );
 }
 
 export function AiLogsPage() {
+  const { locale } = useLocale();
   const [page, setPage] = useState<number>(DEFAULT_PAGE);
   const [selected, setSelected] = useState<AiInvocationLog | null>(null);
   const [rangeTab, setRangeTab] = useState<InvocationLogsRangePreset>('30');
@@ -212,8 +195,8 @@ export function AiLogsPage() {
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto max-w-6xl">
       <div className="min-w-0">
-        <h1 className="font-heading text-3xl font-bold tracking-tight">AI 调用日志</h1>
-        <p className="mt-3 text-lg text-muted-foreground">查看调用消耗与摘要。</p>
+        <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.logs.ai.title')}</h1>
+        <p className="mt-3 text-lg text-muted-foreground">{t(locale, 'admin.logs.ai.subtitle')}</p>
       </div>
 
       <div className="mt-10 flex flex-col gap-8">
@@ -224,7 +207,7 @@ export function AiLogsPage() {
             {formatAdminAiLogsApiError(statsQuery.error)}
           </p>
         ) : statsQuery.data ? (
-          <StatsRow stats={statsQuery.data} />
+          <StatsRow stats={statsQuery.data} locale={locale} />
         ) : null}
 
         {providersQuery.data && providersQuery.data.length > 0 ? (
@@ -256,14 +239,14 @@ export function AiLogsPage() {
             aria-busy={list.isInitialLoading || list.isSoftRefreshing}
           >
             {list.isInitialLoading ? (
-              <LogsTableSkeleton rows={TABLE_SKELETON_ROW_COUNT} />
+              <LogsTableSkeleton rows={TABLE_SKELETON_ROW_COUNT} locale={locale} />
             ) : list.isError && !list.data ? (
               <Empty className="border-0 py-16">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
                     <ScrollText />
                   </EmptyMedia>
-                  <EmptyTitle>无法加载调用日志</EmptyTitle>
+                  <EmptyTitle>{t(locale, 'admin.logs.ai.loadFailedTitle')}</EmptyTitle>
                   <EmptyDescription>{formatAdminAiLogsApiError(list.error)}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -273,25 +256,35 @@ export function AiLogsPage() {
                   <EmptyMedia variant="icon">
                     <ScrollText />
                   </EmptyMedia>
-                  <EmptyTitle>当前筛选下没有调用日志</EmptyTitle>
-                  <EmptyDescription>试试调整时间范围或状态。</EmptyDescription>
+                  <EmptyTitle>{t(locale, 'admin.logs.ai.emptyTitle')}</EmptyTitle>
+                  <EmptyDescription>{t(locale, 'admin.logs.ai.emptyDescription')}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : (
-              <LoadingOverlay active={list.isSoftRefreshing} label="列表更新中…">
+              <LoadingOverlay active={list.isSoftRefreshing} label={t(locale, 'admin.logs.listRefreshing')}>
                 <Table className="min-w-[48rem]">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">时间</TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">来源</TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">类型</TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">状态</TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">模型</TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.time')}
+                      </TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.source')}
+                      </TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.type')}
+                      </TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.status')}
+                      </TableHead>
+                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                        {t(locale, 'admin.logs.table.model')}
+                      </TableHead>
                       <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
-                        Token
+                        {t(locale, 'admin.logs.table.tokens')}
                       </TableHead>
                       <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-right text-muted-foreground">
-                        操作
+                        {t(locale, 'admin.logs.table.actions')}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -302,22 +295,28 @@ export function AiLogsPage() {
                         className="border-border transition-colors duration-300 ease-out-soft hover:bg-surface-container-low"
                       >
                         <TableCell className="px-5 py-4 tabular-nums text-muted-foreground">
-                          {formatDateTime(log.createdAt)}
+                          {formatAdminDateTime(log.createdAt, locale)}
                         </TableCell>
-                        <TableCell className="px-5 py-4 text-foreground">{sourceLabel(log.source)}</TableCell>
-                        <TableCell className="px-5 py-4 text-muted-foreground">{purposeLabel(log.purpose)}</TableCell>
+                        <TableCell className="px-5 py-4 text-foreground">
+                          {formatAdminAiSource(log.source, locale)}
+                        </TableCell>
+                        <TableCell className="px-5 py-4 text-muted-foreground">
+                          {formatAdminAiPurpose(log.purpose, locale)}
+                        </TableCell>
                         <TableCell className="px-5 py-4">
                           <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
-                            {log.status === 'success' ? '成功' : '失败'}
+                            {formatAdminInvocationStatus(log.status, locale)}
                           </Badge>
                         </TableCell>
-                        <TableCell className="px-5 py-4 text-muted-foreground">{log.modelId ?? '-'}</TableCell>
+                        <TableCell className="px-5 py-4 text-muted-foreground">
+                          {log.modelId ?? t(locale, 'admin.logs.emptyValue')}
+                        </TableCell>
                         <TableCell className="px-5 py-4 text-right tabular-nums text-muted-foreground">
-                          {formatCount(log.totalTokens)}
+                          {formatAdminCount(log.totalTokens, locale)}
                         </TableCell>
                         <TableCell className="px-5 py-4 text-right">
                           <Button variant="ghost" size="sm" className="rounded-xl" onClick={() => setSelected(log)}>
-                            详情
+                            {t(locale, 'admin.logs.ai.detailAction')}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -333,15 +332,19 @@ export function AiLogsPage() {
       {!list.isInitialLoading && !list.isError ? (
         <div className="mt-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-sm text-muted-foreground">
-            共 {list.total} 条 · 第 {list.totalPages === 0 ? 0 : list.page} / {list.totalPages} 页 · 每页{' '}
-            {AI_INVOCATION_DEFAULT_PAGE_SIZE}
+            {t(locale, 'admin.logs.paginationSummary', {
+              total: list.total,
+              page: list.totalPages === 0 ? 0 : list.page,
+              totalPages: list.totalPages,
+              pageSize: AI_INVOCATION_DEFAULT_PAGE_SIZE,
+            })}
           </p>
           {list.hasPrevPage || list.hasNextPage ? (
             <Pagination className="mx-0 w-auto justify-end">
               <PaginationContent className="gap-2">
                 <PaginationItem>
                   <PaginationPrevious
-                    text="上一页"
+                    text={t(locale, 'admin.logs.prevPage')}
                     href="#"
                     aria-disabled={!list.hasPrevPage}
                     className={cn(
@@ -356,7 +359,7 @@ export function AiLogsPage() {
                 </PaginationItem>
                 <PaginationItem>
                   <PaginationNext
-                    text="下一页"
+                    text={t(locale, 'admin.logs.nextPage')}
                     href="#"
                     aria-disabled={!list.hasNextPage}
                     className={cn(
@@ -377,8 +380,8 @@ export function AiLogsPage() {
 
       <AiLogDetailSheet
         log={selected}
-        sourceLabel={selected ? sourceLabel(selected.source) : ''}
-        purposeLabel={selected ? purposeLabel(selected.purpose) : ''}
+        sourceLabel={selected ? formatAdminAiSource(selected.source, locale) : ''}
+        purposeLabel={selected ? formatAdminAiPurpose(selected.purpose, locale) : ''}
         onOpenChange={(open) => {
           if (!open) {
             setSelected(null);
