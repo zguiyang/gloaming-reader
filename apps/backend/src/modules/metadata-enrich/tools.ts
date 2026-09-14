@@ -3,7 +3,7 @@ import { tool } from 'langchain/tools';
 import { z } from 'zod';
 
 import { category as categoryTable, readingWorkTag as readingWorkTagTable, tag as tagTable } from '@gloaming/db';
-import { optionalLocalizedNames } from '@gloaming/shared/taxonomy';
+import { optionalLocalizedText } from '@gloaming/shared/taxonomy';
 
 import { db } from '@/db';
 import { normalizeTag } from '@/lib/text';
@@ -39,7 +39,7 @@ export function listExistingTagsTool() {
           tags: rows.map((r) => ({
             id: r.id,
             name: r.name,
-            localizedNames: optionalLocalizedNames(r.localizedNames),
+            localizedNames: optionalLocalizedText(r.localizedNames),
             usage: Number(r.usage),
           })),
         });
@@ -60,7 +60,7 @@ export function listExistingTagsTool() {
         tags: rows.map((r) => ({
           id: r.id,
           name: r.name,
-          localizedNames: optionalLocalizedNames(r.localizedNames),
+          localizedNames: optionalLocalizedText(r.localizedNames),
           usage: Number(r.usage),
         })),
       });
@@ -88,7 +88,7 @@ export function listCategoriesTool() {
         categories: rows.map((r) => ({
           id: r.id,
           name: r.name,
-          localizedNames: optionalLocalizedNames(r.localizedNames),
+          localizedNames: optionalLocalizedText(r.localizedNames),
         })),
       });
     },

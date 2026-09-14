@@ -16,6 +16,7 @@ import {
   type UpdateReadingStateBody,
 } from '@gloaming/shared/reader';
 import { estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
+import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { db } from '@/db';
 import { ERROR_CODES } from '@/lib/error-codes';
@@ -54,7 +55,7 @@ function toPartSummary(part: PartRow) {
 
 function toWorkSummary(
   work: Awaited<ReturnType<typeof requirePublishedWorkWithParts>>['work'],
-  tags: string[],
+  tags: TaxonomyReference[],
 ): ReaderPartsData['work'] {
   return {
     id: work.id,

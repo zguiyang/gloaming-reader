@@ -14,19 +14,22 @@ import {
 import type { Locale } from '@gloaming/i18n';
 import type {
   CreateTaxonomyBody,
+  LanguageCode,
+  LocalizedTextMap,
   TaxonomyItem,
   TaxonomyKind,
   TaxonomyListQuery,
-  TaxonomyLocalizedNames,
   UpdateTaxonomyBody,
 } from '@gloaming/shared/taxonomy';
-import { mergeLocalizedName, optionalLocalizedNames, resolveTaxonomyDisplayName } from '@gloaming/shared/taxonomy';
+import { LANGUAGE_CODES, resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, NotFoundError } from '@/lib/errors';
 import { normalizeTag } from '@/lib/text';
+
+const CANONICAL_LOCALE: LanguageCode = 'en-US';
 
 function taxonomyNotFoundCode(kind: TaxonomyKind) {
   if (kind === 'tag') return ERROR_CODES.NOT_FOUND.TAXONOMY_TAG;
@@ -120,25 +123,55 @@ function isUniqueViolation(error: unknown): boolean {
   return candidate.code === '23505';
 }
 
+/** Trim and keep only supported locale keys from request bodies. */
+function normalizeNamesInput(names: LocalizedTextMap): LocalizedTextMap {
+  const result: LocalizedTextMap = {};
+  for (const code of LANGUAGE_CODES) {
+    const value = names[code]?.trim();
+    if (value) result[code] = value;
+  }
+  return result;
+}
+
+/** Canonical DB label for uniqueness/search — prefers en-US, then zh-CN. */
+function canonicalTaxonomyName(names: LocalizedTextMap, legacyName?: string): string {
+  const resolved = resolveLocalizedText(names, CANONICAL_LOCALE);
+  if (resolved) return resolved;
+  return legacyName?.trim() ?? '';
+}
+
+/** Return all stored locale labels without request-locale filtering. */
+function buildNamesPayload(localizedNames: LocalizedTextMap | null | undefined, legacyName: string): LocalizedTextMap {
+  const payload: LocalizedTextMap = {};
+  for (const code of LANGUAGE_CODES) {
+    const value = localizedNames?.[code]?.trim();
+    if (value) payload[code] = value;
+  }
+  if (!LANGUAGE_CODES.some((code) => payload[code])) {
+    const fallback = legacyName.trim();
+    if (fallback) payload[CANONICAL_LOCALE] = fallback;
+  }
+  return payload;
+}
+
 function toItem(
   kind: TaxonomyKind,
   row: {
     id: string;
     name: string;
-    localizedNames?: TaxonomyLocalizedNames | null;
+    localizedNames?: LocalizedTextMap | null;
     origin: 'extracted' | 'ai' | 'manual';
     createdAt: Date;
     updatedAt: Date;
     matchRule?: string | null;
   },
-  locale: Locale,
+  _locale: Locale,
   usage = 0,
 ): TaxonomyItem {
-  const localizedNames = row.localizedNames ?? {};
+  const names = buildNamesPayload(row.localizedNames, row.name);
   return {
     id: row.id,
-    name: resolveTaxonomyDisplayName(localizedNames, row.name, locale),
-    localizedNames: optionalLocalizedNames(localizedNames),
+    names,
     usage,
     origin: row.origin,
     matchRule: kind === 'source' ? (row.matchRule ?? null) : null,
@@ -186,8 +219,8 @@ export async function createTaxonomyItem(
   body: CreateTaxonomyBody,
   locale: Locale,
 ): Promise<TaxonomyItem> {
-  const name = body.name.trim();
-  const localizedNames = mergeLocalizedName({}, locale, name);
+  const localizedNames = normalizeNamesInput(body.names);
+  const name = canonicalTaxonomyName(localizedNames);
   try {
     if (kind === 'source') {
       const [row] = await db
@@ -218,16 +251,17 @@ export async function updateTaxonomyItem(
 ): Promise<TaxonomyItem> {
   try {
     if (kind === 'source') {
-      const name = body.name?.trim();
-      let localizedNames: TaxonomyLocalizedNames | undefined;
-      if (name !== undefined) {
+      let localizedNames: LocalizedTextMap | undefined;
+      let name: string | undefined;
+      if (body.names !== undefined) {
         const [current] = await db
-          .select({ localizedNames: sourceTable.localizedNames })
+          .select({ name: sourceTable.name, localizedNames: sourceTable.localizedNames })
           .from(sourceTable)
           .where(eq(sourceTable.id, id))
           .limit(1);
         if (!current) throw new NotFoundError(taxonomyNotFoundCode(kind));
-        localizedNames = mergeLocalizedName(current.localizedNames, locale, name);
+        localizedNames = normalizeNamesInput(body.names);
+        name = canonicalTaxonomyName(localizedNames, current.name);
       }
       const [row] = await db
         .update(sourceTable)
@@ -241,16 +275,17 @@ export async function updateTaxonomyItem(
       return toItem(kind, row, locale);
     }
     const table = kind === 'tag' ? tagTable : categoryTable;
-    const name = body.name?.trim();
-    let localizedNames: TaxonomyLocalizedNames | undefined;
-    if (name !== undefined) {
+    let localizedNames: LocalizedTextMap | undefined;
+    let name: string | undefined;
+    if (body.names !== undefined) {
       const [current] = await db
-        .select({ localizedNames: (table as typeof tagTable).localizedNames })
+        .select({ name: (table as typeof tagTable).name, localizedNames: (table as typeof tagTable).localizedNames })
         .from(table as typeof tagTable)
         .where(eq((table as typeof tagTable).id, id))
         .limit(1);
       if (!current) throw new NotFoundError(taxonomyNotFoundCode(kind));
-      localizedNames = mergeLocalizedName(current.localizedNames, locale, name);
+      localizedNames = normalizeNamesInput(body.names);
+      name = canonicalTaxonomyName(localizedNames, current.name);
     }
     const [row] = await db
       .update(table as typeof tagTable)

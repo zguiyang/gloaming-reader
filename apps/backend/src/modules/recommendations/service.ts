@@ -7,11 +7,18 @@ import {
   readingWorkCategory as readingWorkCategoryTable,
 } from '@gloaming/db';
 import type { RecommendationsData, RecommendationsQuery } from '@gloaming/shared/recommendations';
+import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 import type { Work } from '@gloaming/shared/works';
 
 import { db } from '@/db';
-import { type RecommendationFeatures, resolveRecommendationOrder } from '@/modules/recommendations/score';
+import {
+  extractCategoryId,
+  extractTagIds,
+  type RecommendationFeatures,
+  resolveRecommendationOrder,
+} from '@/modules/recommendations/score';
 import { loadSourcesByWorkIds, loadTagsByWorkIds } from '@/modules/works/service';
+import { toTaxonomyReference } from '@/modules/works/taxonomy-mapper';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 
@@ -19,7 +26,7 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
-function toWork(row: WorkRow, tags: string[], sources: string[]): Work {
+function toWork(row: WorkRow, tags: TaxonomyReference[], sources: TaxonomyReference[]): Work {
   return {
     id: row.id,
     title: row.title,
@@ -43,11 +50,15 @@ function toWork(row: WorkRow, tags: string[], sources: string[]): Work {
   };
 }
 
-function toFeatures(row: WorkRow, tags: string[], category: string | null): RecommendationFeatures {
+function toFeatures(
+  row: WorkRow,
+  tags: TaxonomyReference[],
+  category: TaxonomyReference | null,
+): RecommendationFeatures {
   return {
     id: row.id,
-    tags,
-    category,
+    tagIds: extractTagIds(tags),
+    categoryId: extractCategoryId(category),
     language: row.language,
     difficultyScore: row.difficultyScore,
     suggestedVocabSize: row.suggestedVocabSize,
@@ -56,19 +67,25 @@ function toFeatures(row: WorkRow, tags: string[], category: string | null): Reco
   };
 }
 
-async function loadCategoriesByWorkIds(workIds: string[]): Promise<Map<string, string>> {
+async function loadCategoriesByWorkIds(workIds: string[]): Promise<Map<string, TaxonomyReference>> {
   if (workIds.length === 0) {
     return new Map();
   }
   const rows = await db
-    .select({ workId: readingWorkCategoryTable.workId, name: categoryTable.name })
+    .select({
+      workId: readingWorkCategoryTable.workId,
+      id: categoryTable.id,
+      name: categoryTable.name,
+      localizedNames: categoryTable.localizedNames,
+      origin: categoryTable.origin,
+    })
     .from(readingWorkCategoryTable)
     .innerJoin(categoryTable, eq(readingWorkCategoryTable.categoryId, categoryTable.id))
     .where(inArray(readingWorkCategoryTable.workId, workIds));
-  const map = new Map<string, string>();
+  const map = new Map<string, TaxonomyReference>();
   for (const row of rows) {
     if (!map.has(row.workId)) {
-      map.set(row.workId, row.name);
+      map.set(row.workId, toTaxonomyReference(row));
     }
   }
   return map;

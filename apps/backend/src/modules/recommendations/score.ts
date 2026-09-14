@@ -1,15 +1,26 @@
 import type { RecommendationStrategy } from '@gloaming/shared/recommendations';
+import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 export type RecommendationFeatures = {
   id: string;
-  tags: string[];
-  category: string | null;
+  tagIds: string[];
+  categoryId: string | null;
   language: string;
   difficultyScore: number | null;
   suggestedVocabSize: number | null;
   estimatedMinutes: number | null;
   publishedAt: Date | null;
 };
+
+/** Stable tag ids for recommendation scoring — not locale display labels. */
+export function extractTagIds(tags: TaxonomyReference[]): string[] {
+  return tags.map((tag) => tag.id);
+}
+
+/** Stable category id for recommendation scoring — not locale display labels. */
+export function extractCategoryId(category: TaxonomyReference | null | undefined): string | null {
+  return category?.id ?? null;
+}
 
 const WEIGHT_TAG = 0.3;
 const WEIGHT_CATEGORY = 0.15;
@@ -43,19 +54,18 @@ function difficultyProximity(a: number, b: number): number {
   return 0;
 }
 
-function tagOverlap(anchorTags: string[], candidateTags: string[]): number {
-  if (anchorTags.length === 0 || candidateTags.length === 0) {
+function tagOverlap(anchorTagIds: string[], candidateTagIds: string[]): number {
+  if (anchorTagIds.length === 0 || candidateTagIds.length === 0) {
     return Number.NaN;
   }
-  const anchor = new Set(anchorTags.map((t) => t.toLowerCase()));
-  const candidate = new Set(candidateTags.map((t) => t.toLowerCase()));
+  const candidate = new Set(candidateTagIds);
   let intersection = 0;
-  for (const tag of anchor) {
-    if (candidate.has(tag)) {
+  for (const tagId of anchorTagIds) {
+    if (candidate.has(tagId)) {
       intersection += 1;
     }
   }
-  return intersection / anchor.size;
+  return intersection / anchorTagIds.length;
 }
 
 function median(values: number[]): number | null {
@@ -78,32 +88,28 @@ export function buildShelfProfile(works: RecommendationFeatures[]): Recommendati
 
   const tagCounts = new Map<string, number>();
   for (const work of works) {
-    for (const tag of work.tags) {
-      const key = tag.trim();
-      if (!key) {
-        continue;
-      }
-      tagCounts.set(key, (tagCounts.get(key) ?? 0) + 1);
+    for (const tagId of work.tagIds) {
+      tagCounts.set(tagId, (tagCounts.get(tagId) ?? 0) + 1);
     }
   }
-  const tags = [...tagCounts.entries()]
+  const tagIds = [...tagCounts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, PROFILE_TAG_TOP_K)
-    .map(([name]) => name);
+    .map(([id]) => id);
 
   const categoryCounts = new Map<string, number>();
   for (const work of works) {
-    if (!work.category) {
+    if (!work.categoryId) {
       continue;
     }
-    categoryCounts.set(work.category, (categoryCounts.get(work.category) ?? 0) + 1);
+    categoryCounts.set(work.categoryId, (categoryCounts.get(work.categoryId) ?? 0) + 1);
   }
-  let category: string | null = null;
+  let categoryId: string | null = null;
   let bestCount = 0;
-  for (const [name, count] of categoryCounts) {
+  for (const [id, count] of categoryCounts) {
     if (count > bestCount) {
       bestCount = count;
-      category = name;
+      categoryId = id;
     }
   }
 
@@ -123,8 +129,8 @@ export function buildShelfProfile(works: RecommendationFeatures[]): Recommendati
 
   return {
     id: 'shelf-profile',
-    tags,
-    category,
+    tagIds,
+    categoryId,
     language,
     difficultyScore: median(works.map((w) => w.difficultyScore).filter((v): v is number => v != null)),
     suggestedVocabSize: median(works.map((w) => w.suggestedVocabSize).filter((v): v is number => v != null)),
@@ -140,13 +146,13 @@ export function buildShelfProfile(works: RecommendationFeatures[]): Recommendati
 export function scoreAgainstAnchor(anchor: RecommendationFeatures, candidate: RecommendationFeatures): number {
   const parts: { weight: number; score: number }[] = [];
 
-  const tags = tagOverlap(anchor.tags, candidate.tags);
+  const tags = tagOverlap(anchor.tagIds, candidate.tagIds);
   if (Number.isFinite(tags)) {
     parts.push({ weight: WEIGHT_TAG, score: tags });
   }
 
-  if (anchor.category && candidate.category) {
-    parts.push({ weight: WEIGHT_CATEGORY, score: anchor.category === candidate.category ? 1 : 0 });
+  if (anchor.categoryId && candidate.categoryId) {
+    parts.push({ weight: WEIGHT_CATEGORY, score: anchor.categoryId === candidate.categoryId ? 1 : 0 });
   }
 
   if (anchor.difficultyScore != null && candidate.difficultyScore != null) {

@@ -1,13 +1,33 @@
 import { type Locale, SUPPORTED_LOCALES } from '@gloaming/i18n';
-import { mergeLocalizedName, type TaxonomyLocalizedNames } from '@gloaming/shared/taxonomy';
+import {
+  LANGUAGE_CODES,
+  type LanguageCode,
+  type LocalizedTextMap,
+  mergeLocalizedText,
+} from '@gloaming/shared/taxonomy';
 
 import { areProductTagsWeak } from '@/modules/metadata-fill/subjects';
 
 export type LocalizedNameEntry = { locale: Locale; name: string };
 
+const CJK_RE = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/;
+
 /** Comma-separated supported locales for prompt copy — single source from @gloaming/i18n. */
 export function supportedLocalesLabel(): string {
   return SUPPORTED_LOCALES.join(', ');
+}
+
+/** Infer the best locale for a single extracted label — never duplicates into both locales. */
+export function inferLocaleForLabel(label: string, bookLanguage?: string | null): LanguageCode {
+  const trimmed = label.trim();
+  if (CJK_RE.test(trimmed)) {
+    return 'zh-CN';
+  }
+  const lang = bookLanguage?.trim().toLowerCase() ?? '';
+  if (lang.startsWith('zh') || lang === 'cmn') {
+    return 'zh-CN';
+  }
+  return 'en-US';
 }
 
 export function parseLocalizedNameEntries(value: unknown): LocalizedNameEntry[] {
@@ -28,45 +48,44 @@ export function parseLocalizedNameEntries(value: unknown): LocalizedNameEntry[] 
 }
 
 /**
- * Build a localized_names map from model entries. Missing supported locales fall
- * back to `fallbackName` (never invented translations).
+ * Build a localized_names map from model entries. Only locales present in
+ * `entries` are stored. When entries are empty, `fallbackName` is assigned to a
+ * single inferred locale — never copied across missing languages.
  */
-export function buildLocalizedNamesMap(entries: LocalizedNameEntry[], fallbackName: string): TaxonomyLocalizedNames {
-  let map: TaxonomyLocalizedNames = {};
+export function buildLocalizedNamesMap(entries: LocalizedNameEntry[], fallbackName: string): LocalizedTextMap {
+  let map: LocalizedTextMap = {};
   for (const { locale, name } of entries) {
-    map = mergeLocalizedName(map, locale, name);
+    map = mergeLocalizedText(map, locale, name);
   }
-  const fallback = fallbackName.trim();
-  if (fallback) {
-    for (const locale of SUPPORTED_LOCALES) {
-      if (!map[locale]?.trim()) {
-        map = mergeLocalizedName(map, locale, fallback);
-      }
+  if (Object.keys(map).length === 0) {
+    const fallback = fallbackName.trim();
+    if (fallback) {
+      map = mergeLocalizedText(map, inferLocaleForLabel(fallback), fallback);
     }
   }
   return map;
 }
 
-export function isTaxonomyLocalizationComplete(localizedNames: TaxonomyLocalizedNames | null | undefined): boolean {
-  return SUPPORTED_LOCALES.every((locale) => Boolean(localizedNames?.[locale]?.trim()));
+export function isTaxonomyLocalizationComplete(localizedNames: LocalizedTextMap | null | undefined): boolean {
+  return LANGUAGE_CODES.every((code) => Boolean(localizedNames?.[code]?.trim()));
 }
 
 /** Merge incoming locale names into existing without dropping prior locales. */
 export function mergeTaxonomyLocalizedNames(
-  existing: TaxonomyLocalizedNames | null | undefined,
-  incoming: TaxonomyLocalizedNames,
-): TaxonomyLocalizedNames {
+  existing: LocalizedTextMap | null | undefined,
+  incoming: LocalizedTextMap,
+): LocalizedTextMap {
   let map = { ...(existing ?? {}) };
-  for (const locale of SUPPORTED_LOCALES) {
-    const name = incoming[locale]?.trim();
+  for (const code of LANGUAGE_CODES) {
+    const name = incoming[code]?.trim();
     if (name) {
-      map = mergeLocalizedName(map, locale, name);
+      map = mergeLocalizedText(map, code, name);
     }
   }
   return map;
 }
 
-export type TaxonomySnapshot = { name: string; localizedNames: TaxonomyLocalizedNames };
+export type TaxonomySnapshot = { name: string; localizedNames: LocalizedTextMap };
 
 /** Weak when empty, catalog-like, or missing any supported locale translation. */
 export function areWorkTagsWeak(tags: TaxonomySnapshot[]): boolean {

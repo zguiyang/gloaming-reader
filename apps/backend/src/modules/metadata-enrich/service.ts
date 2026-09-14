@@ -11,7 +11,7 @@ import {
   readingWorkTag as readingWorkTagTable,
   tag as tagTable,
 } from '@gloaming/db';
-import type { TaxonomyLocalizedNames } from '@gloaming/shared/taxonomy';
+import type { LocalizedTextMap } from '@gloaming/shared/taxonomy';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
@@ -66,7 +66,7 @@ async function loadBookContext(workId: string): Promise<{ excerpt: string; tocTi
   return { excerpt, tocTitles };
 }
 
-type WorkTagSnapshot = { name: string; localizedNames: TaxonomyLocalizedNames };
+type WorkTagSnapshot = { name: string; localizedNames: LocalizedTextMap };
 
 async function loadCurrentTags(workId: string): Promise<WorkTagSnapshot[]> {
   const rows = await db
@@ -77,7 +77,7 @@ async function loadCurrentTags(workId: string): Promise<WorkTagSnapshot[]> {
   return rows.map((row) => ({ name: row.name, localizedNames: row.localizedNames ?? {} }));
 }
 
-type WorkCategorySnapshot = { name: string; localizedNames: TaxonomyLocalizedNames };
+type WorkCategorySnapshot = { name: string; localizedNames: LocalizedTextMap };
 
 async function loadCurrentCategory(workId: string): Promise<WorkCategorySnapshot | undefined> {
   const [row] = await db
@@ -106,12 +106,6 @@ function isModelNotConfigured(error: unknown): boolean {
   );
 }
 
-const FIELD_GAP_LABEL: Partial<Record<MetadataFieldId, string>> = {
-  description: '简介',
-  tags: '标签',
-  category: '分类',
-};
-
 /**
  * Complete the `metadata` step. Default (`TTS_STEP_ENABLED=false`): → `ready`.
  * When the TTS pipeline flag is on: → `tts` and auto-enqueue dual-accent audio.
@@ -128,8 +122,6 @@ async function completeMetadataStep(
   const metaPatch = {
     metadataAt: new Date().toISOString(),
     metadataEnrichGaps: uniqueGaps.length > 0 ? uniqueGaps : undefined,
-    metadataEnrichError:
-      uniqueGaps.length > 0 ? `未补全：${uniqueGaps.map((id) => FIELD_GAP_LABEL[id] ?? id).join('、')}` : undefined,
   };
   const completed =
     retryJobToken && attemptToken
@@ -372,8 +364,8 @@ async function resolveCategoryId(
 async function applyTagLocalizedNames(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   id: string,
-  existing: TaxonomyLocalizedNames | null | undefined,
-  incoming: TaxonomyLocalizedNames,
+  existing: LocalizedTextMap | null | undefined,
+  incoming: LocalizedTextMap,
 ): Promise<void> {
   const localizedNames = mergeTaxonomyLocalizedNames(existing, incoming);
   await tx.update(tagTable).set({ localizedNames }).where(eq(tagTable.id, id));
@@ -382,8 +374,8 @@ async function applyTagLocalizedNames(
 async function applyCategoryLocalizedNames(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   id: string,
-  existing: TaxonomyLocalizedNames | null | undefined,
-  incoming: TaxonomyLocalizedNames,
+  existing: LocalizedTextMap | null | undefined,
+  incoming: LocalizedTextMap,
 ): Promise<void> {
   const localizedNames = mergeTaxonomyLocalizedNames(existing, incoming);
   await tx.update(categoryTable).set({ localizedNames }).where(eq(categoryTable.id, id));
@@ -392,7 +384,7 @@ async function applyCategoryLocalizedNames(
 async function upsertTagId(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   name: string,
-  localizedNames: TaxonomyLocalizedNames,
+  localizedNames: LocalizedTextMap,
 ): Promise<string | null> {
   const normalized = normalizeTag(name);
   const [existing] = await tx.select().from(tagTable).where(eq(tagTable.normalized, normalized)).limit(1);
@@ -415,7 +407,7 @@ async function upsertTagId(
 async function upsertCategoryId(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   name: string,
-  localizedNames: TaxonomyLocalizedNames,
+  localizedNames: LocalizedTextMap,
 ): Promise<string | null> {
   const normalized = normalizeTag(name);
   const [existing] = await tx.select().from(categoryTable).where(eq(categoryTable.normalized, normalized)).limit(1);

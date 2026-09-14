@@ -5,6 +5,7 @@ export const ERROR_CODES = {
   INTERNAL_SERVER_ERROR: 'api.errors.internalServerError',
   TOO_MANY_REQUESTS: 'api.errors.tooManyRequests',
   VALIDATION_FAILED: 'api.errors.validationFailed',
+  VALIDATION_INVALID_INPUT: 'api.errors.validation.invalidInput',
 
   NOT_FOUND: {
     WORK: 'api.errors.notFound.work',

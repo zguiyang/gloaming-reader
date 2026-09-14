@@ -18,6 +18,7 @@ import {
 } from '@gloaming/db';
 import { audioKindForRole, deriveAudioTrackStatus } from '@gloaming/shared/content-assets';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
+import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 import {
   type AdminOriginAsset,
   type AdminWork,
@@ -73,6 +74,7 @@ import {
   type UploadSpec,
 } from '@/modules/uploads/service';
 import { hashPartAudioContent } from '@/modules/works/content-hash';
+import { aggregateTaxonomyReferences, toSourceReference, toTaxonomyReference } from '@/modules/works/taxonomy-mapper';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 type PartRow = typeof readingPartTable.$inferSelect;
@@ -95,32 +97,43 @@ function resolveTagProvenance(provenances: WorkMetadataProvenance[]): WorkMetada
   return undefined;
 }
 
-/** Tag names for one work — junction SSOT. */
-export async function loadTagsForWork(workId: string): Promise<string[]> {
+/** Tag references for one work — junction SSOT. */
+export async function loadTagsForWork(workId: string): Promise<TaxonomyReference[]> {
   const rows = await db
-    .select({ name: tagTable.name })
+    .select({
+      id: tagTable.id,
+      name: tagTable.name,
+      localizedNames: tagTable.localizedNames,
+      origin: tagTable.origin,
+    })
     .from(readingWorkTagTable)
     .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
     .where(eq(readingWorkTagTable.workId, workId))
     .orderBy(asc(tagTable.name));
-  return rows.map((row) => row.name);
+  return rows.map((row) => toTaxonomyReference(row));
 }
 
-/** Batch tag names keyed by work id. */
-export async function loadTagsByWorkIds(workIds: string[]): Promise<Map<string, string[]>> {
+/** Batch tag references keyed by work id. */
+export async function loadTagsByWorkIds(workIds: string[]): Promise<Map<string, TaxonomyReference[]>> {
   if (workIds.length === 0) {
     return new Map();
   }
   const rows = await db
-    .select({ workId: readingWorkTagTable.workId, name: tagTable.name })
+    .select({
+      workId: readingWorkTagTable.workId,
+      id: tagTable.id,
+      name: tagTable.name,
+      localizedNames: tagTable.localizedNames,
+      origin: tagTable.origin,
+    })
     .from(readingWorkTagTable)
     .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
     .where(inArray(readingWorkTagTable.workId, workIds))
     .orderBy(asc(tagTable.name));
-  const map = new Map<string, string[]>();
+  const map = new Map<string, TaxonomyReference[]>();
   for (const row of rows) {
     const list = map.get(row.workId) ?? [];
-    list.push(row.name);
+    list.push(toTaxonomyReference(row));
     map.set(row.workId, list);
   }
   return map;
@@ -211,7 +224,7 @@ async function ensureWorkReadingStatsIfMissing(row: WorkRow): Promise<WorkRow> {
   return updated ?? row;
 }
 
-function toWork(row: WorkRow, tags: string[], sources: string[]): Work {
+function toWork(row: WorkRow, tags: TaxonomyReference[], sources: TaxonomyReference[]): Work {
   return {
     id: row.id,
     title: row.title,
@@ -334,44 +347,63 @@ async function loadOriginFileAsset(workId: string): Promise<AdminOriginAsset | n
   };
 }
 
-/** Batch source names keyed by work id. */
-export async function loadSourcesByWorkIds(workIds: string[]): Promise<Map<string, string[]>> {
+/** Batch source references keyed by work id. */
+export async function loadSourcesByWorkIds(workIds: string[]): Promise<Map<string, TaxonomyReference[]>> {
   if (workIds.length === 0) {
     return new Map();
   }
   const rows = await db
-    .select({ workId: readingWorkSourceTable.workId, name: sourceTable.name })
+    .select({
+      workId: readingWorkSourceTable.workId,
+      id: sourceTable.id,
+      name: sourceTable.name,
+      localizedNames: sourceTable.localizedNames,
+      origin: sourceTable.origin,
+      matchRule: sourceTable.matchRule,
+    })
     .from(readingWorkSourceTable)
     .innerJoin(sourceTable, eq(readingWorkSourceTable.sourceId, sourceTable.id))
     .where(inArray(readingWorkSourceTable.workId, workIds))
     .orderBy(asc(sourceTable.name));
-  const map = new Map<string, string[]>();
+  const map = new Map<string, TaxonomyReference[]>();
   for (const row of rows) {
     const list = map.get(row.workId) ?? [];
-    list.push(row.name);
+    list.push(toSourceReference(row));
     map.set(row.workId, list);
   }
   return map;
 }
 
-async function loadSourcesForWork(workId: string): Promise<string[]> {
+async function loadSourcesForWork(workId: string): Promise<TaxonomyReference[]> {
   const rows = await db
-    .select({ name: sourceTable.name })
+    .select({
+      id: sourceTable.id,
+      name: sourceTable.name,
+      localizedNames: sourceTable.localizedNames,
+      origin: sourceTable.origin,
+      matchRule: sourceTable.matchRule,
+    })
     .from(readingWorkSourceTable)
     .innerJoin(sourceTable, eq(readingWorkSourceTable.sourceId, sourceTable.id))
-    .where(eq(readingWorkSourceTable.workId, workId));
-  return rows.map((row) => row.name);
+    .where(eq(readingWorkSourceTable.workId, workId))
+    .orderBy(asc(sourceTable.name));
+  return rows.map((row) => toSourceReference(row));
 }
 
-/** Current category name (single-select) or null when unset. */
-async function loadCategoryForWork(workId: string): Promise<string | null> {
+/** Current category reference (single-select) or null when unset. */
+async function loadCategoryForWork(workId: string): Promise<TaxonomyReference | null> {
   const [row] = await db
-    .select({ name: categoryTable.name })
+    .select({
+      id: categoryTable.id,
+      name: categoryTable.name,
+      localizedNames: categoryTable.localizedNames,
+      origin: categoryTable.origin,
+    })
     .from(readingWorkCategoryTable)
     .innerJoin(categoryTable, eq(readingWorkCategoryTable.categoryId, categoryTable.id))
     .where(eq(readingWorkCategoryTable.workId, workId))
     .limit(1);
-  return row?.name ?? null;
+  return row ? toTaxonomyReference(row) : null;
 }
 
 async function loadPublishPartAudioGateInputs(parts: PartRow[]): Promise<PublishPartAudioGateInput[]> {
@@ -406,8 +438,8 @@ async function loadPublishPartAudioGateInputs(parts: PartRow[]): Promise<Publish
 async function buildPublishIssuesForWork(
   row: WorkRow,
   partRows: PartRow[],
-  tags: string[],
-  sources: string[],
+  tags: TaxonomyReference[],
+  sources: TaxonomyReference[],
 ): Promise<PublishWorkIssue[]> {
   const audioInputs = await loadPublishPartAudioGateInputs(partRows);
   return mergePublishWorkIssues(
@@ -579,20 +611,6 @@ function publishedListOrderBy(query: Pick<CatalogListQuery, 'sortBy' | 'sortOrde
         : readingWorkTable.publishedAt;
   const primary = query.sortOrder === 'asc' ? asc(column) : desc(column);
   return [primary, desc(readingWorkTable.id)] as const;
-}
-
-function aggregateTagNames(names: string[]): string[] {
-  const seen = new Set<string>();
-  const ordered: string[] = [];
-  for (const tag of names) {
-    const key = tag.trim();
-    if (!key || seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    ordered.push(key);
-  }
-  return ordered;
 }
 
 /** Escape text for HTML body storage. */
@@ -947,14 +965,12 @@ export async function updateWork(id: string, input: UpdateWorkBody): Promise<Adm
 
   await db.transaction(async (tx) => {
     if (input.tags !== undefined) {
-      const tagIds: string[] = [];
-      for (const name of input.tags) {
-        const [row] = await tx
-          .insert(tagTable)
-          .values({ id: randomUUID(), name, normalized: normalizeTag(name), origin: 'manual' })
-          .onConflictDoUpdate({ target: tagTable.normalized, set: { name } })
-          .returning();
-        tagIds.push(row!.id);
+      const tagIds = [...new Set(input.tags.map((tag) => tag.id))];
+      if (tagIds.length > 0) {
+        const existing = await tx.select({ id: tagTable.id }).from(tagTable).where(inArray(tagTable.id, tagIds));
+        if (existing.length !== tagIds.length) {
+          throw new NotFoundError(ERROR_CODES.NOT_FOUND.TAXONOMY_TAG);
+        }
       }
       await tx
         .delete(readingWorkTagTable)
@@ -968,14 +984,15 @@ export async function updateWork(id: string, input: UpdateWorkBody): Promise<Adm
     }
 
     if (input.sources !== undefined) {
-      const sourceIds: string[] = [];
-      for (const name of input.sources) {
-        const [row] = await tx
-          .insert(sourceTable)
-          .values({ id: randomUUID(), name, origin: 'manual' })
-          .onConflictDoUpdate({ target: sourceTable.name, set: { name } })
-          .returning();
-        sourceIds.push(row!.id);
+      const sourceIds = [...new Set(input.sources.map((source) => source.id))];
+      if (sourceIds.length > 0) {
+        const existing = await tx
+          .select({ id: sourceTable.id })
+          .from(sourceTable)
+          .where(inArray(sourceTable.id, sourceIds));
+        if (existing.length !== sourceIds.length) {
+          throw new NotFoundError(ERROR_CODES.NOT_FOUND.TAXONOMY_SOURCE);
+        }
       }
       await tx
         .delete(readingWorkSourceTable)
@@ -988,20 +1005,21 @@ export async function updateWork(id: string, input: UpdateWorkBody): Promise<Adm
       }
     }
 
-    // Category: single-select — setting replaces every association (manual),
-    // empty string clears it entirely.
+    // Category: single-select — null clears; stable id replaces every association (manual).
     if (input.category !== undefined) {
       await tx.delete(readingWorkCategoryTable).where(eq(readingWorkCategoryTable.workId, id));
-      const categoryName = input.category.trim();
-      if (categoryName) {
-        const [row] = await tx
-          .insert(categoryTable)
-          .values({ id: randomUUID(), name: categoryName, normalized: normalizeTag(categoryName), origin: 'manual' })
-          .onConflictDoUpdate({ target: categoryTable.normalized, set: { name: categoryName } })
-          .returning();
+      if (input.category !== null) {
+        const [categoryRow] = await tx
+          .select({ id: categoryTable.id })
+          .from(categoryTable)
+          .where(eq(categoryTable.id, input.category.id))
+          .limit(1);
+        if (!categoryRow) {
+          throw new NotFoundError(ERROR_CODES.NOT_FOUND.TAXONOMY_CATEGORY);
+        }
         await tx
           .insert(readingWorkCategoryTable)
-          .values({ workId: id, categoryId: row!.id, provenance: 'manual' })
+          .values({ workId: id, categoryId: categoryRow.id, provenance: 'manual' })
           .onConflictDoNothing();
       }
     }
@@ -1260,7 +1278,12 @@ export async function listCatalogWorks(query: CatalogListQuery): Promise<Catalog
   ]);
 
   const tagRows = await db
-    .selectDistinct({ name: tagTable.name })
+    .selectDistinct({
+      id: tagTable.id,
+      name: tagTable.name,
+      localizedNames: tagTable.localizedNames,
+      origin: tagTable.origin,
+    })
     .from(readingWorkTagTable)
     .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
     .innerJoin(readingWorkTable, eq(readingWorkTagTable.workId, readingWorkTable.id))
@@ -1279,7 +1302,7 @@ export async function listCatalogWorks(query: CatalogListQuery): Promise<Catalog
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
     }),
-    tags: aggregateTagNames(tagRows.map((row) => row.name)),
+    tags: aggregateTaxonomyReferences(tagRows.map((row) => toTaxonomyReference(row))),
   };
 }
 

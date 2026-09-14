@@ -1,7 +1,7 @@
 import { z, type ZodType } from 'zod';
 
 import { SUPPORTED_LOCALES } from '@gloaming/i18n';
-import type { TaxonomyLocalizedNames } from '@gloaming/shared/taxonomy';
+import type { LocalizedTextMap } from '@gloaming/shared/taxonomy';
 
 import {
   AI_DESCRIPTION_MAX,
@@ -68,7 +68,7 @@ function existingIdFromRef(ref: Record<string, unknown>): string | undefined {
 export type CleanTaxonomyRef = {
   name: string;
   existingId?: string;
-  localizedNames: TaxonomyLocalizedNames;
+  localizedNames: LocalizedTextMap;
 };
 
 function cleanTaxonomyRef(raw: Record<string, unknown>, maxNameLen: number): CleanTaxonomyRef | undefined {

@@ -2,6 +2,7 @@ import { and, desc, eq, ne } from 'drizzle-orm';
 
 import { readingState as readingStateTable, readingWork as readingWorkTable } from '@gloaming/db';
 import { SHELF_ITEMS_LIMIT, type ShelfData } from '@gloaming/shared/shelf';
+import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { db } from '@/db';
 import { toReadingState } from '@/modules/reader/service';
@@ -13,7 +14,7 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
-function toWorkSummary(row: WorkRow, tags: string[]) {
+function toWorkSummary(row: WorkRow, tags: TaxonomyReference[]) {
   return {
     id: row.id,
     title: row.title,

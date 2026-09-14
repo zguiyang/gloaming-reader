@@ -202,7 +202,7 @@ export async function completeWorkflowStep(
     .update(readingWorkTable)
     .set({
       status: nextStatus,
-      originMeta: sql`(${readingWorkTable.originMeta} - 'failedStep' - 'lastError' - 'failedAt' - 'workflowClaimAttempt' - 'workflowClaimStep' - 'workflowClaimLeaseExpiresAt' - 'workflowEnqueueAttempt' - 'workflowEnqueueLeaseExpiresAt') || ${patch}::jsonb`,
+      originMeta: sql`(${readingWorkTable.originMeta} - 'failedStep' - 'lastError' - 'failedAt' - 'metadataEnrichError' - 'workflowClaimAttempt' - 'workflowClaimStep' - 'workflowClaimLeaseExpiresAt' - 'workflowEnqueueAttempt' - 'workflowEnqueueLeaseExpiresAt') || ${patch}::jsonb`,
     })
     .where(
       retryJobToken && claimStep && attemptToken

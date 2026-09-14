@@ -210,11 +210,17 @@ describe('metadata-enrich taxonomy refs and dynamic schema', () => {
     ]);
   });
 
-  it('cleanTagRefs falls back to ref.name for missing locales', () => {
+  it('cleanTagRefs assigns ref.name to a single inferred locale when entries are missing', () => {
     expect(cleanTagRefs([{ id: null, name: 'Science' }])).toEqual([
       {
         name: 'Science',
-        localizedNames: { 'zh-CN': 'Science', 'en-US': 'Science' },
+        localizedNames: { 'en-US': 'Science' },
+      },
+    ]);
+    expect(cleanTagRefs([{ id: null, name: '寓言' }])).toEqual([
+      {
+        name: '寓言',
+        localizedNames: { 'zh-CN': '寓言' },
       },
     ]);
   });
@@ -233,7 +239,7 @@ describe('metadata-enrich taxonomy refs and dynamic schema', () => {
     expect(cleanCategoryRef({ id: null, name: '  ' })).toBeUndefined();
     expect(cleanCategoryRef('Children Fiction')).toEqual({
       name: 'Children Fiction',
-      localizedNames: { 'zh-CN': 'Children Fiction', 'en-US': 'Children Fiction' },
+      localizedNames: { 'en-US': 'Children Fiction' },
     });
   });
 

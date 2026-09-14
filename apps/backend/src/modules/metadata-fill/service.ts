@@ -9,11 +9,13 @@ import {
   source as sourceTable,
   tag as tagTable,
 } from '@gloaming/db';
+import type { LocalizedTextMap } from '@gloaming/shared/taxonomy';
 
 import { db } from '@/db';
 import { rootLogger } from '@/lib/logger';
 import { normalizeTag } from '@/lib/text';
 import { cleanBookTitle, cleanDescription, joinAuthors } from '@/modules/epub-ingest/metadata';
+import { inferLocaleForLabel, mergeTaxonomyLocalizedNames } from '@/modules/metadata-enrich/taxonomy-localized';
 import { cleanSubjectsToProductTags } from '@/modules/metadata-fill/subjects';
 
 const fillLogger = rootLogger.child({ module: 'MetadataFill' });
@@ -119,15 +121,23 @@ export async function fillWorkMetadata(workId: string): Promise<void> {
       .delete(readingWorkTagTable)
       .where(and(eq(readingWorkTagTable.workId, workId), eq(readingWorkTagTable.provenance, 'extracted')));
     for (const name of productTags) {
-      const [row] = await tx
-        .insert(tagTable)
-        .values({ id: randomUUID(), name, normalized: normalizeTag(name), origin: 'extracted' })
-        .onConflictDoUpdate({ target: tagTable.normalized, set: { name } })
-        .returning();
-      await tx
-        .insert(readingWorkTagTable)
-        .values({ workId, tagId: row!.id, provenance: 'extracted' })
-        .onConflictDoNothing();
+      const normalized = normalizeTag(name);
+      const locale = inferLocaleForLabel(name, language);
+      const incoming: LocalizedTextMap = { [locale]: name };
+      const [existing] = await tx.select().from(tagTable).where(eq(tagTable.normalized, normalized)).limit(1);
+      let tagId: string;
+      if (existing) {
+        const localizedNames = mergeTaxonomyLocalizedNames(existing.localizedNames, incoming);
+        await tx.update(tagTable).set({ name, localizedNames }).where(eq(tagTable.id, existing.id));
+        tagId = existing.id;
+      } else {
+        const [row] = await tx
+          .insert(tagTable)
+          .values({ id: randomUUID(), name, normalized, localizedNames: incoming, origin: 'extracted' })
+          .returning();
+        tagId = row!.id;
+      }
+      await tx.insert(readingWorkTagTable).values({ workId, tagId, provenance: 'extracted' }).onConflictDoNothing();
     }
 
     // Source: dc:source → match_rule association (extracted), else left empty.

@@ -11,11 +11,20 @@ import {
   user as userTable,
 } from '@gloaming/db';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+import type { LocalizedTextMap } from '@gloaming/shared/taxonomy';
 
 import app from '@/app';
 import { db } from '@/db';
 
 const password = 'password123';
+
+type TaxonomyRow = {
+  id: string;
+  names: LocalizedTextMap;
+  usage: number;
+  origin: string;
+  matchRule: string | null;
+};
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
@@ -52,10 +61,20 @@ function taxUrl(kind: string, path = ''): string {
   return `/api/admin/taxonomy/${kind}${path}`;
 }
 
-async function taxRequest(adminCookie: string, method: string, url: string, body?: unknown): Promise<Response> {
+async function taxRequest(
+  adminCookie: string,
+  method: string,
+  url: string,
+  body?: unknown,
+  acceptLanguage?: string,
+): Promise<Response> {
   return app.request(url, {
     method,
-    headers: { Cookie: adminCookie, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+    headers: {
+      Cookie: adminCookie,
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(acceptLanguage ? { 'Accept-Language': acceptLanguage } : {}),
+    },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 }
@@ -112,52 +131,152 @@ describe('taxonomy dimensions management', () => {
   }
 
   it('creates and lists dimensions with usage counts', async () => {
-    const create = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { name: 'Fantasy' });
+    const create = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: { 'en-US': 'Fantasy' } });
     expect(create.status).toBe(201);
-    const tag = (await create.json()) as { id: string; name: string; usage: number; origin: string };
-    expect(tag.name).toBe('Fantasy');
+    const tag = (await create.json()) as TaxonomyRow;
+    expect(tag.names['en-US']).toBe('Fantasy');
+    expect(tag.names).not.toHaveProperty('name');
     expect(tag.usage).toBe(0);
     expect(tag.origin).toBe('manual');
     tagIds.push(tag.id);
 
     const source = await taxRequest(adminCookie, 'POST', taxUrl('source'), {
-      name: 'Test Press',
+      names: { 'en-US': 'Test Press' },
       matchRule: 'testpress.example',
     });
     expect(source.status).toBe(201);
-    const sourceRow = (await source.json()) as { id: string; matchRule: string; origin: string };
+    const sourceRow = (await source.json()) as TaxonomyRow;
+    expect(sourceRow.names['en-US']).toBe('Test Press');
     expect(sourceRow.matchRule).toBe('testpress.example');
     expect(sourceRow.origin).toBe('manual');
     sourceIds.push(sourceRow.id);
 
     const list = await taxRequest(adminCookie, 'GET', taxUrl('tag'));
     expect(list.status).toBe(200);
-    const { items } = (await list.json()) as { items: Array<{ name: string }> };
-    expect(items.some((item) => item.name === 'Fantasy')).toBe(true);
+    const { items } = (await list.json()) as { items: TaxonomyRow[] };
+    expect(items.some((item) => item.names['en-US'] === 'Fantasy')).toBe(true);
 
     const sourceList = await taxRequest(adminCookie, 'GET', taxUrl('source'));
-    const sourceItems = (await sourceList.json()) as { items: Array<{ name: string; matchRule: string | null }> };
-    const found = sourceItems.items.find((item) => item.name === 'Test Press');
+    const sourceItems = (await sourceList.json()) as { items: TaxonomyRow[] };
+    const found = sourceItems.items.find((item) => item.names['en-US'] === 'Test Press');
     expect(found?.matchRule).toBe('testpress.example');
   });
 
+  it('returns bilingual names for tag, category, and source with consistent shape', async () => {
+    const bilingual = { 'zh-CN': '科学', 'en-US': 'Science' };
+    const tagCreate = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: bilingual });
+    const tag = (await tagCreate.json()) as TaxonomyRow;
+    tagIds.push(tag.id);
+    expect(tag.names).toEqual(bilingual);
+
+    const categoryCreate = await taxRequest(adminCookie, 'POST', taxUrl('category'), { names: bilingual });
+    const category = (await categoryCreate.json()) as TaxonomyRow;
+    categoryIds.push(category.id);
+    expect(category.names).toEqual(bilingual);
+    expect(category.matchRule).toBeNull();
+
+    const sourceCreate = await taxRequest(adminCookie, 'POST', taxUrl('source'), {
+      names: bilingual,
+      matchRule: 'science.example',
+    });
+    const source = (await sourceCreate.json()) as TaxonomyRow;
+    sourceIds.push(source.id);
+    expect(source.names).toEqual(bilingual);
+    expect(source.matchRule).toBe('science.example');
+  });
+
+  it('lists all stored locales regardless of Accept-Language', async () => {
+    const names = { 'zh-CN': '奇幻', 'en-US': 'Fantasy Locale' };
+    const created = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names });
+    const tag = (await created.json()) as TaxonomyRow;
+    tagIds.push(tag.id);
+
+    const zhList = await taxRequest(adminCookie, 'GET', taxUrl('tag'), undefined, 'zh-CN');
+    const zhItems = ((await zhList.json()) as { items: TaxonomyRow[] }).items;
+    const zhFound = zhItems.find((item) => item.id === tag.id);
+    expect(zhFound?.names).toEqual(names);
+
+    const enList = await taxRequest(adminCookie, 'GET', taxUrl('tag'), undefined, 'en-US');
+    const enItems = ((await enList.json()) as { items: TaxonomyRow[] }).items;
+    const enFound = enItems.find((item) => item.id === tag.id);
+    expect(enFound?.names).toEqual(names);
+  });
+
+  it('accepts zh-CN-only and en-US-only creates', async () => {
+    const zhOnly = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: { 'zh-CN': '仅中文' } });
+    const zhTag = (await zhOnly.json()) as TaxonomyRow;
+    tagIds.push(zhTag.id);
+    expect(zhTag.names).toEqual({ 'zh-CN': '仅中文' });
+    expect(zhTag.names['en-US']).toBeUndefined();
+
+    const enOnly = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: { 'en-US': 'English Only' } });
+    const enTag = (await enOnly.json()) as TaxonomyRow;
+    tagIds.push(enTag.id);
+    expect(enTag.names).toEqual({ 'en-US': 'English Only' });
+    expect(enTag.names['zh-CN']).toBeUndefined();
+  });
+
+  it('rejects create without any supported locale name', async () => {
+    const empty = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: {} });
+    expect(empty.status).toBe(400);
+
+    const blank = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: { 'zh-CN': '   ' } });
+    expect(blank.status).toBe(400);
+
+    const legacy = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { name: 'Legacy' });
+    expect(legacy.status).toBe(400);
+  });
+
+  it('merges locale names on update without dropping untouched locales', async () => {
+    const created = await taxRequest(adminCookie, 'POST', taxUrl('tag'), {
+      names: { 'zh-CN': '旧名', 'en-US': 'Old Name' },
+    });
+    const tag = (await created.json()) as TaxonomyRow;
+    tagIds.push(tag.id);
+
+    const zhUpdate = await taxRequest(adminCookie, 'PATCH', taxUrl('tag', `/${tag.id}`), {
+      names: { 'zh-CN': '新名' },
+    });
+    expect(zhUpdate.status).toBe(200);
+    expect(((await zhUpdate.json()) as TaxonomyRow).names).toEqual({
+      'zh-CN': '新名',
+      'en-US': 'Old Name',
+    });
+
+    const enUpdate = await taxRequest(adminCookie, 'PATCH', taxUrl('tag', `/${tag.id}`), {
+      names: { 'en-US': 'New Name' },
+    });
+    expect(enUpdate.status).toBe(200);
+    expect(((await enUpdate.json()) as TaxonomyRow).names).toEqual({
+      'zh-CN': '新名',
+      'en-US': 'New Name',
+    });
+  });
+
   it('rejects duplicate tags via normalized conflict', async () => {
-    await taxRequest(adminCookie, 'POST', taxUrl('tag'), { name: 'Mystery' });
-    const duplicate = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { name: 'mystery ' });
+    await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: { 'en-US': 'Mystery' } });
+    const duplicate = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: { 'en-US': 'mystery ' } });
     expect(duplicate.status).toBe(409);
   });
 
   it('renames a tag and recomputes normalized, rejecting conflicts', async () => {
-    const created = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { name: 'Old Name' });
-    const tag = (await created.json()) as { id: string };
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const created = await taxRequest(adminCookie, 'POST', taxUrl('tag'), {
+      names: { 'en-US': `Rename Old ${suffix}` },
+    });
+    const tag = (await created.json()) as TaxonomyRow;
     tagIds.push(tag.id);
 
-    const renamed = await taxRequest(adminCookie, 'PATCH', taxUrl('tag', `/${tag.id}`), { name: 'New Name' });
+    const renamed = await taxRequest(adminCookie, 'PATCH', taxUrl('tag', `/${tag.id}`), {
+      names: { 'en-US': `Rename New ${suffix}` },
+    });
     expect(renamed.status).toBe(200);
-    expect(((await renamed.json()) as { name: string }).name).toBe('New Name');
+    expect(((await renamed.json()) as TaxonomyRow).names['en-US']).toBe(`Rename New ${suffix}`);
 
-    await taxRequest(adminCookie, 'POST', taxUrl('tag'), { name: 'Taken' });
-    const conflict = await taxRequest(adminCookie, 'PATCH', taxUrl('tag', `/${tag.id}`), { name: 'taken' });
+    await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: { 'en-US': `Rename Taken ${suffix}` } });
+    const conflict = await taxRequest(adminCookie, 'PATCH', taxUrl('tag', `/${tag.id}`), {
+      names: { 'en-US': `rename taken ${suffix}` },
+    });
     expect(conflict.status).toBe(409);
   });
 
@@ -169,24 +288,26 @@ describe('taxonomy dimensions management', () => {
     const blocked = await taxRequest(adminCookie, 'DELETE', taxUrl('tag', `/${tagId}`));
     expect(blocked.status).toBe(409);
 
-    const unused = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { name: 'Unused Tag' });
-    const unusedRow = (await unused.json()) as { id: string };
+    const unused = await taxRequest(adminCookie, 'POST', taxUrl('tag'), { names: { 'en-US': 'Unused Tag' } });
+    const unusedRow = (await unused.json()) as TaxonomyRow;
     tagIds.push(unusedRow.id);
     const deleted = await taxRequest(adminCookie, 'DELETE', taxUrl('tag', `/${unusedRow.id}`));
     expect(deleted.status).toBe(204);
   });
 
   it('never allows deleting sources', async () => {
-    const created = await taxRequest(adminCookie, 'POST', taxUrl('source'), { name: 'Protected Source' });
-    const source = (await created.json()) as { id: string };
+    const created = await taxRequest(adminCookie, 'POST', taxUrl('source'), {
+      names: { 'en-US': 'Protected Source' },
+    });
+    const source = (await created.json()) as TaxonomyRow;
     sourceIds.push(source.id);
 
     const blocked = await taxRequest(adminCookie, 'DELETE', taxUrl('source', `/${source.id}`));
     expect(blocked.status).toBe(403);
 
     const stillThere = await taxRequest(adminCookie, 'GET', taxUrl('source'));
-    const items = (await stillThere.json()) as { items: Array<{ name: string }> };
-    expect(items.items.some((item) => item.name === 'Protected Source')).toBe(true);
+    const items = (await stillThere.json()) as { items: TaxonomyRow[] };
+    expect(items.items.some((item) => item.names['en-US'] === 'Protected Source')).toBe(true);
   });
 
   it('cleanup prunes unused tags/categories but keeps used ones', async () => {
@@ -195,12 +316,16 @@ describe('taxonomy dimensions management', () => {
     const unusedTagId = await createTag('Prune Tag');
     await db.insert(readingWorkTagTable).values({ workId, tagId: usedTagId, provenance: 'extracted' });
 
-    const categoryCreate = await taxRequest(adminCookie, 'POST', taxUrl('category'), { name: 'Keep Category' });
-    const usedCategory = (await categoryCreate.json()) as { id: string };
+    const categoryCreate = await taxRequest(adminCookie, 'POST', taxUrl('category'), {
+      names: { 'en-US': 'Keep Category' },
+    });
+    const usedCategory = (await categoryCreate.json()) as TaxonomyRow;
     categoryIds.push(usedCategory.id);
     await db.insert(readingWorkCategoryTable).values({ workId, categoryId: usedCategory.id, provenance: 'manual' });
-    const unusedCategory = await taxRequest(adminCookie, 'POST', taxUrl('category'), { name: 'Prune Category' });
-    const unusedCategoryRow = (await unusedCategory.json()) as { id: string };
+    const unusedCategory = await taxRequest(adminCookie, 'POST', taxUrl('category'), {
+      names: { 'en-US': 'Prune Category' },
+    });
+    const unusedCategoryRow = (await unusedCategory.json()) as TaxonomyRow;
     categoryIds.push(unusedCategoryRow.id);
 
     const tagCleanup = await taxRequest(adminCookie, 'POST', taxUrl('tag/cleanup'));

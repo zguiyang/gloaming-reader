@@ -7,7 +7,7 @@ import { ERROR_CODES, type ErrorCode } from '@/lib/error-codes';
 
 export type ValidationDetail = {
   path: string;
-  message: string;
+  message?: string;
   code?: ErrorCode | string;
   params?: TranslationParams;
 };

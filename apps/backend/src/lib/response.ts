@@ -33,8 +33,9 @@ export function sendError(c: Context, code: string, status: ContentfulStatusCode
 export function sendValidationError(c: Context, details: ValidationDetail[]) {
   const locale = resolveRequestLocale(c);
   const localizedDetails = details.map((detail) => {
-    const message = detail.code ? t(locale, detail.code, detail.params) : detail.message;
-    return detail.code ? { path: detail.path, message, code: detail.code } : { path: detail.path, message };
+    const code = detail.code ?? ERROR_CODES.VALIDATION_INVALID_INPUT;
+    const message = t(locale, code, detail.params);
+    return { path: detail.path, message, code };
   });
   return c.json(
     {
