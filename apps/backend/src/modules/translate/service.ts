@@ -8,6 +8,7 @@ import {
 } from '@gloaming/shared/translate';
 
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { NotFoundError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { composePromptMessages, PROMPT_ROLE, PROMPT_SCENE } from '@/lib/prompts';
@@ -97,7 +98,7 @@ async function loadPublishedPart(partId: string): Promise<{ id: string; title: s
 
   const row = rows[0];
   if (!row) {
-    throw new NotFoundError('Part not found');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
   }
   return row;
 }

@@ -7,6 +7,7 @@ import { uploadedObject as uploadedObjectTable } from '@gloaming/db';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { deleteObject, putObject } from '@/modules/oss';
@@ -76,23 +77,23 @@ export function validateUploadInput(input: { fileName: string; body: Buffer; con
   const extension = fileExtension(fileName);
   if (!extension || !spec.allowedExtensions.includes(extension)) {
     const labels = spec.allowedExtensions.map((ext) => `.${ext}`).join(' / ');
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `仅支持 ${labels} 格式文件`);
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.UPLOAD.UNSUPPORTED_FORMAT, { formats: labels });
   }
 
   const normalizedType = contentType.trim().toLowerCase();
   if (normalizedType && !spec.allowedMimeTypes.includes(normalizedType)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, '文件类型不受支持');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.UPLOAD.UNSUPPORTED_MIME);
   }
 
   if (body.length > spec.maxBytes) {
     const mb = Math.floor(spec.maxBytes / (1024 * 1024));
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `文件大小超过上限（${mb}MB）`);
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.UPLOAD.FILE_TOO_LARGE, { maxMb: mb });
   }
 
   if (spec.validateContent) {
     const message = spec.validateContent(body);
     if (message) {
-      throw new AppError(HTTP_STATUS.BAD_REQUEST, message);
+      throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.UPLOAD.CONTENT_INVALID, { reason: message });
     }
   }
 
@@ -171,7 +172,7 @@ export async function acquireUploadedObject(
 
   const contentHash = input.kind === 'file' ? hashFileContent(input.body) : input.contentHash;
   if (!isValidContentHash(contentHash)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, '文件哈希无效');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.UPLOAD.INVALID_HASH);
   }
 
   const existing = await findUploadedObjectByHash(contentHash);

@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import { ZodError } from 'zod';
 
 import { HTTP_STATUS } from '@/constants';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, ValidationFailedError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { sendError, sendValidationError } from '@/lib/response';
@@ -12,7 +13,7 @@ export const errorHandler = (err: Error, c: Context) => {
   }
 
   if (err instanceof AppError) {
-    return sendError(c, err.message, err.statusCode);
+    return sendError(c, err.code, err.statusCode, err.params);
   }
 
   if (err instanceof ZodError) {
@@ -26,5 +27,5 @@ export const errorHandler = (err: Error, c: Context) => {
   }
 
   rootLogger.error({ err }, 'Unhandled error');
-  return sendError(c, 'Internal server error', HTTP_STATUS.INTERNAL_ERROR);
+  return sendError(c, ERROR_CODES.INTERNAL_SERVER_ERROR, HTTP_STATUS.INTERNAL_ERROR);
 };

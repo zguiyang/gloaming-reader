@@ -8,6 +8,7 @@ import { llmAppSetting as llmAppSettingTable } from '@gloaming/db';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { createLlmClient, type ResolvedLlm, resolveLlmByModelRowId } from '@/lib/llm';
 import { rootLogger } from '@/lib/logger';
@@ -155,7 +156,7 @@ async function resolveModelRowId(options: { modelRowId?: string; purpose?: AiPur
           : purpose === 'metadata-enrich'
             ? 'Metadata enrich'
             : 'AI';
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, `${label} model not configured`);
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.MODEL_NOT_CONFIGURED, { label });
   }
   return value;
 }
@@ -323,8 +324,7 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
     if (error instanceof AppError) {
       throw error;
     }
-    // Keep the upstream message (e.g. JSON parse / timeout) for workflow lastError.
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, message);
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
   }
 }
 
@@ -443,7 +443,7 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
     }
 
     if (!replyText.trim()) {
-      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'AI unavailable');
+      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
     }
 
     await recordInvocation({
@@ -505,6 +505,6 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
     if (error instanceof AppError) {
       throw error;
     }
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'AI unavailable');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
   }
 }

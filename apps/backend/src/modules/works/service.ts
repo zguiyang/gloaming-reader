@@ -45,6 +45,7 @@ import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
 import { JOB_CONTENT_PARSE } from '@/jobs/content-parse';
 import { JOB_METADATA_FILL } from '@/jobs/work-metadata-fill';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, NotFoundError, ValidationFailedError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { htmlToPlainText } from '@/lib/part-text';
@@ -628,7 +629,7 @@ export async function createAdminTextWork(input: CreateAdminTextWorkBody): Promi
     .returning();
 
   if (!workRow) {
-    throw new AppError(500, 'Failed to create work');
+    throw new AppError(500, ERROR_CODES.WORK.CREATE_FAILED);
   }
 
   const bodyHtml = textToParagraphHtml(input.body);
@@ -649,7 +650,7 @@ export async function createAdminTextWork(input: CreateAdminTextWorkBody): Promi
     .returning();
 
   if (!partRow) {
-    throw new AppError(500, 'Failed to create part');
+    throw new AppError(500, ERROR_CODES.WORK.CREATE_PART_FAILED);
   }
 
   const [updatedWork] = await db
@@ -757,7 +758,9 @@ export async function createAdminEpubWork(input: {
 }): Promise<CreateEpubWorkResult> {
   const fileName = input.fileName.trim();
   if (!fileName) {
-    throw new ValidationFailedError([{ path: 'file', message: '请选择要上传的 EPUB 文件' }]);
+    throw new ValidationFailedError([
+      { path: 'file', message: '请选择要上传的 EPUB 文件', code: ERROR_CODES.UPLOAD.FILE_REQUIRED },
+    ]);
   }
 
   const result = await acquireUploadedObject({
@@ -768,7 +771,7 @@ export async function createAdminEpubWork(input: {
     spec: EPUB_UPLOAD_SPEC,
   });
   if (!result) {
-    throw new AppError(500, 'Failed to upload EPUB');
+    throw new AppError(500, ERROR_CODES.WORK.UPLOAD_EPUB_FAILED);
   }
 
   const created = await insertEpubWorkAndAsset({
@@ -780,7 +783,7 @@ export async function createAdminEpubWork(input: {
     const retryJobToken = String(created.originMeta.retryJobToken);
     const enqueueAttemptToken = randomUUID();
     if (!(await prepareWorkflowEnqueue(created.id, 'parse', 'processing', retryJobToken, enqueueAttemptToken))) {
-      throw new AppError(500, 'Failed to reserve EPUB parse enqueue');
+      throw new AppError(500, ERROR_CODES.WORK.RESERVE_PARSE_FAILED);
     }
     try {
       await enqueue(
@@ -807,15 +810,19 @@ export async function reuseAdminEpubWork(input: {
 }): Promise<CreateEpubWorkResult | null> {
   const fileName = input.fileName.trim();
   if (!fileName) {
-    throw new ValidationFailedError([{ path: 'fileName', message: '请提供文件名' }]);
+    throw new ValidationFailedError([
+      { path: 'fileName', message: '请提供文件名', code: ERROR_CODES.UPLOAD.FILE_NAME_REQUIRED },
+    ]);
   }
   if (!isValidContentHash(input.contentHash)) {
-    throw new ValidationFailedError([{ path: 'contentHash', message: '文件哈希无效' }]);
+    throw new ValidationFailedError([
+      { path: 'contentHash', message: '文件哈希无效', code: ERROR_CODES.UPLOAD.INVALID_HASH },
+    ]);
   }
 
   const extension = fileExtension(fileName);
   if (!extension || !EPUB_UPLOAD_SPEC.allowedExtensions.includes(extension)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, '仅支持 .epub 格式文件');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.UPLOAD.EPUB_ONLY);
   }
 
   const result = await acquireUploadedObject({
@@ -833,7 +840,7 @@ export async function reuseAdminEpubWork(input: {
     const retryJobToken = String(created.originMeta.retryJobToken);
     const enqueueAttemptToken = randomUUID();
     if (!(await prepareWorkflowEnqueue(created.id, 'parse', 'processing', retryJobToken, enqueueAttemptToken))) {
-      throw new AppError(500, 'Failed to reserve EPUB parse enqueue');
+      throw new AppError(500, ERROR_CODES.WORK.RESERVE_PARSE_FAILED);
     }
     try {
       await enqueue(
@@ -892,14 +899,14 @@ export async function listAdminWorks(query: AdminWorkListQuery): Promise<AdminWo
 export async function getAdminWork(id: string): Promise<AdminWork> {
   let [row] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
   if (!row) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   // Heal works left in `tts` after the auto-TTS pipeline was turned off.
   if (!TTS_STEP_ENABLED && row.status === 'tts') {
     await completeWorkflowStep(id, 'ready');
     [row] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
     if (!row) {
-      throw new NotFoundError('Work');
+      throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
     }
   }
   return toAdminWork(row);
@@ -908,7 +915,7 @@ export async function getAdminWork(id: string): Promise<AdminWork> {
 export async function updateWork(id: string, input: UpdateWorkBody): Promise<AdminWork> {
   const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
   if (!existing) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
 
   const patch: Partial<typeof readingWorkTable.$inferInsert> = {};
@@ -1010,10 +1017,10 @@ export async function updateWork(id: string, input: UpdateWorkBody): Promise<Adm
 export async function publishWork(id: string): Promise<AdminWork> {
   const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
   if (!existing) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   if (existing.status !== 'ready') {
-    throw new AppError(HTTP_STATUS.CONFLICT, '仅全部步骤完成的作品可以发布');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.PUBLISH_INCOMPLETE);
   }
 
   const parts = await loadPartsForWork(id);
@@ -1031,7 +1038,7 @@ export async function publishWork(id: string): Promise<AdminWork> {
     .returning();
 
   if (!row) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   return toAdminWork(row, parts);
 }
@@ -1039,10 +1046,10 @@ export async function publishWork(id: string): Promise<AdminWork> {
 export async function unpublishWork(id: string): Promise<AdminWork> {
   const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
   if (!existing) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   if (existing.status !== 'published') {
-    throw new AppError(HTTP_STATUS.CONFLICT, '仅已发布作品可以下架');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.UNPUBLISH_NOT_PUBLISHED);
   }
 
   const [row] = await db
@@ -1052,7 +1059,7 @@ export async function unpublishWork(id: string): Promise<AdminWork> {
     .returning();
 
   if (!row) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   return toAdminWork(row);
 }
@@ -1072,29 +1079,29 @@ const STEP_JOB: Record<Exclude<WorkflowStep, 'tts'>, string> = {
 export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): Promise<AdminWork> {
   const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
   if (!existing) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   if (existing.originKind !== 'admin_epub') {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, '仅 EPUB 作品支持流程重试');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.WORK.RETRY_EPUB_ONLY);
   }
   if (existing.status === 'published') {
-    throw new AppError(HTTP_STATUS.CONFLICT, '请先下架作品后再重试');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.UNPUBLISH_BEFORE_RETRY);
   }
   const step = input.step ?? failedStepOf(existing);
   const retryJobToken = randomUUID();
   if (!step) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, '没有可重试的步骤');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.WORK.NO_RETRYABLE_STEPS);
   }
   const running = existing.status === 'processing' || existing.status === 'metadata' || existing.status === 'tts';
   const expiredClaim = hasExpiredWorkflowClaim(existing, step);
   const expiredEnqueue = hasExpiredWorkflowEnqueue(existing, step);
   if (running && !expiredClaim && !expiredEnqueue) {
-    throw new AppError(HTTP_STATUS.CONFLICT, '作品正在处理中，请稍后再试');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.PROCESSING_IN_PROGRESS);
   }
   const retryAttemptToken = randomUUID();
   if (step === 'tts') {
     if (!TTS_STEP_ENABLED) {
-      throw new AppError(HTTP_STATUS.BAD_REQUEST, '音频步骤未启用自动流程，请在作品页手动生成');
+      throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.WORK.MANUAL_AUDIO_REQUIRED);
     }
     const [claimed] = await db
       .update(readingWorkTable)
@@ -1123,7 +1130,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
       )
       .returning({ id: readingWorkTable.id });
     if (!claimed) {
-      throw new AppError(HTTP_STATUS.CONFLICT, '作品状态已变化，请刷新后再试');
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.STATE_CHANGED);
     }
     const { enqueueWorkAudio } = await import('@/modules/content-assets/service');
     try {
@@ -1167,7 +1174,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
     )
     .returning({ id: readingWorkTable.id });
   if (!claimed) {
-    throw new AppError(HTTP_STATUS.CONFLICT, '作品状态已变化，请刷新后再试');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.STATE_CHANGED);
   }
 
   try {
@@ -1186,10 +1193,10 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
 export async function deleteWork(id: string): Promise<void> {
   const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
   if (!existing) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   if (existing.status === 'published') {
-    throw new AppError(HTTP_STATUS.CONFLICT, '请先下架');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.UNPUBLISH_FIRST);
   }
 
   const parts = await loadPartsForWork(id);
@@ -1284,7 +1291,7 @@ export async function getPublishedWork(id: string): Promise<Work> {
     .limit(1);
 
   if (!row) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   const hydrated = await ensureWorkReadingStatsIfMissing(row);
   const tags = await loadTagsForWork(id);
@@ -1299,12 +1306,12 @@ export async function requirePublishedWorkWithParts(workId: string): Promise<{ w
     .where(and(eq(readingWorkTable.id, workId), eq(readingWorkTable.status, 'published')))
     .limit(1);
   if (!work) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   const hydrated = await ensureWorkReadingStatsIfMissing(work);
   const parts = await loadPartsForWork(workId);
   if (parts.length === 0) {
-    throw new NotFoundError('Part');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
   }
   return { work: hydrated, parts };
 }
@@ -1312,7 +1319,7 @@ export async function requirePublishedWorkWithParts(workId: string): Promise<{ w
 export async function getPartById(partId: string): Promise<PartRow> {
   const [row] = await db.select().from(readingPartTable).where(eq(readingPartTable.id, partId)).limit(1);
   if (!row) {
-    throw new NotFoundError('Part');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
   }
   return row;
 }

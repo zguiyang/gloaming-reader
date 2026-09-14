@@ -271,7 +271,7 @@ describe('FreeDictionaryProvider error classification', () => {
     } catch (error) {
       expect(error).toBeInstanceOf(AppError);
       expect((error as AppError).statusCode).toBe(HTTP_STATUS.BAD_REQUEST);
-      expect((error as AppError).message).toMatch(/malformed response/i);
+      expect((error as AppError).code).toBe('api.errors.dictionary.malformedResponse');
       expect(isTransientDictionaryProviderFailure(error)).toBe(false);
     }
   });
@@ -638,10 +638,7 @@ describe('fallback decision gating', () => {
   });
 
   it('does not gate fallback for malformed payload AppError', () => {
-    const malformed = new AppError(
-      HTTP_STATUS.BAD_REQUEST,
-      'Free Dictionary API returned a malformed response: meanings must be an array',
-    );
+    const malformed = new AppError(HTTP_STATUS.BAD_REQUEST, 'api.errors.dictionary.malformedResponse');
     const decide = (primaryProvider: string, error: unknown) =>
       primaryProvider !== DICTIONARY_PROVIDER_YOUDAO && isTransientDictionaryProviderFailure(error);
 

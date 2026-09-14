@@ -1,4 +1,5 @@
 import { HTTP_STATUS } from '@/constants';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 
 const BLOCKED_HOSTNAMES = new Set(['localhost', 'metadata.google.internal', 'metadata.goog']);
@@ -65,16 +66,16 @@ export function assertSafeOutboundUrl(rawUrl: string, label = 'URL'): void {
   try {
     parsed = new URL(rawUrl);
   } catch {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `${label} 格式不正确`);
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.OUTBOUND_URL.INVALID, { label });
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `${label} 仅允许 http 或 https`);
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.OUTBOUND_URL.SCHEME, { label });
   }
   if (parsed.username || parsed.password) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `${label} 不能包含用户名或密码`);
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.OUTBOUND_URL.CREDENTIALS, { label });
   }
   if (isBlockedHost(parsed.hostname)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `${label} 不能指向内网或本地地址`);
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.OUTBOUND_URL.PRIVATE_NETWORK, { label });
   }
 }
 

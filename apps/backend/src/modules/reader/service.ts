@@ -18,6 +18,7 @@ import {
 import { estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
 
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, NotFoundError } from '@/lib/errors';
 import { getPartAudioAvailability, getPublishedPartAudioTrack } from '@/modules/content-assets/service';
 import { reindexLeafParagraphOrdinals } from '@/modules/epub-ingest/clean';
@@ -87,7 +88,7 @@ function toReadingState(row: StateRow, parts: PartSortOrder[]): ReadingState {
 function findPart(parts: PartRow[], partId: string): PartRow {
   const part = parts.find((row) => row.id === partId);
   if (!part) {
-    throw new NotFoundError('Part');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
   }
   return part;
 }
@@ -114,7 +115,7 @@ export async function getReaderPart(partId: string): Promise<ReaderPartData> {
   const part = await getPartById(partId);
   const { work, parts } = await requirePublishedWorkWithParts(part.workId);
   if (!parts.some((row) => row.id === partId)) {
-    throw new NotFoundError('Part');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
   }
   const tags = await loadTagsForWork(work.id);
   const audioAvailable = await getPartAudioAvailability(part.id, part.title, part.body);
@@ -195,10 +196,10 @@ export async function updateReadingState(
     }
 
     if (!existing) {
-      throw new NotFoundError('Reading state');
+      throw new NotFoundError(ERROR_CODES.NOT_FOUND.READING_STATE);
     }
     if (input.expectedRevision != null && input.expectedRevision !== existing.revision) {
-      throw new AppError(409, 'Reading state revision conflict');
+      throw new AppError(409, ERROR_CODES.READER.REVISION_CONFLICT);
     }
 
     const updateState = async (changes: Partial<typeof readingStateTable.$inferInsert>): Promise<StateRow> => {
@@ -211,7 +212,7 @@ export async function updateReadingState(
         .where(and(eq(readingStateTable.id, existing.id), eq(readingStateTable.revision, existing.revision)))
         .returning();
       if (!updated) {
-        throw new AppError(409, 'Reading state revision conflict');
+        throw new AppError(409, ERROR_CODES.READER.REVISION_CONFLICT);
       }
       return updated;
     };
@@ -256,7 +257,7 @@ export async function updateReadingState(
       );
       const next = input.nextPartId != null ? findPart(parts, input.nextPartId) : nextPartAfter(parts, current);
       if (!next) {
-        throw new AppError(400, 'No next chapter — use finish to complete the book');
+        throw new AppError(400, ERROR_CODES.READER.NO_NEXT_CHAPTER);
       }
       return updateState({
         currentPartId: next.id,
@@ -287,7 +288,7 @@ export async function updateReadingState(
       });
     }
 
-    throw new AppError(400, 'Unsupported action');
+    throw new AppError(400, ERROR_CODES.READER.UNSUPPORTED_ACTION);
   });
 
   await touchReadingDay(userId);

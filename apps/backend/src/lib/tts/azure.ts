@@ -1,7 +1,11 @@
 import * as sdk from 'microsoft-cognitiveservices-speech-sdk';
 
 import { HTTP_STATUS } from '@/constants';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
+import { rootLogger } from '@/lib/logger';
+
+const azureTtsLogger = rootLogger.child({ module: 'AzureTts' });
 
 export type AzureTtsWordTiming = {
   text: string;
@@ -62,8 +66,9 @@ export async function synthesizeAzureTts(input: AzureTtsSynthesizeInput): Promis
     }
 
     const details = sdk.CancellationDetails.fromResult(result);
-    const message = details.errorDetails?.trim() || details.reason.toString() || 'TTS synthesis failed';
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, message);
+    const vendorMessage = details.errorDetails?.trim() || details.reason.toString() || 'TTS synthesis failed';
+    azureTtsLogger.warn({ vendorMessage, reason: details.reason }, 'Azure TTS synthesis failed');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.SYNTHESIS_FAILED);
   } finally {
     synthesizer.close();
   }

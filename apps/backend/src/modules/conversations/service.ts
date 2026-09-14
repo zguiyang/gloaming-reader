@@ -25,6 +25,7 @@ import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, NotFoundError } from '@/lib/errors';
 
 type ConversationRow = typeof conversationTable.$inferSelect;
@@ -178,7 +179,7 @@ export async function getConversation(userId: string, conversationId: string): P
     .limit(1);
   const row = rows[0];
   if (!row) {
-    throw new NotFoundError('Conversation');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.CONVERSATION);
   }
 
   const messageRows = await db
@@ -212,13 +213,13 @@ export async function assertAssistConversation(input: {
     .limit(1);
   const row = rows[0];
   if (!row) {
-    throw new NotFoundError('Conversation');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.CONVERSATION);
   }
   if (row.surface !== 'assist-read' || row.subjectType !== 'reading_work') {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'conversation does not match surface');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONVERSATION.MISMATCH_SURFACE);
   }
   if (row.subjectId !== input.workId) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'conversation does not match work');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONVERSATION.MISMATCH_WORK);
   }
 }
 
@@ -255,13 +256,13 @@ export async function appendAssistTurn(input: AppendTurnInput): Promise<{ conver
         .limit(1);
       const row = existing[0];
       if (!row) {
-        throw new NotFoundError('Conversation');
+        throw new NotFoundError(ERROR_CODES.NOT_FOUND.CONVERSATION);
       }
       if (row.surface !== input.surface || row.subjectType !== input.subjectType) {
-        throw new AppError(HTTP_STATUS.BAD_REQUEST, 'conversation does not match surface');
+        throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONVERSATION.MISMATCH_SURFACE);
       }
       if (row.subjectId !== input.subjectId) {
-        throw new AppError(HTTP_STATUS.BAD_REQUEST, 'conversation does not match work');
+        throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONVERSATION.MISMATCH_WORK);
       }
 
       await endOpenInScope(tx as unknown as typeof db, {

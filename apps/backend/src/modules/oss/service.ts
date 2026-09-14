@@ -1,5 +1,6 @@
 import { HTTP_STATUS } from '@/constants';
 import { env } from '@/lib/env';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import {
@@ -25,7 +26,7 @@ let cachedStore: ObjectStore | null | undefined;
 function resolveStore(): ObjectStore {
   if (cachedStore !== undefined) {
     if (!cachedStore) {
-      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'Object storage is not configured');
+      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.OSS.NOT_CONFIGURED);
     }
     return cachedStore;
   }
@@ -34,14 +35,11 @@ function resolveStore(): ObjectStore {
     cachedStore = createObjectStoreFromEnv(env);
   } catch (error) {
     ossLogger.error({ err: error }, 'Failed to create object store');
-    throw new AppError(
-      HTTP_STATUS.SERVICE_UNAVAILABLE,
-      error instanceof Error ? error.message : 'Object storage is unavailable',
-    );
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.OSS.UNAVAILABLE);
   }
 
   if (!cachedStore) {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'Object storage is not configured');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.OSS.NOT_CONFIGURED);
   }
   return cachedStore;
 }

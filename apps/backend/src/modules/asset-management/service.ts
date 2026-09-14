@@ -25,6 +25,7 @@ import {
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import type { ObjectListItem } from '@/lib/oss';
@@ -393,7 +394,7 @@ async function saveSnapshot(snapshot: ScanSnapshot): Promise<void> {
 async function loadSnapshot(scanId: string): Promise<ScanSnapshot> {
   const raw = await getRedis().get(scanRedisKey(scanId));
   if (!raw) {
-    throw new AppError(HTTP_STATUS.CONFLICT, 'Scan snapshot expired or not found; please scan again');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.SCAN_SNAPSHOT_EXPIRED);
   }
   try {
     const parsed = JSON.parse(raw) as Partial<ScanSnapshot> & {
@@ -413,7 +414,7 @@ async function loadSnapshot(scanId: string): Promise<ScanSnapshot> {
     };
   } catch (error) {
     logger.warn({ err: error, scanId }, 'Failed to parse scan snapshot');
-    throw new AppError(HTTP_STATUS.CONFLICT, 'Scan snapshot expired or not found; please scan again');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.SCAN_SNAPSHOT_EXPIRED);
   }
 }
 
@@ -421,7 +422,7 @@ export async function scanAssets(): Promise<AssetScanReport> {
   const scanId = `scan_${randomUUID()}`;
   const locked = await acquireLock(SCAN_LOCK_KEY, scanId, SCAN_LOCK_TTL_SECONDS);
   if (!locked) {
-    throw new AppError(HTTP_STATUS.CONFLICT, 'A scan is already in progress');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.SCAN_IN_PROGRESS);
   }
 
   const scanLockRenewal = startLockRenewal(SCAN_LOCK_KEY, scanId, SCAN_LOCK_TTL_SECONDS);
@@ -514,13 +515,10 @@ export async function listScanObjects(scanId: string, query: AssetObjectListQuer
 export async function enqueueOrphanCleanup(scanId: string): Promise<AssetCleanupJobAccepted> {
   const snapshot = await loadSnapshot(scanId);
   if (!snapshot.report.scanComplete) {
-    throw new AppError(
-      HTTP_STATUS.CONFLICT,
-      'Incomplete scan cannot be cleaned up; rescan with a smaller bucket or retry later',
-    );
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.SCAN_INCOMPLETE);
   }
   if (snapshot.orphanKeys.length === 0) {
-    throw new AppError(HTTP_STATUS.CONFLICT, 'No orphan objects to clean up');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.NO_ORPHANS);
   }
 
   const existingJobId = await loadCleanupJobIdForScan(scanId);
@@ -530,13 +528,10 @@ export async function enqueueOrphanCleanup(scanId: string): Promise<AssetCleanup
       return { jobId: existing.jobId, scanId: existing.scanId, status: existing.status };
     }
     if (existing && !isRetryableStatus(existing.status) && existing.status === 'completed') {
-      throw new AppError(
-        HTTP_STATUS.CONFLICT,
-        'Cleanup already completed for this scan; scan again to start a new job',
-      );
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.CLEANUP_ALREADY_COMPLETED);
     }
     if (existing && isRetryableStatus(existing.status)) {
-      throw new AppError(HTTP_STATUS.CONFLICT, 'Cleanup already finished with failures; retry the existing job');
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.CLEANUP_RETRY_EXISTING);
     }
   }
 
@@ -577,7 +572,7 @@ export async function enqueueOrphanCleanup(scanId: string): Promise<AssetCleanup
 export async function getCleanupJob(jobId: string): Promise<AssetCleanupJob> {
   const record = await loadCleanupJob(jobId);
   if (!record) {
-    throw new AppError(HTTP_STATUS.NOT_FOUND, 'Cleanup job not found');
+    throw new AppError(HTTP_STATUS.NOT_FOUND, ERROR_CODES.ASSET_MANAGEMENT.CLEANUP_JOB_NOT_FOUND);
   }
   return toPublicCleanupJob(record);
 }
@@ -585,17 +580,17 @@ export async function getCleanupJob(jobId: string): Promise<AssetCleanupJob> {
 export async function retryCleanupJob(jobId: string): Promise<AssetCleanupJobAccepted> {
   const record = await loadCleanupJob(jobId);
   if (!record) {
-    throw new AppError(HTTP_STATUS.NOT_FOUND, 'Cleanup job not found');
+    throw new AppError(HTTP_STATUS.NOT_FOUND, ERROR_CODES.ASSET_MANAGEMENT.CLEANUP_JOB_NOT_FOUND);
   }
   if (isInFlightStatus(record.status)) {
     return { jobId: record.jobId, scanId: record.scanId, status: record.status };
   }
   if (!isRetryableStatus(record.status)) {
-    throw new AppError(HTTP_STATUS.CONFLICT, 'Cleanup job has no failed objects to retry');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.NO_FAILED_OBJECTS);
   }
   const retryKeys = collectCleanupRetryKeys(record);
   if (retryKeys.length === 0) {
-    throw new AppError(HTTP_STATUS.CONFLICT, 'Cleanup job has no failed objects to retry');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.NO_FAILED_OBJECTS);
   }
 
   applyCleanupRetryState(record, retryKeys);

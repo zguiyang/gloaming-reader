@@ -14,6 +14,7 @@ import {
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { normalizeTag } from '@/lib/text';
@@ -87,7 +88,7 @@ function isModelNotConfigured(error: unknown): boolean {
   return (
     error instanceof AppError &&
     error.statusCode === HTTP_STATUS.SERVICE_UNAVAILABLE &&
-    /not configured/i.test(error.message)
+    error.code === ERROR_CODES.AI.MODEL_NOT_CONFIGURED
   );
 }
 

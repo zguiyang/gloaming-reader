@@ -6,5 +6,147 @@
   },
   "meta": {
     "fallbackProbe": "仅中文回退探针"
+  },
+  "api": {
+    "errors": {
+      "unauthorized": "未登录或登录已过期",
+      "forbidden": "没有权限执行此操作",
+      "internalServerError": "服务器内部错误",
+      "tooManyRequests": "请求过于频繁，请稍后再试",
+      "validationFailed": "验证失败",
+      "notFound": {
+        "work": "未找到作品",
+        "part": "未找到章节",
+        "conversation": "未找到对话",
+        "readingState": "未找到阅读状态",
+        "llmProvider": "未找到 LLM 服务商",
+        "llmModel": "未找到 LLM 模型",
+        "partAudio": "未找到章节音频",
+        "cleanupJob": "未找到清理任务",
+        "taxonomyTag": "未找到标签",
+        "taxonomyCategory": "未找到分类",
+        "taxonomySource": "未找到来源",
+        "wordDefinition": "未找到单词「{word}」的词典释义"
+      },
+      "upload": {
+        "fileTooLarge": "文件大小超过上限（{maxMb}MB）",
+        "fileRequired": "请选择要上传的 EPUB 文件",
+        "fileNameRequired": "请提供文件名",
+        "invalidHash": "文件哈希无效",
+        "unsupportedFormat": "仅支持 {formats} 格式文件",
+        "unsupportedMime": "文件类型不受支持",
+        "contentInvalid": "{reason}",
+        "epubOnly": "仅支持 .epub 格式文件"
+      },
+      "work": {
+        "createFailed": "创建作品失败",
+        "createPartFailed": "创建章节失败",
+        "uploadEpubFailed": "上传 EPUB 失败",
+        "reserveParseFailed": "预留 EPUB 解析任务失败",
+        "publishIncomplete": "仅全部步骤完成的作品可以发布",
+        "unpublishNotPublished": "仅已发布作品可以下架",
+        "retryEpubOnly": "仅 EPUB 作品支持流程重试",
+        "unpublishBeforeRetry": "请先下架作品后再重试",
+        "noRetryableSteps": "没有可重试的步骤",
+        "processingInProgress": "作品正在处理中，请稍后再试",
+        "manualAudioRequired": "音频步骤未启用自动流程，请在作品页手动生成",
+        "stateChanged": "作品状态已变化，请刷新后再试",
+        "unpublishFirst": "请先下架"
+      },
+      "taxonomy": {
+        "invalidKind": "kind 必须是 tag / category / source",
+        "cleanupKindOnly": "cleanup 仅支持 tag / category",
+        "sourceDeleteForbidden": "来源为系统保留数据，不可删除；未命中来源可留空表示「未知」",
+        "tag": {
+          "nameExists": "标签「{name}」已存在",
+          "nameConflict": "标签名称已存在",
+          "inUse": "该标签已被 {usage} 个作品使用，不可删除；可修改名称"
+        },
+        "category": {
+          "nameExists": "分类「{name}」已存在",
+          "nameConflict": "分类名称已存在",
+          "inUse": "该分类已被 {usage} 个作品使用，不可删除；可修改名称"
+        },
+        "source": {
+          "nameExists": "来源「{name}」已存在",
+          "nameConflict": "来源名称已存在",
+          "inUse": "该来源已被 {usage} 个作品使用，不可删除；可修改名称"
+        }
+      },
+      "tts": {
+        "apiKeyRequired": "首次配置 TTS 需要提供 API Key",
+        "notConfigured": "TTS 未配置",
+        "disabled": "TTS 已禁用",
+        "unsupportedProvider": "不支持的 TTS 服务商",
+        "textRequired": "TTS 文本不能为空",
+        "invalidCredentials": "TTS 凭据无效",
+        "synthesisFailed": "TTS 合成失败"
+      },
+      "ai": {
+        "unavailable": "AI 服务不可用",
+        "modelNotConfigured": "未配置 {label} 模型"
+      },
+      "llm": {
+        "familyNotImplemented": "LLM API 协议族「{apiFamily}」已注册但运行时尚未实现",
+        "unknownApiFamily": "未知的 API 协议族",
+        "thinkingNotSupported": "当前 API 协议族不支持思考参数配置",
+        "wireVariantInvalid": "当前服务商 API 协议族不支持该 Wire 变体",
+        "modelIdExists": "该服务商下模型 ID 已存在",
+        "modelReferenced": "模型已被应用设置引用",
+        "unknownSettingKey": "未知的设置键",
+        "modelOrProviderDisabled": "模型或服务商已禁用",
+        "providerDisabled": "服务商已禁用",
+        "noEnabledModel": "该服务商下没有启用的模型",
+        "apiKeyDecryptFailed": "API Key 解密失败，请重新保存服务商",
+        "invalidApiFamily": "服务商 API 协议族无效",
+        "modelListNotSupported": "当前 API 协议族不支持拉取模型列表",
+        "modelListFetchFailed": "无法拉取模型列表，该平台可能不支持，请手动添加模型"
+      },
+      "outboundUrl": {
+        "invalid": "{label} 格式不正确",
+        "scheme": "{label} 仅允许 http 或 https",
+        "credentials": "{label} 不能包含用户名或密码",
+        "privateNetwork": "{label} 不能指向内网或本地地址"
+      },
+      "oss": {
+        "notConfigured": "对象存储未配置",
+        "unavailable": "对象存储不可用"
+      },
+      "dictionary": {
+        "providerNotImplemented": "词典 Provider「{providerId}」尚未实现或不支持",
+        "providerSaveNotSupported": "词典 Provider「{providerId}」尚未实现或不支持，无法保存",
+        "queryDisabled": "词典查询服务已在管理后台禁用",
+        "upstreamError": "词典服务商返回错误",
+        "requestTimeout": "词典服务商请求超时",
+        "fetchFailed": "从词典服务商获取数据失败",
+        "transportFailure": "词典服务商传输异常",
+        "invalidJson": "词典服务商返回无效 JSON",
+        "malformedResponse": "词典服务商返回格式异常",
+        "payloadFailure": "词典服务商响应解析失败"
+      },
+      "conversation": {
+        "mismatchSurface": "对话与当前界面不匹配",
+        "mismatchWork": "对话与当前作品不匹配"
+      },
+      "contentAsset": {
+        "noTextToSynthesize": "章节没有可合成的文本",
+        "partNotInWork": "章节不属于该作品"
+      },
+      "assetManagement": {
+        "scanSnapshotExpired": "扫描快照已过期或不存在，请重新扫描",
+        "scanIncomplete": "扫描未完成，无法清理；请缩小存储桶范围或稍后重试",
+        "noOrphans": "没有可清理的孤立对象",
+        "scanInProgress": "已有扫描正在进行",
+        "cleanupAlreadyCompleted": "该扫描的清理已完成；重新扫描以开始新任务",
+        "cleanupRetryExisting": "清理已完成但存在失败项；请重试现有任务",
+        "cleanupJobNotFound": "未找到清理任务",
+        "noFailedObjects": "清理任务没有失败的对象可重试"
+      },
+      "reader": {
+        "revisionConflict": "阅读状态版本冲突",
+        "noNextChapter": "没有下一章 — 请使用完成操作结束本书",
+        "unsupportedAction": "不支持的操作"
+      }
+    }
   }
 }

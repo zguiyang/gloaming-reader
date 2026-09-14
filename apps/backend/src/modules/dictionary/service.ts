@@ -24,6 +24,7 @@ import {
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { decryptApiKey, encryptApiKey, maskApiKey } from '@/lib/llm';
 import { rootLogger } from '@/lib/logger';
@@ -58,7 +59,7 @@ const providerRegistry = new Map<string, DictionaryProvider>([
 export function getDictionaryProvider(providerId: string): DictionaryProvider {
   const provider = providerRegistry.get(providerId);
   if (!provider) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `词典 Provider「${providerId}」尚未实现或不支持`);
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.DICTIONARY.PROVIDER_NOT_IMPLEMENTED, { providerId });
   }
   return provider;
 }
@@ -136,7 +137,7 @@ export async function getDictionaryConfig(): Promise<DictionaryConfigView> {
 export async function putDictionaryConfig(body: PutDictionaryConfigBody): Promise<DictionaryConfigView> {
   const providerId = body.provider.trim();
   if (!providerRegistry.has(providerId)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `词典 Provider「${providerId}」尚未实现或不支持，无法保存`);
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.DICTIONARY.PROVIDER_SAVE_NOT_SUPPORTED, { providerId });
   }
 
   const existing = await loadConfigRow();
@@ -533,7 +534,7 @@ export async function lookupWord(options: LookupWordOptions): Promise<Dictionary
 
   const config = await getDictionaryConfig();
   if (!config.isEnabled && !options.bypassCache) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, '词典查询服务已在管理后台禁用');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.DICTIONARY.QUERY_DISABLED);
   }
 
   const cacheKey = wordCacheKey(cleanWord);
@@ -700,7 +701,7 @@ export async function testDictionary(body: TestDictionaryBody): Promise<TestDict
   });
 
   if (!entry) {
-    throw new AppError(HTTP_STATUS.NOT_FOUND, `未找到单词 "${body.word}" 的词典释义`);
+    throw new AppError(HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND.WORD_DEFINITION, { word: body.word });
   }
 
   return {

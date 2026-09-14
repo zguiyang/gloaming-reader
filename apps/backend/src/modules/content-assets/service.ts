@@ -29,6 +29,7 @@ import { type TtsVoiceRole } from '@gloaming/shared/tts';
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
 import { concatMp3Buffers } from '@/lib/audio-concat';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, NotFoundError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { splitForTts } from '@/lib/part-audio-split';
@@ -195,7 +196,7 @@ async function loadPart(partId: string): Promise<{
     .limit(1);
   const row = rows[0];
   if (!row) {
-    throw new NotFoundError('Part');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
   }
   return row;
 }
@@ -308,7 +309,7 @@ export async function getWorkAudio(workId: string, role: TtsVoiceRole): Promise<
     .where(eq(readingWorkTable.id, workId))
     .limit(1);
   if (!work) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
 
   const parts = await db
@@ -553,7 +554,7 @@ export async function enqueuePartAudio(partId: string, body: GeneratePartAudioBo
   const part = await loadPart(partId);
   const text = buildPartAudioText(htmlToPlainText(part.body));
   if (!text.trim()) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Part has no text to synthesize');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONTENT_ASSET.NO_TEXT_TO_SYNTHESIZE);
   }
 
   const contentHash = hashPartAudioContent(part.body);
@@ -615,7 +616,7 @@ export async function enqueueWorkAudio(workId: string, body: GenerateWorkAudioBo
     .where(eq(readingWorkTable.id, workId))
     .limit(1);
   if (!work) {
-    throw new NotFoundError('Work');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
 
   const parts = await db
@@ -770,12 +771,12 @@ async function cleanupOrphanObjectsAfterOwnershipLoss(
 export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promise<void> {
   const part = await loadPart(input.partId);
   if (part.workId !== input.workId) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Part does not belong to work');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONTENT_ASSET.PART_NOT_IN_WORK);
   }
 
   const text = buildPartAudioText(htmlToPlainText(part.body));
   if (!text.trim()) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Part has no text to synthesize');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONTENT_ASSET.NO_TEXT_TO_SYNTHESIZE);
   }
 
   const contentHash = hashPartAudioContent(part.body);
@@ -786,7 +787,7 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
   }
   const segments = splitForTts(text);
   if (segments.length === 0) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Part has no text to synthesize');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONTENT_ASSET.NO_TEXT_TO_SYNTHESIZE);
   }
 
   let existing: AssetRow;
@@ -1080,7 +1081,7 @@ export async function getPublishedPartAudioTrack(partId: string, role: TtsVoiceR
     .limit(1);
 
   if (!part) {
-    throw new NotFoundError('Part');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
   }
 
   const sourceHash = hashPartAudioContent(part.body);
@@ -1091,7 +1092,7 @@ export async function getPublishedPartAudioTrack(partId: string, role: TtsVoiceR
     .where(and(eq(contentAssetTable.partId, partId), eq(contentAssetTable.kind, kind)))
     .limit(1);
   if (!asset || asset.status !== 'ready' || asset.contentHash !== sourceHash) {
-    throw new NotFoundError('Part audio');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART_AUDIO);
   }
 
   const meta = asset.meta ?? {};

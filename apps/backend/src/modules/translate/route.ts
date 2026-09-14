@@ -3,7 +3,7 @@ import { streamSSE } from 'hono/streaming';
 
 import { TRANSLATE_SSE_EVENT } from '@gloaming/shared/translate';
 
-import { AppError, NotFoundError } from '@/lib/errors';
+import { formatThrownError } from '@/lib/response';
 import { type AuthVariables, requireAuth } from '@/middleware/auth';
 import * as translateService from '@/modules/translate/service';
 import { validateTranslatePart } from '@/modules/translate/validator';
@@ -65,19 +65,9 @@ translateRoutes.post('/api/translate/part', requireAuth, validateTranslatePart, 
       if (abort.signal.aborted) {
         return;
       }
-      const message =
-        error instanceof NotFoundError
-          ? error.message
-          : error instanceof AppError
-            ? error.message
-            : error instanceof Error && /model not configured/i.test(error.message)
-              ? error.message
-              : error instanceof Error && /Missing translation/i.test(error.message)
-                ? 'AI unavailable'
-                : 'AI unavailable';
       await stream.writeSSE({
         event: TRANSLATE_SSE_EVENT.error,
-        data: JSON.stringify({ error: message }),
+        data: JSON.stringify(formatThrownError(c, error)),
       });
     }
   });

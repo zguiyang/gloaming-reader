@@ -24,6 +24,7 @@ import {
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { decryptApiKey, encryptApiKey, maskApiKey } from '@/lib/llm';
 import { rootLogger } from '@/lib/logger';
@@ -241,7 +242,7 @@ export async function getConfig(): Promise<TtsConfigView> {
 export async function putConfig(body: PutTtsConfigBody): Promise<TtsConfigView> {
   const existing = await loadConfigRow();
   if (!existing && !body.apiKey?.trim()) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'API key is required for first-time TTS setup');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.TTS.API_KEY_REQUIRED);
   }
 
   const apiKeyCiphertext = body.apiKey?.trim() ? encryptApiKey(body.apiKey.trim()) : existing!.apiKeyCiphertext;
@@ -281,25 +282,25 @@ export async function putConfig(body: PutTtsConfigBody): Promise<TtsConfigView> 
 export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<SynthesizeTtsResult> {
   const row = await loadConfigRow();
   if (!row) {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'TTS is not configured');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.NOT_CONFIGURED);
   }
   if (!row.isEnabled) {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'TTS is disabled');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.DISABLED);
   }
   if (row.provider !== TTS_PROVIDER_AZURE) {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'Unsupported TTS provider');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.UNSUPPORTED_PROVIDER);
   }
 
   const text = normalizeTtsText(options.text);
   if (!text) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'TTS text is required');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.TTS.TEXT_REQUIRED);
   }
 
   let subscriptionKey: string;
   try {
     subscriptionKey = decryptApiKey(row.apiKeyCiphertext);
   } catch {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'TTS credentials are invalid');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.INVALID_CREDENTIALS);
   }
 
   const voice = resolveVoice(row, options);

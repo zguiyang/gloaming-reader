@@ -35,6 +35,7 @@ import {
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, NotFoundError } from '@/lib/errors';
 import {
   assertSafeOutboundUrl,
@@ -44,6 +45,7 @@ import {
   maskApiKey,
   queryProviderBalance as queryProviderBalanceUpstream,
 } from '@/lib/llm';
+import { rootLogger } from '@/lib/logger';
 import { invokeAi } from '@/modules/ai';
 import { isAiSettingKey } from '@/modules/ai/purposes';
 
@@ -52,14 +54,14 @@ type ModelRow = typeof llmModelTable.$inferSelect;
 
 function parseApiFamily(value: string): LlmApiFamily {
   if (!isLlmApiFamily(value)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Unknown API family');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.UNKNOWN_API_FAMILY);
   }
   return value;
 }
 
 function validateProviderOptionalFields(family: LlmApiFamily, thinkingParam: string | null | undefined): void {
   if (thinkingParam && !providerSupportsOptionalField(family, 'thinkingParam')) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, '当前 API 协议族不支持思考参数配置');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.THINKING_NOT_SUPPORTED);
   }
 }
 
@@ -151,7 +153,7 @@ export async function createProvider(body: CreateLlmProviderBody): Promise<LlmPr
 export async function updateProvider(id: string, body: UpdateLlmProviderBody): Promise<LlmProvider> {
   const existing = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, id)).limit(1);
   if (!existing[0]) {
-    throw new NotFoundError('LLM provider');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
   }
   const apiFamily = parseApiFamily(existing[0].apiFamily);
 
@@ -193,12 +195,12 @@ export async function updateProvider(id: string, body: UpdateLlmProviderBody): P
 export async function deleteProvider(id: string): Promise<void> {
   const existing = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, id)).limit(1);
   if (!existing[0]) {
-    throw new NotFoundError('LLM provider');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
   }
 
   const models = await db.select({ id: llmModelTable.id }).from(llmModelTable).where(eq(llmModelTable.providerId, id));
   if (await settingReferencesModel(models.map((m) => m.id))) {
-    throw new AppError(HTTP_STATUS.CONFLICT, 'Provider models are referenced by app settings');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_REFERENCED);
   }
 
   await db.delete(llmProviderTable).where(eq(llmProviderTable.id, id));
@@ -218,14 +220,14 @@ export async function listModels(query: LlmModelListQuery): Promise<LlmModel[]> 
 export async function createModel(body: CreateLlmModelBody): Promise<LlmModel> {
   const provider = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, body.providerId)).limit(1);
   if (!provider[0]) {
-    throw new NotFoundError('LLM provider');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
   }
   const apiFamily = parseApiFamily(provider[0].apiFamily);
   const wireVariant = body.wireVariant ?? getDefaultWireVariant(apiFamily);
   try {
     assertWireVariantForFamily(apiFamily, wireVariant);
   } catch {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Wire variant is not valid for this provider API family');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.WIRE_VARIANT_INVALID);
   }
 
   const id = randomUUID();
@@ -247,7 +249,7 @@ export async function createModel(body: CreateLlmModelBody): Promise<LlmModel> {
       .returning();
     return toModel(row!);
   } catch {
-    throw new AppError(HTTP_STATUS.CONFLICT, 'Model id already exists for this provider');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
   }
 }
 
@@ -262,7 +264,7 @@ export async function updateModel(id: string, body: UpdateLlmModelBody): Promise
     .where(eq(llmModelTable.id, id))
     .limit(1);
   if (!existing[0]) {
-    throw new NotFoundError('LLM model');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
   }
   const apiFamily = parseApiFamily(existing[0].apiFamily);
 
@@ -277,7 +279,7 @@ export async function updateModel(id: string, body: UpdateLlmModelBody): Promise
     try {
       assertWireVariantForFamily(apiFamily, body.wireVariant);
     } catch {
-      throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Wire variant is not valid for this provider API family');
+      throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.WIRE_VARIANT_INVALID);
     }
     patch.wireVariant = body.wireVariant;
   }
@@ -301,7 +303,7 @@ export async function updateModel(id: string, body: UpdateLlmModelBody): Promise
     const [row] = await db.update(llmModelTable).set(patch).where(eq(llmModelTable.id, id)).returning();
     return toModel(row!);
   } catch {
-    throw new AppError(HTTP_STATUS.CONFLICT, 'Model id already exists for this provider');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
   }
 }
 
@@ -316,10 +318,10 @@ export async function getWireRegistry() {
 export async function deleteModel(id: string): Promise<void> {
   const existing = await db.select().from(llmModelTable).where(eq(llmModelTable.id, id)).limit(1);
   if (!existing[0]) {
-    throw new NotFoundError('LLM model');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
   }
   if (await settingReferencesModel([id])) {
-    throw new AppError(HTTP_STATUS.CONFLICT, 'Model is referenced by app settings');
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_REFERENCED);
   }
   await db.delete(llmModelTable).where(eq(llmModelTable.id, id));
 }
@@ -362,7 +364,7 @@ export async function listSettings(): Promise<LlmAppSettingView[]> {
 
 export async function putSetting(key: string, body: PutLlmAppSettingBody): Promise<LlmAppSettingView> {
   if (!isAiSettingKey(key)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Unknown setting key');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.UNKNOWN_SETTING_KEY);
   }
 
   const models = await db
@@ -380,17 +382,14 @@ export async function putSetting(key: string, body: PutLlmAppSettingBody): Promi
 
   const model = models[0];
   if (!model) {
-    throw new NotFoundError('LLM model');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
   }
   if (!model.modelEnabled || !model.providerEnabled) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Model or provider is disabled');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.MODEL_OR_PROVIDER_DISABLED);
   }
   const apiFamily = parseApiFamily(model.apiFamily);
   if (!isModelRuntimeReady(apiFamily)) {
-    throw new AppError(
-      HTTP_STATUS.BAD_REQUEST,
-      `LLM API family "${apiFamily}" is registered but runtime support is not implemented.`,
-    );
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.FAMILY_NOT_IMPLEMENTED, { apiFamily });
   }
 
   await db
@@ -413,17 +412,14 @@ export async function putSetting(key: string, body: PutLlmAppSettingBody): Promi
 export async function testProvider(providerId: string, body: TestLlmProviderBody): Promise<TestLlmProviderResult> {
   const provider = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, providerId)).limit(1);
   if (!provider[0]) {
-    throw new NotFoundError('LLM provider');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
   }
   if (!provider[0].isEnabled) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'Provider is disabled');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.PROVIDER_DISABLED);
   }
   const apiFamily = parseApiFamily(provider[0].apiFamily);
   if (!isModelRuntimeReady(apiFamily)) {
-    throw new AppError(
-      HTTP_STATUS.SERVICE_UNAVAILABLE,
-      `LLM API family "${apiFamily}" is registered but runtime support is not implemented.`,
-    );
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.LLM.FAMILY_NOT_IMPLEMENTED, { apiFamily });
   }
 
   let modelRowId = body.modelId;
@@ -442,12 +438,12 @@ export async function testProvider(providerId: string, body: TestLlmProviderBody
       .where(and(eq(llmModelTable.id, modelRowId), eq(llmModelTable.providerId, providerId)))
       .limit(1);
     if (!models[0]) {
-      throw new NotFoundError('LLM model');
+      throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
     }
   }
 
   if (!modelRowId) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'No enabled model on this provider');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.NO_ENABLED_MODEL);
   }
 
   const started = Date.now();
@@ -472,13 +468,13 @@ async function loadProviderWithKey(providerId: string): Promise<{ row: ProviderR
   const rows = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, providerId)).limit(1);
   const row = rows[0];
   if (!row) {
-    throw new NotFoundError('LLM provider');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
   }
   let apiKey: string;
   try {
     apiKey = decryptApiKey(row.apiKeyCiphertext);
   } catch {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, 'API Key 解密失败，请重新保存服务商');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.API_KEY_DECRYPT_FAILED);
   }
   return { row, apiKey };
 }
@@ -486,18 +482,18 @@ async function loadProviderWithKey(providerId: string): Promise<{ row: ProviderR
 export async function fetchProviderModels(providerId: string): Promise<FetchProviderModelsResult> {
   const { row, apiKey } = await loadProviderWithKey(providerId);
   if (!isLlmApiFamily(row.apiFamily)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, '服务商 API 协议族无效');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.INVALID_API_FAMILY);
   }
   const familyDef = getWireFamilyDefinition(row.apiFamily);
   if (!familyDef.provider.capabilities.modelList) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, '当前 API 协议族不支持拉取模型列表');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.MODEL_LIST_NOT_SUPPORTED);
   }
   try {
     const models = await fetchProviderModelCandidates(row, apiKey);
     return { models };
   } catch (error) {
-    const message = error instanceof Error ? error.message : '未知错误';
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `无法拉取模型列表（${message}）。该平台可能不支持，请手动添加模型。`);
+    rootLogger.warn({ err: error, providerId }, 'Failed to fetch provider model list');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.MODEL_LIST_FETCH_FAILED);
   }
 }
 

@@ -7,6 +7,7 @@ import { rateLimiter } from 'hono-rate-limiter';
 import { HTTP_STATUS } from '@/constants';
 import { auth } from '@/lib/auth';
 import { env } from '@/lib/env';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, sessionMiddleware } from '@/middleware/auth';
 import { errorHandler } from '@/middleware/error';
@@ -19,7 +20,7 @@ const apiLimiter = rateLimiter({
   limit: 60,
   standardHeaders: true,
   keyGenerator: (c) => c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown',
-  handler: (c) => sendError(c, 'Too many requests. Please try again later.', HTTP_STATUS.TOO_MANY_REQUESTS),
+  handler: (c) => sendError(c, ERROR_CODES.TOO_MANY_REQUESTS, HTTP_STATUS.TOO_MANY_REQUESTS),
 });
 
 const app = new Hono<{ Variables: AuthVariables }>();
@@ -32,7 +33,7 @@ app.use(
     origin: env.FRONTEND_URL,
     credentials: true,
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization'],
+    allowHeaders: ['Content-Type', 'Authorization', 'Accept-Language'],
     maxAge: 86400,
   }),
 );

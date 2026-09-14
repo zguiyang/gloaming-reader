@@ -5,6 +5,7 @@ import { readingPart as readingPartTable, readingWork as readingWorkTable } from
 import { type AssistAskBody } from '@gloaming/shared/assist';
 
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { NotFoundError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { htmlToPlainText } from '@/lib/part-text';
@@ -146,7 +147,7 @@ async function loadPublishedPart(workId: string, partId: string) {
     .limit(1);
   const row = rows[0];
   if (!row) {
-    throw new NotFoundError('Part');
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
   }
   return row;
 }

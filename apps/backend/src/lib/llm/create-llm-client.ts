@@ -3,6 +3,7 @@ import { ChatOpenAI } from '@langchain/openai';
 import { isRuntimeImplemented } from '@gloaming/shared/llm';
 
 import { HTTP_STATUS } from '@/constants';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { buildProxiedFetch } from '@/lib/llm/proxy';
 import type { ResolvedLlm } from '@/lib/llm/resolve';
@@ -43,20 +44,18 @@ function createOpenAiClient(resolved: ResolvedLlm, options?: CreateLlmClientOpti
  */
 export function createLlmClient(resolved: ResolvedLlm, options?: CreateLlmClientOptions): ChatOpenAI {
   if (!isRuntimeImplemented(resolved.apiFamily)) {
-    throw new AppError(
-      HTTP_STATUS.SERVICE_UNAVAILABLE,
-      `LLM API family "${resolved.apiFamily}" is registered but runtime support is not implemented.`,
-    );
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.LLM.FAMILY_NOT_IMPLEMENTED, {
+      apiFamily: resolved.apiFamily,
+    });
   }
 
   switch (resolved.apiFamily) {
     case 'openai':
       return createOpenAiClient(resolved, options);
     default:
-      throw new AppError(
-        HTTP_STATUS.SERVICE_UNAVAILABLE,
-        `LLM API family "${resolved.apiFamily}" is registered but runtime support is not implemented.`,
-      );
+      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.LLM.FAMILY_NOT_IMPLEMENTED, {
+        apiFamily: resolved.apiFamily,
+      });
   }
 }
 

@@ -21,14 +21,33 @@ import type {
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, NotFoundError } from '@/lib/errors';
 import { normalizeTag } from '@/lib/text';
 
-const KIND_LABEL: Record<TaxonomyKind, string> = {
-  tag: '标签',
-  category: '分类',
-  source: '来源',
-};
+function taxonomyNotFoundCode(kind: TaxonomyKind) {
+  if (kind === 'tag') return ERROR_CODES.NOT_FOUND.TAXONOMY_TAG;
+  if (kind === 'category') return ERROR_CODES.NOT_FOUND.TAXONOMY_CATEGORY;
+  return ERROR_CODES.NOT_FOUND.TAXONOMY_SOURCE;
+}
+
+function taxonomyNameExistsCode(kind: TaxonomyKind) {
+  if (kind === 'tag') return ERROR_CODES.TAXONOMY.TAG_NAME_EXISTS;
+  if (kind === 'category') return ERROR_CODES.TAXONOMY.CATEGORY_NAME_EXISTS;
+  return ERROR_CODES.TAXONOMY.SOURCE_NAME_EXISTS;
+}
+
+function taxonomyNameConflictCode(kind: TaxonomyKind) {
+  if (kind === 'tag') return ERROR_CODES.TAXONOMY.TAG_NAME_CONFLICT;
+  if (kind === 'category') return ERROR_CODES.TAXONOMY.CATEGORY_NAME_CONFLICT;
+  return ERROR_CODES.TAXONOMY.SOURCE_NAME_CONFLICT;
+}
+
+function taxonomyInUseCode(kind: TaxonomyKind) {
+  if (kind === 'tag') return ERROR_CODES.TAXONOMY.TAG_IN_USE;
+  if (kind === 'category') return ERROR_CODES.TAXONOMY.CATEGORY_IN_USE;
+  return ERROR_CODES.TAXONOMY.SOURCE_IN_USE;
+}
 
 /**
  * Per-kind adapter — tag/category/source share the same CRUD shape but differ
@@ -164,7 +183,7 @@ export async function createTaxonomyItem(kind: TaxonomyKind, body: CreateTaxonom
     return toItem(kind, row);
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new AppError(HTTP_STATUS.CONFLICT, `${KIND_LABEL[kind]}「${name}」已存在`);
+      throw new AppError(HTTP_STATUS.CONFLICT, taxonomyNameExistsCode(kind), { name });
     }
     throw error;
   }
@@ -185,7 +204,7 @@ export async function updateTaxonomyItem(
         })
         .where(eq(sourceTable.id, id))
         .returning();
-      if (!row) throw new NotFoundError(KIND_LABEL[kind]);
+      if (!row) throw new NotFoundError(taxonomyNotFoundCode(kind));
       return toItem(kind, row);
     }
     const table = kind === 'tag' ? tagTable : categoryTable;
@@ -195,12 +214,12 @@ export async function updateTaxonomyItem(
       .set(name !== undefined ? { name, normalized: normalizeTag(name) } : {})
       .where(eq((table as typeof tagTable).id, id))
       .returning();
-    if (!row) throw new NotFoundError(KIND_LABEL[kind]);
+    if (!row) throw new NotFoundError(taxonomyNotFoundCode(kind));
     return toItem(kind, row);
   } catch (error) {
     if (error instanceof NotFoundError) throw error;
     if (isUniqueViolation(error)) {
-      throw new AppError(HTTP_STATUS.CONFLICT, `${KIND_LABEL[kind]}名称已存在`);
+      throw new AppError(HTTP_STATUS.CONFLICT, taxonomyNameConflictCode(kind));
     }
     throw error;
   }
@@ -208,17 +227,17 @@ export async function updateTaxonomyItem(
 
 export async function deleteTaxonomyItem(kind: TaxonomyKind, id: string): Promise<void> {
   if (kind === 'source') {
-    throw new AppError(HTTP_STATUS.FORBIDDEN, '来源为系统保留数据，不可删除；未命中来源可留空表示「未知」');
+    throw new AppError(HTTP_STATUS.FORBIDDEN, ERROR_CODES.TAXONOMY.SOURCE_DELETE_FORBIDDEN);
   }
   const a = adapter(kind);
   const [existing] = await db.select({ id: a.idColumn }).from(a.table).where(eq(a.idColumn, id)).limit(1);
-  if (!existing) throw new NotFoundError(KIND_LABEL[kind]);
+  if (!existing) throw new NotFoundError(taxonomyNotFoundCode(kind));
   const [{ usage }] = await db
     .select({ usage: sql<number>`count(${a.linkKey})::int` })
     .from(a.link)
     .where(eq(a.linkKey, id));
   if (usage > 0) {
-    throw new AppError(HTTP_STATUS.CONFLICT, `该${KIND_LABEL[kind]}已被 ${usage} 个作品使用，不可删除；可修改名称`);
+    throw new AppError(HTTP_STATUS.CONFLICT, taxonomyInUseCode(kind), { usage });
   }
   await db.delete(a.table).where(eq(a.idColumn, id));
 }

@@ -3,7 +3,7 @@ import { streamSSE } from 'hono/streaming';
 
 import { ASSIST_SSE_EVENT } from '@gloaming/shared/assist';
 
-import { AppError, NotFoundError } from '@/lib/errors';
+import { formatThrownError } from '@/lib/response';
 import { type AuthVariables, requireAuth } from '@/middleware/auth';
 import * as assistService from '@/modules/assist/service';
 import { validateAssistAsk } from '@/modules/assist/validator';
@@ -49,11 +49,9 @@ assistRoutes.post('/api/assist/ask', requireAuth, validateAssistAsk, async (c) =
       if (abort.signal.aborted) {
         return;
       }
-      const message =
-        error instanceof NotFoundError ? error.message : error instanceof AppError ? error.message : 'AI unavailable';
       await stream.writeSSE({
         event: ASSIST_SSE_EVENT.error,
-        data: JSON.stringify({ error: message }),
+        data: JSON.stringify(formatThrownError(c, error)),
       });
     }
   });

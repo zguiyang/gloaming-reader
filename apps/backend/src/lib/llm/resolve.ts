@@ -6,6 +6,7 @@ import { assertWireVariantForFamily, isLlmApiFamily, isRuntimeImplemented } from
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { decryptApiKey } from '@/lib/llm/crypto';
 
@@ -55,31 +56,30 @@ export async function resolveLlmByModelRowId(modelRowId: string): Promise<Resolv
 
   const row = rows[0];
   if (!row || !row.modelEnabled || !row.providerEnabled) {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'AI unavailable');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
   }
 
   if (!isLlmApiFamily(row.apiFamily)) {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'AI unavailable');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
   }
 
   try {
     assertWireVariantForFamily(row.apiFamily, row.wireVariant);
   } catch {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'AI unavailable');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
   }
 
   if (!isRuntimeImplemented(row.apiFamily)) {
-    throw new AppError(
-      HTTP_STATUS.SERVICE_UNAVAILABLE,
-      `LLM API family "${row.apiFamily}" is registered but runtime support is not implemented.`,
-    );
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.LLM.FAMILY_NOT_IMPLEMENTED, {
+      apiFamily: row.apiFamily,
+    });
   }
 
   let apiKey: string;
   try {
     apiKey = decryptApiKey(row.apiKeyCiphertext);
   } catch {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'AI unavailable');
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
   }
 
   return {

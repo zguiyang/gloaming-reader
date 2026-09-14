@@ -4,6 +4,7 @@ import { isAdminRole } from '@gloaming/shared/auth';
 
 import { HTTP_STATUS } from '@/constants';
 import { auth, type AuthSession, type AuthSessionUser } from '@/lib/auth';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { sendError } from '@/lib/response';
 
 export type AuthVariables = {
@@ -24,7 +25,7 @@ export const requireAuth = createMiddleware<{ Variables: AuthVariables }>(async 
   const user = c.get('user');
   const session = c.get('session');
   if (!user || !session) {
-    return sendError(c, 'Unauthorized', HTTP_STATUS.UNAUTHORIZED);
+    return sendError(c, ERROR_CODES.UNAUTHORIZED, HTTP_STATUS.UNAUTHORIZED);
   }
   await next();
 });
@@ -34,10 +35,10 @@ export const requireAdmin = createMiddleware<{ Variables: AuthVariables }>(async
   const user = c.get('user');
   const session = c.get('session');
   if (!user || !session) {
-    return sendError(c, 'Unauthorized', HTTP_STATUS.UNAUTHORIZED);
+    return sendError(c, ERROR_CODES.UNAUTHORIZED, HTTP_STATUS.UNAUTHORIZED);
   }
   if (!isAdminRole(user.role)) {
-    return sendError(c, 'Forbidden', HTTP_STATUS.FORBIDDEN);
+    return sendError(c, ERROR_CODES.FORBIDDEN, HTTP_STATUS.FORBIDDEN);
   }
   await next();
 });

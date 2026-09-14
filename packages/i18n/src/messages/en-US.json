@@ -3,5 +3,147 @@
     "appName": "Gloaming",
     "loading": "Loading…",
     "greeting": "Hello, {name}"
+  },
+  "api": {
+    "errors": {
+      "unauthorized": "Unauthorized",
+      "forbidden": "Forbidden",
+      "internalServerError": "Internal server error",
+      "tooManyRequests": "Too many requests. Please try again later.",
+      "validationFailed": "Validation failed",
+      "notFound": {
+        "work": "Work not found",
+        "part": "Part not found",
+        "conversation": "Conversation not found",
+        "readingState": "Reading state not found",
+        "llmProvider": "LLM provider not found",
+        "llmModel": "LLM model not found",
+        "partAudio": "Part audio not found",
+        "cleanupJob": "Cleanup job not found",
+        "taxonomyTag": "Tag not found",
+        "taxonomyCategory": "Category not found",
+        "taxonomySource": "Source not found",
+        "wordDefinition": "No dictionary definition found for \"{word}\""
+      },
+      "upload": {
+        "fileTooLarge": "File size exceeds the limit ({maxMb}MB)",
+        "fileRequired": "Please select an EPUB file to upload",
+        "fileNameRequired": "Please provide a file name",
+        "invalidHash": "Invalid file hash",
+        "unsupportedFormat": "Only {formats} files are supported",
+        "unsupportedMime": "Unsupported file type",
+        "contentInvalid": "{reason}",
+        "epubOnly": "Only .epub files are supported"
+      },
+      "work": {
+        "createFailed": "Failed to create work",
+        "createPartFailed": "Failed to create part",
+        "uploadEpubFailed": "Failed to upload EPUB",
+        "reserveParseFailed": "Failed to reserve EPUB parse enqueue",
+        "publishIncomplete": "Only works with all steps completed can be published",
+        "unpublishNotPublished": "Only published works can be unpublished",
+        "retryEpubOnly": "Only EPUB works support workflow retry",
+        "unpublishBeforeRetry": "Unpublish the work before retrying",
+        "noRetryableSteps": "No steps available to retry",
+        "processingInProgress": "Work is processing; please try again later",
+        "manualAudioRequired": "Audio step is not auto-chained; generate audio manually on the work page",
+        "stateChanged": "Work state changed; refresh and try again",
+        "unpublishFirst": "Unpublish first"
+      },
+      "taxonomy": {
+        "invalidKind": "kind must be tag, category, or source",
+        "cleanupKindOnly": "cleanup supports tag and category only",
+        "sourceDeleteForbidden": "Source is system-reserved and cannot be deleted; leave source empty for unknown",
+        "tag": {
+          "nameExists": "Tag \"{name}\" already exists",
+          "nameConflict": "Tag name already exists",
+          "inUse": "This tag is used by {usage} work(s) and cannot be deleted; rename instead"
+        },
+        "category": {
+          "nameExists": "Category \"{name}\" already exists",
+          "nameConflict": "Category name already exists",
+          "inUse": "This category is used by {usage} work(s) and cannot be deleted; rename instead"
+        },
+        "source": {
+          "nameExists": "Source \"{name}\" already exists",
+          "nameConflict": "Source name already exists",
+          "inUse": "This source is used by {usage} work(s) and cannot be deleted; rename instead"
+        }
+      },
+      "tts": {
+        "apiKeyRequired": "API key is required for first-time TTS setup",
+        "notConfigured": "TTS is not configured",
+        "disabled": "TTS is disabled",
+        "unsupportedProvider": "Unsupported TTS provider",
+        "textRequired": "TTS text is required",
+        "invalidCredentials": "TTS credentials are invalid",
+        "synthesisFailed": "TTS synthesis failed"
+      },
+      "ai": {
+        "unavailable": "AI unavailable",
+        "modelNotConfigured": "{label} model not configured"
+      },
+      "llm": {
+        "familyNotImplemented": "LLM API family \"{apiFamily}\" is registered but runtime support is not implemented.",
+        "unknownApiFamily": "Unknown API family",
+        "thinkingNotSupported": "Thinking parameters are not supported for this API family",
+        "wireVariantInvalid": "Wire variant is not valid for this provider API family",
+        "modelIdExists": "Model id already exists for this provider",
+        "modelReferenced": "Model is referenced by app settings",
+        "unknownSettingKey": "Unknown setting key",
+        "modelOrProviderDisabled": "Model or provider is disabled",
+        "providerDisabled": "Provider is disabled",
+        "noEnabledModel": "No enabled model on this provider",
+        "apiKeyDecryptFailed": "Failed to decrypt API key; re-save the provider",
+        "invalidApiFamily": "Provider API family is invalid",
+        "modelListNotSupported": "Model list fetch is not supported for this API family",
+        "modelListFetchFailed": "Failed to fetch model list; this platform may not support it — add models manually"
+      },
+      "outboundUrl": {
+        "invalid": "{label} format is invalid",
+        "scheme": "{label} must use http or https",
+        "credentials": "{label} must not include a username or password",
+        "privateNetwork": "{label} must not point to a private or local address"
+      },
+      "oss": {
+        "notConfigured": "Object storage is not configured",
+        "unavailable": "Object storage is unavailable"
+      },
+      "dictionary": {
+        "providerNotImplemented": "Dictionary provider \"{providerId}\" is not implemented or supported",
+        "providerSaveNotSupported": "Dictionary provider \"{providerId}\" is not implemented or supported and cannot be saved",
+        "queryDisabled": "Dictionary lookup is disabled in admin settings",
+        "upstreamError": "Dictionary provider returned an error",
+        "requestTimeout": "Dictionary provider request timed out",
+        "fetchFailed": "Failed to fetch from dictionary provider",
+        "transportFailure": "Unexpected dictionary provider transport failure",
+        "invalidJson": "Dictionary provider returned invalid JSON",
+        "malformedResponse": "Dictionary provider returned a malformed response",
+        "payloadFailure": "Unexpected dictionary provider payload failure"
+      },
+      "conversation": {
+        "mismatchSurface": "Conversation does not match surface",
+        "mismatchWork": "Conversation does not match work"
+      },
+      "contentAsset": {
+        "noTextToSynthesize": "Part has no text to synthesize",
+        "partNotInWork": "Part does not belong to work"
+      },
+      "assetManagement": {
+        "scanSnapshotExpired": "Scan snapshot expired or not found; please scan again",
+        "scanIncomplete": "Incomplete scan cannot be cleaned up; rescan with a smaller bucket or retry later",
+        "noOrphans": "No orphan objects to clean up",
+        "scanInProgress": "A scan is already in progress",
+        "cleanupAlreadyCompleted": "Cleanup already completed for this scan; scan again to start a new job",
+        "cleanupRetryExisting": "Cleanup already finished with failures; retry the existing job",
+        "cleanupJobNotFound": "Cleanup job not found",
+        "noFailedObjects": "Cleanup job has no failed objects to retry"
+      },
+      "reader": {
+        "revisionConflict": "Reading state revision conflict",
+        "noNextChapter": "No next chapter — use finish to complete the book",
+        "unsupportedAction": "Unsupported action"
+      }
+    }
   }
 }

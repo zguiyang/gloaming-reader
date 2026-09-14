@@ -1,7 +1,11 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 import { HTTP_STATUS } from '@/constants';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
+import { rootLogger } from '@/lib/logger';
+
+const providerLogger = rootLogger.child({ module: 'DictionaryProvider' });
 
 const TRANSIENT_STATUS_CODES = new Set<number>([
   HTTP_STATUS.BAD_GATEWAY,
@@ -45,10 +49,8 @@ export function appErrorFromUpstreamDictionaryStatus(
   statusText: string,
   providerLabel: string,
 ): AppError {
-  return new AppError(
-    mapUpstreamDictionaryHttpStatus(status),
-    `${providerLabel} returned status ${status}: ${statusText}`,
-  );
+  providerLogger.warn({ status, statusText, providerLabel }, 'Dictionary provider upstream HTTP error');
+  return new AppError(mapUpstreamDictionaryHttpStatus(status), ERROR_CODES.DICTIONARY.UPSTREAM_ERROR);
 }
 
 /**
@@ -68,36 +70,39 @@ export function rethrowClassifiedDictionaryProviderError(
   }
 
   if (error instanceof Error && error.name === 'AbortError') {
-    throw new AppError(
-      HTTP_STATUS.GATEWAY_TIMEOUT,
-      `${options.providerLabel} request timed out after ${options.timeoutMs}ms`,
+    providerLogger.warn(
+      { err: error, providerLabel: options.providerLabel, timeoutMs: options.timeoutMs },
+      'Dictionary provider request timed out',
     );
+    throw new AppError(HTTP_STATUS.GATEWAY_TIMEOUT, ERROR_CODES.DICTIONARY.REQUEST_TIMEOUT);
   }
 
   if (options.phase === 'transport') {
     if (error instanceof TypeError) {
-      throw new AppError(HTTP_STATUS.BAD_GATEWAY, `Failed to fetch from ${options.providerLabel}: ${error.message}`);
+      providerLogger.warn({ err: error, providerLabel: options.providerLabel }, 'Dictionary provider fetch failed');
+      throw new AppError(HTTP_STATUS.BAD_GATEWAY, ERROR_CODES.DICTIONARY.FETCH_FAILED);
     }
 
-    throw new AppError(
-      HTTP_STATUS.INTERNAL_ERROR,
-      `Unexpected ${options.providerLabel} transport failure: ${error instanceof Error ? error.message : String(error)}`,
+    providerLogger.error(
+      { err: error, providerLabel: options.providerLabel },
+      'Unexpected dictionary provider transport failure',
     );
+    throw new AppError(HTTP_STATUS.INTERNAL_ERROR, ERROR_CODES.DICTIONARY.TRANSPORT_FAILURE);
   }
 
   if (error instanceof SyntaxError) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, `${options.providerLabel} returned invalid JSON: ${error.message}`);
+    providerLogger.warn({ err: error, providerLabel: options.providerLabel }, 'Dictionary provider invalid JSON');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.DICTIONARY.INVALID_JSON);
   }
 
   if (error instanceof TypeError) {
-    throw new AppError(
-      HTTP_STATUS.BAD_REQUEST,
-      `${options.providerLabel} returned a malformed response: ${error.message}`,
-    );
+    providerLogger.warn({ err: error, providerLabel: options.providerLabel }, 'Dictionary provider malformed response');
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.DICTIONARY.MALFORMED_RESPONSE);
   }
 
-  throw new AppError(
-    HTTP_STATUS.INTERNAL_ERROR,
-    `Unexpected ${options.providerLabel} payload failure: ${error instanceof Error ? error.message : String(error)}`,
+  providerLogger.error(
+    { err: error, providerLabel: options.providerLabel },
+    'Unexpected dictionary provider payload failure',
   );
+  throw new AppError(HTTP_STATUS.INTERNAL_ERROR, ERROR_CODES.DICTIONARY.PAYLOAD_FAILURE);
 }
