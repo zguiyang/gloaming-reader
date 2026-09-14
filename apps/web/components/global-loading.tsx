@@ -1,10 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import { t } from '@gloaming/i18n';
+
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-const PHRASES = ['正在翻开下一页…', '字句在路上…', '泡一壶茶，马上回来…', '书架轻轻挪动中…'] as const;
+const PHRASE_KEYS = [
+  'common.loadingPhrase1',
+  'common.loadingPhrase2',
+  'common.loadingPhrase3',
+  'common.loadingPhrase4',
+] as const;
 
 const PHRASE_INTERVAL_MS = 2400;
 const PHRASE_FADE_MS = 280;
@@ -17,6 +25,8 @@ type GlobalLoadingProps = {
 
 /** Full-viewport overlay — route `loading.tsx` and shell session waits. */
 export function GlobalLoading({ label, className }: GlobalLoadingProps) {
+  const { locale } = useLocale();
+  const phrases = useMemo(() => PHRASE_KEYS.map((key) => t(locale, key)), [locale]);
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [isPhraseVisible, setIsPhraseVisible] = useState(true);
   const isRotating = label == null;
@@ -31,7 +41,7 @@ export function GlobalLoading({ label, className }: GlobalLoadingProps) {
     const intervalId = window.setInterval(() => {
       setIsPhraseVisible(false);
       fadeTimer = window.setTimeout(() => {
-        setPhraseIndex((current) => (current + 1) % PHRASES.length);
+        setPhraseIndex((current) => (current + 1) % phrases.length);
         setIsPhraseVisible(true);
       }, PHRASE_FADE_MS);
     }, PHRASE_INTERVAL_MS);
@@ -42,9 +52,9 @@ export function GlobalLoading({ label, className }: GlobalLoadingProps) {
         window.clearTimeout(fadeTimer);
       }
     };
-  }, [isRotating]);
+  }, [isRotating, phrases.length]);
 
-  const phrase = label ?? PHRASES[phraseIndex];
+  const phrase = label ?? phrases[phraseIndex];
 
   return (
     <div
@@ -77,7 +87,7 @@ export function GlobalLoading({ label, className }: GlobalLoadingProps) {
           >
             {phrase}
           </p>
-          <p className="text-xs tracking-[0.18em] text-muted-foreground">稍等片刻</p>
+          <p className="text-xs tracking-[0.18em] text-muted-foreground">{t(locale, 'common.loadingWait')}</p>
         </div>
       </div>
     </div>

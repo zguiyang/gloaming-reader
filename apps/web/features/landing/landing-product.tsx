@@ -1,10 +1,32 @@
 'use client';
 
-import { landingCopy as c } from '@/features/landing/landing-copy';
+import { type Locale, t } from '@gloaming/i18n';
+
 import { LandingHoverLift, LandingReveal } from '@/features/landing/landing-motion';
 import { LandingCompanionCard, LandingFrameImage } from '@/features/landing/landing-product-mock';
 import { LandingSection } from '@/features/landing/landing-section';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
+
+const FRICTION_PAST_KEYS = [
+  'landing.friction.pastItem1',
+  'landing.friction.pastItem2',
+  'landing.friction.pastItem3',
+  'landing.friction.pastItem4',
+  'landing.friction.pastItem5',
+] as const;
+
+const FRICTION_NEXT_KEYS = [
+  'landing.friction.nextItem1',
+  'landing.friction.nextItem2',
+  'landing.friction.nextItem3',
+  'landing.friction.nextItem4',
+  'landing.friction.nextItem5',
+] as const;
+
+function translateKeys(locale: Locale, keys: readonly string[]) {
+  return keys.map((key) => t(locale, key));
+}
 
 function FeatureCopy({ title, body }: { title: string; body: string }) {
   return (
@@ -78,25 +100,38 @@ function JourneyColumn({ title, items, tone }: { title: string; items: readonly 
 }
 
 export function LandingProduct() {
+  const { locale } = useLocale();
+
   return (
     <>
       <LandingSection id="reader" tone="card">
         <LandingReveal>
           <h2 className="font-heading text-center text-3xl leading-tight font-semibold tracking-tight md:text-4xl">
-            {c.product.title}
+            {t(locale, 'landing.product.title')}
           </h2>
         </LandingReveal>
 
         <div className="mt-24 flex flex-col gap-32">
           <LandingReveal className="grid items-center gap-12 md:grid-cols-2 md:gap-16">
-            <LandingFrameImage src="/landing/reader-ui.png" alt={c.product.reader.imageAlt} float readingAssist />
-            <FeatureCopy title={c.product.reader.title} body={c.product.reader.body} />
+            <LandingFrameImage
+              src="/landing/reader-ui.png"
+              alt={t(locale, 'landing.product.readerImageAlt')}
+              float
+              readingAssist
+            />
+            <FeatureCopy
+              title={t(locale, 'landing.product.readerTitle')}
+              body={t(locale, 'landing.product.readerBody')}
+            />
           </LandingReveal>
 
           <div id="companion" className="scroll-mt-20">
             <LandingReveal className="grid items-center gap-12 md:grid-cols-2 md:gap-16">
               <div className="md:order-1">
-                <FeatureCopy title={c.product.companion.title} body={c.product.companion.body} />
+                <FeatureCopy
+                  title={t(locale, 'landing.product.companionTitle')}
+                  body={t(locale, 'landing.product.companionBody')}
+                />
               </div>
               <div className="md:order-2">
                 <LandingCompanionCard />
@@ -106,8 +141,11 @@ export function LandingProduct() {
 
           <div id="shelf" className="scroll-mt-20">
             <LandingReveal className="grid items-center gap-12 md:grid-cols-2 md:gap-16">
-              <LandingFrameImage src="/landing/shelf.jpg" alt={c.product.shelf.imageAlt} float />
-              <FeatureCopy title={c.product.shelf.title} body={c.product.shelf.body} />
+              <LandingFrameImage src="/landing/shelf.jpg" alt={t(locale, 'landing.product.shelfImageAlt')} float />
+              <FeatureCopy
+                title={t(locale, 'landing.product.shelfTitle')}
+                body={t(locale, 'landing.product.shelfBody')}
+              />
             </LandingReveal>
           </div>
         </div>
@@ -117,15 +155,23 @@ export function LandingProduct() {
         <LandingReveal>
           <div className="text-center">
             <h2 className="font-heading text-3xl leading-tight font-semibold tracking-tight md:text-4xl">
-              {c.friction.title}
+              {t(locale, 'landing.friction.title')}
             </h2>
             <p className="font-reading mx-auto mt-6 max-w-2xl text-lg font-medium text-foreground/80">
-              {c.friction.lead}
+              {t(locale, 'landing.friction.lead')}
             </p>
           </div>
           <div className="mx-auto mt-16 grid max-w-5xl gap-8 md:grid-cols-2 md:gap-12">
-            <JourneyColumn title={c.friction.pastTitle} items={c.friction.pastItems} tone="past" />
-            <JourneyColumn title={c.friction.nextTitle} items={c.friction.nextItems} tone="next" />
+            <JourneyColumn
+              title={t(locale, 'landing.friction.pastTitle')}
+              items={translateKeys(locale, FRICTION_PAST_KEYS)}
+              tone="past"
+            />
+            <JourneyColumn
+              title={t(locale, 'landing.friction.nextTitle')}
+              items={translateKeys(locale, FRICTION_NEXT_KEYS)}
+              tone="next"
+            />
           </div>
         </LandingReveal>
       </LandingSection>

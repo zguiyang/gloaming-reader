@@ -4,11 +4,14 @@ import { SparklesIcon } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import Image from 'next/image';
 
-import { landingCopy as c } from '@/features/landing/landing-copy';
+import { t } from '@gloaming/i18n';
+
 import { landingEase, LandingHoverLift, LandingQuietFloat } from '@/features/landing/landing-motion';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 function ReadingAssistOverlay() {
+  const { locale } = useLocale();
   const shouldReduceMotion = useReducedMotion();
 
   if (shouldReduceMotion) {
@@ -43,8 +46,12 @@ function ReadingAssistOverlay() {
           repeatDelay: 2.5,
         }}
       >
-        <p className="text-[10px] font-medium tracking-wide text-primary uppercase">Companion</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">语境释义，不打断阅读</p>
+        <p className="text-[10px] font-medium tracking-wide text-primary uppercase">
+          {t(locale, 'landing.product.companionCardTitle')}
+        </p>
+        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+          {t(locale, 'landing.product.companionOverlayHint')}
+        </p>
       </motion.div>
     </div>
   );
@@ -93,12 +100,22 @@ export function LandingFrameImage({
 
 /** Hero product plane — same reader UI, quiet float + assist cue. */
 export function LandingHeroReader() {
+  const { locale } = useLocale();
+
   return (
-    <LandingFrameImage src="/landing/reader-ui.png" alt={c.product.reader.imageAlt} priority float readingAssist />
+    <LandingFrameImage
+      src="/landing/reader-ui.png"
+      alt={t(locale, 'landing.product.readerImageAlt')}
+      priority
+      float
+      readingAssist
+    />
   );
 }
 
 export function LandingCompanionCard() {
+  const { locale } = useLocale();
+
   return (
     <LandingHoverLift>
       <div
@@ -111,8 +128,10 @@ export function LandingCompanionCard() {
         <div className="flex gap-6">
           <SparklesIcon className="size-8 shrink-0 text-primary" strokeWidth={1.5} aria-hidden />
           <div>
-            <h4 className="text-lg font-semibold">{c.product.companion.cardTitle}</h4>
-            <p className="mt-2 leading-relaxed text-muted-foreground">{c.product.companion.cardBody}</p>
+            <h4 className="text-lg font-semibold">{t(locale, 'landing.product.companionCardTitle')}</h4>
+            <p className="mt-2 leading-relaxed text-muted-foreground">
+              {t(locale, 'landing.product.companionCardBody')}
+            </p>
           </div>
         </div>
       </div>

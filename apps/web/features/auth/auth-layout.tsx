@@ -1,7 +1,12 @@
+'use client';
+
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { BrandMark } from '@/components/brand-mark';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type AuthLayoutProps = {
@@ -9,6 +14,8 @@ type AuthLayoutProps = {
 };
 
 export function AuthLayout({ children }: AuthLayoutProps) {
+  const { locale } = useLocale();
+
   return (
     <div className="relative z-10 flex min-h-full flex-1 flex-col">
       <header className="pt-7">
@@ -23,7 +30,9 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         </div>
       </main>
 
-      <footer className="px-6 pb-8 text-center text-sm text-muted-foreground/70">独立开发 · 读自己想读的英语</footer>
+      <footer className="px-6 pb-8 text-center text-sm text-muted-foreground/70">
+        {t(locale, 'auth.layoutFooter')}
+      </footer>
     </div>
   );
 }

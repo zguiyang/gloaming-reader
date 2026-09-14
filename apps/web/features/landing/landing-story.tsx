@@ -3,11 +3,34 @@
 import { CheckIcon, MinusIcon } from 'lucide-react';
 import Image from 'next/image';
 
+import { type Locale, t } from '@gloaming/i18n';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { landingCopy as c } from '@/features/landing/landing-copy';
 import { LandingHoverLift, LandingReveal } from '@/features/landing/landing-motion';
 import { LandingSection } from '@/features/landing/landing-section';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
+
+const CONTRAST_PAST_KEYS = [
+  'landing.contrast.pastItem1',
+  'landing.contrast.pastItem2',
+  'landing.contrast.pastItem3',
+] as const;
+const CONTRAST_NEXT_KEYS = [
+  'landing.contrast.nextItem1',
+  'landing.contrast.nextItem2',
+  'landing.contrast.nextItem3',
+] as const;
+
+const PHILOSOPHY_ITEMS = [
+  { titleKey: 'landing.philosophy.authenticTitle', bodyKey: 'landing.philosophy.authenticBody' },
+  { titleKey: 'landing.philosophy.focusTitle', bodyKey: 'landing.philosophy.focusBody' },
+  { titleKey: 'landing.philosophy.assistTitle', bodyKey: 'landing.philosophy.assistBody' },
+] as const;
+
+function translateKeys(locale: Locale, keys: readonly string[]) {
+  return keys.map((key) => t(locale, key));
+}
 
 function ContrastCard({ title, items, tone }: { title: string; items: readonly string[]; tone: 'past' | 'next' }) {
   const Icon = tone === 'next' ? CheckIcon : MinusIcon;
@@ -54,6 +77,10 @@ function ContrastCard({ title, items, tone }: { title: string; items: readonly s
 }
 
 export function LandingStory() {
+  const { locale } = useLocale();
+  const originParagraphs = [t(locale, 'landing.origin.paragraph1'), t(locale, 'landing.origin.paragraph2')];
+  const leadSecondary = t(locale, 'landing.philosophy.leadSecondary');
+
   return (
     <>
       <LandingSection id="origin">
@@ -61,7 +88,7 @@ export function LandingStory() {
           <div className="relative order-1 aspect-[4/3] overflow-hidden rounded-2xl shadow-card ring-1 ring-border/20 md:order-2">
             <Image
               src="/landing/origin.jpg"
-              alt={c.origin.imageAlt}
+              alt={t(locale, 'landing.origin.imageAlt')}
               fill
               className="object-cover"
               sizes="(min-width: 768px) 32rem, 100vw"
@@ -69,10 +96,10 @@ export function LandingStory() {
           </div>
           <div className="order-2 md:order-1">
             <h2 className="font-heading text-3xl leading-tight font-semibold tracking-tight md:text-4xl">
-              {c.origin.title}
+              {t(locale, 'landing.origin.title')}
             </h2>
             <div className="font-reading mt-8 flex flex-col gap-6 text-lg leading-8 text-foreground/80">
-              {c.origin.paragraphs.map((p) => (
+              {originParagraphs.map((p) => (
                 <p key={p}>{p}</p>
               ))}
             </div>
@@ -83,14 +110,22 @@ export function LandingStory() {
       <LandingSection id="contrast" tone="paper">
         <LandingReveal>
           <h2 className="font-heading mx-auto max-w-3xl text-center text-3xl leading-tight font-semibold tracking-tight md:text-4xl">
-            {c.contrast.title}
+            {t(locale, 'landing.contrast.title')}
           </h2>
           <div className="mx-auto mt-16 grid max-w-5xl gap-8 md:grid-cols-2">
-            <ContrastCard title={c.contrast.pastTitle} items={c.contrast.pastItems} tone="past" />
-            <ContrastCard title={c.contrast.nextTitle} items={c.contrast.nextItems} tone="next" />
+            <ContrastCard
+              title={t(locale, 'landing.contrast.pastTitle')}
+              items={translateKeys(locale, CONTRAST_PAST_KEYS)}
+              tone="past"
+            />
+            <ContrastCard
+              title={t(locale, 'landing.contrast.nextTitle')}
+              items={translateKeys(locale, CONTRAST_NEXT_KEYS)}
+              tone="next"
+            />
           </div>
           <p className="font-reading mx-auto mt-16 max-w-2xl text-center text-lg font-semibold text-foreground/80">
-            {c.contrast.punch}
+            {t(locale, 'landing.contrast.punch')}
           </p>
         </LandingReveal>
       </LandingSection>
@@ -99,18 +134,22 @@ export function LandingStory() {
         <LandingReveal>
           <div className="text-center">
             <h2 className="font-heading text-4xl leading-tight font-bold tracking-tight md:text-[56px] md:leading-[64px]">
-              {c.philosophy.title}
+              {t(locale, 'landing.philosophy.title')}
             </h2>
             <p className="font-reading mx-auto mt-8 max-w-3xl text-xl leading-relaxed text-muted-foreground md:text-2xl">
-              {c.philosophy.lead}
+              {t(locale, 'landing.philosophy.lead')}
             </p>
-            <p className="mt-4 text-lg text-muted-foreground/70">{c.philosophy.leadZh}</p>
+            {leadSecondary ? <p className="mt-4 text-lg text-muted-foreground/70">{leadSecondary}</p> : null}
           </div>
           <div className="mx-auto mt-16 grid max-w-5xl gap-12 border-t border-border/70 pt-16 text-left md:grid-cols-3">
-            {c.philosophy.items.map((item) => (
-              <div key={item.title}>
-                <h3 className="font-heading text-xl font-semibold text-primary md:text-2xl">{item.title}</h3>
-                <p className="font-reading mt-3 text-lg leading-relaxed text-foreground/80">{item.body}</p>
+            {PHILOSOPHY_ITEMS.map((item) => (
+              <div key={item.titleKey}>
+                <h3 className="font-heading text-xl font-semibold text-primary md:text-2xl">
+                  {t(locale, item.titleKey)}
+                </h3>
+                <p className="font-reading mt-3 text-lg leading-relaxed text-foreground/80">
+                  {t(locale, item.bodyKey)}
+                </p>
               </div>
             ))}
           </div>

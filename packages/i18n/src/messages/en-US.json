@@ -2,6 +2,11 @@
   "common": {
     "appName": "Gloaming",
     "loading": "Loading…",
+    "loadingWait": "One moment",
+    "loadingPhrase1": "Turning the page…",
+    "loadingPhrase2": "Words on the way…",
+    "loadingPhrase3": "Brewing tea, back soon…",
+    "loadingPhrase4": "Shelf shifting gently…",
     "greeting": "Hello, {name}"
   },
   "nav": {
@@ -35,7 +40,200 @@
   },
   "auth": {
     "signOutFailed": "Sign out failed. Please try again.",
-    "signOutSuccess": "Signed out"
+    "signOutSuccess": "Signed out",
+    "layoutFooter": "Indie · Read the English you want",
+    "meta": {
+      "verifyEmailTitle": "Confirm email — Gloaming",
+      "resetPasswordTitle": "Reset password — Gloaming"
+    },
+    "signIn": {
+      "title": "Sign in",
+      "loginLabel": "Email or username",
+      "loginPlaceholder": "you@example.com",
+      "loginPlaceholderEmbedded": "Email or username",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "••••••••",
+      "passwordPlaceholderEmbedded": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "success": "Signed in",
+      "verificationRequired": "Please open the verification link in your email before signing in.",
+      "resendVerification": "Resend verification email",
+      "resendVerificationSending": "Sending…",
+      "resendVerificationSuccess": "Verification email sent",
+      "resendVerificationEmailHint": "Sign in with your registered email to resend verification, or register with email on the sign-up tab."
+    },
+    "signUp": {
+      "title": "Sign up",
+      "nameLabel": "Display name",
+      "namePlaceholder": "What should we call you?",
+      "namePlaceholderEmbedded": "Display name",
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "Letters or numbers for login",
+      "usernamePlaceholderEmbedded": "Username",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "emailPlaceholderEmbedded": "Email",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "At least 8 characters",
+      "passwordPlaceholderEmbedded": "Password (at least 8 characters)",
+      "submit": "Create account",
+      "submitting": "Creating…",
+      "sentTitle": "Check your email",
+      "sentDescription": "Sent to {email}, valid for about 1 hour.",
+      "resend": "Send again",
+      "resending": "Sending…",
+      "resendSuccess": "Verification email resent"
+    },
+    "forgotPassword": {
+      "title": "Reset password",
+      "description": "Enter your registered email to receive a reset link.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Email you registered with",
+      "emailPlaceholderEmbedded": "Registered email",
+      "submit": "Send email",
+      "submitting": "Sending…",
+      "sentTitle": "Check your email",
+      "sentDescription": "Open the link in your email to set a new password.",
+      "resend": "Send again",
+      "backToSignIn": "Back to sign in"
+    },
+    "resetPassword": {
+      "title": "Set new password",
+      "passwordLabel": "New password",
+      "passwordPlaceholder": "At least 8 characters",
+      "confirmLabel": "Confirm password",
+      "confirmPlaceholder": "Enter new password again",
+      "submit": "Save new password",
+      "submitting": "Saving…",
+      "success": "Password updated",
+      "invalidToken": "Reset link is invalid or expired. Please request a new one.",
+      "failed": "Reset failed. Please request a new link.",
+      "backToProduct": "Back to product"
+    },
+    "verifyEmail": {
+      "titlePending": "Verifying…",
+      "titleSuccess": "Email confirmed",
+      "titleError": "Confirmation failed",
+      "invalidToken": "Verification link is invalid or expired",
+      "failed": "Verification failed. Please request a new email.",
+      "failedToast": "Verification failed",
+      "successToast": "Email confirmed",
+      "goToShelf": "Go to shelf",
+      "backToSignIn": "Back to sign in",
+      "backToProduct": "Back to product"
+    },
+    "dialog": {
+      "closeAria": "Close sign-in dialog",
+      "tablistAria": "Authentication mode",
+      "signInTab": "Sign in",
+      "signUpTab": "Sign up",
+      "forgotPasswordTitle": "Reset password",
+      "reasonSave": "Sign in to save what you're reading.",
+      "reasonBookmark": "Sign in to add content to your shelf.",
+      "reasonSync": "Sign in to sync your reading progress.",
+      "reasonAi": "Sign in to keep using the reading companion.",
+      "reasonHistory": "Sign in to save your reading history."
+    },
+    "social": {
+      "dividerAria": "Or continue with a third-party account",
+      "or": "or",
+      "github": "Continue with GitHub",
+      "google": "Continue with Google",
+      "comingSoon": "Third-party sign-in coming soon"
+    },
+    "errors": {
+      "invalidInput": "Please check your input",
+      "signInFailed": "Sign in failed",
+      "signUpFailed": "Sign up failed",
+      "sendFailed": "Could not send. Please try again later.",
+      "tooManyRequests": "Too many requests. Please try again later.",
+      "passwordMismatch": "Passwords do not match"
+    }
+  },
+  "landing": {
+    "meta": {
+      "title": "Gloaming — Come back to the English you want to read",
+      "description": "Gloaming is an AI reading environment for authentic English. It won't interrupt your reading or turn it into tasks. AI appears only when you need it."
+    },
+    "hero": {
+      "title": "Come back to the English you want to read.",
+      "subtitle": "Gloaming is an AI reading environment for authentic English. It won't interrupt your reading or turn reading into tasks. AI appears only when you need it—to help you understand, explore, and keep going.",
+      "cta": "Start reading"
+    },
+    "origin": {
+      "title": "Why we built Gloaming",
+      "paragraph1": "Traditional English reading is often broken by dictionaries and translation apps. Every unfamiliar word becomes a roadblock, and immersion fragments.",
+      "paragraph2": "We believe language grows through real, sustained input—not task lists. Reading should be the goal, not a means to an end.",
+      "imageAlt": "Reading by the window"
+    },
+    "contrast": {
+      "title": "Authentic English reading shouldn't be this hard.",
+      "pastTitle": "The old way",
+      "pastItem1": "Stop to look up words and lose the thread",
+      "pastItem2": "New words feel like memory chores",
+      "pastItem3": "Lose context and stall out",
+      "nextTitle": "With Gloaming",
+      "nextItem1": "Stay immersed and understand naturally",
+      "nextItem2": "No task pressure—just reading",
+      "nextItem3": "Keep context and momentum",
+      "punch": "AI isn't a teacher. AI isn't a chatbot. AI is a quiet reading companion."
+    },
+    "philosophy": {
+      "title": "Read first. Learn along the way.",
+      "lead": "Your goal is not to complete lessons. Your goal is to stay with the text.",
+      "leadSecondary": "",
+      "authenticTitle": "Authentic Content",
+      "authenticBody": "Read real English—not simplified textbook passages.",
+      "focusTitle": "Deep Focus",
+      "focusBody": "No progress bars or streak pressure—just reading.",
+      "assistTitle": "Quiet Assistance",
+      "assistBody": "Context help when you need it; silence when you don't."
+    },
+    "product": {
+      "title": "An AI environment designed around reading.",
+      "readerTitle": "Reader",
+      "readerBody": "Focused reading. Comfortable type. Clean layout. Less visual noise.",
+      "readerImageAlt": "Gloaming Reader interface",
+      "companionTitle": "Companion",
+      "companionBody": "Understand words. Explain sentences. Add background. Keep the flow.",
+      "companionCardTitle": "Companion",
+      "companionCardBody": "Contextual explanation of the selected text, helping you understand the nuance without leaving the page.",
+      "companionOverlayHint": "Contextual gloss—without breaking flow",
+      "shelfTitle": "Shelf",
+      "shelfBody": "Save what you're reading. Pick up where you left off.",
+      "shelfImageAlt": "Gloaming Shelf interface"
+    },
+    "friction": {
+      "title": "Less friction while you read.",
+      "lead": "AI exists to protect reading—not replace it.",
+      "pastTitle": "The old way",
+      "pastItem1": "Hit a hard sentence.",
+      "pastItem2": "Stop reading.",
+      "pastItem3": "Open a dictionary or translator.",
+      "pastItem4": "Lose the story's thread.",
+      "pastItem5": "Feel stuck and give up.",
+      "nextTitle": "With Gloaming",
+      "nextItem1": "Hit a hard sentence.",
+      "nextItem2": "Quiet AI help appears.",
+      "nextItem3": "Grasp the nuance instantly.",
+      "nextItem4": "Stay inside the narrative.",
+      "nextItem5": "Keep reading."
+    },
+    "invite": {
+      "title": "Rediscover the joy of reading English.",
+      "body": "Gloaming wants to be a bridge between you and English. We hope you're here for the love of reading—not to finish another task.",
+      "cta": "Start reading"
+    },
+    "footer": {
+      "tagline": "Reading, not tasks.",
+      "philosophy": "Philosophy",
+      "about": "About",
+      "support": "Support",
+      "privacy": "Privacy",
+      "terms": "Terms"
+    }
   },
   "content": {
     "common": {

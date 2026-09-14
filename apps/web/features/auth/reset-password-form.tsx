@@ -5,14 +5,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { authInputClassName, authPrimaryButtonClassName, Field } from '@/features/auth/auth-field';
 import { AuthFooterLink, AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { authClient } from '@/lib/auth';
 import { consumePostAuthPath } from '@/lib/auth/post-auth-redirect';
+import { useLocale } from '@/lib/locale-context';
 import { resetPasswordSchema } from '@/lib/validations';
 
 export function ResetPasswordForm() {
+  const { locale } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -21,10 +25,10 @@ export function ResetPasswordForm() {
 
   useEffect(() => {
     if (!token || tokenError === 'INVALID_TOKEN') {
-      toast.error('重置链接无效或已过期，请重新申请');
+      toast.error(t(locale, 'auth.resetPassword.invalidToken'));
       router.replace('/');
     }
-  }, [token, tokenError, router]);
+  }, [token, tokenError, router, locale]);
 
   const form = useForm({
     defaultValues: {
@@ -40,7 +44,12 @@ export function ResetPasswordForm() {
       setFormError(null);
       const parsed = resetPasswordSchema.safeParse(value);
       if (!parsed.success) {
-        setFormError(parsed.error.issues[0]?.message ?? '输入有误');
+        const issue = parsed.error.issues[0];
+        const message =
+          issue?.path.includes('passwordConfirm') && issue.code === 'custom'
+            ? t(locale, 'auth.errors.passwordMismatch')
+            : t(locale, 'auth.errors.invalidInput');
+        setFormError(message);
         return;
       }
 
@@ -50,13 +59,13 @@ export function ResetPasswordForm() {
       });
 
       if (error) {
-        const message = error.message || '重置失败，请重新申请链接';
+        const message = error.message || t(locale, 'auth.resetPassword.failed');
         setFormError(message);
         toast.error(message);
         return;
       }
 
-      toast.success('密码已更新');
+      toast.success(t(locale, 'auth.resetPassword.success'));
       router.replace(consumePostAuthPath(searchParams));
     },
   });
@@ -67,7 +76,7 @@ export function ResetPasswordForm() {
 
   return (
     <>
-      <AuthIntro title="设置新密码" />
+      <AuthIntro title={t(locale, 'auth.resetPassword.title')} />
 
       <AuthPanel>
         <form
@@ -79,13 +88,13 @@ export function ResetPasswordForm() {
         >
           <form.Field name="password">
             {(field) => (
-              <Field label="新密码" htmlFor="reset-password">
+              <Field label={t(locale, 'auth.resetPassword.passwordLabel')} htmlFor="reset-password">
                 <input
                   id="reset-password"
                   type="password"
                   autoComplete="new-password"
                   required
-                  placeholder="至少 8 位"
+                  placeholder={t(locale, 'auth.resetPassword.passwordPlaceholder')}
                   className={authInputClassName}
                   value={field.state.value}
                   onBlur={field.handleBlur}
@@ -97,13 +106,13 @@ export function ResetPasswordForm() {
 
           <form.Field name="passwordConfirm">
             {(field) => (
-              <Field label="再输入一次" htmlFor="reset-password-confirm">
+              <Field label={t(locale, 'auth.resetPassword.confirmLabel')} htmlFor="reset-password-confirm">
                 <input
                   id="reset-password-confirm"
                   type="password"
                   autoComplete="new-password"
                   required
-                  placeholder="再输入一次新密码"
+                  placeholder={t(locale, 'auth.resetPassword.confirmPlaceholder')}
                   className={authInputClassName}
                   value={field.state.value}
                   onBlur={field.handleBlur}
@@ -118,14 +127,14 @@ export function ResetPasswordForm() {
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
               <Button type="submit" className={authPrimaryButtonClassName} disabled={isSubmitting}>
-                {isSubmitting ? '保存中…' : '保存新密码'}
+                {isSubmitting ? t(locale, 'auth.resetPassword.submitting') : t(locale, 'auth.resetPassword.submit')}
               </Button>
             )}
           </form.Subscribe>
         </form>
       </AuthPanel>
 
-      <AuthFooterLink href="/" label="返回产品" />
+      <AuthFooterLink href="/" label={t(locale, 'auth.resetPassword.backToProduct')} />
     </>
   );
 }

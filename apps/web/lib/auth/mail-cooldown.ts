@@ -1,3 +1,7 @@
+import { t } from '@gloaming/i18n';
+
+import { getClientLocale } from '@/lib/client-locale';
+
 import { isAuthRateLimited } from './auth-errors';
 
 /**
@@ -9,7 +13,7 @@ export function resolveMailCooldownErrorMessage(error: {
   status?: number;
 }): string | null {
   if (isAuthRateLimited(error)) {
-    return error.message?.trim() || '请求过于频繁，请稍后再试';
+    return error.message?.trim() || t(getClientLocale(), 'auth.errors.tooManyRequests');
   }
   return null;
 }

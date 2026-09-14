@@ -3,10 +3,13 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { XIcon } from 'lucide-react';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { ForgotPasswordForm } from '@/features/auth/forgot-password-form';
 import { SignInForm } from '@/features/auth/sign-in-form';
 import { SignUpForm } from '@/features/auth/sign-up-form';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export type AuthMode = 'login' | 'register' | 'forgot-password';
@@ -21,18 +24,26 @@ type AuthDialogProps = {
   onSwitchMode: (mode: AuthMode) => void;
 };
 
-const reasonCopy: Record<AuthReason, string> = {
-  save: '登录后保存你正在阅读的内容。',
-  bookmark: '登录后把内容加入你的书架。',
-  sync: '登录后同步你的阅读进度。',
-  ai: '登录后继续使用阅读助手。',
-  history: '登录后保存你的阅读记录。',
+const REASON_KEYS: Record<AuthReason, string> = {
+  save: 'auth.dialog.reasonSave',
+  bookmark: 'auth.dialog.reasonBookmark',
+  sync: 'auth.dialog.reasonSync',
+  ai: 'auth.dialog.reasonAi',
+  history: 'auth.dialog.reasonHistory',
 };
 
 export function AuthDialog({ open, mode, reason, onOpenChange, onSuccess, onSwitchMode }: AuthDialogProps) {
-  const title = mode === 'login' ? '登录' : mode === 'register' ? '注册' : '找回密码';
+  const { locale } = useLocale();
+
+  const title =
+    mode === 'login'
+      ? t(locale, 'auth.signIn.title')
+      : mode === 'register'
+        ? t(locale, 'auth.signUp.title')
+        : t(locale, 'auth.forgotPassword.title');
   const isLoginFlow = mode === 'login' || mode === 'forgot-password';
   const shouldShowTabs = mode !== 'forgot-password';
+  const reasonCopy = reason ? t(locale, REASON_KEYS[reason]) : title;
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -64,17 +75,19 @@ export function AuthDialog({ open, mode, reason, onOpenChange, onSuccess, onSwit
             }
           >
             <XIcon aria-hidden />
-            <span className="sr-only">关闭认证窗口</span>
+            <span className="sr-only">{t(locale, 'auth.dialog.closeAria')}</span>
           </DialogPrimitive.Close>
 
           <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>
-          <DialogPrimitive.Description className="sr-only">
-            {reason ? reasonCopy[reason] : title}
-          </DialogPrimitive.Description>
+          <DialogPrimitive.Description className="sr-only">{reasonCopy}</DialogPrimitive.Description>
 
           <div className="px-6 pt-12 pb-7">
             {shouldShowTabs ? (
-              <div className="grid grid-cols-2 border-b border-border/50" role="tablist" aria-label="认证方式">
+              <div
+                className="grid grid-cols-2 border-b border-border/50"
+                role="tablist"
+                aria-label={t(locale, 'auth.dialog.tablistAria')}
+              >
                 <button
                   type="button"
                   role="tab"
@@ -88,7 +101,7 @@ export function AuthDialog({ open, mode, reason, onOpenChange, onSuccess, onSwit
                   )}
                   onClick={() => onSwitchMode('login')}
                 >
-                  登录
+                  {t(locale, 'auth.dialog.signInTab')}
                 </button>
                 <button
                   type="button"
@@ -103,18 +116,18 @@ export function AuthDialog({ open, mode, reason, onOpenChange, onSuccess, onSwit
                   )}
                   onClick={() => onSwitchMode('register')}
                 >
-                  注册
+                  {t(locale, 'auth.dialog.signUpTab')}
                 </button>
               </div>
             ) : null}
 
             <div className={cn(shouldShowTabs ? 'pt-6' : 'pt-1')}>
               {!shouldShowTabs ? (
-                <h2 className="mb-5 text-center text-base font-semibold tracking-tight text-foreground">找回密码</h2>
+                <h2 className="mb-5 text-center text-base font-semibold tracking-tight text-foreground">
+                  {t(locale, 'auth.dialog.forgotPasswordTitle')}
+                </h2>
               ) : null}
-              {reason ? (
-                <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{reasonCopy[reason]}</p>
-              ) : null}
+              {reason ? <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{reasonCopy}</p> : null}
               {mode === 'login' ? (
                 <SignInForm embedded onSuccess={onSuccess} onSwitchMode={onSwitchMode} />
               ) : mode === 'register' ? (

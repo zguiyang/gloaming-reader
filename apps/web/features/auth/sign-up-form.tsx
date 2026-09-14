@@ -4,6 +4,8 @@ import { useForm } from '@tanstack/react-form';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import {
   authDialogFieldStackClassName,
@@ -16,10 +18,12 @@ import {
 import { AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { AuthSocialLoginSection } from '@/features/auth/auth-social-login';
 import { authClient, resolveMailCooldownErrorMessage } from '@/lib/auth';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 import { signUpSchema } from '@/lib/validations';
 
 export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
+  const { locale } = useLocale();
   const [isSent, setIsSent] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -36,7 +40,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
       setFormError(null);
       const parsed = signUpSchema.safeParse(value);
       if (!parsed.success) {
-        setFormError(parsed.error.issues[0]?.message ?? '输入有误');
+        setFormError(t(locale, 'auth.errors.invalidInput'));
         return;
       }
 
@@ -48,7 +52,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
       });
 
       if (error) {
-        const message = error.message || '注册失败';
+        const message = error.message || t(locale, 'auth.errors.signUpFailed');
         setFormError(message);
         toast.error(message);
         return;
@@ -71,20 +75,23 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
 
     if (error) {
       const cooldownMessage = resolveMailCooldownErrorMessage(error);
-      const message = cooldownMessage || error.message || '发送失败，请稍后重试';
+      const message = cooldownMessage || error.message || t(locale, 'auth.errors.sendFailed');
       setFormError(message);
       toast.error(message);
       return;
     }
 
-    toast.success('验证邮件已重新发送');
+    toast.success(t(locale, 'auth.signUp.resendSuccess'));
   }
 
   if (isSent) {
     return (
       <>
         {!embedded ? (
-          <AuthIntro title="去邮箱点开链接" description={`已发送至 ${submittedEmail}，约 1 小时有效。`} />
+          <AuthIntro
+            title={t(locale, 'auth.signUp.sentTitle')}
+            description={t(locale, 'auth.signUp.sentDescription', { email: submittedEmail })}
+          />
         ) : null}
 
         <AuthPanel variant={embedded ? 'plain' : 'card'}>
@@ -97,7 +104,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
               void handleResend();
             }}
           >
-            {isResending ? '发送中…' : '再发一次'}
+            {isResending ? t(locale, 'auth.signUp.resending') : t(locale, 'auth.signUp.resend')}
           </Button>
         </AuthPanel>
       </>
@@ -106,7 +113,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <>
-      {!embedded ? <AuthIntro title="注册" /> : null}
+      {!embedded ? <AuthIntro title={t(locale, 'auth.signUp.title')} /> : null}
 
       <AuthPanel variant={embedded ? 'plain' : 'card'}>
         <div className={cn(embedded && authDialogSectionClassName)}>
@@ -120,12 +127,16 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
             <div className={embedded ? authDialogFieldStackClassName : 'contents'}>
               <form.Field name="name">
                 {(field) => (
-                  <Field hideLabel={embedded} label="显示名" htmlFor="sign-up-name">
+                  <Field hideLabel={embedded} label={t(locale, 'auth.signUp.nameLabel')} htmlFor="sign-up-name">
                     <input
                       id="sign-up-name"
                       type="text"
                       autoComplete="name"
-                      placeholder={embedded ? '显示名' : '怎么称呼你'}
+                      placeholder={
+                        embedded
+                          ? t(locale, 'auth.signUp.namePlaceholderEmbedded')
+                          : t(locale, 'auth.signUp.namePlaceholder')
+                      }
                       className={authInputClassName}
                       value={field.state.value}
                       onBlur={field.handleBlur}
@@ -137,12 +148,16 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
 
               <form.Field name="username">
                 {(field) => (
-                  <Field hideLabel={embedded} label="用户名" htmlFor="sign-up-username">
+                  <Field hideLabel={embedded} label={t(locale, 'auth.signUp.usernameLabel')} htmlFor="sign-up-username">
                     <input
                       id="sign-up-username"
                       type="text"
                       autoComplete="username"
-                      placeholder={embedded ? '用户名' : '英文或数字，用于登录标识'}
+                      placeholder={
+                        embedded
+                          ? t(locale, 'auth.signUp.usernamePlaceholderEmbedded')
+                          : t(locale, 'auth.signUp.usernamePlaceholder')
+                      }
                       className={authInputClassName}
                       value={field.state.value}
                       onBlur={field.handleBlur}
@@ -154,12 +169,16 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
 
               <form.Field name="email">
                 {(field) => (
-                  <Field hideLabel={embedded} label="邮箱" htmlFor="sign-up-email">
+                  <Field hideLabel={embedded} label={t(locale, 'auth.signUp.emailLabel')} htmlFor="sign-up-email">
                     <input
                       id="sign-up-email"
                       type="email"
                       autoComplete="email"
-                      placeholder={embedded ? '邮箱' : 'you@example.com'}
+                      placeholder={
+                        embedded
+                          ? t(locale, 'auth.signUp.emailPlaceholderEmbedded')
+                          : t(locale, 'auth.signUp.emailPlaceholder')
+                      }
                       className={authInputClassName}
                       value={field.state.value}
                       onBlur={field.handleBlur}
@@ -171,12 +190,16 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
 
               <form.Field name="password">
                 {(field) => (
-                  <Field hideLabel={embedded} label="密码" htmlFor="sign-up-password">
+                  <Field hideLabel={embedded} label={t(locale, 'auth.signUp.passwordLabel')} htmlFor="sign-up-password">
                     <input
                       id="sign-up-password"
                       type="password"
                       autoComplete="new-password"
-                      placeholder={embedded ? '密码（至少 8 位）' : '至少 8 位'}
+                      placeholder={
+                        embedded
+                          ? t(locale, 'auth.signUp.passwordPlaceholderEmbedded')
+                          : t(locale, 'auth.signUp.passwordPlaceholder')
+                      }
                       className={authInputClassName}
                       value={field.state.value}
                       onBlur={field.handleBlur}
@@ -192,7 +215,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (
                 <Button type="submit" className={authPrimaryButtonClassName} disabled={isSubmitting}>
-                  {isSubmitting ? '创建中…' : '创建账号'}
+                  {isSubmitting ? t(locale, 'auth.signUp.submitting') : t(locale, 'auth.signUp.submit')}
                 </Button>
               )}
             </form.Subscribe>

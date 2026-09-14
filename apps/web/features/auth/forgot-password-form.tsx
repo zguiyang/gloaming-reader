@@ -4,6 +4,8 @@ import { useForm } from '@tanstack/react-form';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import {
   authDialogFormClassName,
@@ -13,6 +15,7 @@ import {
 } from '@/features/auth/auth-field';
 import { AuthFooterAction, AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { authClient, resolveMailCooldownErrorMessage } from '@/lib/auth';
+import { useLocale } from '@/lib/locale-context';
 import { forgotPasswordSchema } from '@/lib/validations';
 
 type ForgotPasswordFormProps = {
@@ -21,6 +24,7 @@ type ForgotPasswordFormProps = {
 };
 
 export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPasswordFormProps) {
+  const { locale } = useLocale();
   const [isSent, setIsSent] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -32,7 +36,7 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
       setFormError(null);
       const parsed = forgotPasswordSchema.safeParse(value);
       if (!parsed.success) {
-        setFormError(parsed.error.issues[0]?.message ?? '输入有误');
+        setFormError(t(locale, 'auth.errors.invalidInput'));
         return;
       }
 
@@ -40,7 +44,7 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
 
       if (error) {
         const cooldownMessage = resolveMailCooldownErrorMessage(error);
-        const message = cooldownMessage || error.message || '发送失败，请稍后重试';
+        const message = cooldownMessage || error.message || t(locale, 'auth.errors.sendFailed');
         setFormError(message);
         toast.error(message);
         return;
@@ -53,7 +57,12 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
   if (isSent) {
     return (
       <>
-        {!embedded ? <AuthIntro title="去邮箱点开链接" description="去邮箱打开链接设置新密码。" /> : null}
+        {!embedded ? (
+          <AuthIntro
+            title={t(locale, 'auth.forgotPassword.sentTitle')}
+            description={t(locale, 'auth.forgotPassword.sentDescription')}
+          />
+        ) : null}
 
         <AuthPanel variant={embedded ? 'plain' : 'card'}>
           <Button
@@ -64,13 +73,13 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
               setFormError(null);
             }}
           >
-            再发一次
+            {t(locale, 'auth.forgotPassword.resend')}
           </Button>
         </AuthPanel>
 
         <AuthFooterAction
           className={embedded ? 'mt-5' : undefined}
-          label="返回登录"
+          label={t(locale, 'auth.forgotPassword.backToSignIn')}
           onClick={() => onSwitchMode?.('login')}
         />
       </>
@@ -79,7 +88,12 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
 
   return (
     <>
-      {!embedded ? <AuthIntro title="找回密码" description="输入注册邮箱，发送重置链接。" /> : null}
+      {!embedded ? (
+        <AuthIntro
+          title={t(locale, 'auth.forgotPassword.title')}
+          description={t(locale, 'auth.forgotPassword.description')}
+        />
+      ) : null}
 
       <AuthPanel variant={embedded ? 'plain' : 'card'}>
         <form
@@ -91,13 +105,17 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
         >
           <form.Field name="email">
             {(field) => (
-              <Field hideLabel={embedded} label="邮箱" htmlFor="forgot-email">
+              <Field hideLabel={embedded} label={t(locale, 'auth.forgotPassword.emailLabel')} htmlFor="forgot-email">
                 <input
                   id="forgot-email"
                   type="email"
                   autoComplete="email"
                   required
-                  placeholder={embedded ? '注册邮箱' : '注册时用的邮箱'}
+                  placeholder={
+                    embedded
+                      ? t(locale, 'auth.forgotPassword.emailPlaceholderEmbedded')
+                      : t(locale, 'auth.forgotPassword.emailPlaceholder')
+                  }
                   className={authInputClassName}
                   value={field.state.value}
                   onBlur={field.handleBlur}
@@ -112,7 +130,7 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
               <Button type="submit" className={authPrimaryButtonClassName} disabled={isSubmitting}>
-                {isSubmitting ? '发送中…' : '发送邮件'}
+                {isSubmitting ? t(locale, 'auth.forgotPassword.submitting') : t(locale, 'auth.forgotPassword.submit')}
               </Button>
             )}
           </form.Subscribe>
@@ -121,7 +139,7 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
 
       <AuthFooterAction
         className={embedded ? 'mt-5' : undefined}
-        label="返回登录"
+        label={t(locale, 'auth.forgotPassword.backToSignIn')}
         onClick={() => onSwitchMode?.('login')}
       />
     </>

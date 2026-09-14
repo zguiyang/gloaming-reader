@@ -2,14 +2,17 @@
 
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
+
 import { authSocialButtonClassName } from '@/features/auth/auth-field';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type SocialProvider = 'github' | 'google';
 
-const providerCopy: Record<SocialProvider, string> = {
-  github: '通过 GitHub 继续',
-  google: '通过 Google 继续',
+const SOCIAL_PROVIDER_KEYS: Record<SocialProvider, 'auth.social.github' | 'auth.social.google'> = {
+  github: 'auth.social.github',
+  google: 'auth.social.google',
 };
 
 function GitHubIcon({ className }: { className?: string }) {
@@ -44,10 +47,12 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 function AuthSocialDivider() {
+  const { locale } = useLocale();
+
   return (
-    <div className="flex items-center gap-3" role="separator" aria-label="或使用第三方账号">
+    <div className="flex items-center gap-3" role="separator" aria-label={t(locale, 'auth.social.dividerAria')}>
       <div className="h-px flex-1 bg-border/60" />
-      <span className="text-xs text-muted-foreground">或</span>
+      <span className="text-xs text-muted-foreground">{t(locale, 'auth.social.or')}</span>
       <div className="h-px flex-1 bg-border/60" />
     </div>
   );
@@ -58,6 +63,7 @@ type AuthSocialButtonProps = {
 };
 
 function AuthSocialButton({ provider }: AuthSocialButtonProps) {
+  const { locale } = useLocale();
   const Icon = provider === 'github' ? GitHubIcon : GoogleIcon;
 
   return (
@@ -65,11 +71,11 @@ function AuthSocialButton({ provider }: AuthSocialButtonProps) {
       type="button"
       className={authSocialButtonClassName}
       onClick={() => {
-        toast.info('第三方登录即将开放');
+        toast.info(t(locale, 'auth.social.comingSoon'));
       }}
     >
       <Icon className={cn('absolute left-3.5 size-[1.125rem]', provider === 'github' && 'text-foreground')} />
-      <span className="w-full text-center">{providerCopy[provider]}</span>
+      <span className="w-full text-center">{t(locale, SOCIAL_PROVIDER_KEYS[provider])}</span>
     </button>
   );
 }

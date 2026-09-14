@@ -2,6 +2,11 @@
   "common": {
     "appName": "Gloaming",
     "loading": "加载中…",
+    "loadingWait": "稍等片刻",
+    "loadingPhrase1": "正在翻开下一页…",
+    "loadingPhrase2": "字句在路上…",
+    "loadingPhrase3": "泡一壶茶，马上回来…",
+    "loadingPhrase4": "书架轻轻挪动中…",
     "greeting": "你好，{name}"
   },
   "nav": {
@@ -35,7 +40,200 @@
   },
   "auth": {
     "signOutFailed": "退出登录失败，请稍后重试",
-    "signOutSuccess": "已退出登录"
+    "signOutSuccess": "已退出登录",
+    "layoutFooter": "独立开发 · 读自己想读的英语",
+    "meta": {
+      "verifyEmailTitle": "确认邮箱 — Gloaming",
+      "resetPasswordTitle": "重置密码 — Gloaming"
+    },
+    "signIn": {
+      "title": "登录",
+      "loginLabel": "邮箱或用户名",
+      "loginPlaceholder": "you@example.com",
+      "loginPlaceholderEmbedded": "邮箱或用户名",
+      "passwordLabel": "密码",
+      "passwordPlaceholder": "••••••••",
+      "passwordPlaceholderEmbedded": "密码",
+      "forgotPassword": "忘记密码？",
+      "submit": "登录",
+      "submitting": "登录中…",
+      "success": "登录成功",
+      "verificationRequired": "请先打开邮箱里的验证链接，确认后再登录。",
+      "resendVerification": "重新发送验证邮件",
+      "resendVerificationSending": "发送中…",
+      "resendVerificationSuccess": "验证邮件已发送",
+      "resendVerificationEmailHint": "请用注册邮箱登录后再重发验证邮件，或到注册页使用邮箱账号。"
+    },
+    "signUp": {
+      "title": "注册",
+      "nameLabel": "显示名",
+      "namePlaceholder": "怎么称呼你",
+      "namePlaceholderEmbedded": "显示名",
+      "usernameLabel": "用户名",
+      "usernamePlaceholder": "英文或数字，用于登录标识",
+      "usernamePlaceholderEmbedded": "用户名",
+      "emailLabel": "邮箱",
+      "emailPlaceholder": "you@example.com",
+      "emailPlaceholderEmbedded": "邮箱",
+      "passwordLabel": "密码",
+      "passwordPlaceholder": "至少 8 位",
+      "passwordPlaceholderEmbedded": "密码（至少 8 位）",
+      "submit": "创建账号",
+      "submitting": "创建中…",
+      "sentTitle": "去邮箱点开链接",
+      "sentDescription": "已发送至 {email}，约 1 小时有效。",
+      "resend": "再发一次",
+      "resending": "发送中…",
+      "resendSuccess": "验证邮件已重新发送"
+    },
+    "forgotPassword": {
+      "title": "找回密码",
+      "description": "输入注册邮箱，发送重置链接。",
+      "emailLabel": "邮箱",
+      "emailPlaceholder": "注册时用的邮箱",
+      "emailPlaceholderEmbedded": "注册邮箱",
+      "submit": "发送邮件",
+      "submitting": "发送中…",
+      "sentTitle": "去邮箱点开链接",
+      "sentDescription": "去邮箱打开链接设置新密码。",
+      "resend": "再发一次",
+      "backToSignIn": "返回登录"
+    },
+    "resetPassword": {
+      "title": "设置新密码",
+      "passwordLabel": "新密码",
+      "passwordPlaceholder": "至少 8 位",
+      "confirmLabel": "再输入一次",
+      "confirmPlaceholder": "再输入一次新密码",
+      "submit": "保存新密码",
+      "submitting": "保存中…",
+      "success": "密码已更新",
+      "invalidToken": "重置链接无效或已过期，请重新申请",
+      "failed": "重置失败，请重新申请链接",
+      "backToProduct": "返回产品"
+    },
+    "verifyEmail": {
+      "titlePending": "确认中",
+      "titleSuccess": "邮箱已确认",
+      "titleError": "确认失败",
+      "invalidToken": "验证链接无效或已过期",
+      "failed": "验证失败，请重新申请邮件",
+      "failedToast": "验证失败",
+      "successToast": "邮箱已确认",
+      "goToShelf": "进入书架",
+      "backToSignIn": "返回登录",
+      "backToProduct": "返回产品"
+    },
+    "dialog": {
+      "closeAria": "关闭认证窗口",
+      "tablistAria": "认证方式",
+      "signInTab": "登录",
+      "signUpTab": "注册",
+      "forgotPasswordTitle": "找回密码",
+      "reasonSave": "登录后保存你正在阅读的内容。",
+      "reasonBookmark": "登录后把内容加入你的书架。",
+      "reasonSync": "登录后同步你的阅读进度。",
+      "reasonAi": "登录后继续使用阅读助手。",
+      "reasonHistory": "登录后保存你的阅读记录。"
+    },
+    "social": {
+      "dividerAria": "或使用第三方账号",
+      "or": "或",
+      "github": "通过 GitHub 继续",
+      "google": "通过 Google 继续",
+      "comingSoon": "第三方登录即将开放"
+    },
+    "errors": {
+      "invalidInput": "输入有误",
+      "signInFailed": "登录失败",
+      "signUpFailed": "注册失败",
+      "sendFailed": "发送失败，请稍后重试",
+      "tooManyRequests": "请求过于频繁，请稍后再试",
+      "passwordMismatch": "两次输入的密码不一致"
+    }
+  },
+  "landing": {
+    "meta": {
+      "title": "Gloaming — 回来，继续读你想读的英文",
+      "description": "Gloaming 是一个为真实英文阅读打造的 AI 阅读环境。它不会打断你的阅读，也不会把阅读变成任务。"
+    },
+    "hero": {
+      "title": "回来，继续读你想读的英文。",
+      "subtitle": "Gloaming 是一个为真实英文阅读打造的 AI 阅读环境。它不会打断你的阅读，也不会把阅读变成任务。AI 只会在你需要的时候出现，帮助你理解、探索和继续前进。",
+      "cta": "开始阅读"
+    },
+    "origin": {
+      "title": "我们为什么创造 Gloaming？",
+      "paragraph1": "在传统的英文阅读中，我们常常被查字典、翻译软件打断。每一个生词都像是一个路障，让原本沉浸的阅读体验变得支离破碎。",
+      "paragraph2": "我们相信，语言的习得不是通过完成一个个“任务”来实现的，而是通过大量的、真实的语料输入。阅读本身就应该是目的，而不是手段。",
+      "imageAlt": "窗边的阅读场景"
+    },
+    "contrast": {
+      "title": "真实英语阅读，不应该如此困难。",
+      "pastTitle": "过去的阅读方式",
+      "pastItem1": "频繁查字典，打断思路",
+      "pastItem2": "生词变成记忆任务，产生压力",
+      "pastItem3": "失去阅读上下文，难以继续",
+      "nextTitle": "使用 Gloaming",
+      "nextItem1": "沉浸阅读，自然理解",
+      "nextItem2": "无任务感，轻松享受",
+      "nextItem3": "保持上下文，顺畅阅读",
+      "punch": "AI 不是老师。AI 不是聊天机器人。AI 是一个安静的阅读伙伴。"
+    },
+    "philosophy": {
+      "title": "先阅读，再学习。",
+      "lead": "Your goal is not to complete lessons. Your goal is to stay with the text.",
+      "leadSecondary": "你的目标不是完成课程。而是停留在文字之中。",
+      "authenticTitle": "Authentic Content",
+      "authenticBody": "真实内容。阅读原汁原味的英文文本，而不是简化的教材。",
+      "focusTitle": "Deep Focus",
+      "focusBody": "深度专注。没有进度条和打卡挑战，只有纯粹的阅读体验。",
+      "assistTitle": "Quiet Assistance",
+      "assistBody": "安静辅助。在你需要时提供上下文帮助，不需要时默默退下。"
+    },
+    "product": {
+      "title": "一个围绕阅读设计的 AI 环境。",
+      "readerTitle": "Reader",
+      "readerBody": "专注阅读体验。舒适字体。干净排版。减少视觉干扰。",
+      "readerImageAlt": "Gloaming Reader 阅读界面",
+      "companionTitle": "Companion",
+      "companionBody": "理解词语。解释句子。补充背景。保持阅读连续。",
+      "companionCardTitle": "Companion",
+      "companionCardBody": "Contextual explanation of the selected text, helping you understand the nuance without leaving the page.",
+      "companionOverlayHint": "语境释义，不打断阅读",
+      "shelfTitle": "Shelf",
+      "shelfBody": "保存你的阅读内容。从上次停留的位置继续。",
+      "shelfImageAlt": "Gloaming Shelf 书架界面"
+    },
+    "friction": {
+      "title": "减少阅读摩擦。",
+      "lead": "AI 的存在不是为了替代阅读，而是为了保护阅读。",
+      "pastTitle": "过去的阅读方式",
+      "pastItem1": "遇到难句。",
+      "pastItem2": "停止阅读。",
+      "pastItem3": "打开字典或翻译工具。",
+      "pastItem4": "失去故事的上下文。",
+      "pastItem5": "感到沮丧，放弃阅读。",
+      "nextTitle": "使用 Gloaming",
+      "nextItem1": "遇到难句。",
+      "nextItem2": "AI 辅助悄然出现。",
+      "nextItem3": "瞬间理解细微差别。",
+      "nextItem4": "保持沉浸在叙事中。",
+      "nextItem5": "继续阅读。"
+    },
+    "invite": {
+      "title": "重新发现阅读英文的乐趣。",
+      "body": "Gloaming 想要成为你和英文世界之间的一座桥梁。我们希望你在这里，不是为了完成学习任务，而是因为热爱阅读本身。",
+      "cta": "开始阅读"
+    },
+    "footer": {
+      "tagline": "Reading, not tasks.",
+      "philosophy": "Philosophy",
+      "about": "About",
+      "support": "Support",
+      "privacy": "Privacy",
+      "terms": "Terms"
+    }
   },
   "content": {
     "common": {
