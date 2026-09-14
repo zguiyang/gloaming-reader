@@ -4,11 +4,12 @@ import { Pencil, Trash2 } from 'lucide-react';
 
 import { t } from '@gloaming/i18n';
 import type { LlmModel, LlmProvider } from '@gloaming/shared/llm';
-import { getWireFamilyDefinition, getWireVariantLabel } from '@gloaming/shared/llm';
+import { getWireFamilyDefinition } from '@gloaming/shared/llm';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { getWireVariantDisplayLabel } from '@/features/admin/ai/ai-locale';
 import { useLocale } from '@/lib/locale-context';
 
 type AiModelListProps = {
@@ -48,7 +49,7 @@ export function AiModelList({ provider, models, onEdit, onDelete }: AiModelListP
                 <TableCell className="font-mono text-xs text-muted-foreground">{model.modelId}</TableCell>
                 <TableCell>
                   <Badge variant="outline" className="font-normal">
-                    {getWireVariantLabel(provider.apiFamily, model.wireVariant)}
+                    {getWireVariantDisplayLabel(locale, provider.apiFamily, model.wireVariant)}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -95,7 +96,7 @@ export function AiModelList({ provider, models, onEdit, onDelete }: AiModelListP
                 <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{model.modelId}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Badge variant="outline" className="font-normal">
-                    {getWireVariantLabel(provider.apiFamily, model.wireVariant)}
+                    {getWireVariantDisplayLabel(locale, provider.apiFamily, model.wireVariant)}
                   </Badge>
                   <Badge variant={model.isEnabled ? 'secondary' : 'outline'}>
                     {model.isEnabled

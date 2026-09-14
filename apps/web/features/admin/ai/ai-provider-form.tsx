@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { getApiFamilyLabel } from '@/features/admin/ai/ai-locale';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -144,7 +145,7 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
     >
       {!isEdit ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{familyDef.label}</Badge>
+          <Badge variant="secondary">{getApiFamilyLabel(locale, apiFamily)}</Badge>
           {!familyDef.runtimeImplemented ? (
             <Badge variant="outline" className="text-xs font-normal">
               {t(locale, 'admin.ai.provider.runtimeNotSupported')}

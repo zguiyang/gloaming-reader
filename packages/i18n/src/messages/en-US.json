@@ -381,6 +381,25 @@
           "temperatureRange": "Temperature must be between 0 and 2",
           "maxTokensPositive": "maxTokens must be a positive integer"
         }
+      },
+      "protocol": {
+        "family": {
+          "openai": "OpenAI compatible",
+          "anthropic": "Anthropic (Claude)",
+          "gemini": "Google Gemini"
+        },
+        "wireVariant": {
+          "openai": {
+            "chat-completions": "Chat Completions",
+            "responses": "Responses API"
+          },
+          "anthropic": {
+            "messages": "Messages API"
+          },
+          "gemini": {
+            "generate-content": "Generate Content"
+          }
+        }
       }
     },
     "tts": {

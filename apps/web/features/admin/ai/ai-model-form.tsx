@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { fetchLlmProviderModels, formatAdminLlmApiError } from '@/features/admin/ai/ai-config-api';
+import { getWireVariantDisplayLabel } from '@/features/admin/ai/ai-locale';
 import { useLocale } from '@/lib/locale-context';
 
 export type ModelFormValues = {
@@ -239,7 +240,10 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
         <Field data-invalid={Boolean(errors.wireVariant) || undefined}>
           <FieldLabel htmlFor={`${formId}-wire-variant`}>{t(locale, 'admin.ai.model.apiMode')}</FieldLabel>
           <Select
-            items={wireVariantOptions.map((option) => ({ value: option.id, label: option.label }))}
+            items={wireVariantOptions.map((option) => ({
+              value: option.id,
+              label: getWireVariantDisplayLabel(locale, provider.apiFamily, option.id),
+            }))}
             value={values.wireVariant}
             onValueChange={(value) => {
               if (value != null) {
@@ -254,7 +258,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
               <SelectGroup>
                 {wireVariantOptions.map((option) => (
                   <SelectItem key={option.id} value={option.id}>
-                    {option.label}
+                    {getWireVariantDisplayLabel(locale, provider.apiFamily, option.id)}
                     <span className="ml-2 font-mono text-xs text-muted-foreground">{option.endpoint}</span>
                   </SelectItem>
                 ))}

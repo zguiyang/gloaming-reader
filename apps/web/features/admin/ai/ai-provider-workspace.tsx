@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs } from '@/components/ui/tabs';
 import { formatAdminBalance } from '@/features/admin/admin-logs-format';
 import { AdminSegmentedTabsList, AdminSegmentedTabsTrigger } from '@/features/admin/admin-segmented-tabs';
+import { getApiFamilyLabel } from '@/features/admin/ai/ai-locale';
 import { AiModelForm, type ModelFormValues } from '@/features/admin/ai/ai-model-form';
 import { AiModelList } from '@/features/admin/ai/ai-model-list';
 import { AiProviderForm, type ProviderFormValues } from '@/features/admin/ai/ai-provider-form';
@@ -163,7 +164,7 @@ export function AiProviderWorkspace({
             </AdminSegmentedTabsTrigger>
             {families.map((family) => (
               <AdminSegmentedTabsTrigger key={family.id} value={family.id} className="px-3.5">
-                {family.label}
+                {getApiFamilyLabel(locale, family.id)}
               </AdminSegmentedTabsTrigger>
             ))}
           </AdminSegmentedTabsList>
@@ -188,7 +189,7 @@ export function AiProviderWorkspace({
                       onClick={() => setCreateWizard({ step: 'form', apiFamily: family.id })}
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{family.label}</span>
+                        <span className="font-medium">{getApiFamilyLabel(locale, family.id)}</span>
                         {!family.runtimeImplemented ? (
                           <Badge variant="outline" className="text-xs font-normal">
                             {t(locale, 'admin.ai.provider.runtimeNotSupported')}
@@ -286,7 +287,12 @@ export function AiProviderWorkspace({
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-foreground">{provider.name}</p>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {formatSummaryMeta(provider, providerModels.length, familyDef.label, locale)}
+                          {formatSummaryMeta(
+                            provider,
+                            providerModels.length,
+                            getApiFamilyLabel(locale, provider.apiFamily),
+                            locale,
+                          )}
                         </p>
                       </div>
                     </button>
