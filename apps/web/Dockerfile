@@ -11,6 +11,7 @@ FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/i18n/package.json ./packages/i18n/
 RUN pnpm install --frozen-lockfile --filter @gloaming/web...
 
 FROM base AS build
@@ -19,9 +20,11 @@ ENV API_INTERNAL_URL=$API_INTERNAL_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=deps /app/packages/i18n/node_modules ./packages/i18n/node_modules
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/web ./apps/web
 COPY packages/shared ./packages/shared
+COPY packages/i18n ./packages/i18n
 RUN pnpm --filter @gloaming/web build
 
 FROM base AS runner

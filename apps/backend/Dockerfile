@@ -12,6 +12,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/backend/package.json ./apps/backend/
 COPY packages/db/package.json ./packages/db/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/i18n/package.json ./packages/i18n/
 # tsx is a runtime devDependency used by start/worker scripts.
 RUN pnpm install --frozen-lockfile --filter @gloaming/backend...
 
@@ -20,10 +21,12 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=deps /app/packages/i18n/node_modules ./packages/i18n/node_modules
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/backend ./apps/backend
 COPY packages/db ./packages/db
 COPY packages/shared ./packages/shared
+COPY packages/i18n ./packages/i18n
 RUN pnpm --filter @gloaming/backend build
 
 FROM base AS runner

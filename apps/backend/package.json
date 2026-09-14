@@ -19,6 +19,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1112.0",
     "@gloaming/db": "workspace:*",
+    "@gloaming/i18n": "workspace:*",
     "@gloaming/shared": "workspace:*",
     "@hono/node-server": "^1.19.0",
     "@hono/zod-validator": "^0.7.2",

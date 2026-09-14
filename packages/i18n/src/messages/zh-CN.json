@@ -1,0 +1,10 @@
+{
+  "common": {
+    "appName": "Gloaming",
+    "loading": "加载中…",
+    "greeting": "你好，{name}"
+  },
+  "meta": {
+    "fallbackProbe": "仅中文回退探针"
+  }
+}

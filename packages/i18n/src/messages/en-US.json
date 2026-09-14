@@ -1,0 +1,7 @@
+{
+  "common": {
+    "appName": "Gloaming",
+    "loading": "Loading…",
+    "greeting": "Hello, {name}"
+  }
+}

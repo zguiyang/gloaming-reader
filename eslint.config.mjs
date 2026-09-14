@@ -11,6 +11,7 @@ import tseslint from 'typescript-eslint';
 
 const nodeSourceFiles = [
   'packages/shared/**/*.{js,mjs,ts}',
+  'packages/i18n/**/*.{js,mjs,ts}',
   'packages/db/**/*.{js,mjs,ts}',
   'apps/backend/**/*.{js,mjs,ts}',
 ];
@@ -18,6 +19,7 @@ const nodeSourceFiles = [
 /** Node packages/apps TypeScript files covered by a TSConfig project (excludes shared *.spec.ts). */
 const typedNodeFiles = [
   'packages/shared/src/**/*.ts',
+  'packages/i18n/src/**/*.ts',
   'packages/db/src/**/*.ts',
   'apps/backend/src/**/*.ts',
   'apps/backend/tests/**/*.ts',
@@ -102,6 +104,7 @@ export default defineConfig([
         { type: 'web', pattern: 'apps/web/**' },
         { type: 'backend', pattern: 'apps/backend/**' },
         { type: 'shared', pattern: 'packages/shared/**' },
+        { type: 'i18n', pattern: 'packages/i18n/**' },
         { type: 'db', pattern: 'packages/db/**' },
       ],
     },
@@ -147,11 +150,15 @@ export default defineConfig([
             },
             {
               from: { element: { type: 'shared' } },
-              disallow: { to: { element: { types: { anyOf: ['web', 'backend', 'db'] } } } },
+              disallow: { to: { element: { types: { anyOf: ['web', 'backend', 'db', 'i18n'] } } } },
+            },
+            {
+              from: { element: { type: 'i18n' } },
+              disallow: { to: { element: { types: { anyOf: ['web', 'backend', 'db', 'shared'] } } } },
             },
             {
               from: { element: { type: 'db' } },
-              disallow: { to: { element: { types: { anyOf: ['web', 'backend', 'shared'] } } } },
+              disallow: { to: { element: { types: { anyOf: ['web', 'backend', 'shared', 'i18n'] } } } },
             },
           ],
         },
@@ -200,7 +207,7 @@ export default defineConfig([
 
   {
     files: typedNodeFiles,
-    ignores: ['packages/shared/src/**/*.spec.ts'],
+    ignores: ['packages/shared/src/**/*.spec.ts', 'packages/i18n/src/**/*.spec.ts'],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
