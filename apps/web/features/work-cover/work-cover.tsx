@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { coverTintForVolume } from '@/features/work-cover/work-cover-tint';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export type WorkCoverAppearance = 'standard' | 'compact';
@@ -36,6 +39,7 @@ function WorkCoverStandard({
   coverImageUrl?: string | null;
   className?: string;
 }) {
+  const { locale } = useLocale();
   const tint = coverTintForVolume(tags, title);
   const [hasImageFailed, setHasImageFailed] = useState(false);
   const canShowImage = Boolean(coverImageUrl) && !hasImageFailed;
@@ -65,7 +69,7 @@ function WorkCoverStandard({
       ) : (
         <div className="absolute inset-0 flex flex-col justify-between p-4 md:p-5">
           <span className="self-end rounded-sm border border-border/30 bg-background/95 px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-foreground shadow-sm">
-            官方
+            {t(locale, 'content.bookDetail.sourceOfficial')}
           </span>
           <p className="font-heading line-clamp-5 text-base font-bold leading-snug text-foreground/85 md:text-xl">
             {title}

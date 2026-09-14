@@ -3,9 +3,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { WorkCover, type WorkCoverProps } from '@/features/work-cover/work-cover';
+import { LocaleProvider } from '@/lib/locale-context';
 
 function renderCover(props: WorkCoverProps): string {
-  return renderToStaticMarkup(createElement(WorkCover, props));
+  return renderToStaticMarkup(
+    // createElement typing requires children on props; third-arg children trips eslint.
+    // eslint-disable-next-line react/no-children-prop -- test-only LocaleProvider wrapper
+    createElement(LocaleProvider, {
+      locale: 'zh-CN',
+      children: createElement(WorkCover, props),
+    }),
+  );
 }
 
 describe('WorkCover appearances', () => {

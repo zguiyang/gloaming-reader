@@ -1,6 +1,12 @@
 {
   "common": {
     "appName": "Gloaming",
+    "siteDescription": "Read the English you want",
+    "api": {
+      "requestFailed": "Request failed",
+      "invalidResponse": "Invalid response format",
+      "requestFailedRetry": "Request failed. Please try again later."
+    },
     "loading": "Loading…",
     "loadingWait": "One moment",
     "loadingPhrase1": "Turning the page…",
@@ -142,6 +148,10 @@
       "github": "Continue with GitHub",
       "google": "Continue with Google",
       "comingSoon": "Third-party sign-in coming soon"
+    },
+    "api": {
+      "requestFailed": "Request failed",
+      "invalidAuthResponse": "Invalid auth response"
     },
     "errors": {
       "invalidInput": "Please check your input",

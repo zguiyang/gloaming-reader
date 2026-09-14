@@ -1,6 +1,12 @@
 {
   "common": {
     "appName": "Gloaming",
+    "siteDescription": "读自己想读的英语",
+    "api": {
+      "requestFailed": "请求失败",
+      "invalidResponse": "响应格式无效",
+      "requestFailedRetry": "请求失败，请稍后重试"
+    },
     "loading": "加载中…",
     "loadingWait": "稍等片刻",
     "loadingPhrase1": "正在翻开下一页…",
@@ -142,6 +148,10 @@
       "github": "通过 GitHub 继续",
       "google": "通过 Google 继续",
       "comingSoon": "第三方登录即将开放"
+    },
+    "api": {
+      "requestFailed": "请求失败",
+      "invalidAuthResponse": "认证响应无效"
     },
     "errors": {
       "invalidInput": "输入有误",

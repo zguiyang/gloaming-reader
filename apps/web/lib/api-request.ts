@@ -1,6 +1,13 @@
 import type { z } from 'zod';
 
+import { t } from '@gloaming/i18n';
+
+import { getClientLocale } from '@/lib/client-locale';
 import { applyRequestLocale } from '@/lib/request-language';
+
+function clientApiMessage(key: string): string {
+  return t(getClientLocale(), key);
+}
 
 export type ApiRequestErrorInfo = {
   message: string;
@@ -38,7 +45,7 @@ export type ApiRequestOptions<T> = {
 };
 
 async function readApiError(response: Response): Promise<ApiRequestErrorInfo> {
-  let message = '请求失败';
+  let message = clientApiMessage('common.api.requestFailed');
   let code: string | undefined;
   let details: ApiRequestErrorInfo['details'];
   try {
@@ -117,12 +124,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions<T>)
     try {
       payload = JSON.parse(rawText) as unknown;
     } catch {
-      throwApiError({ message: '响应格式无效', status: 502 }, onError);
+      throwApiError({ message: clientApiMessage('common.api.invalidResponse'), status: 502 }, onError);
     }
   }
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
-    throwApiError({ message: '响应格式无效', status: 502 }, onError);
+    throwApiError({ message: clientApiMessage('common.api.invalidResponse'), status: 502 }, onError);
   }
   return parsed.data;
 }
@@ -141,5 +148,5 @@ export function formatApiError(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
-  return '请求失败，请稍后重试';
+  return clientApiMessage('common.api.requestFailedRetry');
 }

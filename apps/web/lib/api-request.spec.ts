@@ -171,6 +171,8 @@ describe('apiRequest', () => {
   });
 
   it('throws 502 ApiRequestError when response body fails schema', async () => {
+    vi.stubGlobal('document', { cookie: '' });
+    vi.stubGlobal('navigator', { language: '' });
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(

@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
+import { t } from '@gloaming/i18n';
+
 import { AUTH_ROUTES } from '@/constants';
+import { getClientLocale } from '@/lib/client-locale';
 import type {
   ForgotPasswordBody,
   LoginBody,
@@ -14,9 +17,13 @@ import { userSchema } from '@/lib/validations/auth';
 import { baClient } from './ba-client';
 import type { AuthError, AuthResult } from './types';
 
+function clientAuthMessage(key: string): string {
+  return t(getClientLocale(), key);
+}
+
 function toAuthError(error: { message?: string | null; code?: string | number; status?: number } | null): AuthError {
   return {
-    message: error?.message?.trim() || 'Request failed',
+    message: error?.message?.trim() || clientAuthMessage('auth.api.requestFailed'),
     code: typeof error?.code === 'string' || typeof error?.code === 'number' ? String(error.code) : undefined,
     status: error?.status,
   };
@@ -27,7 +34,7 @@ function parseUser(raw: unknown): AuthResult<User> {
   if (!parsed.success) {
     return {
       data: null,
-      error: { message: 'Invalid auth response', status: 502 },
+      error: { message: clientAuthMessage('auth.api.invalidAuthResponse'), status: 502 },
     };
   }
   return { data: parsed.data, error: null };
@@ -113,7 +120,7 @@ export async function verifyEmail(token: string): Promise<AuthResult<{ ok: boole
   });
 
   if (!response.ok) {
-    let message = '验证失败，请重新申请邮件';
+    let message = clientAuthMessage('auth.verifyEmail.failed');
     try {
       const body = (await response.json()) as { message?: string; code?: string };
       if (body.message?.trim()) {
