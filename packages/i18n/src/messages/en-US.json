@@ -259,6 +259,228 @@
       "tabTts": "Speech",
       "tabDictionary": "Dictionary"
     },
+    "ai": {
+      "title": "AI configuration",
+      "tabPurposes": "Purpose bindings",
+      "tabProviders": "Providers & models",
+      "toast": {
+        "providerAdded": "Provider added",
+        "providerSaved": "Provider saved",
+        "modelAdded": "Model added",
+        "modelSaved": "Model saved",
+        "providerDeleted": "Provider deleted",
+        "modelDeleted": "Model deleted",
+        "purposeSaved": "Default model saved for purpose",
+        "testComplete": "Connectivity test complete",
+        "balanceUpdated": "Balance updated"
+      },
+      "errors": {
+        "selectModelFirst": "Select a model first"
+      },
+      "test": {
+        "success": "Connected · {modelLabel} · {latencyMs} ms"
+      },
+      "delete": {
+        "providerTitle": "Delete provider?",
+        "modelTitle": "Delete model?",
+        "providerDescription": "This removes all models under \"{name}\". Deletion fails if any purpose still references them.",
+        "modelDescription": "This removes model \"{label}\". Deletion fails if any purpose still references it.",
+        "confirm": "Delete"
+      },
+      "purpose": {
+        "assist": "Reading assistant",
+        "translate": "Bilingual translation",
+        "metadataEnrich": "Metadata enrichment",
+        "notConfigured": "Not configured",
+        "modelDeleted": "Model deleted",
+        "modelDisabled": "Model disabled",
+        "providerDisabled": "Provider disabled",
+        "runtimeNotSupported": "Runtime not supported yet",
+        "bindingNotRunnable": "Current binding cannot run",
+        "unknownProvider": "Unknown provider",
+        "currentBindingUnavailable": "Current binding (unavailable)",
+        "noBindableModels": "No bindable models",
+        "searchOrSelectModel": "Search or select a model",
+        "noMatchingModels": "No matching models"
+      },
+      "provider": {
+        "filterAll": "All",
+        "filterAria": "Filter by API family",
+        "add": "Add",
+        "selectFamilyHint": "Choose an API family (cannot be changed after creation)",
+        "emptyTitle": "No providers yet",
+        "emptyDescriptionAll": "Add your first system-level AI provider.",
+        "emptyDescriptionFiltered": "No providers match this filter.",
+        "modelsCount": "{count} models",
+        "runtimeNotSupported": "Runtime not supported yet",
+        "enabledAria": "{name} enabled state",
+        "testConnectivityAria": "Test connectivity",
+        "queryBalanceAria": "Query balance",
+        "deleteProviderAria": "Delete provider",
+        "modelsSection": "Models",
+        "addModelAria": "Add model",
+        "validation": {
+          "nameRequired": "Provider name is required",
+          "baseUrlRequired": "Base URL is required",
+          "baseUrlInvalid": "Base URL format is invalid",
+          "apiKeyRequired": "API key is required when creating a provider"
+        },
+        "form": {
+          "name": "Name",
+          "baseUrl": "Base URL",
+          "apiKey": "API Key",
+          "apiKeyPlaceholderEdit": "Leave blank to keep unchanged",
+          "apiKeyCurrent": "Current: {masked}",
+          "thinkingParam": "Thinking parameter name (optional)",
+          "proxy": "Proxy",
+          "balanceQuery": "Balance query",
+          "add": "Add",
+          "save": "Save"
+        },
+        "modelList": {
+          "empty": "No models under this provider yet.",
+          "displayName": "Display name",
+          "modelId": "Model ID",
+          "apiMode": "API mode",
+          "status": "Status",
+          "enabled": "Enabled",
+          "disabled": "Disabled",
+          "editAria": "Edit {label}",
+          "deleteAria": "Delete {label}"
+        }
+      },
+      "model": {
+        "platformModel": "Platform model",
+        "searchOrSelectPlatform": "Search or select a platform model",
+        "refreshThenSelect": "Refresh, then select",
+        "refreshPlatformListAria": "Refresh platform model list",
+        "refreshingPlatformListAria": "Refreshing platform model list",
+        "noMatchingModels": "No matching models",
+        "displayName": "Display name",
+        "modelId": "Model ID",
+        "apiMode": "API mode",
+        "temperature": "Temperature",
+        "maxTokens": "Max tokens",
+        "callable": "Available for calls",
+        "saveModel": "Save model",
+        "addModel": "Add model",
+        "validation": {
+          "modelIdRequired": "Upstream model id is required",
+          "labelRequired": "Display name is required",
+          "wireVariantInvalid": "Select a valid API mode",
+          "temperatureRange": "Temperature must be between 0 and 2",
+          "maxTokensPositive": "maxTokens must be a positive integer"
+        }
+      }
+    },
+    "tts": {
+      "title": "Speech configuration",
+      "subtitle": "Azure Speech credentials and default voices; keys are encrypted and only masked values appear here.",
+      "loadFailed": "Failed to load configuration",
+      "audioPlayFailed": "Could not play audio — check browser permissions",
+      "toast": {
+        "saved": "Speech settings saved",
+        "testSuccess": "Connected · {voice} · {latencyMs} ms"
+      },
+      "service": {
+        "title": "Service settings",
+        "configured": "Configured · Key {masked}",
+        "notConfigured": "Not configured — Subscription Key required on first save",
+        "enableAria": "Enable speech service"
+      },
+      "fields": {
+        "region": "Region",
+        "subscriptionKey": "Subscription Key",
+        "apiKeyPlaceholderKeep": "Leave blank to keep the current key",
+        "apiKeyPlaceholderRequired": "Required",
+        "defaultVoice": "Default voice",
+        "defaultVoicePlaceholder": "Select default voice",
+        "usVoice": "US English voice",
+        "usVoicePlaceholder": "Select US voice",
+        "ukVoice": "UK English voice",
+        "ukVoicePlaceholder": "Select UK voice"
+      },
+      "test": {
+        "sectionTitle": "Connectivity test",
+        "testText": "Test text",
+        "role": "Role",
+        "roleDefaultVoice": "Default voice",
+        "rolePlaceholder": "Select role",
+        "run": "Test connectivity",
+        "running": "Testing…",
+        "lastLatency": "Last run {latencyMs} ms"
+      },
+      "saveConfig": "Save settings"
+    },
+    "dictionary": {
+      "title": "Dictionary configuration",
+      "subtitle": "Pluggable dictionary providers and AI context enrichment; Redis/DB caching and live lookup tests.",
+      "audioPlayFailed": "Could not play audio — check browser permissions or the audio URL",
+      "toast": {
+        "saved": "Dictionary settings saved",
+        "testSuccess": "Lookup succeeded · {word} · {latencyMs} ms",
+        "testSuccessFallback": "Lookup succeeded (fallback) · {word} · {latencyMs} ms · actual source {source}"
+      },
+      "service": {
+        "title": "Service basics",
+        "configured": "Persistent settings configured",
+        "notConfigured": "Using built-in defaults",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "enableAria": "Enable dictionary service"
+      },
+      "provider": {
+        "label": "Provider",
+        "placeholder": "Select dictionary provider",
+        "youdao": "Youdao Open API (Chinese definitions + US/UK audio · recommended in China)",
+        "free": "Free Dictionary API (English skeleton · direct overseas / may need proxy)",
+        "customLegacy": "Custom provider (not implemented)",
+        "unknownLegacy": "Unknown provider \"{id}\" (not implemented)",
+        "unsupportedHint": "Provider \"{id}\" is not implemented. Switch to Youdao or Free Dictionary before saving.",
+        "displayYoudao": "Youdao Dictionary",
+        "displayFree": "Free Dictionary",
+        "displayCustom": "Custom provider",
+        "displayUnknown": "Unknown \"{id}\"",
+        "displayUnknownPlain": "Unknown"
+      },
+      "aiEnrichment": {
+        "title": "AI context & example enrichment",
+        "description": "During lookup, combine the reader's current chapter so AI can fill Chinese glosses, in-book examples, and reading notes.",
+        "enableAria": "Enable AI context enrichment"
+      },
+      "fields": {
+        "customEndpoint": "Custom API endpoint (optional)",
+        "customEndpointPlaceholder": "Uses the public API by default; set a proxy or private deployment URL here",
+        "apiKey": "API key (optional)",
+        "apiKeyPlaceholderKeep": "Key set ({masked}) — leave blank to keep",
+        "apiKeyPlaceholderOptional": "Optional",
+        "timeoutMs": "Request timeout (ms)",
+        "cacheTtlDays": "Entry cache TTL (days, Redis & DB)"
+      },
+      "test": {
+        "sectionTitle": "Connectivity & lookup test",
+        "sectionDescription": "Verify provider connectivity, phonetics/audio parsing, and the AI Chinese gloss pipeline.",
+        "word": "Test word",
+        "wordPlaceholder": "Enter an English word, e.g. serendipity",
+        "contextSentence": "Sample context sentence (optional)",
+        "contextPlaceholder": "Sentence containing the word to test AI context understanding",
+        "run": "Test lookup",
+        "running": "Testing lookup…",
+        "latency": "Latency:",
+        "sourceUnknown": "Actual source unknown",
+        "actualSource": "Actual: {source}",
+        "fallbackTitle": "Fallback provider used",
+        "fallbackConfigured": "Configured provider: {source}",
+        "fallbackActual": "Actual hit: {source}",
+        "fallbackDescription": "The configured provider failed; a fallback provider was used.",
+        "playPronunciation": "Play pronunciation",
+        "ipaFallback": "IPA",
+        "contextExamplesHeading": "Context examples & reading notes:",
+        "readingNote": "💡 Reading note: {note}"
+      },
+      "saveConfig": "Save settings",
+      "saving": "Saving…"
+    },
     "logs": {
       "centerTabAi": "AI logs",
       "centerTabTts": "Audio logs",

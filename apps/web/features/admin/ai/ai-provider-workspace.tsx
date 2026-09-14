@@ -3,6 +3,7 @@
 import { ChevronDown, Plug, Plus, Trash2, Wallet } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 
+import { type Locale, t } from '@gloaming/i18n';
 import type { LlmApiFamily, LlmModel, LlmProvider, ProviderBalanceResult } from '@gloaming/shared/llm';
 import { getWireFamilyDefinition, listWireFamilies } from '@gloaming/shared/llm';
 
@@ -12,10 +13,12 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Tabs } from '@/components/ui/tabs';
+import { formatAdminBalance } from '@/features/admin/admin-logs-format';
 import { AdminSegmentedTabsList, AdminSegmentedTabsTrigger } from '@/features/admin/admin-segmented-tabs';
 import { AiModelForm, type ModelFormValues } from '@/features/admin/ai/ai-model-form';
 import { AiModelList } from '@/features/admin/ai/ai-model-list';
 import { AiProviderForm, type ProviderFormValues } from '@/features/admin/ai/ai-provider-form';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export type ProviderTestResult = {
@@ -55,14 +58,11 @@ type AiProviderWorkspaceProps = {
   isModelSaving?: boolean;
 };
 
-function formatBalance(result: ProviderBalanceResult): string {
+function formatBalance(result: ProviderBalanceResult, locale: Locale): string {
   if (!result.supported) {
     return '';
   }
-  const amount = new Intl.NumberFormat('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  }).format(result.balance);
+  const amount = formatAdminBalance(result.balance, locale);
   return `${result.currency} ${amount}`;
 }
 
@@ -78,10 +78,14 @@ function isBalanceConfigured(provider: LlmProvider): boolean {
   return Boolean(provider.balanceEndpoint?.trim() && provider.balanceAmountPath?.trim());
 }
 
-function formatSummaryMeta(provider: LlmProvider, modelCount: number, familyLabel: string): string {
-  const parts = [formatBaseUrlHost(provider.baseUrl), familyLabel, `${modelCount} 模型`];
+function formatSummaryMeta(provider: LlmProvider, modelCount: number, familyLabel: string, locale: Locale): string {
+  const parts = [
+    formatBaseUrlHost(provider.baseUrl),
+    familyLabel,
+    t(locale, 'admin.ai.provider.modelsCount', { count: modelCount }),
+  ];
   if (!getWireFamilyDefinition(provider.apiFamily).runtimeImplemented) {
-    parts.push('运行时尚未支持');
+    parts.push(t(locale, 'admin.ai.provider.runtimeNotSupported'));
   }
   return parts.join(' · ');
 }
@@ -106,6 +110,7 @@ export function AiProviderWorkspace({
   isProviderSaving,
   isModelSaving,
 }: AiProviderWorkspaceProps) {
+  const { locale } = useLocale();
   const providerFormId = useId();
   const modelFormId = useId();
   const families = listWireFamilies();
@@ -152,9 +157,9 @@ export function AiProviderWorkspace({
             }
           }}
         >
-          <AdminSegmentedTabsList aria-label="按协议族筛选">
+          <AdminSegmentedTabsList aria-label={t(locale, 'admin.ai.provider.filterAria')}>
             <AdminSegmentedTabsTrigger value="all" className="px-3.5">
-              全部
+              {t(locale, 'admin.ai.provider.filterAll')}
             </AdminSegmentedTabsTrigger>
             {families.map((family) => (
               <AdminSegmentedTabsTrigger key={family.id} value={family.id} className="px-3.5">
@@ -165,7 +170,7 @@ export function AiProviderWorkspace({
         </Tabs>
         <Button className="h-9 rounded-xl px-4 hover:bg-brand-deep" onClick={startCreate}>
           <Plus data-icon="inline-start" />
-          添加
+          {t(locale, 'admin.ai.provider.add')}
         </Button>
       </div>
 
@@ -173,7 +178,7 @@ export function AiProviderWorkspace({
         <div className="flex flex-col gap-6 rounded-2xl border border-border bg-card p-5 md:p-6">
           {createWizard.step === 'family' ? (
             <div className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">选择 API 协议族（创建后不可修改）</p>
+              <p className="text-sm text-muted-foreground">{t(locale, 'admin.ai.provider.selectFamilyHint')}</p>
               <ul className="grid gap-3 sm:grid-cols-2">
                 {families.map((family) => (
                   <li key={family.id}>
@@ -186,7 +191,7 @@ export function AiProviderWorkspace({
                         <span className="font-medium">{family.label}</span>
                         {!family.runtimeImplemented ? (
                           <Badge variant="outline" className="text-xs font-normal">
-                            运行时尚未支持
+                            {t(locale, 'admin.ai.provider.runtimeNotSupported')}
                           </Badge>
                         ) : null}
                       </div>
@@ -200,7 +205,7 @@ export function AiProviderWorkspace({
                 className="w-fit rounded-xl"
                 onClick={() => setCreateWizard(null)}
               >
-                取消
+                {t(locale, 'admin.content.common.cancel')}
               </Button>
             </div>
           ) : (
@@ -229,13 +234,15 @@ export function AiProviderWorkspace({
             <EmptyMedia variant="icon">
               <Plus />
             </EmptyMedia>
-            <EmptyTitle>暂无服务商</EmptyTitle>
+            <EmptyTitle>{t(locale, 'admin.ai.provider.emptyTitle')}</EmptyTitle>
             <EmptyDescription>
-              {familyFilter === 'all' ? '添加第一个系统级 AI 服务商。' : '当前筛选下没有服务商。'}
+              {familyFilter === 'all'
+                ? t(locale, 'admin.ai.provider.emptyDescriptionAll')
+                : t(locale, 'admin.ai.provider.emptyDescriptionFiltered')}
             </EmptyDescription>
           </EmptyHeader>
           <Button className="mt-2 rounded-xl hover:bg-brand-deep" onClick={startCreate}>
-            添加
+            {t(locale, 'admin.ai.provider.add')}
           </Button>
         </Empty>
       ) : (
@@ -279,7 +286,7 @@ export function AiProviderWorkspace({
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium text-foreground">{provider.name}</p>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {formatSummaryMeta(provider, providerModels.length, familyDef.label)}
+                          {formatSummaryMeta(provider, providerModels.length, familyDef.label, locale)}
                         </p>
                       </div>
                     </button>
@@ -288,7 +295,7 @@ export function AiProviderWorkspace({
                       <Switch
                         checked={provider.isEnabled}
                         disabled={isToggling}
-                        aria-label={`${provider.name} 启用状态`}
+                        aria-label={t(locale, 'admin.ai.provider.enabledAria', { name: provider.name })}
                         onCheckedChange={(checked) => {
                           void onToggleProviderEnabled(provider, checked);
                         }}
@@ -300,7 +307,7 @@ export function AiProviderWorkspace({
                         size="icon"
                         className="size-8 rounded-xl"
                         disabled={isTesting || !familyDef.runtimeImplemented}
-                        aria-label="测试连通"
+                        aria-label={t(locale, 'admin.ai.provider.testConnectivityAria')}
                         onClick={(event) => {
                           event.stopPropagation();
                           onTestProvider(provider);
@@ -315,7 +322,7 @@ export function AiProviderWorkspace({
                           size="icon"
                           className={cn('relative size-8 rounded-xl', !hasBalanceConfig && 'text-muted-foreground')}
                           disabled={isQueryingBalance}
-                          aria-label="查询余额"
+                          aria-label={t(locale, 'admin.ai.provider.queryBalanceAria')}
                           onClick={(event) => {
                             event.stopPropagation();
                             onQueryBalance(provider);
@@ -338,7 +345,7 @@ export function AiProviderWorkspace({
                         </p>
                       ) : null}
                       {balanceResult?.supported ? (
-                        <p className="text-muted-foreground">{formatBalance(balanceResult)}</p>
+                        <p className="text-muted-foreground">{formatBalance(balanceResult, locale)}</p>
                       ) : balanceResult && !balanceResult.supported ? (
                         <p className="text-muted-foreground">{balanceResult.message}</p>
                       ) : null}
@@ -354,7 +361,7 @@ export function AiProviderWorkspace({
                         variant="ghost"
                         size="icon"
                         className="size-8 rounded-xl text-destructive hover:text-destructive"
-                        aria-label="删除服务商"
+                        aria-label={t(locale, 'admin.ai.provider.deleteProviderAria')}
                         onClick={() => onDeleteProvider(provider)}
                       >
                         <Trash2 className="size-4" />
@@ -371,14 +378,14 @@ export function AiProviderWorkspace({
 
                     <section className="flex flex-col gap-4 border-t border-border pt-5">
                       <div className="flex items-center justify-between gap-3">
-                        <h4 className="text-base font-medium">模型</h4>
+                        <h4 className="text-base font-medium">{t(locale, 'admin.ai.provider.modelsSection')}</h4>
                         {!isModelFormOpen ? (
                           <Button
                             type="button"
                             size="icon"
                             variant="ghost"
                             className="size-8 rounded-xl"
-                            aria-label="添加模型"
+                            aria-label={t(locale, 'admin.ai.provider.addModelAria')}
                             onClick={() => setModelForm({ providerId: provider.id, mode: 'create' })}
                           >
                             <Plus className="size-4" />
@@ -419,7 +426,9 @@ export function AiProviderWorkspace({
         </ul>
       )}
 
-      {(isProviderSaving || isModelSaving) && <p className="text-sm text-muted-foreground">保存中…</p>}
+      {(isProviderSaving || isModelSaving) && (
+        <p className="text-sm text-muted-foreground">{t(locale, 'admin.content.common.saving')}</p>
+      )}
     </div>
   );
 }

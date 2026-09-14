@@ -3,6 +3,7 @@
 import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
+import { t } from '@gloaming/i18n';
 import type { LlmApiFamily, LlmModel, LlmProvider, ProviderModelCandidate } from '@gloaming/shared/llm';
 import { getDefaultWireVariant, getWireFamilyDefinition } from '@gloaming/shared/llm';
 
@@ -21,6 +22,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { fetchLlmProviderModels, formatAdminLlmApiError } from '@/features/admin/ai/ai-config-api';
+import { useLocale } from '@/lib/locale-context';
 
 export type ModelFormValues = {
   modelId: string;
@@ -68,6 +70,7 @@ function fromModel(model: LlmModel): ModelFormValues {
 }
 
 export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiModelFormProps) {
+  const { locale } = useLocale();
   const familyDef = getWireFamilyDefinition(provider.apiFamily);
   const isEdit = model != null;
   const [values, setValues] = useState<ModelFormValues>(() =>
@@ -111,24 +114,24 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
   function validate(): boolean {
     const next: Partial<Record<keyof ModelFormValues, string>> = {};
     if (!values.modelId.trim()) {
-      next.modelId = '请填写上游 model id';
+      next.modelId = t(locale, 'admin.ai.model.validation.modelIdRequired');
     }
     if (!values.label.trim()) {
-      next.label = '请填写显示名称';
+      next.label = t(locale, 'admin.ai.model.validation.labelRequired');
     }
     if (!wireVariantOptions.some((option) => option.id === values.wireVariant)) {
-      next.wireVariant = '请选择有效的 API 模式';
+      next.wireVariant = t(locale, 'admin.ai.model.validation.wireVariantInvalid');
     }
     if (values.temperature.trim()) {
       const temperature = Number(values.temperature);
       if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2) {
-        next.temperature = '温度需在 0-2 之间';
+        next.temperature = t(locale, 'admin.ai.model.validation.temperatureRange');
       }
     }
     if (values.maxTokens.trim()) {
       const maxTokens = Number(values.maxTokens);
       if (!Number.isInteger(maxTokens) || maxTokens < 1) {
-        next.maxTokens = 'maxTokens 需为正整数';
+        next.maxTokens = t(locale, 'admin.ai.model.validation.maxTokensPositive');
       }
     }
     setErrors(next);
@@ -152,7 +155,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
       <FieldGroup className="gap-4">
         {!isEdit && canFetchModels ? (
           <Field>
-            <FieldLabel htmlFor={`${formId}-platform-model`}>平台模型</FieldLabel>
+            <FieldLabel htmlFor={`${formId}-platform-model`}>{t(locale, 'admin.ai.model.platformModel')}</FieldLabel>
             <div className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
                 <Combobox
@@ -169,11 +172,15 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
                 >
                   <ComboboxInput
                     id={`${formId}-platform-model`}
-                    placeholder={candidates?.length ? '搜索或选择平台模型' : '刷新后选择'}
+                    placeholder={
+                      candidates?.length
+                        ? t(locale, 'admin.ai.model.searchOrSelectPlatform')
+                        : t(locale, 'admin.ai.model.refreshThenSelect')
+                    }
                     className="h-10 w-full rounded-xl"
                   />
                   <ComboboxContent>
-                    <ComboboxEmpty>没有匹配的模型</ComboboxEmpty>
+                    <ComboboxEmpty>{t(locale, 'admin.ai.model.noMatchingModels')}</ComboboxEmpty>
                     <ComboboxList>
                       {(item) => (
                         <ComboboxItem key={item.id} value={item}>
@@ -193,7 +200,11 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
                 size="icon"
                 className="size-10 shrink-0 rounded-xl"
                 disabled={isFetching}
-                aria-label={isFetching ? '正在刷新平台模型列表' : '刷新平台模型列表'}
+                aria-label={
+                  isFetching
+                    ? t(locale, 'admin.ai.model.refreshingPlatformListAria')
+                    : t(locale, 'admin.ai.model.refreshPlatformListAria')
+                }
                 onClick={() => void loadPlatformModels()}
               >
                 {isFetching ? <Spinner /> : <RefreshCw className="size-4" />}
@@ -205,7 +216,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
 
         <div className="grid gap-4 md:grid-cols-2">
           <Field data-invalid={Boolean(errors.label) || undefined}>
-            <FieldLabel htmlFor={`${formId}-label`}>显示名称</FieldLabel>
+            <FieldLabel htmlFor={`${formId}-label`}>{t(locale, 'admin.ai.model.displayName')}</FieldLabel>
             <Input
               id={`${formId}-label`}
               value={values.label}
@@ -214,7 +225,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
             <FieldError>{errors.label}</FieldError>
           </Field>
           <Field data-invalid={Boolean(errors.modelId) || undefined}>
-            <FieldLabel htmlFor={`${formId}-model-id`}>Model ID</FieldLabel>
+            <FieldLabel htmlFor={`${formId}-model-id`}>{t(locale, 'admin.ai.model.modelId')}</FieldLabel>
             <Input
               id={`${formId}-model-id`}
               className="font-mono text-sm"
@@ -226,7 +237,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
         </div>
 
         <Field data-invalid={Boolean(errors.wireVariant) || undefined}>
-          <FieldLabel htmlFor={`${formId}-wire-variant`}>API 模式</FieldLabel>
+          <FieldLabel htmlFor={`${formId}-wire-variant`}>{t(locale, 'admin.ai.model.apiMode')}</FieldLabel>
           <Select
             items={wireVariantOptions.map((option) => ({ value: option.id, label: option.label }))}
             value={values.wireVariant}
@@ -255,7 +266,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor={`${formId}-temperature`}>Temperature</FieldLabel>
+            <FieldLabel htmlFor={`${formId}-temperature`}>{t(locale, 'admin.ai.model.temperature')}</FieldLabel>
             <Input
               id={`${formId}-temperature`}
               value={values.temperature}
@@ -263,7 +274,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor={`${formId}-max-tokens`}>Max tokens</FieldLabel>
+            <FieldLabel htmlFor={`${formId}-max-tokens`}>{t(locale, 'admin.ai.model.maxTokens')}</FieldLabel>
             <Input
               id={`${formId}-max-tokens`}
               value={values.maxTokens}
@@ -273,7 +284,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
         </div>
 
         <Field orientation="horizontal" className="items-center justify-between">
-          <FieldLabel htmlFor={`${formId}-enabled`}>可供调用</FieldLabel>
+          <FieldLabel htmlFor={`${formId}-enabled`}>{t(locale, 'admin.ai.model.callable')}</FieldLabel>
           <Switch
             id={`${formId}-enabled`}
             checked={values.isEnabled}
@@ -284,10 +295,10 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
 
       <div className="flex flex-wrap gap-2">
         <Button type="submit" className="rounded-xl hover:bg-brand-deep">
-          {isEdit ? '保存模型' : '添加模型'}
+          {isEdit ? t(locale, 'admin.ai.model.saveModel') : t(locale, 'admin.ai.model.addModel')}
         </Button>
         <Button type="button" variant="outline" className="rounded-xl" onClick={onCancel}>
-          取消
+          {t(locale, 'admin.content.common.cancel')}
         </Button>
       </div>
     </form>

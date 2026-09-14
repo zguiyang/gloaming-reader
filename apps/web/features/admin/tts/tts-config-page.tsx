@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
 import { type TtsConfigView, type TtsVoicePreset, type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import {
   putTtsConfig,
   testTts,
 } from '@/features/admin/tts/tts-config-api';
+import { useLocale } from '@/lib/locale-context';
 
 type TestRoleValue = 'default' | TtsVoiceRole;
 
@@ -31,20 +33,8 @@ function voiceSelectItems(list: TtsVoicePreset[], current: string) {
   return items;
 }
 
-const TEST_ROLE_ITEMS = [
-  { value: 'default', label: '默认音色' },
-  { value: 'us', label: '美音' },
-  { value: 'uk', label: '英音' },
-] as const;
-
-function playAudioBase64(mimeType: string, audioBase64: string) {
-  const audio = new Audio(`data:${mimeType};base64,${audioBase64}`);
-  void audio.play().catch(() => {
-    toast.error('音频播放失败，请检查浏览器权限');
-  });
-}
-
 function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: TtsVoicePreset[] }) {
+  const { locale } = useLocale();
   const queryClient = useQueryClient();
 
   const [region, setRegion] = useState(config.region);
@@ -66,6 +56,22 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
   const usVoiceItems = useMemo(() => voiceSelectItems(usPresets, usVoice), [usPresets, usVoice]);
   const ukVoiceItems = useMemo(() => voiceSelectItems(ukPresets, ukVoice), [ukPresets, ukVoice]);
 
+  const testRoleItems = useMemo(
+    () => [
+      { value: 'default' as const, label: t(locale, 'admin.tts.test.roleDefaultVoice') },
+      { value: 'us' as const, label: t(locale, 'admin.logs.enum.ttsRole.us') },
+      { value: 'uk' as const, label: t(locale, 'admin.logs.enum.ttsRole.uk') },
+    ],
+    [locale],
+  );
+
+  function playAudioBase64(mimeType: string, audioBase64: string) {
+    const audio = new Audio(`data:${mimeType};base64,${audioBase64}`);
+    void audio.play().catch(() => {
+      toast.error(t(locale, 'admin.tts.audioPlayFailed'));
+    });
+  }
+
   const saveMutation = useMutation({
     mutationFn: () =>
       putTtsConfig({
@@ -79,7 +85,7 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: adminTtsQueryKey.config() });
       setApiKey('');
-      toast.success('已保存语音配置');
+      toast.success(t(locale, 'admin.tts.toast.saved'));
     },
     onError: (error) => {
       toast.error(formatAdminTtsApiError(error));
@@ -95,7 +101,12 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
     onSuccess: (result) => {
       setLastLatencyMs(result.latencyMs);
       playAudioBase64(result.mimeType, result.audioBase64);
-      toast.success(`连通成功 · ${result.voice} · ${result.latencyMs} ms`);
+      toast.success(
+        t(locale, 'admin.tts.toast.testSuccess', {
+          voice: result.voice,
+          latencyMs: result.latencyMs,
+        }),
+      );
     },
     onError: (error) => {
       setLastLatencyMs(null);
@@ -106,28 +117,32 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto flex w-full max-w-3xl flex-col gap-10">
       <header className="flex flex-col gap-2">
-        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">语音配置</h1>
-        <p className="text-sm leading-6 text-muted-foreground">
-          Azure Speech 凭证与默认音色；密钥加密存储，页面只展示脱敏信息。
-        </p>
+        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
+          {t(locale, 'admin.tts.title')}
+        </h1>
+        <p className="text-sm leading-6 text-muted-foreground">{t(locale, 'admin.tts.subtitle')}</p>
       </header>
 
       <section className="rounded-2xl border border-border bg-card px-6 py-6">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-medium text-foreground">服务配置</h2>
+            <h2 className="text-base font-medium text-foreground">{t(locale, 'admin.tts.service.title')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {config.configured
-                ? `已配置 · Key ${config.apiKeyMasked ?? '****'}`
-                : '尚未配置，首次保存需填写 Subscription Key'}
+                ? t(locale, 'admin.tts.service.configured', { masked: config.apiKeyMasked ?? '****' })
+                : t(locale, 'admin.tts.service.notConfigured')}
             </p>
           </div>
-          <Switch checked={isEnabled} onCheckedChange={setIsEnabled} aria-label="启用语音服务" />
+          <Switch
+            checked={isEnabled}
+            onCheckedChange={setIsEnabled}
+            aria-label={t(locale, 'admin.tts.service.enableAria')}
+          />
         </div>
 
         <FieldGroup className="gap-5">
           <Field>
-            <FieldLabel htmlFor="tts-region">Region</FieldLabel>
+            <FieldLabel htmlFor="tts-region">{t(locale, 'admin.tts.fields.region')}</FieldLabel>
             <Input
               id="tts-region"
               value={region}
@@ -138,26 +153,30 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="tts-api-key">Subscription Key</FieldLabel>
+            <FieldLabel htmlFor="tts-api-key">{t(locale, 'admin.tts.fields.subscriptionKey')}</FieldLabel>
             <Input
               id="tts-api-key"
               type="password"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder={config.apiKeySet ? '留空则保留现有密钥' : '必填'}
+              placeholder={
+                config.apiKeySet
+                  ? t(locale, 'admin.tts.fields.apiKeyPlaceholderKeep')
+                  : t(locale, 'admin.tts.fields.apiKeyPlaceholderRequired')
+              }
               autoComplete="new-password"
             />
           </Field>
 
           <Field>
-            <FieldLabel>默认音色</FieldLabel>
+            <FieldLabel>{t(locale, 'admin.tts.fields.defaultVoice')}</FieldLabel>
             <Select
               items={defaultVoiceItems}
               value={defaultVoice}
               onValueChange={(value) => value && setDefaultVoice(value)}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="选择默认音色" />
+                <SelectValue placeholder={t(locale, 'admin.tts.fields.defaultVoicePlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -173,10 +192,10 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
 
           <div className="grid gap-5 md:grid-cols-2">
             <Field>
-              <FieldLabel>美音音色</FieldLabel>
+              <FieldLabel>{t(locale, 'admin.tts.fields.usVoice')}</FieldLabel>
               <Select items={usVoiceItems} value={usVoice} onValueChange={(value) => value && setUsVoice(value)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="选择美音" />
+                  <SelectValue placeholder={t(locale, 'admin.tts.fields.usVoicePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
@@ -191,10 +210,10 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
             </Field>
 
             <Field>
-              <FieldLabel>英音音色</FieldLabel>
+              <FieldLabel>{t(locale, 'admin.tts.fields.ukVoice')}</FieldLabel>
               <Select items={ukVoiceItems} value={ukVoice} onValueChange={(value) => value && setUkVoice(value)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="选择英音" />
+                  <SelectValue placeholder={t(locale, 'admin.tts.fields.ukVoicePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
@@ -217,17 +236,17 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
             disabled={saveMutation.isPending || !region.trim()}
             onClick={() => saveMutation.mutate()}
           >
-            {saveMutation.isPending ? '保存中…' : '保存配置'}
+            {saveMutation.isPending ? t(locale, 'admin.content.common.saving') : t(locale, 'admin.tts.saveConfig')}
           </Button>
         </div>
       </section>
 
       <section className="rounded-2xl border border-border bg-card px-6 py-6">
-        <h2 className="mb-6 text-base font-medium text-foreground">连通性测试</h2>
+        <h2 className="mb-6 text-base font-medium text-foreground">{t(locale, 'admin.tts.test.sectionTitle')}</h2>
 
         <FieldGroup className="gap-5">
           <Field>
-            <FieldLabel htmlFor="tts-test-text">测试文本</FieldLabel>
+            <FieldLabel htmlFor="tts-test-text">{t(locale, 'admin.tts.test.testText')}</FieldLabel>
             <Input
               id="tts-test-text"
               value={testText}
@@ -237,9 +256,9 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
           </Field>
 
           <Field>
-            <FieldLabel>角色</FieldLabel>
+            <FieldLabel>{t(locale, 'admin.tts.test.role')}</FieldLabel>
             <Select
-              items={[...TEST_ROLE_ITEMS]}
+              items={testRoleItems}
               value={testRole}
               onValueChange={(value) => {
                 if (value === 'default' || value === 'us' || value === 'uk') {
@@ -248,11 +267,11 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
               }}
             >
               <SelectTrigger className="w-full md:w-56">
-                <SelectValue placeholder="选择角色" />
+                <SelectValue placeholder={t(locale, 'admin.tts.test.rolePlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {TEST_ROLE_ITEMS.map((item) => (
+                  {testRoleItems.map((item) => (
                     <SelectItem key={item.value} value={item.value}>
                       {item.label}
                     </SelectItem>
@@ -271,10 +290,12 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
             disabled={testMutation.isPending || !testText.trim() || !config.configured}
             onClick={() => testMutation.mutate()}
           >
-            {testMutation.isPending ? '测试中…' : '测试连通'}
+            {testMutation.isPending ? t(locale, 'admin.tts.test.running') : t(locale, 'admin.tts.test.run')}
           </Button>
           {lastLatencyMs != null ? (
-            <p className="text-sm tabular-nums text-muted-foreground">最近耗时 {lastLatencyMs} ms</p>
+            <p className="text-sm tabular-nums text-muted-foreground">
+              {t(locale, 'admin.tts.test.lastLatency', { latencyMs: lastLatencyMs })}
+            </p>
           ) : null}
         </div>
       </section>
@@ -283,6 +304,7 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
 }
 
 export function TtsConfigPage() {
+  const { locale } = useLocale();
   const configQuery = useQuery({
     queryKey: adminTtsQueryKey.config(),
     queryFn: ({ signal }) => getTtsConfig({ signal }),
@@ -310,7 +332,7 @@ export function TtsConfigPage() {
     return (
       <div className="mx-auto w-full max-w-3xl">
         <p className="rounded-2xl border border-border bg-secondary/60 px-5 py-8 text-sm text-destructive md:px-6">
-          {formatAdminTtsApiError(loadError ?? new Error('配置加载失败'))}
+          {formatAdminTtsApiError(loadError ?? new Error(t(locale, 'admin.tts.loadFailed')))}
         </p>
       </div>
     );

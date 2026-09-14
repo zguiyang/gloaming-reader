@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 
+import { type Locale, t } from '@gloaming/i18n';
 import type { AiSettingKey, LlmAppSettingView, LlmModel, LlmProvider } from '@gloaming/shared/llm';
 import { isRuntimeImplemented } from '@gloaming/shared/llm';
 
@@ -18,12 +19,7 @@ import {
   ComboboxLabel,
   ComboboxList,
 } from '@/components/ui/combobox';
-
-const AI_PURPOSE_TITLES: Record<AiSettingKey, string> = {
-  'assist.default_model_id': '阅读助手',
-  'translate.default_model_id': '双语翻译',
-  'metadata-enrich.default_model_id': '元数据回填',
-};
+import { useLocale } from '@/lib/locale-context';
 
 type ModelComboboxItem = {
   id: string;
@@ -47,6 +43,16 @@ type AiPurposePanelProps = {
   onSave: (key: AiSettingKey) => void;
 };
 
+const PURPOSE_TITLE_KEYS: Record<AiSettingKey, string> = {
+  'assist.default_model_id': 'admin.ai.purpose.assist',
+  'translate.default_model_id': 'admin.ai.purpose.translate',
+  'metadata-enrich.default_model_id': 'admin.ai.purpose.metadataEnrich',
+};
+
+function purposeTitle(key: AiSettingKey, locale: Locale): string {
+  return t(locale, PURPOSE_TITLE_KEYS[key]);
+}
+
 function modelRuntimeReady(model: LlmModel, providers: LlmProvider[]): boolean {
   const provider = providers.find((item) => item.id === model.providerId);
   if (!provider?.isEnabled || !model.isEnabled) {
@@ -59,23 +65,24 @@ function resolveHealth(
   setting: LlmAppSettingView,
   models: LlmModel[],
   providers: LlmProvider[],
+  locale: Locale,
 ): { label: string; tone: 'warn' | 'off' } | null {
   if (!setting.modelId) {
-    return { label: '未配置', tone: 'warn' };
+    return { label: t(locale, 'admin.ai.purpose.notConfigured'), tone: 'warn' };
   }
   const model = models.find((item) => item.id === setting.modelId);
   if (!model) {
-    return { label: '模型已删除', tone: 'off' };
+    return { label: t(locale, 'admin.ai.purpose.modelDeleted'), tone: 'off' };
   }
   if (!model.isEnabled) {
-    return { label: '模型已停用', tone: 'warn' };
+    return { label: t(locale, 'admin.ai.purpose.modelDisabled'), tone: 'warn' };
   }
   const provider = providers.find((item) => item.id === model.providerId);
   if (!provider?.isEnabled) {
-    return { label: '服务商已停用', tone: 'warn' };
+    return { label: t(locale, 'admin.ai.purpose.providerDisabled'), tone: 'warn' };
   }
   if (!isRuntimeImplemented(provider.apiFamily)) {
-    return { label: '运行时尚未支持', tone: 'warn' };
+    return { label: t(locale, 'admin.ai.purpose.runtimeNotSupported'), tone: 'warn' };
   }
   return null;
 }
@@ -85,14 +92,16 @@ function buildModelGroups(
   providers: LlmProvider[],
   draftId: string,
   allModels: LlmModel[],
+  locale: Locale,
   fallbackLabel?: string | null,
 ): ModelComboboxGroup[] {
   const providerById = new Map(providers.map((provider) => [provider.id, provider]));
   const grouped = new Map<string, ModelComboboxItem[]>();
+  const unknownProvider = t(locale, 'admin.ai.purpose.unknownProvider');
 
   for (const model of bindableModels) {
     const provider = providerById.get(model.providerId);
-    const providerName = provider?.name ?? '未知服务商';
+    const providerName = provider?.name ?? unknownProvider;
     const item: ModelComboboxItem = {
       id: model.id,
       label: model.label,
@@ -106,7 +115,7 @@ function buildModelGroups(
   const groups = [...grouped.entries()]
     .map(([providerId, items]) => ({
       value: providerId,
-      label: providerById.get(providerId)?.name ?? '未知服务商',
+      label: providerById.get(providerId)?.name ?? unknownProvider,
       items: items.sort((a, b) => a.label.localeCompare(b.label)),
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -114,10 +123,10 @@ function buildModelGroups(
   if (draftId && !bindableModels.some((model) => model.id === draftId)) {
     const model = allModels.find((item) => item.id === draftId);
     const provider = model ? providerById.get(model.providerId) : undefined;
-    const providerName = provider?.name ?? '未知服务商';
+    const providerName = provider?.name ?? unknownProvider;
     groups.unshift({
       value: '__unavailable__',
-      label: '当前绑定（不可用）',
+      label: t(locale, 'admin.ai.purpose.currentBindingUnavailable'),
       items: [
         {
           id: draftId,
@@ -152,6 +161,7 @@ type PurposeModelComboboxProps = {
 };
 
 function PurposeModelCombobox({ id, groups, value, disabled, placeholder, onValueChange }: PurposeModelComboboxProps) {
+  const { locale } = useLocale();
   const selected = value ? findModelItem(groups, value) : null;
 
   return (
@@ -169,7 +179,7 @@ function PurposeModelCombobox({ id, groups, value, disabled, placeholder, onValu
     >
       <ComboboxInput id={id} placeholder={placeholder} className="h-10 w-full rounded-xl" />
       <ComboboxContent>
-        <ComboboxEmpty>没有匹配的模型</ComboboxEmpty>
+        <ComboboxEmpty>{t(locale, 'admin.ai.purpose.noMatchingModels')}</ComboboxEmpty>
         <ComboboxList>
           {(group) => (
             <ComboboxGroup key={group.value} items={group.items}>
@@ -197,6 +207,8 @@ export function AiPurposePanel({
   onDraftChange,
   onSave,
 }: AiPurposePanelProps) {
+  const { locale } = useLocale();
+
   const bindableModels = useMemo(
     () =>
       models
@@ -208,15 +220,16 @@ export function AiPurposePanel({
   return (
     <ul className="overflow-hidden rounded-2xl border border-border bg-secondary/60">
       {settings.map((setting) => {
-        const title = AI_PURPOSE_TITLES[setting.key];
+        const title = purposeTitle(setting.key, locale);
         const draft = draftByKey[setting.key] ?? setting.modelId ?? '';
         const health = resolveHealth(
           { ...setting, modelId: draft || null, healthy: Boolean(draft) },
           models,
           providers,
+          locale,
         );
         const isDirty = draft !== (setting.modelId ?? '');
-        const groups = buildModelGroups(bindableModels, providers, draft, models, setting.modelLabel);
+        const groups = buildModelGroups(bindableModels, providers, draft, models, locale, setting.modelLabel);
 
         return (
           <li
@@ -237,7 +250,7 @@ export function AiPurposePanel({
               ) : null}
               {!setting.runtimeReady && setting.modelId ? (
                 <Badge variant="outline" className="text-xs font-normal">
-                  当前绑定不可运行
+                  {t(locale, 'admin.ai.purpose.bindingNotRunnable')}
                 </Badge>
               ) : null}
             </div>
@@ -248,7 +261,11 @@ export function AiPurposePanel({
                 groups={groups}
                 value={draft}
                 disabled={bindableModels.length === 0 && !draft}
-                placeholder={bindableModels.length === 0 ? '暂无可绑定模型' : '搜索或选择模型'}
+                placeholder={
+                  bindableModels.length === 0
+                    ? t(locale, 'admin.ai.purpose.noBindableModels')
+                    : t(locale, 'admin.ai.purpose.searchOrSelectModel')
+                }
                 onValueChange={(modelId) => onDraftChange(setting.key, modelId)}
               />
               <Button
@@ -256,7 +273,7 @@ export function AiPurposePanel({
                 disabled={!draft || !isDirty}
                 onClick={() => onSave(setting.key)}
               >
-                保存
+                {t(locale, 'admin.content.common.save')}
               </Button>
             </div>
           </li>

@@ -3,6 +3,7 @@
 import { ChevronDown, Globe, Wallet } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
+import { t } from '@gloaming/i18n';
 import type { LlmApiFamily, LlmProvider } from '@gloaming/shared/llm';
 import { getWireFamilyDefinition, providerSupportsOptionalField } from '@gloaming/shared/llm';
 
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export type ProviderFormValues = {
@@ -92,6 +94,7 @@ function CollapsibleSection({
 }
 
 export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel }: AiProviderFormProps) {
+  const { locale } = useLocale();
   const familyDef = getWireFamilyDefinition(apiFamily);
   const isEdit = provider != null;
   const [values, setValues] = useState<ProviderFormValues>(() =>
@@ -109,19 +112,19 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
   function validate(): boolean {
     const next: Partial<Record<keyof ProviderFormValues, string>> = {};
     if (!values.name.trim()) {
-      next.name = '请填写服务商名称';
+      next.name = t(locale, 'admin.ai.provider.validation.nameRequired');
     }
     if (!values.baseUrl.trim()) {
-      next.baseUrl = '请填写 Base URL';
+      next.baseUrl = t(locale, 'admin.ai.provider.validation.baseUrlRequired');
     } else {
       try {
         new URL(values.baseUrl.trim());
       } catch {
-        next.baseUrl = 'Base URL 格式不正确';
+        next.baseUrl = t(locale, 'admin.ai.provider.validation.baseUrlInvalid');
       }
     }
     if (!isEdit && !values.apiKey.trim()) {
-      next.apiKey = '新建时需要填写 API Key';
+      next.apiKey = t(locale, 'admin.ai.provider.validation.apiKeyRequired');
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -144,7 +147,7 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
           <Badge variant="secondary">{familyDef.label}</Badge>
           {!familyDef.runtimeImplemented ? (
             <Badge variant="outline" className="text-xs font-normal">
-              运行时尚未支持
+              {t(locale, 'admin.ai.provider.runtimeNotSupported')}
             </Badge>
           ) : null}
         </div>
@@ -153,7 +156,7 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
       <FieldGroup className="gap-4">
         <div className="grid gap-4 md:grid-cols-2">
           <Field data-invalid={Boolean(errors.name) || undefined}>
-            <FieldLabel htmlFor={`${formId}-name`}>名称</FieldLabel>
+            <FieldLabel htmlFor={`${formId}-name`}>{t(locale, 'admin.ai.provider.form.name')}</FieldLabel>
             <Input
               id={`${formId}-name`}
               value={values.name}
@@ -162,7 +165,7 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
             <FieldError>{errors.name}</FieldError>
           </Field>
           <Field data-invalid={Boolean(errors.baseUrl) || undefined}>
-            <FieldLabel htmlFor={`${formId}-base-url`}>Base URL</FieldLabel>
+            <FieldLabel htmlFor={`${formId}-base-url`}>{t(locale, 'admin.ai.provider.form.baseUrl')}</FieldLabel>
             <Input
               id={`${formId}-base-url`}
               className="font-mono text-sm"
@@ -175,24 +178,26 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
         </div>
 
         <Field data-invalid={Boolean(errors.apiKey) || undefined}>
-          <FieldLabel htmlFor={`${formId}-api-key`}>API Key</FieldLabel>
+          <FieldLabel htmlFor={`${formId}-api-key`}>{t(locale, 'admin.ai.provider.form.apiKey')}</FieldLabel>
           <Input
             id={`${formId}-api-key`}
             type="password"
             autoComplete="off"
             value={values.apiKey}
-            placeholder={isEdit ? '留空表示不修改' : 'sk-…'}
+            placeholder={isEdit ? t(locale, 'admin.ai.provider.form.apiKeyPlaceholderEdit') : 'sk-…'}
             onChange={(e) => setValues((p) => ({ ...p, apiKey: e.target.value }))}
           />
           {isEdit && provider?.apiKeyMasked ? (
-            <p className="text-xs text-muted-foreground">当前：{provider.apiKeyMasked}</p>
+            <p className="text-xs text-muted-foreground">
+              {t(locale, 'admin.ai.provider.form.apiKeyCurrent', { masked: provider.apiKeyMasked })}
+            </p>
           ) : null}
           <FieldError>{errors.apiKey}</FieldError>
         </Field>
 
         {shouldShowThinkingParam ? (
           <Field>
-            <FieldLabel htmlFor={`${formId}-thinking`}>思考参数名（可选）</FieldLabel>
+            <FieldLabel htmlFor={`${formId}-thinking`}>{t(locale, 'admin.ai.provider.form.thinkingParam')}</FieldLabel>
             <Input
               id={`${formId}-thinking`}
               value={values.thinkingParam}
@@ -202,7 +207,12 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
           </Field>
         ) : null}
 
-        <CollapsibleSection icon={Globe} title="代理" open={isProxyOpen} onToggle={() => setIsProxyOpen((o) => !o)}>
+        <CollapsibleSection
+          icon={Globe}
+          title={t(locale, 'admin.ai.provider.form.proxy')}
+          open={isProxyOpen}
+          onToggle={() => setIsProxyOpen((o) => !o)}
+        >
           <Input
             id={`${formId}-proxy`}
             value={values.proxyUrl}
@@ -214,7 +224,7 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
         {shouldShowBalance ? (
           <CollapsibleSection
             icon={Wallet}
-            title="余额查询"
+            title={t(locale, 'admin.ai.provider.form.balanceQuery')}
             open={isBalanceOpen}
             onToggle={() => setIsBalanceOpen((o) => !o)}
           >
@@ -244,11 +254,11 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
 
       <div className="flex flex-wrap gap-2">
         <Button type="submit" className="rounded-xl hover:bg-brand-deep">
-          {isEdit ? '保存' : '添加'}
+          {isEdit ? t(locale, 'admin.ai.provider.form.save') : t(locale, 'admin.ai.provider.form.add')}
         </Button>
         {onCancel ? (
           <Button type="button" variant="outline" className="rounded-xl" onClick={onCancel}>
-            取消
+            {t(locale, 'admin.content.common.cancel')}
           </Button>
         ) : null}
       </div>

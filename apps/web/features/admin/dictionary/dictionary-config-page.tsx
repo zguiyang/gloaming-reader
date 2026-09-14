@@ -2,9 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { TriangleAlert, Volume2 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { type Locale, t } from '@gloaming/i18n';
 import {
   DICTIONARY_PROVIDER_CUSTOM,
   DICTIONARY_PROVIDER_FREE,
@@ -29,13 +30,7 @@ import {
   putDictionaryConfig,
   testDictionary,
 } from '@/features/admin/dictionary/dictionary-config-api';
-
-const SUPPORTED_PROVIDER_OPTIONS = [
-  { value: DICTIONARY_PROVIDER_YOUDAO, label: '有道词典开放接口（中文释义 + 英美发音 · 国内极速推荐）' },
-  { value: DICTIONARY_PROVIDER_FREE, label: 'Free Dictionary API（英文骨架 · 海外直连/需代理）' },
-] as const;
-
-const SUPPORTED_PROVIDER_VALUES = new Set<string>(SUPPORTED_PROVIDER_OPTIONS.map((opt) => opt.value));
+import { useLocale } from '@/lib/locale-context';
 
 type ProviderSelectOption = {
   value: string;
@@ -43,30 +38,41 @@ type ProviderSelectOption = {
   disabled?: boolean;
 };
 
-function providerDisplayName(id: string): string {
+function supportedProviderOptions(locale: Locale): ProviderSelectOption[] {
+  return [
+    { value: DICTIONARY_PROVIDER_YOUDAO, label: t(locale, 'admin.dictionary.provider.youdao') },
+    { value: DICTIONARY_PROVIDER_FREE, label: t(locale, 'admin.dictionary.provider.free') },
+  ];
+}
+
+const SUPPORTED_PROVIDER_VALUES = new Set<string>([DICTIONARY_PROVIDER_YOUDAO, DICTIONARY_PROVIDER_FREE]);
+
+function providerDisplayName(id: string, locale: Locale): string {
   switch (id) {
     case DICTIONARY_PROVIDER_YOUDAO:
-      return '有道词典';
+      return t(locale, 'admin.dictionary.provider.displayYoudao');
     case DICTIONARY_PROVIDER_FREE:
-      return 'Free Dictionary';
+      return t(locale, 'admin.dictionary.provider.displayFree');
     case DICTIONARY_PROVIDER_CUSTOM:
-      return '自定义 Provider';
+      return t(locale, 'admin.dictionary.provider.displayCustom');
     default:
-      return id ? `未知「${id}」` : '未知';
+      return id
+        ? t(locale, 'admin.dictionary.provider.displayUnknown', { id })
+        : t(locale, 'admin.dictionary.provider.displayUnknownPlain');
   }
 }
 
-function legacyUnsupportedProviderOption(providerId: string): ProviderSelectOption {
+function legacyUnsupportedProviderOption(providerId: string, locale: Locale): ProviderSelectOption {
   if (providerId === DICTIONARY_PROVIDER_CUSTOM) {
     return {
       value: DICTIONARY_PROVIDER_CUSTOM,
-      label: '自定义 Provider（暂未实现）',
+      label: t(locale, 'admin.dictionary.provider.customLegacy'),
       disabled: true,
     };
   }
   return {
     value: providerId,
-    label: `未知 Provider「${providerId}」（暂未实现）`,
+    label: t(locale, 'admin.dictionary.provider.unknownLegacy', { id: providerId }),
     disabled: true,
   };
 }
@@ -77,14 +83,8 @@ function isDictionaryTestFallback(result: TestDictionaryResult): boolean {
   return actual.length > 0 && actual !== result.provider;
 }
 
-function playAudioUrl(url: string) {
-  const audio = new Audio(url);
-  void audio.play().catch(() => {
-    toast.error('音频播放失败，请检查浏览器权限或音频链接是否有效');
-  });
-}
-
 function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
+  const { locale } = useLocale();
   const queryClient = useQueryClient();
 
   const [provider, setProvider] = useState(config.provider || DICTIONARY_PROVIDER_YOUDAO);
@@ -102,9 +102,17 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
   const [testResult, setTestResult] = useState<TestDictionaryResult | null>(null);
 
   const isSupportedProvider = SUPPORTED_PROVIDER_VALUES.has(provider);
-  const providerSelectOptions: ProviderSelectOption[] = isSupportedProvider
-    ? [...SUPPORTED_PROVIDER_OPTIONS]
-    : [...SUPPORTED_PROVIDER_OPTIONS, legacyUnsupportedProviderOption(provider)];
+  const providerSelectOptions: ProviderSelectOption[] = useMemo(() => {
+    const options = supportedProviderOptions(locale);
+    return isSupportedProvider ? options : [...options, legacyUnsupportedProviderOption(provider, locale)];
+  }, [locale, isSupportedProvider, provider]);
+
+  function playAudioUrl(url: string) {
+    const audio = new Audio(url);
+    void audio.play().catch(() => {
+      toast.error(t(locale, 'admin.dictionary.audioPlayFailed'));
+    });
+  }
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -120,7 +128,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: adminDictionaryQueryKey.config() });
       setApiKey('');
-      toast.success('已保存词典配置');
+      toast.success(t(locale, 'admin.dictionary.toast.saved'));
     },
     onError: (error) => {
       toast.error(formatAdminDictionaryApiError(error));
@@ -137,10 +145,19 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
       setTestResult(result);
       if (isDictionaryTestFallback(result)) {
         toast.warning(
-          `查词成功（已回退）· ${result.entry.word} · ${result.latencyMs} ms · 实际命中 ${providerDisplayName(result.entry.source?.trim() ?? '')}`,
+          t(locale, 'admin.dictionary.toast.testSuccessFallback', {
+            word: result.entry.word,
+            latencyMs: result.latencyMs,
+            source: providerDisplayName(result.entry.source?.trim() ?? '', locale),
+          }),
         );
       } else {
-        toast.success(`查词成功 · ${result.entry.word} · ${result.latencyMs} ms`);
+        toast.success(
+          t(locale, 'admin.dictionary.toast.testSuccess', {
+            word: result.entry.word,
+            latencyMs: result.latencyMs,
+          }),
+        );
       }
     },
     onError: (error) => {
@@ -158,30 +175,39 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto flex w-full max-w-3xl flex-col gap-10">
       <header className="flex flex-col gap-2">
-        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">词典配置</h1>
-        <p className="text-sm leading-6 text-muted-foreground">
-          可插拔词典服务商与 AI 语境例句增强；支持 Redis/DB 多级缓存与实时连通性测试。
-        </p>
+        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
+          {t(locale, 'admin.dictionary.title')}
+        </h1>
+        <p className="text-sm leading-6 text-muted-foreground">{t(locale, 'admin.dictionary.subtitle')}</p>
       </header>
 
-      {/* 核心服务配置 */}
       <section className="rounded-2xl border border-border bg-card px-6 py-6">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-medium text-foreground">服务基础设置</h2>
+            <h2 className="text-base font-medium text-foreground">{t(locale, 'admin.dictionary.service.title')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {config.configured ? '已配置持久化设置' : '使用系统内置默认配置'}
+              {config.configured
+                ? t(locale, 'admin.dictionary.service.configured')
+                : t(locale, 'admin.dictionary.service.notConfigured')}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">{isEnabled ? '已启用' : '已停用'}</span>
-            <Switch checked={isEnabled} onCheckedChange={setIsEnabled} aria-label="启用词典服务" />
+            <span className="text-xs text-muted-foreground">
+              {isEnabled
+                ? t(locale, 'admin.dictionary.service.enabled')
+                : t(locale, 'admin.dictionary.service.disabled')}
+            </span>
+            <Switch
+              checked={isEnabled}
+              onCheckedChange={setIsEnabled}
+              aria-label={t(locale, 'admin.dictionary.service.enableAria')}
+            />
           </div>
         </div>
 
         <FieldGroup className="gap-5">
           <Field>
-            <FieldLabel>服务提供商 (Provider)</FieldLabel>
+            <FieldLabel>{t(locale, 'admin.dictionary.provider.label')}</FieldLabel>
             <Select
               items={providerSelectOptions}
               value={provider}
@@ -192,7 +218,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               }}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="选择词典服务商" />
+                <SelectValue placeholder={t(locale, 'admin.dictionary.provider.placeholder')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -206,51 +232,57 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
             </Select>
             {!isSupportedProvider ? (
               <p className="mt-2 text-sm text-destructive">
-                当前 Provider「{provider}」尚未实现。请切换到有道或 Free Dictionary 后再保存。
+                {t(locale, 'admin.dictionary.provider.unsupportedHint', { id: provider })}
               </p>
             ) : null}
           </Field>
 
           <div className="flex items-center justify-between rounded-xl border border-border/60 bg-surface-container-lowest p-4">
             <div className="space-y-1">
-              <span className="text-sm font-medium text-foreground">AI 语境与例句智能增强</span>
-              <p className="text-xs text-muted-foreground">
-                查词时结合读者当前阅读作品章节，由 AI 自动回填精准中文释义、原著上下文例句及助读微注。
-              </p>
+              <span className="text-sm font-medium text-foreground">
+                {t(locale, 'admin.dictionary.aiEnrichment.title')}
+              </span>
+              <p className="text-xs text-muted-foreground">{t(locale, 'admin.dictionary.aiEnrichment.description')}</p>
             </div>
             <Switch
               checked={enableAiEnrichment}
               onCheckedChange={setEnableAiEnrichment}
-              aria-label="启用 AI 语境增强"
+              aria-label={t(locale, 'admin.dictionary.aiEnrichment.enableAria')}
             />
           </div>
 
           <Field>
-            <FieldLabel htmlFor="dict-endpoint">自定义 API Endpoint (可选)</FieldLabel>
+            <FieldLabel htmlFor="dict-endpoint">{t(locale, 'admin.dictionary.fields.customEndpoint')}</FieldLabel>
             <Input
               id="dict-endpoint"
               value={customEndpoint}
               onChange={(e) => setCustomEndpoint(e.target.value)}
-              placeholder="默认使用官方公共接口，如需反代或私有部署可在此填写"
+              placeholder={t(locale, 'admin.dictionary.fields.customEndpointPlaceholder')}
               autoComplete="off"
             />
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="dict-api-key">API 鉴权密钥 (可选)</FieldLabel>
+            <FieldLabel htmlFor="dict-api-key">{t(locale, 'admin.dictionary.fields.apiKey')}</FieldLabel>
             <Input
               id="dict-api-key"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={config.apiKeySet ? `已设置密钥 (${config.apiKeyMasked ?? '****'})，留空保留` : '选填'}
+              placeholder={
+                config.apiKeySet
+                  ? t(locale, 'admin.dictionary.fields.apiKeyPlaceholderKeep', {
+                      masked: config.apiKeyMasked ?? '****',
+                    })
+                  : t(locale, 'admin.dictionary.fields.apiKeyPlaceholderOptional')
+              }
               autoComplete="new-password"
             />
           </Field>
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="dict-timeout">请求超时时间 (毫秒)</FieldLabel>
+              <FieldLabel htmlFor="dict-timeout">{t(locale, 'admin.dictionary.fields.timeoutMs')}</FieldLabel>
               <Input
                 id="dict-timeout"
                 type="number"
@@ -263,7 +295,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="dict-ttl">词条缓存天数 (Redis & DB)</FieldLabel>
+              <FieldLabel htmlFor="dict-ttl">{t(locale, 'admin.dictionary.fields.cacheTtlDays')}</FieldLabel>
               <Input
                 id="dict-ttl"
                 type="number"
@@ -282,40 +314,37 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               disabled={saveMutation.isPending || !isSupportedProvider}
               onClick={() => saveMutation.mutate()}
             >
-              {saveMutation.isPending ? '保存中...' : '保存配置'}
+              {saveMutation.isPending ? t(locale, 'admin.dictionary.saving') : t(locale, 'admin.dictionary.saveConfig')}
             </Button>
           </div>
         </FieldGroup>
       </section>
 
-      {/* 连通性测试区 */}
       <section className="rounded-2xl border border-border bg-card px-6 py-6">
         <header className="mb-4">
-          <h2 className="text-base font-medium text-foreground">连通性与查词测试</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            验证词典 Provider 接口连通性、音标与音频解析，以及 AI 中文释义回填流水线。
-          </p>
+          <h2 className="text-base font-medium text-foreground">{t(locale, 'admin.dictionary.test.sectionTitle')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'admin.dictionary.test.sectionDescription')}</p>
         </header>
 
         <div className="space-y-4">
           <Field>
-            <FieldLabel htmlFor="test-word">测试单词</FieldLabel>
+            <FieldLabel htmlFor="test-word">{t(locale, 'admin.dictionary.test.word')}</FieldLabel>
             <Input
               id="test-word"
               value={testWord}
               onChange={(e) => setTestWord(e.target.value)}
-              placeholder="输入英文单词，如 serendipity"
+              placeholder={t(locale, 'admin.dictionary.test.wordPlaceholder')}
             />
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="test-sentence">模拟语境句子 (选填)</FieldLabel>
+            <FieldLabel htmlFor="test-sentence">{t(locale, 'admin.dictionary.test.contextSentence')}</FieldLabel>
             <Textarea
               id="test-sentence"
               value={testContextSentence}
               onChange={(e) => setTestContextSentence(e.target.value)}
               rows={2}
-              placeholder="输入包含该词的例句，用于测试 AI 语境理解与微注"
+              placeholder={t(locale, 'admin.dictionary.test.contextPlaceholder')}
             />
           </Field>
 
@@ -327,7 +356,9 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               disabled={testMutation.isPending || !testWord.trim()}
               onClick={() => testMutation.mutate()}
             >
-              {testMutation.isPending ? '查询测试中...' : '测试查词'}
+              {testMutation.isPending
+                ? t(locale, 'admin.dictionary.test.running')
+                : t(locale, 'admin.dictionary.test.run')}
             </Button>
           </div>
 
@@ -337,33 +368,47 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="font-heading text-xl font-bold text-foreground">{testResult.entry.word}</span>
                   <Badge variant="secondary" className="text-xs">
-                    {providerDisplayName(testConfiguredProvider)}
+                    {providerDisplayName(testConfiguredProvider, locale)}
                   </Badge>
-                  {isTestSourceUnknown ? <span className="text-xs text-muted-foreground">实际来源未知</span> : null}
+                  {isTestSourceUnknown ? (
+                    <span className="text-xs text-muted-foreground">
+                      {t(locale, 'admin.dictionary.test.sourceUnknown')}
+                    </span>
+                  ) : null}
                   {hasTestUsedFallback ? (
                     <Badge variant="outline" className="text-xs text-amber-700 dark:text-amber-400">
-                      实际：{providerDisplayName(testActualSource)}
+                      {t(locale, 'admin.dictionary.test.actualSource', {
+                        source: providerDisplayName(testActualSource, locale),
+                      })}
                     </Badge>
                   ) : null}
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  耗时: <strong className="text-foreground">{testResult.latencyMs} ms</strong>
+                  {t(locale, 'admin.dictionary.test.latency')}{' '}
+                  <strong className="text-foreground">{testResult.latencyMs} ms</strong>
                 </span>
               </div>
 
               {hasTestUsedFallback ? (
                 <Alert className="border-amber-500/40 bg-amber-500/5 text-foreground">
                   <TriangleAlert className="text-amber-600 dark:text-amber-400" />
-                  <AlertTitle>已使用备用 Provider</AlertTitle>
+                  <AlertTitle>{t(locale, 'admin.dictionary.test.fallbackTitle')}</AlertTitle>
                   <AlertDescription className="space-y-1 text-foreground/90">
-                    <p>配置 Provider：{providerDisplayName(testConfiguredProvider)}</p>
-                    <p>实际命中：{providerDisplayName(testActualSource)}</p>
-                    <p>当前 Provider 请求失败，已使用备用 Provider。</p>
+                    <p>
+                      {t(locale, 'admin.dictionary.test.fallbackConfigured', {
+                        source: providerDisplayName(testConfiguredProvider, locale),
+                      })}
+                    </p>
+                    <p>
+                      {t(locale, 'admin.dictionary.test.fallbackActual', {
+                        source: providerDisplayName(testActualSource, locale),
+                      })}
+                    </p>
+                    <p>{t(locale, 'admin.dictionary.test.fallbackDescription')}</p>
                   </AlertDescription>
                 </Alert>
               ) : null}
 
-              {/* Phonetics & Audio */}
               {testResult.entry.phonetics.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                   {testResult.entry.phonetics.map((p, idx) => (
@@ -374,13 +419,13 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
                       {p.role ? (
                         <span className="uppercase text-[10px] text-muted-foreground font-semibold">{p.role}:</span>
                       ) : null}
-                      <span className="font-mono">{p.text || 'IPA'}</span>
+                      <span className="font-mono">{p.text || t(locale, 'admin.dictionary.test.ipaFallback')}</span>
                       {p.audio ? (
                         <button
                           type="button"
                           onClick={() => playAudioUrl(p.audio!)}
                           className="text-primary hover:text-brand-deep cursor-pointer"
-                          title="播放读音"
+                          title={t(locale, 'admin.dictionary.test.playPronunciation')}
                         >
                           <Volume2 className="h-3.5 w-3.5" />
                         </button>
@@ -390,7 +435,6 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
                 </div>
               ) : null}
 
-              {/* Meanings */}
               <div className="space-y-3 pt-2">
                 {testResult.entry.meanings.map((m, mIdx) => (
                   <div key={mIdx} className="space-y-1.5">
@@ -413,15 +457,20 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
                 ))}
               </div>
 
-              {/* Context Examples */}
               {testResult.entry.contextExamples && testResult.entry.contextExamples.length > 0 ? (
                 <div className="rounded-lg border-l-2 border-primary/60 bg-surface-container-high/40 p-3 space-y-1.5">
-                  <span className="text-xs font-semibold text-muted-foreground">语境例句与助读微注：</span>
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {t(locale, 'admin.dictionary.test.contextExamplesHeading')}
+                  </span>
                   {testResult.entry.contextExamples.map((ex, exIdx) => (
                     <div key={exIdx} className="text-xs space-y-1">
                       <p className="italic text-foreground">{ex.sentence}</p>
                       {ex.sentenceZh ? <p className="text-muted-foreground">{ex.sentenceZh}</p> : null}
-                      {ex.note ? <p className="text-primary/90 font-medium">💡 助读微注: {ex.note}</p> : null}
+                      {ex.note ? (
+                        <p className="text-primary/90 font-medium">
+                          {t(locale, 'admin.dictionary.test.readingNote', { note: ex.note })}
+                        </p>
+                      ) : null}
                     </div>
                   ))}
                 </div>

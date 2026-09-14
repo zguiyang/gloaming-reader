@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
 import type { AiSettingKey, LlmApiFamily, LlmModel, LlmProvider, ProviderBalanceResult } from '@gloaming/shared/llm';
 
 import {
@@ -39,6 +40,7 @@ import type { ModelFormValues } from '@/features/admin/ai/ai-model-form';
 import type { ProviderFormValues } from '@/features/admin/ai/ai-provider-form';
 import { AiProviderWorkspace, type ProviderTestResult } from '@/features/admin/ai/ai-provider-workspace';
 import { AiPurposePanel } from '@/features/admin/ai/ai-purpose-panel';
+import { useLocale } from '@/lib/locale-context';
 
 type DeleteTarget = { kind: 'provider'; provider: LlmProvider } | { kind: 'model'; model: LlmModel } | null;
 
@@ -52,6 +54,7 @@ function parseOptionalNumber(raw: string): number | null {
 }
 
 export function AiConfigPage() {
+  const { locale } = useLocale();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'purposes' | 'providers'>('purposes');
 
@@ -103,7 +106,7 @@ export function AiConfigPage() {
       }),
     onSuccess: async () => {
       await invalidateLlmQueries();
-      toast.success('已添加服务商');
+      toast.success(t(locale, 'admin.ai.toast.providerAdded'));
     },
     onError: (error) => {
       toast.error(formatAdminLlmApiError(error));
@@ -126,7 +129,7 @@ export function AiConfigPage() {
     },
     onSuccess: async () => {
       await invalidateLlmQueries();
-      toast.success('已保存服务商');
+      toast.success(t(locale, 'admin.ai.toast.providerSaved'));
     },
     onError: (error) => {
       toast.error(formatAdminLlmApiError(error));
@@ -170,7 +173,7 @@ export function AiConfigPage() {
     },
     onSuccess: async () => {
       await invalidateLlmQueries();
-      toast.success('已添加模型');
+      toast.success(t(locale, 'admin.ai.toast.modelAdded'));
     },
     onError: (error) => {
       toast.error(formatAdminLlmApiError(error));
@@ -197,7 +200,7 @@ export function AiConfigPage() {
     },
     onSuccess: async () => {
       await invalidateLlmQueries();
-      toast.success('已保存模型');
+      toast.success(t(locale, 'admin.ai.toast.modelSaved'));
     },
     onError: (error) => {
       toast.error(formatAdminLlmApiError(error));
@@ -215,7 +218,11 @@ export function AiConfigPage() {
     onSuccess: async (_data, target) => {
       await invalidateLlmQueries();
       setDeleteTarget(null);
-      toast.success(target.kind === 'provider' ? '已删除服务商' : '已删除模型');
+      toast.success(
+        target.kind === 'provider'
+          ? t(locale, 'admin.ai.toast.providerDeleted')
+          : t(locale, 'admin.ai.toast.modelDeleted'),
+      );
     },
     onError: (error) => {
       toast.error(formatAdminLlmApiError(error));
@@ -227,7 +234,7 @@ export function AiConfigPage() {
     mutationFn: async (key: AiSettingKey) => {
       const modelId = purposeDraft[key];
       if (!modelId) {
-        throw new Error('请先选择模型');
+        throw new Error(t(locale, 'admin.ai.errors.selectModelFirst'));
       }
       return putLlmSetting(key, { modelId });
     },
@@ -238,7 +245,7 @@ export function AiConfigPage() {
         delete next[key];
         return next;
       });
-      toast.success('已保存用途默认模型');
+      toast.success(t(locale, 'admin.ai.toast.purposeSaved'));
     },
     onError: (error) => {
       toast.error(formatAdminLlmApiError(error));
@@ -255,9 +262,12 @@ export function AiConfigPage() {
       setTestResult({
         providerId: provider.id,
         ok: true,
-        message: `连通成功 · ${result.modelLabel} · ${result.latencyMs} ms`,
+        message: t(locale, 'admin.ai.test.success', {
+          modelLabel: result.modelLabel,
+          latencyMs: result.latencyMs,
+        }),
       });
-      toast.message('连通测试完成');
+      toast.message(t(locale, 'admin.ai.toast.testComplete'));
     },
     onError: (error, provider) => {
       setTestResult({
@@ -280,7 +290,7 @@ export function AiConfigPage() {
     onSuccess: (result, provider) => {
       setBalanceByProvider((prev) => ({ ...prev, [provider.id]: result }));
       if (result.supported) {
-        toast.message('余额已更新');
+        toast.message(t(locale, 'admin.ai.toast.balanceUpdated'));
       }
     },
     onError: (error, provider) => {
@@ -301,7 +311,7 @@ export function AiConfigPage() {
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto max-w-6xl">
       <div className="min-w-0">
-        <h1 className="font-heading text-3xl font-bold tracking-tight">AI 配置</h1>
+        <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.ai.title')}</h1>
       </div>
 
       <Tabs
@@ -310,8 +320,8 @@ export function AiConfigPage() {
         className="mt-8"
       >
         <AdminSegmentedTabsList>
-          <AdminSegmentedTabsTrigger value="purposes">用途绑定</AdminSegmentedTabsTrigger>
-          <AdminSegmentedTabsTrigger value="providers">服务商与模型</AdminSegmentedTabsTrigger>
+          <AdminSegmentedTabsTrigger value="purposes">{t(locale, 'admin.ai.tabPurposes')}</AdminSegmentedTabsTrigger>
+          <AdminSegmentedTabsTrigger value="providers">{t(locale, 'admin.ai.tabProviders')}</AdminSegmentedTabsTrigger>
         </AdminSegmentedTabsList>
 
         <div className="mt-8">
@@ -374,17 +384,21 @@ export function AiConfigPage() {
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{deleteTarget?.kind === 'provider' ? '删除服务商？' : '删除模型？'}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteTarget?.kind === 'provider'
+                ? t(locale, 'admin.ai.delete.providerTitle')
+                : t(locale, 'admin.ai.delete.modelTitle')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget?.kind === 'provider'
-                ? `将同时移除「${deleteTarget.provider.name}」下的全部模型。若仍被用途引用则无法删除。`
+                ? t(locale, 'admin.ai.delete.providerDescription', { name: deleteTarget.provider.name })
                 : deleteTarget?.kind === 'model'
-                  ? `将移除模型「${deleteTarget.model.label}」。若仍被用途引用则无法删除。`
+                  ? t(locale, 'admin.ai.delete.modelDescription', { label: deleteTarget.model.label })
                   : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t(locale, 'admin.content.common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={deleteMutation.isPending}
@@ -394,7 +408,7 @@ export function AiConfigPage() {
                 }
               }}
             >
-              确认删除
+              {t(locale, 'admin.ai.delete.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
