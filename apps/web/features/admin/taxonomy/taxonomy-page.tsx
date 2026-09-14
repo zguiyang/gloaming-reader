@@ -4,6 +4,7 @@ import { FolderOpen, Link2, PencilLine, Plus, Search, Tags, Trash2 } from 'lucid
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
 import type { TaxonomyItem, TaxonomyKind } from '@gloaming/shared/taxonomy';
 import type { WorkMetadataProvenance } from '@gloaming/shared/works';
 
@@ -25,22 +26,20 @@ import {
   useTaxonomyQuery,
   useUpdateTaxonomy,
 } from '@/features/admin/taxonomy/taxonomy-api';
+import { formatProvenance } from '@/features/admin/works/works-format';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-const KIND_TABS: { value: TaxonomyKind; label: string }[] = [
-  { value: 'tag', label: '标签' },
-  { value: 'category', label: '分类' },
-  { value: 'source', label: '来源' },
-];
-
-const ORIGIN_LABEL: Record<WorkMetadataProvenance, string> = {
-  extracted: '提取',
-  ai: 'AI 生成',
-  manual: '人工',
+const KIND_KEYS: Record<TaxonomyKind, string> = {
+  tag: 'tag',
+  category: 'category',
+  source: 'source',
 };
 
 /** Dimension origin badge — secondary styling, ember stays reserved for busy states. */
 function OriginBadge({ origin }: { origin: WorkMetadataProvenance }) {
+  const { locale } = useLocale();
+
   return (
     <Badge
       variant="outline"
@@ -49,9 +48,19 @@ function OriginBadge({ origin }: { origin: WorkMetadataProvenance }) {
         origin === 'extracted' && 'text-muted-foreground',
       )}
     >
-      {ORIGIN_LABEL[origin]}
+      {formatProvenance(origin, locale)}
     </Badge>
   );
+}
+
+function taxonomyKindLabel(kind: TaxonomyKind, locale: ReturnType<typeof useLocale>['locale']): string {
+  return t(locale, `admin.taxonomy.kind.${KIND_KEYS[kind]}`);
+}
+
+function createButtonLabel(kind: TaxonomyKind, locale: ReturnType<typeof useLocale>['locale']): string {
+  if (kind === 'source') return t(locale, 'admin.taxonomy.panel.createSource');
+  if (kind === 'tag') return t(locale, 'admin.taxonomy.panel.createTag');
+  return t(locale, 'admin.taxonomy.panel.createCategory');
 }
 
 type TaxonomySheetProps = {
@@ -61,6 +70,7 @@ type TaxonomySheetProps = {
 };
 
 function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
+  const { locale } = useLocale();
   const createMutation = useCreateTaxonomy(kind);
   const updateMutation = useUpdateTaxonomy(kind);
   const isEdit = item !== null;
@@ -72,7 +82,7 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
   async function handleSubmit() {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('名称必填');
+      setError(t(locale, 'admin.content.common.nameRequired'));
       return;
     }
     setError(null);
@@ -91,7 +101,7 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
           ...(kind === 'source' ? { matchRule: matchRule.trim() } : {}),
         });
       }
-      toast.success(isEdit ? '已保存' : '已创建');
+      toast.success(isEdit ? t(locale, 'admin.content.common.saved') : t(locale, 'admin.content.common.created'));
       onClose();
     } catch (submitError) {
       setError(formatTaxonomyApiError(submitError));
@@ -103,24 +113,30 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
       <SheetContent side="right" className="w-full max-w-md">
         <SheetHeader>
           <SheetTitle>
-            {isEdit ? '编辑' : '新建'}
-            {kind === 'tag' ? '标签' : kind === 'category' ? '分类' : '来源'}
+            {isEdit ? t(locale, 'admin.taxonomy.sheet.edit') : t(locale, 'admin.taxonomy.sheet.create')}
+            {taxonomyKindLabel(kind, locale)}
           </SheetTitle>
           <SheetDescription>
-            {kind === 'source' ? '来源为系统保留数据，创建后不可删除。' : '创建后即可在作品编辑与 AI 回填中使用。'}
+            {kind === 'source'
+              ? t(locale, 'admin.taxonomy.sheet.sourceDescription')
+              : t(locale, 'admin.taxonomy.sheet.otherDescription')}
           </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-5">
           <FieldGroup>
             <Field data-invalid={Boolean(error) || undefined}>
-              <FieldLabel htmlFor="taxonomy-name">名称</FieldLabel>
+              <FieldLabel htmlFor="taxonomy-name">{t(locale, 'admin.taxonomy.sheet.nameLabel')}</FieldLabel>
               <Input
                 id="taxonomy-name"
                 value={name}
                 maxLength={100}
                 onChange={(event) => setName(event.target.value)}
-                placeholder={kind === 'source' ? '如 Project Gutenberg' : '如 Fantasy'}
+                placeholder={
+                  kind === 'source'
+                    ? t(locale, 'admin.taxonomy.sheet.sourceNamePlaceholder')
+                    : t(locale, 'admin.taxonomy.sheet.genericNamePlaceholder')
+                }
               />
               <FieldError>{error}</FieldError>
             </Field>
@@ -129,15 +145,17 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
           {kind === 'source' ? (
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="taxonomy-match-rule">匹配规则</FieldLabel>
+                <FieldLabel htmlFor="taxonomy-match-rule">
+                  {t(locale, 'admin.taxonomy.sheet.matchRuleLabel')}
+                </FieldLabel>
                 <Input
                   id="taxonomy-match-rule"
                   value={matchRule}
                   maxLength={200}
                   onChange={(event) => setMatchRule(event.target.value)}
-                  placeholder="域名或关键词，如 gutenberg.org"
+                  placeholder={t(locale, 'admin.taxonomy.sheet.matchRulePlaceholder')}
                 />
-                <FieldDescription>EPUB 的 dc:source 包含该规则时自动关联此来源；留空表示不自动匹配。</FieldDescription>
+                <FieldDescription>{t(locale, 'admin.taxonomy.sheet.matchRuleHint')}</FieldDescription>
               </Field>
             </FieldGroup>
           ) : null}
@@ -145,10 +163,14 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
 
         <SheetFooter>
           <Button type="button" variant="ghost" onClick={onClose} disabled={isPending}>
-            取消
+            {t(locale, 'admin.content.common.cancel')}
           </Button>
           <Button type="button" onClick={() => void handleSubmit()} disabled={isPending}>
-            {isPending ? '保存中…' : isEdit ? '保存' : '创建'}
+            {isPending
+              ? t(locale, 'admin.content.common.saving')
+              : isEdit
+                ? t(locale, 'admin.content.common.save')
+                : t(locale, 'admin.taxonomy.sheet.create')}
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -157,6 +179,8 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
 }
 
 function TaxonomyTableSkeleton({ columns }: { columns: number }) {
+  const { locale } = useLocale();
+
   return (
     <Table aria-hidden>
       <TableHeader>
@@ -167,7 +191,7 @@ function TaxonomyTableSkeleton({ columns }: { columns: number }) {
             </TableHead>
           ))}
           <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-right text-muted-foreground">
-            操作
+            {t(locale, 'admin.content.common.actions')}
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -194,6 +218,7 @@ type TaxonomyPanelProps = {
 };
 
 function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
+  const { locale } = useLocale();
   const [search, setSearch] = useState('');
   const [sheetState, setSheetState] = useState<{ open: boolean; item: TaxonomyItem | null }>({
     open: false,
@@ -204,22 +229,27 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
   const cleanupMutation = useCleanupTaxonomy();
   const isSource = kind === 'source';
   const columns = isSource ? 4 : 3;
+  const kindLabel = taxonomyKindLabel(kind, locale);
 
   async function handleDelete(item: TaxonomyItem) {
-    if (!window.confirm(`确定删除「${item.name}」？`)) return;
+    if (!window.confirm(t(locale, 'admin.taxonomy.panel.confirmDelete', { name: item.name }))) return;
     try {
       await deleteMutation.mutateAsync(item.id);
-      toast.success('已删除');
+      toast.success(t(locale, 'admin.content.common.deleted'));
     } catch (error) {
       toast.error(formatTaxonomyApiError(error));
     }
   }
 
   async function handleCleanup() {
-    if (!window.confirm('将删除所有未被任何作品使用的标签/分类，确定继续？')) return;
+    if (!window.confirm(t(locale, 'admin.taxonomy.panel.confirmCleanup'))) return;
     try {
       const result = await cleanupMutation.mutateAsync(kind === 'tag' ? 'tag' : 'category');
-      toast.success(result.deleted > 0 ? `已清理 ${result.deleted} 个未使用项` : '没有未使用的项');
+      toast.success(
+        result.deleted > 0
+          ? t(locale, 'admin.taxonomy.panel.cleanupResult', { count: result.deleted })
+          : t(locale, 'admin.taxonomy.panel.cleanupNone'),
+      );
     } catch (error) {
       toast.error(formatTaxonomyApiError(error));
     }
@@ -236,13 +266,13 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索名称…"
+              placeholder={t(locale, 'admin.taxonomy.panel.searchPlaceholder')}
               className="pl-9"
             />
           </div>
           {!isSource ? (
             <Button type="button" variant="outline" size="sm" onClick={() => void handleCleanup()}>
-              清理未使用
+              {t(locale, 'admin.taxonomy.panel.cleanupUnused')}
             </Button>
           ) : null}
         </div>
@@ -252,7 +282,7 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
           onClick={() => setSheetState({ open: true, item: null })}
         >
           <Plus data-icon="inline-start" />
-          新建{isSource ? '来源' : kind === 'tag' ? '标签' : '分类'}
+          {createButtonLabel(kind, locale)}
         </Button>
       </div>
 
@@ -263,14 +293,16 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
           <EmptyMedia variant="icon">{isSource ? <Link2 /> : kind === 'tag' ? <Tags /> : <FolderOpen />}</EmptyMedia>
           <EmptyHeader>
             <EmptyTitle>
-              {search ? '没有匹配项' : `暂无${isSource ? '来源' : kind === 'tag' ? '标签' : '分类'}`}
+              {search
+                ? t(locale, 'admin.taxonomy.panel.emptyNoMatchSearch')
+                : t(locale, 'admin.taxonomy.panel.emptyNoMatch', { kind: kindLabel })}
             </EmptyTitle>
             <EmptyDescription>
               {search
-                ? '换个关键词试试。'
+                ? t(locale, 'admin.taxonomy.panel.emptySearchHint')
                 : isSource
-                  ? '上传作品后来源会自动创建，也可手动新建。'
-                  : '可通过「新建」按钮手动添加。'}
+                  ? t(locale, 'admin.taxonomy.panel.emptySourceHint')
+                  : t(locale, 'admin.taxonomy.panel.emptyManualHint')}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -279,14 +311,22 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">名称</TableHead>
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">来源</TableHead>
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">关联作品</TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.taxonomy.panel.tableName')}
+                </TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.taxonomy.panel.tableOrigin')}
+                </TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.taxonomy.panel.tableUsage')}
+                </TableHead>
                 {isSource ? (
-                  <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">匹配规则</TableHead>
+                  <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                    {t(locale, 'admin.taxonomy.panel.tableMatchRule')}
+                  </TableHead>
                 ) : null}
                 <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-right text-muted-foreground">
-                  操作
+                  {t(locale, 'admin.content.common.actions')}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -301,9 +341,13 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
                     </TableCell>
                     <TableCell className="px-5 py-3.5">
                       {item.usage > 0 ? (
-                        <Badge variant="secondary">{item.usage} 部</Badge>
+                        <Badge variant="secondary">
+                          {t(locale, 'admin.taxonomy.panel.usageCount', { count: item.usage })}
+                        </Badge>
                       ) : (
-                        <span className="text-sm text-muted-foreground">未使用</span>
+                        <span className="text-sm text-muted-foreground">
+                          {t(locale, 'admin.content.common.unused')}
+                        </span>
                       )}
                     </TableCell>
                     {isSource ? (
@@ -320,7 +364,7 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
                           onClick={() => setSheetState({ open: true, item })}
                         >
                           <PencilLine data-icon="inline-start" />
-                          编辑
+                          {t(locale, 'admin.content.common.edit')}
                         </Button>
                         <Button
                           type="button"
@@ -332,12 +376,16 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
                           )}
                           disabled={!canDelete}
                           title={
-                            !canDelete ? (isSource ? '来源为系统保留，不可删除' : '已被作品使用，不可删除') : undefined
+                            !canDelete
+                              ? isSource
+                                ? t(locale, 'admin.taxonomy.panel.deleteSourceReserved')
+                                : t(locale, 'admin.taxonomy.panel.deleteInUse')
+                              : undefined
                           }
                           onClick={() => void handleDelete(item)}
                         >
                           <Trash2 data-icon="inline-start" />
-                          删除
+                          {t(locale, 'admin.content.common.delete')}
                         </Button>
                       </div>
                     </TableCell>
@@ -357,15 +405,19 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
 }
 
 export function TaxonomyPage() {
+  const { locale } = useLocale();
   const [kind, setKind] = useState<TaxonomyKind>('tag');
+
+  const kindTabs = (Object.keys(KIND_KEYS) as TaxonomyKind[]).map((value) => ({
+    value,
+    label: taxonomyKindLabel(value, locale),
+  }));
 
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto w-full max-w-6xl">
       <div className="mb-8">
-        <h1 className="font-heading text-3xl font-bold tracking-tight">维度管理</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          平台通用的标签 / 分类 / 来源。AI 回填与作品编辑都从这里取数，管理员可增补、改名与清理。
-        </p>
+        <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.taxonomy.page.title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'admin.taxonomy.page.subtitle')}</p>
       </div>
 
       <Tabs
@@ -374,8 +426,8 @@ export function TaxonomyPage() {
           if (value === 'tag' || value === 'category' || value === 'source') setKind(value);
         }}
       >
-        <AdminSegmentedTabsList className="mb-6" aria-label="维度类型">
-          {KIND_TABS.map((tab) => (
+        <AdminSegmentedTabsList className="mb-6" aria-label={t(locale, 'admin.taxonomy.page.kindAria')}>
+          {kindTabs.map((tab) => (
             <AdminSegmentedTabsTrigger key={tab.value} value={tab.value}>
               {tab.label}
             </AdminSegmentedTabsTrigger>

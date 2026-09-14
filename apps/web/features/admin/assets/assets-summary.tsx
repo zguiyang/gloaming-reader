@@ -1,10 +1,12 @@
 'use client';
 
+import { t } from '@gloaming/i18n';
 import type { AssetScanReport } from '@gloaming/shared/assets';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatStorageBytes } from '@/features/admin/assets/assets-format';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type AssetsSummaryProps = {
@@ -45,6 +47,8 @@ function SummaryCard({
 }
 
 export function AssetsSummary({ report, loading }: AssetsSummaryProps) {
+  const { locale } = useLocale();
+
   if (loading || !report) {
     return (
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -68,23 +72,30 @@ export function AssetsSummary({ report, loading }: AssetsSummaryProps) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <SummaryCard
-        title="总占用"
+        title={t(locale, 'admin.assets.summary.totalUsage')}
         primary={formatStorageBytes(report.totalBytes)}
-        secondary={`${report.objectCount} 个对象`}
+        secondary={t(locale, 'admin.assets.summary.objectCount', { count: report.objectCount })}
       />
       <SummaryCard
-        title="正常引用"
+        title={t(locale, 'admin.assets.summary.referenced')}
         primary={formatStorageBytes(report.referencedBytes)}
-        secondary={`${report.referencedObjectCount} 个对象`}
+        secondary={t(locale, 'admin.assets.summary.objectCount', { count: report.referencedObjectCount })}
         tone="success"
       />
       <SummaryCard
-        title="孤儿对象"
+        title={t(locale, 'admin.assets.summary.orphan')}
         primary={formatStorageBytes(report.orphanBytes)}
-        secondary={`${report.orphanCount} 个对象 · 占总容量 ${orphanShare}%`}
+        secondary={t(locale, 'admin.assets.summary.orphanDetail', {
+          count: report.orphanCount,
+          percent: orphanShare,
+        })}
         tone="destructive"
       />
-      <SummaryCard title="缺失对象" primary={`${report.missingCount} 个`} secondary="数据库有引用，对象存储缺失" />
+      <SummaryCard
+        title={t(locale, 'admin.assets.summary.missing')}
+        primary={t(locale, 'admin.assets.summary.missingCount', { count: report.missingCount })}
+        secondary={t(locale, 'admin.assets.summary.missingDescription')}
+      />
     </div>
   );
 }

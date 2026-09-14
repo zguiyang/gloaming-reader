@@ -3,18 +3,23 @@
 import { BookOpen, FileText, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ADMIN_ROUTES } from '@/constants';
 import { formatWorksApiError, useAdminWorkQuery } from '@/features/admin/works/works-api';
 import type { AdminWorkView } from '@/features/admin/works/works-model';
+import { useLocale } from '@/lib/locale-context';
 
 function Cover({ work }: { work: AdminWorkView }) {
+  const { locale } = useLocale();
+
   if (work.coverAssetId) {
     return (
       <img
         src={`/api/assets/${work.coverAssetId}`}
-        alt={`${work.title} 封面`}
+        alt={t(locale, 'admin.works.preview.coverAlt', { title: work.title })}
         className="h-56 w-40 rounded-lg border border-border bg-surface-container-high object-cover shadow-[0_4px_20px_rgba(30,27,25,0.08)] md:h-64 md:w-44"
       />
     );
@@ -49,7 +54,9 @@ function PreviewSkeleton() {
 }
 
 export function WorksPreviewPage({ workId }: { workId: string }) {
+  const { locale } = useLocale();
   const detailQuery = useAdminWorkQuery(workId);
+  const unknownError = t(locale, 'admin.works.edit.unknownError');
 
   if (detailQuery.isPending) {
     return <PreviewSkeleton />;
@@ -59,9 +66,11 @@ export function WorksPreviewPage({ workId }: { workId: string }) {
     return (
       <div className="mx-auto w-full max-w-3xl rounded-2xl border border-border bg-card px-6 py-14 text-center">
         <FileText className="mx-auto size-8 text-muted-foreground" />
-        <p className="mt-3 text-sm text-muted-foreground">无法加载作品：{formatWorksApiError(detailQuery.error)}</p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          {t(locale, 'admin.works.preview.loadFailed', { error: formatWorksApiError(detailQuery.error) })}
+        </p>
         <Button type="button" variant="outline" className="mt-5" onClick={() => void detailQuery.refetch()}>
-          重试
+          {t(locale, 'content.common.retry')}
         </Button>
       </div>
     );
@@ -83,11 +92,10 @@ export function WorksPreviewPage({ workId }: { workId: string }) {
           nativeButton={false}
           render={<Link href={ADMIN_ROUTES.workDetail(work.id)} />}
         >
-          返回编辑
+          {t(locale, 'admin.works.edit.backToEdit')}
         </Button>
       </div>
 
-      {/* 书壳 */}
       <section className="flex flex-col items-center text-center">
         <Cover work={work} />
         <h1 className="mt-8 font-heading text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
@@ -96,7 +104,7 @@ export function WorksPreviewPage({ workId }: { workId: string }) {
         {work.author ? <p className="mt-2 text-base text-muted-foreground">{work.author}</p> : null}
         <p className="mt-4 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           {work.language.toUpperCase()}
-          {hasParts ? <span> · 共 {parts.length} 章</span> : null}
+          {hasParts ? <span>{t(locale, 'admin.works.preview.chapterCount', { count: parts.length })}</span> : null}
         </p>
         {work.tags.length > 0 ? (
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -114,21 +122,26 @@ export function WorksPreviewPage({ workId }: { workId: string }) {
 
       <div className="mx-auto mt-10 h-px w-12 bg-outline/50" aria-hidden />
 
-      {/* 状态：解析中 / 失败 / 无章节 */}
       {!isEpub ? (
-        <p className="mt-10 text-center text-sm text-muted-foreground">文本作品（内部种子），无 EPUB 内容。</p>
+        <p className="mt-10 text-center text-sm text-muted-foreground">
+          {t(locale, 'admin.works.preview.textWorkNoEpub')}
+        </p>
       ) : work.status === 'uploaded' || work.status === 'processing' ? (
         <div className="mt-10 rounded-2xl border border-border bg-card px-6 py-12 text-center">
           <p className="text-sm text-muted-foreground">
-            {work.status === 'uploaded' ? '文件已上传，请在编辑页点击「开始解析」。' : '作品解析中，章节即将生成…'}
+            {work.status === 'uploaded'
+              ? t(locale, 'admin.works.preview.uploadedHint')
+              : t(locale, 'admin.works.preview.processingHint')}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">可返回编辑页查看进度。</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t(locale, 'admin.works.preview.progressHint')}</p>
         </div>
       ) : work.status === 'failed' ? (
         <div className="mt-10 rounded-2xl border border-destructive/30 bg-destructive/5 px-6 py-10 text-center">
           <TriangleAlert className="mx-auto size-8 text-destructive" />
-          <p className="mt-3 font-heading text-base font-semibold text-destructive">解析失败</p>
-          <p className="mt-1 text-sm text-muted-foreground">{String(work.originMeta.lastError ?? '未知错误')}</p>
+          <p className="mt-3 font-heading text-base font-semibold text-destructive">
+            {t(locale, 'admin.works.preview.parseFailedTitle')}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{String(work.originMeta.lastError ?? unknownError)}</p>
           <Button
             type="button"
             variant="outline"
@@ -137,17 +150,16 @@ export function WorksPreviewPage({ workId }: { workId: string }) {
             nativeButton={false}
             render={<Link href={ADMIN_ROUTES.workDetail(work.id)} />}
           >
-            返回编辑重新解析
+            {t(locale, 'admin.works.preview.backToEditReparse')}
           </Button>
         </div>
       ) : !hasParts ? (
         <div className="mt-10 rounded-2xl border border-border bg-card px-6 py-12 text-center">
           <BookOpen className="mx-auto size-8 text-muted-foreground" />
-          <p className="mt-3 font-heading text-base font-medium">暂无章节内容</p>
-          <p className="mt-1 text-sm text-muted-foreground">完成解析后即可在此审查章节。</p>
+          <p className="mt-3 font-heading text-base font-medium">{t(locale, 'admin.works.preview.noChaptersTitle')}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'admin.works.preview.noChaptersHint')}</p>
         </div>
       ) : (
-        /* 章节目录 */
         <section className="mt-10 rounded-2xl border border-border bg-card px-4 py-4 md:px-6">
           <ol className="divide-y divide-border">
             {parts.map((part, index) => (
@@ -160,10 +172,10 @@ export function WorksPreviewPage({ workId }: { workId: string }) {
                     {index + 1}
                   </span>
                   <span className="min-w-0 flex-1 break-words text-base text-foreground transition-colors group-hover:text-brand-deep">
-                    {part.title || `章节 ${index + 1}`}
+                    {part.title || t(locale, 'admin.works.preview.chapterFallback', { index: index + 1 })}
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-                    阅读 →
+                    {t(locale, 'admin.works.preview.readChapter')}
                   </span>
                 </Link>
               </li>

@@ -4,10 +4,13 @@ import { ArrowLeft, ArrowRight, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { ADMIN_ROUTES } from '@/constants';
 import { formatWorksApiError, useAdminWorkQuery } from '@/features/admin/works/works-api';
 import { ReadingPartView } from '@/features/content';
+import { useLocale } from '@/lib/locale-context';
 
 type WorksPreviewPartPageProps = {
   workId: string;
@@ -15,6 +18,7 @@ type WorksPreviewPartPageProps = {
 };
 
 export function WorksPreviewPartPage({ workId, partId }: WorksPreviewPartPageProps) {
+  const { locale } = useLocale();
   const router = useRouter();
   const detailQuery = useAdminWorkQuery(workId);
   const work = detailQuery.data;
@@ -22,7 +26,7 @@ export function WorksPreviewPartPage({ workId, partId }: WorksPreviewPartPagePro
   if (detailQuery.isPending) {
     return (
       <div className="flex h-[100dvh] items-center justify-center bg-background px-6">
-        <p className="text-sm text-muted-foreground">加载章节中…</p>
+        <p className="text-sm text-muted-foreground">{t(locale, 'admin.works.preview.loadingPart')}</p>
       </div>
     );
   }
@@ -31,9 +35,11 @@ export function WorksPreviewPartPage({ workId, partId }: WorksPreviewPartPagePro
     return (
       <div className="flex h-[100dvh] flex-col items-center justify-center gap-4 bg-background px-6 text-center">
         <FileText className="size-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">无法加载作品：{formatWorksApiError(detailQuery.error)}</p>
+        <p className="text-sm text-muted-foreground">
+          {t(locale, 'admin.works.preview.loadFailed', { error: formatWorksApiError(detailQuery.error) })}
+        </p>
         <Button type="button" variant="outline" onClick={() => void detailQuery.refetch()}>
-          重试
+          {t(locale, 'content.common.retry')}
         </Button>
       </div>
     );
@@ -52,9 +58,9 @@ export function WorksPreviewPartPage({ workId, partId }: WorksPreviewPartPagePro
     return (
       <div className="flex h-[100dvh] flex-col items-center justify-center gap-4 bg-background px-6 text-center">
         <FileText className="size-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">该章节不存在。</p>
+        <p className="text-sm text-muted-foreground">{t(locale, 'admin.works.preview.partNotFound')}</p>
         <Button type="button" variant="outline" onClick={() => router.replace(ADMIN_ROUTES.workPreview(workId))}>
-          返回目录
+          {t(locale, 'admin.works.preview.backToToc')}
         </Button>
       </div>
     );
@@ -62,7 +68,6 @@ export function WorksPreviewPartPage({ workId, partId }: WorksPreviewPartPagePro
 
   return (
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background">
-      {/* 常驻极简审查条：返回目录 + 章节位置 + 上一章/下一章 */}
       <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between gap-3 border-b border-border/40 bg-background/90 px-4 backdrop-blur-md md:px-8">
         <Button
           type="button"
@@ -72,11 +77,11 @@ export function WorksPreviewPartPage({ workId, partId }: WorksPreviewPartPagePro
           render={<Link href={ADMIN_ROUTES.workPreview(workId)} />}
         >
           <ArrowLeft data-icon="inline-start" className="size-4" />
-          目录
+          {t(locale, 'admin.works.preview.toc')}
         </Button>
 
         <p className="min-w-0 truncate text-sm text-muted-foreground">
-          第 {currentIndex + 1} / {parts.length} 章
+          {t(locale, 'admin.works.preview.chapterPosition', { current: currentIndex + 1, total: parts.length })}
         </p>
 
         <div className="flex shrink-0 items-center gap-1">
@@ -89,12 +94,12 @@ export function WorksPreviewPartPage({ workId, partId }: WorksPreviewPartPagePro
               render={<Link href={ADMIN_ROUTES.workPreviewPart(workId, prev.id)} />}
             >
               <ArrowLeft data-icon="inline-start" className="size-4" />
-              上一章
+              {t(locale, 'admin.works.preview.prevChapter')}
             </Button>
           ) : (
             <Button type="button" variant="ghost" disabled className="text-muted-foreground/40">
               <ArrowLeft data-icon="inline-start" className="size-4" />
-              上一章
+              {t(locale, 'admin.works.preview.prevChapter')}
             </Button>
           )}
           {next ? (
@@ -105,12 +110,12 @@ export function WorksPreviewPartPage({ workId, partId }: WorksPreviewPartPagePro
               className="text-muted-foreground hover:text-foreground"
               render={<Link href={ADMIN_ROUTES.workPreviewPart(workId, next.id)} />}
             >
-              下一章
+              {t(locale, 'admin.works.preview.nextChapter')}
               <ArrowRight data-icon="inline-end" className="size-4" />
             </Button>
           ) : (
             <Button type="button" variant="ghost" disabled className="text-muted-foreground/40">
-              下一章
+              {t(locale, 'admin.works.preview.nextChapter')}
               <ArrowRight data-icon="inline-end" className="size-4" />
             </Button>
           )}
@@ -118,7 +123,6 @@ export function WorksPreviewPartPage({ workId, partId }: WorksPreviewPartPagePro
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto pt-14">
-        {/* Header already clears 56px; keep body top inset compact. */}
         <ReadingPartView html={current.body} className="pt-4 md:pt-6" />
       </div>
     </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { t } from '@gloaming/i18n';
 import type {
   AssetCategoryFilter,
   AssetObjectListQuery,
@@ -28,6 +29,7 @@ import {
   formatStorageBytes,
   shortObjectKey,
 } from '@/features/admin/assets/assets-format';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type AssetsObjectTableProps = {
@@ -36,20 +38,27 @@ type AssetsObjectTableProps = {
   onQueryChange: (next: AssetObjectListQuery) => void;
 };
 
-const STATUS_TABS: { value: AssetStatusFilter; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: 'referenced', label: '正常' },
-  { value: 'orphan', label: '孤儿' },
-  { value: 'legacy_duplicate_audio', label: '历史重复音频' },
-  { value: 'missing', label: '缺失' },
-];
+const STATUS_FILTER_KEYS: Record<AssetStatusFilter, string> = {
+  all: 'filterAll',
+  referenced: 'filterReferenced',
+  orphan: 'filterOrphan',
+  legacy_duplicate_audio: 'filterLegacyDuplicate',
+  missing: 'filterMissing',
+};
 
-const CATEGORY_TABS: { value: AssetCategoryFilter; label: string }[] = [
-  { value: 'all', label: '全部分类' },
-  ...ASSET_CATEGORIES.map((category) => ({ value: category, label: assetCategoryLabel(category) })),
-];
+const SORT_OPTIONS = [
+  { sortBy: 'size', labelKey: 'sortSize' },
+  { sortBy: 'lastModified', labelKey: 'sortLastModified' },
+  { sortBy: 'key', labelKey: 'sortKey' },
+] as const;
 
-function StatusBadge({ status }: { status: AssetObjectStatus }) {
+function StatusBadge({
+  status,
+  locale,
+}: {
+  status: AssetObjectStatus;
+  locale: ReturnType<typeof useLocale>['locale'];
+}) {
   return (
     <Badge
       variant={
@@ -64,24 +73,35 @@ function StatusBadge({ status }: { status: AssetObjectStatus }) {
         status === 'legacy_duplicate_audio' && 'border-amber-500/40 text-amber-700 dark:text-amber-400',
       )}
     >
-      {assetStatusLabel(status)}
+      {assetStatusLabel(status, locale)}
     </Badge>
   );
 }
 
 export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObjectTableProps) {
+  const { locale } = useLocale();
   const { data, isLoading, isFetching, isError, error } = useScanObjectsQuery(scanId, query);
   const totalPages = data?.pagination.totalPages ?? 0;
+
+  const statusTabs = (Object.keys(STATUS_FILTER_KEYS) as AssetStatusFilter[]).map((value) => ({
+    value,
+    label: t(locale, `admin.assets.table.${STATUS_FILTER_KEYS[value]}`),
+  }));
+
+  const categoryTabs: { value: AssetCategoryFilter; label: string }[] = [
+    { value: 'all', label: t(locale, 'admin.assets.table.filterAllCategories') },
+    ...ASSET_CATEGORIES.map((category) => ({ value: category, label: assetCategoryLabel(category, locale) })),
+  ];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>对象明细</CardTitle>
-        <CardDescription>可按状态与分类筛选，默认按大小倒序</CardDescription>
+        <CardTitle>{t(locale, 'admin.assets.table.title')}</CardTitle>
+        <CardDescription>{t(locale, 'admin.assets.table.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
-          {STATUS_TABS.map((tab) => (
+          {statusTabs.map((tab) => (
             <Button
               key={tab.value}
               size="sm"
@@ -93,7 +113,7 @@ export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObject
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          {CATEGORY_TABS.map((tab) => (
+          {categoryTabs.map((tab) => (
             <Button
               key={tab.value}
               size="sm"
@@ -105,14 +125,9 @@ export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObject
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          {(
-            [
-              { sortBy: 'size', label: '大小' },
-              { sortBy: 'lastModified', label: '修改时间' },
-              { sortBy: 'key', label: 'Key' },
-            ] as const
-          ).map((option) => {
+          {SORT_OPTIONS.map((option) => {
             const isActive = query.sortBy === option.sortBy;
+            const direction = isActive ? (query.sortOrder === 'desc' ? '↓' : '↑') : '';
             return (
               <Button
                 key={option.sortBy}
@@ -127,25 +142,30 @@ export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObject
                   })
                 }
               >
-                排序：{option.label} {isActive ? (query.sortOrder === 'desc' ? '↓' : '↑') : ''}
+                {t(locale, 'admin.assets.table.sortPrefix', {
+                  label: t(locale, `admin.assets.table.${option.labelKey}`),
+                  direction,
+                })}
               </Button>
             );
           })}
         </div>
 
         {isError ? (
-          <p className="text-destructive text-sm">{error instanceof Error ? error.message : '加载失败'}</p>
+          <p className="text-destructive text-sm">
+            {error instanceof Error ? error.message : t(locale, 'admin.assets.table.loadFailed')}
+          </p>
         ) : null}
 
         <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>对象 Key</TableHead>
-                <TableHead>类型</TableHead>
-                <TableHead>大小</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>最后修改</TableHead>
+                <TableHead>{t(locale, 'admin.assets.table.colKey')}</TableHead>
+                <TableHead>{t(locale, 'admin.assets.table.colType')}</TableHead>
+                <TableHead>{t(locale, 'admin.assets.table.colSize')}</TableHead>
+                <TableHead>{t(locale, 'admin.assets.table.colStatus')}</TableHead>
+                <TableHead>{t(locale, 'admin.assets.table.colLastModified')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -161,7 +181,7 @@ export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObject
               {!isLoading && data?.items.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-muted-foreground text-center">
-                    没有匹配的对象
+                    {t(locale, 'admin.assets.table.empty')}
                   </TableCell>
                 </TableRow>
               ) : null}
@@ -170,13 +190,13 @@ export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObject
                   <TableCell className="max-w-[28rem] truncate font-medium" title={item.key}>
                     {shortObjectKey(item.key)}
                   </TableCell>
-                  <TableCell>{assetCategoryLabel(item.category)}</TableCell>
+                  <TableCell>{assetCategoryLabel(item.category, locale)}</TableCell>
                   <TableCell className="tabular-nums">{formatStorageBytes(item.size)}</TableCell>
                   <TableCell>
-                    <StatusBadge status={item.status} />
+                    <StatusBadge status={item.status} locale={locale} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {item.lastModified ? formatMeasuredAt(item.lastModified) : '—'}
+                    {item.lastModified ? formatMeasuredAt(item.lastModified, locale) : '—'}
                   </TableCell>
                 </TableRow>
               ))}

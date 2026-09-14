@@ -1,5 +1,6 @@
 'use client';
 
+import { t } from '@gloaming/i18n';
 import type { AssetScanReport } from '@gloaming/shared/assets';
 
 import {
@@ -13,6 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { formatStorageBytes } from '@/features/admin/assets/assets-format';
+import { useLocale } from '@/lib/locale-context';
 
 type AssetsCleanupDialogProps = {
   open: boolean;
@@ -23,23 +25,31 @@ type AssetsCleanupDialogProps = {
 };
 
 export function AssetsCleanupDialog({ open, onOpenChange, report, pending, onConfirm }: AssetsCleanupDialogProps) {
+  const { locale } = useLocale();
+  const [intro, stats, ...rest] = t(locale, 'admin.assets.cleanup.confirmDescription', {
+    count: report.orphanCount,
+    bytes: formatStorageBytes(report.orphanBytes),
+  }).split('\n');
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>确认清理孤儿对象？</AlertDialogTitle>
+          <AlertDialogTitle>{t(locale, 'admin.assets.cleanup.confirmTitle')}</AlertDialogTitle>
           <AlertDialogDescription>
-            即将删除：
+            {intro}
             <br />
-            <strong className="text-foreground">
-              {report.orphanCount} 个对象 · {formatStorageBytes(report.orphanBytes)}
-            </strong>
-            <br />
-            这些对象当前没有数据库引用，删除后无法恢复。确认后立即创建后台任务，可在本页查看进度。清理前服务端会再次对账，已重新被引用的对象会跳过。
+            <strong className="text-foreground">{stats}</strong>
+            {rest.length > 0 ? (
+              <>
+                <br />
+                {rest.join('\n')}
+              </>
+            ) : null}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>取消</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>{t(locale, 'admin.content.common.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             disabled={pending || report.orphanCount === 0}
             variant="destructive"
@@ -48,7 +58,7 @@ export function AssetsCleanupDialog({ open, onOpenChange, report, pending, onCon
               onConfirm();
             }}
           >
-            {pending ? '提交中…' : '确认清理'}
+            {pending ? t(locale, 'admin.assets.cleanup.submitting') : t(locale, 'admin.assets.cleanup.confirmAction')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

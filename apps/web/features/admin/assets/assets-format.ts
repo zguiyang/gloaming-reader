@@ -1,3 +1,4 @@
+import { type Locale, t } from '@gloaming/i18n';
 import type {
   AssetCategory,
   AssetCategorySummary,
@@ -5,27 +6,27 @@ import type {
   AssetObjectStatus,
 } from '@gloaming/shared/assets';
 
-const CATEGORY_LABELS: Record<AssetCategory, string> = {
-  audio: '音频',
-  cover: '封面',
-  image: '插图',
-  origin: '原始文件',
-  other: '其他',
+const CATEGORY_KEYS: Record<AssetCategory, string> = {
+  audio: 'audio',
+  cover: 'cover',
+  image: 'image',
+  origin: 'origin',
+  other: 'other',
 };
 
-const STATUS_LABELS: Record<AssetObjectStatus, string> = {
-  referenced: '正常',
-  orphan: '孤儿',
-  missing: '缺失',
-  legacy_duplicate_audio: '历史重复音频',
+const STATUS_KEYS: Record<AssetObjectStatus, string> = {
+  referenced: 'referenced',
+  orphan: 'orphan',
+  missing: 'missing',
+  legacy_duplicate_audio: 'legacyDuplicateAudio',
 };
 
-const CLEANUP_JOB_STATUS_LABELS: Record<AssetCleanupJobStatus, string> = {
-  queued: '排队中',
-  running: '清理中',
-  completed: '已完成',
-  partial: '部分失败',
-  failed: '失败',
+const CLEANUP_JOB_STATUS_KEYS: Record<AssetCleanupJobStatus, string> = {
+  queued: 'queued',
+  running: 'running',
+  completed: 'completed',
+  partial: 'partial',
+  failed: 'failed',
 };
 
 const CHART_COLORS = [
@@ -36,23 +37,27 @@ const CHART_COLORS = [
   'var(--chart-5)',
 ] as const;
 
-export function assetCategoryLabel(category: AssetCategory): string {
-  return CATEGORY_LABELS[category];
+export function assetCategoryLabel(category: AssetCategory, locale: Locale): string {
+  return t(locale, `admin.assets.enum.category.${CATEGORY_KEYS[category]}`);
 }
 
-export function assetStatusLabel(status: AssetObjectStatus): string {
-  return STATUS_LABELS[status];
+export function assetStatusLabel(status: AssetObjectStatus, locale: Locale): string {
+  return t(locale, `admin.assets.enum.status.${STATUS_KEYS[status]}`);
 }
 
-export function assetCleanupJobStatusLabel(status: AssetCleanupJobStatus): string {
-  return CLEANUP_JOB_STATUS_LABELS[status];
+export function assetCleanupJobStatusLabel(status: AssetCleanupJobStatus, locale: Locale): string {
+  return t(locale, `admin.assets.enum.cleanupJobStatus.${CLEANUP_JOB_STATUS_KEYS[status]}`);
 }
 
 /** Compact duration for admin scan metadata. */
-export function formatDurationMs(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return '0 ms';
-  if (ms < 1000) return `${Math.round(ms)} ms`;
-  return `${(ms / 1000).toFixed(1)} s`;
+export function formatDurationMs(ms: number, locale: Locale): string {
+  if (!Number.isFinite(ms) || ms < 0) {
+    return t(locale, 'admin.assets.format.durationZero');
+  }
+  if (ms < 1000) {
+    return t(locale, 'admin.assets.format.durationMs', { ms: Math.round(ms) });
+  }
+  return t(locale, 'admin.assets.format.durationSeconds', { seconds: (ms / 1000).toFixed(1) });
 }
 
 /** Human-readable byte size for admin storage summaries. */
@@ -76,10 +81,10 @@ export function shortObjectKey(key: string): string {
   return `…/${parts.slice(-2).join('/')}`;
 }
 
-export function formatMeasuredAt(value: string | Date): string {
+export function formatMeasuredAt(value: string | Date, locale: Locale): string {
   const date = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -89,12 +94,12 @@ export function formatMeasuredAt(value: string | Date): string {
   }).format(date);
 }
 
-export function buildCategoryChartData(categories: AssetCategorySummary[]) {
+export function buildCategoryChartData(categories: AssetCategorySummary[], locale: Locale) {
   return categories
     .filter((entry) => entry.bytes > 0)
     .map((entry, index) => ({
       category: entry.category,
-      label: assetCategoryLabel(entry.category),
+      label: assetCategoryLabel(entry.category, locale),
       bytes: entry.bytes,
       objectCount: entry.objectCount,
       fill: CHART_COLORS[index % CHART_COLORS.length]!,

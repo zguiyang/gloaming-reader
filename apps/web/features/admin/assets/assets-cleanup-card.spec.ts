@@ -1,11 +1,19 @@
 // @vitest-environment happy-dom
-import { act, createElement } from 'react';
+import { act, createElement, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import type { AssetCleanupJob } from '@gloaming/shared/assets';
 
+import { LocaleProvider } from '@/lib/locale-context';
+
 import { AssetsCleanupCard, cleanupProgressPercent } from './assets-cleanup-card';
+
+function withZhLocale(node: ReactElement) {
+  // LocaleProvider requires children in props for strict typing; eslint prefers the createElement arity form.
+  // eslint-disable-next-line react/no-children-prop
+  return createElement(LocaleProvider, { locale: 'zh-CN', children: node });
+}
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -41,14 +49,14 @@ async function renderCard(job: AssetCleanupJob, extra: { onRetry?: () => void; r
   document.body.appendChild(container);
   const root = createRoot(container);
   await act(async () => {
-    root.render(createElement(AssetsCleanupCard, { job, ...extra }));
+    root.render(withZhLocale(createElement(AssetsCleanupCard, { job, ...extra })));
   });
   return {
     container,
     root,
     async rerender(nextJob: AssetCleanupJob, nextExtra: { onRetry?: () => void; retrying?: boolean } = extra) {
       await act(async () => {
-        root.render(createElement(AssetsCleanupCard, { job: nextJob, ...nextExtra }));
+        root.render(withZhLocale(createElement(AssetsCleanupCard, { job: nextJob, ...nextExtra })));
       });
     },
     cleanup() {

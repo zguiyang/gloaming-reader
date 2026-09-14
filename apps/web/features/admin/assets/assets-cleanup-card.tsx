@@ -1,5 +1,6 @@
 'use client';
 
+import { t } from '@gloaming/i18n';
 import type { AssetCleanupJob } from '@gloaming/shared/assets';
 
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Spinner } from '@/components/ui/spinner';
 import { canRetryCleanupJob } from '@/features/admin/assets/assets-cleanup-state';
 import { assetCleanupJobStatusLabel, formatStorageBytes, shortObjectKey } from '@/features/admin/assets/assets-format';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type AssetsCleanupCardProps = {
@@ -32,6 +34,7 @@ function hasLeftoverUncleanedObjects(job: AssetCleanupJob): boolean {
 }
 
 export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsCleanupCardProps) {
+  const { locale } = useLocale();
   const percent = cleanupProgressPercent(job);
   const leftoverFailures = leftoverFailureCount(job);
   const canRetry = canRetryCleanupJob(job) && Boolean(onRetry);
@@ -41,7 +44,7 @@ export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsClea
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>孤儿对象清理</CardTitle>
+          <CardTitle>{t(locale, 'admin.assets.cleanup.title')}</CardTitle>
           <Badge
             variant={
               job.status === 'partial' || job.status === 'failed'
@@ -51,11 +54,15 @@ export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsClea
                   : 'outline'
             }
           >
-            {assetCleanupJobStatusLabel(job.status)}
+            {assetCleanupJobStatusLabel(job.status, locale)}
           </Badge>
         </div>
         <CardDescription>
-          {job.processedCount} / {job.requestedCount} · 已释放 {formatStorageBytes(job.deletedBytes)}
+          {t(locale, 'admin.assets.cleanup.progress', {
+            processed: job.processedCount,
+            requested: job.requestedCount,
+            bytes: formatStorageBytes(job.deletedBytes),
+          })}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -65,7 +72,7 @@ export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsClea
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={percent}
-          aria-label="清理进度"
+          aria-label={t(locale, 'admin.assets.cleanup.progressAria')}
         >
           <div
             className={cn('bg-primary h-full transition-[width]', job.status === 'failed' && 'bg-destructive')}
@@ -73,15 +80,22 @@ export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsClea
           />
         </div>
         <p className="text-muted-foreground text-sm">
-          删除 {job.deletedCount} · 跳过 {job.skippedReferencedCount} · 失败 {job.failedCount}
+          {t(locale, 'admin.assets.cleanup.stats', {
+            deleted: job.deletedCount,
+            skipped: job.skippedReferencedCount,
+            failed: job.failedCount,
+          })}
         </p>
         {job.error ? <p className="text-destructive text-sm">{job.error}</p> : null}
         {job.status === 'partial' && hasLeftoverUncleanedObjects(job) ? (
-          <p className="text-destructive text-sm">任务执行结束，但仍有未清理对象</p>
+          <p className="text-destructive text-sm">{t(locale, 'admin.assets.cleanup.leftoverUncleaned')}</p>
         ) : null}
         {job.verification?.ran ? (
           <p className="text-muted-foreground text-sm">
-            清理后仍有孤儿 {job.verification.orphanCount ?? 0} · 缺失 {job.verification.missingCount ?? 0}
+            {t(locale, 'admin.assets.cleanup.afterCleanup', {
+              orphan: job.verification.orphanCount ?? 0,
+              missing: job.verification.missingCount ?? 0,
+            })}
           </p>
         ) : null}
         {job.failedSample.length > 0 ? (
@@ -94,15 +108,21 @@ export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsClea
           </ul>
         ) : null}
         {leftoverFailures > 0 ? (
-          <p className="text-muted-foreground text-sm">还有 {leftoverFailures} 个失败对象未展开</p>
+          <p className="text-muted-foreground text-sm">
+            {t(locale, 'admin.assets.cleanup.leftoverFailures', { count: leftoverFailures })}
+          </p>
         ) : null}
         {canRetry ? (
           <Button variant="outline" disabled={retrying} onClick={onRetry}>
             {retrying ? <Spinner data-icon="inline-start" /> : null}
-            {retrying ? '重试提交中…' : '重试失败对象'}
+            {retrying
+              ? t(locale, 'admin.assets.cleanup.retrySubmitting')
+              : t(locale, 'admin.assets.cleanup.retryFailed')}
           </Button>
         ) : null}
-        {isInFlight ? <p className="text-muted-foreground text-sm">任务在后台执行，可继续浏览本页。</p> : null}
+        {isInFlight ? (
+          <p className="text-muted-foreground text-sm">{t(locale, 'admin.assets.cleanup.inFlightHint')}</p>
+        ) : null}
       </CardContent>
     </Card>
   );

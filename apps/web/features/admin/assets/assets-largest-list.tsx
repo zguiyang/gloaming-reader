@@ -1,30 +1,35 @@
 'use client';
 
+import { t } from '@gloaming/i18n';
 import type { AssetObjectItem } from '@gloaming/shared/assets';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   assetCategoryLabel,
+  assetStatusLabel,
   formatMeasuredAt,
   formatStorageBytes,
   shortObjectKey,
 } from '@/features/admin/assets/assets-format';
+import { useLocale } from '@/lib/locale-context';
 
 type AssetsLargestListProps = {
   objects: AssetObjectItem[];
 };
 
 export function AssetsLargestList({ objects }: AssetsLargestListProps) {
+  const { locale } = useLocale();
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>最大对象排行</CardTitle>
-        <CardDescription>按文件大小倒序，便于发现异常大对象</CardDescription>
+        <CardTitle>{t(locale, 'admin.assets.largest.title')}</CardTitle>
+        <CardDescription>{t(locale, 'admin.assets.largest.description')}</CardDescription>
       </CardHeader>
       <CardContent>
         {objects.length === 0 ? (
-          <p className="text-muted-foreground text-sm">暂无对象</p>
+          <p className="text-muted-foreground text-sm">{t(locale, 'admin.assets.largest.empty')}</p>
         ) : (
           <ol className="space-y-3">
             {objects.map((object, index) => (
@@ -35,9 +40,11 @@ export function AssetsLargestList({ objects }: AssetsLargestListProps) {
                     {shortObjectKey(object.key)}
                   </p>
                   <div className="text-muted-foreground flex flex-wrap items-center gap-2">
-                    <span>{assetCategoryLabel(object.category)}</span>
-                    {object.lastModified ? <span>{formatMeasuredAt(object.lastModified)}</span> : null}
-                    {object.status === 'orphan' ? <Badge variant="destructive">孤儿</Badge> : null}
+                    <span>{assetCategoryLabel(object.category, locale)}</span>
+                    {object.lastModified ? <span>{formatMeasuredAt(object.lastModified, locale)}</span> : null}
+                    {object.status === 'orphan' ? (
+                      <Badge variant="destructive">{assetStatusLabel('orphan', locale)}</Badge>
+                    ) : null}
                   </div>
                 </div>
                 <span className="shrink-0 font-medium tabular-nums">{formatStorageBytes(object.size)}</span>

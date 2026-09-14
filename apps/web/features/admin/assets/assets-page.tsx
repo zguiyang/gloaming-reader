@@ -4,6 +4,7 @@ import { HardDrive, RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
+import { t } from '@gloaming/i18n';
 import type { AssetCleanupJobStatus, AssetObjectListQuery, AssetScanReport } from '@gloaming/shared/assets';
 import { ASSET_OBJECT_DEFAULT_PAGE_SIZE, DEFAULT_ASSET_OBJECT_SORT_BY } from '@gloaming/shared/assets';
 import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
@@ -35,6 +36,7 @@ import { formatDurationMs, formatMeasuredAt, formatStorageBytes } from '@/featur
 import { AssetsLargestList } from '@/features/admin/assets/assets-largest-list';
 import { AssetsObjectTable } from '@/features/admin/assets/assets-object-table';
 import { AssetsSummary } from '@/features/admin/assets/assets-summary';
+import { useLocale } from '@/lib/locale-context';
 
 const AssetsChart = dynamic(() => import('@/features/admin/assets/assets-chart').then((module) => module.AssetsChart), {
   ssr: false,
@@ -61,6 +63,7 @@ const INITIAL_OBJECT_QUERY: AssetObjectListQuery = {
 };
 
 export function AssetsPage() {
+  const { locale } = useLocale();
   const scanMutation = useScanAssetsMutation();
   const enqueueMutation = useEnqueueOrphanCleanupMutation();
   const retryMutation = useRetryCleanupJobMutation();
@@ -95,7 +98,7 @@ export function AssetsPage() {
       setReport(next);
       setObjectQuery(INITIAL_OBJECT_QUERY);
     } catch (error) {
-      setScanError(formatAssetsApiError(error) || '无法读取对象存储，请检查 S3 配置或网络连接。');
+      setScanError(formatAssetsApiError(error) || t(locale, 'admin.assets.page.scanStorageFailed'));
     }
   }
 
@@ -117,7 +120,7 @@ export function AssetsPage() {
       const accepted = await enqueueMutation.mutateAsync(report.scanId);
       writeStoredCleanupJob({ jobId: accepted.jobId, scanId: accepted.scanId });
     } catch (error) {
-      setScanError(formatAssetsApiError(error) || '无法创建清理任务，请重新扫描后再试。');
+      setScanError(formatAssetsApiError(error) || t(locale, 'admin.assets.page.cleanupEnqueueFailed'));
     }
   }
 
@@ -128,7 +131,7 @@ export function AssetsPage() {
       const accepted = await retryMutation.mutateAsync(job.jobId);
       writeStoredCleanupJob({ jobId: accepted.jobId, scanId: accepted.scanId });
     } catch (error) {
-      setScanError(formatAssetsApiError(error) || '无法重试清理任务。');
+      setScanError(formatAssetsApiError(error) || t(locale, 'admin.assets.page.cleanupRetryFailed'));
     }
   }
 
@@ -136,24 +139,29 @@ export function AssetsPage() {
     <div className="flex flex-col gap-6" data-page-status={pageStatus}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">资产管理</h1>
-          <p className="text-muted-foreground text-sm">对象存储扫描占用（非供应商账单）。用于发现大对象与孤儿对象。</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t(locale, 'admin.assets.page.title')}</h1>
+          <p className="text-muted-foreground text-sm">{t(locale, 'admin.assets.page.subtitle')}</p>
           {report ? (
             <p className="text-muted-foreground text-sm">
-              最近扫描：{formatMeasuredAt(report.measuredAt)} · {report.scanComplete ? '已完成' : '未完成'} ·{' '}
-              {formatDurationMs(report.durationMs)}
+              {t(locale, 'admin.assets.page.lastScan', {
+                time: formatMeasuredAt(report.measuredAt, locale),
+                status: report.scanComplete
+                  ? t(locale, 'admin.assets.page.scanComplete')
+                  : t(locale, 'admin.assets.page.scanIncomplete'),
+                duration: formatDurationMs(report.durationMs, locale),
+              })}
             </p>
           ) : null}
         </div>
         <Button onClick={() => void runScan()} disabled={isScanning}>
           {isScanning ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
-          {isScanning ? '扫描中…' : '立即扫描'}
+          {isScanning ? t(locale, 'admin.assets.page.scanning') : t(locale, 'admin.assets.page.scanNow')}
         </Button>
       </div>
 
       {scanError ? (
         <Alert variant="destructive">
-          <AlertTitle>操作失败</AlertTitle>
+          <AlertTitle>{t(locale, 'admin.assets.page.operationFailed')}</AlertTitle>
           <AlertDescription>{scanError}</AlertDescription>
         </Alert>
       ) : null}
@@ -168,10 +176,10 @@ export function AssetsPage() {
             <EmptyMedia variant="icon">
               <HardDrive />
             </EmptyMedia>
-            <EmptyTitle>尚未进行资产扫描</EmptyTitle>
-            <EmptyDescription>扫描对象存储后，可以查看容量构成和孤儿对象。</EmptyDescription>
+            <EmptyTitle>{t(locale, 'admin.assets.page.emptyTitle')}</EmptyTitle>
+            <EmptyDescription>{t(locale, 'admin.assets.page.emptyDescription')}</EmptyDescription>
           </EmptyHeader>
-          <Button onClick={() => void runScan()}>立即扫描</Button>
+          <Button onClick={() => void runScan()}>{t(locale, 'admin.assets.page.scanNow')}</Button>
         </Empty>
       ) : null}
 
@@ -181,8 +189,8 @@ export function AssetsPage() {
         <>
           {!report.scanComplete ? (
             <Alert>
-              <AlertTitle>扫描未完成</AlertTitle>
-              <AlertDescription>对象数量达到上限，本次扫描不可清理。请缩小存储范围后重新扫描。</AlertDescription>
+              <AlertTitle>{t(locale, 'admin.assets.page.scanIncompleteTitle')}</AlertTitle>
+              <AlertDescription>{t(locale, 'admin.assets.page.scanIncompleteDescription')}</AlertDescription>
             </Alert>
           ) : null}
 
@@ -192,26 +200,30 @@ export function AssetsPage() {
             <AssetsChart categories={report.categories} />
             <Card>
               <CardHeader>
-                <CardTitle>孤儿对象概览</CardTitle>
+                <CardTitle>{t(locale, 'admin.assets.page.orphanOverviewTitle')}</CardTitle>
                 <CardDescription>
-                  孤儿占比{' '}
-                  {report.totalBytes > 0 ? `${((report.orphanBytes / report.totalBytes) * 100).toFixed(1)}%` : '0%'}
+                  {t(locale, 'admin.assets.page.orphanShare', {
+                    percent:
+                      report.totalBytes > 0 ? `${((report.orphanBytes / report.totalBytes) * 100).toFixed(1)}%` : '0%',
+                  })}
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <p className="text-2xl font-semibold tracking-tight text-destructive">
-                  可释放 {formatStorageBytes(report.orphanBytes)}
+                  {t(locale, 'admin.assets.page.releasable', { bytes: formatStorageBytes(report.orphanBytes) })}
                 </p>
-                <p className="text-muted-foreground text-sm">发现 {report.orphanCount} 个孤儿对象</p>
+                <p className="text-muted-foreground text-sm">
+                  {t(locale, 'admin.assets.page.orphanFound', { count: report.orphanCount })}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
                     onClick={() => setObjectQuery({ ...INITIAL_OBJECT_QUERY, status: 'orphan' })}
                   >
-                    查看孤儿对象
+                    {t(locale, 'admin.assets.page.viewOrphans')}
                   </Button>
                   <Button variant="destructive" disabled={!canOpenCleanup} onClick={() => setIsCleanupOpen(true)}>
-                    清理孤儿对象
+                    {t(locale, 'admin.assets.page.cleanupOrphans')}
                   </Button>
                 </div>
               </CardContent>

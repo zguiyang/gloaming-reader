@@ -2,18 +2,21 @@
 
 import { Cell, Pie, PieChart } from 'recharts';
 
+import { t } from '@gloaming/i18n';
 import type { AssetCategorySummary } from '@gloaming/shared/assets';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { buildCategoryChartData, formatStorageBytes } from '@/features/admin/assets/assets-format';
+import { useLocale } from '@/lib/locale-context';
 
 type AssetsChartProps = {
   categories: AssetCategorySummary[];
 };
 
 export function AssetsChart({ categories }: AssetsChartProps) {
-  const data = buildCategoryChartData(categories);
+  const { locale } = useLocale();
+  const data = buildCategoryChartData(categories, locale);
   const config = Object.fromEntries(
     data.map((entry) => [entry.category, { label: entry.label, color: entry.fill }]),
   ) satisfies ChartConfig;
@@ -21,12 +24,12 @@ export function AssetsChart({ categories }: AssetsChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>容量构成</CardTitle>
-        <CardDescription>按对象分类汇总本次扫描占用</CardDescription>
+        <CardTitle>{t(locale, 'admin.assets.chart.title')}</CardTitle>
+        <CardDescription>{t(locale, 'admin.assets.chart.description')}</CardDescription>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <p className="text-muted-foreground text-sm">暂无分类数据</p>
+          <p className="text-muted-foreground text-sm">{t(locale, 'admin.assets.chart.empty')}</p>
         ) : (
           <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
             <ChartContainer config={config} className="mx-auto aspect-square h-56 w-full max-w-xs">
@@ -51,7 +54,10 @@ export function AssetsChart({ categories }: AssetsChartProps) {
                     {entry.label}
                   </span>
                   <span className="text-muted-foreground tabular-nums">
-                    {formatStorageBytes(entry.bytes)} · {entry.objectCount} 个
+                    {t(locale, 'admin.assets.chart.legend', {
+                      bytes: formatStorageBytes(entry.bytes),
+                      count: entry.objectCount,
+                    })}
                   </span>
                 </li>
               ))}

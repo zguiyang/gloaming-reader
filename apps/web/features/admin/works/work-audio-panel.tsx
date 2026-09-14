@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
 import { enqueueAudioResultSchema, type WorkAudioView, workAudioViewSchema } from '@gloaming/shared/content-assets';
 import type { TtsVoiceRole } from '@gloaming/shared/tts';
 
@@ -23,6 +24,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkAudioPartRowView } from '@/features/admin/works/work-audio-part-row';
 import { formatWorksApiError } from '@/features/admin/works/works-api';
 import { apiRequest } from '@/lib/api-request';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 const audioQueryKey = {
@@ -63,6 +65,7 @@ type WorkAudioPanelProps = {
 };
 
 export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
+  const { locale } = useLocale();
   const queryClient = useQueryClient();
   const [role, setRole] = useState<TtsVoiceRole>('us');
   const [isForceOpen, setIsForceOpen] = useState(false);
@@ -87,7 +90,7 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
   const fillMutation = useMutation({
     mutationFn: () => enqueueWorkAudio(workId, { roles: [role], force: false }),
     onSuccess: (result) => {
-      toast.success(`已排队 ${result.enqueued} 章，跳过 ${result.skipped} 章`);
+      toast.success(t(locale, 'admin.works.audio.queuedToast', { enqueued: result.enqueued, skipped: result.skipped }));
       invalidate();
     },
     onError: (error) => toast.error(formatWorksApiError(error)),
@@ -97,7 +100,7 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
     mutationFn: () => enqueueWorkAudio(workId, { roles: [role], force: true }),
     onSuccess: (result) => {
       setIsForceOpen(false);
-      toast.success(`已强制重排队 ${result.enqueued} 章`);
+      toast.success(t(locale, 'admin.works.audio.forceQueuedToast', { enqueued: result.enqueued }));
       invalidate();
     },
     onError: (error) => toast.error(formatWorksApiError(error)),
@@ -106,7 +109,7 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
   const retryMutation = useMutation({
     mutationFn: (partId: string) => enqueuePartAudio(partId, { roles: [role], force: true }),
     onSuccess: () => {
-      toast.success('已排队重试');
+      toast.success(t(locale, 'admin.works.audio.retryQueuedToast'));
       invalidate();
     },
     onError: (error) => toast.error(formatWorksApiError(error)),
@@ -115,6 +118,7 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
   const data = query.data;
   const summary = data?.summary;
   const isMutating = fillMutation.isPending || forceMutation.isPending || retryMutation.isPending;
+  const roleLabel = role === 'us' ? t(locale, 'admin.works.audio.usVoice') : t(locale, 'admin.works.audio.ukVoice');
 
   function stopExclusivePlayback() {
     playingRef.current?.pause();
@@ -133,8 +137,15 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {summary
-            ? `${summary.total} 章 · 就绪 ${summary.ready} · 生成中 ${summary.generating} · 失败 ${summary.failed} · 过期 ${summary.stale} · 未生成 ${summary.none}`
-            : '加载章节音频状态…'}
+            ? t(locale, 'admin.works.audio.summary', {
+                total: summary.total,
+                ready: summary.ready,
+                generating: summary.generating,
+                failed: summary.failed,
+                stale: summary.stale,
+                none: summary.none,
+              })
+            : t(locale, 'admin.works.audio.loadingSummary')}
         </p>
         <Tabs
           value={role}
@@ -147,10 +158,10 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
         >
           <TabsList className="h-auto">
             <TabsTrigger value="us" className="px-3 py-1.5">
-              美音
+              {t(locale, 'admin.works.audio.usVoice')}
             </TabsTrigger>
             <TabsTrigger value="uk" className="px-3 py-1.5">
-              英音
+              {t(locale, 'admin.works.audio.ukVoice')}
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -159,24 +170,26 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" disabled={isMutating} onClick={() => fillMutation.mutate()}>
           {fillMutation.isPending ? <Spinner className="size-3.5" /> : null}
-          生成/补齐
+          {t(locale, 'admin.works.audio.generateFill')}
         </Button>
         <Button type="button" size="sm" variant="outline" disabled={isMutating} onClick={() => setIsForceOpen(true)}>
-          强制全部重生成
+          {t(locale, 'admin.works.audio.forceRegenerateAll')}
         </Button>
       </div>
 
       {query.isPending ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner className="size-4 text-brand" />
-          加载中…
+          {t(locale, 'admin.content.common.loading')}
         </div>
       ) : query.isError ? (
         <p className="text-sm text-destructive">{formatWorksApiError(query.error)}</p>
       ) : (
         <div className={cn('overflow-hidden rounded-xl border border-border bg-card px-3')}>
           {data!.parts.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">暂无章节</p>
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {t(locale, 'admin.works.audio.noChapters')}
+            </p>
           ) : (
             data!.parts.map((row, index) => (
               <WorkAudioPartRowView
@@ -195,14 +208,16 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
       <AlertDialog open={isForceOpen} onOpenChange={setIsForceOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>强制全部重生成？</AlertDialogTitle>
+            <AlertDialogTitle>{t(locale, 'admin.works.audio.forceTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              将覆盖当前「{role === 'us' ? '美音' : '英音'}」下全部 {summary?.total ?? 0}{' '}
-              章音频并重新合成，耗时与费用较高。
+              {t(locale, 'admin.works.audio.forceDescription', {
+                role: roleLabel,
+                total: summary?.total ?? 0,
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t(locale, 'admin.content.common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -210,7 +225,7 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
               }}
             >
               {forceMutation.isPending ? <Spinner className="size-3.5" /> : null}
-              确认重生成
+              {t(locale, 'admin.works.audio.confirmRegenerate')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

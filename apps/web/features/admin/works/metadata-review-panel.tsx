@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
 import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, difficultyLabelFromScore } from '@gloaming/shared/reading-stats';
 import { type UpdateWorkBody, type WorkflowStep, type WorkMetadataProvenance } from '@gloaming/shared/works';
 
@@ -16,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { ADMIN_ROUTES } from '@/constants';
+import { formatAdminDateTime } from '@/features/admin/admin-logs-format';
 import { TaxonomyMultiPicker, TaxonomySelect } from '@/features/admin/taxonomy/taxonomy-picker';
 import {
   formatWorksApiError,
@@ -23,23 +25,14 @@ import {
   updateAdminWork,
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
+import { formatProvenance, formatWorkflowStep } from '@/features/admin/works/works-format';
 import type { AdminWorkView } from '@/features/admin/works/works-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-const PROVENANCE_LABEL: Record<WorkMetadataProvenance, string> = {
-  extracted: '提取',
-  ai: 'AI 生成',
-  manual: '人工',
-};
-
-const STEP_LABEL: Record<WorkflowStep, string> = {
-  parse: '内容解析',
-  metadata: '原数据完善',
-  tts: '音频生成',
-};
-
-/** Secondary source badges — the ember accent stays reserved for busy/active states. */
 function ProvenanceBadge({ provenance }: { provenance?: WorkMetadataProvenance }) {
+  const { locale } = useLocale();
+
   if (!provenance) {
     return null;
   }
@@ -52,16 +45,14 @@ function ProvenanceBadge({ provenance }: { provenance?: WorkMetadataProvenance }
         provenance === 'extracted' && 'text-muted-foreground',
       )}
     >
-      {PROVENANCE_LABEL[provenance]}
+      {formatProvenance(provenance, locale)}
     </Badge>
   );
 }
 
 type MetadataFieldRowProps = {
   label: string;
-  /** Display value (fallback text when empty). */
   value: string;
-  /** Initial edit text — defaults to the display value. */
   editValue?: string;
   multiline?: boolean;
   required?: boolean;
@@ -72,11 +63,6 @@ type MetadataFieldRowProps = {
   onSave: (value: string) => Promise<void>;
 };
 
-/**
- * One metadata row in the review panel — display state (value + source badge)
- * toggles into an inline edit form; saving goes through the normal work PATCH
- * (provenance becomes `manual`), and the row re-reads the freshest value.
- */
 function MetadataFieldRow({
   label,
   value,
@@ -89,6 +75,7 @@ function MetadataFieldRow({
   disabled,
   onSave,
 }: MetadataFieldRowProps) {
+  const { locale } = useLocale();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -103,7 +90,7 @@ function MetadataFieldRow({
   async function handleSave() {
     const text = draft.trim();
     if (required && !text) {
-      setError('此字段必填');
+      setError(t(locale, 'admin.content.common.required'));
       return;
     }
     setIsSaving(true);
@@ -153,10 +140,10 @@ function MetadataFieldRow({
           ) : null}
           <div className="flex gap-2">
             <Button type="button" size="sm" onClick={() => void handleSave()} disabled={isSaving}>
-              {isSaving ? '保存中…' : '保存'}
+              {isSaving ? t(locale, 'admin.content.common.saving') : t(locale, 'admin.content.common.save')}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditing(false)} disabled={isSaving}>
-              取消
+              {t(locale, 'admin.content.common.cancel')}
             </Button>
           </div>
         </div>
@@ -171,11 +158,13 @@ function MetadataFieldRow({
           <span className="text-sm font-medium text-muted-foreground">{label}</span>
           <ProvenanceBadge provenance={provenance} />
         </div>
-        <p className={cn('mt-1 truncate text-sm', !value && 'text-muted-foreground')}>{value || '未填写'}</p>
+        <p className={cn('mt-1 truncate text-sm', !value && 'text-muted-foreground')}>
+          {value || t(locale, 'admin.content.common.notFilled')}
+        </p>
       </div>
       <Button type="button" variant="ghost" size="sm" onClick={startEdit} disabled={disabled}>
         <Pencil data-icon="inline-start" />
-        编辑
+        {t(locale, 'admin.content.common.edit')}
       </Button>
     </div>
   );
@@ -183,21 +172,15 @@ function MetadataFieldRow({
 
 type ReviewPickerRowProps = {
   label: string;
-  /** Display value (fallback text when empty). */
   displayValue: string;
   provenance?: WorkMetadataProvenance;
   disabled?: boolean;
-  /** Editor rendered while editing — value flows through onChange into parent state. */
   picker: ReactNode;
   onSave: () => Promise<void>;
 };
 
-/**
- * Metadata row backed by a taxonomy picker (tags multi-select, category
- * single-select, sources multi-select). Display state mirrors MetadataFieldRow;
- * edit state renders the picker and saves through the normal work PATCH.
- */
 function ReviewPickerRow({ label, displayValue, provenance, disabled, picker, onSave }: ReviewPickerRowProps) {
+  const { locale } = useLocale();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -233,10 +216,10 @@ function ReviewPickerRow({ label, displayValue, provenance, disabled, picker, on
           ) : null}
           <div className="flex gap-2">
             <Button type="button" size="sm" onClick={() => void handleSave()} disabled={isSaving}>
-              {isSaving ? '保存中…' : '保存'}
+              {isSaving ? t(locale, 'admin.content.common.saving') : t(locale, 'admin.content.common.save')}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditing(false)} disabled={isSaving}>
-              取消
+              {t(locale, 'admin.content.common.cancel')}
             </Button>
           </div>
         </div>
@@ -252,55 +235,63 @@ function ReviewPickerRow({ label, displayValue, provenance, disabled, picker, on
           <ProvenanceBadge provenance={provenance} />
         </div>
         <p className={cn('mt-1 truncate text-sm', !displayValue && 'text-muted-foreground')}>
-          {displayValue || '未填写'}
+          {displayValue || t(locale, 'admin.content.common.notFilled')}
         </p>
       </div>
       <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditing(true)} disabled={disabled}>
         <Pencil data-icon="inline-start" />
-        编辑
+        {t(locale, 'admin.content.common.edit')}
       </Button>
     </div>
   );
 }
 
 function MetadataReadOnlyRow({ label, value }: { label: string; value: string }) {
+  const { locale } = useLocale();
+
   return (
     <div className="py-3.5">
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      <p className={cn('mt-1 text-sm', !value && 'text-muted-foreground')}>{value || '—'}</p>
+      <p className={cn('mt-1 text-sm', !value && 'text-muted-foreground')}>
+        {value || t(locale, 'admin.logs.emptyValue')}
+      </p>
     </div>
   );
 }
 
 function WorkBodySummary({ work }: { work: AdminWorkView }) {
+  const { locale } = useLocale();
   const hasParts = work.parts.length > 0;
   const isProcessing =
     work.status === 'processing' || work.status === 'metadata' || work.status === 'tts' || work.status === 'uploaded';
+  const unknownError = t(locale, 'admin.works.edit.unknownError');
 
   if (isProcessing) {
-    return <p className="text-sm text-muted-foreground">作品处理中，正文即将更新…</p>;
+    return <p className="text-sm text-muted-foreground">{t(locale, 'admin.works.metadata.processingBody')}</p>;
   }
   if (work.status === 'failed') {
     return (
       <p className="text-sm text-muted-foreground">
-        处理失败：{String(work.originMeta.lastError ?? '未知错误')}。可在上方步骤重试解析。
+        {t(locale, 'admin.works.metadata.failedBody', {
+          error: String(work.originMeta.lastError ?? unknownError),
+        })}
       </p>
     );
   }
   if (hasParts) {
     return (
       <p className="text-sm text-muted-foreground">
-        正文由解析生成，包含 {work.parts.length} 个章节，不可在此编辑。
+        {t(locale, 'admin.works.metadata.bodyFromParse', { count: work.parts.length })}
         <Link
           href={ADMIN_ROUTES.workPreview(work.id)}
           className="ml-1 font-medium text-primary underline-offset-4 hover:underline"
         >
-          查看预览 →
+          {t(locale, 'admin.works.metadata.viewPreview')}
         </Link>
       </p>
     );
   }
-  return <p className="text-sm text-muted-foreground">暂无正文内容。</p>;
+  return <p className="text-sm text-muted-foreground">{t(locale, 'admin.works.metadata.noBody')}</p>;
 }
 
 type MetadataReviewPanelProps = {
@@ -308,15 +299,12 @@ type MetadataReviewPanelProps = {
   work: AdminWorkView;
 };
 
-/**
- * "原数据完善" step status line + start / retry actions.
- * Busy (`metadata`), idle wait (`parsed` when auto-chain is off), failure,
- * partial gaps, and completion drive what is shown.
- */
 export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
+  const { locale } = useLocale();
   const invalidate = useInvalidateAdminWorks();
   const [isActing, setIsActing] = useState(false);
   const { status, failedStep } = work;
+  const unknownError = t(locale, 'admin.works.edit.unknownError');
 
   const metadataAt = typeof work.originMeta.metadataAt === 'string' ? work.originMeta.metadataAt : null;
   const enrichError =
@@ -339,7 +327,11 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
     try {
       await retryAdminWorkflow(work.id, step);
       await invalidate(work.id);
-      toast.success(status === 'parsed' ? '已开始完善原数据' : '已重新开始处理');
+      toast.success(
+        status === 'parsed'
+          ? t(locale, 'admin.works.metadata.enrichStarted')
+          : t(locale, 'admin.works.metadata.enrichRestarted'),
+      );
     } catch (error) {
       toast.error(formatWorksApiError(error));
     } finally {
@@ -349,29 +341,40 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
 
   let hint = '';
   if (isBusy && status === 'metadata') {
-    hint = '正在根据正文内容补全信息，完成后即可逐项核对。';
+    hint = t(locale, 'admin.works.metadata.hintEnriching');
   } else if (isBusy && status === 'processing') {
-    hint = work.workflowPolicy.autoChainEnabled ? '等待内容解析完成后自动完善…' : '等待内容解析完成后再开始完善。';
+    hint = work.workflowPolicy.autoChainEnabled
+      ? t(locale, 'admin.works.metadata.hintWaitingParseAuto')
+      : t(locale, 'admin.works.metadata.hintWaitingParseManual');
   } else if (isBusy) {
-    hint = '已提交任务，正在排队…';
+    hint = t(locale, 'admin.works.metadata.hintQueued');
   } else if (isAwaitingStart) {
-    hint = '内容已解析。核对预览无误后，点击开始完善原数据（规则填充 + AI 补全）。';
+    hint = t(locale, 'admin.works.metadata.hintAwaitingStart');
   } else if (isFailedHere) {
-    hint = String(work.originMeta.lastError ?? '原数据完善失败，未知错误');
+    hint = t(locale, 'admin.works.metadata.hintFailedHere', {
+      error: String(work.originMeta.lastError ?? unknownError),
+    });
   } else if (status === 'failed' && failedStep) {
-    hint = `「${STEP_LABEL[failedStep]}」步骤失败：${String(work.originMeta.lastError ?? '未知错误')}，可在对应步骤重试。`;
+    hint = t(locale, 'admin.works.metadata.hintStepFailed', {
+      step: formatWorkflowStep(failedStep, locale),
+      error: String(work.originMeta.lastError ?? unknownError),
+    });
   } else if (status === 'failed') {
-    hint = '处理失败：' + String(work.originMeta.lastError ?? '未知错误');
+    hint = t(locale, 'admin.works.metadata.hintFailedGeneric', {
+      error: String(work.originMeta.lastError ?? unknownError),
+    });
   } else if (isPartial) {
-    hint = `${enrichError ?? '部分字段未补全'}。可重新执行或手工编辑；发布时以当前内容为准。`;
+    hint = t(locale, 'admin.works.metadata.hintPartial', {
+      error: enrichError ?? t(locale, 'admin.works.metadata.hintPartialDefault'),
+    });
   } else if (isDone) {
-    hint = 'AI 已自动补全缺失信息，可逐项核对编辑；发布时以当前内容为准。';
+    hint = t(locale, 'admin.works.metadata.hintDone');
   } else if (status === 'ready' || status === 'published' || status === 'tts') {
-    hint = '规则层已写入可用字段；可逐项核对编辑。';
+    hint = t(locale, 'admin.works.metadata.hintRulesOnly');
   } else {
     hint = work.workflowPolicy.autoChainEnabled
-      ? '解析完成后，AI 将自动补全缺失的简介、标签与分类。'
-      : '解析完成后，需手动开始完善原数据。';
+      ? t(locale, 'admin.works.metadata.hintAutoFuture')
+      : t(locale, 'admin.works.metadata.hintManualFuture');
   }
 
   return (
@@ -389,24 +392,26 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
         >
           {status === 'failed'
             ? isFailedHere
-              ? '原数据完善失败'
-              : '处理失败'
+              ? t(locale, 'admin.works.metadata.statusFailed')
+              : t(locale, 'admin.works.metadata.statusFailedGeneric')
             : status === 'processing' || status === 'uploaded'
-              ? '待完善'
+              ? t(locale, 'admin.works.metadata.statusPending')
               : status === 'parsed'
-                ? '待开始'
+                ? t(locale, 'admin.works.metadata.statusAwaitingStart')
                 : status === 'metadata' || isActing
-                  ? '完善中'
+                  ? t(locale, 'admin.works.metadata.statusEnriching')
                   : isPartial
-                    ? '部分完成'
+                    ? t(locale, 'admin.works.metadata.statusPartial')
                     : status === 'published'
-                      ? '已完成（已发布）'
+                      ? t(locale, 'admin.works.metadata.statusDonePublished')
                       : isDone
-                        ? '已完成'
-                        : '待完善'}
+                        ? t(locale, 'admin.works.metadata.statusDone')
+                        : t(locale, 'admin.works.metadata.statusPending')}
         </Badge>
         {metadataAt && (isDone || isPartial) ? (
-          <span className="text-xs text-muted-foreground">完善于 {new Date(metadataAt).toLocaleString('zh-CN')}</span>
+          <span className="text-xs text-muted-foreground">
+            {t(locale, 'admin.works.metadata.enrichedAt', { time: formatAdminDateTime(metadataAt, locale) })}
+          </span>
         ) : null}
       </div>
       <p className={cn('mt-2 text-sm text-muted-foreground', (isFailedHere || isPartial) && 'text-destructive')}>
@@ -415,17 +420,17 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
       <div className="mt-3 flex flex-wrap gap-2">
         {isAwaitingStart ? (
           <Button type="button" size="sm" onClick={() => void handleRetry('metadata')} disabled={isActing}>
-            {isActing ? '排队中…' : '开始完善原数据'}
+            {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'admin.works.metadata.startEnrich')}
           </Button>
         ) : null}
         {isFailedHere ? (
           <Button
             type="button"
             size="sm"
-            onClick={() => void handleRetry('metadata', '将重新运行原数据完善（规则填充 + AI 补全），确定继续？')}
+            onClick={() => void handleRetry('metadata', t(locale, 'admin.works.metadata.confirmReEnrich'))}
             disabled={isActing}
           >
-            {isActing ? '排队中…' : '重试'}
+            {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'content.common.retry')}
           </Button>
         ) : null}
         {status === 'ready' || isPartial ? (
@@ -433,28 +438,22 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
             type="button"
             size="sm"
             variant="outline"
-            onClick={() =>
-              void handleRetry('metadata', '将重新运行原数据完善，并覆盖 AI 生成的内容（不含手工编辑），确定继续？')
-            }
+            onClick={() => void handleRetry('metadata', t(locale, 'admin.works.metadata.confirmReEnrichReady'))}
             disabled={isActing}
           >
-            {isActing ? '排队中…' : '重新执行'}
+            {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'admin.works.metadata.reRun')}
           </Button>
         ) : null}
         {status === 'published' ? (
-          <span className="text-xs text-muted-foreground">如需重新完善请先下架作品。</span>
+          <span className="text-xs text-muted-foreground">{t(locale, 'admin.works.metadata.unpublishToReEnrich')}</span>
         ) : null}
       </div>
     </div>
   );
 }
 
-/**
- * "原数据完善" step — shows the outcome field-by-field with source badges,
- * lets the admin edit in place, and the publish action submits whatever the
- * rows hold at that moment.
- */
 export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) {
+  const { locale } = useLocale();
   const invalidate = useInvalidateAdminWorks();
   const status = work.status;
   const isMetadataJobRunning = status === 'metadata';
@@ -468,14 +467,14 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
   async function saveField(patch: UpdateWorkBody) {
     await updateAdminWork(workId, patch);
     await invalidate(workId);
-    toast.success('已保存');
+    toast.success(t(locale, 'admin.content.common.saved'));
   }
 
   async function saveSuggestedVocabSize(raw: string) {
     const trimmed = raw.trim();
     const parsed = trimmed === '' ? null : Number.parseInt(trimmed, 10);
     if (parsed != null && (!Number.isFinite(parsed) || parsed <= 0)) {
-      toast.error('建议词汇量须为正整数');
+      toast.error(t(locale, 'admin.works.metadata.vocabMustBePositive'));
       throw new Error('validation');
     }
     await saveField({ suggestedVocabSize: parsed });
@@ -488,7 +487,12 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
       parsed != null &&
       (!Number.isFinite(parsed) || parsed < DIFFICULTY_SCORE_MIN || parsed > DIFFICULTY_SCORE_MAX)
     ) {
-      toast.error(`难度须为 ${DIFFICULTY_SCORE_MIN}–${DIFFICULTY_SCORE_MAX} 的整数`);
+      toast.error(
+        t(locale, 'admin.works.metadata.difficultyRange', {
+          min: DIFFICULTY_SCORE_MIN,
+          max: DIFFICULTY_SCORE_MAX,
+        }),
+      );
       throw new Error('validation');
     }
     await saveField({ difficultyScore: parsed });
@@ -511,7 +515,7 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
       ) : (
         <div className="mt-4 divide-y divide-border rounded-2xl border border-border bg-background/40 px-4">
           <MetadataFieldRow
-            label="标题"
+            label={t(locale, 'admin.works.metadata.fieldTitle')}
             value={work.title}
             required
             maxLength={200}
@@ -519,25 +523,25 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
             onSave={(value) => saveField({ title: value })}
           />
           <MetadataFieldRow
-            label="作者"
+            label={t(locale, 'admin.works.metadata.fieldAuthor')}
             value={work.author}
             maxLength={200}
-            placeholder="可留空"
+            placeholder={t(locale, 'admin.works.metadata.authorOptional')}
             disabled={isMetadataJobRunning}
             onSave={(value) => saveField({ author: value })}
           />
           <MetadataFieldRow
-            label="简介"
+            label={t(locale, 'admin.works.metadata.fieldDescription')}
             value={work.description}
             multiline
             maxLength={2000}
-            placeholder="作品的简短介绍，展示在发现页"
+            placeholder={t(locale, 'admin.works.metadata.descriptionPlaceholder')}
             provenance={work.metadataProvenance.description}
             disabled={isMetadataJobRunning}
             onSave={(value) => saveField({ description: value })}
           />
           <ReviewPickerRow
-            label="标签"
+            label={t(locale, 'admin.works.metadata.fieldTags')}
             displayValue={work.tags.length > 0 ? work.tags.join(' · ') : ''}
             provenance={work.metadataProvenance.tags}
             disabled={isMetadataJobRunning}
@@ -546,14 +550,14 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
                 kind="tag"
                 value={tagsDraft}
                 onChange={setTagsDraft}
-                placeholder="搜索选择标签…"
+                placeholder={t(locale, 'admin.works.metadata.tagsPlaceholder')}
                 disabled={isMetadataJobRunning}
               />
             }
             onSave={async () => saveField({ tags: tagsDraft })}
           />
           <ReviewPickerRow
-            label="分类"
+            label={t(locale, 'admin.works.metadata.fieldCategory')}
             displayValue={work.category ?? ''}
             provenance={work.metadataProvenance.category}
             disabled={isMetadataJobRunning}
@@ -561,7 +565,7 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
               <TaxonomySelect
                 value={categoryDraft}
                 onChange={setCategoryDraft}
-                placeholder="选择分类…"
+                placeholder={t(locale, 'admin.works.metadata.categoryPlaceholder')}
                 allowClear
                 disabled={isMetadataJobRunning}
               />
@@ -569,7 +573,7 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
             onSave={async () => saveField({ category: categoryDraft ?? '' })}
           />
           <ReviewPickerRow
-            label="来源"
+            label={t(locale, 'admin.works.metadata.fieldSources')}
             displayValue={work.sources.length > 0 ? work.sources.join(' · ') : ''}
             disabled={isMetadataJobRunning}
             picker={
@@ -577,30 +581,34 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
                 kind="source"
                 value={sourcesDraft}
                 onChange={setSourcesDraft}
-                placeholder="搜索选择来源…（留空表示未知）"
+                placeholder={t(locale, 'admin.works.metadata.sourcesPlaceholder')}
                 disabled={isMetadataJobRunning}
               />
             }
             onSave={async () => saveField({ sources: sourcesDraft })}
           />
           <MetadataReadOnlyRow
-            label="总字数"
-            value={work.wordCount != null ? work.wordCount.toLocaleString('en-US') : ''}
+            label={t(locale, 'admin.works.metadata.fieldWordCount')}
+            value={work.wordCount != null ? work.wordCount.toLocaleString(locale) : ''}
           />
           <MetadataReadOnlyRow
-            label="预计阅读时间"
-            value={work.estimatedMinutes != null ? `${work.estimatedMinutes} 分钟` : ''}
+            label={t(locale, 'admin.works.metadata.fieldEstimatedMinutes')}
+            value={
+              work.estimatedMinutes != null
+                ? t(locale, 'admin.works.metadata.minutesUnit', { minutes: work.estimatedMinutes })
+                : ''
+            }
           />
           <MetadataFieldRow
-            label="建议词汇量"
+            label={t(locale, 'admin.works.metadata.fieldSuggestedVocab')}
             value={suggestedVocabDisplay}
             editValue={work.suggestedVocabSize != null ? String(work.suggestedVocabSize) : ''}
-            placeholder="如 4000"
+            placeholder={t(locale, 'admin.works.metadata.suggestedVocabPlaceholder')}
             disabled={isMetadataJobRunning}
             onSave={saveSuggestedVocabSize}
           />
           <MetadataFieldRow
-            label="难度（1–5）"
+            label={t(locale, 'admin.works.metadata.fieldDifficulty')}
             value={difficultyDisplay}
             editValue={work.difficultyScore != null ? String(work.difficultyScore) : ''}
             placeholder={`${DIFFICULTY_SCORE_MIN}–${DIFFICULTY_SCORE_MAX}`}
@@ -608,10 +616,12 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
             onSave={saveDifficultyScore}
           />
           {work.statsProvenance === 'manual' ? (
-            <p className="py-3 text-xs text-muted-foreground">难度与建议词汇量为手动覆盖；重新解析不会改写这两项。</p>
+            <p className="py-3 text-xs text-muted-foreground">{t(locale, 'admin.works.metadata.manualStatsHint')}</p>
           ) : null}
           <div className="py-3.5">
-            <span className="text-sm font-medium text-muted-foreground">正文</span>
+            <span className="text-sm font-medium text-muted-foreground">
+              {t(locale, 'admin.works.metadata.fieldBody')}
+            </span>
             <div className="mt-1">
               <WorkBodySummary work={work} />
             </div>

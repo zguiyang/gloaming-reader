@@ -3,20 +3,15 @@
 import { Pause, Play, RotateCcw } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-import type { ContentAssetTrack, WorkAudioPartRow } from '@gloaming/shared/content-assets';
+import { t } from '@gloaming/i18n';
+import type { WorkAudioPartRow } from '@gloaming/shared/content-assets';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { formatAudioTrackStatus } from '@/features/admin/works/works-format';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
-
-const STATUS_LABEL: Record<ContentAssetTrack['status'], string> = {
-  none: '未生成',
-  generating: '生成中',
-  ready: '已就绪',
-  stale: '已过期',
-  failed: '失败',
-};
 
 function formatDurationMs(ms: number | null): string {
   if (ms == null || ms <= 0) {
@@ -33,16 +28,17 @@ type WorkAudioPartRowProps = {
   index: number;
   disabled?: boolean;
   onRetry: () => void;
-  /** Ensure only one chapter plays at a time. */
   onExclusivePlay: (audio: HTMLAudioElement) => void;
 };
 
 export function WorkAudioPartRowView({ row, index, disabled, onRetry, onExclusivePlay }: WorkAudioPartRowProps) {
+  const { locale } = useLocale();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const track = row.track;
   const canPlay = track.status === 'ready' && Boolean(track.audioUrl);
   const isBusy = track.status === 'generating';
+  const displayTitle = row.title.trim() || t(locale, 'admin.works.audio.noTitle');
 
   async function togglePlay() {
     const audio = audioRef.current;
@@ -72,8 +68,8 @@ export function WorkAudioPartRowView({ row, index, disabled, onRetry, onExclusiv
       <span className="w-8 shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">
         {String(index + 1).padStart(2, '0')}
       </span>
-      <p className="min-w-0 flex-1 truncate text-sm font-medium" title={row.title || '（无标题）'}>
-        {row.title.trim() || '（无标题）'}
+      <p className="min-w-0 flex-1 truncate text-sm font-medium" title={displayTitle}>
+        {displayTitle}
       </p>
       <Badge
         variant="outline"
@@ -84,7 +80,7 @@ export function WorkAudioPartRowView({ row, index, disabled, onRetry, onExclusiv
           track.status === 'ready' && 'border-transparent bg-secondary text-secondary-foreground',
         )}
       >
-        {isBusy ? <Spinner className="size-3" /> : STATUS_LABEL[track.status]}
+        {isBusy ? <Spinner className="size-3" /> : formatAudioTrackStatus(track.status, locale)}
       </Badge>
 
       <span
@@ -106,7 +102,11 @@ export function WorkAudioPartRowView({ row, index, disabled, onRetry, onExclusiv
           !isPlaying && canPlay && 'text-brand-deep hover:bg-brand-soft',
         )}
         disabled={!canPlay || disabled}
-        aria-label={isPlaying ? `暂停 ${row.title || row.partId}` : `播放 ${row.title || row.partId}`}
+        aria-label={
+          isPlaying
+            ? t(locale, 'admin.works.audio.pauseAria', { title: displayTitle })
+            : t(locale, 'admin.works.audio.playAria', { title: displayTitle })
+        }
         onClick={() => void togglePlay()}
       >
         {isPlaying ? <Pause className="size-3.5 fill-current" /> : <Play className="size-3.5 fill-current" />}
@@ -130,7 +130,7 @@ export function WorkAudioPartRowView({ row, index, disabled, onRetry, onExclusiv
         size="icon"
         className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
         disabled={disabled || isBusy}
-        aria-label={`重试 ${row.title || row.partId}`}
+        aria-label={t(locale, 'admin.works.audio.retryAria', { title: displayTitle })}
         onClick={onRetry}
       >
         <RotateCcw className="size-3.5" />

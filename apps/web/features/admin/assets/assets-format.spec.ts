@@ -13,8 +13,8 @@ describe('formatStorageBytes', () => {
 
 describe('formatDurationMs', () => {
   it('formats milliseconds and seconds', () => {
-    expect(formatDurationMs(12)).toBe('12 ms');
-    expect(formatDurationMs(1500)).toBe('1.5 s');
+    expect(formatDurationMs(12, 'zh-CN')).toBe('12 ms');
+    expect(formatDurationMs(1500, 'zh-CN')).toBe('1.5 s');
   });
 });
 
@@ -27,11 +27,14 @@ describe('shortObjectKey', () => {
 
 describe('buildCategoryChartData', () => {
   it('drops zero-byte categories and assigns chart colors', () => {
-    const data = buildCategoryChartData([
-      { category: 'audio', objectCount: 2, bytes: 100 },
-      { category: 'cover', objectCount: 0, bytes: 0 },
-      { category: 'origin', objectCount: 1, bytes: 50 },
-    ]);
+    const data = buildCategoryChartData(
+      [
+        { category: 'audio', objectCount: 2, bytes: 100 },
+        { category: 'cover', objectCount: 0, bytes: 0 },
+        { category: 'origin', objectCount: 1, bytes: 50 },
+      ],
+      'zh-CN',
+    );
     expect(data).toHaveLength(2);
     expect(data[0]).toMatchObject({ category: 'audio', label: '音频', fill: 'var(--chart-1)' });
     expect(data[1]).toMatchObject({ category: 'origin', label: '原始文件' });

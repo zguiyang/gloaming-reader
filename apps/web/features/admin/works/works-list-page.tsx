@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { t } from '@gloaming/i18n';
 import { WORK_STATUSES, type WorkStatus } from '@gloaming/shared/works';
 
 import { Badge } from '@/components/ui/badge';
@@ -32,38 +33,14 @@ import {
   useAdminWorksListQuery,
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
+import { formatWorkStatus, formatWorkUpdatedAt } from '@/features/admin/works/works-format';
 import type { AdminWorkSummaryView } from '@/features/admin/works/works-model';
+import { useLocale } from '@/lib/locale-context';
 
-const STATUS_FILTERS: { value: WorkStatus | 'all' | 'busy'; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: 'busy', label: '处理中' },
-  { value: 'ready', label: '待发布' },
-  { value: 'failed', label: '处理失败' },
-  { value: 'published', label: '已发布' },
-];
-
-const STATUS_LABEL: Record<WorkStatus, string> = {
-  uploaded: '待解析',
-  processing: '解析中',
-  parsed: '待完善原数据',
-  metadata: '原数据完善中',
-  tts: '音频生成中',
-  ready: '待发布',
-  failed: '处理失败',
-  published: '已发布',
-};
+type StatusFilter = WorkStatus | 'all' | 'busy';
 
 /** Running + idle-wait statuses grouped as one list tab. */
 const BUSY_STATUSES = ['uploaded', 'processing', 'parsed', 'metadata', 'tts'] as const;
-
-function formatUpdatedAt(iso: string): string {
-  return new Date(iso).toLocaleString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 type WorkRowActionsProps = {
   work: AdminWorkSummaryView;
@@ -75,6 +52,7 @@ type WorkRowActionsProps = {
 
 /** Row actions: one status-primary action inline + the rest in a 「更多」 menu. */
 function WorkRowActions({ work, onPublish, onUnpublish, onRetry, onDelete }: WorkRowActionsProps) {
+  const { locale } = useLocale();
   const router = useRouter();
   const canPreview =
     work.partCount > 0 &&
@@ -87,36 +65,43 @@ function WorkRowActions({ work, onPublish, onUnpublish, onRetry, onDelete }: Wor
     <div className="flex justify-end gap-2">
       {work.status === 'ready' ? (
         <Button type="button" size="sm" variant="secondary" onClick={() => onPublish(work.id)}>
-          发布
+          {t(locale, 'admin.content.common.publish')}
         </Button>
       ) : null}
       {work.status === 'published' ? (
         <Button type="button" size="sm" variant="outline" onClick={() => onUnpublish(work.id)}>
-          下架
+          {t(locale, 'admin.content.common.unpublish')}
         </Button>
       ) : null}
       {work.status === 'failed' ? (
         <Button type="button" size="sm" variant="secondary" onClick={() => onRetry(work.id)}>
-          重试
+          {t(locale, 'content.common.retry')}
         </Button>
       ) : null}
 
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={<Button type="button" size="sm" variant="ghost" aria-label={`更多操作：${work.title}`} />}
+          render={
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              aria-label={t(locale, 'admin.works.list.moreActionsAria', { title: work.title })}
+            />
+          }
         >
           <MoreHorizontal data-icon="inline-start" />
-          更多
+          {t(locale, 'admin.content.common.more')}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuItem onClick={() => router.push(ADMIN_ROUTES.workDetail(work.id))}>
             <PencilLine />
-            编辑作品
+            {t(locale, 'admin.works.list.editWork')}
           </DropdownMenuItem>
           {canPreview ? (
             <DropdownMenuItem onClick={() => router.push(ADMIN_ROUTES.workPreview(work.id))}>
               <Eye />
-              预览
+              {t(locale, 'admin.works.list.preview')}
             </DropdownMenuItem>
           ) : null}
           {work.status !== 'published' ? (
@@ -124,7 +109,7 @@ function WorkRowActions({ work, onPublish, onUnpublish, onRetry, onDelete }: Wor
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => onDelete(work.id)}>
                 <Trash2 />
-                删除
+                {t(locale, 'admin.content.common.delete')}
               </DropdownMenuItem>
             </>
           ) : null}
@@ -135,17 +120,29 @@ function WorkRowActions({ work, onPublish, onUnpublish, onRetry, onDelete }: Wor
 }
 
 function WorksTableSkeleton({ rows }: { rows: number }) {
+  const { locale } = useLocale();
+
   return (
     <Table aria-hidden>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">标题</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">作者</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">状态</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">章节</TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">更新</TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.works.list.tableTitle')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.works.list.tableAuthor')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.works.list.tableStatus')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.works.list.tableChapters')}
+          </TableHead>
+          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+            {t(locale, 'admin.works.list.tableUpdated')}
+          </TableHead>
           <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-right text-muted-foreground">
-            操作
+            {t(locale, 'admin.content.common.actions')}
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -178,7 +175,8 @@ function WorksTableSkeleton({ rows }: { rows: number }) {
 }
 
 export function WorksListPage() {
-  const [statusFilter, setStatusFilter] = useState<WorkStatus | 'all' | 'busy'>('all');
+  const { locale } = useLocale();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const invalidate = useInvalidateAdminWorks();
   const listQuery = useAdminWorksListQuery(
     statusFilter === 'all'
@@ -188,11 +186,19 @@ export function WorksListPage() {
         : { status: statusFilter },
   );
 
+  const statusFilters: { value: StatusFilter; label: string }[] = [
+    { value: 'all', label: t(locale, 'admin.works.filter.all') },
+    { value: 'busy', label: t(locale, 'admin.works.filter.busy') },
+    { value: 'ready', label: t(locale, 'admin.works.filter.ready') },
+    { value: 'failed', label: t(locale, 'admin.works.filter.failed') },
+    { value: 'published', label: t(locale, 'admin.works.filter.published') },
+  ];
+
   async function handlePublish(id: string) {
     try {
       await publishAdminWork(id);
       await invalidate(id);
-      toast.success('已发布');
+      toast.success(t(locale, 'admin.content.common.published'));
     } catch (error) {
       toast.error(formatWorksApiError(error));
     }
@@ -202,7 +208,7 @@ export function WorksListPage() {
     try {
       await unpublishAdminWork(id);
       await invalidate(id);
-      toast.success('已下架');
+      toast.success(t(locale, 'admin.content.common.unpublished'));
     } catch (error) {
       toast.error(formatWorksApiError(error));
     }
@@ -212,18 +218,18 @@ export function WorksListPage() {
     try {
       await retryAdminWorkflow(id);
       await invalidate(id);
-      toast.success('已重新开始处理');
+      toast.success(t(locale, 'admin.works.list.retryStarted'));
     } catch (error) {
       toast.error(formatWorksApiError(error));
     }
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('确定删除此作品？')) return;
+    if (!window.confirm(t(locale, 'admin.content.common.confirmDeleteWork'))) return;
     try {
       await deleteAdminWork(id);
       await invalidate();
-      toast.success('已删除');
+      toast.success(t(locale, 'admin.content.common.deleted'));
     } catch (error) {
       toast.error(formatWorksApiError(error));
     }
@@ -235,15 +241,15 @@ export function WorksListPage() {
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto w-full max-w-6xl">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-3xl font-bold tracking-tight">作品</h1>
-          <p className="mt-1 text-sm text-muted-foreground">维护官方阅读作品：上传 EPUB、审查解析结果并发布到发现。</p>
+          <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.works.list.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'admin.works.list.subtitle')}</p>
         </div>
         <Button
           nativeButton={false}
           className="h-10 rounded-xl px-6 hover:bg-brand-deep"
           render={<Link href={ADMIN_ROUTES.workNew} />}
         >
-          上传作品
+          {t(locale, 'admin.works.list.upload')}
         </Button>
       </div>
 
@@ -252,12 +258,12 @@ export function WorksListPage() {
           value={statusFilter}
           onValueChange={(value) => {
             if (value === 'all' || value === 'busy' || (WORK_STATUSES as readonly string[]).includes(value)) {
-              setStatusFilter(value as WorkStatus | 'all' | 'busy');
+              setStatusFilter(value as StatusFilter);
             }
           }}
         >
-          <AdminSegmentedTabsList aria-label="按状态筛选">
-            {STATUS_FILTERS.map((item) => (
+          <AdminSegmentedTabsList aria-label={t(locale, 'admin.works.list.filterAria')}>
+            {statusFilters.map((item) => (
               <AdminSegmentedTabsTrigger key={item.value} value={item.value}>
                 {item.label}
               </AdminSegmentedTabsTrigger>
@@ -275,7 +281,7 @@ export function WorksListPage() {
               <EmptyMedia variant="icon">
                 <FileText />
               </EmptyMedia>
-              <EmptyTitle>无法加载作品列表</EmptyTitle>
+              <EmptyTitle>{t(locale, 'admin.works.list.loadFailed')}</EmptyTitle>
               <EmptyDescription>{formatWorksApiError(listQuery.error)}</EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -285,21 +291,31 @@ export function WorksListPage() {
               <EmptyMedia variant="icon">
                 <FileText />
               </EmptyMedia>
-              <EmptyTitle>还没有作品</EmptyTitle>
-              <EmptyDescription>上传一个 EPUB 开始维护内容。</EmptyDescription>
+              <EmptyTitle>{t(locale, 'admin.works.list.emptyTitle')}</EmptyTitle>
+              <EmptyDescription>{t(locale, 'admin.works.list.emptyDescription')}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">标题</TableHead>
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">作者</TableHead>
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">状态</TableHead>
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">章节</TableHead>
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">更新</TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.works.list.tableTitle')}
+                </TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.works.list.tableAuthor')}
+                </TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.works.list.tableStatus')}
+                </TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.works.list.tableChapters')}
+                </TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.works.list.tableUpdated')}
+                </TableHead>
                 <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-right text-muted-foreground">
-                  操作
+                  {t(locale, 'admin.content.common.actions')}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -324,13 +340,15 @@ export function WorksListPage() {
                         work.status === 'failed' ? 'destructive' : work.status === 'ready' ? 'secondary' : 'outline'
                       }
                     >
-                      {STATUS_LABEL[work.status]}
+                      {formatWorkStatus(work.status, locale)}
                     </Badge>
                   </TableCell>
                   <TableCell className="px-5 py-4 text-muted-foreground">
                     {work.originKind === 'admin_epub' ? work.partCount : '—'}
                   </TableCell>
-                  <TableCell className="px-5 py-4 text-muted-foreground">{formatUpdatedAt(work.updatedAt)}</TableCell>
+                  <TableCell className="px-5 py-4 text-muted-foreground">
+                    {formatWorkUpdatedAt(work.updatedAt, locale)}
+                  </TableCell>
                   <TableCell className="px-5 py-4 text-right">
                     <WorkRowActions
                       work={work}

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { type Locale, t } from '@gloaming/i18n';
 import { type CreateEpubWorkResult, EPUB_UPLOAD_MAX_BYTES, type WorkflowStep } from '@gloaming/shared/works';
 
 import { Badge } from '@/components/ui/badge';
@@ -25,47 +26,16 @@ import {
   useAdminWorkQuery,
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
+import { formatWorkflowStep, formatWorkStatus, workflowModeLabels } from '@/features/admin/works/works-format';
 import type { AdminWorkView } from '@/features/admin/works/works-model';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-const WORKFLOW_STEPS = [
-  { id: 'upload', label: '上传' },
-  { id: 'parse', label: '内容解析' },
-  { id: 'metadata', label: '原数据完善' },
-  { id: 'audio', label: '音频' },
-  { id: 'publish', label: '发布' },
-] as const;
+const WORKFLOW_STEP_IDS = ['upload', 'parse', 'metadata', 'audio', 'publish'] as const;
 
-type WorkflowStepId = (typeof WORKFLOW_STEPS)[number]['id'];
+type WorkflowStepId = (typeof WORKFLOW_STEP_IDS)[number];
 
 type StepState = 'done' | 'active' | 'todo' | 'failed' | 'na';
-
-export function workflowModeLabels(policy: AdminWorkView['workflowPolicy']): {
-  chain: string;
-  audio: string;
-} {
-  return {
-    chain: policy.autoChainEnabled ? '自动串联' : '手动分步',
-    audio: policy.ttsStepEnabled ? '自动音频' : '手动音频',
-  };
-}
-
-const STATUS_LABEL: Record<AdminWorkView['status'], string> = {
-  uploaded: '待解析',
-  processing: '解析中…',
-  parsed: '待完善原数据',
-  metadata: '原数据完善中…',
-  tts: '音频生成中…',
-  ready: '待发布',
-  failed: '处理失败',
-  published: '已发布',
-};
-
-const STEP_LABEL: Record<'parse' | 'metadata' | 'tts', string> = {
-  parse: '内容解析',
-  metadata: '原数据完善',
-  tts: '音频生成',
-};
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) {
@@ -80,13 +50,13 @@ async function sha256File(file: File): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function validateEpubFile(file: File): string | null {
+function validateEpubFile(file: File, locale: Locale): string | null {
   const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
   if (extension !== 'epub') {
-    return `「${file.name}」格式暂不支持，当前仅支持 EPUB（TXT / PDF 敬请期待）`;
+    return t(locale, 'admin.works.edit.invalidFormat', { fileName: file.name });
   }
   if (file.size > EPUB_UPLOAD_MAX_BYTES) {
-    return `「${file.name}」超过 50MB 大小限制`;
+    return t(locale, 'admin.works.edit.fileTooLarge', { fileName: file.name });
   }
   return null;
 }
@@ -151,15 +121,20 @@ function stepStates(work: AdminWorkView | null): Record<WorkflowStepId, StepStat
 }
 
 function StepIndicator({ states, activeLabel }: { states: Record<WorkflowStepId, StepState>; activeLabel?: string }) {
+  const { locale } = useLocale();
+
   return (
-    <nav aria-label="作品编辑步骤" className="mb-8 flex items-center gap-1 overflow-x-auto pb-1">
-      {WORKFLOW_STEPS.map((step, index) => {
-        const state = states[step.id];
+    <nav
+      aria-label={t(locale, 'admin.works.workflowNav.aria')}
+      className="mb-8 flex items-center gap-1 overflow-x-auto pb-1"
+    >
+      {WORKFLOW_STEP_IDS.map((stepId, index) => {
+        const state = states[stepId];
         const isDone = state === 'done';
         const isActive = state === 'active';
         const isFailed = state === 'failed';
         return (
-          <Fragment key={step.id}>
+          <Fragment key={stepId}>
             {index > 0 ? (
               <div className={cn('h-px w-5 shrink-0 sm:w-7', isDone ? 'bg-brand-deep/50' : 'bg-border')} />
             ) : null}
@@ -191,7 +166,7 @@ function StepIndicator({ states, activeLabel }: { states: Record<WorkflowStepId,
                   index + 1
                 )}
               </span>
-              {step.label}
+              {t(locale, `admin.works.workflowNav.${stepId}`)}
             </div>
           </Fragment>
         );
@@ -202,6 +177,7 @@ function StepIndicator({ states, activeLabel }: { states: Record<WorkflowStepId,
 }
 
 function EpubDropzone({ onFile, disabled }: { onFile: (file: File) => void; disabled: boolean }) {
+  const { locale } = useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -219,7 +195,7 @@ function EpubDropzone({ onFile, disabled }: { onFile: (file: File) => void; disa
     <div
       role="button"
       tabIndex={0}
-      aria-label="上传 EPUB 文件"
+      aria-label={t(locale, 'admin.works.edit.dropzoneAria')}
       className={cn(
         'group flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed bg-card px-6 py-16 text-center transition-colors duration-300 ease-out-soft',
         isDragging ? 'border-brand bg-brand-soft/40' : 'border-border hover:border-brand/60',
@@ -253,11 +229,8 @@ function EpubDropzone({ onFile, disabled }: { onFile: (file: File) => void; disa
       <div className="flex size-12 items-center justify-center rounded-xl bg-brand-soft/60 text-brand-deep transition-transform duration-300 group-hover:-translate-y-0.5">
         <BookOpen className="size-6" />
       </div>
-      <p className="font-heading text-base font-medium">拖拽 EPUB 到此处，或点击选择</p>
-      <p className="text-sm text-muted-foreground">
-        上传后进入内容解析流程，当前处理模式将在编辑页显示。插图书请优先使用带图 EPUB（如 Gutenberg 的
-        *-images.epub）；无图占位会在解析时去掉，避免打断阅读。
-      </p>
+      <p className="font-heading text-base font-medium">{t(locale, 'admin.works.edit.dropzoneTitle')}</p>
+      <p className="text-sm text-muted-foreground">{t(locale, 'admin.works.edit.dropzoneHint')}</p>
     </div>
   );
 }
@@ -267,6 +240,7 @@ type UploadModeProps = {
 };
 
 function UploadMode({ onCreated }: UploadModeProps) {
+  const { locale } = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [isHashing, setIsHashing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -274,7 +248,7 @@ function UploadMode({ onCreated }: UploadModeProps) {
   const isBusy = isHashing || isUploading;
 
   async function handleFile(file: File) {
-    const validationError = validateEpubFile(file);
+    const validationError = validateEpubFile(file, locale);
     if (validationError) {
       setError(validationError);
       return;
@@ -287,7 +261,7 @@ function UploadMode({ onCreated }: UploadModeProps) {
       const contentHash = await sha256File(file);
       const reuse = await checkEpubWorkReuse({ fileName: file.name, contentHash });
       if (reuse.duplicated) {
-        toast.success('秒传完成');
+        toast.success(t(locale, 'admin.works.edit.instantUploadDone'));
         onCreated(reuse);
         return;
       }
@@ -295,7 +269,7 @@ function UploadMode({ onCreated }: UploadModeProps) {
       setIsUploading(true);
       try {
         const result = await uploadAdminEpub(file);
-        toast.success('作品已创建');
+        toast.success(t(locale, 'admin.works.edit.workCreated'));
         onCreated(result);
       } finally {
         setIsUploading(false);
@@ -312,14 +286,18 @@ function UploadMode({ onCreated }: UploadModeProps) {
       {isHashing ? (
         <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
           <Spinner className="size-6 text-brand" />
-          <p className="font-heading text-sm font-medium">正在校验「{selectedFileName}」…</p>
-          <p className="text-xs text-muted-foreground">计算文件哈希，检查是否已存在相同文件</p>
+          <p className="font-heading text-sm font-medium">
+            {t(locale, 'admin.works.edit.hashingFile', { fileName: selectedFileName })}
+          </p>
+          <p className="text-xs text-muted-foreground">{t(locale, 'admin.works.edit.hashingHint')}</p>
         </div>
       ) : isUploading ? (
         <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
           <Spinner className="size-6 text-brand" />
-          <p className="font-heading text-sm font-medium">正在上传「{selectedFileName}」…</p>
-          <p className="text-xs text-muted-foreground">文件将安全存储到对象存储</p>
+          <p className="font-heading text-sm font-medium">
+            {t(locale, 'admin.works.edit.uploadingFile', { fileName: selectedFileName })}
+          </p>
+          <p className="text-xs text-muted-foreground">{t(locale, 'admin.works.edit.uploadingHint')}</p>
         </div>
       ) : (
         <div>
@@ -345,6 +323,7 @@ type WorkflowModeProps = {
 };
 
 function WorkEditMode({ workId, work }: WorkflowModeProps) {
+  const { locale } = useLocale();
   const router = useRouter();
   const invalidate = useInvalidateAdminWorks();
   const isEpub = work.originKind === 'admin_epub';
@@ -371,10 +350,10 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
       await invalidate(workId);
       toast.success(
         isStartingIdle && step
-          ? `已开始「${STEP_LABEL[step]}」`
+          ? t(locale, 'admin.works.edit.stepStarted', { step: formatWorkflowStep(step, locale) })
           : step
-            ? `已重新开始「${STEP_LABEL[step]}」`
-            : '已重试',
+            ? t(locale, 'admin.works.edit.stepRestarted', { step: formatWorkflowStep(step, locale) })
+            : t(locale, 'admin.works.edit.retryGeneric'),
       );
     } catch (error) {
       toast.error(formatWorksApiError(error));
@@ -387,7 +366,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
     try {
       await publishAdminWork(workId);
       await invalidate(workId);
-      toast.success('已发布');
+      toast.success(t(locale, 'admin.content.common.published'));
     } catch (error) {
       toast.error(formatWorksApiError(error));
     }
@@ -397,17 +376,17 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
     try {
       await unpublishAdminWork(workId);
       await invalidate(workId);
-      toast.success('已下架');
+      toast.success(t(locale, 'admin.content.common.unpublished'));
     } catch (error) {
       toast.error(formatWorksApiError(error));
     }
   }
 
   async function handleDelete() {
-    if (!window.confirm('确定删除此作品？删除后无法恢复。')) return;
+    if (!window.confirm(t(locale, 'admin.content.common.confirmDeleteWorkPermanent'))) return;
     try {
       await deleteAdminWork(workId);
-      toast.success('已删除');
+      toast.success(t(locale, 'admin.content.common.deleted'));
       router.replace(ADMIN_ROUTES.works);
     } catch (error) {
       toast.error(formatWorksApiError(error));
@@ -417,28 +396,35 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
   const parsed = isEpub ? (work.originMeta.parsed as Record<string, unknown> | undefined) : undefined;
   const publishIssues = work.publishIssues;
   const metadataChecklist = [
-    { path: 'title', label: '标题已填写' },
-    { path: 'sources', label: '至少一个来源' },
-    { path: 'tags', label: '至少一个标签' },
-    { path: 'body', label: '正文内容存在' },
+    { path: 'title', label: t(locale, 'admin.works.edit.checklistTitleFilled') },
+    { path: 'sources', label: t(locale, 'admin.works.edit.checklistSources') },
+    { path: 'tags', label: t(locale, 'admin.works.edit.checklistTags') },
+    { path: 'body', label: t(locale, 'admin.works.edit.checklistBody') },
   ] as const;
   const audioGateIssues = publishIssues.filter((issue) => issue.path.includes('.audio.'));
   const isRunning = work.status === 'processing' || work.status === 'metadata' || work.status === 'tts';
   const isActing = actingStep !== null;
   const canRerun = isEpub && work.status !== 'published' && !isRunning && !isActing;
   const hasParts = work.parts.length > 0;
-  const workflowLabels = workflowModeLabels(work.workflowPolicy);
+  const workflowLabels = workflowModeLabels(work.workflowPolicy, locale);
+  const unknownError = t(locale, 'admin.works.edit.unknownError');
 
   return (
     <div>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-heading text-3xl font-bold tracking-tight">编辑作品</h1>
+          <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.works.edit.title')}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge
               variant={work.status === 'published' ? 'secondary' : work.status === 'failed' ? 'destructive' : 'outline'}
             >
-              {STATUS_LABEL[work.status]}
+              {formatWorkStatus(
+                work.status,
+                locale,
+                work.status === 'processing' || work.status === 'metadata' || work.status === 'tts'
+                  ? 'ellipsis'
+                  : 'default',
+              )}
             </Badge>
             <Badge variant="outline">{workflowLabels.chain}</Badge>
             <Badge variant="outline">{workflowLabels.audio}</Badge>
@@ -454,12 +440,12 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
               nativeButton={false}
               render={<Link href={ADMIN_ROUTES.workPreview(work.id)} />}
             >
-              预览作品
+              {t(locale, 'admin.works.edit.previewWork')}
             </Button>
           ) : null}
           {work.status !== 'published' ? (
             <Button type="button" variant="destructive" size="sm" onClick={() => void handleDelete()}>
-              删除
+              {t(locale, 'admin.content.common.delete')}
             </Button>
           ) : null}
         </div>
@@ -474,36 +460,40 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
             <span className="flex size-6 items-center justify-center rounded-full bg-brand-soft/60 text-brand-deep">
               <BookOpen className="size-3.5" />
             </span>
-            上传
+            {t(locale, 'admin.works.workflowNav.upload')}
             {states.upload === 'done' ? <Check className="size-4 text-brand-deep" /> : null}
           </h2>
           {isEpub ? (
             work.originAsset ? (
               <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
                 <div>
-                  <dt className="text-muted-foreground">文件名</dt>
+                  <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.fileName')}</dt>
                   <dd className="mt-0.5 truncate font-medium">{work.originAsset.fileName}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">大小</dt>
+                  <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.fileSize')}</dt>
                   <dd className="mt-0.5 font-medium">{formatFileSize(work.originAsset.size)}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">文件哈希</dt>
+                  <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.fileHash')}</dt>
                   <dd className="mt-0.5 font-mono text-xs">{work.originAsset.contentHash.slice(0, 12)}…</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">来源</dt>
+                  <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.fileOrigin')}</dt>
                   <dd className="mt-0.5">
-                    {work.originAsset.reused ? <Badge variant="secondary">秒传复用</Badge> : '本次上传'}
+                    {work.originAsset.reused ? (
+                      <Badge variant="secondary">{t(locale, 'admin.works.edit.originReused')}</Badge>
+                    ) : (
+                      t(locale, 'admin.works.edit.originUploaded')
+                    )}
                   </dd>
                 </div>
               </dl>
             ) : (
-              <p className="mt-4 text-sm text-muted-foreground">等待文件信息…</p>
+              <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.waitingFileInfo')}</p>
             )
           ) : (
-            <p className="mt-4 text-sm text-muted-foreground">文本作品（内部种子），无源文件。</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.textWorkNoSource')}</p>
           )}
         </section>
 
@@ -513,54 +503,60 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
             <span className="flex size-6 items-center justify-center rounded-full bg-brand-soft/60 text-brand-deep">
               <Sparkles className="size-3.5" />
             </span>
-            内容解析
+            {t(locale, 'admin.works.workflowNav.parse')}
             {states.parse === 'done' ? <Check className="size-4 text-brand-deep" /> : null}
           </h2>
 
           {!isEpub ? (
-            <p className="mt-4 text-sm text-muted-foreground">文本作品不经过 EPUB 解析。</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.textWorkNoParse')}</p>
           ) : work.status === 'uploaded' ? (
             <div className="mt-4 space-y-4">
-              <p className="text-sm text-muted-foreground">文件已就绪，点击开始解析章节内容。</p>
+              <p className="text-sm text-muted-foreground">{t(locale, 'admin.works.edit.parseReadyHint')}</p>
               <Button type="button" size="sm" onClick={() => void handleRetry('parse')} disabled={!canRerun}>
-                {isActing ? '排队中…' : '开始解析'}
+                {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'admin.works.edit.startParse')}
               </Button>
             </div>
           ) : work.status === 'processing' || actingStep === 'parse' ? (
             <div className="mt-4 flex items-center gap-3 text-sm text-muted-foreground">
               <Spinner className="size-4 text-brand" />
-              {work.status === 'processing' ? '正在解析章节内容…' : '已提交解析任务…'}
+              {work.status === 'processing'
+                ? t(locale, 'admin.works.edit.parsingChapters')
+                : t(locale, 'admin.works.edit.parseTaskSubmitted')}
             </div>
           ) : work.status === 'failed' ? (
             <div className="mt-4 space-y-4">
               <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" />
                 <p>
-                  {work.failedStep && work.failedStep !== 'parse' ? `「${STEP_LABEL[work.failedStep]}」步骤失败：` : ''}
-                  {String(work.originMeta.lastError ?? '处理失败，未知错误')}
+                  {work.failedStep && work.failedStep !== 'parse'
+                    ? t(locale, 'admin.works.edit.stepFailedPrefix', {
+                        step: formatWorkflowStep(work.failedStep, locale),
+                      })
+                    : ''}
+                  {String(work.originMeta.lastError ?? unknownError)}
                 </p>
               </div>
               {work.failedStep === 'parse' || !parsed ? (
                 <Button type="button" size="sm" onClick={() => void handleRetry()} disabled={isActing}>
-                  {isActing ? '排队中…' : '重试'}
+                  {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'content.common.retry')}
                 </Button>
               ) : null}
               {parsed ? (
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
                   <div>
-                    <dt className="text-muted-foreground">章节数</dt>
+                    <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.chapterCount')}</dt>
                     <dd className="mt-0.5 font-medium">{String(parsed.chapterCount ?? work.parts.length)}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">图片数</dt>
+                    <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.imageCount')}</dt>
                     <dd className="mt-0.5 font-medium">{String(parsed.imageCount ?? 0)}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">原始条目（spine）</dt>
+                    <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.spineCount')}</dt>
                     <dd className="mt-0.5 font-medium">{String(parsed.spineCount ?? '—')}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">目录条目（nav）</dt>
+                    <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.navCount')}</dt>
                     <dd className="mt-0.5 font-medium">{String(parsed.navCount ?? '—')}</dd>
                   </div>
                 </dl>
@@ -570,39 +566,36 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
             <div className="mt-4">
               <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
                 <div>
-                  <dt className="text-muted-foreground">章节数</dt>
+                  <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.chapterCount')}</dt>
                   <dd className="mt-0.5 font-medium">{String(parsed.chapterCount ?? work.parts.length)}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">图片数</dt>
+                  <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.imageCount')}</dt>
                   <dd className="mt-0.5 font-medium">{String(parsed.imageCount ?? 0)}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">原始条目（spine）</dt>
+                  <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.spineCount')}</dt>
                   <dd className="mt-0.5 font-medium">{String(parsed.spineCount ?? '—')}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">目录条目（nav）</dt>
+                  <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.navCount')}</dt>
                   <dd className="mt-0.5 font-medium">{String(parsed.navCount ?? '—')}</dd>
                 </div>
               </dl>
               {work.status === 'published' ? (
-                <p className="mt-4 text-xs text-muted-foreground">作品已发布，如需重新解析请先下架。</p>
+                <p className="mt-4 text-xs text-muted-foreground">
+                  {t(locale, 'admin.works.edit.publishedReparseHint')}
+                </p>
               ) : (
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
-                    onClick={() =>
-                      void handleRetry(
-                        'parse',
-                        '将重新解析章节，并覆盖现有正文、图片与信息字段（含手工编辑），确定继续？',
-                      )
-                    }
+                    onClick={() => void handleRetry('parse', t(locale, 'admin.works.edit.confirmReparse'))}
                     disabled={!canRerun}
                   >
-                    {isActing ? '排队中…' : '重新解析'}
+                    {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'admin.works.edit.reparse')}
                   </Button>
                   <Button
                     type="button"
@@ -612,13 +605,13 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                     render={<Link href={ADMIN_ROUTES.workPreview(work.id)} />}
                   >
                     <ListTree data-icon="inline-start" />
-                    预览作品
+                    {t(locale, 'admin.works.edit.previewWork')}
                   </Button>
                 </div>
               )}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-muted-foreground">等待解析…</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.waitingParse')}</p>
           )}
         </section>
 
@@ -628,7 +621,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
             <span className="flex size-6 items-center justify-center rounded-full bg-brand-soft/60 text-brand-deep">
               <Sparkles className="size-3.5" />
             </span>
-            原数据完善
+            {t(locale, 'admin.works.workflowNav.metadata')}
             {states.metadata === 'done' ? <Check className="size-4 text-brand-deep" /> : null}
           </h2>
           <MetadataReviewPanel workId={work.id} work={work} />
@@ -640,13 +633,13 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
             <span className="flex size-6 items-center justify-center rounded-full bg-brand-soft/60 text-brand-deep">
               <AudioLines className="size-3.5" />
             </span>
-            音频
+            {t(locale, 'admin.works.workflowNav.audio')}
             {states.audio === 'done' ? <Check className="size-4 text-brand-deep" /> : null}
           </h2>
           {!isEpub ? (
-            <p className="mt-4 text-sm text-muted-foreground">文本作品不参与音频流程。</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.textWorkNoAudio')}</p>
           ) : work.parts.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">等待内容解析完成后再生成音频。</p>
+            <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.waitingParseForAudio')}</p>
           ) : (
             <>
               <WorkAudioPanel workId={work.id} />
@@ -660,7 +653,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                   ))}
                 </ul>
               ) : work.status === 'ready' || work.status === 'published' ? (
-                <p className="mt-4 text-sm text-muted-foreground">全部有正文章节的默认美音已就绪，可以发布。</p>
+                <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.audioReadyHint')}</p>
               ) : null}
             </>
           )}
@@ -672,7 +665,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
             <span className="flex size-6 items-center justify-center rounded-full bg-brand-soft/60 text-brand-deep">
               <Send className="size-3.5" />
             </span>
-            发布
+            {t(locale, 'admin.works.workflowNav.publish')}
             {states.publish === 'done' ? <Check className="size-4 text-brand-deep" /> : null}
           </h2>
           <div className="mt-4">
@@ -693,7 +686,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
               {audioGateIssues.length === 0 && work.parts.some((part) => part.body.trim()) ? (
                 <li className="flex items-center gap-2">
                   <Check className="size-4 text-brand-deep" />
-                  <span>全部有正文章节的默认美音已就绪</span>
+                  <span>{t(locale, 'admin.works.edit.audioReadyChecklist')}</span>
                 </li>
               ) : null}
               {audioGateIssues.map((issue) => (
@@ -706,7 +699,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {work.status === 'published' ? (
                 <Button type="button" variant="secondary" size="sm" onClick={() => void handleUnpublish()}>
-                  下架
+                  {t(locale, 'admin.content.common.unpublish')}
                 </Button>
               ) : work.status === 'ready' ? (
                 <Button
@@ -715,15 +708,19 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                   onClick={() => void handlePublish()}
                   disabled={publishIssues.length > 0}
                 >
-                  发布
+                  {t(locale, 'admin.content.common.publish')}
                 </Button>
               ) : (
                 <span className="text-xs text-muted-foreground">
-                  {work.status === 'failed' ? '处理失败，修复后可发布。' : '全部步骤完成后即可发布。'}
+                  {work.status === 'failed'
+                    ? t(locale, 'admin.works.edit.publishBlockedFailed')
+                    : t(locale, 'admin.works.edit.publishBlockedIncomplete')}
                 </span>
               )}
               {publishIssues.length > 0 && work.status === 'ready' ? (
-                <span className="text-xs text-muted-foreground">完善左侧要求后即可发布</span>
+                <span className="text-xs text-muted-foreground">
+                  {t(locale, 'admin.works.edit.publishBlockedIssues')}
+                </span>
               ) : null}
             </div>
           </div>
@@ -738,6 +735,7 @@ type WorksEditPageProps = {
 };
 
 export function WorksEditPage({ workId }: WorksEditPageProps) {
+  const { locale } = useLocale();
   const router = useRouter();
   const detailQuery = useAdminWorkQuery(workId ?? '', { enabled: Boolean(workId) });
 
@@ -762,9 +760,11 @@ export function WorksEditPage({ workId }: WorksEditPageProps) {
     return (
       <div className="mx-auto w-full max-w-4xl rounded-2xl border border-border bg-card px-6 py-14 text-center">
         <FileText className="mx-auto size-8 text-muted-foreground" />
-        <p className="mt-3 text-sm text-muted-foreground">无法加载作品详情：{formatWorksApiError(detailQuery.error)}</p>
+        <p className="mt-3 text-sm text-muted-foreground">
+          {t(locale, 'admin.works.edit.loadFailed', { error: formatWorksApiError(detailQuery.error) })}
+        </p>
         <Button type="button" variant="outline" className="mt-5" onClick={() => void detailQuery.refetch()}>
-          重试
+          {t(locale, 'content.common.retry')}
         </Button>
       </div>
     );
@@ -775,16 +775,22 @@ export function WorksEditPage({ workId }: WorksEditPageProps) {
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto w-full max-w-4xl">
       <div className="mb-8 flex items-center justify-between gap-4">
-        {!work ? <h1 className="font-heading text-3xl font-bold tracking-tight">上传作品</h1> : null}
-        <Button nativeButton={false} variant="ghost" render={<Link href={ADMIN_ROUTES.works}>返回列表</Link>} />
+        {!work ? (
+          <h1 className="font-heading text-3xl font-bold tracking-tight">
+            {t(locale, 'admin.works.edit.uploadTitle')}
+          </h1>
+        ) : null}
+        <Button
+          nativeButton={false}
+          variant="ghost"
+          render={<Link href={ADMIN_ROUTES.works}>{t(locale, 'admin.content.common.backToList')}</Link>}
+        />
       </div>
 
       {!work ? (
         <>
           <StepIndicator states={stepStates(null)} />
-          <p className="-mt-4 mb-6 text-sm text-muted-foreground">
-            上传 EPUB 后进入内容解析流程，可在编辑页查看当前处理模式、审查内容并发布到发现。
-          </p>
+          <p className="-mt-4 mb-6 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.uploadHint')}</p>
           <div className="rounded-2xl border border-border bg-card px-6 py-8">
             <UploadMode onCreated={handleCreated} />
           </div>

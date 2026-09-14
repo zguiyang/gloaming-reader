@@ -3,6 +3,7 @@
 import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { useState } from 'react';
 
+import { t } from '@gloaming/i18n';
 import type { TaxonomyItem } from '@gloaming/shared/taxonomy';
 
 import { Badge } from '@/components/ui/badge';
@@ -10,9 +11,20 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Spinner } from '@/components/ui/spinner';
 import { useTaxonomyQuery } from '@/features/admin/taxonomy/taxonomy-api';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-function OptionRow({ item, selected, onSelect }: { item: TaxonomyItem; selected: boolean; onSelect: () => void }) {
+function OptionRow({
+  item,
+  selected,
+  onSelect,
+  locale,
+}: {
+  item: TaxonomyItem;
+  selected: boolean;
+  onSelect: () => void;
+  locale: ReturnType<typeof useLocale>['locale'];
+}) {
   return (
     <button
       type="button"
@@ -24,7 +36,11 @@ function OptionRow({ item, selected, onSelect }: { item: TaxonomyItem; selected:
     >
       <span className="min-w-0 flex-1 truncate">{item.name}</span>
       <span className="flex shrink-0 items-center gap-1.5">
-        {item.usage > 0 ? <span className="text-xs text-muted-foreground">{item.usage} 部作品</span> : null}
+        {item.usage > 0 ? (
+          <span className="text-xs text-muted-foreground">
+            {t(locale, 'admin.taxonomy.picker.usageWorks', { count: item.usage })}
+          </span>
+        ) : null}
         {selected ? <Check className="size-4 shrink-0" /> : null}
       </span>
     </button>
@@ -41,6 +57,7 @@ type MultiPickerProps = {
 
 /** Multi-select search picker for tags / sources — picks from existing dimensions. */
 export function TaxonomyMultiPicker({ kind, value, onChange, placeholder, disabled }: MultiPickerProps) {
+  const { locale } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const query = useTaxonomyQuery(kind, { search: search || undefined });
@@ -74,7 +91,7 @@ export function TaxonomyMultiPicker({ kind, value, onChange, placeholder, disabl
               {name}
               <button
                 type="button"
-                aria-label={`移除 ${name}`}
+                aria-label={t(locale, 'admin.taxonomy.picker.removeAria', { name })}
                 onMouseDown={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -90,7 +107,7 @@ export function TaxonomyMultiPicker({ kind, value, onChange, placeholder, disabl
             </Badge>
           ))
         ) : (
-          <span className="px-1 text-muted-foreground">{placeholder ?? '选择…'}</span>
+          <span className="px-1 text-muted-foreground">{placeholder ?? t(locale, 'admin.content.common.select')}</span>
         )}
         <ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
@@ -98,7 +115,7 @@ export function TaxonomyMultiPicker({ kind, value, onChange, placeholder, disabl
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="搜索已有选项…"
+          placeholder={t(locale, 'admin.content.common.searchExisting')}
           className="mb-1.5"
         />
         <div className="max-h-64 overflow-y-auto">
@@ -110,13 +127,18 @@ export function TaxonomyMultiPicker({ kind, value, onChange, placeholder, disabl
             <ul role="listbox" className="flex flex-col gap-0.5">
               {query.data.map((item) => (
                 <li key={item.id} role="option" aria-selected={value.includes(item.name)}>
-                  <OptionRow item={item} selected={value.includes(item.name)} onSelect={() => toggle(item.name)} />
+                  <OptionRow
+                    item={item}
+                    selected={value.includes(item.name)}
+                    onSelect={() => toggle(item.name)}
+                    locale={locale}
+                  />
                 </li>
               ))}
             </ul>
           ) : (
             <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">
-              {search ? '没有匹配项' : '暂无数据'}
+              {search ? t(locale, 'admin.content.common.noMatch') : t(locale, 'admin.content.common.noData')}
             </p>
           )}
         </div>
@@ -136,6 +158,7 @@ type SelectProps = {
 
 /** Single-select search picker for the work category. */
 export function TaxonomySelect({ value, onChange, placeholder, disabled, allowClear }: SelectProps) {
+  const { locale } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const query = useTaxonomyQuery('category', { search: search || undefined });
@@ -158,14 +181,16 @@ export function TaxonomySelect({ value, onChange, placeholder, disabled, allowCl
           />
         }
       >
-        <span className="min-w-0 flex-1 truncate">{value ?? placeholder ?? '选择分类…'}</span>
+        <span className="min-w-0 flex-1 truncate">
+          {value ?? placeholder ?? t(locale, 'admin.works.metadata.categoryPlaceholder')}
+        </span>
         <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-1.5">
         <Input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="搜索分类…"
+          placeholder={t(locale, 'admin.taxonomy.picker.searchCategory')}
           className="mb-1.5"
         />
         <div className="max-h-64 overflow-y-auto">
@@ -181,7 +206,7 @@ export function TaxonomySelect({ value, onChange, placeholder, disabled, allowCl
                 !value && 'text-brand-deep',
               )}
             >
-              <span>不分类</span>
+              <span>{t(locale, 'admin.taxonomy.picker.noCategory')}</span>
               {!value ? <Check className="size-4" /> : null}
             </button>
           ) : null}
@@ -200,13 +225,14 @@ export function TaxonomySelect({ value, onChange, placeholder, disabled, allowCl
                       onChange(item.name);
                       setIsOpen(false);
                     }}
+                    locale={locale}
                   />
                 </li>
               ))}
             </ul>
           ) : (
             <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">
-              {search ? '没有匹配项' : '暂无分类'}
+              {search ? t(locale, 'admin.content.common.noMatch') : t(locale, 'admin.taxonomy.picker.noCategories')}
             </p>
           )}
         </div>
