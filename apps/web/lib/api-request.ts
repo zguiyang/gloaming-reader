@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 
-import { getClientLocale } from '@/lib/client-locale';
+import { applyRequestLocale } from '@/lib/request-language';
 
 export type ApiRequestErrorInfo = {
   message: string;
@@ -37,22 +37,6 @@ export type ApiRequestOptions<T> = {
   onError?: (error: ApiRequestError) => void;
 };
 
-const API_ERROR_I18N: Record<number, Record<string, string>> = {
-  401: { Unauthorized: '未登录或登录已过期，请重新登录' },
-  403: { Forbidden: '没有权限执行此操作' },
-};
-
-function localizeApiErrorMessage(message: string, status: number): string {
-  const mapped = API_ERROR_I18N[status]?.[message];
-  if (mapped) {
-    return mapped;
-  }
-  if (status === 401 && message === '请求失败') {
-    return '未登录或登录已过期，请重新登录';
-  }
-  return message;
-}
-
 async function readApiError(response: Response): Promise<ApiRequestErrorInfo> {
   let message = '请求失败';
   let code: string | undefined;
@@ -76,7 +60,7 @@ async function readApiError(response: Response): Promise<ApiRequestErrorInfo> {
     // keep defaults
   }
   return {
-    message: localizeApiErrorMessage(message, response.status),
+    message,
     status: response.status,
     code,
     details,
@@ -96,12 +80,9 @@ function throwApiError(info: ApiRequestErrorInfo, onError?: (error: ApiRequestEr
 export async function apiRequest<T>(path: string, options: ApiRequestOptions<T>): Promise<T> {
   const { schema, json, onResponse, onError, headers: initHeaders, body: rawBody, ...rest } = options;
 
-  const headers = new Headers(initHeaders);
+  const headers = applyRequestLocale(initHeaders);
   if (!headers.has('Accept')) {
     headers.set('Accept', 'application/json');
-  }
-  if (!headers.has('Accept-Language')) {
-    headers.set('Accept-Language', getClientLocale());
   }
 
   let body = rawBody;

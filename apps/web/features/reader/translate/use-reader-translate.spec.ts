@@ -1,10 +1,44 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TRANSLATE_SSE_EVENT } from '@gloaming/shared/translate';
 
 import { streamTranslatePart } from '@/features/reader/translate/reader-translate-api';
+import { LOCALE_COOKIE_NAME } from '@/lib/client-locale';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe('streamTranslatePart', () => {
+  it('sends Accept-Language from locale cookie', async () => {
+    vi.stubGlobal('document', { cookie: `${LOCALE_COOKIE_NAME}=en-US` });
+
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            `event: ${TRANSLATE_SSE_EVENT.done}\ndata: {"contentHash":"hash1","cached":false}\n\n`,
+          ),
+        );
+        controller.close();
+      },
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(stream, {
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await streamTranslatePart({ partId: 'part-1' });
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(new Headers(init.headers).get('Accept-Language')).toBe('en-US');
+    expect(new Headers(init.headers).get('Accept')).toBe('text/event-stream');
+  });
+
   it('parses meta, title, sentence, and done events properly', async () => {
     const sseChunks = [
       `event: ${TRANSLATE_SSE_EVENT.meta}\ndata: {"contentHash":"hash1","titleEn":"Title En","sentences":[{"index":0,"paragraphIndex":0,"en":"Hello."},{"index":1,"paragraphIndex":1,"en":"World."}]}\n\n`,

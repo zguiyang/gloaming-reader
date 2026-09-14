@@ -97,7 +97,7 @@ describe('apiRequest', () => {
     expect(new Headers(init.headers).get('Content-Type')).toBe('application/json');
   });
 
-  it('localizes 401 Unauthorized to Chinese', async () => {
+  it('preserves API error message without local status mapping', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -109,7 +109,7 @@ describe('apiRequest', () => {
     );
 
     await expect(apiRequest('/api/shelf', { schema: pingSchema })).rejects.toMatchObject({
-      message: '未登录或登录已过期，请重新登录',
+      message: 'Unauthorized',
       status: 401,
     });
   });

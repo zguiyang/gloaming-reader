@@ -13,6 +13,7 @@ import {
 } from '@gloaming/shared/translate';
 
 import { ApiRequestError } from '@/lib/api-request';
+import { applyRequestLocale } from '@/lib/request-language';
 
 export type TranslateStreamHandlers = {
   onMeta?: (meta: TranslateSseMeta) => void;
@@ -62,10 +63,10 @@ export async function streamTranslatePart(
 ): Promise<TranslateSseDone> {
   const response = await fetch('/api/translate/part', {
     method: 'POST',
-    headers: {
+    headers: applyRequestLocale({
       Accept: 'text/event-stream',
       'Content-Type': 'application/json',
-    },
+    }),
     body: JSON.stringify(body),
     signal: handlers.signal,
   });

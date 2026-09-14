@@ -7,6 +7,7 @@ import {
 } from '@gloaming/shared/assist';
 
 import { ApiRequestError } from '@/lib/api-request';
+import { applyRequestLocale } from '@/lib/request-language';
 
 export type AssistStreamHandlers = {
   onDelta?: (text: string) => void;
@@ -50,10 +51,10 @@ async function* readSse(response: Response): AsyncGenerator<{ event: string; dat
 export async function streamAssistAsk(body: AssistAskBody, handlers: AssistStreamHandlers = {}) {
   const response = await fetch('/api/assist/ask', {
     method: 'POST',
-    headers: {
+    headers: applyRequestLocale({
       Accept: 'text/event-stream',
       'Content-Type': 'application/json',
-    },
+    }),
     body: JSON.stringify(body),
     signal: handlers.signal,
   });
