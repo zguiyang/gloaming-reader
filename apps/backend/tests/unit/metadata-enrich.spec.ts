@@ -39,6 +39,7 @@ describe('metadata-enrich quality heuristics', () => {
       language: 'en',
       existingTags: [],
       catalogSubjects: ['Fables, Greek -- Translations into English'],
+      ruleTagCandidates: ['Fables', 'Greek'],
       ruleDescription: '',
       excerpt: 'x'.repeat(200),
       tocTitles: [],
@@ -49,6 +50,7 @@ describe('metadata-enrich quality heuristics', () => {
     expect(system).toContain('LCSH');
     expect(user).toContain('Ebook catalog subjects');
     expect(user).toContain('Fables, Greek -- Translations into English');
+    expect(user).toContain('Rule-derived tag candidates');
   });
 });
 
@@ -174,6 +176,17 @@ describe('metadata-enrich taxonomy refs and dynamic schema', () => {
     const full = buildMetadataOutputSchema(['description', 'tags', 'category']);
     expect(Object.keys(full.shape as Record<string, unknown>).sort()).toEqual(['category', 'description', 'tags']);
     expect(full.safeParse({ description: 'd', tags: [], category: null }).success).toBe(false);
+    expect(
+      full.safeParse({
+        description: 'd',
+        tags: Array.from({ length: 4 }, (_, index) => ({
+          id: null,
+          name: `Tag ${index + 1}`,
+          localizedNames: fablesLocalized,
+        })),
+        category: { id: null, name: 'Fiction', localizedNames: fablesLocalized },
+      }).success,
+    ).toBe(false);
     expect(
       full.safeParse({
         description: 'd',

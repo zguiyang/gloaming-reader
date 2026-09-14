@@ -1,8 +1,9 @@
-import { AI_TAG_MAX_ITEMS } from '@/modules/metadata-enrich/fields';
 import { isStopwordTag } from '@/modules/metadata-enrich/quality';
 
 /** Align with AI tag cap — product tags from EPUB subjects stay concise. */
 export const PRODUCT_TAG_MAX_LEN = 40 as const;
+/** Maximum rule-derived candidates passed to AI; this is not the final tag cap. */
+export const RULE_TAG_CANDIDATE_MAX_ITEMS = 12 as const;
 
 /** LCSH-style subdivision heads that are never product tags on their own. */
 const SUBDIVISION_ONLY = /^(translations?\s+into|juvenile\s+literature)\b/i;
@@ -22,9 +23,9 @@ export function isCatalogLikeTag(value: string): boolean {
 }
 
 /**
- * Rule layer: EPUB `dc:subject` → short product tag names.
+ * Rule layer: EPUB `dc:subject` → short candidate names for AI review.
  * Keeps LCSH heads (split on `--`, then `,`); drops subdivisions / stopwords /
- * overlong strings. Raw subjects stay in `originMeta.parsed` for audit/AI hints.
+ * overlong strings. These candidates never become final tags by themselves.
  */
 export function cleanSubjectsToProductTags(subjects: string[]): string[] {
   const seen = new Set<string>();
@@ -40,7 +41,7 @@ export function cleanSubjectsToProductTags(subjects: string[]): string[] {
       if (seen.has(key)) continue;
       seen.add(key);
       out.push(name);
-      if (out.length >= AI_TAG_MAX_ITEMS) return out;
+      if (out.length >= RULE_TAG_CANDIDATE_MAX_ITEMS) return out;
     }
   }
   return out;

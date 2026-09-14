@@ -36,6 +36,7 @@ import {
   mergeTaxonomyLocalizedNames,
 } from '@/modules/metadata-enrich/taxonomy-localized';
 import { listCategoriesTool, listExistingTagsTool } from '@/modules/metadata-enrich/tools';
+import { cleanSubjectsToProductTags } from '@/modules/metadata-fill/subjects';
 
 const enrichLogger = rootLogger.child({ module: 'MetadataEnrich' });
 
@@ -66,27 +67,44 @@ async function loadBookContext(workId: string): Promise<{ excerpt: string; tocTi
   return { excerpt, tocTitles };
 }
 
-type WorkTagSnapshot = { name: string; localizedNames: LocalizedTextMap };
+type TaxonomyProvenance = 'extracted' | 'ai' | 'manual';
+type WorkTagSnapshot = { name: string; localizedNames: LocalizedTextMap; provenance: TaxonomyProvenance };
 
 async function loadCurrentTags(workId: string): Promise<WorkTagSnapshot[]> {
   const rows = await db
-    .select({ name: tagTable.name, localizedNames: tagTable.localizedNames })
+    .select({
+      name: tagTable.name,
+      localizedNames: tagTable.localizedNames,
+      provenance: readingWorkTagTable.provenance,
+    })
     .from(readingWorkTagTable)
     .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
     .where(eq(readingWorkTagTable.workId, workId));
-  return rows.map((row) => ({ name: row.name, localizedNames: row.localizedNames ?? {} }));
+  return rows.map((row) => ({
+    name: row.name,
+    localizedNames: row.localizedNames ?? {},
+    provenance: row.provenance,
+  }));
 }
 
-type WorkCategorySnapshot = { name: string; localizedNames: LocalizedTextMap };
+type WorkCategorySnapshot = { name: string; localizedNames: LocalizedTextMap; provenance: TaxonomyProvenance };
 
 async function loadCurrentCategory(workId: string): Promise<WorkCategorySnapshot | undefined> {
   const [row] = await db
-    .select({ name: categoryTable.name, localizedNames: categoryTable.localizedNames })
+    .select({
+      name: categoryTable.name,
+      localizedNames: categoryTable.localizedNames,
+      provenance: readingWorkCategoryTable.provenance,
+    })
     .from(readingWorkCategoryTable)
     .innerJoin(categoryTable, eq(readingWorkCategoryTable.categoryId, categoryTable.id))
     .where(eq(readingWorkCategoryTable.workId, workId))
     .limit(1);
-  return row ? { name: row.name, localizedNames: row.localizedNames ?? {} } : undefined;
+  return row ? { name: row.name, localizedNames: row.localizedNames ?? {}, provenance: row.provenance } : undefined;
+}
+
+function hasNonManualTaxonomy(rows: Array<{ provenance: TaxonomyProvenance }>): boolean {
+  return rows.some((row) => row.provenance !== 'manual');
 }
 
 function loadCatalogSubjects(work: typeof readingWorkTable.$inferSelect): string[] {
@@ -190,11 +208,13 @@ export async function enrichWorkMetadata(
   const needed = new Set<(typeof aiFillableFields)[number]>();
   for (const id of aiFillableFields) {
     if (id === 'tags') {
-      if (areWorkTagsWeak(currentTags)) needed.add(id);
+      if (hasNonManualTaxonomy(currentTags) || areWorkTagsWeak(currentTags)) needed.add(id);
       continue;
     }
     if (id === 'category') {
-      if (isCategoryWeak(currentCategory)) needed.add(id);
+      if ((currentCategory && currentCategory.provenance !== 'manual') || isCategoryWeak(currentCategory)) {
+        needed.add(id);
+      }
       continue;
     }
     const def = metadataFieldRegistry[id];
@@ -208,6 +228,7 @@ export async function enrichWorkMetadata(
   }
 
   const catalogSubjects = loadCatalogSubjects(work);
+  const ruleTagCandidates = cleanSubjectsToProductTags(catalogSubjects);
   const outputSchema = buildMetadataOutputSchema([...needed]);
   let result: AiInvokeResult<z.infer<typeof outputSchema>>;
   try {
@@ -221,6 +242,7 @@ export async function enrichWorkMetadata(
         language: work.language,
         existingTags: currentTags.map((tag) => tag.name),
         catalogSubjects,
+        ruleTagCandidates,
         ruleDescription: work.description,
         excerpt: context.excerpt,
         tocTitles: context.tocTitles,
@@ -232,7 +254,8 @@ export async function enrichWorkMetadata(
     });
   } catch (error) {
     if (isModelNotConfigured(error)) {
-      // Rules already landed; surface remaining AI targets as gaps.
+      // No AI result means no generated taxonomy is persisted; surface the
+      // required fields as gaps for an explicit retry.
       return completeMetadataStep(workId, retryJobToken, attemptToken, [...needed]);
     }
     throw error;
@@ -247,47 +270,48 @@ export async function enrichWorkMetadata(
       patch.descriptionProvenance = 'ai';
     }
 
-    // Tags — model returns { id, name } (id null = create). Intent is advisory:
-    // ids are validated, and names always fall back to normalized reuse-first upserts
-    // (never duplicate dimensions). When AI fills weak tags, replace extracted+ai
-    // associations (keep manual).
+    // Tags — the AI result is the final generated set. Remove only generated
+    // associations, then reuse/create the returned dimensions. Manual tags stay.
     const aiTags = metadataFieldRegistry.tags.normalize(result.content.tags) as CleanTaxonomyRef[] | undefined;
-    if (needed.has('tags') && Array.isArray(aiTags)) {
+    if (needed.has('tags')) {
+      await tx
+        .delete(readingWorkTagTable)
+        .where(
+          and(eq(readingWorkTagTable.workId, workId), inArray(readingWorkTagTable.provenance, ['extracted', 'ai'])),
+        );
       const tagIds: string[] = [];
-      for (const tag of aiTags) {
-        const id = await resolveTagId(tx, tag);
-        if (id) tagIds.push(id);
-      }
-      if (tagIds.length > 0) {
-        await tx
-          .delete(readingWorkTagTable)
-          .where(
-            and(eq(readingWorkTagTable.workId, workId), inArray(readingWorkTagTable.provenance, ['extracted', 'ai'])),
-          );
-        for (const tagId of tagIds) {
-          await tx.insert(readingWorkTagTable).values({ workId, tagId, provenance: 'ai' }).onConflictDoNothing();
+      if (Array.isArray(aiTags)) {
+        for (const tag of aiTags) {
+          const id = await resolveTagId(tx, tag);
+          if (id) tagIds.push(id);
         }
+      }
+      for (const tagId of tagIds) {
+        await tx.insert(readingWorkTagTable).values({ workId, tagId, provenance: 'ai' }).onConflictDoNothing();
       }
     }
 
-    // Category — single-select. Same adjudication as tags.
+    // Category — single-select. Same adjudication as tags; a stale generated
+    // category must not survive when the AI cannot produce a valid replacement.
     const aiCategory = metadataFieldRegistry.category.normalize(result.content.category) as
       CleanTaxonomyRef | undefined;
-    if (needed.has('category') && aiCategory) {
-      const categoryId = await resolveCategoryId(tx, aiCategory);
-      if (categoryId) {
-        await tx
-          .delete(readingWorkCategoryTable)
-          .where(
-            and(
-              eq(readingWorkCategoryTable.workId, workId),
-              inArray(readingWorkCategoryTable.provenance, ['extracted', 'ai']),
-            ),
-          );
-        await tx
-          .insert(readingWorkCategoryTable)
-          .values({ workId, categoryId, provenance: 'ai' })
-          .onConflictDoNothing();
+    if (needed.has('category')) {
+      await tx
+        .delete(readingWorkCategoryTable)
+        .where(
+          and(
+            eq(readingWorkCategoryTable.workId, workId),
+            inArray(readingWorkCategoryTable.provenance, ['extracted', 'ai']),
+          ),
+        );
+      if (aiCategory) {
+        const categoryId = await resolveCategoryId(tx, aiCategory);
+        if (categoryId) {
+          await tx
+            .insert(readingWorkCategoryTable)
+            .values({ workId, categoryId, provenance: 'ai' })
+            .onConflictDoNothing();
+        }
       }
     }
 

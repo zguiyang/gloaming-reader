@@ -13,11 +13,13 @@ import {
   user as userTable,
 } from '@gloaming/db';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import app from '@/app';
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
 import { processMetadataEnrich } from '@/jobs/metadata-enrich';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { normalizeTag } from '@/lib/text';
 import { claimWorkflowStep, rotateWorkflowJobToken } from '@/lib/workflow';
@@ -172,9 +174,13 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     const response = await app.request(`/api/admin/works/${workId}`, { headers: { Cookie: adminCookie } });
     expect(response.status).toBe(200);
     return (await response.json()) as {
-      tags: string[];
+      tags: TaxonomyReference[];
       metadataProvenance: Record<string, string | undefined>;
     };
+  }
+
+  function tagLabels(tags: TaxonomyReference[]): string[] {
+    return tags.map((tag) => tag.names['en-US'] ?? tag.names['zh-CN'] ?? '');
   }
 
   beforeEach(() => {
@@ -194,7 +200,23 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       subjects: ['Science'],
     });
     const categoryId = await ensureCategory('Science');
-    await db.insert(readingWorkCategoryTable).values({ workId, categoryId, provenance: 'extracted' });
+    await db
+      .update(categoryTable)
+      .set({ localizedNames: { 'zh-CN': '科学', 'en-US': 'Science' }, origin: 'manual' })
+      .where(eq(categoryTable.id, categoryId));
+    await db.insert(readingWorkCategoryTable).values({ workId, categoryId, provenance: 'manual' });
+    const [tag] = await db
+      .insert(tagTable)
+      .values({
+        id: `tag-complete-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: 'Science',
+        normalized: 'science',
+        localizedNames: { 'zh-CN': '科学', 'en-US': 'Science' },
+        origin: 'manual',
+      })
+      .returning({ id: tagTable.id });
+    createdTagIds.push(tag!.id);
+    await db.insert(readingWorkTagTable).values({ workId, tagId: tag!.id, provenance: 'manual' });
 
     await enrichWorkMetadata(workId);
 
@@ -252,9 +274,9 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     );
 
     const apiWork = await fetchAdminWork(workId);
-    expect([...apiWork.tags].sort()).toEqual(['Fables', 'Morality']);
+    expect(tagLabels(apiWork.tags).sort()).toEqual(['Fables', 'Morality']);
     expect(apiWork.metadataProvenance.tags).toBe('ai');
-    expect(apiWork.tags).not.toContain(lcshName);
+    expect(tagLabels(apiWork.tags)).not.toContain(lcshName);
 
     const provenances = await db
       .select({ provenance: readingWorkTagTable.provenance })
@@ -295,7 +317,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
     const apiWork = await fetchAdminWork(workId);
     expect(apiWork.metadataProvenance).toMatchObject({ description: 'ai', tags: 'ai', category: 'ai' });
-    expect([...apiWork.tags].sort()).toEqual(['Adventure', 'Space']);
+    expect(tagLabels(apiWork.tags).sort()).toEqual(['Adventure', 'Space']);
 
     // AI-created tags are recorded as origin='ai' on the dimension row.
     const [spaceTag] = await db
@@ -345,7 +367,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     expect(work!.status).toBe('ready');
 
     const apiWork = await fetchAdminWork(workId);
-    expect(apiWork.tags).toEqual(['Reuse Tag']);
+    expect(tagLabels(apiWork.tags)).toEqual(['Reuse Tag']);
     expect(apiWork.metadataProvenance.tags).toBe('ai');
 
     // Reused rows keep their original creator — no origin rewrite, no dupes.
@@ -396,12 +418,24 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   it('sends an output schema containing only the required fields', async () => {
     const workId = await createParsedWork({ title: 'Schema Book' });
 
+    const [manualTag] = await db
+      .insert(tagTable)
+      .values({
+        id: `tag-schema-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: 'Manual Fill Tag',
+        normalized: `manual-fill-tag-${Date.now()}`,
+        localizedNames: { 'zh-CN': '手动填充标签', 'en-US': 'Manual Fill Tag' },
+        origin: 'manual',
+      })
+      .returning({ id: tagTable.id });
+    createdTagIds.push(manualTag!.id);
+
     await app.request(`/api/admin/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         description: 'A solid hand-written description that is long enough for the manual requirement.',
-        tags: ['Manual Tag'],
+        tags: [{ id: manualTag!.id }],
       }),
     });
 
@@ -429,11 +463,23 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   it('does not override manual values and skips works outside the metadata step', async () => {
     const workId = await createParsedWork({ title: 'Manual Fill Book', subjects: ['Science'] });
 
+    const [manualTag] = await db
+      .insert(tagTable)
+      .values({
+        id: `tag-manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: 'Manual Tag',
+        normalized: `manual-tag-${Date.now()}`,
+        localizedNames: { 'zh-CN': '手动标签', 'en-US': 'Manual Tag' },
+        origin: 'manual',
+      })
+      .returning({ id: tagTable.id });
+    createdTagIds.push(manualTag!.id);
+
     await app.request(`/api/admin/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        tags: ['Manual Tag'],
+        tags: [{ id: manualTag!.id }],
         description: 'A solid hand-written description that is long enough.',
       }),
     });
@@ -446,7 +492,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
     const apiWork = await fetchAdminWork(workId);
     expect(apiWork.metadataProvenance.description).toBe('manual');
-    expect(apiWork.tags).toContain('Manual Tag');
+    expect(tagLabels(apiWork.tags)).toContain('Manual Tag');
 
     // Second run on a completed work must not invoke the model again.
     const callsAfterFirst = invokeAiMock.mock.calls.length;
@@ -458,7 +504,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     const workId = await createParsedWork({ title: 'No Model Book' });
 
     invokeAiMock.mockRejectedValueOnce(
-      new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'Metadata enrich model not configured'),
+      new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.MODEL_NOT_CONFIGURED),
     );
 
     await enrichWorkMetadata(workId);

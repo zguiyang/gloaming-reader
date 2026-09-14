@@ -4,18 +4,18 @@ import type { LocalizedTextMap } from '@gloaming/shared/taxonomy';
 
 import { inferLocaleForLabel, mergeTaxonomyLocalizedNames } from '@/modules/metadata-enrich/taxonomy-localized';
 
-/** Mirrors metadata-fill tag write contract without DB access. */
+/** Verifies locale inference used when AI taxonomy names are assembled. */
 function buildExtractedTagLocalizedNames(name: string, bookLanguage?: string): LocalizedTextMap {
   const locale = inferLocaleForLabel(name, bookLanguage);
   return { [locale]: name };
 }
 
-describe('metadata-fill extracted tag localized names', () => {
-  it('writes English-only extracted tags to en-US', () => {
+describe('metadata taxonomy candidate localized names', () => {
+  it('assigns English-only candidates to en-US', () => {
     expect(buildExtractedTagLocalizedNames('Fables', 'en')).toEqual({ 'en-US': 'Fables' });
   });
 
-  it('writes Chinese extracted tags to zh-CN', () => {
+  it('assigns Chinese candidates to zh-CN', () => {
     expect(buildExtractedTagLocalizedNames('寓言', 'zh-CN')).toEqual({ 'zh-CN': '寓言' });
   });
 

@@ -19,6 +19,11 @@ describe('metadata-fill subject → product tags', () => {
     expect(cleanSubjectsToProductTags(['Fiction', 'Novel'])).toEqual([]);
   });
 
+  it('keeps ambiguous entities as bounded candidates for AI review', () => {
+    expect(cleanSubjectsToProductTags(['Indiana', 'Teachers'])).toEqual(['Indiana', 'Teachers']);
+    expect(cleanSubjectsToProductTags(Array.from({ length: 20 }, (_, index) => `Topic ${index + 1}`))).toHaveLength(12);
+  });
+
   it('treats empty or catalog-like product tags as weak', () => {
     expect(areProductTagsWeak([])).toBe(true);
     expect(areProductTagsWeak(['Fables, Greek -- Translations into English'])).toBe(true);

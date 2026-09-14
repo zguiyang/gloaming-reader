@@ -2,6 +2,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  category as categoryTable,
   readingWork as readingWorkTable,
   readingWorkCategory as readingWorkCategoryTable,
   readingWorkSource as readingWorkSourceTable,
@@ -12,6 +13,7 @@ import {
   user as userTable,
 } from '@gloaming/db';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import app from '@/app';
 import { db } from '@/db';
@@ -44,8 +46,10 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
   const createdWorkIds: string[] = [];
   const createdContentHashes: string[] = [];
   const createdTagIds: string[] = [];
+  const createdCategoryIds: string[] = [];
   let adminCookie = '';
   const testSourceId = 'src-standard-ebooks';
+  let manualSourceId = 'src-test-publisher';
 
   beforeAll(async () => {
     memory.store.clear();
@@ -74,6 +78,16 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
         matchRule: 'standardebooks.org',
       })
       .onConflictDoNothing();
+    await db
+      .insert(sourceTable)
+      .values({ id: manualSourceId, name: 'Test Publisher', matchRule: 'test-publisher.example' })
+      .onConflictDoNothing();
+    const [manualSource] = await db
+      .select({ id: sourceTable.id })
+      .from(sourceTable)
+      .where(eq(sourceTable.name, 'Test Publisher'))
+      .limit(1);
+    if (manualSource) manualSourceId = manualSource.id;
   });
 
   afterAll(async () => {
@@ -81,6 +95,10 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       await db.delete(readingWorkTable).where(eq(readingWorkTable.id, workId));
     }
     await db.delete(sourceTable).where(eq(sourceTable.id, testSourceId));
+    await db.delete(sourceTable).where(eq(sourceTable.id, manualSourceId));
+    if (createdCategoryIds.length > 0) {
+      await db.delete(categoryTable).where(inArray(categoryTable.id, createdCategoryIds));
+    }
     if (createdContentHashes.length > 0) {
       await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdContentHashes));
     }
@@ -115,7 +133,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     });
   }
 
-  it('writes extracted tag/source associations via junction SSOT', async () => {
+  it('keeps rule subjects as AI-only candidates and writes source associations', async () => {
     const workId = await uploadAndFill(
       await buildEpubBytes({
         title: 'Subject Book',
@@ -133,11 +151,11 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     const detail = await app.request(`/api/admin/works/${workId}`, { headers: { Cookie: adminCookie } });
     expect(detail.status).toBe(200);
     const apiWork = (await detail.json()) as {
-      tags: string[];
+      tags: TaxonomyReference[];
       metadataProvenance: Record<string, string | undefined>;
     };
-    expect(apiWork.tags).toEqual(['Zeta Alpha', 'Zeta Beta']);
-    expect(apiWork.metadataProvenance).toEqual({ tags: 'extracted' });
+    expect(apiWork.tags).toEqual([]);
+    expect(apiWork.metadataProvenance).toEqual({});
 
     const tagRows = await db
       .select({ name: tagTable.name, provenance: readingWorkTagTable.provenance })
@@ -145,17 +163,14 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
       .where(eq(readingWorkTagTable.workId, workId))
       .orderBy(tagTable.name);
-    expect(tagRows).toEqual([
-      { name: 'Zeta Alpha', provenance: 'extracted' },
-      { name: 'Zeta Beta', provenance: 'extracted' },
-    ]);
+    expect(tagRows).toEqual([]);
 
-    // Extracted tags are recorded with origin='extracted' on the dimension row.
+    // Rule subjects never create global dimensions before AI adjudication.
     const extractedOrigins = await db
       .select({ origin: tagTable.origin })
       .from(tagTable)
       .where(inArray(tagTable.name, ['Zeta Alpha', 'Zeta Beta']));
-    expect(extractedOrigins.map((row) => row.origin)).toEqual(['extracted', 'extracted']);
+    expect(extractedOrigins).toEqual([]);
 
     const sourceRows = await db.select().from(readingWorkSourceTable).where(eq(readingWorkSourceTable.workId, workId));
     expect(sourceRows).toHaveLength(1);
@@ -163,7 +178,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     expect(sourceRows[0]!.provenance).toBe('extracted');
   });
 
-  it('cleans LCSH subjects into short product tags (never stores the catalog string)', async () => {
+  it('keeps raw LCSH subjects for AI hints without storing them as tags', async () => {
     const workId = await uploadAndFill(
       await buildEpubBytes({
         title: 'Aesop LCSH Book',
@@ -184,10 +199,10 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
       .where(eq(readingWorkTagTable.workId, workId))
       .orderBy(tagTable.name);
-    expect(tagNames.map((row) => row.name)).toEqual(['Fables', 'Greek']);
+    expect(tagNames.map((row) => row.name)).toEqual([]);
   });
 
-  it('is idempotent: re-running fill keeps exactly one extracted association', async () => {
+  it('is idempotent: re-running fill keeps rule-derived associations empty', async () => {
     const workId = await uploadAndFill(
       await buildEpubBytes({
         title: 'Idempotent Book',
@@ -200,8 +215,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     await fillWorkMetadata(workId);
 
     const tagRows = await db.select().from(readingWorkTagTable).where(eq(readingWorkTagTable.workId, workId));
-    expect(tagRows).toHaveLength(1);
-    expect(tagRows[0]!.provenance).toBe('extracted');
+    expect(tagRows).toHaveLength(0);
   });
 
   it('manual tags/sources from updateWork survive re-fill (junction SSOT)', async () => {
@@ -214,19 +228,41 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       }),
     );
 
+    const [scienceTag, manualTag] = await db
+      .insert(tagTable)
+      .values([
+        {
+          id: `tag-science-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: 'Science',
+          normalized: `science-${Date.now()}`,
+          localizedNames: { 'zh-CN': '科学', 'en-US': 'Science' },
+          origin: 'manual',
+        },
+        {
+          id: `tag-manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name: 'Manual Tag',
+          normalized: `manual-tag-${Date.now()}`,
+          localizedNames: { 'zh-CN': '手动标签', 'en-US': 'Manual Tag' },
+          origin: 'manual',
+        },
+      ])
+      .returning({ id: tagTable.id });
+    createdTagIds.push(scienceTag!.id, manualTag!.id);
     const patched = await patchWork(workId, {
-      tags: ['Science', 'Manual Tag'],
-      sources: ['Test Publisher'],
+      tags: [{ id: scienceTag!.id }, { id: manualTag!.id }],
+      sources: [{ id: manualSourceId }],
       description: 'A hand-written description that is long enough to count.',
     });
-    expect(patched.status).toBe(200);
+    expect(patched.status, await patched.clone().text()).toBe(200);
     const body = (await patched.json()) as {
-      tags: string[];
-      sources: string[];
+      tags: TaxonomyReference[];
+      sources: TaxonomyReference[];
       metadataProvenance: Record<string, string | undefined>;
     };
-    expect([...body.tags].sort()).toEqual(['Manual Tag', 'Science'].sort());
-    expect([...(body.sources ?? [])].sort()).toEqual(['Standard Ebooks', 'Test Publisher'].sort());
+    expect(body.tags.map((tag) => tag.names['en-US']).sort()).toEqual(['Manual Tag', 'Science'].sort());
+    expect(body.sources.map((source) => source.names['en-US']).sort()).toEqual(
+      ['Standard Ebooks', 'Test Publisher'].sort(),
+    );
 
     await fillWorkMetadata(workId);
 
@@ -307,19 +343,30 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       }),
     );
 
-    const setResponse = await patchWork(workId, { category: 'Science Fiction' });
+    const [category] = await db
+      .insert(categoryTable)
+      .values({
+        id: `category-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: 'Science Fiction',
+        normalized: `science-fiction-${Date.now()}`,
+        localizedNames: { 'zh-CN': '科幻', 'en-US': 'Science Fiction' },
+        origin: 'manual',
+      })
+      .returning({ id: categoryTable.id });
+    createdCategoryIds.push(category!.id);
+    const setResponse = await patchWork(workId, { category: { id: category!.id } });
     expect(setResponse.status).toBe(200);
     const setBody = (await setResponse.json()) as {
-      category: string | null;
+      category: TaxonomyReference | null;
       metadataProvenance: Record<string, string | undefined>;
     };
-    expect(setBody.category).toBe('Science Fiction');
+    expect(setBody.category?.names['en-US']).toBe('Science Fiction');
     expect(setBody.metadataProvenance.category).toBe('manual');
 
-    const clearResponse = await patchWork(workId, { category: '' });
+    const clearResponse = await patchWork(workId, { category: null });
     expect(clearResponse.status).toBe(200);
     const clearBody = (await clearResponse.json()) as {
-      category: string | null;
+      category: TaxonomyReference | null;
       metadataProvenance: Record<string, string | undefined>;
     };
     expect(clearBody.category).toBeNull();
@@ -337,12 +384,23 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
         chapters: [{ href: 'chapter-1.xhtml', content: '<html><body><p>Body.</p></body></html>' }],
       }),
     );
-    await patchWork(workId, { tags: ['Temporary'], sources: ['Temp Source'] });
+    const [temporaryTag] = await db
+      .insert(tagTable)
+      .values({
+        id: `tag-temporary-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: 'Temporary',
+        normalized: `temporary-${Date.now()}`,
+        localizedNames: { 'zh-CN': '临时', 'en-US': 'Temporary' },
+        origin: 'manual',
+      })
+      .returning({ id: tagTable.id });
+    createdTagIds.push(temporaryTag!.id);
+    await patchWork(workId, { tags: [{ id: temporaryTag!.id }], sources: [{ id: manualSourceId }] });
 
     const cleared = await patchWork(workId, { tags: [], sources: [] });
     expect(cleared.status).toBe(200);
-    const body = (await cleared.json()) as { tags: string[]; sources: string[] };
-    expect(body.tags).toEqual(['Science']);
+    const body = (await cleared.json()) as { tags: TaxonomyReference[]; sources: TaxonomyReference[] };
+    expect(body.tags).toEqual([]);
     expect(body.sources).toEqual([]);
 
     const tagNames = await db
@@ -351,7 +409,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
       .where(eq(readingWorkTagTable.workId, workId))
       .orderBy(tagTable.name);
-    expect(tagNames.map((row) => row.name)).toEqual(['Science']);
+    expect(tagNames.map((row) => row.name)).toEqual([]);
   });
 
   it('retry resumes a failed metadata step (no body → failedStep)', async () => {

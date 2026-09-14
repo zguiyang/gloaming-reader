@@ -6,6 +6,7 @@ import type { LocalizedTextMap } from '@gloaming/shared/taxonomy';
 import {
   AI_DESCRIPTION_MAX,
   AI_TAG_MAX_ITEMS,
+  AI_TAG_MIN_ITEMS,
   METADATA_FIELD_IDS,
   type MetadataFieldId,
 } from '@/modules/metadata-enrich/fields';
@@ -125,7 +126,7 @@ export const metadataFieldRegistry: Record<MetadataFieldId, MetadataFieldDef> = 
     aiFillable: true,
     promptSection: 'tags: localizedNames per supported locale — id from list_existing_tags or null to create',
     outputKey: 'tags',
-    schema: z.array(taxonomyRefSchema).max(AI_TAG_MAX_ITEMS).optional(),
+    schema: z.array(taxonomyRefSchema).min(AI_TAG_MIN_ITEMS).max(AI_TAG_MAX_ITEMS).optional(),
     /** Prefer `areProductTagsWeak(names[])` in orchestration — joined string is best-effort. */
     isWeak(value) {
       return !value || !value.trim();

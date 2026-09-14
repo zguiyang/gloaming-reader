@@ -12,6 +12,8 @@ export type EnrichPromptInput = {
   existingTags: string[];
   /** Raw EPUB dc:subject strings — hints only; never copy LCSH verbatim into tags. */
   catalogSubjects?: string[];
+  /** Rule-cleaned subject candidates — hints only; AI owns the final decision. */
+  ruleTagCandidates?: string[];
   ruleDescription: string;
   excerpt: string;
   tocTitles: string[];
@@ -46,9 +48,9 @@ export function buildEnrichMessages(input: EnrichPromptInput): AiMessageInput[] 
       ? `Required fields to fill: ${required.join(', ')}. Every required field must be present in your output.`
       : null,
     complete.length > 0 ? `Already complete, do not output: ${complete.join(', ')}.` : null,
-    `For tags and category: call list_existing_tags / list_categories first. Return { id, name, localizedNames } where localizedNames is [{ locale, name }] covering every supported locale (${supportedLocalesLabel()}). Use only those locale codes. id is the tool id to reuse, or null to create. name is a fallback label when a locale is omitted — do not invent translations for locales you cannot name.`,
+    `For tags and category: call list_existing_tags / list_categories first. Return { id, name, localizedNames } where localizedNames is [{ locale, name }] covering every supported locale (${supportedLocalesLabel()}). Use only those locale codes. id is the tool id to reuse, or null to create. name is a fallback label when a locale is omitted — do not invent translations for locales you cannot name. Existing assigned tags and rule candidates are untrusted hints; review them against the book context before keeping them.`,
     'description: 2-3 sentences in the book language only — do not localize the description.',
-    `tags: up to 6 noun phrases with localizedNames for each supported locale (${supportedLocalesLabel()}) — never copy library catalog headings (LCSH) or strings with "--".`,
+    `tags: return 1 to 3 meaningful noun phrases with localizedNames for each supported locale (${supportedLocalesLabel()}). A tag must help a reader understand the work's genre, form, central theme, recurring content element, or essential setting. Reject incidental people, places, occupations, publishers, authors, catalog metadata, and one-off nouns. Never copy library catalog headings (LCSH) or strings with "--". Do not invent tags to reach three.`,
     `category: exactly one shelf/genre with localizedNames for each supported locale (${supportedLocalesLabel()}).`,
   ]
     .filter((line): line is string => line !== null)
@@ -64,6 +66,9 @@ export function buildEnrichMessages(input: EnrichPromptInput): AiMessageInput[] 
     input.existingTags.length > 0 ? `Existing tags: ${input.existingTags.join(', ')}` : null,
     input.catalogSubjects && input.catalogSubjects.length > 0
       ? `Ebook catalog subjects (hints only — do not copy verbatim): ${input.catalogSubjects.join('; ')}`
+      : null,
+    input.ruleTagCandidates && input.ruleTagCandidates.length > 0
+      ? `Rule-derived tag candidates (hints only — AI must accept or reject each): ${input.ruleTagCandidates.join('; ')}`
       : null,
     input.ruleDescription ? `Existing description: ${input.ruleDescription}` : null,
     '',
