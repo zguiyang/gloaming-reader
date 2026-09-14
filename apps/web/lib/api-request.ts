@@ -1,19 +1,24 @@
 import type { z } from 'zod';
 
+import { getClientLocale } from '@/lib/client-locale';
+
 export type ApiRequestErrorInfo = {
   message: string;
   status: number;
+  code?: string;
   details?: { path: string; message: string }[];
 };
 
 export class ApiRequestError extends Error {
   readonly status: number;
+  readonly code?: string;
   readonly details?: { path: string; message: string }[];
 
   constructor(error: ApiRequestErrorInfo) {
     super(error.message);
     this.name = 'ApiRequestError';
     this.status = error.status;
+    this.code = error.code;
     this.details = error.details;
   }
 }
@@ -50,14 +55,19 @@ function localizeApiErrorMessage(message: string, status: number): string {
 
 async function readApiError(response: Response): Promise<ApiRequestErrorInfo> {
   let message = '请求失败';
+  let code: string | undefined;
   let details: ApiRequestErrorInfo['details'];
   try {
     const body = (await response.json()) as {
       error?: string;
+      code?: string;
       details?: { path: string; message: string }[];
     };
     if (body.error?.trim()) {
       message = body.error.trim();
+    }
+    if (typeof body.code === 'string' && body.code.trim()) {
+      code = body.code.trim();
     }
     if (Array.isArray(body.details)) {
       details = body.details;
@@ -65,7 +75,12 @@ async function readApiError(response: Response): Promise<ApiRequestErrorInfo> {
   } catch {
     // keep defaults
   }
-  return { message: localizeApiErrorMessage(message, response.status), status: response.status, details };
+  return {
+    message: localizeApiErrorMessage(message, response.status),
+    status: response.status,
+    code,
+    details,
+  };
 }
 
 function throwApiError(info: ApiRequestErrorInfo, onError?: (error: ApiRequestError) => void): never {
@@ -84,6 +99,9 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions<T>)
   const headers = new Headers(initHeaders);
   if (!headers.has('Accept')) {
     headers.set('Accept', 'application/json');
+  }
+  if (!headers.has('Accept-Language')) {
+    headers.set('Accept-Language', getClientLocale());
   }
 
   let body = rawBody;
