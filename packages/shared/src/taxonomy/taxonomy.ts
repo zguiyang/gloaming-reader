@@ -16,10 +16,45 @@ export const TAXONOMY_MATCH_RULE_MAX = 200 as const;
 export const TAXONOMY_ORIGINS = WORK_METADATA_PROVENANCES;
 export type TaxonomyOrigin = WorkMetadataProvenance;
 
+/** Locale-keyed display names; keys are arbitrary BCP-47 tags (e.g. zh-CN, en-US). */
+export type TaxonomyLocalizedNames = Record<string, string>;
+
+/** Resolve the display name for a taxonomy row in the requested locale. */
+export function resolveTaxonomyDisplayName(
+  localizedNames: TaxonomyLocalizedNames | null | undefined,
+  canonicalName: string,
+  locale: string,
+): string {
+  const localized = localizedNames?.[locale]?.trim();
+  return localized && localized.length > 0 ? localized : canonicalName;
+}
+
+/** Merge a locale-specific name into an existing localized_names map. */
+export function mergeLocalizedName(
+  existing: TaxonomyLocalizedNames | null | undefined,
+  locale: string,
+  name: string,
+): TaxonomyLocalizedNames {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    return existing ?? {};
+  }
+  return { ...(existing ?? {}), [locale]: trimmed };
+}
+
+/** Include localizedNames in API payloads only when non-empty. */
+export function optionalLocalizedNames(
+  localizedNames: TaxonomyLocalizedNames | null | undefined,
+): TaxonomyLocalizedNames | undefined {
+  const map = localizedNames ?? {};
+  return Object.keys(map).length > 0 ? map : undefined;
+}
+
 /** One dimension row — `usage` = number of works linked to it. */
 export const taxonomyItemSchema = z.object({
   id: z.string(),
   name: z.string(),
+  localizedNames: z.record(z.string(), z.string()).optional(),
   usage: z.number().int().nonnegative(),
   /** Who first created this row: extracted (parse) / ai / manual. */
   origin: z.enum(TAXONOMY_ORIGINS),

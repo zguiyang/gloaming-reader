@@ -163,12 +163,16 @@ export const readingWork = pgTable(
   ],
 );
 
+/** Locale-keyed display names for taxonomy dimensions (BCP-47 keys, e.g. zh-CN). */
+export type TaxonomyLocalizedNames = Record<string, string>;
+
 /** Shared dimension: tag (unique by normalized form — reuse-first). */
 export const tag = pgTable(
   'tag',
   {
     id: text('id').primaryKey(),
     name: text('name').notNull().unique(),
+    localizedNames: jsonb('localized_names').$type<TaxonomyLocalizedNames>().notNull().default({}),
     normalized: text('normalized').notNull().unique(),
     /** Who first created this row — never rewritten on reuse/rename. */
     origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),
@@ -187,6 +191,7 @@ export const category = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull().unique(),
+    localizedNames: jsonb('localized_names').$type<TaxonomyLocalizedNames>().notNull().default({}),
     normalized: text('normalized').notNull().unique(),
     /** Who first created this row — never rewritten on reuse/rename. */
     origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),
@@ -205,6 +210,7 @@ export const source = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull().unique(),
+    localizedNames: jsonb('localized_names').$type<TaxonomyLocalizedNames>().notNull().default({}),
     matchRule: text('match_rule').notNull().default(''),
     /** Who first created this row — never rewritten on reuse/rename. */
     origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),

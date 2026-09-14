@@ -232,6 +232,13 @@
       "when": 1788649860000,
       "tag": "0032_architecture_contract_facts",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788750000000,
+      "tag": "0033_taxonomy_localized_names",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import { TAXONOMY_KINDS } from '@gloaming/shared/taxonomy';
 
 import { HTTP_STATUS } from '@/constants';
 import { ERROR_CODES } from '@/lib/error-codes';
+import { resolveRequestLocale } from '@/lib/locale';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
 import * as taxonomyService from '@/modules/taxonomy/service';
@@ -23,21 +24,24 @@ function parseKind(raw: string | undefined): TaxonomyKind | null {
 taxonomyRoutes.get('/api/admin/taxonomy/:kind', requireAdmin, validateTaxonomyListQuery, async (c) => {
   const kind = parseKind(c.req.param('kind'));
   if (!kind) return sendError(c, ERROR_CODES.TAXONOMY.INVALID_KIND, HTTP_STATUS.BAD_REQUEST);
-  const items = await taxonomyService.listTaxonomy(kind, c.req.valid('query'));
+  const locale = resolveRequestLocale(c);
+  const items = await taxonomyService.listTaxonomy(kind, c.req.valid('query'), locale);
   return c.json({ items });
 });
 
 taxonomyRoutes.post('/api/admin/taxonomy/:kind', requireAdmin, validateCreateTaxonomy, async (c) => {
   const kind = parseKind(c.req.param('kind'));
   if (!kind) return sendError(c, ERROR_CODES.TAXONOMY.INVALID_KIND, HTTP_STATUS.BAD_REQUEST);
-  const item = await taxonomyService.createTaxonomyItem(kind, c.req.valid('json'));
+  const locale = resolveRequestLocale(c);
+  const item = await taxonomyService.createTaxonomyItem(kind, c.req.valid('json'), locale);
   return c.json(item, HTTP_STATUS.CREATED);
 });
 
 taxonomyRoutes.patch('/api/admin/taxonomy/:kind/:id', requireAdmin, validateUpdateTaxonomy, async (c) => {
   const kind = parseKind(c.req.param('kind'));
   if (!kind) return sendError(c, ERROR_CODES.TAXONOMY.INVALID_KIND, HTTP_STATUS.BAD_REQUEST);
-  const item = await taxonomyService.updateTaxonomyItem(kind, c.req.param('id'), c.req.valid('json'));
+  const locale = resolveRequestLocale(c);
+  const item = await taxonomyService.updateTaxonomyItem(kind, c.req.param('id'), c.req.valid('json'), locale);
   return c.json(item);
 });
 

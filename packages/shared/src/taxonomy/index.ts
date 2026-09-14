@@ -6,11 +6,15 @@ export type {
   TaxonomyKind,
   TaxonomyListData,
   TaxonomyListQuery,
+  TaxonomyLocalizedNames,
   TaxonomyOrigin,
   UpdateTaxonomyBody,
 } from './taxonomy.ts';
 export {
   createTaxonomyBodySchema,
+  mergeLocalizedName,
+  optionalLocalizedNames,
+  resolveTaxonomyDisplayName,
   TAXONOMY_CLEANABLE_KINDS,
   TAXONOMY_KINDS,
   TAXONOMY_MATCH_RULE_MAX,
