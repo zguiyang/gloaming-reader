@@ -4,24 +4,26 @@ import { SlidersHorizontalIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { type Locale, t } from '@gloaming/i18n';
+import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { DISCOVER_ALL_TAG, type DiscoverTagFilter } from '@/features/discover/discover-model';
+import { DISCOVER_ALL_TAG, type DiscoverTagFilter, taxonomyDisplayName } from '@/features/discover/discover-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 type DiscoverFiltersProps = {
   tag: DiscoverTagFilter;
-  tags: string[];
+  tags: readonly TaxonomyReference[];
   onTagChange: (value: DiscoverTagFilter) => void;
 };
 
-function tagDisplayLabel(option: DiscoverTagFilter, locale: Locale): string {
+function tagDisplayLabel(option: DiscoverTagFilter, locale: Locale, catalogTags: readonly TaxonomyReference[]): string {
   if (option === DISCOVER_ALL_TAG) {
     return t(locale, 'content.discover.allTags');
   }
-  return option;
+  const ref = catalogTags.find((entry) => entry.id === option);
+  return ref ? taxonomyDisplayName(ref, locale) : option;
 }
 
 function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -43,8 +45,8 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
   );
 }
 
-function tagOptions(catalogTags: string[]): DiscoverTagFilter[] {
-  return [DISCOVER_ALL_TAG, ...catalogTags];
+function tagOptions(catalogTags: readonly TaxonomyReference[]): DiscoverTagFilter[] {
+  return [DISCOVER_ALL_TAG, ...catalogTags.map((ref) => ref.id)];
 }
 
 function MobileTuneSheet({ tag, tags, onTagChange }: DiscoverFiltersProps) {
@@ -71,7 +73,7 @@ function MobileTuneSheet({ tag, tags, onTagChange }: DiscoverFiltersProps) {
           {options.map((option) => (
             <Chip
               key={option}
-              label={tagDisplayLabel(option, locale)}
+              label={tagDisplayLabel(option, locale, tags)}
               active={tag === option}
               onClick={() => {
                 onTagChange(option);
@@ -95,7 +97,7 @@ export function DiscoverFilters({ tag, tags, onTagChange }: DiscoverFiltersProps
         {options.map((option) => (
           <Chip
             key={option}
-            label={tagDisplayLabel(option, locale)}
+            label={tagDisplayLabel(option, locale, tags)}
             active={tag === option}
             onClick={() => onTagChange(option)}
           />

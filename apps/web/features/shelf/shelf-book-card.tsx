@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { type Locale, t } from '@gloaming/i18n';
 import type { ShelfItem } from '@gloaming/shared/shelf';
+import { resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import { AUTH_ROUTES } from '@/constants';
 import { WorkCover } from '@/features/work-cover';
@@ -25,7 +26,11 @@ export function ShelfBookCard({ entry }: { entry: ShelfItem }) {
   const { locale } = useLocale();
   const { work, state } = entry;
   const detailHref = AUTH_ROUTES.bookDetail(work.id);
-  const tagLine = work.tags.slice(0, 2).join(' · ');
+  const tagLine = work.tags
+    .slice(0, 2)
+    .map((tag) => resolveLocalizedText(tag.names, locale))
+    .filter(Boolean)
+    .join(' · ');
   const hasProgressBar = state.status === 'in_progress' && state.progressRatio > 0;
   const coverImageUrl = coverUrlFromAssetId(work.coverAssetId);
 
@@ -42,7 +47,7 @@ export function ShelfBookCard({ entry }: { entry: ShelfItem }) {
       >
         <WorkCover
           title={work.title}
-          tags={work.tags}
+          tags={work.tags.map((tag) => tag.id)}
           coverImageUrl={coverImageUrl}
           className="aspect-[2/3] rounded-sm"
         />

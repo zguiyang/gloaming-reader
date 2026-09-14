@@ -1,18 +1,18 @@
 'use client';
 
 import { FolderOpen, Link2, PencilLine, Plus, Search, Tags, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
-import type { TaxonomyItem, TaxonomyKind } from '@gloaming/shared/taxonomy';
-import type { WorkMetadataProvenance } from '@gloaming/shared/works';
+import type { TaxonomyItem, TaxonomyKind, TaxonomyOrigin } from '@gloaming/shared/taxonomy';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,7 +26,17 @@ import {
   useTaxonomyQuery,
   useUpdateTaxonomy,
 } from '@/features/admin/taxonomy/taxonomy-api';
-import { formatProvenance } from '@/features/admin/works/works-format';
+import {
+  buildTaxonomyNamesPayload,
+  filterTaxonomyItems,
+  formatTaxonomyConfirmName,
+  formatTaxonomyLocaleCell,
+  formatTaxonomyOrigin,
+  formatTaxonomyUpdatedAt,
+  formatTranslationStatusLabel,
+  getTranslationStatus,
+  type TranslationFilter,
+} from '@/features/admin/taxonomy/taxonomy-format';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -36,8 +46,9 @@ const KIND_KEYS: Record<TaxonomyKind, string> = {
   source: 'source',
 };
 
-/** Dimension origin badge — secondary styling, ember stays reserved for busy states. */
-function OriginBadge({ origin }: { origin: WorkMetadataProvenance }) {
+const TABLE_COLUMN_COUNT = 8;
+
+function OriginBadge({ origin }: { origin: TaxonomyOrigin }) {
   const { locale } = useLocale();
 
   return (
@@ -48,7 +59,18 @@ function OriginBadge({ origin }: { origin: WorkMetadataProvenance }) {
         origin === 'extracted' && 'text-muted-foreground',
       )}
     >
-      {formatProvenance(origin, locale)}
+      {formatTaxonomyOrigin(origin, locale)}
+    </Badge>
+  );
+}
+
+function TranslationStatusBadge({ item }: { item: TaxonomyItem }) {
+  const { locale } = useLocale();
+  const status = getTranslationStatus(item.names);
+
+  return (
+    <Badge variant={status === 'complete' ? 'secondary' : 'outline'}>
+      {formatTranslationStatusLabel(status, locale)}
     </Badge>
   );
 }
@@ -74,14 +96,15 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
   const createMutation = useCreateTaxonomy(kind);
   const updateMutation = useUpdateTaxonomy(kind);
   const isEdit = item !== null;
-  const [name, setName] = useState(item?.name ?? '');
+  const [nameZh, setNameZh] = useState(item?.names['zh-CN'] ?? '');
+  const [nameEn, setNameEn] = useState(item?.names['en-US'] ?? '');
   const [matchRule, setMatchRule] = useState(item?.matchRule ?? '');
   const [error, setError] = useState<string | null>(null);
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   async function handleSubmit() {
-    const trimmed = name.trim();
-    if (!trimmed) {
+    const names = buildTaxonomyNamesPayload(nameZh, nameEn);
+    if (!names) {
       setError(t(locale, 'admin.content.common.nameRequired'));
       return;
     }
@@ -91,13 +114,13 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
         await updateMutation.mutateAsync({
           id: item.id,
           body: {
-            name: trimmed,
+            names,
             ...(kind === 'source' ? { matchRule: matchRule.trim() } : {}),
           },
         });
       } else {
         await createMutation.mutateAsync({
-          name: trimmed,
+          names,
           ...(kind === 'source' ? { matchRule: matchRule.trim() } : {}),
         });
       }
@@ -125,19 +148,27 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
 
         <div className="space-y-5">
           <FieldGroup>
-            <Field data-invalid={Boolean(error) || undefined}>
-              <FieldLabel htmlFor="taxonomy-name">{t(locale, 'admin.taxonomy.sheet.nameLabel')}</FieldLabel>
+            <Field>
+              <FieldLabel htmlFor="taxonomy-name-zh">{t(locale, 'admin.taxonomy.sheet.nameZhLabel')}</FieldLabel>
               <Input
-                id="taxonomy-name"
-                value={name}
+                id="taxonomy-name-zh"
+                value={nameZh}
                 maxLength={100}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={
-                  kind === 'source'
-                    ? t(locale, 'admin.taxonomy.sheet.sourceNamePlaceholder')
-                    : t(locale, 'admin.taxonomy.sheet.genericNamePlaceholder')
-                }
+                onChange={(event) => setNameZh(event.target.value)}
+                placeholder={t(locale, 'admin.taxonomy.sheet.genericNamePlaceholder')}
               />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="taxonomy-name-en">{t(locale, 'admin.taxonomy.sheet.nameEnLabel')}</FieldLabel>
+              <Input
+                id="taxonomy-name-en"
+                value={nameEn}
+                maxLength={100}
+                onChange={(event) => setNameEn(event.target.value)}
+                placeholder={t(locale, 'admin.taxonomy.sheet.sourceNamePlaceholder')}
+              />
+            </Field>
+            <Field data-invalid={Boolean(error) || undefined}>
               <FieldError>{error}</FieldError>
             </Field>
           </FieldGroup>
@@ -178,34 +209,26 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
   );
 }
 
-function TaxonomyTableSkeleton({ columns }: { columns: number }) {
-  const { locale } = useLocale();
-
+function TaxonomyTableSkeleton() {
   return (
     <Table aria-hidden>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          {Array.from({ length: columns }, (_, index) => (
+          {Array.from({ length: TABLE_COLUMN_COUNT }, (_, index) => (
             <TableHead key={index} className="h-12 bg-surface-container-low px-5 text-muted-foreground">
               <Skeleton className="h-4 w-20 bg-muted/70" />
             </TableHead>
           ))}
-          <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-right text-muted-foreground">
-            {t(locale, 'admin.content.common.actions')}
-          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {Array.from({ length: 4 }, (_, rowIndex) => (
           <TableRow key={rowIndex} className="border-border hover:bg-transparent">
-            {Array.from({ length: columns }, (_, colIndex) => (
+            {Array.from({ length: TABLE_COLUMN_COUNT }, (_, colIndex) => (
               <TableCell key={colIndex} className="px-5 py-4">
                 <Skeleton className="h-4 w-32 max-w-full bg-muted/70" />
               </TableCell>
             ))}
-            <TableCell className="px-5 py-4 text-right">
-              <Skeleton className="ml-auto h-7 w-16 rounded-xl bg-muted/70" />
-            </TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -220,19 +243,40 @@ type TaxonomyPanelProps = {
 function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
   const { locale } = useLocale();
   const [search, setSearch] = useState('');
+  const [translationFilter, setTranslationFilter] = useState<TranslationFilter>('all');
   const [sheetState, setSheetState] = useState<{ open: boolean; item: TaxonomyItem | null }>({
     open: false,
     item: null,
   });
-  const query = useTaxonomyQuery(kind, { search: search || undefined });
+  const query = useTaxonomyQuery(kind);
   const deleteMutation = useDeleteTaxonomy(kind);
   const cleanupMutation = useCleanupTaxonomy();
   const isSource = kind === 'source';
-  const columns = isSource ? 4 : 3;
   const kindLabel = taxonomyKindLabel(kind, locale);
 
+  const filteredItems = useMemo(
+    () => filterTaxonomyItems(query.data ?? [], { search, translationFilter }),
+    [query.data, search, translationFilter],
+  );
+
+  const translationFilterOptions: { value: TranslationFilter; label: string }[] = [
+    {
+      value: 'all',
+      label: t(locale, 'admin.taxonomy.panel.translationFilterAll'),
+    },
+    {
+      value: 'complete',
+      label: t(locale, 'admin.taxonomy.panel.translationFilterComplete'),
+    },
+    {
+      value: 'partial',
+      label: t(locale, 'admin.taxonomy.panel.translationFilterPartial'),
+    },
+  ];
+
   async function handleDelete(item: TaxonomyItem) {
-    if (!window.confirm(t(locale, 'admin.taxonomy.panel.confirmDelete', { name: item.name }))) return;
+    const displayName = formatTaxonomyConfirmName(item.names, locale);
+    if (!window.confirm(t(locale, 'admin.taxonomy.panel.confirmDelete', { name: displayName }))) return;
     try {
       await deleteMutation.mutateAsync(item.id);
       toast.success(t(locale, 'admin.content.common.deleted'));
@@ -255,12 +299,10 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
     }
   }
 
-  const items = query.data ?? [];
-
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <div className="relative min-w-0 flex-1 sm:max-w-xs">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -270,6 +312,24 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
               className="pl-9"
             />
           </div>
+          <Select
+            items={translationFilterOptions}
+            value={translationFilter}
+            onValueChange={(value) => value && setTranslationFilter(value as TranslationFilter)}
+          >
+            <SelectTrigger size="sm" className="min-w-[8.5rem]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {translationFilterOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
           {!isSource ? (
             <Button type="button" variant="outline" size="sm" onClick={() => void handleCleanup()}>
               {t(locale, 'admin.taxonomy.panel.cleanupUnused')}
@@ -287,18 +347,18 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
       </div>
 
       {query.isPending ? (
-        <TaxonomyTableSkeleton columns={columns} />
-      ) : items.length === 0 ? (
+        <TaxonomyTableSkeleton />
+      ) : filteredItems.length === 0 ? (
         <Empty className="border-0 py-16">
           <EmptyMedia variant="icon">{isSource ? <Link2 /> : kind === 'tag' ? <Tags /> : <FolderOpen />}</EmptyMedia>
           <EmptyHeader>
             <EmptyTitle>
-              {search
+              {search || translationFilter !== 'all'
                 ? t(locale, 'admin.taxonomy.panel.emptyNoMatchSearch')
                 : t(locale, 'admin.taxonomy.panel.emptyNoMatch', { kind: kindLabel })}
             </EmptyTitle>
             <EmptyDescription>
-              {search
+              {search || translationFilter !== 'all'
                 ? t(locale, 'admin.taxonomy.panel.emptySearchHint')
                 : isSource
                   ? t(locale, 'admin.taxonomy.panel.emptySourceHint')
@@ -307,12 +367,21 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="overflow-x-auto rounded-2xl border border-border">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.taxonomy.panel.tableIndex')}
+                </TableHead>
                 <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                  {t(locale, 'admin.taxonomy.panel.tableName')}
+                  {t(locale, 'admin.taxonomy.panel.tableChinese')}
+                </TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.taxonomy.panel.tableEnglish')}
+                </TableHead>
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.taxonomy.panel.tableTranslationStatus')}
                 </TableHead>
                 <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
                   {t(locale, 'admin.taxonomy.panel.tableOrigin')}
@@ -320,22 +389,34 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
                 <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
                   {t(locale, 'admin.taxonomy.panel.tableUsage')}
                 </TableHead>
-                {isSource ? (
-                  <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                    {t(locale, 'admin.taxonomy.panel.tableMatchRule')}
-                  </TableHead>
-                ) : null}
+                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                  {t(locale, 'admin.taxonomy.panel.tableUpdatedAt')}
+                </TableHead>
                 <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-right text-muted-foreground">
                   {t(locale, 'admin.content.common.actions')}
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => {
+              {filteredItems.map((item, index) => {
                 const canDelete = !isSource && item.usage === 0;
+                const zhCell = formatTaxonomyLocaleCell(item.names, 'zh-CN', locale);
+                const enCell = formatTaxonomyLocaleCell(item.names, 'en-US', locale);
+                const isZhMissing = !item.names['zh-CN']?.trim();
+                const isEnMissing = !item.names['en-US']?.trim();
+
                 return (
                   <TableRow key={item.id} className="border-border">
-                    <TableCell className="px-5 py-3.5 font-medium">{item.name}</TableCell>
+                    <TableCell className="px-5 py-3.5 tabular-nums text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell className={cn('px-5 py-3.5', isZhMissing ? 'text-muted-foreground' : 'font-medium')}>
+                      {zhCell}
+                    </TableCell>
+                    <TableCell className={cn('px-5 py-3.5', isEnMissing ? 'text-muted-foreground' : 'font-medium')}>
+                      {enCell}
+                    </TableCell>
+                    <TableCell className="px-5 py-3.5">
+                      <TranslationStatusBadge item={item} />
+                    </TableCell>
                     <TableCell className="px-5 py-3.5">
                       <OriginBadge origin={item.origin} />
                     </TableCell>
@@ -350,11 +431,9 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
                         </span>
                       )}
                     </TableCell>
-                    {isSource ? (
-                      <TableCell className="px-5 py-3.5 text-sm text-muted-foreground">
-                        {item.matchRule || '—'}
-                      </TableCell>
-                    ) : null}
+                    <TableCell className="px-5 py-3.5 text-sm text-muted-foreground tabular-nums">
+                      {formatTaxonomyUpdatedAt(item.updatedAt, locale)}
+                    </TableCell>
                     <TableCell className="px-5 py-3.5">
                       <div className="flex justify-end gap-1">
                         <Button

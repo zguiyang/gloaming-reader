@@ -6,6 +6,7 @@ import { t } from '@gloaming/i18n';
 
 import { AUTH_ROUTES } from '@/constants';
 import type { DiscoverItem } from '@/features/discover/discover-model';
+import { taxonomyCoverTintSeeds } from '@/features/discover/discover-model';
 import { WorkCover } from '@/features/work-cover';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -35,7 +36,7 @@ export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
       >
         <WorkCover
           title={item.title}
-          tags={item.tags}
+          tags={taxonomyCoverTintSeeds(item.tags)}
           coverImageUrl={item.coverImageUrl}
           className="aspect-[2/3] rounded-sm"
         />

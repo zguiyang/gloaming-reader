@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_LOCALE } from '@gloaming/i18n';
+import { workSchema } from '@gloaming/shared/works';
 
 import { chaptersFromParts, toBookDetail } from '@/features/book-detail/book-detail-api';
 import {
+  BOOK_DETAIL_DEFAULT_CATEGORY,
   chapterOrdinalLabel,
   chapterStatusLabel,
   difficultyStarCount,
+  formatBookCategory,
   formatChapterTitle,
   formatMinutes,
   formatRelativeReadTime,
@@ -14,8 +17,22 @@ import {
   languageLabelFromCode,
   primaryReadLabel,
   readingStatusFromProgress,
+  taxonomyDisplayName,
   teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
+
+const taxonomyTag = {
+  id: 'tag-fiction',
+  names: { 'zh-CN': '小说', 'en-US': 'Fiction' },
+  origin: 'manual' as const,
+};
+
+const taxonomySource = {
+  id: 'source-gutenberg',
+  names: { 'en-US': 'Gutenberg' },
+  origin: 'extracted' as const,
+  matchRule: 'gutenberg.org',
+};
 
 describe('book-detail-model', () => {
   it('maps reading status to primary CTA labels', () => {
@@ -79,6 +96,18 @@ describe('book-detail-model', () => {
   it('formats fallback chapter titles from index', () => {
     expect(formatChapterTitle({ index: 3, title: '' }, DEFAULT_LOCALE)).toBe('第 3 章');
     expect(formatChapterTitle({ index: 3, title: 'Custom' }, DEFAULT_LOCALE)).toBe('Custom');
+  });
+
+  it('formats taxonomy category labels for the active locale with fallback', () => {
+    expect(formatBookCategory(taxonomyTag, 'zh-CN')).toBe('小说');
+    expect(formatBookCategory(taxonomyTag, 'en-US')).toBe('Fiction');
+    expect(formatBookCategory(BOOK_DETAIL_DEFAULT_CATEGORY, DEFAULT_LOCALE)).toBe('读物');
+  });
+
+  it('resolves taxonomy tag display names without treating fallback as full translation', () => {
+    const zhOnly = { id: 'tag-zh', names: { 'zh-CN': '冒险' }, origin: 'manual' as const };
+    expect(taxonomyDisplayName(taxonomyTag, 'en-US')).toBe('Fiction');
+    expect(taxonomyDisplayName(zhOnly, 'en-US')).toBe('冒险');
   });
 });
 
@@ -163,8 +192,8 @@ describe('toBookDetail', () => {
     status: 'published' as const,
     visibility: 'catalog' as const,
     originKind: 'admin_epub' as const,
-    tags: ['Fiction'],
-    sources: ['Gutenberg'],
+    tags: [taxonomyTag],
+    sources: [taxonomySource],
     coverAssetId: null,
     wordCount: null,
     estimatedMinutes: null,
@@ -196,5 +225,17 @@ describe('toBookDetail', () => {
     expect(book.suggestedVocabSize).toBeNull();
     expect(book.sourceLabel).toBe('official');
     expect(book.language).toBe('en');
+    expect(book.tags[0]?.id).toBe('tag-fiction');
+    expect(book.category).toEqual(taxonomyTag);
+  });
+
+  it('rejects legacy string taxonomy fields on published work payloads', () => {
+    expect(() =>
+      workSchema.parse({
+        ...work,
+        tags: ['Fiction'],
+        sources: ['Gutenberg'],
+      }),
+    ).toThrow();
   });
 });

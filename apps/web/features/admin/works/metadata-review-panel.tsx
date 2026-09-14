@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
+import { type Locale, t } from '@gloaming/i18n';
 import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, difficultyLabelFromScore } from '@gloaming/shared/reading-stats';
 import { type UpdateWorkBody, type WorkflowStep, type WorkMetadataProvenance } from '@gloaming/shared/works';
 
@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ADMIN_ROUTES } from '@/constants';
 import { formatAdminDateTime } from '@/features/admin/admin-logs-format';
 import { TaxonomyMultiPicker, TaxonomySelect } from '@/features/admin/taxonomy/taxonomy-picker';
+import { TaxonomyReferenceReview } from '@/features/admin/works/taxonomy-reference-review';
 import {
   formatWorksApiError,
   retryAdminWorkflow,
@@ -27,6 +28,13 @@ import {
 } from '@/features/admin/works/works-api';
 import { formatProvenance, formatWorkflowStep } from '@/features/admin/works/works-format';
 import type { AdminWorkView } from '@/features/admin/works/works-model';
+import {
+  categoryReferenceId,
+  categoryReviewItems,
+  taxonomyReferenceIds,
+  toTaxonomySelection,
+  toTaxonomySelections,
+} from '@/features/admin/works/works-taxonomy';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +56,15 @@ function ProvenanceBadge({ provenance }: { provenance?: WorkMetadataProvenance }
       {formatProvenance(provenance, locale)}
     </Badge>
   );
+}
+
+function formatMetadataGapSummary(gaps: string[], locale: Locale): string {
+  const labels = gaps.map((gap) => t(locale, `admin.works.metadata.gap.${gap}`));
+  return labels.length > 0
+    ? t(locale, 'admin.works.metadata.partialFields', {
+        fields: labels.join(locale === 'zh-CN' ? '、' : ', '),
+      })
+    : t(locale, 'admin.works.metadata.hintPartialDefault');
 }
 
 type MetadataFieldRowProps = {
@@ -170,26 +187,42 @@ function MetadataFieldRow({
   );
 }
 
-type ReviewPickerRowProps = {
+type ReviewPickerRowProps<T> = {
   label: string;
-  displayValue: string;
+  review: ReactNode;
+  value: T;
   provenance?: WorkMetadataProvenance;
   disabled?: boolean;
-  picker: ReactNode;
-  onSave: () => Promise<void>;
+  renderPicker: (value: T, onChange: (value: T) => void) => ReactNode;
+  onSave: (value: T) => Promise<void>;
 };
 
-function ReviewPickerRow({ label, displayValue, provenance, disabled, picker, onSave }: ReviewPickerRowProps) {
+function ReviewPickerRow<T>({
+  label,
+  review,
+  value,
+  provenance,
+  disabled,
+  renderPicker,
+  onSave,
+}: ReviewPickerRowProps<T>) {
   const { locale } = useLocale();
   const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function startEdit() {
+    setDraft(value);
+    setError(null);
+    setIsEditing(true);
+  }
 
   async function handleSave() {
     setIsSaving(true);
     setError(null);
     try {
-      await onSave();
+      await onSave(draft);
       setIsEditing(false);
     } catch (saveError) {
       setError(formatWorksApiError(saveError));
@@ -208,7 +241,7 @@ function ReviewPickerRow({ label, displayValue, provenance, disabled, picker, on
               <ProvenanceBadge provenance={provenance} />
             </Label>
           </div>
-          {picker}
+          {renderPicker(draft, setDraft)}
           {error ? (
             <p role="alert" className="text-sm text-destructive">
               {error}
@@ -234,11 +267,9 @@ function ReviewPickerRow({ label, displayValue, provenance, disabled, picker, on
           <span className="text-sm font-medium text-muted-foreground">{label}</span>
           <ProvenanceBadge provenance={provenance} />
         </div>
-        <p className={cn('mt-1 truncate text-sm', !displayValue && 'text-muted-foreground')}>
-          {displayValue || t(locale, 'admin.content.common.notFilled')}
-        </p>
+        <div className="mt-1">{review}</div>
       </div>
-      <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditing(true)} disabled={disabled}>
+      <Button type="button" variant="ghost" size="sm" onClick={startEdit} disabled={disabled}>
         <Pencil data-icon="inline-start" />
         {t(locale, 'admin.content.common.edit')}
       </Button>
@@ -307,8 +338,6 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
   const unknownError = t(locale, 'admin.works.edit.unknownError');
 
   const metadataAt = typeof work.originMeta.metadataAt === 'string' ? work.originMeta.metadataAt : null;
-  const enrichError =
-    typeof work.originMeta.metadataEnrichError === 'string' ? work.originMeta.metadataEnrichError : null;
   const enrichGaps = Array.isArray(work.originMeta.metadataEnrichGaps)
     ? work.originMeta.metadataEnrichGaps.filter((item): item is string => typeof item === 'string')
     : [];
@@ -365,7 +394,7 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
     });
   } else if (isPartial) {
     hint = t(locale, 'admin.works.metadata.hintPartial', {
-      error: enrichError ?? t(locale, 'admin.works.metadata.hintPartialDefault'),
+      error: formatMetadataGapSummary(enrichGaps, locale),
     });
   } else if (isDone) {
     hint = t(locale, 'admin.works.metadata.hintDone');
@@ -460,9 +489,9 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
   const isEpub = work.originKind === 'admin_epub';
   const hasMetadataSkeleton = isMetadataJobRunning;
 
-  const [tagsDraft, setTagsDraft] = useState<string[]>(work.tags);
-  const [sourcesDraft, setSourcesDraft] = useState<string[]>(work.sources);
-  const [categoryDraft, setCategoryDraft] = useState<string | null>(work.category);
+  const tagIds = taxonomyReferenceIds(work.tags);
+  const sourceIds = taxonomyReferenceIds(work.sources);
+  const categoryId = categoryReferenceId(work.category);
 
   async function saveField(patch: UpdateWorkBody) {
     await updateAdminWork(workId, patch);
@@ -542,50 +571,53 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
           />
           <ReviewPickerRow
             label={t(locale, 'admin.works.metadata.fieldTags')}
-            displayValue={work.tags.length > 0 ? work.tags.join(' · ') : ''}
+            review={<TaxonomyReferenceReview items={work.tags} />}
+            value={tagIds}
             provenance={work.metadataProvenance.tags}
             disabled={isMetadataJobRunning}
-            picker={
+            renderPicker={(draft, onChange) => (
               <TaxonomyMultiPicker
                 kind="tag"
-                value={tagsDraft}
-                onChange={setTagsDraft}
+                value={draft}
+                onChange={onChange}
                 placeholder={t(locale, 'admin.works.metadata.tagsPlaceholder')}
                 disabled={isMetadataJobRunning}
               />
-            }
-            onSave={async () => saveField({ tags: tagsDraft })}
+            )}
+            onSave={async (draft) => saveField({ tags: toTaxonomySelections(draft) })}
           />
           <ReviewPickerRow
             label={t(locale, 'admin.works.metadata.fieldCategory')}
-            displayValue={work.category ?? ''}
+            review={<TaxonomyReferenceReview items={categoryReviewItems(work.category)} />}
+            value={categoryId}
             provenance={work.metadataProvenance.category}
             disabled={isMetadataJobRunning}
-            picker={
+            renderPicker={(draft, onChange) => (
               <TaxonomySelect
-                value={categoryDraft}
-                onChange={setCategoryDraft}
+                value={draft}
+                onChange={onChange}
                 placeholder={t(locale, 'admin.works.metadata.categoryPlaceholder')}
                 allowClear
                 disabled={isMetadataJobRunning}
               />
-            }
-            onSave={async () => saveField({ category: categoryDraft ?? '' })}
+            )}
+            onSave={async (draft) => saveField({ category: toTaxonomySelection(draft) })}
           />
           <ReviewPickerRow
             label={t(locale, 'admin.works.metadata.fieldSources')}
-            displayValue={work.sources.length > 0 ? work.sources.join(' · ') : ''}
+            review={<TaxonomyReferenceReview items={work.sources} />}
+            value={sourceIds}
             disabled={isMetadataJobRunning}
-            picker={
+            renderPicker={(draft, onChange) => (
               <TaxonomyMultiPicker
                 kind="source"
-                value={sourcesDraft}
-                onChange={setSourcesDraft}
+                value={draft}
+                onChange={onChange}
                 placeholder={t(locale, 'admin.works.metadata.sourcesPlaceholder')}
                 disabled={isMetadataJobRunning}
               />
-            }
-            onSave={async () => saveField({ sources: sourcesDraft })}
+            )}
+            onSave={async (draft) => saveField({ sources: toTaxonomySelections(draft) })}
           />
           <MetadataReadOnlyRow
             label={t(locale, 'admin.works.metadata.fieldWordCount')}

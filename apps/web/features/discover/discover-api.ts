@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
 import type { ShelfItem } from '@gloaming/shared/shelf';
+import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 import {
   type CatalogListData,
   catalogListDataSchema,
@@ -11,6 +12,7 @@ import {
 } from '@gloaming/shared/works';
 
 import {
+  catalogTagQueryValue,
   DISCOVER_ALL_TAG,
   DISCOVER_PAGE_SIZE,
   type DiscoverItem,
@@ -25,7 +27,7 @@ export type DiscoverListParams = Partial<Pick<CatalogListQuery, 'page' | 'pageSi
 
 export type DiscoverCatalogResult = {
   items: DiscoverItem[];
-  tags: string[];
+  tags: TaxonomyReference[];
   pagination: CatalogListData['pagination'];
 };
 
@@ -122,8 +124,15 @@ export function useDiscoverCatalogQuery(params: DiscoverListParams, options?: { 
   });
 }
 
-export function tagFilterParam(tag: DiscoverTagFilter): string | undefined {
-  return tag === DISCOVER_ALL_TAG ? undefined : tag;
+export function tagFilterParam(
+  tag: DiscoverTagFilter,
+  catalogTags: readonly TaxonomyReference[] = [],
+): string | undefined {
+  if (tag === DISCOVER_ALL_TAG) {
+    return undefined;
+  }
+  const ref = catalogTags.find((entry) => entry.id === tag);
+  return ref ? catalogTagQueryValue(ref) : undefined;
 }
 
 export const formatDiscoverApiError = formatApiError;

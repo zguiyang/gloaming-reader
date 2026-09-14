@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { type Locale, t } from '@gloaming/i18n';
 import type { ShelfItem } from '@gloaming/shared/shelf';
+import { resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
@@ -13,10 +14,14 @@ import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-function metaLine(entry: ShelfItem): string {
+function metaLine(entry: ShelfItem, locale: Locale): string {
   const parts: string[] = [];
-  if (entry.work.tags[0]) {
-    parts.push(entry.work.tags[0]);
+  const firstTag = entry.work.tags[0];
+  if (firstTag) {
+    const label = resolveLocalizedText(firstTag.names, locale);
+    if (label) {
+      parts.push(label);
+    }
   }
   return parts.join(' · ');
 }
@@ -51,7 +56,7 @@ export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
         >
           <WorkCover
             title={entry.work.title}
-            tags={entry.work.tags}
+            tags={entry.work.tags.map((tag) => tag.id)}
             coverImageUrl={coverImageUrl}
             className="aspect-[2/3] w-32 md:w-36"
           />
@@ -59,7 +64,7 @@ export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
 
         <div className="min-w-0 flex-1 text-center md:text-left">
           <p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-            {metaLine(entry) || t(locale, 'content.shelf.readingInProgress')}
+            {metaLine(entry, locale) || t(locale, 'content.shelf.readingInProgress')}
           </p>
           <Link href={detailHref} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <h2 className="font-heading mb-4 text-2xl leading-tight font-semibold text-foreground transition-colors duration-300 ease-out-soft hover:text-primary md:text-3xl">

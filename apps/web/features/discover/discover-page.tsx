@@ -11,13 +11,13 @@ import {
   discoverQueryKey,
   fetchDiscoverCatalog,
   formatDiscoverApiError,
-  tagFilterParam,
 } from '@/features/discover/discover-api';
 import { DiscoverEmptyState } from '@/features/discover/discover-empty-state';
 import { DiscoverFilters } from '@/features/discover/discover-filters';
 import { DiscoverGrid } from '@/features/discover/discover-grid';
 import { DiscoverHeader } from '@/features/discover/discover-header';
 import {
+  catalogTagQueryValue,
   DISCOVER_ALL_TAG,
   DISCOVER_PAGE_SIZE,
   type DiscoverItem,
@@ -47,6 +47,7 @@ function DiscoverSkeleton() {
 export function DiscoverPage() {
   const { locale } = useLocale();
   const [tag, setTag] = useState<DiscoverTagFilter>(DISCOVER_ALL_TAG);
+  const [tagQuery, setTagQuery] = useState<string | undefined>();
   const [page, setPage] = useState(1);
   const [mobileVisible, setMobileVisible] = useState(DISCOVER_PAGE_SIZE);
 
@@ -54,9 +55,9 @@ export function DiscoverPage() {
     () => ({
       page,
       pageSize: DISCOVER_PAGE_SIZE,
-      tag: tagFilterParam(tag),
+      tag: tagQuery,
     }),
-    [page, tag],
+    [page, tagQuery],
   );
 
   const list = usePaginatedQuery<DiscoverItem, DiscoverCatalogResult>({
@@ -81,6 +82,7 @@ export function DiscoverPage() {
 
   function resetFilters() {
     setTag(DISCOVER_ALL_TAG);
+    setTagQuery(undefined);
     setPage(1);
     setMobileVisible(DISCOVER_PAGE_SIZE);
   }
@@ -89,6 +91,12 @@ export function DiscoverPage() {
     setTag(value);
     setPage(1);
     setMobileVisible(DISCOVER_PAGE_SIZE);
+    if (value === DISCOVER_ALL_TAG) {
+      setTagQuery(undefined);
+      return;
+    }
+    const ref = tags.find((entry) => entry.id === value);
+    setTagQuery(ref ? catalogTagQueryValue(ref) : undefined);
   }
 
   function handlePageChange(next: number) {

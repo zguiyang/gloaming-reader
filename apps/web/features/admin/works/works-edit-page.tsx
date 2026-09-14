@@ -7,7 +7,12 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { type Locale, t } from '@gloaming/i18n';
-import { type CreateEpubWorkResult, EPUB_UPLOAD_MAX_BYTES, type WorkflowStep } from '@gloaming/shared/works';
+import {
+  type CreateEpubWorkResult,
+  EPUB_UPLOAD_MAX_BYTES,
+  type PublishWorkIssue,
+  type WorkflowStep,
+} from '@gloaming/shared/works';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,6 +64,10 @@ function validateEpubFile(file: File, locale: Locale): string | null {
     return t(locale, 'admin.works.edit.fileTooLarge', { fileName: file.name });
   }
   return null;
+}
+
+function formatPublishIssue(issue: PublishWorkIssue, locale: Locale): string {
+  return t(locale, issue.code, issue.params);
 }
 
 function stepStates(work: AdminWorkView | null): Record<WorkflowStepId, StepState> {
@@ -648,7 +657,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                   {audioGateIssues.map((issue) => (
                     <li key={issue.path} className="flex items-start gap-2 text-destructive">
                       <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-                      <span>{issue.message}</span>
+                      <span>{formatPublishIssue(issue, locale)}</span>
                     </li>
                   ))}
                 </ul>
@@ -692,7 +701,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
               {audioGateIssues.map((issue) => (
                 <li key={issue.path} className="flex items-start gap-2">
                   <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
-                  <span className="text-destructive">{issue.message}</span>
+                  <span className="text-destructive">{formatPublishIssue(issue, locale)}</span>
                 </li>
               ))}
             </ul>

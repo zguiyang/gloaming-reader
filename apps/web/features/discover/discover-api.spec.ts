@@ -3,7 +3,21 @@ import { describe, expect, it } from 'vitest';
 import type { ShelfItem } from '@gloaming/shared/shelf';
 import type { CatalogWork } from '@gloaming/shared/works';
 
-import { resolveShelfStatus, toDiscoverItem } from '@/features/discover/discover-api';
+import { resolveShelfStatus, tagFilterParam, toDiscoverItem } from '@/features/discover/discover-api';
+import { DISCOVER_ALL_TAG } from '@/features/discover/discover-model';
+
+const taxonomyTag = {
+  id: 'tag-classic',
+  names: { 'zh-CN': '经典', 'en-US': 'Classic' },
+  origin: 'manual' as const,
+};
+
+const taxonomySource = {
+  id: 'source-gutenberg',
+  names: { 'en-US': 'Project Gutenberg' },
+  origin: 'extracted' as const,
+  matchRule: 'gutenberg.org',
+};
 
 function sampleWork(overrides: Partial<CatalogWork> = {}): CatalogWork {
   return {
@@ -15,8 +29,8 @@ function sampleWork(overrides: Partial<CatalogWork> = {}): CatalogWork {
     status: 'published',
     visibility: 'catalog',
     originKind: 'admin_epub',
-    tags: ['Classic'],
-    sources: ['Project Gutenberg'],
+    tags: [taxonomyTag],
+    sources: [taxonomySource],
     coverAssetId: 'asset-cover-1',
     wordCount: null,
     estimatedMinutes: null,
@@ -32,11 +46,12 @@ function sampleWork(overrides: Partial<CatalogWork> = {}): CatalogWork {
 }
 
 describe('toDiscoverItem', () => {
-  it('maps cover URL, author, and chapter count from catalog work', () => {
+  it('maps cover URL, author, chapter count, and taxonomy tags from catalog work', () => {
     const item = toDiscoverItem(sampleWork());
     expect(item.coverImageUrl).toBe('/api/assets/asset-cover-1');
     expect(item.author).toBe('Jane Austen');
     expect(item.partCount).toBe(21);
+    expect(item.tags[0]?.id).toBe('tag-classic');
     expect(item.shelfStatus).toBe('available');
   });
 
@@ -45,6 +60,20 @@ describe('toDiscoverItem', () => {
     expect(item.coverImageUrl).toBeNull();
     expect(item.author).toBe('');
     expect(item.partCount).toBe(0);
+  });
+});
+
+describe('tagFilterParam', () => {
+  it('returns undefined for the all-tags sentinel', () => {
+    expect(tagFilterParam(DISCOVER_ALL_TAG, [taxonomyTag])).toBeUndefined();
+  });
+
+  it('maps a selected tag id to the canonical catalog query label', () => {
+    expect(tagFilterParam('tag-classic', [taxonomyTag])).toBe('Classic');
+  });
+
+  it('returns undefined when the selected tag id is unknown', () => {
+    expect(tagFilterParam('missing-tag', [taxonomyTag])).toBeUndefined();
   });
 });
 

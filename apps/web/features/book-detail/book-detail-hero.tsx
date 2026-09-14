@@ -15,6 +15,8 @@ import {
   formatSourceLabel,
   languageLabelFromCode,
   primaryReadLabel,
+  taxonomyCoverTintSeeds,
+  taxonomyDisplayName,
 } from '@/features/book-detail/book-detail-model';
 import { WorkCover } from '@/features/work-cover';
 import { useLocale } from '@/lib/locale-context';
@@ -47,7 +49,7 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
       <div className="flex justify-center md:col-span-4 md:justify-start lg:col-span-3">
         <WorkCover
           title={book.title}
-          tags={book.tags}
+          tags={taxonomyCoverTintSeeds(book.tags)}
           coverImageUrl={book.coverImageUrl}
           className="aspect-[2/3] w-48 md:w-full md:max-w-[280px]"
         />
@@ -78,10 +80,10 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
           <div className="flex flex-wrap justify-center gap-2 md:justify-start">
             {chips.map((chip) => (
               <span
-                key={chip}
+                key={chip.id}
                 className="rounded-full border border-border/40 bg-surface-container-highest/80 px-3.5 py-1.5 text-sm text-muted-foreground"
               >
-                {chip}
+                {taxonomyDisplayName(chip, locale)}
               </span>
             ))}
           </div>

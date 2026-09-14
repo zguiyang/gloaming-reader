@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ADMIN_ROUTES } from '@/constants';
 import { formatWorksApiError, useAdminWorkQuery } from '@/features/admin/works/works-api';
 import type { AdminWorkView } from '@/features/admin/works/works-model';
+import { formatWorkTaxonomyLabel } from '@/features/admin/works/works-taxonomy';
 import { useLocale } from '@/lib/locale-context';
 
 function Cover({ work }: { work: AdminWorkView }) {
@@ -109,8 +110,8 @@ export function WorksPreviewPage({ workId }: { workId: string }) {
         {work.tags.length > 0 ? (
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {work.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-brand-soft px-3 py-1 text-xs font-medium text-brand-deep">
-                {tag}
+              <span key={tag.id} className="rounded-full bg-brand-soft px-3 py-1 text-xs font-medium text-brand-deep">
+                {formatWorkTaxonomyLabel(tag, locale)}
               </span>
             ))}
           </div>

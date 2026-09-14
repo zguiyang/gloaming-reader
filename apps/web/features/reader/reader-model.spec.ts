@@ -14,6 +14,7 @@ import {
   READER_PLAYBACK_RATES,
   type ReaderPlaybackRate,
   resolveAudioRole,
+  taxonomyCoverTintSeeds,
 } from '@/features/reader/reader-model';
 
 describe('isCurrentChapter', () => {
@@ -94,6 +95,17 @@ describe('formatInlineAssistPrompt', () => {
     expect(formatInlineAssistPrompt('en-US', 'translate', 'hello')).toBe('Translate: hello');
     expect(formatInlineAssistPrompt('en-US', 'explain', 'hello')).toBe('Explain: hello');
     expect(formatInlineAssistPrompt('en-US', 'ask', 'hello')).toBe('Ask: hello');
+  });
+});
+
+describe('taxonomyCoverTintSeeds', () => {
+  it('uses stable taxonomy ids for WorkCover tint seeds', () => {
+    expect(
+      taxonomyCoverTintSeeds([
+        { id: 'tag-a', names: { 'en-US': 'Alpha' }, origin: 'manual' },
+        { id: 'tag-b', names: { 'zh-CN': '测试' }, origin: 'manual' },
+      ]),
+    ).toEqual(['tag-a', 'tag-b']);
   });
 });
 
