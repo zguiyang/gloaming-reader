@@ -1,5 +1,8 @@
 import { Hono } from 'hono';
 
+import { HTTP_STATUS } from '@/constants';
+import { ERROR_CODES } from '@/lib/error-codes';
+import { sendError } from '@/lib/response';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
 import * as dictionaryService from '@/modules/dictionary/service';
 import {
@@ -34,7 +37,7 @@ dictionaryRoutes.get('/api/dictionary/lookup', validateLookupDictionaryQuery, as
   });
 
   if (!entry) {
-    return c.json({ ok: false, message: 'Word not found' }, 404);
+    return sendError(c, ERROR_CODES.NOT_FOUND.WORD_DEFINITION, HTTP_STATUS.NOT_FOUND, { word: query.word });
   }
 
   return c.json({ ok: true, entry });
