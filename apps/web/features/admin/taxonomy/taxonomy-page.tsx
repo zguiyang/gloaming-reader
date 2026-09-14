@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
-import type { TaxonomyItem, TaxonomyKind, TaxonomyOrigin } from '@gloaming/shared/taxonomy';
+import type { TaxonomyItem, TaxonomyItemResult, TaxonomyKind, TaxonomyOrigin } from '@gloaming/shared/taxonomy';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -87,7 +87,7 @@ function createButtonLabel(kind: TaxonomyKind, locale: ReturnType<typeof useLoca
 
 type TaxonomySheetProps = {
   kind: TaxonomyKind;
-  item: TaxonomyItem | null;
+  item: TaxonomyItemResult | null;
   onClose: () => void;
 };
 
@@ -96,13 +96,37 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
   const createMutation = useCreateTaxonomy(kind);
   const updateMutation = useUpdateTaxonomy(kind);
   const isEdit = item !== null;
-  const [nameZh, setNameZh] = useState(item?.names['zh-CN'] ?? '');
-  const [nameEn, setNameEn] = useState(item?.names['en-US'] ?? '');
-  const [matchRule, setMatchRule] = useState(item?.matchRule ?? '');
+  const [name, setName] = useState(item && 'name' in item ? item.name : '');
+  const [nameZh, setNameZh] = useState(item && 'names' in item ? (item.names['zh-CN'] ?? '') : '');
+  const [nameEn, setNameEn] = useState(item && 'names' in item ? (item.names['en-US'] ?? '') : '');
+  const [matchRule, setMatchRule] = useState(item && 'matchRule' in item ? (item.matchRule ?? '') : '');
   const [error, setError] = useState<string | null>(null);
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   async function handleSubmit() {
+    if (kind === 'source') {
+      const sourceName = name.trim();
+      if (!sourceName) {
+        setError(t(locale, 'admin.content.common.nameRequired'));
+        return;
+      }
+      setError(null);
+      try {
+        if (isEdit) {
+          await updateMutation.mutateAsync({
+            id: item.id,
+            body: { name: sourceName, matchRule: matchRule.trim() },
+          });
+        } else {
+          await createMutation.mutateAsync({ name: sourceName, matchRule: matchRule.trim() });
+        }
+        toast.success(isEdit ? t(locale, 'admin.content.common.saved') : t(locale, 'admin.content.common.created'));
+        onClose();
+      } catch (submitError) {
+        setError(formatTaxonomyApiError(submitError));
+      }
+      return;
+    }
     const names = buildTaxonomyNamesPayload(nameZh, nameEn);
     if (!names) {
       setError(t(locale, 'admin.content.common.nameRequired'));
@@ -115,13 +139,11 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
           id: item.id,
           body: {
             names,
-            ...(kind === 'source' ? { matchRule: matchRule.trim() } : {}),
           },
         });
       } else {
         await createMutation.mutateAsync({
           names,
-          ...(kind === 'source' ? { matchRule: matchRule.trim() } : {}),
         });
       }
       toast.success(isEdit ? t(locale, 'admin.content.common.saved') : t(locale, 'admin.content.common.created'));
@@ -148,26 +170,41 @@ function TaxonomySheet({ kind, item, onClose }: TaxonomySheetProps) {
 
         <div className="space-y-5">
           <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="taxonomy-name-zh">{t(locale, 'admin.taxonomy.sheet.nameZhLabel')}</FieldLabel>
-              <Input
-                id="taxonomy-name-zh"
-                value={nameZh}
-                maxLength={100}
-                onChange={(event) => setNameZh(event.target.value)}
-                placeholder={t(locale, 'admin.taxonomy.sheet.genericNamePlaceholder')}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="taxonomy-name-en">{t(locale, 'admin.taxonomy.sheet.nameEnLabel')}</FieldLabel>
-              <Input
-                id="taxonomy-name-en"
-                value={nameEn}
-                maxLength={100}
-                onChange={(event) => setNameEn(event.target.value)}
-                placeholder={t(locale, 'admin.taxonomy.sheet.sourceNamePlaceholder')}
-              />
-            </Field>
+            {kind === 'source' ? (
+              <Field>
+                <FieldLabel htmlFor="taxonomy-source-name">{t(locale, 'admin.taxonomy.panel.tableName')}</FieldLabel>
+                <Input
+                  id="taxonomy-source-name"
+                  value={name}
+                  maxLength={100}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder={t(locale, 'admin.taxonomy.sheet.sourceNamePlaceholder')}
+                />
+              </Field>
+            ) : (
+              <>
+                <Field>
+                  <FieldLabel htmlFor="taxonomy-name-zh">{t(locale, 'admin.taxonomy.sheet.nameZhLabel')}</FieldLabel>
+                  <Input
+                    id="taxonomy-name-zh"
+                    value={nameZh}
+                    maxLength={100}
+                    onChange={(event) => setNameZh(event.target.value)}
+                    placeholder={t(locale, 'admin.taxonomy.sheet.genericNamePlaceholder')}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="taxonomy-name-en">{t(locale, 'admin.taxonomy.sheet.nameEnLabel')}</FieldLabel>
+                  <Input
+                    id="taxonomy-name-en"
+                    value={nameEn}
+                    maxLength={100}
+                    onChange={(event) => setNameEn(event.target.value)}
+                    placeholder={t(locale, 'admin.taxonomy.sheet.sourceNamePlaceholder')}
+                  />
+                </Field>
+              </>
+            )}
             <Field data-invalid={Boolean(error) || undefined}>
               <FieldError>{error}</FieldError>
             </Field>
@@ -244,7 +281,7 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
   const { locale } = useLocale();
   const [search, setSearch] = useState('');
   const [translationFilter, setTranslationFilter] = useState<TranslationFilter>('all');
-  const [sheetState, setSheetState] = useState<{ open: boolean; item: TaxonomyItem | null }>({
+  const [sheetState, setSheetState] = useState<{ open: boolean; item: TaxonomyItemResult | null }>({
     open: false,
     item: null,
   });
@@ -274,8 +311,8 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
     },
   ];
 
-  async function handleDelete(item: TaxonomyItem) {
-    const displayName = formatTaxonomyConfirmName(item.names, locale);
+  async function handleDelete(item: TaxonomyItemResult) {
+    const displayName = 'name' in item ? item.name : formatTaxonomyConfirmName(item.names, locale);
     if (!window.confirm(t(locale, 'admin.taxonomy.panel.confirmDelete', { name: displayName }))) return;
     try {
       await deleteMutation.mutateAsync(item.id);
@@ -312,24 +349,26 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
               className="pl-9"
             />
           </div>
-          <Select
-            items={translationFilterOptions}
-            value={translationFilter}
-            onValueChange={(value) => value && setTranslationFilter(value as TranslationFilter)}
-          >
-            <SelectTrigger size="sm" className="min-w-[8.5rem]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {translationFilterOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          {!isSource ? (
+            <Select
+              items={translationFilterOptions}
+              value={translationFilter}
+              onValueChange={(value) => value && setTranslationFilter(value as TranslationFilter)}
+            >
+              <SelectTrigger size="sm" className="min-w-[8.5rem]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {translationFilterOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          ) : null}
           {!isSource ? (
             <Button type="button" variant="outline" size="sm" onClick={() => void handleCleanup()}>
               {t(locale, 'admin.taxonomy.panel.cleanupUnused')}
@@ -374,15 +413,23 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
                 <TableHead className="h-12 w-[1%] bg-surface-container-low px-5 text-muted-foreground">
                   {t(locale, 'admin.taxonomy.panel.tableIndex')}
                 </TableHead>
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                  {t(locale, 'admin.taxonomy.panel.tableChinese')}
-                </TableHead>
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                  {t(locale, 'admin.taxonomy.panel.tableEnglish')}
-                </TableHead>
-                <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                  {t(locale, 'admin.taxonomy.panel.tableTranslationStatus')}
-                </TableHead>
+                {isSource ? (
+                  <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                    {t(locale, 'admin.taxonomy.panel.tableName')}
+                  </TableHead>
+                ) : (
+                  <>
+                    <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                      {t(locale, 'admin.taxonomy.panel.tableChinese')}
+                    </TableHead>
+                    <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                      {t(locale, 'admin.taxonomy.panel.tableEnglish')}
+                    </TableHead>
+                    <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                      {t(locale, 'admin.taxonomy.panel.tableTranslationStatus')}
+                    </TableHead>
+                  </>
+                )}
                 <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
                   {t(locale, 'admin.taxonomy.panel.tableOrigin')}
                 </TableHead>
@@ -400,23 +447,30 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
             <TableBody>
               {filteredItems.map((item, index) => {
                 const canDelete = !isSource && item.usage === 0;
-                const zhCell = formatTaxonomyLocaleCell(item.names, 'zh-CN', locale);
-                const enCell = formatTaxonomyLocaleCell(item.names, 'en-US', locale);
-                const isZhMissing = !item.names['zh-CN']?.trim();
-                const isEnMissing = !item.names['en-US']?.trim();
+                const localizedItem = 'names' in item ? item : null;
+                const zhCell = localizedItem ? formatTaxonomyLocaleCell(localizedItem.names, 'zh-CN', locale) : null;
+                const enCell = localizedItem ? formatTaxonomyLocaleCell(localizedItem.names, 'en-US', locale) : null;
+                const isZhMissing = localizedItem ? !localizedItem.names['zh-CN']?.trim() : false;
+                const isEnMissing = localizedItem ? !localizedItem.names['en-US']?.trim() : false;
 
                 return (
                   <TableRow key={item.id} className="border-border">
                     <TableCell className="px-5 py-3.5 tabular-nums text-muted-foreground">{index + 1}</TableCell>
-                    <TableCell className={cn('px-5 py-3.5', isZhMissing ? 'text-muted-foreground' : 'font-medium')}>
-                      {zhCell}
-                    </TableCell>
-                    <TableCell className={cn('px-5 py-3.5', isEnMissing ? 'text-muted-foreground' : 'font-medium')}>
-                      {enCell}
-                    </TableCell>
-                    <TableCell className="px-5 py-3.5">
-                      <TranslationStatusBadge item={item} />
-                    </TableCell>
+                    {localizedItem ? (
+                      <>
+                        <TableCell className={cn('px-5 py-3.5', isZhMissing ? 'text-muted-foreground' : 'font-medium')}>
+                          {zhCell}
+                        </TableCell>
+                        <TableCell className={cn('px-5 py-3.5', isEnMissing ? 'text-muted-foreground' : 'font-medium')}>
+                          {enCell}
+                        </TableCell>
+                        <TableCell className="px-5 py-3.5">
+                          <TranslationStatusBadge item={localizedItem} />
+                        </TableCell>
+                      </>
+                    ) : (
+                      <TableCell className="px-5 py-3.5 font-medium">{'name' in item ? item.name : item.id}</TableCell>
+                    )}
                     <TableCell className="px-5 py-3.5">
                       <OriginBadge origin={item.origin} />
                     </TableCell>

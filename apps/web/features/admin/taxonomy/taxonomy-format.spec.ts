@@ -20,7 +20,6 @@ function sampleItem(overrides: Partial<TaxonomyItem> = {}): TaxonomyItem {
     names: { 'zh-CN': '科学', 'en-US': 'Science' },
     origin: 'manual',
     usage: 2,
-    matchRule: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
     ...overrides,
@@ -98,7 +97,9 @@ describe('taxonomy-format', () => {
 
   it('resolves taxonomy items by stable id for picker selection', () => {
     const items = [sampleItem({ id: 'tag-a' }), sampleItem({ id: 'tag-b', names: { 'en-US': 'Beta' } })];
-    expect(resolveTaxonomyItemById(items, 'tag-b')?.names['en-US']).toBe('Beta');
+    const selected = resolveTaxonomyItemById(items, 'tag-b');
+    const selectedNames = selected && 'names' in selected ? selected.names : undefined;
+    expect(selectedNames?.['en-US']).toBe('Beta');
     expect(resolveTaxonomyItemById(items, 'missing')).toBeUndefined();
   });
 });

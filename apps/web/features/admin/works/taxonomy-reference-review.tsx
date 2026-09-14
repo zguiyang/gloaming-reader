@@ -1,7 +1,7 @@
 'use client';
 
 import { t } from '@gloaming/i18n';
-import type { TaxonomyOrigin, TaxonomyReference } from '@gloaming/shared/taxonomy';
+import type { SourceReference, TaxonomyOrigin, TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { Badge } from '@/components/ui/badge';
 import {
@@ -91,6 +91,40 @@ export function TaxonomyReferenceReview({ items }: TaxonomyReferenceReviewProps)
               </tr>
             );
           })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+type SourceReferenceReviewProps = {
+  items: readonly SourceReference[];
+};
+
+/** Source review surface — source/channel names are raw labels, not translations. */
+export function SourceReferenceReview({ items }: SourceReferenceReviewProps) {
+  const { locale } = useLocale();
+
+  if (items.length === 0) {
+    return <p className="text-sm text-muted-foreground">{t(locale, 'admin.content.common.notFilled')}</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border">
+      <table className="w-full min-w-[18rem] text-sm">
+        <thead>
+          <tr className="border-b border-border bg-surface-container-low text-left text-muted-foreground">
+            <th className="px-3 py-2 font-medium">{t(locale, 'admin.taxonomy.panel.tableIndex')}</th>
+            <th className="px-3 py-2 font-medium">{t(locale, 'admin.taxonomy.panel.tableName')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, index) => (
+            <tr key={item.id} className="border-b border-border last:border-b-0">
+              <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{index + 1}</td>
+              <td className="px-3 py-2.5 font-medium">{item.name}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

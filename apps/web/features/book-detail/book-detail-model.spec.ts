@@ -29,7 +29,7 @@ const taxonomyTag = {
 
 const taxonomySource = {
   id: 'source-gutenberg',
-  names: { 'en-US': 'Gutenberg' },
+  name: 'Gutenberg',
   origin: 'extracted' as const,
   matchRule: 'gutenberg.org',
 };

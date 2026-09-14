@@ -1,4 +1,4 @@
-import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
+import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 import { type AdminOriginAsset, type AdminWork, type AdminWorkSummary, type Work } from '@gloaming/shared/works';
 
 /** Work view model: dates as ISO strings. */
@@ -12,7 +12,7 @@ export type WorkView = {
   visibility: Work['visibility'];
   originKind: Work['originKind'];
   tags: TaxonomyReference[];
-  sources: TaxonomyReference[];
+  sources: SourceReference[];
   coverAssetId: string | null;
   wordCount: number | null;
   estimatedMinutes: number | null;

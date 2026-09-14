@@ -3,26 +3,31 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { TaxonomyItem, TaxonomyKind } from '@gloaming/shared/taxonomy';
+import type { TaxonomyItemResult, TaxonomyKind } from '@gloaming/shared/taxonomy';
 
 import { LocaleProvider } from '@/lib/locale-context';
 
 import { TaxonomyPage } from './taxonomy-page';
 
-function itemForKind(kind: TaxonomyKind): TaxonomyItem {
-  const names =
-    kind === 'tag'
-      ? { 'zh-CN': '标签甲', 'en-US': 'Tag A' }
-      : kind === 'category'
-        ? { 'zh-CN': '分类甲', 'en-US': 'Category A' }
-        : { 'zh-CN': '来源甲', 'en-US': 'Source A' };
+function itemForKind(kind: TaxonomyKind): TaxonomyItemResult {
+  if (kind === 'source') {
+    return {
+      id: 'source-1',
+      name: 'Source A',
+      origin: 'manual',
+      usage: 0,
+      matchRule: 'example.org',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+    };
+  }
+  const names = kind === 'tag' ? { 'zh-CN': '标签甲', 'en-US': 'Tag A' } : { 'zh-CN': '分类甲', 'en-US': 'Category A' };
 
   return {
     id: `${kind}-1`,
     names,
     origin: 'manual',
     usage: 0,
-    matchRule: kind === 'source' ? 'example.org' : null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
   };
@@ -82,7 +87,6 @@ describe('TaxonomyPage', () => {
       sourceTab?.click();
     });
 
-    expect(container.textContent).toContain('来源甲');
     expect(container.textContent).toContain('Source A');
 
     void act(() => {

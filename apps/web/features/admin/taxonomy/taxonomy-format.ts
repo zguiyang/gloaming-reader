@@ -1,5 +1,5 @@
 import { type Locale, t } from '@gloaming/i18n';
-import type { LanguageCode, LocalizedTextMap, TaxonomyItem, TaxonomyOrigin } from '@gloaming/shared/taxonomy';
+import type { LanguageCode, LocalizedTextMap, TaxonomyItemResult, TaxonomyOrigin } from '@gloaming/shared/taxonomy';
 import { LANGUAGE_CODES, resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import { formatAdminDateTime } from '@/features/admin/admin-logs-format';
@@ -38,10 +38,13 @@ export function formatTaxonomyUpdatedAt(value: string | Date, locale: Locale): s
   return formatAdminDateTime(value, locale);
 }
 
-export function matchesTaxonomySearch(item: TaxonomyItem, query: string): boolean {
+export function matchesTaxonomySearch(item: TaxonomyItemResult, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) {
     return true;
+  }
+  if ('name' in item) {
+    return item.name.toLowerCase().includes(needle);
   }
   for (const code of LANGUAGE_CODES) {
     const name = item.names[code]?.trim().toLowerCase();
@@ -52,7 +55,10 @@ export function matchesTaxonomySearch(item: TaxonomyItem, query: string): boolea
   return false;
 }
 
-export function matchesTranslationFilter(item: TaxonomyItem, filter: TranslationFilter): boolean {
+export function matchesTranslationFilter(item: TaxonomyItemResult, filter: TranslationFilter): boolean {
+  if ('name' in item) {
+    return true;
+  }
   if (filter === 'all') {
     return true;
   }
@@ -61,9 +67,9 @@ export function matchesTranslationFilter(item: TaxonomyItem, filter: Translation
 }
 
 export function filterTaxonomyItems(
-  items: TaxonomyItem[],
+  items: TaxonomyItemResult[],
   options: { search?: string; translationFilter?: TranslationFilter },
-): TaxonomyItem[] {
+): TaxonomyItemResult[] {
   const search = options.search?.trim() ?? '';
   const translationFilter = options.translationFilter ?? 'all';
 
@@ -116,10 +122,10 @@ export function resolveTaxonomyAuxiliaryName(names: LocalizedTextMap, locale: Lo
   return value === primary ? null : value;
 }
 
-export function resolveTaxonomyItemById(items: TaxonomyItem[], id: string): TaxonomyItem | undefined {
+export function resolveTaxonomyItemById(items: TaxonomyItemResult[], id: string): TaxonomyItemResult | undefined {
   return items.find((item) => item.id === id);
 }
 
-export function filterTaxonomyPickerItems(items: TaxonomyItem[], search: string): TaxonomyItem[] {
+export function filterTaxonomyPickerItems(items: TaxonomyItemResult[], search: string): TaxonomyItemResult[] {
   return filterTaxonomyItems(items, { search });
 }

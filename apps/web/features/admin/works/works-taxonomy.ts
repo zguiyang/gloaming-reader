@@ -3,7 +3,7 @@ import type { TaxonomyReference, TaxonomySelection } from '@gloaming/shared/taxo
 
 import { resolveTaxonomyPrimaryName } from '@/features/admin/taxonomy/taxonomy-format';
 
-export function taxonomyReferenceIds(refs: readonly TaxonomyReference[]): string[] {
+export function taxonomyReferenceIds(refs: readonly { id: string }[]): string[] {
   return refs.map((ref) => ref.id);
 }
 

@@ -4,7 +4,7 @@ import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 
 import { t } from '@gloaming/i18n';
-import type { TaxonomyItem } from '@gloaming/shared/taxonomy';
+import type { TaxonomyItemResult } from '@gloaming/shared/taxonomy';
 
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,20 @@ import {
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-function TaxonomyOptionLabel({ item, locale }: { item: TaxonomyItem; locale: ReturnType<typeof useLocale>['locale'] }) {
+function itemDisplayName(item: TaxonomyItemResult, locale: ReturnType<typeof useLocale>['locale']): string {
+  return 'name' in item ? item.name : resolveTaxonomyPrimaryName(item.names, locale);
+}
+
+function TaxonomyOptionLabel({
+  item,
+  locale,
+}: {
+  item: TaxonomyItemResult;
+  locale: ReturnType<typeof useLocale>['locale'];
+}) {
+  if ('name' in item) {
+    return <span className="min-w-0 flex-1 truncate">{item.name}</span>;
+  }
   const primary = resolveTaxonomyPrimaryName(item.names, locale);
   const auxiliary = resolveTaxonomyAuxiliaryName(item.names, locale);
 
@@ -38,7 +51,7 @@ function OptionRow({
   onSelect,
   locale,
 }: {
-  item: TaxonomyItem;
+  item: TaxonomyItemResult;
   selected: boolean;
   onSelect: () => void;
   locale: ReturnType<typeof useLocale>['locale'];
@@ -110,7 +123,7 @@ export function TaxonomyMultiPicker({ kind, value, onChange, placeholder, disabl
         {value.length > 0 ? (
           value.map((id) => {
             const item = resolveTaxonomyItemById(query.data ?? [], id);
-            const label = item ? resolveTaxonomyPrimaryName(item.names, locale) : id;
+            const label = item ? itemDisplayName(item, locale) : id;
             return (
               <Badge key={id} variant="secondary" className="gap-1 pr-1">
                 {label}
@@ -190,7 +203,8 @@ export function TaxonomySelect({ value, onChange, placeholder, disabled, allowCl
   const query = useTaxonomyQuery('category');
   const filteredItems = useMemo(() => filterTaxonomyPickerItems(query.data ?? [], search), [query.data, search]);
   const selectedItem = value ? resolveTaxonomyItemById(query.data ?? [], value) : undefined;
-  const selectedLabel = selectedItem ? resolveTaxonomyPrimaryName(selectedItem.names, locale) : null;
+  const selectedLabel =
+    selectedItem && 'names' in selectedItem ? resolveTaxonomyPrimaryName(selectedItem.names, locale) : null;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>

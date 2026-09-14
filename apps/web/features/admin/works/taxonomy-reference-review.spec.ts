@@ -3,11 +3,11 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
+import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { LocaleProvider } from '@/lib/locale-context';
 
-import { TaxonomyReferenceReview } from './taxonomy-reference-review';
+import { SourceReferenceReview, TaxonomyReferenceReview } from './taxonomy-reference-review';
 
 function ref(
   id: string,
@@ -69,5 +69,33 @@ describe('TaxonomyReferenceReview', () => {
     });
 
     expect(container.textContent).toContain('Not filled');
+  });
+});
+
+describe('SourceReferenceReview', () => {
+  it('renders source names as a single raw-name column', async () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const items: SourceReference[] = [{ id: 'source-1', name: 'Project Gutenberg', origin: 'extracted' }];
+
+    await act(async () => {
+      root.render(
+        // eslint-disable-next-line react/no-children-prop
+        createElement(LocaleProvider, {
+          locale: 'zh-CN',
+          children: createElement(SourceReferenceReview, { items }),
+        }),
+      );
+    });
+
+    expect(container.textContent).toContain('Project Gutenberg');
+    expect(container.textContent).not.toContain('翻译状态');
+    expect(container.querySelectorAll('th')).toHaveLength(2);
+
+    void act(() => {
+      root.unmount();
+    });
+    container.remove();
   });
 });

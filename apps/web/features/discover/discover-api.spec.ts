@@ -14,7 +14,7 @@ const taxonomyTag = {
 
 const taxonomySource = {
   id: 'source-gutenberg',
-  names: { 'en-US': 'Project Gutenberg' },
+  name: 'Project Gutenberg',
   origin: 'extracted' as const,
   matchRule: 'gutenberg.org',
 };

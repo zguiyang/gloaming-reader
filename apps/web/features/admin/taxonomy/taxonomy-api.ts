@@ -4,12 +4,16 @@ import { z } from 'zod';
 import type {
   CreateTaxonomyBody,
   TaxonomyCleanupResult,
-  TaxonomyItem,
+  TaxonomyItemResult,
   TaxonomyKind,
   TaxonomyListQuery,
   UpdateTaxonomyBody,
 } from '@gloaming/shared/taxonomy';
-import { taxonomyCleanupResultSchema, taxonomyItemSchema, taxonomyListDataSchema } from '@gloaming/shared/taxonomy';
+import {
+  taxonomyCleanupResultSchema,
+  taxonomyItemResultSchema,
+  taxonomyListDataSchema,
+} from '@gloaming/shared/taxonomy';
 
 import { apiRequest, formatApiError } from '@/lib/api-request';
 
@@ -22,7 +26,7 @@ export async function listTaxonomy(
   kind: TaxonomyKind,
   query: TaxonomyListQuery = {},
   init?: { signal?: AbortSignal },
-): Promise<TaxonomyItem[]> {
+): Promise<TaxonomyItemResult[]> {
   const search = new URLSearchParams();
   if (query.search) search.set('search', query.search);
   const qs = search.toString();
@@ -33,11 +37,11 @@ export async function listTaxonomy(
   return data.items;
 }
 
-export async function createTaxonomyItem(kind: TaxonomyKind, body: CreateTaxonomyBody): Promise<TaxonomyItem> {
+export async function createTaxonomyItem(kind: TaxonomyKind, body: CreateTaxonomyBody): Promise<TaxonomyItemResult> {
   return apiRequest(`/api/admin/taxonomy/${kind}`, {
     method: 'POST',
     json: body,
-    schema: taxonomyItemSchema,
+    schema: taxonomyItemResultSchema,
   });
 }
 
@@ -45,11 +49,11 @@ export async function updateTaxonomyItem(
   kind: TaxonomyKind,
   id: string,
   body: UpdateTaxonomyBody,
-): Promise<TaxonomyItem> {
+): Promise<TaxonomyItemResult> {
   return apiRequest(`/api/admin/taxonomy/${kind}/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     json: body,
-    schema: taxonomyItemSchema,
+    schema: taxonomyItemResultSchema,
   });
 }
 

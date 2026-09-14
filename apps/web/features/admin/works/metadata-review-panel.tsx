@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ADMIN_ROUTES } from '@/constants';
 import { formatAdminDateTime } from '@/features/admin/admin-logs-format';
 import { TaxonomyMultiPicker, TaxonomySelect } from '@/features/admin/taxonomy/taxonomy-picker';
-import { TaxonomyReferenceReview } from '@/features/admin/works/taxonomy-reference-review';
+import { SourceReferenceReview, TaxonomyReferenceReview } from '@/features/admin/works/taxonomy-reference-review';
 import {
   formatWorksApiError,
   retryAdminWorkflow,
@@ -605,7 +605,7 @@ export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) 
           />
           <ReviewPickerRow
             label={t(locale, 'admin.works.metadata.fieldSources')}
-            review={<TaxonomyReferenceReview items={work.sources} />}
+            review={<SourceReferenceReview items={work.sources} />}
             value={sourceIds}
             disabled={isMetadataJobRunning}
             renderPicker={(draft, onChange) => (
