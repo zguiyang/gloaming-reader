@@ -1,49 +1,17 @@
 'use client';
 
 import { Menu } from '@base-ui/react/menu';
-import { CheckIcon, LogOutIcon, Settings2 } from 'lucide-react';
+import { CheckIcon, LogOutIcon, Settings2, UserCircleIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
 
 import { getNavCopy } from '@/components/navigation/nav-config';
-import { ADMIN_ROUTES, AUTH_ADMIN_ROLE } from '@/constants';
+import { UserAvatar } from '@/components/user-avatar';
+import { ADMIN_ROUTES, AUTH_ADMIN_ROLE, AUTH_ROUTES } from '@/constants';
 import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
-
-export function UserAvatar({
-  image,
-  initial,
-  sizeClass,
-}: {
-  image: string | null;
-  initial: string;
-  sizeClass: string;
-}) {
-  if (image) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- remote avatar URL
-      <img
-        src={image}
-        alt=""
-        className={cn(sizeClass, 'shrink-0 rounded-full bg-muted object-cover')}
-        referrerPolicy="no-referrer"
-      />
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        sizeClass,
-        'flex shrink-0 items-center justify-center rounded-full bg-accent font-medium text-accent-foreground',
-      )}
-    >
-      {initial}
-    </div>
-  );
-}
 
 export function useNavAccount() {
   const { locale } = useLocale();
@@ -174,6 +142,20 @@ export function AccountMenu({
               </Menu.RadioGroup>
             </Menu.Group>
             <div className="mx-1 my-1 h-px bg-border" role="separator" />
+            <Menu.Item
+              className={cn(
+                'flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm',
+                'text-foreground outline-none select-none',
+                'data-highlighted:bg-muted',
+              )}
+              onClick={() => {
+                onOpenChange(false);
+                window.location.assign(AUTH_ROUTES.account);
+              }}
+            >
+              <UserCircleIcon className="size-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+              {t(locale, 'nav.accountCenter')}
+            </Menu.Item>
             {isAdmin ? (
               <Menu.Item
                 className={cn(

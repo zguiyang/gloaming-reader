@@ -192,3 +192,46 @@ export async function resetPassword(input: ResetPasswordBody): Promise<AuthResul
   }
   return { data: { ok: true }, error: null };
 }
+
+export type LinkedAccount = {
+  id: string;
+  providerId: string;
+  accountId: string;
+  userId: string;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  scopes?: string[];
+};
+
+export async function listAccounts(): Promise<AuthResult<LinkedAccount[]>> {
+  const { data, error } = await baClient.listAccounts();
+  if (error) {
+    return { data: null, error: toAuthError(error) };
+  }
+  return { data: data ?? [], error: null };
+}
+
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<AuthResult<{ ok: boolean }>> {
+  const { error } = await baClient.changePassword({
+    currentPassword: input.currentPassword,
+    newPassword: input.newPassword,
+  });
+  if (error) {
+    return { data: null, error: toAuthError(error) };
+  }
+  return { data: { ok: true }, error: null };
+}
+
+export async function changeEmail(newEmail: string): Promise<AuthResult<{ ok: boolean }>> {
+  const { error } = await baClient.changeEmail({
+    newEmail,
+    callbackURL: AUTH_ROUTES.verifyEmail,
+  });
+  if (error) {
+    return { data: null, error: toAuthError(error) };
+  }
+  return { data: { ok: true }, error: null };
+}

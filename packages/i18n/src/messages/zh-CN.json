@@ -25,13 +25,9 @@
     "more": "更多",
     "signIn": "登录",
     "account": "账户菜单",
+    "accountCenter": "账户",
     "signOut": "退出登录",
     "admin": "管理后台",
-    "moreSheetTitle": "更多",
-    "moreSheetDescription": "账户与扩展入口",
-    "morePlaceholderAccount": "账户",
-    "morePlaceholderHint": "即将开放",
-    "moreFutureHint": "后续模块入口将出现在这里。",
     "themeAppearance": "外观",
     "themeLight": "浅色",
     "themeDark": "深色",
@@ -43,6 +39,10 @@
     "localeEnUS": "English",
     "defaultReaderName": "读者",
     "accountMenuAria": "{username}，{email}，{account}"
+  },
+  "more": {
+    "accountSettings": "账户设置",
+    "menuAria": "更多菜单"
   },
   "auth": {
     "signOutFailed": "退出登录失败，请稍后重试",
@@ -166,6 +166,43 @@
       "sendFailed": "发送失败，请稍后重试",
       "tooManyRequests": "请求过于频繁，请稍后再试",
       "passwordMismatch": "两次输入的密码不一致"
+    }
+  },
+  "account": {
+    "title": "账户",
+    "subtitle": "查看账号信息，管理登录邮箱与密码",
+    "profile": {
+      "sectionTitle": "基本信息",
+      "displayName": "显示名",
+      "username": "用户名",
+      "email": "绑定邮箱",
+      "emailVerified": "邮箱验证",
+      "emailVerifiedYes": "已验证",
+      "emailVerifiedNo": "未验证",
+      "createdAt": "注册时间"
+    },
+    "password": {
+      "sectionTitle": "修改密码",
+      "currentLabel": "当前密码",
+      "newLabel": "新密码",
+      "confirmLabel": "确认新密码",
+      "submit": "保存新密码",
+      "submitting": "保存中…",
+      "success": "密码已更新",
+      "failed": "修改密码失败，请稍后重试",
+      "oauthOnly": "第三方账号登录的暂不支持修改密码",
+      "accountsLoadFailed": "暂时无法确认账号类型，请稍后重试"
+    },
+    "email": {
+      "sectionTitle": "修改绑定邮箱",
+      "currentLabel": "当前邮箱",
+      "newLabel": "新邮箱",
+      "hint": "提交后我们会向新邮箱发送验证链接；确认后才会更新绑定邮箱。",
+      "submit": "发送验证邮件",
+      "submitting": "发送中…",
+      "success": "验证邮件已发送，请打开新邮箱中的链接完成验证",
+      "failed": "发送失败，请稍后重试",
+      "sameAsCurrent": "新邮箱不能与当前邮箱相同"
     }
   },
   "landing": {

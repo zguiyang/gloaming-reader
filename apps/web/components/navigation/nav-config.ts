@@ -14,11 +14,6 @@ export type NavCopy = {
   account: string;
   signOut: string;
   admin: string;
-  moreSheetTitle: string;
-  moreSheetDescription: string;
-  morePlaceholderAccount: string;
-  morePlaceholderHint: string;
-  moreFutureHint: string;
   themeAppearance: string;
   themeLight: string;
   themeDark: string;
@@ -43,11 +38,6 @@ export function getNavCopy(locale: Locale): NavCopy {
     account: t(locale, 'nav.account'),
     signOut: t(locale, 'nav.signOut'),
     admin: t(locale, 'nav.admin'),
-    moreSheetTitle: t(locale, 'nav.moreSheetTitle'),
-    moreSheetDescription: t(locale, 'nav.moreSheetDescription'),
-    morePlaceholderAccount: t(locale, 'nav.morePlaceholderAccount'),
-    morePlaceholderHint: t(locale, 'nav.morePlaceholderHint'),
-    moreFutureHint: t(locale, 'nav.moreFutureHint'),
     themeAppearance: t(locale, 'nav.themeAppearance'),
     themeLight: t(locale, 'nav.themeLight'),
     themeDark: t(locale, 'nav.themeDark'),

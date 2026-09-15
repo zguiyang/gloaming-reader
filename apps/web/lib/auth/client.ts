@@ -18,6 +18,9 @@ export const authClient = {
   verifyEmail: api.verifyEmail,
   forgotPassword: api.forgotPassword,
   resetPassword: api.resetPassword,
+  listAccounts: api.listAccounts,
+  changePassword: api.changePassword,
+  changeEmail: api.changeEmail,
   useSession,
   signOut,
 };

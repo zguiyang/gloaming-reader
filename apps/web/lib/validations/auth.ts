@@ -96,3 +96,24 @@ export const resetPasswordSchema = resetPasswordBodySchema
   });
 
 export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
+
+/** Account settings: change password (credential accounts only). */
+export const changePasswordFormSchema = z
+  .object({
+    currentPassword: z.string().min(1),
+    password: passwordSchema,
+    passwordConfirm: z.string().min(1),
+  })
+  .refine((value) => value.password === value.passwordConfirm, {
+    message: 'Passwords do not match',
+    path: ['passwordConfirm'],
+  });
+
+export type ChangePasswordFormValues = z.infer<typeof changePasswordFormSchema>;
+
+/** Account settings: request email change (verification sent to new address). */
+export const changeEmailFormSchema = z.object({
+  newEmail: emailSchema,
+});
+
+export type ChangeEmailFormValues = z.infer<typeof changeEmailFormSchema>;

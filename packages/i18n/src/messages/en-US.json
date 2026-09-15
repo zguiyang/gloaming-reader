@@ -25,13 +25,9 @@
     "more": "More",
     "signIn": "Sign in",
     "account": "Account menu",
+    "accountCenter": "Account",
     "signOut": "Sign out",
     "admin": "Admin",
-    "moreSheetTitle": "More",
-    "moreSheetDescription": "Account and extensions",
-    "morePlaceholderAccount": "Account",
-    "morePlaceholderHint": "Coming soon",
-    "moreFutureHint": "More module entries will appear here.",
     "themeAppearance": "Appearance",
     "themeLight": "Light",
     "themeDark": "Dark",
@@ -43,6 +39,10 @@
     "localeEnUS": "English",
     "defaultReaderName": "Reader",
     "accountMenuAria": "{username}, {email}, {account}"
+  },
+  "more": {
+    "accountSettings": "Account settings",
+    "menuAria": "More menu"
   },
   "auth": {
     "signOutFailed": "Sign out failed. Please try again.",
@@ -166,6 +166,43 @@
       "sendFailed": "Could not send. Please try again later.",
       "tooManyRequests": "Too many requests. Please try again later.",
       "passwordMismatch": "Passwords do not match"
+    }
+  },
+  "account": {
+    "title": "Account",
+    "subtitle": "View your profile and manage sign-in email and password",
+    "profile": {
+      "sectionTitle": "Profile",
+      "displayName": "Display name",
+      "username": "Username",
+      "email": "Email",
+      "emailVerified": "Email verification",
+      "emailVerifiedYes": "Verified",
+      "emailVerifiedNo": "Not verified",
+      "createdAt": "Joined"
+    },
+    "password": {
+      "sectionTitle": "Change password",
+      "currentLabel": "Current password",
+      "newLabel": "New password",
+      "confirmLabel": "Confirm new password",
+      "submit": "Save new password",
+      "submitting": "Saving…",
+      "success": "Password updated",
+      "failed": "Could not change password. Please try again later.",
+      "oauthOnly": "Password change is not available for third-party sign-in accounts.",
+      "accountsLoadFailed": "Could not confirm account type right now. Please try again later."
+    },
+    "email": {
+      "sectionTitle": "Change email",
+      "currentLabel": "Current email",
+      "newLabel": "New email",
+      "hint": "We will send a verification link to the new address. Your sign-in email updates only after you confirm it.",
+      "submit": "Send verification email",
+      "submitting": "Sending…",
+      "success": "Verification email sent. Open the link in your new inbox to finish.",
+      "failed": "Could not send. Please try again later.",
+      "sameAsCurrent": "New email must be different from your current email"
     }
   },
   "landing": {
