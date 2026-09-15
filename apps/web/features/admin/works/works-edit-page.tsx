@@ -306,7 +306,6 @@ function UploadMode({ onCreated }: UploadModeProps) {
           <p className="font-heading text-sm font-medium">
             {t(locale, 'admin.works.edit.uploadingFile', { fileName: selectedFileName })}
           </p>
-          <p className="text-xs text-muted-foreground">{t(locale, 'admin.works.edit.uploadingHint')}</p>
         </div>
       ) : (
         <div>
@@ -684,8 +683,6 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                     </li>
                   ))}
                 </ul>
-              ) : work.status === 'ready' || work.status === 'published' ? (
-                <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.audioReadyHint')}</p>
               ) : null}
             </>
           )}
@@ -749,11 +746,6 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                     : t(locale, 'admin.works.edit.publishBlockedIncomplete')}
                 </span>
               )}
-              {publishIssues.length > 0 && work.status === 'ready' ? (
-                <span className="text-xs text-muted-foreground">
-                  {t(locale, 'admin.works.edit.publishBlockedIssues')}
-                </span>
-              ) : null}
             </div>
           </div>
         </section>

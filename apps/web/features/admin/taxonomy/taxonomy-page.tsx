@@ -398,13 +398,13 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
                 ? t(locale, 'admin.taxonomy.panel.emptyNoMatchSearch')
                 : t(locale, 'admin.taxonomy.panel.emptyNoMatch', { kind: kindLabel })}
             </EmptyTitle>
-            <EmptyDescription>
-              {search || translationFilter !== 'all'
-                ? t(locale, 'admin.taxonomy.panel.emptySearchHint')
-                : isSource
-                  ? t(locale, 'admin.taxonomy.panel.emptySourceHint')
-                  : t(locale, 'admin.taxonomy.panel.emptyManualHint')}
-            </EmptyDescription>
+            {search || translationFilter !== 'all' || isSource ? (
+              <EmptyDescription>
+                {search || translationFilter !== 'all'
+                  ? t(locale, 'admin.taxonomy.panel.emptySearchHint')
+                  : t(locale, 'admin.taxonomy.panel.emptySourceHint')}
+              </EmptyDescription>
+            ) : null}
           </EmptyHeader>
         </Empty>
       ) : (

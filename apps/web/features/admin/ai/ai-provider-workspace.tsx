@@ -9,7 +9,7 @@ import { getWireFamilyDefinition, listWireFamilies } from '@gloaming/shared/llm'
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Tabs } from '@/components/ui/tabs';
@@ -236,11 +236,6 @@ export function AiProviderWorkspace({
               <Plus />
             </EmptyMedia>
             <EmptyTitle>{t(locale, 'admin.ai.provider.emptyTitle')}</EmptyTitle>
-            <EmptyDescription>
-              {familyFilter === 'all'
-                ? t(locale, 'admin.ai.provider.emptyDescriptionAll')
-                : t(locale, 'admin.ai.provider.emptyDescriptionFiltered')}
-            </EmptyDescription>
           </EmptyHeader>
           <Button className="mt-2 rounded-xl hover:bg-brand-deep" onClick={startCreate}>
             {t(locale, 'admin.ai.provider.add')}

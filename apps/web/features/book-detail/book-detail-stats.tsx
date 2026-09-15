@@ -85,7 +85,6 @@ export function BookDetailStats({ book }: { book: BookDetail }) {
                 size: formatSuggestedVocabSize(book.suggestedVocabSize!),
               })}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">{t(locale, 'content.bookDetail.suggestedVocab')}</p>
           </div>
         ) : null}
       </div>

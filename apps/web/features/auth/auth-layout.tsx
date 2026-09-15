@@ -29,10 +29,6 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           {children}
         </div>
       </main>
-
-      <footer className="px-6 pb-8 text-center text-sm text-muted-foreground/70">
-        {t(locale, 'auth.layoutFooter')}
-      </footer>
     </div>
   );
 }

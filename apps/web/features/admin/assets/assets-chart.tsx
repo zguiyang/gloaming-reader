@@ -5,7 +5,7 @@ import { Cell, Pie, PieChart } from 'recharts';
 import { t } from '@gloaming/i18n';
 import type { AssetCategorySummary } from '@gloaming/shared/assets';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { buildCategoryChartData, formatStorageBytes } from '@/features/admin/assets/assets-format';
 import { useLocale } from '@/lib/locale-context';
@@ -25,7 +25,6 @@ export function AssetsChart({ categories }: AssetsChartProps) {
     <Card>
       <CardHeader>
         <CardTitle>{t(locale, 'admin.assets.chart.title')}</CardTitle>
-        <CardDescription>{t(locale, 'admin.assets.chart.description')}</CardDescription>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (

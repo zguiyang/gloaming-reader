@@ -4,7 +4,7 @@ import { t } from '@gloaming/i18n';
 import type { AssetObjectItem } from '@gloaming/shared/assets';
 
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   assetCategoryLabel,
   assetStatusLabel,
@@ -25,7 +25,6 @@ export function AssetsLargestList({ objects }: AssetsLargestListProps) {
     <Card>
       <CardHeader>
         <CardTitle>{t(locale, 'admin.assets.largest.title')}</CardTitle>
-        <CardDescription>{t(locale, 'admin.assets.largest.description')}</CardDescription>
       </CardHeader>
       <CardContent>
         {objects.length === 0 ? (

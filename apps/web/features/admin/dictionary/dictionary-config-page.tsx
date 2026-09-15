@@ -14,7 +14,7 @@ import {
   type TestDictionaryResult,
 } from '@gloaming/shared/dictionary';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -178,7 +178,6 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
         <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
           {t(locale, 'admin.dictionary.title')}
         </h1>
-        <p className="text-sm leading-6 text-muted-foreground">{t(locale, 'admin.dictionary.subtitle')}</p>
       </header>
 
       <section className="rounded-2xl border border-border bg-card px-6 py-6">
@@ -191,18 +190,11 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
                 : t(locale, 'admin.dictionary.service.notConfigured')}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {isEnabled
-                ? t(locale, 'admin.dictionary.service.enabled')
-                : t(locale, 'admin.dictionary.service.disabled')}
-            </span>
-            <Switch
-              checked={isEnabled}
-              onCheckedChange={setIsEnabled}
-              aria-label={t(locale, 'admin.dictionary.service.enableAria')}
-            />
-          </div>
+          <Switch
+            checked={isEnabled}
+            onCheckedChange={setIsEnabled}
+            aria-label={t(locale, 'admin.dictionary.service.enableAria')}
+          />
         </div>
 
         <FieldGroup className="gap-5">
@@ -375,13 +367,6 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
                       {t(locale, 'admin.dictionary.test.sourceUnknown')}
                     </span>
                   ) : null}
-                  {hasTestUsedFallback ? (
-                    <Badge variant="outline" className="text-xs text-amber-700 dark:text-amber-400">
-                      {t(locale, 'admin.dictionary.test.actualSource', {
-                        source: providerDisplayName(testActualSource, locale),
-                      })}
-                    </Badge>
-                  ) : null}
                 </div>
                 <span className="text-xs text-muted-foreground">
                   {t(locale, 'admin.dictionary.test.latency')}{' '}
@@ -392,19 +377,10 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               {hasTestUsedFallback ? (
                 <Alert className="border-amber-500/40 bg-amber-500/5 text-foreground">
                   <TriangleAlert className="text-amber-600 dark:text-amber-400" />
-                  <AlertTitle>{t(locale, 'admin.dictionary.test.fallbackTitle')}</AlertTitle>
-                  <AlertDescription className="space-y-1 text-foreground/90">
-                    <p>
-                      {t(locale, 'admin.dictionary.test.fallbackConfigured', {
-                        source: providerDisplayName(testConfiguredProvider, locale),
-                      })}
-                    </p>
-                    <p>
-                      {t(locale, 'admin.dictionary.test.fallbackActual', {
-                        source: providerDisplayName(testActualSource, locale),
-                      })}
-                    </p>
-                    <p>{t(locale, 'admin.dictionary.test.fallbackDescription')}</p>
+                  <AlertDescription className="text-foreground/90">
+                    {t(locale, 'admin.dictionary.test.fallbackDescription', {
+                      source: providerDisplayName(testActualSource, locale),
+                    })}
                   </AlertDescription>
                 </Alert>
               ) : null}

@@ -12,9 +12,6 @@ export function HistoryHeader() {
       <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-5xl md:leading-[1.15]">
         {t(locale, 'content.history.title')}
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground md:mt-4 md:font-heading md:text-xl md:leading-8">
-        {t(locale, 'content.history.subtitle')}
-      </p>
     </header>
   );
 }

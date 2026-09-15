@@ -11,7 +11,7 @@ import { ASSET_CATEGORIES } from '@gloaming/shared/assets';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Pagination,
   PaginationContent,
@@ -97,7 +97,6 @@ export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObject
     <Card>
       <CardHeader>
         <CardTitle>{t(locale, 'admin.assets.table.title')}</CardTitle>
-        <CardDescription>{t(locale, 'admin.assets.table.description')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">

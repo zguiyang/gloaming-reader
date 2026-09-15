@@ -8,7 +8,7 @@ import type { CatalogTaxonomyFacet } from '@gloaming/shared/taxonomy';
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { taxonomyDisplayName } from '@/features/discover/discover-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -327,7 +327,6 @@ function MobileFilterSheet({
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
           <SheetTitle>{t(locale, 'content.discover.filterSheetTitle')}</SheetTitle>
-          <SheetDescription>{t(locale, 'content.discover.filterSheetDescription')}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 flex max-h-[min(60dvh,28rem)] flex-col gap-6 overflow-y-auto">

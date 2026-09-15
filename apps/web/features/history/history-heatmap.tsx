@@ -147,7 +147,6 @@ export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
           <span className="font-heading text-2xl font-semibold text-primary tabular-nums">
             {t(locale, 'content.history.readingDaysCount', { count: daysInWindow })}
           </span>
-          <span className="text-sm text-muted-foreground">{t(locale, 'content.history.readingDaysHint')}</span>
         </p>
       </div>
 

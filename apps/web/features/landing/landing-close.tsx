@@ -7,11 +7,6 @@ import { LandingReveal } from '@/features/landing/landing-motion';
 import { LandingSection } from '@/features/landing/landing-section';
 import { useLocale } from '@/lib/locale-context';
 
-const FOOTER_LINKS = [
-  { href: '#philosophy', key: 'landing.footer.philosophy' },
-  { href: '#origin', key: 'landing.footer.about' },
-] as const;
-
 export function LandingCta() {
   const { locale } = useLocale();
 
@@ -42,19 +37,8 @@ export function LandingFooter() {
       <div className="container flex flex-col items-center justify-between gap-6 py-8 md:flex-row">
         <p className="font-heading text-2xl font-semibold text-foreground">{brand}</p>
         <p className="text-sm text-muted-foreground">
-          © {year} {brand}. {t(locale, 'landing.footer.tagline')}
+          © {year} {brand}
         </p>
-        <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
-          {FOOTER_LINKS.map((link) => (
-            <a
-              key={link.key}
-              href={link.href}
-              className="transition-colors duration-300 ease-out-soft hover:text-primary"
-            >
-              {t(locale, link.key)}
-            </a>
-          ))}
-        </div>
       </div>
     </footer>
   );

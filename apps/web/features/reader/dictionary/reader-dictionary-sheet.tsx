@@ -3,7 +3,7 @@
 import { t } from '@gloaming/i18n';
 import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ReaderDictionaryCard } from '@/features/reader/dictionary/reader-dictionary-card';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -47,7 +47,6 @@ export function ReaderDictionarySheet({
 
         <SheetHeader className="sr-only">
           <SheetTitle>{t(locale, 'content.reader.dictionary.sheetTitle', { word })}</SheetTitle>
-          <SheetDescription>{t(locale, 'content.reader.dictionary.sheetDescription')}</SheetDescription>
         </SheetHeader>
 
         <ReaderDictionaryCard

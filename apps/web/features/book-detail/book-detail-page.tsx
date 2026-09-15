@@ -103,10 +103,6 @@ function BookDetailView({ book }: { book: BookDetail }) {
         <BookDetailRecommendations excludeWorkId={book.id} />
       </div>
 
-      <footer className="border-t border-border/50 pt-8 text-center text-sm text-muted-foreground">
-        <p className="mb-1">{t(locale, 'content.bookDetail.tagline')}</p>
-      </footer>
-
       <BookDetailStickyCta
         book={book}
         onShelf={isOnShelf}

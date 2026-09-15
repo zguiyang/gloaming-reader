@@ -48,7 +48,6 @@ export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[]
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-medium text-foreground">{t(locale, 'admin.logs.ai.providerBalancesTitle')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'admin.logs.ai.providerBalancesDescription')}</p>
         </div>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

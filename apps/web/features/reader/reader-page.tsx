@@ -96,7 +96,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   const [audioStatus, setAudioStatus] = useState<ReaderAudioStatus>('idle');
   const [playbackRate, setPlaybackRate] = useState<ReaderPlaybackRate>(DEFAULT_READER_PLAYBACK_RATE);
   const [preferredAudioRole, setPreferredAudioRole] = useState<ReaderAudioRole | null>(null);
-  const [isTapHintVisible, setIsTapHintVisible] = useState(true);
   const [wordTimings, setWordTimings] = useState<TtsWordTiming[] | null>(null);
   const [listeningSentenceIndex, setListeningSentenceIndex] = useState<number | null>(null);
   const [selectedSentenceIndex, setSelectedSentenceIndex] = useState<number | null>(null);
@@ -198,12 +197,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     if (!partsData || !activePartId) return;
     scrollContainerRef.current?.scrollTo(0, 0);
   }, [activePartId, partsData]);
-
-  useEffect(() => {
-    if (!isTapHintVisible || !partsData) return;
-    const t = window.setTimeout(() => setIsTapHintVisible(false), 3500);
-    return () => window.clearTimeout(t);
-  }, [isTapHintVisible, partsData]);
 
   useEffect(() => {
     return () => {
@@ -506,7 +499,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         }}
         onCenterTap={() => {
           setIsChromeVisible((v) => !v);
-          setIsTapHintVisible(false);
           if (selection && assist.aiMode !== 'inline') clearSelectionUi();
         }}
         onScroll={(event) => {
@@ -647,14 +639,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         onCyclePlaybackRate={handleCyclePlaybackRate}
         onSelectRole={(role) => void handleAccentSelect(role)}
       />
-
-      {isTapHintVisible ? (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
-          <div className="rounded-full bg-[var(--inverse-surface)] px-5 py-2.5 text-sm text-[var(--inverse-on-surface)] shadow-card">
-            {t(locale, 'content.reader.chrome.tapHint')}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
