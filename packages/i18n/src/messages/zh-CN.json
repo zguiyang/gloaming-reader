@@ -1,7 +1,7 @@
 {
   "common": {
     "appName": "Gloaming Reader",
-    "siteDescription": "阅读英文作品，按需查词、翻译并保存阅读进度。",
+    "siteDescription": "阅读作品，正文内查词、翻译，并保存阅读进度。",
     "api": {
       "requestFailed": "请求失败",
       "invalidResponse": "响应格式无效",
@@ -56,7 +56,7 @@
   "auth": {
     "signOutFailed": "退出登录失败，请稍后重试",
     "signOutSuccess": "已退出登录",
-    "layoutFooter": "独立开发 · 读自己想读的英语",
+    "layoutFooter": "独立开发 · 阅读你选择的作品",
     "meta": {
       "verifyEmailTitle": "确认邮箱 — Gloaming",
       "resetPasswordTitle": "重置密码 — Gloaming",
@@ -222,25 +222,25 @@
   },
   "landing": {
     "meta": {
-      "title": "Gloaming Reader — 阅读英文作品",
-      "description": "阅读英文作品，按需查词、翻译并保存阅读进度。"
+      "title": "Gloaming Reader — 正文内提供帮助的阅读环境",
+      "description": "阅读作品，按需查词、翻译并保存阅读进度。"
     },
     "cta": {
       "signInToRead": "登录后开始阅读",
       "goToShelf": "进入书架"
     },
     "hero": {
-      "title": "阅读英文作品，遇到问题时再查词、翻译或提问。",
+      "title": "阅读作品，遇到问题时再查词、翻译或提问。",
       "subtitle": "Gloaming Reader 让你留在正文里：查词、翻译段落，或向阅读助手提问，无需离开页面。书架会保存进度，方便你从上次位置继续。"
     },
     "origin": {
       "title": "我们为什么创造 Gloaming？",
-      "paragraph1": "阅读英文时，经常需要切换到词典或翻译工具，每次查阅都会离开正文。",
-      "paragraph2": "Gloaming 让你在阅读器内完成这些操作：打开英文作品、查词或翻译选中文本，并保存阅读进度。",
+      "paragraph1": "阅读不熟悉的原文时，经常需要切换到词典或翻译工具，每次查阅都会离开正文。",
+      "paragraph2": "Gloaming 让你在阅读器内查词、翻译并保存阅读进度。",
       "imageAlt": "窗边的阅读场景"
     },
     "contrast": {
-      "title": "阅读英文不应每遇到生词就离开页面。",
+      "title": "遇到难句，不应每次都离开正文。",
       "pastTitle": "过去的阅读方式",
       "pastItem1": "频繁查字典，打断思路",
       "pastItem2": "生词变成记忆任务，产生压力",
@@ -252,18 +252,18 @@
       "punch": "查词、翻译和解释都在阅读器内完成，没有独立的聊天或课程模式。"
     },
     "philosophy": {
-      "title": "阅读英文作品，需要时再使用工具。",
-      "lead": "在阅读器中打开已发布的英文文本。仅对你选中的段落使用查词、翻译或解释。",
+      "title": "阅读作品，需要时再使用工具。",
+      "lead": "在阅读器中打开已发布的作品。仅对选中内容使用查词、翻译或解释。",
       "leadSecondary": "你的目标不是完成课程。而是停留在文字之中。",
-      "authenticTitle": "英文作品",
-      "authenticBody": "阅读目录中的完整英文文本，而非改写或简化的学习材料。",
+      "authenticTitle": "原文作品",
+      "authenticBody": "阅读目录中的完整原文，而非改写或简化的学习材料。",
       "focusTitle": "留在阅读器内",
       "focusBody": "正文始终显示在屏幕上。查词或翻译时无需切换应用或标签页。",
       "assistTitle": "按需使用工具",
       "assistBody": "从选中内容打开词典、翻译或句子解释。关闭后即可继续阅读。"
     },
     "product": {
-      "title": "阅读英文作品，正文内查词、翻译与解释。",
+      "title": "在正文旁使用查词、翻译与解释。",
       "readerTitle": "阅读器",
       "readerBody": "专注阅读体验。舒适字体。干净排版。减少视觉干扰。",
       "readerImageAlt": "Gloaming Reader 阅读界面",
@@ -293,11 +293,11 @@
       "nextItem5": "继续阅读。"
     },
     "invite": {
-      "title": "在书架上阅读英文作品。",
+      "title": "从上次停留的位置继续阅读。",
       "body": "登录后可保存进度、管理书架，并在需要时使用查词、翻译和阅读助手。"
     },
     "footer": {
-      "tagline": "英文阅读，正文内查词、翻译，并保存进度。",
+      "tagline": "正文内查词、翻译，并保存阅读进度。",
       "philosophy": "理念",
       "about": "关于"
     }
@@ -1143,7 +1143,7 @@
     "discover": {
       "title": "发现",
       "metaTitle": "发现 · Gloaming Reader",
-      "subtitle": "找到下一篇想读的英文。",
+      "subtitle": "找到下一本想读的作品。",
       "loadFailed": "无法加载目录",
       "softRefreshing": "书目更新中…",
       "filter": "筛选",
@@ -1169,10 +1169,10 @@
     "shelf": {
       "title": "我的书架",
       "metaTitle": "我的书架 · Gloaming Reader",
-      "subtitleResume": "回来，继续读你喜欢的英文。",
+      "subtitleResume": "从上次停留的位置继续。",
       "loadFailed": "无法加载书架",
       "emptyTitle": "你的书架还是空的",
-      "emptyDescription": "去发现一些值得阅读的英文作品。",
+      "emptyDescription": "去发现一部值得阅读的作品。",
       "continueReading": "继续阅读",
       "myCollection": "我的藏书",
       "readingInProgress": "阅读中",
@@ -1184,10 +1184,10 @@
     "history": {
       "title": "阅读历史",
       "metaTitle": "阅读历史 · Gloaming Reader",
-      "subtitle": "回望你与英文相处的时间。",
+      "subtitle": "回望你的阅读足迹。",
       "loadFailed": "无法加载阅读历史",
       "emptyTitle": "还没有阅读痕迹",
-      "emptyDescription": "读过的作品会安静地留在这里。先去发现一篇想读的英文吧。",
+      "emptyDescription": "先去发现一部想读的作品吧。",
       "readingRecord": "近一年阅读日",
       "readingDaysCount": "{count} 个阅读日",
       "readingDaysHint": "近一年阅读日",

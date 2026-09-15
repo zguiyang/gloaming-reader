@@ -1,7 +1,7 @@
 {
   "common": {
     "appName": "Gloaming Reader",
-    "siteDescription": "Read English works with on-demand lookup, translation, and saved progress.",
+    "siteDescription": "Read works with in-text lookup, translation, and saved progress.",
     "api": {
       "requestFailed": "Request failed",
       "invalidResponse": "Invalid response format",
@@ -56,7 +56,7 @@
   "auth": {
     "signOutFailed": "Sign out failed. Please try again.",
     "signOutSuccess": "Signed out",
-    "layoutFooter": "Indie · Read the English you want",
+    "layoutFooter": "Indie · Read the works you choose",
     "meta": {
       "verifyEmailTitle": "Confirm email — Gloaming",
       "resetPasswordTitle": "Reset password — Gloaming",
@@ -222,25 +222,25 @@
   },
   "landing": {
     "meta": {
-      "title": "Gloaming Reader — Read English works",
-      "description": "Read English works with on-demand lookup, translation, and saved progress."
+      "title": "Gloaming Reader — A reading environment with in-text help",
+      "description": "Read works with lookup, translation, and saved progress."
     },
     "cta": {
       "signInToRead": "Sign in to read",
       "goToShelf": "Go to shelf"
     },
     "hero": {
-      "title": "Read English works. Look up, translate, or ask when you need help.",
+      "title": "Read. Look up, translate, or ask when you need help.",
       "subtitle": "Gloaming Reader keeps you in the text. Look up words, translate passages, or ask the reading assistant—without leaving the page. Your shelf saves progress so you can pick up where you left off."
     },
     "origin": {
       "title": "Why we built Gloaming",
-      "paragraph1": "Reading English often means switching to a dictionary or translator. Each lookup pulls you away from the text.",
-      "paragraph2": "Gloaming keeps you in the reader: open English works, look up or translate selected text, and save where you left off.",
+      "paragraph1": "Reading unfamiliar texts often means switching to a dictionary or translator. Each lookup pulls you away from the text.",
+      "paragraph2": "Gloaming keeps lookup, translation, and saved progress in the reader.",
       "imageAlt": "Reading by the window"
     },
     "contrast": {
-      "title": "Reading English shouldn't require leaving the page for every word.",
+      "title": "Hard words should not pull you out of the page.",
       "pastTitle": "The old way",
       "pastItem1": "Stop to look up words and lose the thread",
       "pastItem2": "New words feel like memory chores",
@@ -252,18 +252,18 @@
       "punch": "Lookup, translation, and explanation stay in the reader. No separate chat or lesson mode."
     },
     "philosophy": {
-      "title": "Read English works with tools when you need them.",
-      "lead": "Open published English texts in the reader. Use lookup, translation, or explanation only on the passages you select.",
+      "title": "Read with tools when you need them.",
+      "lead": "Open published works in the reader. Use lookup, translation, or explanation only on what you select.",
       "leadSecondary": "",
-      "authenticTitle": "English works",
-      "authenticBody": "Read full English texts from the catalog—not rewritten or simplified study passages.",
+      "authenticTitle": "Original works",
+      "authenticBody": "Read full texts from the catalog—not rewritten or simplified study passages.",
       "focusTitle": "Stay in the reader",
       "focusBody": "The text stays on screen. Look up or translate without switching apps or tabs.",
       "assistTitle": "On-demand tools",
       "assistBody": "Dictionary, translation, and sentence explanation open from your selection. Close them to return to reading."
     },
     "product": {
-      "title": "Read English works with in-text lookup, translation, and explanation.",
+      "title": "Use lookup, translation, and explanation beside the text.",
       "readerTitle": "Reader",
       "readerBody": "Focused reading. Comfortable type. Clean layout. Less visual noise.",
       "readerImageAlt": "Gloaming Reader interface",
@@ -293,11 +293,11 @@
       "nextItem5": "Keep reading."
     },
     "invite": {
-      "title": "Read English works on your shelf.",
+      "title": "Pick up where you left off.",
       "body": "Sign in to save progress, build your shelf, and use lookup, translation, and the reading assistant when you need help."
     },
     "footer": {
-      "tagline": "English reading with in-text lookup, translation, and saved progress.",
+      "tagline": "In-text lookup, translation, and saved progress.",
       "philosophy": "Philosophy",
       "about": "About"
     }
@@ -1143,7 +1143,7 @@
     "discover": {
       "title": "Discover",
       "metaTitle": "Discover · Gloaming Reader",
-      "subtitle": "Find your next English read.",
+      "subtitle": "Find your next read.",
       "loadFailed": "Could not load catalog",
       "softRefreshing": "Updating catalog…",
       "filter": "Filter",
@@ -1172,7 +1172,7 @@
       "subtitleResume": "Pick up where you left off.",
       "loadFailed": "Could not load shelf",
       "emptyTitle": "Your shelf is empty",
-      "emptyDescription": "Discover English works worth reading.",
+      "emptyDescription": "Discover something worth reading.",
       "continueReading": "Continue reading",
       "myCollection": "My collection",
       "readingInProgress": "Reading",
@@ -1184,10 +1184,10 @@
     "history": {
       "title": "Reading history",
       "metaTitle": "Reading history · Gloaming Reader",
-      "subtitle": "Look back at time spent with English.",
+      "subtitle": "Look back at your reading time.",
       "loadFailed": "Could not load reading history",
       "emptyTitle": "No reading history yet",
-      "emptyDescription": "Finished works will appear here quietly. Start with something from Discover.",
+      "emptyDescription": "Start with something from Discover.",
       "readingRecord": "Reading days in the past year",
       "readingDaysCount": "{count} reading days",
       "readingDaysHint": "Reading days in the past year",
