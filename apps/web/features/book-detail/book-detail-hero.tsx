@@ -1,6 +1,6 @@
 'use client';
 
-import { BookmarkIcon, BookOpenIcon, CheckIcon, LanguagesIcon, Loader2Icon } from 'lucide-react';
+import { BookmarkIcon, BookOpenIcon, CheckIcon, LanguagesIcon, Loader2Icon, TagIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { t } from '@gloaming/i18n';
@@ -41,8 +41,9 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
   const progressLabel = isCompleted
     ? t(locale, 'content.bookDetail.progressCompleted')
     : t(locale, 'content.bookDetail.progressRead', { ratio: book.progressRatio ?? 0 });
-  const chips = book.tags.slice(0, 3);
   const languageLabel = languageLabelFromCode(book.language, locale);
+  const categoryLabel = formatBookCategory(book.category, locale);
+  const hasTags = book.tags.length > 0;
 
   return (
     <section className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-12 lg:gap-16">
@@ -76,14 +77,20 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
           ) : null}
         </div>
 
-        {chips.length > 0 ? (
-          <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-            {chips.map((chip) => (
+        {categoryLabel || hasTags ? (
+          <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+            {categoryLabel ? (
+              <span className="rounded-full bg-surface-container px-3.5 py-1.5 text-sm font-medium text-foreground">
+                {categoryLabel}
+              </span>
+            ) : null}
+            {book.tags.map((tag) => (
               <span
-                key={chip.id}
-                className="rounded-full border border-border/40 bg-surface-container-highest/80 px-3.5 py-1.5 text-sm text-muted-foreground"
+                key={tag.id}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-surface-container-highest/80 px-3.5 py-1.5 text-sm text-muted-foreground"
               >
-                {taxonomyDisplayName(chip, locale)}
+                <TagIcon className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
+                {taxonomyDisplayName(tag, locale)}
               </span>
             ))}
           </div>

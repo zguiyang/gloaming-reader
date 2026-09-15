@@ -130,7 +130,7 @@ export function toBookDetail(work: Work, parts: PartSummary[], shelfItem: ShelfI
     author: work.author,
     difficultyScore: readingStats.difficultyScore,
     difficultyLabel: readingStats.difficultyLabel,
-    category: work.tags[0] ?? BOOK_DETAIL_DEFAULT_CATEGORY,
+    category: work.category ?? BOOK_DETAIL_DEFAULT_CATEGORY,
     tags: work.tags,
     estimatedMinutes: readingStats.estimatedMinutes,
     suggestedVocabSize: readingStats.suggestedVocabSize,

@@ -27,6 +27,18 @@ const taxonomyTag = {
   origin: 'manual' as const,
 };
 
+const taxonomyCategory = {
+  id: 'category-fiction',
+  names: { 'zh-CN': '虚构文学', 'en-US': 'Fiction' },
+  origin: 'manual' as const,
+};
+
+const taxonomyTagSecond = {
+  id: 'tag-adventure',
+  names: { 'zh-CN': '冒险', 'en-US': 'Adventure' },
+  origin: 'manual' as const,
+};
+
 const taxonomySource = {
   id: 'source-gutenberg',
   name: 'Gutenberg',
@@ -193,6 +205,7 @@ describe('toBookDetail', () => {
     visibility: 'catalog' as const,
     originKind: 'admin_epub' as const,
     tags: [taxonomyTag],
+    category: taxonomyCategory,
     sources: [taxonomySource],
     coverAssetId: null,
     wordCount: null,
@@ -226,7 +239,58 @@ describe('toBookDetail', () => {
     expect(book.sourceLabel).toBe('official');
     expect(book.language).toBe('en');
     expect(book.tags[0]?.id).toBe('tag-fiction');
-    expect(book.category).toEqual(taxonomyTag);
+    expect(book.category).toEqual(taxonomyCategory);
+  });
+
+  it('uses work.category for book category instead of the first tag', () => {
+    const parts = [
+      {
+        id: 'p1',
+        workId: 'w1',
+        sortOrder: 0,
+        kind: 'chapter' as const,
+        title: 'One',
+        wordCount: 100,
+        estimatedMinutes: 1,
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-01',
+      },
+    ];
+
+    const book = toBookDetail(
+      {
+        ...work,
+        category: taxonomyCategory,
+        tags: [taxonomyTag, taxonomyTagSecond],
+      },
+      parts,
+      undefined,
+    );
+
+    expect(book.category).toEqual(taxonomyCategory);
+    expect(book.category).not.toEqual(book.tags[0]);
+    expect(book.tags.map((tag) => tag.id)).toEqual(['tag-fiction', 'tag-adventure']);
+  });
+
+  it('falls back to default category when work.category is null', () => {
+    const parts = [
+      {
+        id: 'p1',
+        workId: 'w1',
+        sortOrder: 0,
+        kind: 'chapter' as const,
+        title: 'One',
+        wordCount: 100,
+        estimatedMinutes: 1,
+        createdAt: '2026-01-01',
+        updatedAt: '2026-01-01',
+      },
+    ];
+
+    const book = toBookDetail({ ...work, category: null, tags: [taxonomyTag] }, parts, undefined);
+
+    expect(book.category).toBe(BOOK_DETAIL_DEFAULT_CATEGORY);
+    expect(book.tags).toEqual([taxonomyTag]);
   });
 
   it('rejects legacy string taxonomy fields on published work payloads', () => {
