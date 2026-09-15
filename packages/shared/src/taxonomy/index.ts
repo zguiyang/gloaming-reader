@@ -1,4 +1,6 @@
 export type {
+  CatalogTaxonomyFacet,
+  CatalogTaxonomyListData,
   CreateTaxonomyBody,
   LanguageCode,
   LocalizedText,
@@ -18,6 +20,8 @@ export type {
   UpdateTaxonomyBody,
 } from './taxonomy.ts';
 export {
+  catalogTaxonomyFacetSchema,
+  catalogTaxonomyListDataSchema,
   createTaxonomyBodySchema,
   LANGUAGE_CODES,
   languageCodeSchema,

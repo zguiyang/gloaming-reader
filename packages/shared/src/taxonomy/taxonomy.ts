@@ -161,6 +161,22 @@ export const taxonomyListDataSchema = z.object({
 
 export type TaxonomyListData = z.infer<typeof taxonomyListDataSchema>;
 
+/** Public catalog facet — stable id and localized names only (no admin metadata). */
+export const catalogTaxonomyFacetSchema = z
+  .object({
+    id: z.string(),
+    names: localizedTextSchema,
+  })
+  .strict();
+
+export type CatalogTaxonomyFacet = z.infer<typeof catalogTaxonomyFacetSchema>;
+
+export const catalogTaxonomyListDataSchema = z.object({
+  items: z.array(catalogTaxonomyFacetSchema),
+});
+
+export type CatalogTaxonomyListData = z.infer<typeof catalogTaxonomyListDataSchema>;
+
 export const taxonomyCleanupResultSchema = z.object({
   deleted: z.number().int().nonnegative(),
 });

@@ -1,5 +1,6 @@
 import type { WorkMetadataProvenance } from '@gloaming/db';
 import {
+  type CatalogTaxonomyFacet,
   LANGUAGE_CODES,
   type LocalizedTextMap,
   type SourceReference,
@@ -40,6 +41,14 @@ export function toTaxonomyReference(row: TaxonomyRow): TaxonomyReference {
     origin: row.origin,
   };
   return ref;
+}
+
+/** Public catalog facet — localized names only, no provenance fields. */
+export function toCatalogTaxonomyFacet(row: TaxonomyRow): CatalogTaxonomyFacet {
+  return {
+    id: row.id,
+    names: buildTaxonomyNames(row.localizedNames, row.name),
+  };
 }
 
 export function toSourceReference(row: TaxonomyRow): SourceReference {

@@ -10,8 +10,15 @@ const taxonomyTag = {
   origin: 'manual' as const,
 };
 
+const taxonomyCategory = {
+  id: 'category-fiction',
+  names: { 'zh-CN': '小说', 'en-US': 'Fiction' },
+  origin: 'manual' as const,
+};
+
 const taxonomySource = {
   id: 'source-gutenberg',
+  name: 'Project Gutenberg',
   names: { 'en-US': 'Project Gutenberg' },
   origin: 'extracted' as const,
   matchRule: 'gutenberg.org',
@@ -91,6 +98,7 @@ describe('read-side taxonomy response contracts', () => {
       visibility: 'catalog',
       originKind: 'admin_epub',
       tags: [taxonomyTag],
+      category: taxonomyCategory,
       sources: [taxonomySource],
       coverAssetId: null,
       wordCount: 1000,
@@ -103,5 +111,6 @@ describe('read-side taxonomy response contracts', () => {
       updatedAt: '2026-08-21T00:00:00.000Z',
     });
     expect(payload.sources[0]?.matchRule).toBe('gutenberg.org');
+    expect(payload.category?.id).toBe('category-fiction');
   });
 });

@@ -65,33 +65,6 @@ describe('taxonomy SSOT projection', () => {
     }
   });
 
-  async function seedPublishedWorkWithTag(tagName: string): Promise<string> {
-    const workId = randomUUID();
-    const tagId = randomUUID();
-    workIds.push(workId);
-    tagIds.push(tagId);
-
-    await db.insert(readingWorkTable).values({
-      id: workId,
-      title: `Catalog ${tagName}`,
-      status: 'published',
-      originKind: 'admin_text',
-      publishedAt: new Date(),
-    });
-    await db.insert(readingPartTable).values({
-      id: randomUUID(),
-      workId,
-      sortOrder: 0,
-      kind: 'body',
-      title: 'Body',
-      body: '<p>Enough body text for publish checks.</p>',
-    });
-    await db.insert(tagTable).values({ id: tagId, name: tagName, normalized: normalizeTag(tagName) });
-    await db.insert(readingWorkTagTable).values({ workId, tagId, provenance: 'manual' });
-
-    return workId;
-  }
-
   it('hides tags in API projection while status=processing but preserves manual junction', async () => {
     const workId = randomUUID();
     const tagId = randomUUID();
@@ -120,10 +93,36 @@ describe('taxonomy SSOT projection', () => {
     expect(junction).toHaveLength(1);
   });
 
-  it('filters published catalog by junction tag SSOT', async () => {
-    await seedPublishedWorkWithTag('SSOT-Unique-Tag');
+  it('filters published catalog by stable tag id', async () => {
+    const tagId = randomUUID();
+    const workId = randomUUID();
+    workIds.push(workId);
+    tagIds.push(tagId);
 
-    const response = await app.request('/api/catalog/works?tag=SSOT-Unique-Tag');
+    await db.insert(readingWorkTable).values({
+      id: workId,
+      title: 'Catalog SSOT-Unique-Tag',
+      status: 'published',
+      visibility: 'catalog',
+      originKind: 'admin_text',
+      publishedAt: new Date(),
+    });
+    await db.insert(readingPartTable).values({
+      id: randomUUID(),
+      workId,
+      sortOrder: 0,
+      kind: 'body',
+      title: 'Body',
+      body: '<p>Enough body text for publish checks.</p>',
+    });
+    await db.insert(tagTable).values({
+      id: tagId,
+      name: 'SSOT-Unique-Tag',
+      normalized: normalizeTag('SSOT-Unique-Tag'),
+    });
+    await db.insert(readingWorkTagTable).values({ workId, tagId, provenance: 'manual' });
+
+    const response = await app.request(`/api/catalog/works?tag=${tagId}`);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { items: Array<{ title: string }> };
     expect(body.items.some((item) => item.title === 'Catalog SSOT-Unique-Tag')).toBe(true);

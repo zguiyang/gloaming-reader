@@ -20,6 +20,7 @@ import {
   taxonomySelectionSchema,
 } from '../taxonomy/taxonomy.ts';
 import { type TtsVoiceRole } from '../tts/tts.ts';
+import { catalogCategoryIdQuerySchema, catalogTagIdsQuerySchema } from './catalog-query.ts';
 
 /** Work lifecycle statuses. */
 export const WORK_STATUSES = [
@@ -107,6 +108,7 @@ export const workSchema = z.object({
   visibility: workVisibilitySchema,
   originKind: workOriginKindSchema,
   tags: z.array(taxonomyReferenceSchema),
+  category: taxonomyReferenceSchema.nullable(),
   /** Channel providers (e.g. Project Gutenberg) — auto-filled from EPUB / taxonomy. */
   sources: z.array(sourceReferenceSchema),
   coverAssetId: z.string().nullable(),
@@ -191,7 +193,6 @@ export const adminWorkSchema = workSchema.extend({
   originMeta: z.record(z.string(), z.unknown()).default({}),
   originAsset: adminOriginAssetSchema.nullable(),
   parts: z.array(partSchema),
-  category: taxonomyReferenceSchema.nullable(),
   /** Step that failed when status is `failed` (from originMeta.failedStep). */
   failedStep: z.enum(WORKFLOW_STEPS).nullable(),
   /** Per-field provenance for admin review UI — runtime projection from junction + description_provenance. */
@@ -210,7 +211,6 @@ export const adminWorkSummarySchema = workSchema.extend({
   originMeta: z.record(z.string(), z.unknown()).default({}),
   originAsset: adminOriginAssetSchema.nullable(),
   partCount: z.number().int().nonnegative(),
-  category: taxonomyReferenceSchema.nullable(),
   failedStep: z.enum(WORKFLOW_STEPS).nullable(),
   /** Per-field provenance for admin review UI — runtime projection from junction + description_provenance. */
   metadataProvenance: z.record(z.string(), z.enum(WORK_METADATA_PROVENANCES)).default({}),
@@ -313,8 +313,6 @@ export const CATALOG_SORT_FIELDS = ['publishedAt', 'updatedAt', 'createdAt'] as 
 export type CatalogSortField = (typeof CATALOG_SORT_FIELDS)[number];
 export const DEFAULT_CATALOG_SORT_BY = 'publishedAt' as const satisfies CatalogSortField;
 
-const catalogTagQuerySchema = z.preprocess(emptyToUndefined, z.string().trim().min(1).max(WORK_TAG_MAX_LEN).optional());
-
 const catalogSearchQuerySchema = z.preprocess(
   emptyToUndefined,
   z.string().trim().min(1).max(WORK_TITLE_MAX).optional(),
@@ -323,7 +321,8 @@ const catalogSearchQuerySchema = z.preprocess(
 /** Query for `GET /api/catalog/works`. */
 export const catalogListQuerySchema = paginationQuerySchema.extend({
   sortBy: createSortByQuerySchema(CATALOG_SORT_FIELDS, DEFAULT_CATALOG_SORT_BY),
-  tag: catalogTagQuerySchema,
+  category: catalogCategoryIdQuerySchema,
+  tag: catalogTagIdsQuerySchema,
   q: catalogSearchQuerySchema,
 });
 
@@ -342,7 +341,6 @@ export type CatalogWork = z.infer<typeof catalogWorkSchema>;
 export const catalogListDataSchema = z.object({
   items: z.array(catalogWorkSchema),
   pagination: paginationMetaSchema,
-  tags: z.array(taxonomyReferenceSchema),
 });
 
 export type CatalogListData = z.infer<typeof catalogListDataSchema>;

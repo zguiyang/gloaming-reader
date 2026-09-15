@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregateTaxonomyReferences,
   buildTaxonomyNames,
+  toCatalogTaxonomyFacet,
   toSourceReference,
   toTaxonomyReference,
 } from '@/modules/works/taxonomy-mapper';
@@ -47,6 +48,20 @@ describe('works taxonomy mapper', () => {
       name: 'Gutenberg',
       origin: 'extracted',
       matchRule: 'gutenberg.org',
+    });
+  });
+
+  it('maps catalog facets without provenance fields', () => {
+    expect(
+      toCatalogTaxonomyFacet({
+        id: 'tag-1',
+        name: 'Science',
+        localizedNames: { 'en-US': 'Science', 'zh-CN': '科学' },
+        origin: 'manual',
+      }),
+    ).toEqual({
+      id: 'tag-1',
+      names: { 'en-US': 'Science', 'zh-CN': '科学' },
     });
   });
 

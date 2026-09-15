@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  catalogTaxonomyFacetSchema,
+  catalogTaxonomyListDataSchema,
   localizedTextSchema,
   mergeLocalizedText,
   optionalLocalizedText,
@@ -57,6 +59,25 @@ describe('taxonomy i18n contracts', () => {
   it('rejects taxonomy selections that include display fields', () => {
     expect(
       taxonomySelectionSchema.safeParse({
+        id: 'tag-1',
+        names: sampleNames,
+        origin: 'manual',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('catalog taxonomy facet contracts', () => {
+  it('accepts public catalog facets with localized names only', () => {
+    const payload = catalogTaxonomyListDataSchema.parse({
+      items: [{ id: 'tag-1', names: sampleNames }],
+    });
+    expect(payload.items[0]?.names).toEqual(sampleNames);
+  });
+
+  it('rejects admin-only taxonomy fields on catalog facets', () => {
+    expect(
+      catalogTaxonomyFacetSchema.safeParse({
         id: 'tag-1',
         names: sampleNames,
         origin: 'manual',

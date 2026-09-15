@@ -26,7 +26,12 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
-function toWork(row: WorkRow, tags: TaxonomyReference[], sources: SourceReference[]): Work {
+function toWork(
+  row: WorkRow,
+  tags: TaxonomyReference[],
+  sources: SourceReference[],
+  category: TaxonomyReference | null = null,
+): Work {
   return {
     id: row.id,
     title: row.title,
@@ -37,6 +42,7 @@ function toWork(row: WorkRow, tags: TaxonomyReference[], sources: SourceReferenc
     visibility: row.visibility as Work['visibility'],
     originKind: row.originKind as Work['originKind'],
     tags,
+    category,
     sources,
     coverAssetId: row.coverAssetId,
     wordCount: row.wordCount,
@@ -160,6 +166,8 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
   return {
     strategy: plan.strategy,
     anchorWorkId: plan.anchorWorkId,
-    items: selectedRows.map((row) => toWork(row, tagsByWork.get(row.id) ?? [], sourcesByWork.get(row.id) ?? [])),
+    items: selectedRows.map((row) =>
+      toWork(row, tagsByWork.get(row.id) ?? [], sourcesByWork.get(row.id) ?? [], categoryByWork.get(row.id) ?? null),
+    ),
   };
 }

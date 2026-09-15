@@ -18,7 +18,7 @@ import {
 } from '@gloaming/db';
 import { audioKindForRole, deriveAudioTrackStatus } from '@gloaming/shared/content-assets';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
-import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
+import type { CatalogTaxonomyListData, SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 import {
   type AdminOriginAsset,
   type AdminWork,
@@ -51,7 +51,6 @@ import { AppError, NotFoundError, ValidationFailedError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { htmlToPlainText } from '@/lib/part-text';
 import { enqueue } from '@/lib/queue';
-import { normalizeTag } from '@/lib/text';
 import {
   completeWorkflowStep,
   failWorkflowEnqueue,
@@ -74,7 +73,7 @@ import {
   type UploadSpec,
 } from '@/modules/uploads/service';
 import { hashPartAudioContent } from '@/modules/works/content-hash';
-import { aggregateTaxonomyReferences, toSourceReference, toTaxonomyReference } from '@/modules/works/taxonomy-mapper';
+import { toCatalogTaxonomyFacet, toSourceReference, toTaxonomyReference } from '@/modules/works/taxonomy-mapper';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 type PartRow = typeof readingPartTable.$inferSelect;
@@ -224,7 +223,12 @@ async function ensureWorkReadingStatsIfMissing(row: WorkRow): Promise<WorkRow> {
   return updated ?? row;
 }
 
-function toWork(row: WorkRow, tags: TaxonomyReference[], sources: SourceReference[]): Work {
+function toWork(
+  row: WorkRow,
+  tags: TaxonomyReference[],
+  sources: SourceReference[],
+  category: TaxonomyReference | null = null,
+): Work {
   return {
     id: row.id,
     title: row.title,
@@ -235,6 +239,7 @@ function toWork(row: WorkRow, tags: TaxonomyReference[], sources: SourceReferenc
     visibility: row.visibility as Work['visibility'],
     originKind: row.originKind as Work['originKind'],
     tags: shouldHideTagsDuringProcessing(row) ? [] : tags,
+    category,
     sources,
     coverAssetId: row.coverAssetId,
     wordCount: row.wordCount,
@@ -388,6 +393,30 @@ async function loadSourcesForWork(workId: string): Promise<SourceReference[]> {
   return rows.map((row) => toSourceReference(row));
 }
 
+export async function loadCategoriesByWorkIds(workIds: string[]): Promise<Map<string, TaxonomyReference>> {
+  if (workIds.length === 0) {
+    return new Map();
+  }
+  const rows = await db
+    .select({
+      workId: readingWorkCategoryTable.workId,
+      id: categoryTable.id,
+      name: categoryTable.name,
+      localizedNames: categoryTable.localizedNames,
+      origin: categoryTable.origin,
+    })
+    .from(readingWorkCategoryTable)
+    .innerJoin(categoryTable, eq(readingWorkCategoryTable.categoryId, categoryTable.id))
+    .where(inArray(readingWorkCategoryTable.workId, workIds));
+  const map = new Map<string, TaxonomyReference>();
+  for (const row of rows) {
+    if (!map.has(row.workId)) {
+      map.set(row.workId, toTaxonomyReference(row));
+    }
+  }
+  return map;
+}
+
 /** Current category reference (single-select) or null when unset. */
 async function loadCategoryForWork(workId: string): Promise<TaxonomyReference | null> {
   const [row] = await db
@@ -470,14 +499,13 @@ async function toAdminWork(row: WorkRow, parts?: PartRow[]): Promise<AdminWork> 
   ]);
   const publishIssues = await buildPublishIssuesForWork(row, partRows, tags, sources);
   return {
-    ...toWork(row, tags, sources),
+    ...toWork(row, tags, sources, category),
     workflowPolicy: getWorkflowPolicyProjection(),
     derivedFreshness: freshness ?? { audio: 'missing' },
     publishIssues,
     originMeta: row.originMeta,
     originAsset: await loadOriginFileAsset(row.id),
     parts: partRows.map(toPart),
-    category,
     failedStep: failedStepOf(row),
     metadataProvenance: buildMetadataProvenance(row, { tagProvenance, categoryProvenance }),
   };
@@ -502,13 +530,12 @@ async function toAdminWorkSummary(row: WorkRow): Promise<AdminWorkSummary> {
     loadSourcesForWork(row.id),
   ]);
   return {
-    ...toWork(row, tags, sources),
+    ...toWork(row, tags, sources, category),
     workflowPolicy: getWorkflowPolicyProjection(),
     derivedFreshness: freshness ?? { audio: 'missing' },
     originMeta: row.originMeta,
     originAsset: await loadOriginFileAsset(row.id),
     partCount,
-    category,
     failedStep: failedStepOf(row),
     metadataProvenance: buildMetadataProvenance(row, { tagProvenance, categoryProvenance }),
   };
@@ -565,18 +592,38 @@ function escapeIlikePattern(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
-function publishedListWhere(query: Pick<CatalogListQuery, 'tag' | 'q'>): SQL {
-  const parts: SQL[] = [eq(readingWorkTable.status, 'published')];
+function catalogPublishedWorkFilter(): SQL {
+  return and(eq(readingWorkTable.status, 'published'), eq(readingWorkTable.visibility, 'catalog'))!;
+}
 
-  if (query.tag) {
-    const normalized = normalizeTag(query.tag);
+function publishedListWhere(query: Pick<CatalogListQuery, 'tag' | 'category' | 'q'>): SQL {
+  const parts: SQL[] = [catalogPublishedWorkFilter()];
+
+  if (query.category) {
+    parts.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(readingWorkCategoryTable)
+          .where(
+            and(
+              eq(readingWorkCategoryTable.workId, readingWorkTable.id),
+              eq(readingWorkCategoryTable.categoryId, query.category),
+            ),
+          ),
+      ),
+    );
+  }
+
+  if (query.tag && query.tag.length > 0) {
     parts.push(
       exists(
         db
           .select({ one: sql`1` })
           .from(readingWorkTagTable)
-          .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
-          .where(and(eq(readingWorkTagTable.workId, readingWorkTable.id), eq(tagTable.normalized, normalized))),
+          .where(
+            and(eq(readingWorkTagTable.workId, readingWorkTable.id), inArray(readingWorkTagTable.tagId, query.tag)),
+          ),
       ),
     );
   }
@@ -1252,6 +1299,37 @@ export async function deleteWork(id: string): Promise<void> {
   await db.delete(readingWorkTable).where(eq(readingWorkTable.id, id));
 }
 
+async function listCatalogTaxonomyFacets(kind: 'tag' | 'category'): Promise<CatalogTaxonomyListData> {
+  const dimensionTable = kind === 'tag' ? tagTable : categoryTable;
+  const linkTable = kind === 'tag' ? readingWorkTagTable : readingWorkCategoryTable;
+  const linkKey = kind === 'tag' ? readingWorkTagTable.tagId : readingWorkCategoryTable.categoryId;
+
+  const rows = await db
+    .selectDistinct({
+      id: dimensionTable.id,
+      name: dimensionTable.name,
+      localizedNames: dimensionTable.localizedNames,
+      origin: dimensionTable.origin,
+    })
+    .from(linkTable)
+    .innerJoin(dimensionTable, eq(linkKey, dimensionTable.id))
+    .innerJoin(readingWorkTable, eq(linkTable.workId, readingWorkTable.id))
+    .where(catalogPublishedWorkFilter())
+    .orderBy(asc(dimensionTable.name));
+
+  return {
+    items: rows.map((row) => toCatalogTaxonomyFacet(row)),
+  };
+}
+
+export async function listCatalogTags(): Promise<CatalogTaxonomyListData> {
+  return listCatalogTaxonomyFacets('tag');
+}
+
+export async function listCatalogCategories(): Promise<CatalogTaxonomyListData> {
+  return listCatalogTaxonomyFacets('category');
+}
+
 export async function listCatalogWorks(query: CatalogListQuery): Promise<CatalogListData> {
   const where = publishedListWhere(query);
   const orderBy = publishedListOrderBy(query);
@@ -1269,28 +1347,21 @@ export async function listCatalogWorks(query: CatalogListQuery): Promise<Catalog
     .offset(offset);
 
   const workIds = rows.map((row) => row.id);
-  const [tagsByWork, sourcesByWork, partCountsByWork] = await Promise.all([
+  const [tagsByWork, categoriesByWork, sourcesByWork, partCountsByWork] = await Promise.all([
     loadTagsByWorkIds(workIds),
+    loadCategoriesByWorkIds(workIds),
     loadSourcesByWorkIds(workIds),
     loadPartCountsByWorkIds(workIds),
   ]);
 
-  const tagRows = await db
-    .selectDistinct({
-      id: tagTable.id,
-      name: tagTable.name,
-      localizedNames: tagTable.localizedNames,
-      origin: tagTable.origin,
-    })
-    .from(readingWorkTagTable)
-    .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
-    .innerJoin(readingWorkTable, eq(readingWorkTagTable.workId, readingWorkTable.id))
-    .where(eq(readingWorkTable.status, 'published'))
-    .orderBy(asc(tagTable.name));
-
   return {
     items: rows.map((row) => ({
-      ...toWork(row, tagsByWork.get(row.id) ?? [], sourcesByWork.get(row.id) ?? []),
+      ...toWork(
+        row,
+        tagsByWork.get(row.id) ?? [],
+        sourcesByWork.get(row.id) ?? [],
+        categoriesByWork.get(row.id) ?? null,
+      ),
       partCount: partCountsByWork.get(row.id) ?? 0,
     })),
     pagination: buildPaginationMeta({
@@ -1300,7 +1371,6 @@ export async function listCatalogWorks(query: CatalogListQuery): Promise<Catalog
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
     }),
-    tags: aggregateTaxonomyReferences(tagRows.map((row) => toTaxonomyReference(row))),
   };
 }
 
@@ -1308,16 +1378,25 @@ export async function getPublishedWork(id: string): Promise<Work> {
   const [row] = await db
     .select()
     .from(readingWorkTable)
-    .where(and(eq(readingWorkTable.id, id), eq(readingWorkTable.status, 'published')))
+    .where(
+      and(
+        eq(readingWorkTable.id, id),
+        eq(readingWorkTable.status, 'published'),
+        eq(readingWorkTable.visibility, 'catalog'),
+      ),
+    )
     .limit(1);
 
   if (!row) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   const hydrated = await ensureWorkReadingStatsIfMissing(row);
-  const tags = await loadTagsForWork(id);
-  const sources = await loadSourcesForWork(id);
-  return toWork(hydrated, tags, sources);
+  const [tags, category, sources] = await Promise.all([
+    loadTagsForWork(id),
+    loadCategoryForWork(id),
+    loadSourcesForWork(id),
+  ]);
+  return toWork(hydrated, tags, sources, category);
 }
 
 export async function requirePublishedWorkWithParts(workId: string): Promise<{ work: WorkRow; parts: PartRow[] }> {

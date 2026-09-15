@@ -93,6 +93,16 @@ worksRoutes.delete('/api/admin/works/:id', requireAdmin, async (c) => {
   return c.body(null, HTTP_STATUS.NO_CONTENT);
 });
 
+worksRoutes.get('/api/catalog/tags', async (c) => {
+  const data = await worksService.listCatalogTags();
+  return c.json(data);
+});
+
+worksRoutes.get('/api/catalog/categories', async (c) => {
+  const data = await worksService.listCatalogCategories();
+  return c.json(data);
+});
+
 worksRoutes.get('/api/catalog/works', validateCatalogListQuery, async (c) => {
   const data = await worksService.listCatalogWorks(c.req.valid('query'));
   return c.json(data);
