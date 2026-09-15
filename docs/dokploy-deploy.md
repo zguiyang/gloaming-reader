@@ -137,8 +137,9 @@ startup. Do not run `seed:dev` in production.
 
 ### 3. Confirm empty user table (pre-registration)
 
-Confirm the `user` table has **0** rows before the first registration. The
-first successful signup becomes `admin`.
+Confirm the `user` table has **0** rows before initializing the first admin.
+The bootstrap command refuses to run if an administrator already exists or if
+the table contains any user.
 
 ### 4. Deploy application stack
 
@@ -148,10 +149,28 @@ full backend secrets, then **`web`** (Compose `depends_on` api health).
 Suggested Dokploy order on first deploy: configure secrets → migrate (step 2) →
 deploy compose → verify health.
 
-### 5. Register the first admin (product UI)
+### 5. Initialize the first admin (one-off container command)
 
-With `web` reachable at `FRONTEND_URL`, register the first account through the
-product UI while the user table is still empty.
+Keep public registration closed. Inject these values only for this one-off
+command through Dokploy secrets or the operator shell:
+
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+
+Run the command against the deployed backend image (replace the compose file
+name if your deployment uses a different one):
+
+```bash
+docker compose -f docker-compose.production.yaml run --rm \
+  -e ADMIN_EMAIL -e ADMIN_PASSWORD \
+  api pnpm create:admin
+```
+
+The command is intentionally one-time. It uses the existing Better Auth signup
+flow, so the password is hashed by the application. Because this is a trusted
+operator bootstrap, the created administrator is marked as email-verified;
+public registration still requires email verification. Do not put these values
+in the repository, compose file, or shell history.
 
 ### 6. Worker smoke: queue + TTS path
 

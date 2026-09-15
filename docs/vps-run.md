@@ -63,14 +63,26 @@ the Compose published ports (local example ports: `5433` / `6380`). Set web
 - Smoke path for the queue: authenticated admin
   `POST /api/admin/jobs/ping`.
 
-## Admin bootstrap (first registrant)
+## Admin bootstrap (one-time command)
 
-There is **no** `seed:admin` script. When the user table is empty, the **first
-successful registration** becomes `admin`. Later signups are normal users.
+The first administrator is created deliberately by the backend bootstrap
+command. It refuses to run if an administrator already exists or if the user
+table contains any user.
 
-Before the first production registration, the operator must confirm the
-database has **zero** users. Do not open public registration until go-live
-checks pass; the operator registers the admin account deliberately.
+Before running it, confirm the database has **zero** users and keep public
+registration closed. Provide `ADMIN_EMAIL` and `ADMIN_PASSWORD` only through
+the operator environment or a secret manager; never commit or log their
+values.
+
+```bash
+pnpm --filter @gloaming/backend create:admin
+```
+
+For a Docker deployment, run the same package command as a one-off `api`
+container command, passing those two variables securely. The command reuses
+Better Auth's signup flow, including password hashing. The trusted bootstrap
+marks this administrator as email-verified; public registration still requires
+email verification. It is not an idempotent seed: a second run must fail.
 
 ## Go-live sequence (required order)
 
@@ -130,11 +142,11 @@ pnpm --filter @gloaming/backend worker
 Importing `env` validates config via Zod at startup. Ensure the unit/process
 manager restarts the worker on failure.
 
-### 6. Register the first admin (product UI)
+### 6. Initialize the first admin
 
-Start or reload the web app with a correct `API_INTERNAL_URL`. Register the
-first account through the product UI while the database is still empty. That
-account receives the admin role. Sign in and confirm admin access.
+Run the one-time admin bootstrap command from the backend container or a
+trusted host with the production environment loaded. Verify the email before
+signing in and confirm admin access.
 
 ### 7. Worker smoke: queue + publish gate
 

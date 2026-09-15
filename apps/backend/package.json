@@ -14,7 +14,8 @@
     "lint": "pnpm -w exec eslint apps/backend",
     "test": "vitest run",
     "seed:dev": "tsx scripts/seed-dev-works.ts",
-    "reset:content": "tsx scripts/reset-content.ts"
+    "reset:content": "tsx scripts/reset-content.ts",
+    "create:admin": "node --import tsx dist/scripts/create-admin.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1112.0",
