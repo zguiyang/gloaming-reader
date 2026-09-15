@@ -85,6 +85,7 @@ Names match [`apps/backend/.env.example`](../apps/backend/.env.example) and
 | ------------ | ------------------------------------------------------------------------------------------------------------------- |
 | Core         | `DATABASE_URL`, `REDIS_URL`, `FRONTEND_URL`, `BETTER_AUTH_SECRET`, `HOST`, `PORT`                                   |
 | Mail         | `RESEND_API_KEY`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`                                                             |
+| Social auth  | Optional GitHub pair: `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET`                                                   |
 | LLM keys     | `LLM_CONFIG_ENCRYPTION_KEY`                                                                                         |
 | Object store | `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, optional `S3_ENDPOINT` |
 

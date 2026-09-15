@@ -37,6 +37,7 @@ separate `validate:env` command and no `prestart` / `preworker` hook.
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | Backend core                   | `DATABASE_URL`, `REDIS_URL`, `FRONTEND_URL`, `BETTER_AUTH_SECRET`, `HOST`, `PORT`                          |
 | Mail (Resend)                  | `RESEND_API_KEY` (required), `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`                                         |
+| Social sign-in                 | Optional GitHub pair: `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET`                                          |
 | Object storage (S3-compatible) | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` |
 | Web → API                      | `API_INTERNAL_URL` (required; Hono origin for Next `/api` rewrites)                                        |
 
