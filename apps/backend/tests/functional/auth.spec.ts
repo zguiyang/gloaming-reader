@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
+
 import { and, eq, like } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { user as userTable, verification as verificationTable } from '@gloaming/db';
+import { account as accountTable, user as userTable, verification as verificationTable } from '@gloaming/db';
 import { AUTH_ADMIN_ROLE, AUTH_USER_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
@@ -9,6 +11,7 @@ import { db } from '@/db';
 
 const password = 'password123';
 const newPassword = 'password456';
+const changedPassword = 'password789';
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
@@ -57,6 +60,43 @@ async function signInUsername(username: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
     body: JSON.stringify({ username, password }),
+  });
+}
+
+async function signInWithPassword(email: string, candidatePassword: string) {
+  return app.request('/api/auth/sign-in/email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
+    body: JSON.stringify({ email, password: candidatePassword }),
+  });
+}
+
+async function createVerifiedSession(input: { email: string; username: string; name: string }) {
+  expect((await signUp(input)).status).toBe(200);
+  await markEmailVerified(input.email);
+
+  const login = await signInEmail(input.email);
+  expect(login.status).toBe(200);
+
+  return {
+    cookie: cookieHeader(login),
+    email: input.email,
+  };
+}
+
+async function replaceCredentialWithGithubOnly(email: string) {
+  const [dbUser] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, email));
+  expect(dbUser?.id).toBeTruthy();
+
+  await db
+    .delete(accountTable)
+    .where(and(eq(accountTable.userId, dbUser!.id), eq(accountTable.providerId, 'credential')));
+
+  await db.insert(accountTable).values({
+    id: randomUUID(),
+    accountId: `gh-${randomUUID()}`,
+    providerId: 'github',
+    userId: dbUser!.id,
   });
 }
 
@@ -259,11 +299,121 @@ describe('Better Auth HTTP', () => {
     const oldPasswordLogin = await signInEmail(email);
     expect(oldPasswordLogin.status).not.toBe(200);
 
-    const newLogin = await app.request('/api/auth/sign-in/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-      body: JSON.stringify({ email, password: newPassword }),
-    });
+    const newLogin = await signInWithPassword(email, newPassword);
     expect(newLogin.status).toBe(200);
+  });
+
+  it('allows credential accounts to change password and rejects wrong current password', async () => {
+    const email = uniqueEmail('pwd-change');
+    const username = `pwd_change_${Date.now().toString(36)}`;
+    createdEmails.push(email);
+
+    const { cookie } = await createVerifiedSession({ email, username, name: 'Pwd Change' });
+
+    const change = await app.request('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'http://localhost:3000',
+        cookie,
+      },
+      body: JSON.stringify({
+        currentPassword: password,
+        newPassword: changedPassword,
+      }),
+    });
+    expect(change.status).toBe(200);
+
+    const wrongCurrent = await app.request('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'http://localhost:3000',
+        cookie,
+      },
+      body: JSON.stringify({
+        currentPassword: 'not-the-current-password',
+        newPassword: 'another-password99',
+      }),
+    });
+    expect(wrongCurrent.status).toBe(400);
+    const wrongBody = (await wrongCurrent.json()) as { code?: string };
+    expect(wrongBody.code).toBe('INVALID_PASSWORD');
+
+    expect((await signInWithPassword(email, password)).status).not.toBe(200);
+    expect((await signInWithPassword(email, changedPassword)).status).toBe(200);
+  });
+
+  it('accepts change-email and completes new-email verification before updating the address', async () => {
+    const email = uniqueEmail('email-change');
+    const username = `email_change_${Date.now().toString(36)}`;
+    const nextEmail = uniqueEmail('email-change-target');
+    createdEmails.push(email, nextEmail);
+
+    const { cookie } = await createVerifiedSession({ email, username, name: 'Email Change' });
+
+    const requestChange = await app.request('/api/auth/change-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'http://localhost:3000',
+        cookie,
+      },
+      body: JSON.stringify({ newEmail: nextEmail }),
+    });
+    expect(requestChange.status).toBe(200);
+    const requestBody = (await requestChange.json()) as { status?: boolean };
+    expect(requestBody.status).toBe(true);
+
+    const [pending] = await db.select({ email: userTable.email }).from(userTable).where(eq(userTable.email, email));
+    expect(pending?.email).toBe(email);
+
+    const { signJWT } = await import('better-auth/crypto');
+    const token = await signJWT(
+      {
+        email: email.toLowerCase(),
+        updateTo: nextEmail.toLowerCase(),
+        requestType: 'change-email-verification',
+      },
+      process.env.BETTER_AUTH_SECRET!,
+      3600,
+    );
+
+    const verify = await app.request(`/api/auth/verify-email?token=${encodeURIComponent(token)}`, {
+      method: 'GET',
+      headers: { Accept: 'application/json', cookie },
+    });
+    expect(verify.status).toBe(200);
+    const verifyBody = (await verify.json()) as { status?: boolean; user?: { email?: string } };
+    expect(verifyBody.status).toBe(true);
+    expect(verifyBody.user?.email).toBe(nextEmail);
+
+    const [updated] = await db.select({ email: userTable.email }).from(userTable).where(eq(userTable.email, nextEmail));
+    expect(updated?.email).toBe(nextEmail);
+  });
+
+  it('rejects change-password for social-only accounts without a credential password', async () => {
+    const email = uniqueEmail('oauth-only');
+    const username = `oauth_only_${Date.now().toString(36)}`;
+    createdEmails.push(email);
+
+    const { cookie } = await createVerifiedSession({ email, username, name: 'OAuth Only' });
+    await replaceCredentialWithGithubOnly(email);
+
+    const denied = await app.request('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: 'http://localhost:3000',
+        cookie,
+      },
+      body: JSON.stringify({
+        currentPassword: password,
+        newPassword: changedPassword,
+      }),
+    });
+    expect(denied.status).toBe(400);
+    const deniedBody = (await denied.json()) as { code?: string };
+    expect(deniedBody.code).toBe('CREDENTIAL_ACCOUNT_NOT_FOUND');
   });
 });

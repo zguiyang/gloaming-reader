@@ -89,6 +89,8 @@ export const auth = betterAuth({
       '/send-verification-email': { window: 10 * 60, max: 5 },
       '/forget-password': { window: 10 * 60, max: 5 },
       '/reset-password': { window: 10 * 60, max: 10 },
+      '/change-password': { window: 10 * 60, max: 10 },
+      '/change-email': { window: 10 * 60, max: 5 },
     },
   },
   emailVerification: {
@@ -104,6 +106,9 @@ export const auth = betterAuth({
     },
   },
   user: {
+    changeEmail: {
+      enabled: true,
+    },
     additionalFields: {
       role: {
         type: 'string',
