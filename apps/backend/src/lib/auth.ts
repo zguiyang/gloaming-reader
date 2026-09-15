@@ -79,6 +79,18 @@ export const auth = betterAuth({
       });
     },
   },
+  rateLimit: {
+    // Better Auth applies its built-in limiter to /api/auth/* in production.
+    window: 60,
+    max: 60,
+    customRules: {
+      '/sign-in/email': { window: 10 * 60, max: 10 },
+      '/sign-up/email': { window: 60 * 60, max: 10 },
+      '/send-verification-email': { window: 10 * 60, max: 5 },
+      '/forget-password': { window: 10 * 60, max: 5 },
+      '/reset-password': { window: 10 * 60, max: 10 },
+    },
+  },
   emailVerification: {
     sendOnSignIn: true,
     sendVerificationEmail: async ({ user, token }) => {
