@@ -1,22 +1,30 @@
 {
   "common": {
-    "appName": "Gloaming",
-    "siteDescription": "读自己想读的英语",
+    "appName": "Gloaming Reader",
+    "siteDescription": "阅读英文作品，按需查词、翻译并保存阅读进度。",
     "api": {
       "requestFailed": "请求失败",
       "invalidResponse": "响应格式无效",
       "requestFailedRetry": "请求失败，请稍后重试"
     },
     "loading": "加载中…",
-    "loadingWait": "稍等片刻",
+    "loadingWait": "正在加载…",
     "loadingPhrase1": "正在翻开下一页…",
     "loadingPhrase2": "字句在路上…",
-    "loadingPhrase3": "泡一壶茶，马上回来…",
+    "loadingPhrase3": "正在加载…",
     "loadingPhrase4": "书架轻轻挪动中…",
-    "greeting": "你好，{name}"
+    "greeting": "你好，{name}",
+    "close": "关闭",
+    "pagination": "分页",
+    "paginationPrevious": "上一页",
+    "paginationNext": "下一页",
+    "paginationGoToPrevious": "转到上一页",
+    "paginationGoToNext": "转到下一页",
+    "paginationMorePages": "更多页"
   },
   "nav": {
     "wordmark": "Gloaming",
+    "brandHomeAria": "返回 Gloaming 首页",
     "discover": "发现",
     "shelf": "我的书架",
     "shelfShort": "书架",
@@ -42,7 +50,8 @@
   },
   "more": {
     "accountSettings": "账户设置",
-    "menuAria": "更多菜单"
+    "menuAria": "更多菜单",
+    "metaTitle": "更多 · Gloaming Reader"
   },
   "auth": {
     "signOutFailed": "退出登录失败，请稍后重试",
@@ -103,7 +112,7 @@
       "submitting": "发送中…",
       "sentTitle": "去邮箱点开链接",
       "sentDescription": "去邮箱打开链接设置新密码。",
-      "resend": "再发一次",
+      "enterDifferentEmail": "重新填写邮箱",
       "backToSignIn": "返回登录"
     },
     "resetPassword": {
@@ -129,6 +138,7 @@
       "successToast": "邮箱已确认",
       "goToShelf": "进入书架",
       "backToSignIn": "返回登录",
+      "backToHome": "返回首页",
       "backToProduct": "返回产品"
     },
     "dialog": {
@@ -140,7 +150,8 @@
       "reasonSave": "登录后保存你正在阅读的内容。",
       "reasonBookmark": "登录后把内容加入你的书架。",
       "reasonSync": "登录后同步你的阅读进度。",
-      "reasonAi": "登录后继续使用阅读助手。",
+      "reasonAi": "登录后可在阅读器内使用查词、翻译和解释。",
+      "reasonBilingual": "登录后使用双语对照。",
       "reasonHistory": "登录后保存你的阅读记录。"
     },
     "social": {
@@ -165,12 +176,15 @@
       "signUpFailed": "注册失败",
       "sendFailed": "发送失败，请稍后重试",
       "tooManyRequests": "请求过于频繁，请稍后再试",
-      "passwordMismatch": "两次输入的密码不一致"
+      "passwordMismatch": "两次输入的密码不一致",
+      "invalidPassword": "密码不正确。",
+      "invalidToken": "链接无效或已过期。"
     }
   },
   "account": {
     "title": "账户设置",
-    "subtitle": "查看账号信息，管理登录邮箱与密码",
+    "subtitle": "管理登录邮箱和密码",
+    "metaTitle": "账户 · Gloaming Reader",
     "profile": {
       "sectionTitle": "基本信息",
       "displayName": "显示名",
@@ -190,7 +204,8 @@
       "submitting": "保存中…",
       "success": "密码已更新",
       "failed": "修改密码失败，请稍后重试",
-      "oauthOnly": "第三方账号登录的暂不支持修改密码",
+      "oauthOnly": "使用第三方账号登录的账户没有可修改的密码",
+      "minLengthHint": "至少 8 位",
       "accountsLoadFailed": "暂时无法确认账号类型，请稍后重试"
     },
     "email": {
@@ -207,60 +222,63 @@
   },
   "landing": {
     "meta": {
-      "title": "Gloaming — 回来，继续读你想读的英文",
-      "description": "Gloaming 是一个为真实英文阅读打造的 AI 阅读环境。它不会打断你的阅读，也不会把阅读变成任务。"
+      "title": "Gloaming Reader — 阅读英文作品",
+      "description": "阅读英文作品，按需查词、翻译并保存阅读进度。"
+    },
+    "cta": {
+      "signInToRead": "登录后开始阅读",
+      "goToShelf": "进入书架"
     },
     "hero": {
-      "title": "回来，继续读你想读的英文。",
-      "subtitle": "Gloaming 是一个为真实英文阅读打造的 AI 阅读环境。它不会打断你的阅读，也不会把阅读变成任务。AI 只会在你需要的时候出现，帮助你理解、探索和继续前进。",
-      "cta": "开始阅读"
+      "title": "阅读英文作品，遇到问题时再查词、翻译或提问。",
+      "subtitle": "Gloaming Reader 让你留在正文里：查词、翻译段落，或向阅读助手提问，无需离开页面。书架会保存进度，方便你从上次位置继续。"
     },
     "origin": {
       "title": "我们为什么创造 Gloaming？",
-      "paragraph1": "在传统的英文阅读中，我们常常被查字典、翻译软件打断。每一个生词都像是一个路障，让原本沉浸的阅读体验变得支离破碎。",
-      "paragraph2": "我们相信，语言的习得不是通过完成一个个“任务”来实现的，而是通过大量的、真实的语料输入。阅读本身就应该是目的，而不是手段。",
+      "paragraph1": "阅读英文时，经常需要切换到词典或翻译工具，每次查阅都会离开正文。",
+      "paragraph2": "Gloaming 让你在阅读器内完成这些操作：打开英文作品、查词或翻译选中文本，并保存阅读进度。",
       "imageAlt": "窗边的阅读场景"
     },
     "contrast": {
-      "title": "真实英语阅读，不应该如此困难。",
+      "title": "阅读英文不应每遇到生词就离开页面。",
       "pastTitle": "过去的阅读方式",
       "pastItem1": "频繁查字典，打断思路",
       "pastItem2": "生词变成记忆任务，产生压力",
       "pastItem3": "失去阅读上下文，难以继续",
       "nextTitle": "使用 Gloaming",
-      "nextItem1": "沉浸阅读，自然理解",
-      "nextItem2": "无任务感，轻松享受",
-      "nextItem3": "保持上下文，顺畅阅读",
-      "punch": "AI 不是老师。AI 不是聊天机器人。AI 是一个安静的阅读伙伴。"
+      "nextItem1": "留在页面内查词、翻译或提问",
+      "nextItem2": "按自己的节奏阅读，没有课程安排或作业要求",
+      "nextItem3": "查词或翻译时，正文仍保留在屏幕上",
+      "punch": "查词、翻译和解释都在阅读器内完成，没有独立的聊天或课程模式。"
     },
     "philosophy": {
-      "title": "先阅读，再学习。",
-      "lead": "Your goal is not to complete lessons. Your goal is to stay with the text.",
+      "title": "阅读英文作品，需要时再使用工具。",
+      "lead": "在阅读器中打开已发布的英文文本。仅对你选中的段落使用查词、翻译或解释。",
       "leadSecondary": "你的目标不是完成课程。而是停留在文字之中。",
-      "authenticTitle": "Authentic Content",
-      "authenticBody": "真实内容。阅读原汁原味的英文文本，而不是简化的教材。",
-      "focusTitle": "Deep Focus",
-      "focusBody": "深度专注。没有进度条和打卡挑战，只有纯粹的阅读体验。",
-      "assistTitle": "Quiet Assistance",
-      "assistBody": "安静辅助。在你需要时提供上下文帮助，不需要时默默退下。"
+      "authenticTitle": "英文作品",
+      "authenticBody": "阅读目录中的完整英文文本，而非改写或简化的学习材料。",
+      "focusTitle": "留在阅读器内",
+      "focusBody": "正文始终显示在屏幕上。查词或翻译时无需切换应用或标签页。",
+      "assistTitle": "按需使用工具",
+      "assistBody": "从选中内容打开词典、翻译或句子解释。关闭后即可继续阅读。"
     },
     "product": {
-      "title": "一个围绕阅读设计的 AI 环境。",
-      "readerTitle": "Reader",
+      "title": "阅读英文作品，正文内查词、翻译与解释。",
+      "readerTitle": "阅读器",
       "readerBody": "专注阅读体验。舒适字体。干净排版。减少视觉干扰。",
       "readerImageAlt": "Gloaming Reader 阅读界面",
-      "companionTitle": "Companion",
-      "companionBody": "理解词语。解释句子。补充背景。保持阅读连续。",
-      "companionCardTitle": "Companion",
-      "companionCardBody": "Contextual explanation of the selected text, helping you understand the nuance without leaving the page.",
-      "companionOverlayHint": "语境释义，不打断阅读",
-      "shelfTitle": "Shelf",
+      "companionTitle": "正文内工具",
+      "companionBody": "选中文字后可查词、翻译段落或请求句子解释，结果在正文旁显示。",
+      "companionCardTitle": "句子解释",
+      "companionCardBody": "结合上下文解释所选句子，包括词义以及该句与前后文的关系。",
+      "companionOverlayHint": "所选段落的解释",
+      "shelfTitle": "书架",
       "shelfBody": "保存你的阅读内容。从上次停留的位置继续。",
       "shelfImageAlt": "Gloaming Shelf 书架界面"
     },
     "friction": {
-      "title": "减少阅读摩擦。",
-      "lead": "AI 的存在不是为了替代阅读，而是为了保护阅读。",
+      "title": "遇到难句时，减少操作步骤。",
+      "lead": "查词、翻译和解释直接从正在阅读的正文打开，无需离开页面。",
       "pastTitle": "过去的阅读方式",
       "pastItem1": "遇到难句。",
       "pastItem2": "停止阅读。",
@@ -269,23 +287,19 @@
       "pastItem5": "感到沮丧，放弃阅读。",
       "nextTitle": "使用 Gloaming",
       "nextItem1": "遇到难句。",
-      "nextItem2": "AI 辅助悄然出现。",
-      "nextItem3": "瞬间理解细微差别。",
-      "nextItem4": "保持沉浸在叙事中。",
+      "nextItem2": "在阅读器中选中该句。",
+      "nextItem3": "查词、翻译或请求解释。",
+      "nextItem4": "从原位置继续阅读。",
       "nextItem5": "继续阅读。"
     },
     "invite": {
-      "title": "重新发现阅读英文的乐趣。",
-      "body": "Gloaming 想要成为你和英文世界之间的一座桥梁。我们希望你在这里，不是为了完成学习任务，而是因为热爱阅读本身。",
-      "cta": "开始阅读"
+      "title": "在书架上阅读英文作品。",
+      "body": "登录后可保存进度、管理书架，并在需要时使用查词、翻译和阅读助手。"
     },
     "footer": {
-      "tagline": "Reading, not tasks.",
-      "philosophy": "Philosophy",
-      "about": "About",
-      "support": "Support",
-      "privacy": "Privacy",
-      "terms": "Terms"
+      "tagline": "英文阅读，正文内查词、翻译，并保存进度。",
+      "philosophy": "理念",
+      "about": "关于"
     }
   },
   "admin": {
@@ -293,9 +307,9 @@
       "subtitle": "管理后台",
       "contentSubtitle": "内容管理",
       "navWorks": "作品",
-      "navAssets": "资产管理",
+      "navAssets": "对象存储占用",
       "navConfig": "配置",
-      "navTaxonomy": "维度管理",
+      "navTaxonomy": "标签、分类与来源",
       "navLogs": "日志",
       "signInPrompt": "请先登录后再进入管理后台。",
       "signIn": "登录",
@@ -343,7 +357,7 @@
       "purpose": {
         "assist": "阅读助手",
         "translate": "双语翻译",
-        "metadataEnrich": "元数据回填",
+        "metadataEnrich": "元数据完善",
         "notConfigured": "未配置",
         "modelDeleted": "模型已删除",
         "modelDisabled": "模型已停用",
@@ -387,6 +401,9 @@
           "thinkingParam": "思考参数名（可选）",
           "proxy": "代理",
           "balanceQuery": "余额查询",
+          "balanceEndpointPlaceholder": "https://… 或 /user/balance",
+          "balanceAmountPathPlaceholder": "balance 或 data.balance",
+          "balanceCurrencyPathPlaceholder": "currency 或 data.currency",
           "add": "添加",
           "save": "保存"
         },
@@ -414,7 +431,7 @@
         "apiMode": "API 模式",
         "temperature": "Temperature",
         "maxTokens": "Max tokens",
-        "callable": "可供调用",
+        "callable": "启用模型",
         "saveModel": "保存模型",
         "addModel": "添加模型",
         "validation": {
@@ -486,7 +503,7 @@
     },
     "dictionary": {
       "title": "词典配置",
-      "subtitle": "可插拔词典服务商与 AI 语境例句增强；支持 Redis/DB 多级缓存与实时连通性测试。",
+      "subtitle": "选择词典服务，配置 AI 增强，并测试连接。",
       "audioPlayFailed": "音频播放失败，请检查浏览器权限或音频链接是否有效",
       "toast": {
         "saved": "已保存词典配置",
@@ -516,9 +533,9 @@
         "displayUnknownPlain": "未知"
       },
       "aiEnrichment": {
-        "title": "AI 语境与例句智能增强",
-        "description": "查词时结合读者当前阅读作品章节，由 AI 自动回填精准中文释义、原著上下文例句及助读微注。",
-        "enableAria": "启用 AI 语境增强"
+        "title": "AI 增强",
+        "description": "结合当前章节补充中文释义和例句（需要 AI 配置）。",
+        "enableAria": "启用 AI 增强"
       },
       "fields": {
         "customEndpoint": "自定义 API Endpoint (可选)",
@@ -531,11 +548,11 @@
       },
       "test": {
         "sectionTitle": "连通性与查词测试",
-        "sectionDescription": "验证词典 Provider 接口连通性、音标与音频解析，以及 AI 中文释义回填流水线。",
+        "sectionDescription": "验证词典接口连通性、音标与音频解析，以及 AI 中文释义补充。",
         "word": "测试单词",
         "wordPlaceholder": "输入英文单词，如 serendipity",
         "contextSentence": "模拟语境句子 (选填)",
-        "contextPlaceholder": "输入包含该词的例句，用于测试 AI 语境理解与微注",
+        "contextPlaceholder": "输入包含该词的例句，用于测试 AI 增强",
         "run": "测试查词",
         "running": "查询测试中...",
         "latency": "耗时:",
@@ -547,18 +564,18 @@
         "fallbackDescription": "当前 Provider 请求失败，已使用备用 Provider。",
         "playPronunciation": "播放读音",
         "ipaFallback": "IPA",
-        "contextExamplesHeading": "语境例句与助读微注：",
-        "readingNote": "💡 助读微注: {note}"
+        "contextExamplesHeading": "语境例句：",
+        "readingNote": "💡 阅读提示: {note}"
       },
       "saveConfig": "保存配置",
       "saving": "保存中..."
     },
     "logs": {
       "centerTabAi": "AI 日志",
-      "centerTabTts": "音频日志",
+      "centerTabTts": "语音日志",
       "emptyValue": "—",
       "latencyMs": "{ms} ms",
-      "costPlaceholder": "¥ 0",
+      "costPlaceholder": "—",
       "costNotPricedHint": "暂无计价",
       "paginationSummary": "共 {total} 条 · 第 {page} / {totalPages} 页 · 每页 {pageSize}",
       "prevPage": "上一页",
@@ -596,7 +613,7 @@
       },
       "ai": {
         "title": "AI 调用日志",
-        "subtitle": "查看调用消耗与摘要。",
+        "subtitle": "查看 Token 用量与请求/回复摘要。",
         "statsInputTokens": "输入 Token",
         "statsOutputTokens": "输出 Token",
         "statsCost": "费用",
@@ -631,13 +648,13 @@
         "providerQueryFailed": "查询失败"
       },
       "tts": {
-        "title": "音频调用日志",
-        "subtitle": "查看文章 TTS 生成与连通测试记录。",
+        "title": "语音调用日志",
+        "subtitle": "查看语音生成与连通测试记录。",
         "statsSuccess": "成功",
         "statsFailure": "失败",
         "statsTotal": "合计",
-        "loadFailedTitle": "无法加载音频日志",
-        "emptyTitle": "当前筛选下没有音频日志",
+        "loadFailedTitle": "无法加载语音日志",
+        "emptyTitle": "当前筛选下没有语音日志",
         "emptyDescription": "试试调整时间范围或状态。",
         "cached": "缓存"
       },
@@ -679,6 +696,7 @@
         "more": "更多",
         "actions": "操作",
         "notFilled": "未填写",
+        "notAvailable": "不可用",
         "required": "此字段必填",
         "saved": "已保存",
         "created": "已创建",
@@ -722,7 +740,9 @@
         "tableUpdated": "更新",
         "moreActionsAria": "更多操作：{title}",
         "editWork": "编辑作品",
-        "preview": "预览"
+        "preview": "预览",
+        "previewUnavailable": "暂不可预览",
+        "chaptersNotApplicable": "不适用"
       },
       "filter": {
         "all": "全部",
@@ -735,9 +755,9 @@
         "uploaded": "待解析",
         "processing": "解析中",
         "processingEllipsis": "解析中…",
-        "parsed": "待完善原数据",
-        "metadata": "原数据完善中",
-        "metadataEllipsis": "原数据完善中…",
+        "parsed": "待完善元数据",
+        "metadata": "元数据完善中",
+        "metadataEllipsis": "元数据完善中…",
         "tts": "音频生成中",
         "ttsEllipsis": "音频生成中…",
         "ready": "待发布",
@@ -746,7 +766,7 @@
       },
       "workflowStep": {
         "parse": "内容解析",
-        "metadata": "原数据完善",
+        "metadata": "元数据完善",
         "tts": "音频生成"
       },
       "workflowMode": {
@@ -759,7 +779,7 @@
         "aria": "作品编辑步骤",
         "upload": "上传",
         "parse": "内容解析",
-        "metadata": "原数据完善",
+        "metadata": "元数据完善",
         "audio": "音频",
         "publish": "发布"
       },
@@ -835,7 +855,7 @@
         "descriptionPlaceholder": "作品的简短介绍，展示在发现页",
         "tagsPlaceholder": "搜索选择标签…",
         "categoryPlaceholder": "选择分类…",
-        "sourcesPlaceholder": "搜索选择来源…（留空表示未知）",
+        "sourcesPlaceholder": "搜索选择来源…（发布前至少选择一个）",
         "suggestedVocabPlaceholder": "如 4000",
         "minutesUnit": "{minutes} 分钟",
         "manualStatsHint": "难度与建议词汇量为手动覆盖；重新解析不会改写这两项。",
@@ -846,7 +866,7 @@
         "noBody": "暂无正文内容。",
         "vocabMustBePositive": "建议词汇量须为正整数",
         "difficultyRange": "难度须为 {min}–{max} 的整数",
-        "statusFailed": "原数据完善失败",
+        "statusFailed": "元数据完善失败",
         "statusFailedGeneric": "处理失败",
         "statusPending": "待完善",
         "statusAwaitingStart": "待开始",
@@ -859,7 +879,7 @@
         "hintWaitingParseAuto": "等待内容解析完成后自动完善…",
         "hintWaitingParseManual": "等待内容解析完成后再开始完善。",
         "hintQueued": "已提交任务，正在排队…",
-        "hintAwaitingStart": "内容已解析。核对预览无误后，点击开始完善原数据（规则填充 + AI 补全）。",
+        "hintAwaitingStart": "内容已解析。核对预览无误后，点击开始完善元数据（规则填充 + AI 补全）。",
         "hintFailedHere": "{error}",
         "hintStepFailed": "「{step}」步骤失败：{error}，可在对应步骤重试。",
         "hintFailedGeneric": "处理失败：{error}",
@@ -871,16 +891,16 @@
           "tags": "标签",
           "category": "分类"
         },
-        "hintDone": "AI 已自动补全缺失信息，可逐项核对编辑；发布时以当前内容为准。",
+        "hintDone": "系统已补全缺失信息，可逐项核对编辑；发布时以当前内容为准。",
         "hintRulesOnly": "规则层已写入可用字段；可逐项核对编辑。",
         "hintAutoFuture": "解析完成后，AI 将自动补全缺失的简介、标签与分类。",
-        "hintManualFuture": "解析完成后，需手动开始完善原数据。",
-        "startEnrich": "开始完善原数据",
-        "confirmReEnrich": "将重新运行原数据完善（规则填充 + AI 补全），确定继续？",
-        "confirmReEnrichReady": "将重新运行原数据完善，并覆盖 AI 生成的内容（不含手工编辑），确定继续？",
+        "hintManualFuture": "解析完成后，需手动开始完善元数据。",
+        "startEnrich": "开始完善元数据",
+        "confirmReEnrich": "将重新运行元数据完善（规则填充 + AI 补全），确定继续？",
+        "confirmReEnrichReady": "将重新运行元数据完善，并覆盖 AI 生成的内容（不含手工编辑），确定继续？",
         "reRun": "重新执行",
         "unpublishToReEnrich": "如需重新完善请先下架作品。",
-        "enrichStarted": "已开始完善原数据",
+        "enrichStarted": "已开始完善元数据",
         "enrichRestarted": "已重新开始处理"
       },
       "preview": {
@@ -934,7 +954,7 @@
     },
     "assets": {
       "page": {
-        "title": "资产管理",
+        "title": "对象存储占用",
         "subtitle": "对象存储扫描占用（非供应商账单）。用于发现大对象与孤儿对象。",
         "lastScan": "最近扫描：{time} · {status} · {duration}",
         "scanComplete": "已完成",
@@ -1044,8 +1064,8 @@
     },
     "taxonomy": {
       "page": {
-        "title": "维度管理",
-        "subtitle": "平台通用的标签 / 分类 / 来源。AI 回填与作品编辑都从这里取数，管理员可增补、改名与清理。",
+        "title": "标签、分类与来源",
+        "subtitle": "平台通用的标签、分类与来源。元数据完善与作品编辑都从这里取数，管理员可增补、改名与清理。",
         "kindAria": "维度类型"
       },
       "kind": {
@@ -1065,14 +1085,15 @@
         "emptySourceHint": "上传作品后来源会自动创建，也可手动新建。",
         "emptyManualHint": "可通过「新建」按钮手动添加。",
         "tableName": "名称",
-        "tableOrigin": "来源",
+        "tableOrigin": "写入方式",
         "tableUsage": "关联作品",
         "tableMatchRule": "匹配规则",
         "usageCount": "{count} 部",
         "deleteSourceReserved": "来源为系统保留，不可删除",
         "deleteInUse": "已被作品使用，不可删除",
         "confirmDelete": "确定删除「{name}」？",
-        "confirmCleanup": "将删除所有未被任何作品使用的标签/分类，确定继续？",
+        "confirmCleanupTag": "将删除所有未被任何作品使用的标签。这些记录不可恢复，确定继续？",
+        "confirmCleanupCategory": "将删除所有未被任何作品使用的分类。这些记录不可恢复，确定继续？",
         "cleanupResult": "已清理 {count} 个未使用项",
         "cleanupNone": "没有未使用的项",
         "missingChinese": "缺失中文",
@@ -1092,7 +1113,7 @@
         "edit": "编辑",
         "create": "新建",
         "sourceDescription": "来源为系统保留数据，创建后不可删除。",
-        "otherDescription": "创建后即可在作品编辑与 AI 回填中使用。",
+        "otherDescription": "创建后即可在作品编辑与元数据完善中使用。",
         "nameLabel": "名称",
         "nameZhLabel": "中文名称",
         "nameEnLabel": "英文名称",
@@ -1121,6 +1142,7 @@
     },
     "discover": {
       "title": "发现",
+      "metaTitle": "发现 · Gloaming Reader",
       "subtitle": "找到下一篇想读的英文。",
       "loadFailed": "无法加载目录",
       "softRefreshing": "书目更新中…",
@@ -1137,7 +1159,7 @@
       "filterSheetActiveOnly": "暂无可选筛选项，当前筛选仍会生效。",
       "emptyTitle": "暂时没有可发现的内容",
       "emptyDescription": "换个分类看看，或稍后再来。官方书目会慢慢充实。",
-      "resetFilters": "查看全部推荐",
+      "resetFilters": "清除筛选条件",
       "chapterCount": "{count} 章",
       "pagination": "分页",
       "loadMore": "加载更多",
@@ -1146,6 +1168,7 @@
     },
     "shelf": {
       "title": "我的书架",
+      "metaTitle": "我的书架 · Gloaming Reader",
       "subtitleResume": "回来，继续读你喜欢的英文。",
       "loadFailed": "无法加载书架",
       "emptyTitle": "你的书架还是空的",
@@ -1160,20 +1183,21 @@
     },
     "history": {
       "title": "阅读历史",
+      "metaTitle": "阅读历史 · Gloaming Reader",
       "subtitle": "回望你与英文相处的时间。",
       "loadFailed": "无法加载阅读历史",
       "emptyTitle": "还没有阅读痕迹",
       "emptyDescription": "读过的作品会安静地留在这里。先去发现一篇想读的英文吧。",
-      "readingRecord": "阅读记录",
+      "readingRecord": "近一年阅读日",
       "readingDaysCount": "{count} 个阅读日",
-      "readingDaysHint": "近一年，你都回来读过真实的英文。",
-      "distribution": "阅读分布",
+      "readingDaysHint": "近一年阅读日",
+      "distribution": "近一年阅读日",
       "distributionSubtitle": "近一年 · {count} 个阅读日",
       "legendLess": "少",
       "legendMore": "多",
       "tooltipNotRead": "未阅读",
       "engagedMinutes": "约 {minutes} 分钟",
-      "statReadingDays": "阅读日",
+      "statReadingDays": "累计阅读日",
       "statConsecutive": "连续阅读",
       "statConsecutiveValue": "{days} 天",
       "statCompletedWorks": "读完作品",
@@ -1186,6 +1210,7 @@
       "lastReadOn": "最近阅读于 {date}"
     },
     "bookDetail": {
+      "metaTitle": "书籍 · Gloaming Reader",
       "sourceOfficial": "官方",
       "defaultCategory": "读物",
       "languageOriginalEn": "英文原版",
@@ -1230,15 +1255,17 @@
       "tagline": "Gloaming — The Quiet Art of Slow Reading."
     },
     "reader": {
-      "unavailableTitle": "无法打开这篇文章",
-      "unavailableDefault": "当前无法获取内容，请稍后再试。",
+      "unavailableTitle": "无法打开这本书",
+      "unavailableDefault": "当前无法获取书籍内容，请稍后再试。",
       "chrome": {
         "back": "返回",
         "toc": "目录",
         "bilingual": "双语对照",
-        "fontSize": "字号：{size}",
+        "fontSizeSmall": "字号：小",
+        "fontSizeMedium": "字号：中",
+        "fontSizeLarge": "字号：大",
         "aiAssist": "AI 辅助",
-        "listenRead": "听读",
+        "listen": "朗读",
         "tapHint": "点按中央显示菜单"
       },
       "toc": {
@@ -1249,8 +1276,8 @@
       "chapterNav": {
         "upNext": "接下来",
         "lastChapter": "已是最后一章",
-        "previous": "上一章",
-        "continueReading": "继续阅读",
+        "previousChapter": "上一章",
+        "nextChapter": "下一章",
         "finishAndReturn": "读完本书，返回书架"
       },
       "selection": {
@@ -1258,15 +1285,20 @@
         "explain": "解释",
         "askAi": "问 AI",
         "lookup": "查词",
-        "translate": "翻译"
+        "translateSelection": "翻译选中内容"
+      },
+      "bilingual": {
+        "loading": "正在加载双语对照…",
+        "error": "双语对照加载失败，请重试"
       },
       "toast": {
-        "stateRefreshed": "阅读状态已刷新，请继续阅读",
+        "stateRefreshed": "阅读进度已同步，请从当前章节继续",
         "noUsAudio": "暂无美音",
         "noUkAudio": "暂无英音",
         "noAudio": "暂无音频",
-        "loginForBilingual": "请先登录以使用双语阅读",
-        "sessionExpired": "登录已过期，请重新登录"
+        "loginForBilingual": "登录后使用双语对照",
+        "sessionExpired": "登录已过期，请重新登录",
+        "audioPlayFailed": "音频播放失败，请重试"
       },
       "tts": {
         "play": "播放",
@@ -1285,34 +1317,40 @@
         "playPronunciation": "点击朗读发音",
         "contextHeading": "本书语境解读",
         "translationPrefix": "译文：",
-        "notFoundTitle": "未在基础词典中找到该词释义",
+        "notFoundTitle": "未找到「{word}」的词典释义",
         "notFoundHint": "您可以让 AI 助手直接为您深入讲解。",
+        "lookupFailed": "查词失败，请重试",
+        "retry": "重试",
         "close": "关闭",
         "askAiDeepDive": "问 AI 深入讲解",
         "noAudio": "暂无该发音音频",
-        "audioPlayFailed": "音频播放失败"
+        "audioPlayFailed": "音频播放失败，请重试"
       },
       "assist": {
         "inlineAria": "AI 短答",
+        "inlineQuestionAria": "针对选中内容提问",
         "questionPlaceholder": "针对选中内容提问…",
         "cancel": "取消",
         "send": "发送",
         "close": "关闭",
         "continueInDrawer": "继续追问",
+        "continueUnavailable": "本次回答未保存，无法继续",
         "historyTitle": "历史对话",
         "historyHint": "只显示当前作品的 AI 记录。",
         "historyLoading": "加载历史中…",
+        "historyError": "历史对话加载失败",
+        "historyRetry": "重试",
         "historyEmptyTitle": "暂无历史对话",
         "historyEmptyHint": "当前作品还没有 AI 记录。划词解释或提问后的对话将收录在此。",
         "threadEmptyTitle": "问一句关于正文的问题",
-        "threadEmptyHint": "AI 伴读会结合当前章节上下文进行解答与释义。",
+        "threadEmptyHint": "你可以针对当前章节提问。",
         "removeQuote": "移除当前引用",
         "placeholderWithQuote": "针对引用文本提问…",
         "placeholderDefault": "关于正文提问…",
         "sending": "发送中",
-        "companionTitle": "Gloaming Companion",
+        "companionTitle": "阅读助手",
         "companionHistorySubtitle": "历史对话记录",
-        "companionThreadSubtitle": "沉浸式阅读伴读",
+        "companionThreadSubtitle": "当前章节问答",
         "historyAria": "历史对话",
         "newConversationAria": "新建 AI 对话",
         "closePanelAria": "关闭 AI 面板",
@@ -1324,11 +1362,15 @@
         "promptExplain": "解释：{text}",
         "wordDeepDivePrompt": "请结合当前语境深入讲解单词「{word}」的含义与用法。"
       },
+      "translate": {
+        "noResponseBody": "翻译响应为空。"
+      },
       "api": {
         "unauthorized": "未登录或登录已过期，请重新登录",
         "translateFailed": "请求翻译失败",
         "requestFailed": "请求失败",
         "invalidResponse": "响应格式无效",
+        "noResponseBody": "响应为空。",
         "aiUnavailable": "AI 服务不可用",
         "translateRequestFailed": "翻译请求失败"
       }
