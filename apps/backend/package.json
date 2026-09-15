@@ -41,6 +41,7 @@
     "nodewordfreq": "^0.2.1",
     "pg": "^8.22.0",
     "pino": "^9.9.0",
+    "rate-limiter-flexible": "^11.2.0",
     "resend": "^4.8.0",
     "undici": "^8.10.0",
     "wink-eng-lite-web-model": "^1.8.1",

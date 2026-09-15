@@ -12,14 +12,15 @@ import { sendError } from '@/lib/response';
 import { type AuthVariables, sessionMiddleware } from '@/middleware/auth';
 import { errorHandler } from '@/middleware/error';
 import { logger } from '@/middleware/logger';
+import { getClientIp } from '@/middleware/rate-limit';
 import { routes } from '@/routes';
 
-/** General API limiter — 60 requests / 60s / IP. In-memory store; swap to Redis when multi-instance. */
+/** Guest/API baseline — 60 requests / 60s / IP. Authenticated users bypass this limiter. */
 const apiLimiter = rateLimiter({
   windowMs: 60_000,
   limit: 60,
   standardHeaders: true,
-  keyGenerator: (c) => c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown',
+  keyGenerator: getClientIp,
   handler: (c) => sendError(c, ERROR_CODES.TOO_MANY_REQUESTS, HTTP_STATUS.TOO_MANY_REQUESTS),
 });
 
@@ -39,8 +40,18 @@ app.use(
 );
 app.use('*', secureHeaders());
 
+app.use('/api/*', async (c, next) => {
+  if (c.req.path.startsWith('/api/auth/')) {
+    return next();
+  }
+  return sessionMiddleware(c, next);
+});
+
 app.use('*', async (c, next) => {
   if (c.req.path === '/' || c.req.path === '/api/health' || c.req.path.startsWith('/api/assets/')) {
+    return next();
+  }
+  if (c.req.path.startsWith('/api/') && c.get('user')) {
     return next();
   }
   // hono-rate-limiter middleware is typed against default Env
@@ -52,13 +63,6 @@ app.onError(errorHandler);
 app.get('/', (c) => c.json({ ok: true }));
 
 app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw));
-
-app.use('/api/*', async (c, next) => {
-  if (c.req.path.startsWith('/api/auth/')) {
-    return next();
-  }
-  return sessionMiddleware(c, next);
-});
 
 app.route('/', routes);
 

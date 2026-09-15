@@ -4,6 +4,7 @@ import { HTTP_STATUS } from '@/constants';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
+import { rateLimit } from '@/middleware/rate-limit';
 import * as dictionaryService from '@/modules/dictionary/service';
 import {
   validateLookupDictionaryQuery,
@@ -27,18 +28,23 @@ dictionaryRoutes.post('/api/admin/dictionary/test', requireAdmin, validateTestDi
 });
 
 // Public / Reader Lookup (open to guests and authenticated users)
-dictionaryRoutes.get('/api/dictionary/lookup', validateLookupDictionaryQuery, async (c) => {
-  const query = c.req.valid('query');
-  const entry = await dictionaryService.lookupWord({
-    word: query.word,
-    contextSentence: query.contextSentence,
-    workId: query.workId,
-    partId: query.partId,
-  });
+dictionaryRoutes.get(
+  '/api/dictionary/lookup',
+  rateLimit('dictionaryLookup'),
+  validateLookupDictionaryQuery,
+  async (c) => {
+    const query = c.req.valid('query');
+    const entry = await dictionaryService.lookupWord({
+      word: query.word,
+      contextSentence: query.contextSentence,
+      workId: query.workId,
+      partId: query.partId,
+    });
 
-  if (!entry) {
-    return sendError(c, ERROR_CODES.NOT_FOUND.WORD_DEFINITION, HTTP_STATUS.NOT_FOUND, { word: query.word });
-  }
+    if (!entry) {
+      return sendError(c, ERROR_CODES.NOT_FOUND.WORD_DEFINITION, HTTP_STATUS.NOT_FOUND, { word: query.word });
+    }
 
-  return c.json({ ok: true, entry });
-});
+    return c.json({ ok: true, entry });
+  },
+);
