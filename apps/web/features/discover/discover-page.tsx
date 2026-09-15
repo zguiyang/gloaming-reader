@@ -11,18 +11,14 @@ import {
   discoverQueryKey,
   fetchDiscoverCatalog,
   formatDiscoverApiError,
+  useDiscoverCategoriesQuery,
+  useDiscoverTagsQuery,
 } from '@/features/discover/discover-api';
 import { DiscoverEmptyState } from '@/features/discover/discover-empty-state';
 import { DiscoverFilters } from '@/features/discover/discover-filters';
 import { DiscoverGrid } from '@/features/discover/discover-grid';
 import { DiscoverHeader } from '@/features/discover/discover-header';
-import {
-  catalogTagQueryValue,
-  DISCOVER_ALL_TAG,
-  DISCOVER_PAGE_SIZE,
-  type DiscoverItem,
-  type DiscoverTagFilter,
-} from '@/features/discover/discover-model';
+import { DISCOVER_PAGE_SIZE, type DiscoverItem } from '@/features/discover/discover-model';
 import { DiscoverPagination } from '@/features/discover/discover-pagination';
 import { useLocale } from '@/lib/locale-context';
 import { usePaginatedQuery } from '@/lib/query';
@@ -46,18 +42,26 @@ function DiscoverSkeleton() {
 
 export function DiscoverPage() {
   const { locale } = useLocale();
-  const [tag, setTag] = useState<DiscoverTagFilter>(DISCOVER_ALL_TAG);
-  const [tagQuery, setTagQuery] = useState<string | undefined>();
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [mobileVisible, setMobileVisible] = useState(DISCOVER_PAGE_SIZE);
+
+  const categoriesQuery = useDiscoverCategoriesQuery();
+  const tagsQuery = useDiscoverTagsQuery();
+
+  const categories = categoriesQuery.data?.items ?? [];
+  const tags = tagsQuery.data?.items ?? [];
+  const hasActiveFilters = categoryId !== null || selectedTagIds.length > 0;
 
   const listParams = useMemo(
     () => ({
       page,
       pageSize: DISCOVER_PAGE_SIZE,
-      tag: tagQuery,
+      ...(categoryId ? { category: categoryId } : {}),
+      ...(selectedTagIds.length > 0 ? { tag: [...selectedTagIds] } : {}),
     }),
-    [page, tagQuery],
+    [page, categoryId, selectedTagIds],
   );
 
   const list = usePaginatedQuery<DiscoverItem, DiscoverCatalogResult>({
@@ -72,31 +76,29 @@ export function DiscoverPage() {
   });
 
   const items = list.items;
-  const tags = list.data?.tags ?? [];
   const totalPages = list.totalPages;
   const safePage = list.page;
   const mobileItems = items.slice(0, mobileVisible);
   const hasMoreMobile = mobileVisible < items.length;
-  const isCatalogEmpty = !list.isInitialLoading && items.length === 0 && tag === DISCOVER_ALL_TAG;
-  const shouldShowFilters = !list.isInitialLoading && !isCatalogEmpty;
+  const isCatalogEmpty = !list.isInitialLoading && items.length === 0 && !hasActiveFilters;
 
   function resetFilters() {
-    setTag(DISCOVER_ALL_TAG);
-    setTagQuery(undefined);
+    setCategoryId(null);
+    setSelectedTagIds([]);
     setPage(1);
     setMobileVisible(DISCOVER_PAGE_SIZE);
   }
 
-  function handleTagChange(value: DiscoverTagFilter) {
-    setTag(value);
+  function handleCategoryChange(next: string | null) {
+    setCategoryId(next);
     setPage(1);
     setMobileVisible(DISCOVER_PAGE_SIZE);
-    if (value === DISCOVER_ALL_TAG) {
-      setTagQuery(undefined);
-      return;
-    }
-    const ref = tags.find((entry) => entry.id === value);
-    setTagQuery(ref ? catalogTagQueryValue(ref) : undefined);
+  }
+
+  function handleTagIdsChange(next: string[]) {
+    setSelectedTagIds(next);
+    setPage(1);
+    setMobileVisible(DISCOVER_PAGE_SIZE);
   }
 
   function handlePageChange(next: number) {
@@ -114,7 +116,15 @@ export function DiscoverPage() {
     >
       <DiscoverHeader />
 
-      {shouldShowFilters ? <DiscoverFilters tag={tag} tags={tags} onTagChange={handleTagChange} /> : null}
+      <DiscoverFilters
+        categoryId={categoryId}
+        categories={categories}
+        onCategoryChange={handleCategoryChange}
+        selectedTagIds={selectedTagIds}
+        tags={tags}
+        onTagIdsChange={handleTagIdsChange}
+        hasActiveFilters={hasActiveFilters}
+      />
 
       {list.isInitialLoading ? (
         <DiscoverSkeleton />

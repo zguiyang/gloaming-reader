@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { catalogListDataSchema } from '@gloaming/shared/works';
 
-import { catalogTagQueryValue, taxonomyCoverTintSeeds, taxonomyDisplayName } from '@/features/discover/discover-model';
+import { taxonomyCoverTintSeeds, taxonomyDisplayName } from '@/features/discover/discover-model';
 
 const bilingualTag = {
   id: 'tag-science',
@@ -29,30 +29,33 @@ describe('discover taxonomy display', () => {
   it('builds stable WorkCover tint seeds from taxonomy ids', () => {
     expect(taxonomyCoverTintSeeds([bilingualTag, zhOnlyTag])).toEqual(['tag-science', 'tag-zh-only']);
   });
-
-  it('derives catalog tag query values from canonical English labels when present', () => {
-    expect(catalogTagQueryValue(bilingualTag)).toBe('Science');
-    expect(catalogTagQueryValue(zhOnlyTag)).toBe('经典');
-  });
 });
 
 describe('discover catalog contract', () => {
-  it('rejects legacy string tag facets from catalog list payloads', () => {
-    expect(() =>
-      catalogListDataSchema.parse({
-        items: [],
-        pagination: { page: 1, pageSize: 15, total: 0, totalPages: 0, sortBy: 'publishedAt', sortOrder: 'desc' },
-        tags: ['Classic'],
-      }),
-    ).toThrow();
-  });
+  const pagination = {
+    page: 1,
+    pageSize: 15,
+    total: 0,
+    totalPages: 0,
+    sortBy: 'publishedAt' as const,
+    sortOrder: 'desc' as const,
+  };
 
-  it('accepts taxonomy reference tag facets', () => {
+  it('accepts catalog list payloads with items and pagination only', () => {
     const payload = catalogListDataSchema.parse({
       items: [],
-      pagination: { page: 1, pageSize: 15, total: 0, totalPages: 0, sortBy: 'publishedAt', sortOrder: 'desc' },
+      pagination,
+    });
+    expect(payload.items).toEqual([]);
+    expect(payload.pagination.page).toBe(1);
+  });
+
+  it('does not surface tag facets bundled in catalog list payloads', () => {
+    const payload = catalogListDataSchema.parse({
+      items: [],
+      pagination,
       tags: [bilingualTag],
     });
-    expect(payload.tags[0]?.id).toBe('tag-science');
+    expect(payload).not.toHaveProperty('tags');
   });
 });
