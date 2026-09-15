@@ -14,29 +14,37 @@ import { AccountSection } from '@/features/account/account-section';
 import { useAuthDialog } from '@/features/auth';
 import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
-import { cn } from '@/lib/utils';
 
 function AccountHeader() {
   const { locale } = useLocale();
 
   return (
-    <header className="mb-8 w-full text-left md:mb-10 md:text-center">
-      <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-5xl md:leading-[1.15]">
+    <header className="mb-2 border-b border-border/40 pb-4">
+      <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">
         {t(locale, 'account.title')}
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground md:mt-4 md:font-heading md:text-xl md:leading-8">
-        {t(locale, 'account.subtitle')}
-      </p>
     </header>
   );
 }
 
 function AccountSkeleton() {
   return (
-    <div className="flex flex-col gap-6" aria-hidden>
-      <div className="h-56 animate-pulse rounded-xl bg-surface-container-high" />
-      <div className="h-72 animate-pulse rounded-xl bg-surface-container-high" />
-      <div className="h-64 animate-pulse rounded-xl bg-surface-container-high" />
+    <div className="flex flex-col" aria-hidden>
+      <div className="border-b border-border/50 py-6">
+        <div className="mb-4 h-4 w-24 animate-pulse rounded bg-surface-container-high" />
+        <div className="flex flex-col gap-3">
+          <div className="h-4 w-full max-w-xs animate-pulse rounded bg-surface-container-high" />
+          <div className="h-4 w-full max-w-sm animate-pulse rounded bg-surface-container-high" />
+          <div className="h-4 w-full max-w-xs animate-pulse rounded bg-surface-container-high" />
+        </div>
+      </div>
+      <div className="border-b border-border/50 py-6">
+        <div className="mb-4 h-4 w-20 animate-pulse rounded bg-surface-container-high" />
+        <div className="flex flex-col gap-3">
+          <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
+          <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -55,7 +63,7 @@ export function AccountPage() {
 
   if (session.isPending) {
     return (
-      <div className="flex w-full flex-col">
+      <div className="mx-auto flex w-full max-w-2xl flex-col">
         <AccountHeader />
         <AccountSkeleton />
       </div>
@@ -65,7 +73,7 @@ export function AccountPage() {
   const user = session.data?.user;
   if (!user) {
     return (
-      <div className="flex w-full flex-col">
+      <div className="mx-auto flex w-full max-w-2xl flex-col">
         <AccountHeader />
         <AccountSkeleton />
       </div>
@@ -75,39 +83,36 @@ export function AccountPage() {
   const canChangePassword = linkedAccountsQuery.isSuccess && hasCredentialAccount(linkedAccountsQuery.data);
 
   return (
-    <div
-      className={cn(
-        'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700',
-        'mx-auto flex w-full max-w-2xl flex-col gap-6 md:gap-8',
-      )}
-    >
+    <div className="mx-auto flex w-full max-w-2xl flex-col">
       <AccountHeader />
 
-      <AccountSection title={t(locale, 'account.profile.sectionTitle')}>
-        <AccountProfile user={user} />
-      </AccountSection>
+      <div className="flex flex-col">
+        <AccountSection title={t(locale, 'account.profile.sectionTitle')}>
+          <AccountProfile user={user} />
+        </AccountSection>
 
-      <AccountSection title={t(locale, 'account.password.sectionTitle')}>
-        {linkedAccountsQuery.isError ? (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground">{t(locale, 'account.password.accountsLoadFailed')}</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 w-full rounded-md sm:w-auto sm:min-w-32"
-              onClick={() => void linkedAccountsQuery.refetch()}
-            >
-              {t(locale, 'content.common.retry')}
-            </Button>
-          </div>
-        ) : (
-          <AccountChangePasswordForm enabled={canChangePassword} accountsPending={linkedAccountsQuery.isPending} />
-        )}
-      </AccountSection>
+        <AccountSection title={t(locale, 'account.password.sectionTitle')}>
+          {linkedAccountsQuery.isError ? (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">{t(locale, 'account.password.accountsLoadFailed')}</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-md sm:w-auto sm:min-w-32"
+                onClick={() => void linkedAccountsQuery.refetch()}
+              >
+                {t(locale, 'content.common.retry')}
+              </Button>
+            </div>
+          ) : (
+            <AccountChangePasswordForm enabled={canChangePassword} accountsPending={linkedAccountsQuery.isPending} />
+          )}
+        </AccountSection>
 
-      <AccountSection title={t(locale, 'account.email.sectionTitle')}>
-        <AccountChangeEmailForm currentEmail={user.email} />
-      </AccountSection>
+        <AccountSection title={t(locale, 'account.email.sectionTitle')}>
+          <AccountChangeEmailForm currentEmail={user.email} />
+        </AccountSection>
+      </div>
     </div>
   );
 }
