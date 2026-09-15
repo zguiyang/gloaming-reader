@@ -50,7 +50,8 @@
     "layoutFooter": "独立开发 · 读自己想读的英语",
     "meta": {
       "verifyEmailTitle": "确认邮箱 — Gloaming",
-      "resetPasswordTitle": "重置密码 — Gloaming"
+      "resetPasswordTitle": "重置密码 — Gloaming",
+      "socialAuthErrorTitle": "登录未完成 — Gloaming"
     },
     "signIn": {
       "title": "登录",
@@ -146,8 +147,13 @@
       "dividerAria": "或使用第三方账号",
       "or": "或",
       "github": "通过 GitHub 继续",
-      "google": "通过 Google 继续",
-      "comingSoon": "第三方登录即将开放"
+      "errorTitle": "登录未完成",
+      "errorDescription": "GitHub 登录没有完成，请稍后重试。",
+      "accountNotLinked": "这个 GitHub 邮箱对应的 Gloaming 账号还未验证邮箱。请先完成邮箱验证，再重试。",
+      "emailNotFound": "GitHub 没有向我们提供这个账号的邮箱地址。",
+      "emailNotVerified": "这个 GitHub 邮箱尚未完成验证。",
+      "backToPrevious": "返回刚才的位置",
+      "backToProduct": "返回发现页"
     },
     "api": {
       "requestFailed": "请求失败",

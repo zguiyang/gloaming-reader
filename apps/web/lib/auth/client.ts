@@ -12,6 +12,7 @@ export type { User };
 export const authClient = {
   register: api.register,
   login: api.login,
+  loginWithSocial: api.loginWithSocial,
   logout: api.logout,
   resendVerificationEmail: api.resendVerificationEmail,
   verifyEmail: api.verifyEmail,

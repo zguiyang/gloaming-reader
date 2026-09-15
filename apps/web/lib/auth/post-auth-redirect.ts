@@ -2,7 +2,7 @@ import { AUTH_ROUTES } from '@/constants';
 
 const AUTH_RETURN_STORAGE_KEY = 'gloaming.auth.returnPath';
 
-const AUTH_ROUTE_PREFIXES = ['/verify-email', '/reset-password'] as const;
+const AUTH_ROUTE_PREFIXES = ['/verify-email', '/reset-password', '/auth-error'] as const;
 
 function isSafeReturnPath(pathname: string): boolean {
   if (!pathname.startsWith('/')) {
@@ -85,6 +85,11 @@ export function resolvePostAuthPath(searchParams?: URLSearchParams): string {
   const fromUrl = searchParams ? readReturnPathFromSearchParams(searchParams) : null;
   const fromStorage = peekAuthReturnPath();
   return fromUrl ?? fromStorage ?? AUTH_ROUTES.shelf;
+}
+
+export function resolveSocialAuthErrorPath(): string {
+  const params = new URLSearchParams({ returnTo: resolvePostAuthPath() });
+  return `${AUTH_ROUTES.socialAuthError}?${params.toString()}`;
 }
 
 export function consumePostAuthPath(searchParams?: URLSearchParams): string {

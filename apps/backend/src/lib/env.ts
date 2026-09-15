@@ -20,6 +20,7 @@ const SECRET_ENV_KEYS = new Set([
   'DATABASE_URL',
   'REDIS_URL',
   'RESEND_API_KEY',
+  'GITHUB_CLIENT_SECRET',
   'S3_SECRET_ACCESS_KEY',
   'S3_ACCESS_KEY_ID',
   'LLM_CONFIG_ENCRYPTION_KEY',
@@ -87,6 +88,10 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url(),
   BETTER_AUTH_SECRET: z.string().min(16),
 
+  /** Optional OAuth credentials; each provider must be configured as a pair. */
+  GITHUB_CLIENT_ID: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  GITHUB_CLIENT_SECRET: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
 
@@ -112,7 +117,26 @@ const envSchema = z.object({
   ),
 });
 
-export type Env = z.infer<typeof envSchema>;
+const completeEnvSchema = envSchema.superRefine((config, context) => {
+  const providerPairs = [['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET']] as const;
+
+  for (const [clientIdKey, clientSecretKey] of providerPairs) {
+    const hasClientId = Boolean(config[clientIdKey]);
+    const hasClientSecret = Boolean(config[clientSecretKey]);
+    if (hasClientId === hasClientSecret) {
+      continue;
+    }
+
+    const missingKey = hasClientId ? clientSecretKey : clientIdKey;
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: [missingKey],
+      message: `must be provided together with ${hasClientId ? clientIdKey : clientSecretKey}`,
+    });
+  }
+});
+
+export type Env = z.infer<typeof completeEnvSchema>;
 
 /**
  * Format validation failures without printing secrets, tokens, or full connection strings.
@@ -139,7 +163,7 @@ export function formatEnvValidationError(error: unknown): string {
 
 /** Pure Zod parse — no dotenv. Used by unit tests and loadEnvConfig. */
 export function parseEnvConfig(processEnv: NodeJS.ProcessEnv): Env {
-  const result = envSchema.safeParse(processEnv);
+  const result = completeEnvSchema.safeParse(processEnv);
   if (!result.success) {
     throw new Error(formatEnvValidationError(result.error));
   }

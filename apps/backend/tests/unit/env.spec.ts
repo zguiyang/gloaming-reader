@@ -89,6 +89,10 @@ describe('parseEnvConfig', () => {
     expect(() => parseEnvConfig(validEnv({ RESEND_API_KEY: '' }))).toThrow(/RESEND_API_KEY/);
   });
 
+  it('requires social OAuth credentials to be configured as complete pairs', () => {
+    expect(() => parseEnvConfig(validEnv({ GITHUB_CLIENT_ID: 'github-client-id' }))).toThrow(/GITHUB_CLIENT_SECRET/);
+  });
+
   it('does not leak secret values in validation errors', () => {
     const secret = 'super-secret-password-value-xyz';
     try {

@@ -50,7 +50,8 @@
     "layoutFooter": "Indie · Read the English you want",
     "meta": {
       "verifyEmailTitle": "Confirm email — Gloaming",
-      "resetPasswordTitle": "Reset password — Gloaming"
+      "resetPasswordTitle": "Reset password — Gloaming",
+      "socialAuthErrorTitle": "Sign-in could not be completed — Gloaming"
     },
     "signIn": {
       "title": "Sign in",
@@ -146,8 +147,13 @@
       "dividerAria": "Or continue with a third-party account",
       "or": "or",
       "github": "Continue with GitHub",
-      "google": "Continue with Google",
-      "comingSoon": "Third-party sign-in coming soon"
+      "errorTitle": "Sign-in could not be completed",
+      "errorDescription": "We couldn't complete GitHub sign-in. Please try again.",
+      "accountNotLinked": "This GitHub email matches an unverified Gloaming account. Verify that account's email first, then try again.",
+      "emailNotFound": "GitHub did not provide an email address for this account.",
+      "emailNotVerified": "This GitHub email has not been verified yet.",
+      "backToPrevious": "Back to where you were",
+      "backToProduct": "Back to discover"
     },
     "api": {
       "requestFailed": "Request failed",

@@ -16,6 +16,17 @@ const authDatabase = bindAuthDatabaseForAdapter(db);
 
 const resend = new Resend(env.RESEND_API_KEY);
 
+const socialProviders =
+  env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
+    ? {
+        github: {
+          clientId: env.GITHUB_CLIENT_ID,
+          clientSecret: env.GITHUB_CLIENT_SECRET,
+          scope: ['read:user', 'user:email'],
+        },
+      }
+    : {};
+
 const DICEBEAR_STYLES = ['lorelei', 'adventurer', 'big-smile', 'croodles', 'personas', 'avataaars'] as const;
 
 function diceBearAvatarUrl(seed: string): string {
@@ -52,6 +63,7 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
+  socialProviders,
   emailAndPassword: {
     enabled: true,
     minPasswordLength: AUTH_PASSWORD_POLICY.minLength,

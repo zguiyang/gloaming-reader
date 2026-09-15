@@ -15,7 +15,10 @@ import type {
 import { userSchema } from '@/lib/validations/auth';
 
 import { baClient } from './ba-client';
+import { resolvePostAuthPath, resolveSocialAuthErrorPath } from './post-auth-redirect';
 import type { AuthError, AuthResult } from './types';
+
+export type SocialProvider = 'github';
 
 function clientAuthMessage(key: string): string {
   return t(getClientLocale(), key);
@@ -71,6 +74,24 @@ export async function login(input: LoginBody): Promise<AuthResult<User>> {
   }
 
   return parseUser(result.data?.user ?? result.data);
+}
+
+export async function loginWithSocial(provider: SocialProvider): Promise<AuthResult<null>> {
+  try {
+    const { error } = await baClient.signIn.social({
+      provider,
+      callbackURL: resolvePostAuthPath(),
+      errorCallbackURL: resolveSocialAuthErrorPath(),
+    });
+
+    if (error) {
+      return { data: null, error: toAuthError(error) };
+    }
+
+    return { data: null, error: null };
+  } catch (error) {
+    return { data: null, error: toAuthError(error instanceof Error ? error : null) };
+  }
 }
 
 export async function logout(): Promise<AuthResult<{ ok: boolean }>> {

@@ -10,6 +10,7 @@ import {
   readReturnPathFromSearchParams,
   rememberAuthReturnPath,
   resolvePostAuthPath,
+  resolveSocialAuthErrorPath,
 } from '@/lib/auth/post-auth-redirect';
 
 describe('post-auth redirect', () => {
@@ -52,5 +53,12 @@ describe('post-auth redirect', () => {
     const params = new URLSearchParams('returnTo=/discover/book-1');
     expect(consumePostAuthPath(params)).toBe('/discover/book-1');
     expect(peekAuthReturnPath()).toBeNull();
+  });
+
+  it('builds a same-origin social auth error path with a safe return target', () => {
+    rememberAuthReturnPath('/discover/book-1?from=shelf');
+    expect(resolveSocialAuthErrorPath()).toBe(
+      `${AUTH_ROUTES.socialAuthError}?returnTo=${encodeURIComponent('/discover/book-1?from=shelf')}`,
+    );
   });
 });

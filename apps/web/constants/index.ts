@@ -4,6 +4,7 @@ export const APP_NAME = '书灯阅读' as const;
 export const AUTH_ROUTES = {
   resetPassword: '/reset-password',
   verifyEmail: '/verify-email',
+  socialAuthError: '/auth-error',
   shelf: '/my-shelf',
   /** Discover catalog. */
   discover: '/discover',
