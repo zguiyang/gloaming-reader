@@ -17,7 +17,7 @@ import {
 } from '@/features/auth/auth-field';
 import { AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { AuthSocialLoginSection } from '@/features/auth/auth-social-login';
-import { authClient, resolveMailCooldownErrorMessage } from '@/lib/auth';
+import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 import { signUpSchema } from '@/lib/validations';
@@ -52,7 +52,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
       });
 
       if (error) {
-        const message = error.message || t(locale, 'auth.errors.signUpFailed');
+        const message = resolveAuthErrorMessage(error, locale, 'auth.errors.signUpFailed');
         setFormError(message);
         toast.error(message);
         return;
@@ -74,8 +74,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
     setIsResending(false);
 
     if (error) {
-      const cooldownMessage = resolveMailCooldownErrorMessage(error);
-      const message = cooldownMessage || error.message || t(locale, 'auth.errors.sendFailed');
+      const message = resolveAuthErrorMessage(error, locale, 'auth.errors.sendFailed');
       setFormError(message);
       toast.error(message);
       return;

@@ -9,7 +9,7 @@ import { t } from '@gloaming/i18n';
 import { Button } from '@/components/ui/button';
 import { authPrimaryButtonClassName } from '@/features/auth/auth-field';
 import { AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
-import { authClient } from '@/lib/auth';
+import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { consumePostAuthPath } from '@/lib/auth/post-auth-redirect';
 import { useLocale } from '@/lib/locale-context';
 
@@ -36,8 +36,8 @@ export function VerifyEmailForm() {
       }
       if (error) {
         setStatus('error');
-        setMessage(error.message || t(locale, 'auth.verifyEmail.failed'));
-        toast.error(error.message || t(locale, 'auth.verifyEmail.failedToast'));
+        setMessage(resolveAuthErrorMessage(error, locale, 'auth.verifyEmail.failed'));
+        toast.error(resolveAuthErrorMessage(error, locale, 'auth.verifyEmail.failedToast'));
         return;
       }
       setStatus('ok');
@@ -75,26 +75,15 @@ export function VerifyEmailForm() {
             </Button>
           ) : null}
           {status === 'error' ? (
-            <div className="flex flex-col gap-3">
-              <Button
-                type="button"
-                className={authPrimaryButtonClassName}
-                onClick={() => {
-                  router.replace('/');
-                }}
-              >
-                {t(locale, 'auth.verifyEmail.backToSignIn')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  router.replace('/');
-                }}
-              >
-                {t(locale, 'auth.verifyEmail.backToProduct')}
-              </Button>
-            </div>
+            <Button
+              type="button"
+              className={authPrimaryButtonClassName}
+              onClick={() => {
+                router.replace('/');
+              }}
+            >
+              {t(locale, 'auth.verifyEmail.backToHome')}
+            </Button>
           ) : null}
         </AuthPanel>
       ) : null}

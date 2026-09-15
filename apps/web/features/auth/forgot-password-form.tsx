@@ -14,7 +14,7 @@ import {
   Field,
 } from '@/features/auth/auth-field';
 import { AuthFooterAction, AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
-import { authClient, resolveMailCooldownErrorMessage } from '@/lib/auth';
+import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { forgotPasswordSchema } from '@/lib/validations';
 
@@ -43,8 +43,7 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
       const { error } = await authClient.forgotPassword(parsed.data.email);
 
       if (error) {
-        const cooldownMessage = resolveMailCooldownErrorMessage(error);
-        const message = cooldownMessage || error.message || t(locale, 'auth.errors.sendFailed');
+        const message = resolveAuthErrorMessage(error, locale, 'auth.errors.sendFailed');
         setFormError(message);
         toast.error(message);
         return;
@@ -73,7 +72,7 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
               setFormError(null);
             }}
           >
-            {t(locale, 'auth.forgotPassword.resend')}
+            {t(locale, 'auth.forgotPassword.enterDifferentEmail')}
           </Button>
         </AuthPanel>
 

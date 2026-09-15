@@ -10,9 +10,6 @@ import { useLocale } from '@/lib/locale-context';
 const FOOTER_LINKS = [
   { href: '#philosophy', key: 'landing.footer.philosophy' },
   { href: '#origin', key: 'landing.footer.about' },
-  { href: '#cta', key: 'landing.footer.support' },
-  { href: '#cta', key: 'landing.footer.privacy' },
-  { href: '#cta', key: 'landing.footer.terms' },
 ] as const;
 
 export function LandingCta() {
@@ -28,7 +25,7 @@ export function LandingCta() {
           {t(locale, 'landing.invite.body')}
         </p>
         <div className="mt-12 flex justify-center">
-          <LandingPrimaryCta label={t(locale, 'landing.invite.cta')} className="px-10 py-5 text-lg" />
+          <LandingPrimaryCta className="px-10 py-5 text-lg" />
         </div>
       </LandingReveal>
     </LandingSection>

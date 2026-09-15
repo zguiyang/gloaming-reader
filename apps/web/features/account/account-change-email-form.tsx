@@ -9,7 +9,7 @@ import { t } from '@gloaming/i18n';
 import { Button } from '@/components/ui/button';
 import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { authClient, resolveMailCooldownErrorMessage } from '@/lib/auth';
+import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { changeEmailFormSchema } from '@/lib/validations/auth';
 
@@ -41,8 +41,7 @@ export function AccountChangeEmailForm({ currentEmail }: AccountChangeEmailFormP
       const { error } = await authClient.changeEmail(parsed.data.newEmail);
 
       if (error) {
-        const cooldownMessage = resolveMailCooldownErrorMessage(error);
-        const message = cooldownMessage || error.message || t(locale, 'account.email.failed');
+        const message = resolveAuthErrorMessage(error, locale, 'account.email.failed');
         setFormError(message);
         toast.error(message);
         return;

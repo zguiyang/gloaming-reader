@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { t } from '@gloaming/i18n';
 
 import { authSocialButtonClassName } from '@/features/auth/auth-field';
-import { authClient } from '@/lib/auth';
+import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 
 type SocialProvider = 'github';
@@ -50,8 +50,7 @@ function AuthSocialButton({ provider }: AuthSocialButtonProps) {
     const { error } = await authClient.loginWithSocial(provider);
     if (error) {
       setIsSigningIn(false);
-      const message = error.message || t(locale, 'auth.errors.signInFailed');
-      toast.error(message);
+      toast.error(resolveAuthErrorMessage(error, locale, 'auth.errors.signInFailed'));
     }
   }
 

@@ -10,7 +10,7 @@ import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import { MoreMenuRow } from '@/features/more/more-menu-row';
 import { MoreUserHeader } from '@/features/more/more-user-header';
-import { authClient } from '@/lib/auth';
+import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -34,7 +34,7 @@ export function MorePage() {
   async function signOut() {
     const { error } = await authClient.signOut();
     if (error) {
-      toast.error(error.message || t(locale, 'auth.signOutFailed'));
+      toast.error(resolveAuthErrorMessage(error, locale, 'auth.signOutFailed'));
       return;
     }
     toast.success(t(locale, 'auth.signOutSuccess'));

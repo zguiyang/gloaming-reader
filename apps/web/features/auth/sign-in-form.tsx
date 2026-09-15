@@ -18,7 +18,7 @@ import {
 } from '@/features/auth/auth-field';
 import { AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { AuthSocialLoginSection } from '@/features/auth/auth-social-login';
-import { authClient, resolveMailCooldownErrorMessage } from '@/lib/auth';
+import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { looksLikeEmail } from '@/lib/auth/api';
 import { isEmailNotVerifiedError } from '@/lib/auth/auth-errors';
 import { useLocale } from '@/lib/locale-context';
@@ -66,7 +66,7 @@ export function SignInForm({ embedded = false, onSuccess, onSwitchMode }: SignIn
           setFormError(t(locale, 'auth.signIn.verificationRequired'));
           return;
         }
-        const message = error.message || t(locale, 'auth.errors.signInFailed');
+        const message = resolveAuthErrorMessage(error, locale, 'auth.errors.signInFailed');
         setFormError(message);
         toast.error(message);
         return;
@@ -95,8 +95,7 @@ export function SignInForm({ embedded = false, onSuccess, onSwitchMode }: SignIn
     setIsResending(false);
 
     if (error) {
-      const cooldownMessage = resolveMailCooldownErrorMessage(error);
-      const message = cooldownMessage || error.message || t(locale, 'auth.errors.sendFailed');
+      const message = resolveAuthErrorMessage(error, locale, 'auth.errors.sendFailed');
       setFormError(message);
       toast.error(message);
       return;

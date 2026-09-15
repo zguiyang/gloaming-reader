@@ -13,7 +13,7 @@ import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export type AuthMode = 'login' | 'register' | 'forgot-password';
-export type AuthReason = 'save' | 'bookmark' | 'sync' | 'ai' | 'history';
+export type AuthReason = 'save' | 'bookmark' | 'sync' | 'ai' | 'bilingual' | 'history';
 
 type AuthDialogProps = {
   open: boolean;
@@ -29,6 +29,7 @@ const REASON_KEYS: Record<AuthReason, string> = {
   bookmark: 'auth.dialog.reasonBookmark',
   sync: 'auth.dialog.reasonSync',
   ai: 'auth.dialog.reasonAi',
+  bilingual: 'auth.dialog.reasonBilingual',
   history: 'auth.dialog.reasonHistory',
 };
 

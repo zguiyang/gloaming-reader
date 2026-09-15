@@ -27,7 +27,7 @@ export function LandingHero() {
       </LandingEntrance>
 
       <LandingEntrance delay={0.3} className="mt-12 flex justify-center">
-        <LandingPrimaryCta label={t(locale, 'landing.hero.cta')} />
+        <LandingPrimaryCta />
       </LandingEntrance>
 
       <LandingEntrance delay={0.4} className="mt-16 w-full max-w-3xl md:mt-20">

@@ -3,12 +3,15 @@
 import { motion, useReducedMotion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import { landingDuration, landingEase } from '@/features/landing/landing-motion';
 import { authClient } from '@/lib/auth';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 function useLandingUser() {
@@ -17,15 +20,16 @@ function useLandingUser() {
 }
 
 type LandingPrimaryCtaProps = {
-  label: string;
   className?: string;
 };
 
-export function LandingPrimaryCta({ label, className }: LandingPrimaryCtaProps) {
+export function LandingPrimaryCta({ className }: LandingPrimaryCtaProps) {
+  const { locale } = useLocale();
   const { user, isPending } = useLandingUser();
   const { openLogin } = useAuthDialog();
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
+  const label = user ? t(locale, 'landing.cta.goToShelf') : t(locale, 'landing.cta.signInToRead');
 
   if (isPending) {
     return <Skeleton className={cn('h-14 w-40 rounded-xl', className)} />;

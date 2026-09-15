@@ -10,7 +10,7 @@ import { t } from '@gloaming/i18n';
 import { Button } from '@/components/ui/button';
 import { authInputClassName, authPrimaryButtonClassName, Field } from '@/features/auth/auth-field';
 import { AuthFooterLink, AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
-import { authClient } from '@/lib/auth';
+import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { consumePostAuthPath } from '@/lib/auth/post-auth-redirect';
 import { useLocale } from '@/lib/locale-context';
 import { resetPasswordSchema } from '@/lib/validations';
@@ -59,7 +59,7 @@ export function ResetPasswordForm() {
       });
 
       if (error) {
-        const message = error.message || t(locale, 'auth.resetPassword.failed');
+        const message = resolveAuthErrorMessage(error, locale, 'auth.resetPassword.failed');
         setFormError(message);
         toast.error(message);
         return;

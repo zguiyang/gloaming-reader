@@ -26,7 +26,7 @@ function clientAuthMessage(key: string): string {
 
 function toAuthError(error: { message?: string | null; code?: string | number; status?: number } | null): AuthError {
   return {
-    message: error?.message?.trim() || clientAuthMessage('auth.api.requestFailed'),
+    message: clientAuthMessage('auth.api.requestFailed'),
     code: typeof error?.code === 'string' || typeof error?.code === 'number' ? String(error.code) : undefined,
     status: error?.status,
   };
@@ -141,12 +141,9 @@ export async function verifyEmail(token: string): Promise<AuthResult<{ ok: boole
   });
 
   if (!response.ok) {
-    let message = clientAuthMessage('auth.verifyEmail.failed');
+    const message = clientAuthMessage('auth.verifyEmail.failed');
     try {
       const body = (await response.json()) as { message?: string; code?: string };
-      if (body.message?.trim()) {
-        message = body.message.trim();
-      }
       return {
         data: null,
         error: { message, status: response.status, code: body.code },

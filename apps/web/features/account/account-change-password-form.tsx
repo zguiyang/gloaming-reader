@@ -9,7 +9,7 @@ import { t } from '@gloaming/i18n';
 import { Button } from '@/components/ui/button';
 import { Field, FieldContent, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { authClient, resolveMailCooldownErrorMessage } from '@/lib/auth';
+import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { changePasswordFormSchema } from '@/lib/validations/auth';
 
@@ -47,8 +47,7 @@ export function AccountChangePasswordForm({ enabled, accountsPending }: AccountC
       });
 
       if (error) {
-        const cooldownMessage = resolveMailCooldownErrorMessage(error);
-        const message = cooldownMessage || error.message || t(locale, 'account.password.failed');
+        const message = resolveAuthErrorMessage(error, locale, 'account.password.failed');
         setFormError(message);
         toast.error(message);
         return;
@@ -116,6 +115,7 @@ export function AccountChangePasswordForm({ enabled, accountsPending }: AccountC
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
               />
+              <p className="text-xs text-muted-foreground">{t(locale, 'account.password.minLengthHint')}</p>
             </FieldContent>
           </Field>
         )}
