@@ -56,7 +56,6 @@
   "auth": {
     "signOutFailed": "退出登录失败，请稍后重试",
     "signOutSuccess": "已退出登录",
-    "layoutFooter": "独立开发 · 阅读你选择的作品",
     "meta": {
       "verifyEmailTitle": "确认邮箱 — Gloaming",
       "resetPasswordTitle": "重置密码 — Gloaming",
@@ -183,7 +182,6 @@
   },
   "account": {
     "title": "账户设置",
-    "subtitle": "管理登录邮箱和密码",
     "metaTitle": "账户 · Gloaming Reader",
     "profile": {
       "sectionTitle": "基本信息",
@@ -231,41 +229,15 @@
     },
     "hero": {
       "title": "阅读作品，遇到问题时再查词、翻译或提问。",
-      "subtitle": "Gloaming Reader 让你留在正文里：查词、翻译段落，或向阅读助手提问，无需离开页面。书架会保存进度，方便你从上次位置继续。"
-    },
-    "origin": {
-      "title": "我们为什么创造 Gloaming？",
-      "paragraph1": "阅读不熟悉的原文时，经常需要切换到词典或翻译工具，每次查阅都会离开正文。",
-      "paragraph2": "Gloaming 让你在阅读器内查词、翻译并保存阅读进度。",
-      "imageAlt": "窗边的阅读场景"
+      "subtitle": "在正文中查词、翻译段落、询问句子，并从上次位置继续。"
     },
     "contrast": {
       "title": "遇到难句，不应每次都离开正文。",
-      "pastTitle": "过去的阅读方式",
-      "pastItem1": "频繁查字典，打断思路",
-      "pastItem2": "生词变成记忆任务，产生压力",
-      "pastItem3": "失去阅读上下文，难以继续",
-      "nextTitle": "使用 Gloaming",
-      "nextItem1": "留在页面内查词、翻译或提问",
-      "nextItem2": "按自己的节奏阅读，没有课程安排或作业要求",
-      "nextItem3": "查词或翻译时，正文仍保留在屏幕上",
       "punch": "查词、翻译和解释都在阅读器内完成，没有独立的聊天或课程模式。"
-    },
-    "philosophy": {
-      "title": "阅读作品，需要时再使用工具。",
-      "lead": "在阅读器中打开已发布的作品。仅对选中内容使用查词、翻译或解释。",
-      "leadSecondary": "你的目标不是完成课程。而是停留在文字之中。",
-      "authenticTitle": "原文作品",
-      "authenticBody": "阅读目录中的完整原文，而非改写或简化的学习材料。",
-      "focusTitle": "留在阅读器内",
-      "focusBody": "正文始终显示在屏幕上。查词或翻译时无需切换应用或标签页。",
-      "assistTitle": "按需使用工具",
-      "assistBody": "从选中内容打开词典、翻译或句子解释。关闭后即可继续阅读。"
     },
     "product": {
       "title": "在正文旁使用查词、翻译与解释。",
       "readerTitle": "阅读器",
-      "readerBody": "专注阅读体验。舒适字体。干净排版。减少视觉干扰。",
       "readerImageAlt": "Gloaming Reader 阅读界面",
       "companionTitle": "正文内工具",
       "companionBody": "选中文字后可查词、翻译段落或请求句子解释，结果在正文旁显示。",
@@ -276,30 +248,9 @@
       "shelfBody": "保存你的阅读内容。从上次停留的位置继续。",
       "shelfImageAlt": "Gloaming Shelf 书架界面"
     },
-    "friction": {
-      "title": "遇到难句时，减少操作步骤。",
-      "lead": "查词、翻译和解释直接从正在阅读的正文打开，无需离开页面。",
-      "pastTitle": "过去的阅读方式",
-      "pastItem1": "遇到难句。",
-      "pastItem2": "停止阅读。",
-      "pastItem3": "打开字典或翻译工具。",
-      "pastItem4": "失去故事的上下文。",
-      "pastItem5": "感到沮丧，放弃阅读。",
-      "nextTitle": "使用 Gloaming",
-      "nextItem1": "遇到难句。",
-      "nextItem2": "在阅读器中选中该句。",
-      "nextItem3": "查词、翻译或请求解释。",
-      "nextItem4": "从原位置继续阅读。",
-      "nextItem5": "继续阅读。"
-    },
     "invite": {
       "title": "从上次停留的位置继续阅读。",
-      "body": "登录后可保存进度、管理书架，并在需要时使用查词、翻译和阅读助手。"
-    },
-    "footer": {
-      "tagline": "正文内查词、翻译，并保存阅读进度。",
-      "philosophy": "理念",
-      "about": "关于"
+      "body": "登录后保存阅读进度、管理书架，并使用阅读器工具。"
     }
   },
   "admin": {
@@ -376,8 +327,6 @@
         "add": "添加",
         "selectFamilyHint": "选择 API 协议族（创建后不可修改）",
         "emptyTitle": "暂无服务商",
-        "emptyDescriptionAll": "添加第一个系统级 AI 服务商。",
-        "emptyDescriptionFiltered": "当前筛选下没有服务商。",
         "modelsCount": "{count} 模型",
         "runtimeNotSupported": "运行时尚未支持",
         "enabledAria": "{name} 启用状态",
@@ -464,7 +413,7 @@
     },
     "tts": {
       "title": "语音配置",
-      "subtitle": "Azure Speech 凭证与默认音色；密钥加密存储，页面只展示脱敏信息。",
+      "subtitle": "密钥加密存储，页面仅显示脱敏信息。",
       "loadFailed": "配置加载失败",
       "audioPlayFailed": "音频播放失败，请检查浏览器权限",
       "toast": {
@@ -484,9 +433,9 @@
         "apiKeyPlaceholderRequired": "必填",
         "defaultVoice": "默认音色",
         "defaultVoicePlaceholder": "选择默认音色",
-        "usVoice": "美音音色",
+        "usVoice": "美音",
         "usVoicePlaceholder": "选择美音",
-        "ukVoice": "英音音色",
+        "ukVoice": "英音",
         "ukVoicePlaceholder": "选择英音"
       },
       "test": {
@@ -503,7 +452,6 @@
     },
     "dictionary": {
       "title": "词典配置",
-      "subtitle": "选择词典服务，配置 AI 增强，并测试连接。",
       "audioPlayFailed": "音频播放失败，请检查浏览器权限或音频链接是否有效",
       "toast": {
         "saved": "已保存词典配置",
@@ -511,18 +459,16 @@
         "testSuccessFallback": "查词成功（已回退）· {word} · {latencyMs} ms · 实际命中 {source}"
       },
       "service": {
-        "title": "服务基础设置",
+        "title": "服务",
         "configured": "已配置持久化设置",
-        "notConfigured": "使用系统内置默认配置",
-        "enabled": "已启用",
-        "disabled": "已停用",
+        "notConfigured": "使用默认配置",
         "enableAria": "启用词典服务"
       },
       "provider": {
         "label": "服务提供商 (Provider)",
         "placeholder": "选择词典服务商",
-        "youdao": "有道词典开放接口（中文释义 + 英美发音 · 国内极速推荐）",
-        "free": "Free Dictionary API（英文骨架 · 海外直连/需代理）",
+        "youdao": "有道词典开放接口（中文释义、英美发音）",
+        "free": "Free Dictionary API（英文释义，可能需要代理）",
         "customLegacy": "自定义 Provider（暂未实现）",
         "unknownLegacy": "未知 Provider「{id}」（暂未实现）",
         "unsupportedHint": "当前 Provider「{id}」尚未实现。请切换到有道或 Free Dictionary 后再保存。",
@@ -555,17 +501,13 @@
         "contextPlaceholder": "输入包含该词的例句，用于测试 AI 增强",
         "run": "测试查词",
         "running": "查询测试中...",
-        "latency": "耗时:",
+        "latency": "耗时：",
         "sourceUnknown": "实际来源未知",
-        "actualSource": "实际：{source}",
-        "fallbackTitle": "已使用备用 Provider",
-        "fallbackConfigured": "配置 Provider：{source}",
-        "fallbackActual": "实际命中：{source}",
-        "fallbackDescription": "当前 Provider 请求失败，已使用备用 Provider。",
+        "fallbackDescription": "配置 Provider 请求失败，已使用备用 Provider：{source}。",
         "playPronunciation": "播放读音",
         "ipaFallback": "IPA",
         "contextExamplesHeading": "语境例句：",
-        "readingNote": "💡 阅读提示: {note}"
+        "readingNote": "阅读提示：{note}"
       },
       "saveConfig": "保存配置",
       "saving": "保存中..."
@@ -603,7 +545,7 @@
         "tokens": "Token",
         "actions": "操作",
         "segment": "片段",
-        "voice": "Voice",
+        "voice": "音色",
         "latency": "延迟",
         "error": "错误"
       },
@@ -613,7 +555,7 @@
       },
       "ai": {
         "title": "AI 调用日志",
-        "subtitle": "查看 Token 用量与请求/回复摘要。",
+        "subtitle": "Token 用量与请求摘要",
         "statsInputTokens": "输入 Token",
         "statsOutputTokens": "输出 Token",
         "statsCost": "费用",
@@ -638,7 +580,6 @@
         "requestSummary": "请求摘要",
         "replySummary": "回复摘要",
         "providerBalancesTitle": "服务商余额",
-        "providerBalancesDescription": "来自各服务商余额接口，点击卡片按钮查询。",
         "providerAvailable": "可调用",
         "providerInsufficient": "余额不足",
         "providerRefresh": "刷新",
@@ -726,7 +667,7 @@
     "works": {
       "list": {
         "title": "作品",
-        "subtitle": "维护官方阅读作品：上传 EPUB、审查解析结果并发布到发现。",
+        "subtitle": "上传、审查并发布官方作品。",
         "upload": "上传作品",
         "filterAria": "按状态筛选",
         "loadFailed": "无法加载作品列表",
@@ -792,11 +733,10 @@
         "uploadHint": "上传 EPUB 后进入内容解析流程，可在编辑页查看当前处理模式、审查内容并发布到发现。",
         "dropzoneAria": "上传 EPUB 文件",
         "dropzoneTitle": "拖拽 EPUB 到此处，或点击选择",
-        "dropzoneHint": "上传后进入内容解析流程，当前处理模式将在编辑页显示。插图书请优先使用带图 EPUB（如 Gutenberg 的 *-images.epub）；无图占位会在解析时去掉，避免打断阅读。",
+        "dropzoneHint": "上传后进入解析；带图 EPUB 会保留插图，无图占位会在解析时移除。",
         "hashingFile": "正在校验「{fileName}」…",
         "hashingHint": "计算文件哈希，检查是否已存在相同文件",
         "uploadingFile": "正在上传「{fileName}」…",
-        "uploadingHint": "文件将安全存储到对象存储",
         "instantUploadDone": "秒传完成",
         "workCreated": "作品已创建",
         "retryGeneric": "已重试",
@@ -827,7 +767,6 @@
         "waitingParse": "等待解析…",
         "textWorkNoAudio": "文本作品不参与音频流程。",
         "waitingParseForAudio": "等待内容解析完成后再生成音频。",
-        "audioReadyHint": "全部有正文章节的默认美音已就绪，可以发布。",
         "audioReadyChecklist": "全部有正文章节的默认美音已就绪",
         "checklistTitleFilled": "标题已填写",
         "checklistSources": "至少一个来源",
@@ -835,8 +774,7 @@
         "checklistBody": "正文内容存在",
         "publishBlockedFailed": "处理失败，修复后可发布。",
         "publishBlockedIncomplete": "全部步骤完成后即可发布。",
-        "publishBlockedIssues": "完善左侧要求后即可发布",
-        "invalidFormat": "「{fileName}」格式暂不支持，当前仅支持 EPUB（TXT / PDF 敬请期待）",
+        "invalidFormat": "「{fileName}」格式暂不支持，当前仅支持 EPUB。",
         "fileTooLarge": "「{fileName}」超过 50MB 大小限制"
       },
       "metadata": {
@@ -955,7 +893,7 @@
     "assets": {
       "page": {
         "title": "对象存储占用",
-        "subtitle": "对象存储扫描占用（非供应商账单）。用于发现大对象与孤儿对象。",
+        "subtitle": "对象存储扫描结果，不代表供应商账单。",
         "lastScan": "最近扫描：{time} · {status} · {duration}",
         "scanComplete": "已完成",
         "scanIncomplete": "未完成",
@@ -966,7 +904,7 @@
         "cleanupEnqueueFailed": "无法创建清理任务，请重新扫描后再试。",
         "cleanupRetryFailed": "无法重试清理任务。",
         "emptyTitle": "尚未进行资产扫描",
-        "emptyDescription": "扫描对象存储后，可以查看容量构成和孤儿对象。",
+        "emptyDescription": "扫描对象存储后查看结果。",
         "scanIncompleteTitle": "扫描未完成",
         "scanIncompleteDescription": "对象数量达到上限，本次扫描不可清理。请缩小存储范围后重新扫描。",
         "orphanOverviewTitle": "孤儿对象概览",
@@ -988,18 +926,15 @@
       },
       "chart": {
         "title": "容量构成",
-        "description": "按对象分类汇总本次扫描占用",
         "empty": "暂无分类数据",
         "legend": "{bytes} · {count} 个"
       },
       "largest": {
         "title": "最大对象排行",
-        "description": "按文件大小倒序，便于发现异常大对象",
         "empty": "暂无对象"
       },
       "table": {
         "title": "对象明细",
-        "description": "可按状态与分类筛选，默认按大小倒序",
         "filterAll": "全部",
         "filterReferenced": "正常",
         "filterOrphan": "孤儿",
@@ -1065,7 +1000,7 @@
     "taxonomy": {
       "page": {
         "title": "标签、分类与来源",
-        "subtitle": "平台通用的标签、分类与来源。元数据完善与作品编辑都从这里取数，管理员可增补、改名与清理。",
+        "subtitle": "作品编辑和元数据完善会使用这里的内容。",
         "kindAria": "维度类型"
       },
       "kind": {
@@ -1083,7 +1018,6 @@
         "emptyNoMatchSearch": "没有匹配项",
         "emptySearchHint": "换个关键词试试。",
         "emptySourceHint": "上传作品后来源会自动创建，也可手动新建。",
-        "emptyManualHint": "可通过「新建」按钮手动添加。",
         "tableName": "名称",
         "tableOrigin": "写入方式",
         "tableUsage": "关联作品",
@@ -1143,12 +1077,10 @@
     "discover": {
       "title": "发现",
       "metaTitle": "发现 · Gloaming Reader",
-      "subtitle": "找到下一本想读的作品。",
       "loadFailed": "无法加载目录",
       "softRefreshing": "书目更新中…",
       "filter": "筛选",
       "filterSheetTitle": "分类与标签筛选",
-      "filterSheetDescription": "按分类与标签浏览目录",
       "categoriesLabel": "分类",
       "tagsLabel": "标签",
       "allCategories": "全部分类",
@@ -1158,7 +1090,7 @@
       "showResults": "显示结果",
       "filterSheetActiveOnly": "暂无可选筛选项，当前筛选仍会生效。",
       "emptyTitle": "暂时没有可发现的内容",
-      "emptyDescription": "换个分类看看，或稍后再来。官方书目会慢慢充实。",
+      "emptyDescription": "换个分类或稍后再试。",
       "resetFilters": "清除筛选条件",
       "chapterCount": "{count} 章",
       "pagination": "分页",
@@ -1172,7 +1104,7 @@
       "subtitleResume": "从上次停留的位置继续。",
       "loadFailed": "无法加载书架",
       "emptyTitle": "你的书架还是空的",
-      "emptyDescription": "去发现一部值得阅读的作品。",
+      "emptyDescription": "去发现一部作品。",
       "continueReading": "继续阅读",
       "myCollection": "我的藏书",
       "readingInProgress": "阅读中",
@@ -1184,14 +1116,12 @@
     "history": {
       "title": "阅读历史",
       "metaTitle": "阅读历史 · Gloaming Reader",
-      "subtitle": "回望你的阅读足迹。",
       "loadFailed": "无法加载阅读历史",
       "emptyTitle": "还没有阅读痕迹",
       "emptyDescription": "先去发现一部想读的作品吧。",
       "readingRecord": "近一年阅读日",
       "readingDaysCount": "{count} 个阅读日",
-      "readingDaysHint": "近一年阅读日",
-      "distribution": "近一年阅读日",
+      "distribution": "阅读分布",
       "distributionSubtitle": "近一年 · {count} 个阅读日",
       "legendLess": "少",
       "legendMore": "多",
@@ -1251,8 +1181,7 @@
       "reload": "重新加载",
       "recommendationsColdStart": "新上架",
       "recommendationsPersonalized": "您可能也会喜欢",
-      "difficultyPrefix": "难度: {label}",
-      "tagline": "Gloaming — The Quiet Art of Slow Reading."
+      "difficultyPrefix": "难度: {label}"
     },
     "reader": {
       "unavailableTitle": "无法打开这本书",
@@ -1265,8 +1194,7 @@
         "fontSizeMedium": "字号：中",
         "fontSizeLarge": "字号：大",
         "aiAssist": "AI 辅助",
-        "listen": "朗读",
-        "tapHint": "点按中央显示菜单"
+        "listen": "朗读"
       },
       "toc": {
         "label": "目录",
@@ -1312,7 +1240,6 @@
       },
       "dictionary": {
         "sheetTitle": "单词查词 - {word}",
-        "sheetDescription": "词典释义与语境解读",
         "cardAria": "单词卡片",
         "playPronunciation": "点击朗读发音",
         "contextHeading": "本书语境解读",

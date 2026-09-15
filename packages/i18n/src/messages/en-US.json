@@ -56,7 +56,6 @@
   "auth": {
     "signOutFailed": "Sign out failed. Please try again.",
     "signOutSuccess": "Signed out",
-    "layoutFooter": "Indie · Read the works you choose",
     "meta": {
       "verifyEmailTitle": "Confirm email — Gloaming",
       "resetPasswordTitle": "Reset password — Gloaming",
@@ -183,7 +182,6 @@
   },
   "account": {
     "title": "Account settings",
-    "subtitle": "Manage your sign-in email and password",
     "metaTitle": "Account · Gloaming Reader",
     "profile": {
       "sectionTitle": "Profile",
@@ -231,41 +229,15 @@
     },
     "hero": {
       "title": "Read. Look up, translate, or ask when you need help.",
-      "subtitle": "Gloaming Reader keeps you in the text. Look up words, translate passages, or ask the reading assistant—without leaving the page. Your shelf saves progress so you can pick up where you left off."
-    },
-    "origin": {
-      "title": "Why we built Gloaming",
-      "paragraph1": "Reading unfamiliar texts often means switching to a dictionary or translator. Each lookup pulls you away from the text.",
-      "paragraph2": "Gloaming keeps lookup, translation, and saved progress in the reader.",
-      "imageAlt": "Reading by the window"
+      "subtitle": "Look up words, translate passages, ask about sentences, and pick up where you left off."
     },
     "contrast": {
       "title": "Hard words should not pull you out of the page.",
-      "pastTitle": "The old way",
-      "pastItem1": "Stop to look up words and lose the thread",
-      "pastItem2": "New words feel like memory chores",
-      "pastItem3": "Lose context and stall out",
-      "nextTitle": "With Gloaming",
-      "nextItem1": "Look up, translate, or ask without leaving the page",
-      "nextItem2": "Read at your own pace—no lesson plans or assignments",
-      "nextItem3": "Selected text stays on screen while you look up or translate",
       "punch": "Lookup, translation, and explanation stay in the reader. No separate chat or lesson mode."
-    },
-    "philosophy": {
-      "title": "Read with tools when you need them.",
-      "lead": "Open published works in the reader. Use lookup, translation, or explanation only on what you select.",
-      "leadSecondary": "",
-      "authenticTitle": "Original works",
-      "authenticBody": "Read full texts from the catalog—not rewritten or simplified study passages.",
-      "focusTitle": "Stay in the reader",
-      "focusBody": "The text stays on screen. Look up or translate without switching apps or tabs.",
-      "assistTitle": "On-demand tools",
-      "assistBody": "Dictionary, translation, and sentence explanation open from your selection. Close them to return to reading."
     },
     "product": {
       "title": "Use lookup, translation, and explanation beside the text.",
       "readerTitle": "Reader",
-      "readerBody": "Focused reading. Comfortable type. Clean layout. Less visual noise.",
       "readerImageAlt": "Gloaming Reader interface",
       "companionTitle": "In-text tools",
       "companionBody": "Select text to look up a word, translate a passage, or request a sentence explanation. Results appear beside the text.",
@@ -276,30 +248,9 @@
       "shelfBody": "Save what you're reading. Pick up where you left off.",
       "shelfImageAlt": "Gloaming Shelf interface"
     },
-    "friction": {
-      "title": "Fewer steps when a sentence is hard.",
-      "lead": "Lookup, translation, and explanation open from the text you are reading—without leaving the page.",
-      "pastTitle": "The old way",
-      "pastItem1": "Hit a hard sentence.",
-      "pastItem2": "Stop reading.",
-      "pastItem3": "Open a dictionary or translator.",
-      "pastItem4": "Lose the story's thread.",
-      "pastItem5": "Feel stuck and give up.",
-      "nextTitle": "With Gloaming",
-      "nextItem1": "Hit a hard sentence.",
-      "nextItem2": "Select the sentence in the reader.",
-      "nextItem3": "Look up, translate, or request an explanation.",
-      "nextItem4": "Continue from the same position.",
-      "nextItem5": "Keep reading."
-    },
     "invite": {
       "title": "Pick up where you left off.",
-      "body": "Sign in to save progress, build your shelf, and use lookup, translation, and the reading assistant when you need help."
-    },
-    "footer": {
-      "tagline": "In-text lookup, translation, and saved progress.",
-      "philosophy": "Philosophy",
-      "about": "About"
+      "body": "Sign in to save progress, manage your shelf, and use the reader tools."
     }
   },
   "admin": {
@@ -376,8 +327,6 @@
         "add": "Add",
         "selectFamilyHint": "Choose an API family (cannot be changed after creation)",
         "emptyTitle": "No providers yet",
-        "emptyDescriptionAll": "Add your first system-level AI provider.",
-        "emptyDescriptionFiltered": "No providers match this filter.",
         "modelsCount": "{count} models",
         "runtimeNotSupported": "Runtime not supported yet",
         "enabledAria": "{name} enabled state",
@@ -464,7 +413,7 @@
     },
     "tts": {
       "title": "Speech configuration",
-      "subtitle": "Azure Speech credentials and default voices; keys are encrypted and only masked values appear here.",
+      "subtitle": "Keys are encrypted and only masked values appear here.",
       "loadFailed": "Failed to load configuration",
       "audioPlayFailed": "Could not play audio — check browser permissions",
       "toast": {
@@ -484,9 +433,9 @@
         "apiKeyPlaceholderRequired": "Required",
         "defaultVoice": "Default voice",
         "defaultVoicePlaceholder": "Select default voice",
-        "usVoice": "US English voice",
+        "usVoice": "US English",
         "usVoicePlaceholder": "Select US voice",
-        "ukVoice": "UK English voice",
+        "ukVoice": "UK English",
         "ukVoicePlaceholder": "Select UK voice"
       },
       "test": {
@@ -503,7 +452,6 @@
     },
     "dictionary": {
       "title": "Dictionary configuration",
-      "subtitle": "Choose a dictionary provider, configure AI enrichment, and test connectivity.",
       "audioPlayFailed": "Could not play audio — check browser permissions or the audio URL",
       "toast": {
         "saved": "Dictionary settings saved",
@@ -511,18 +459,16 @@
         "testSuccessFallback": "Lookup succeeded (fallback) · {word} · {latencyMs} ms · actual source {source}"
       },
       "service": {
-        "title": "Service basics",
+        "title": "Service",
         "configured": "Persistent settings configured",
-        "notConfigured": "Using built-in defaults",
-        "enabled": "Enabled",
-        "disabled": "Disabled",
+        "notConfigured": "Using defaults",
         "enableAria": "Enable dictionary service"
       },
       "provider": {
         "label": "Provider",
         "placeholder": "Select dictionary provider",
-        "youdao": "Youdao Open API (Chinese definitions + US/UK audio · recommended in China)",
-        "free": "Free Dictionary API (English skeleton · direct overseas / may need proxy)",
+        "youdao": "Youdao Open API (Chinese definitions, US/UK audio)",
+        "free": "Free Dictionary API (English definitions, may need a proxy)",
         "customLegacy": "Custom provider (not implemented)",
         "unknownLegacy": "Unknown provider \"{id}\" (not implemented)",
         "unsupportedHint": "Provider \"{id}\" is not implemented. Switch to Youdao or Free Dictionary before saving.",
@@ -557,15 +503,11 @@
         "running": "Testing lookup…",
         "latency": "Latency:",
         "sourceUnknown": "Actual source unknown",
-        "actualSource": "Actual: {source}",
-        "fallbackTitle": "Fallback provider used",
-        "fallbackConfigured": "Configured provider: {source}",
-        "fallbackActual": "Actual hit: {source}",
-        "fallbackDescription": "The configured provider failed; a fallback provider was used.",
+        "fallbackDescription": "The configured provider failed; fallback provider used: {source}.",
         "playPronunciation": "Play pronunciation",
         "ipaFallback": "IPA",
         "contextExamplesHeading": "Context examples:",
-        "readingNote": "💡 Reading note: {note}"
+        "readingNote": "Reading note: {note}"
       },
       "saveConfig": "Save settings",
       "saving": "Saving…"
@@ -613,7 +555,7 @@
       },
       "ai": {
         "title": "AI invocation logs",
-        "subtitle": "View token usage and request/reply summaries.",
+        "subtitle": "Token usage and request summaries",
         "statsInputTokens": "Input tokens",
         "statsOutputTokens": "Output tokens",
         "statsCost": "Cost",
@@ -638,7 +580,6 @@
         "requestSummary": "Request summary",
         "replySummary": "Reply summary",
         "providerBalancesTitle": "Provider balances",
-        "providerBalancesDescription": "From each provider's balance API—click a card to query.",
         "providerAvailable": "Available",
         "providerInsufficient": "Insufficient balance",
         "providerRefresh": "Refresh",
@@ -726,7 +667,7 @@
     "works": {
       "list": {
         "title": "Works",
-        "subtitle": "Maintain official reading works: upload EPUB, review parsing, and publish to Discover.",
+        "subtitle": "Upload, review, and publish official works.",
         "upload": "Upload work",
         "filterAria": "Filter by status",
         "loadFailed": "Could not load works",
@@ -796,7 +737,6 @@
         "hashingFile": "Checking “{fileName}”…",
         "hashingHint": "Computing file hash and checking for duplicates",
         "uploadingFile": "Uploading “{fileName}”…",
-        "uploadingHint": "The file will be stored securely in object storage",
         "instantUploadDone": "Instant upload complete",
         "workCreated": "Work created",
         "retryGeneric": "Retried",
@@ -827,7 +767,6 @@
         "waitingParse": "Waiting to parse…",
         "textWorkNoAudio": "Text works skip the audio workflow.",
         "waitingParseForAudio": "Generate audio after content parsing completes.",
-        "audioReadyHint": "Default US audio is ready for all chapters with body text. You can publish.",
         "audioReadyChecklist": "Default US audio is ready for all chapters with body text",
         "checklistTitleFilled": "Title filled",
         "checklistSources": "At least one source",
@@ -835,8 +774,7 @@
         "checklistBody": "Body content exists",
         "publishBlockedFailed": "Fix processing failures before publishing.",
         "publishBlockedIncomplete": "Complete all steps before publishing.",
-        "publishBlockedIssues": "Resolve the checklist items before publishing",
-        "invalidFormat": "“{fileName}” is not supported. Only EPUB is supported for now (TXT / PDF coming soon).",
+        "invalidFormat": "“{fileName}” is not supported. Only EPUB is supported.",
         "fileTooLarge": "“{fileName}” exceeds the 50MB size limit"
       },
       "metadata": {
@@ -955,7 +893,7 @@
     "assets": {
       "page": {
         "title": "Object storage usage",
-        "subtitle": "Object storage scan usage (not vendor billing). Find large and orphan objects.",
+        "subtitle": "Object storage scan results, not vendor billing.",
         "lastScan": "Last scan: {time} · {status} · {duration}",
         "scanComplete": "Complete",
         "scanIncomplete": "Incomplete",
@@ -966,7 +904,7 @@
         "cleanupEnqueueFailed": "Could not create cleanup job. Scan again and retry.",
         "cleanupRetryFailed": "Could not retry cleanup job.",
         "emptyTitle": "No asset scan yet",
-        "emptyDescription": "Scan object storage to view usage breakdown and orphan objects.",
+        "emptyDescription": "Scan object storage to view results.",
         "scanIncompleteTitle": "Scan incomplete",
         "scanIncompleteDescription": "Object count hit the limit; cleanup is unavailable for this scan. Narrow storage scope and scan again.",
         "orphanOverviewTitle": "Orphan overview",
@@ -988,18 +926,15 @@
       },
       "chart": {
         "title": "Usage breakdown",
-        "description": "Storage usage by object category for this scan",
         "empty": "No category data",
         "legend": "{bytes} · {count}"
       },
       "largest": {
         "title": "Largest objects",
-        "description": "Sorted by file size to spot unusually large objects",
         "empty": "No objects"
       },
       "table": {
         "title": "Object details",
-        "description": "Filter by status and category; default sort is size descending",
         "filterAll": "All",
         "filterReferenced": "Referenced",
         "filterOrphan": "Orphan",
@@ -1065,7 +1000,7 @@
     "taxonomy": {
       "page": {
         "title": "Tags, categories & sources",
-        "subtitle": "Platform-wide tags, categories, and sources. Metadata enrichment and work editing read from here; admins can add, rename, and clean up.",
+        "subtitle": "Used by work editing and metadata enrichment.",
         "kindAria": "Taxonomy type"
       },
       "kind": {
@@ -1083,7 +1018,6 @@
         "emptyNoMatchSearch": "No matches",
         "emptySearchHint": "Try another keyword.",
         "emptySourceHint": "Sources are created automatically after uploads, or you can add them manually.",
-        "emptyManualHint": "Add items with the New button.",
         "tableName": "Name",
         "tableOrigin": "Write method",
         "tableUsage": "Linked works",
@@ -1143,12 +1077,10 @@
     "discover": {
       "title": "Discover",
       "metaTitle": "Discover · Gloaming Reader",
-      "subtitle": "Find your next read.",
       "loadFailed": "Could not load catalog",
       "softRefreshing": "Updating catalog…",
       "filter": "Filter",
       "filterSheetTitle": "Filter by category and tags",
-      "filterSheetDescription": "Browse the catalog by category and tags",
       "categoriesLabel": "Category",
       "tagsLabel": "Tags",
       "allCategories": "All categories",
@@ -1158,7 +1090,7 @@
       "showResults": "Show results",
       "filterSheetActiveOnly": "No filter options available, but your current filters still apply.",
       "emptyTitle": "Nothing to discover yet",
-      "emptyDescription": "Try another category or check back later. The catalog will grow over time.",
+      "emptyDescription": "Try another category or check back later.",
       "resetFilters": "Clear filters",
       "chapterCount": "{count} chapters",
       "pagination": "Pagination",
@@ -1172,7 +1104,7 @@
       "subtitleResume": "Pick up where you left off.",
       "loadFailed": "Could not load shelf",
       "emptyTitle": "Your shelf is empty",
-      "emptyDescription": "Discover something worth reading.",
+      "emptyDescription": "Discover a work to read.",
       "continueReading": "Continue reading",
       "myCollection": "My collection",
       "readingInProgress": "Reading",
@@ -1184,14 +1116,12 @@
     "history": {
       "title": "Reading history",
       "metaTitle": "Reading history · Gloaming Reader",
-      "subtitle": "Look back at your reading time.",
       "loadFailed": "Could not load reading history",
       "emptyTitle": "No reading history yet",
       "emptyDescription": "Start with something from Discover.",
       "readingRecord": "Reading days in the past year",
       "readingDaysCount": "{count} reading days",
-      "readingDaysHint": "Reading days in the past year",
-      "distribution": "Reading days in the past year",
+      "distribution": "Reading distribution",
       "distributionSubtitle": "Past year · {count} reading days",
       "legendLess": "Less",
       "legendMore": "More",
@@ -1251,8 +1181,7 @@
       "reload": "Reload",
       "recommendationsColdStart": "New arrivals",
       "recommendationsPersonalized": "You may also like",
-      "difficultyPrefix": "Difficulty: {label}",
-      "tagline": "Gloaming — The Quiet Art of Slow Reading."
+      "difficultyPrefix": "Difficulty: {label}"
     },
     "reader": {
       "unavailableTitle": "Could not open this book",
@@ -1265,8 +1194,7 @@
         "fontSizeMedium": "Font size: Medium",
         "fontSizeLarge": "Font size: Large",
         "aiAssist": "AI assist",
-        "listen": "Listen",
-        "tapHint": "Tap center to show menu"
+        "listen": "Listen"
       },
       "toc": {
         "label": "Contents",
@@ -1312,7 +1240,6 @@
       },
       "dictionary": {
         "sheetTitle": "Dictionary — {word}",
-        "sheetDescription": "Definitions and in-context notes",
         "cardAria": "Word card",
         "playPronunciation": "Tap to hear pronunciation",
         "contextHeading": "In this book",
