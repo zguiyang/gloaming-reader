@@ -109,6 +109,12 @@
       "skillPath": "skills/test-database-workflow/SKILL.md",
       "computedHash": "dfc4db27d62ebcfbfbe5dbc14efafafd41d46ddb2f1ba6259d0c4cbe8194efd2"
     },
+    "using-git-worktrees": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/using-git-worktrees/SKILL.md",
+      "computedHash": "48c8a1040e378e0cb7208107294e3afa9067b9370c3f33b49a443eb6b7528b0d"
+    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
