@@ -17,8 +17,10 @@ type ReaderDictionaryCardProps = {
   word: string;
   entry: DictionaryEntry | null | undefined;
   isLoading: boolean;
+  isError?: boolean;
   contextSentence?: string;
   onAskAi: (word: string, contextSentence?: string) => void;
+  onRetry?: () => void;
   onClose: () => void;
   className?: string;
 };
@@ -27,8 +29,10 @@ export function ReaderDictionaryCard({
   word,
   entry,
   isLoading,
+  isError = false,
   contextSentence,
   onAskAi,
+  onRetry,
   onClose,
   className,
 }: ReaderDictionaryCardProps) {
@@ -158,6 +162,24 @@ export function ReaderDictionaryCard({
             </div>
             <div className="mt-4 h-16 w-full animate-pulse rounded-xl bg-surface-container-low" />
           </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center py-6 text-center">
+            <BookOpenIcon className="size-8 text-muted-foreground/50" />
+            <p className="mt-2 text-xs font-medium text-foreground/80">
+              {t(locale, 'content.reader.dictionary.lookupFailed')}
+            </p>
+            {onRetry ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 h-8 rounded-lg text-xs"
+                onClick={onRetry}
+              >
+                {t(locale, 'content.reader.dictionary.retry')}
+              </Button>
+            ) : null}
+          </div>
         ) : entry && entry.meanings.length > 0 ? (
           <div className="space-y-3.5">
             {/* Meanings */}
@@ -228,7 +250,7 @@ export function ReaderDictionaryCard({
           <div className="flex flex-col items-center justify-center py-6 text-center">
             <BookOpenIcon className="size-8 text-muted-foreground/50" />
             <p className="mt-2 text-xs font-medium text-foreground/80">
-              {t(locale, 'content.reader.dictionary.notFoundTitle')}
+              {t(locale, 'content.reader.dictionary.notFoundTitle', { word })}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
               {t(locale, 'content.reader.dictionary.notFoundHint')}

@@ -7,7 +7,7 @@ import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
-import type { ReaderFontSize } from '@/features/reader/reader-model';
+import { type ReaderFontSize, readerFontSizeAriaLabel } from '@/features/reader/reader-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -122,7 +122,7 @@ export function ReaderChrome({
             variant="ghost"
             size="icon"
             className="size-10 text-muted-foreground hover:text-foreground"
-            aria-label={t(locale, 'content.reader.chrome.fontSize', { size: fontSize })}
+            aria-label={readerFontSizeAriaLabel(fontSize, locale)}
             onClick={onToggleFontSize}
           >
             <TypeIcon className="size-5" strokeWidth={1.5} />
@@ -146,7 +146,7 @@ export function ReaderChrome({
               'size-10 text-muted-foreground hover:text-foreground',
               isListening && 'bg-accent text-brand-deep',
             )}
-            aria-label={t(locale, 'content.reader.chrome.listenRead')}
+            aria-label={t(locale, 'content.reader.chrome.listen')}
             aria-pressed={isListening}
             onClick={onToggleTts}
           >

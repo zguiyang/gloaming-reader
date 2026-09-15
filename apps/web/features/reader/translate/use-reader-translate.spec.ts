@@ -95,6 +95,20 @@ describe('streamTranslatePart', () => {
     ]);
   });
 
+  it('throws a localized error when the response body is missing', async () => {
+    vi.stubGlobal('document', { cookie: `${LOCALE_COOKIE_NAME}=zh-CN` });
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(streamTranslatePart({ partId: 'part-1' })).rejects.toThrow('翻译响应为空。');
+  });
+
   it('throws when server returns error event', async () => {
     const sseChunks = [`event: ${TRANSLATE_SSE_EVENT.error}\ndata: {"error":"AI model unavailable"}\n\n`];
 

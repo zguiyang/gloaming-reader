@@ -54,7 +54,7 @@ export function ReaderChapterNav({
         {prevPart ? (
           <Button type="button" variant="ghost" className="gap-2 text-muted-foreground" onClick={onPrevious}>
             <ArrowLeftIcon className="size-4" strokeWidth={1.5} aria-hidden />
-            {t(locale, 'content.reader.chapterNav.previous')}
+            {t(locale, 'content.reader.chapterNav.previousChapter')}
           </Button>
         ) : (
           <span />
@@ -62,7 +62,7 @@ export function ReaderChapterNav({
 
         {hasNext ? (
           <Button type="button" className="gap-2 hover:bg-brand-deep" onClick={onNext}>
-            {t(locale, 'content.reader.chapterNav.continueReading')}
+            {t(locale, 'content.reader.chapterNav.nextChapter')}
             <ArrowRightIcon className="size-4" strokeWidth={1.5} aria-hidden />
           </Button>
         ) : (

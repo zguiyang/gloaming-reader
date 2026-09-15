@@ -105,7 +105,11 @@ export function ReaderAiInline({
           <PopoverPrimitive.Popup
             data-reader-ui
             role="dialog"
-            aria-label={t(locale, 'content.reader.assist.inlineAria')}
+            aria-label={
+              mode === 'question'
+                ? t(locale, 'content.reader.assist.inlineQuestionAria')
+                : t(locale, 'content.reader.assist.inlineAria')
+            }
             className={cn(
               'z-50 w-[min(24rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-2xl border border-border/50 bg-card p-4 shadow-card outline-hidden',
               'data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
@@ -155,15 +159,21 @@ export function ReaderAiInline({
                   <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={onClose}>
                     {t(locale, 'content.reader.assist.close')}
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8 rounded-lg text-xs hover:bg-brand-deep"
-                    onClick={onOpenDrawer}
-                    disabled={streaming || !canOpenDrawer}
-                  >
-                    {t(locale, 'content.reader.assist.continueInDrawer')}
-                  </Button>
+                  {canOpenDrawer ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 rounded-lg text-xs hover:bg-brand-deep"
+                      onClick={onOpenDrawer}
+                      disabled={streaming}
+                    >
+                      {t(locale, 'content.reader.assist.continueInDrawer')}
+                    </Button>
+                  ) : (
+                    <p className="max-w-[12rem] text-right text-[11px] leading-snug text-muted-foreground">
+                      {t(locale, 'content.reader.assist.continueUnavailable')}
+                    </p>
+                  )}
                 </div>
               </>
             )}

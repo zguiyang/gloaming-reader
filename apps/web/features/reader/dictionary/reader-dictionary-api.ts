@@ -8,7 +8,9 @@ import {
   lookupDictionaryResultSchema,
 } from '@gloaming/shared/dictionary';
 
-import { apiRequest } from '@/lib/api-request';
+import { apiRequest, ApiRequestError } from '@/lib/api-request';
+
+const WORD_DEFINITION_NOT_FOUND_CODE = 'api.errors.notFound.wordDefinition';
 
 export const dictionaryQueryKey = {
   all: ['dictionary'] as const,
@@ -40,8 +42,11 @@ export async function lookupDictionaryWord(
       signal: init?.signal,
     });
     return data.entry;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof ApiRequestError && error.status === 404 && error.code === WORD_DEFINITION_NOT_FOUND_CODE) {
+      return null;
+    }
+    throw error;
   }
 }
 

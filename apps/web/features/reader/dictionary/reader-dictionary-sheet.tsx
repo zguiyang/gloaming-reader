@@ -13,8 +13,10 @@ type ReaderDictionarySheetProps = {
   word: string;
   entry: DictionaryEntry | null | undefined;
   isLoading: boolean;
+  isError?: boolean;
   contextSentence?: string;
   onAskAi: (word: string, contextSentence?: string) => void;
+  onRetry?: () => void;
   onClose: () => void;
 };
 
@@ -23,8 +25,10 @@ export function ReaderDictionarySheet({
   word,
   entry,
   isLoading,
+  isError,
   contextSentence,
   onAskAi,
+  onRetry,
   onClose,
 }: ReaderDictionarySheetProps) {
   const { locale } = useLocale();
@@ -50,8 +54,10 @@ export function ReaderDictionarySheet({
           word={word}
           entry={entry}
           isLoading={isLoading}
+          isError={isError}
           contextSentence={contextSentence}
           onAskAi={onAskAi}
+          onRetry={onRetry}
           onClose={onClose}
           className="max-h-[calc(85dvh-3.5rem)]"
         />

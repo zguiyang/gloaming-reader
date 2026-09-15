@@ -12,6 +12,7 @@ import {
   isCurrentChapter,
   nextPlaybackRate,
   READER_PLAYBACK_RATES,
+  readerFontSizeAriaLabel,
   type ReaderPlaybackRate,
   resolveAudioRole,
   taxonomyCoverTintSeeds,
@@ -71,6 +72,17 @@ describe('formatReaderChapterTitle', () => {
 
   it('localizes chapter fallback for en-US', () => {
     expect(formatReaderChapterTitle('', 3, 'en-US')).toBe('Chapter 3');
+  });
+});
+
+describe('readerFontSizeAriaLabel', () => {
+  it('maps reader font sizes to localized aria labels without exposing tokens', () => {
+    expect(readerFontSizeAriaLabel('sm', DEFAULT_LOCALE)).toBe('字号：小');
+    expect(readerFontSizeAriaLabel('md', DEFAULT_LOCALE)).toBe('字号：中');
+    expect(readerFontSizeAriaLabel('lg', DEFAULT_LOCALE)).toBe('字号：大');
+    expect(readerFontSizeAriaLabel('sm', 'en-US')).toBe('Font size: Small');
+    expect(readerFontSizeAriaLabel('md', 'en-US')).toBe('Font size: Medium');
+    expect(readerFontSizeAriaLabel('lg', 'en-US')).toBe('Font size: Large');
   });
 });
 

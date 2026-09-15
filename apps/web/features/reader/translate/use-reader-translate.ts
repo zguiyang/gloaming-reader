@@ -13,7 +13,7 @@ import { useLocale } from '@/lib/locale-context';
 type UseReaderTranslateOptions = {
   partId: string | null;
   isAuthenticated: boolean;
-  openLogin?: (input: { reason: 'ai' }) => void;
+  openLogin?: (input: { reason: 'bilingual' }) => void;
 };
 
 type TranslationState = {
@@ -87,7 +87,7 @@ export function useReaderTranslate({ partId, isAuthenticated, openLogin }: UseRe
     }
     if (!isAuthenticated) {
       if (openLogin) {
-        openLogin({ reason: 'ai' });
+        openLogin({ reason: 'bilingual' });
       } else {
         toast.error(t(locale, 'content.reader.toast.loginForBilingual'));
       }
@@ -167,7 +167,7 @@ export function useReaderTranslate({ partId, isAuthenticated, openLogin }: UseRe
           isStreaming: false,
         }));
         if (openLogin) {
-          openLogin({ reason: 'ai' });
+          openLogin({ reason: 'bilingual' });
         } else {
           toast.error(t(locale, 'content.reader.toast.sessionExpired'));
         }

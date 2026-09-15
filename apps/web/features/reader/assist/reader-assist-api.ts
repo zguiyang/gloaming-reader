@@ -23,7 +23,7 @@ export type AssistStreamHandlers = {
 async function* readSse(response: Response): AsyncGenerator<{ event: string; data: string }> {
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new Error('No response body');
+    throw new Error(readerAssistMessage('content.reader.api.noResponseBody'));
   }
   const decoder = new TextDecoder();
   let buffer = '';

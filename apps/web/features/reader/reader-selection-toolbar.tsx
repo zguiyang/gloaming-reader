@@ -127,7 +127,7 @@ export function ReaderSelectionToolbar({
               className="h-8 rounded-lg px-2.5 text-xs"
               onClick={onTranslate}
             >
-              {t(locale, 'content.reader.selection.translate')}
+              {t(locale, 'content.reader.selection.translateSelection')}
             </Button>
           </PopoverPrimitive.Popup>
         </PopoverPrimitive.Positioner>

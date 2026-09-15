@@ -32,7 +32,7 @@ export type TranslateStreamHandlers = {
 async function* readSse(response: Response): AsyncGenerator<{ event: string; data: string }> {
   const reader = response.body?.getReader();
   if (!reader) {
-    throw new Error('No response body');
+    throw new Error(readerTranslateMessage('content.reader.translate.noResponseBody'));
   }
   const decoder = new TextDecoder();
   let buffer = '';

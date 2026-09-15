@@ -7,4 +7,5 @@ export type BilingualTranslationData = {
   titleZh: string | null;
   isLoading: boolean;
   isStreaming: boolean;
+  error?: string | null;
 };

@@ -293,14 +293,15 @@ export function ReaderPage({ workId }: ReaderPageProps) {
       audio.onerror = () => {
         clearListenHighlight();
         setAudioStatus('failed');
+        toast.error(t(locale, 'content.reader.toast.audioPlayFailed'));
       };
       await audio.play();
       setAudioStatus('playing');
-    } catch (error) {
+    } catch {
       setWordTimings(null);
       clearListenHighlight();
       setAudioStatus('failed');
-      toast.error(formatReaderApiError(error));
+      toast.error(t(locale, 'content.reader.toast.audioPlayFailed'));
     }
   }
 
@@ -487,6 +488,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
                 titleZh: translate.titleZh,
                 isLoading: translate.isLoading,
                 isStreaming: translate.isStreaming,
+                error: translate.error,
               }
             : null
         }
@@ -560,7 +562,9 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         word={dictionaryState?.word ?? ''}
         entry={dictionaryQuery.data}
         isLoading={dictionaryQuery.isPending}
+        isError={dictionaryQuery.isError}
         contextSentence={dictionaryState?.contextSentence}
+        onRetry={() => void dictionaryQuery.refetch()}
         rect={dictionaryState?.rect}
         top={dictionaryState?.top}
         left={dictionaryState?.left}
@@ -610,6 +614,8 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         conversations={assist.conversations}
         activeConversationId={assist.activeConversationId}
         isHistoryLoading={assist.isHistoryLoading}
+        historyError={assist.historyError}
+        onRetryHistory={() => void assist.refetchHistory()}
         isSending={assist.isDrawerSending}
         error={assist.error}
         onOpenChange={(open) => (open ? assist.openDrawer() : assist.closeAiSurface())}

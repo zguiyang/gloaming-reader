@@ -3,9 +3,11 @@
 import DOMPurify from 'dompurify';
 import { type MouseEvent, type ReactNode, useMemo } from 'react';
 
+import { t } from '@gloaming/i18n';
 import type { TranslateSentenceEn } from '@gloaming/shared/translate';
 
 import type { BilingualTranslationData } from '@/features/content/bilingual-translation';
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export type ReadingPartFontSize = 'sm' | 'md' | 'lg';
@@ -297,6 +299,7 @@ export function ReadingPartView({
   focusedSentenceIndex,
   onSentenceClick,
 }: ReadingPartViewProps) {
+  const { locale } = useLocale();
   const renderedHtml = useMemo(
     () =>
       transformBilingualHtml(html, {
@@ -330,6 +333,21 @@ export function ReadingPartView({
         className,
       )}
     >
+      {isBilingual && bilingualData?.isLoading ? (
+        <p className="mb-4 text-center text-sm text-muted-foreground" role="status">
+          {t(locale, 'content.reader.bilingual.loading')}
+        </p>
+      ) : null}
+
+      {isBilingual && bilingualData?.error ? (
+        <p
+          className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
+          role="alert"
+        >
+          {bilingualData.error || t(locale, 'content.reader.bilingual.error')}
+        </p>
+      ) : null}
+
       <div
         className="reading-body font-reading text-foreground/90 text-pretty selection:bg-accent selection:text-brand-deep"
         dangerouslySetInnerHTML={{ __html: renderedHtml }}

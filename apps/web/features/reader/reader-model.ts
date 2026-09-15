@@ -142,6 +142,16 @@ export function formatReaderChapterTitle(
   return t(locale, 'content.bookDetail.chapterFallback', { n: index });
 }
 
+export function readerFontSizeAriaLabel(fontSize: ReaderFontSize, locale: Locale = DEFAULT_LOCALE): string {
+  if (fontSize === 'sm') {
+    return t(locale, 'content.reader.chrome.fontSizeSmall');
+  }
+  if (fontSize === 'lg') {
+    return t(locale, 'content.reader.chrome.fontSizeLarge');
+  }
+  return t(locale, 'content.reader.chrome.fontSizeMedium');
+}
+
 export function formatPhoneticRoleLabel(
   role: 'us' | 'uk' | 'general' | undefined,
   locale: Locale = DEFAULT_LOCALE,

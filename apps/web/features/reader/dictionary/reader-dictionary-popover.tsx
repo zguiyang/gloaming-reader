@@ -16,11 +16,13 @@ type ReaderDictionaryPopoverProps = {
   word: string;
   entry: DictionaryEntry | null | undefined;
   isLoading: boolean;
+  isError?: boolean;
   contextSentence?: string;
   rect?: ReaderSelectionRect | null;
   top?: number;
   left?: number;
   onAskAi: (word: string, contextSentence?: string) => void;
+  onRetry?: () => void;
   onClose: () => void;
 };
 
@@ -29,11 +31,13 @@ export function ReaderDictionaryPopover({
   word,
   entry,
   isLoading,
+  isError,
   contextSentence,
   rect,
   top,
   left,
   onAskAi,
+  onRetry,
   onClose,
 }: ReaderDictionaryPopoverProps) {
   const { locale } = useLocale();
@@ -100,8 +104,10 @@ export function ReaderDictionaryPopover({
               word={word}
               entry={entry}
               isLoading={isLoading}
+              isError={isError}
               contextSentence={contextSentence}
               onAskAi={onAskAi}
+              onRetry={onRetry}
               onClose={onClose}
               className="max-h-[calc(28rem-2rem)]"
             />

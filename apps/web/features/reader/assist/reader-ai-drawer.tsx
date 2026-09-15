@@ -36,6 +36,8 @@ type ReaderAiDrawerProps = {
   conversations: ConversationSummary[];
   activeConversationId?: string;
   isHistoryLoading?: boolean;
+  historyError?: unknown;
+  onRetryHistory?: () => void;
   isSending?: boolean;
   error?: string | null;
   onOpenChange: (open: boolean) => void;
@@ -60,14 +62,19 @@ function AiHistory({
   conversations,
   activeConversationId,
   loading,
+  historyError,
+  onRetryHistory,
   onSelectConversation,
 }: {
   conversations: ConversationSummary[];
   activeConversationId?: string;
   loading?: boolean;
+  historyError?: unknown;
+  onRetryHistory?: () => void;
   onSelectConversation: (conversationId: string) => void;
 }) {
   const { locale } = useLocale();
+  const hasHistoryError = Boolean(historyError);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -85,7 +92,24 @@ function AiHistory({
           </p>
         ) : null}
 
-        {!loading && conversations.length === 0 ? (
+        {!loading && hasHistoryError ? (
+          <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+            <p className="font-heading text-sm text-foreground/80">{t(locale, 'content.reader.assist.historyError')}</p>
+            {onRetryHistory ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 h-8 rounded-lg text-xs"
+                onClick={onRetryHistory}
+              >
+                {t(locale, 'content.reader.assist.historyRetry')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {!loading && !hasHistoryError && conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
             <p className="font-heading text-sm text-foreground/80">
               {t(locale, 'content.reader.assist.historyEmptyTitle')}
@@ -96,7 +120,7 @@ function AiHistory({
           </div>
         ) : null}
 
-        {!loading && conversations.length > 0 ? (
+        {!loading && !hasHistoryError && conversations.length > 0 ? (
           <div className="space-y-1">
             {conversations.map((conversation) => {
               const isActive = conversation.id === activeConversationId;
@@ -271,6 +295,8 @@ export function ReaderAiDrawer({
   conversations,
   activeConversationId,
   isHistoryLoading,
+  historyError,
+  onRetryHistory,
   isSending,
   error,
   onOpenChange,
@@ -369,6 +395,8 @@ export function ReaderAiDrawer({
             conversations={conversations}
             activeConversationId={activeConversationId}
             loading={isHistoryLoading}
+            historyError={historyError}
+            onRetryHistory={onRetryHistory}
             onSelectConversation={selectConversation}
           />
         ) : (
@@ -434,6 +462,8 @@ export function ReaderAiDrawer({
               conversations={conversations}
               activeConversationId={activeConversationId}
               loading={isHistoryLoading}
+              historyError={historyError}
+              onRetryHistory={onRetryHistory}
               onSelectConversation={selectConversation}
             />
           ) : (

@@ -39,4 +39,25 @@ describe('streamAssistAsk', () => {
     expect(new Headers(init.headers).get('Accept-Language')).toBe('en-US');
     expect(new Headers(init.headers).get('Accept')).toBe('text/event-stream');
   });
+
+  it('throws a localized error when the response body is missing', async () => {
+    vi.stubGlobal('document', { cookie: `${LOCALE_COOKIE_NAME}=zh-CN` });
+
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      streamAssistAsk({
+        workId: 'work-1',
+        partId: 'part-1',
+        actionId: 'explain',
+        selection: 'hello',
+      }),
+    ).rejects.toThrow('响应为空。');
+  });
 });

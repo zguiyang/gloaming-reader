@@ -27,11 +27,13 @@ export type ReaderDictionaryViewProps = {
   word: string;
   entry: DictionaryEntry | null | undefined;
   isLoading: boolean;
+  isError?: boolean;
   contextSentence?: string;
   rect?: ReaderSelectionRect | null;
   top?: number;
   left?: number;
   onAskAi: (word: string, contextSentence?: string) => void;
+  onRetry?: () => void;
   onClose: () => void;
 };
 

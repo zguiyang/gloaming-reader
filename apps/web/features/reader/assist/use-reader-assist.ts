@@ -385,6 +385,7 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
     conversations,
     isHistoryLoading: isHistoryLoading || historyQuery.isPending,
     historyError: historyQuery.error,
+    refetchHistory: historyQuery.refetch,
     isDrawerSending,
     error,
     openDrawer,
