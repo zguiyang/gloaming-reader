@@ -169,7 +169,7 @@
     }
   },
   "account": {
-    "title": "账户",
+    "title": "账户设置",
     "subtitle": "查看账号信息，管理登录邮箱与密码",
     "profile": {
       "sectionTitle": "基本信息",

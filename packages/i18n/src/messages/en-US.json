@@ -169,7 +169,7 @@
     }
   },
   "account": {
-    "title": "Account",
+    "title": "Account settings",
     "subtitle": "View your profile and manage sign-in email and password",
     "profile": {
       "sectionTitle": "Profile",

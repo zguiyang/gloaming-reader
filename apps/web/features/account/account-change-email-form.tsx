@@ -55,18 +55,16 @@ export function AccountChangeEmailForm({ currentEmail }: AccountChangeEmailFormP
 
   return (
     <form
-      className="flex max-w-md flex-col gap-4"
+      className="flex max-w-md flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
         void form.handleSubmit();
       }}
     >
-      <Field>
-        <FieldLabel htmlFor="account-current-email">{t(locale, 'account.email.currentLabel')}</FieldLabel>
-        <FieldContent>
-          <Input id="account-current-email" type="email" className="h-11" value={currentEmail} readOnly disabled />
-        </FieldContent>
-      </Field>
+      <div className="grid gap-1 sm:grid-cols-[minmax(0,9rem)_1fr] sm:items-baseline sm:gap-6">
+        <p className="text-sm text-muted-foreground">{t(locale, 'account.email.currentLabel')}</p>
+        <p className="text-sm text-foreground">{currentEmail}</p>
+      </div>
 
       <form.Field name="newEmail">
         {(field) => (

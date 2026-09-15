@@ -60,7 +60,13 @@ export function AccountChangePasswordForm({ enabled, accountsPending }: AccountC
   });
 
   if (accountsPending) {
-    return <div className="h-48 animate-pulse rounded-lg bg-surface-container-high" aria-hidden />;
+    return (
+      <div className="flex flex-col gap-3" aria-hidden>
+        <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
+        <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
+        <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
+      </div>
+    );
   }
 
   if (!enabled) {
