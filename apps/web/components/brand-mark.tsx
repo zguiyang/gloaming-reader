@@ -10,6 +10,8 @@ type BrandMarkProps = {
   className?: string;
   /** Hide the wordmark; keep the icon as the brand identifier. */
   wordmark?: boolean;
+  /** Localized home link label for assistive tech (e.g. nav.brandHomeAria). */
+  ariaLabel: string;
   /**
    * Visible wordmark text. Defaults to APP_NAME.
    * Site chrome uses the public product name "Gloaming".
@@ -28,6 +30,7 @@ export function BrandMark({
   size = 'sm',
   className,
   wordmark = true,
+  ariaLabel,
   name = APP_NAME,
   appearance = 'default',
 }: BrandMarkProps) {
@@ -82,7 +85,7 @@ export function BrandMark({
         !wordmark && 'gap-0',
         className,
       )}
-      aria-label={`${name} home`}
+      aria-label={ariaLabel}
     >
       {content}
     </Link>

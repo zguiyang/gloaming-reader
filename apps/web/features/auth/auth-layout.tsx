@@ -20,7 +20,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
     <div className="relative z-10 flex min-h-full flex-1 flex-col">
       <header className="pt-7">
         <div className="container flex items-center justify-between">
-          <BrandMark />
+          <BrandMark ariaLabel={t(locale, 'nav.brandHomeAria')} />
         </div>
       </header>
 

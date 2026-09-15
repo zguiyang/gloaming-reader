@@ -115,7 +115,11 @@ export function AdminShell({ children }: AdminShellProps) {
       <div className="flex min-h-dvh items-center justify-center bg-background px-6 py-10">
         <section className="w-full max-w-md rounded-2xl border border-border bg-card px-8 py-10 text-center">
           <div className="mb-8 flex justify-center">
-            <BrandMark href={AUTH_ROUTES.shelf} subtitle={t(locale, 'admin.shell.subtitle')} />
+            <BrandMark
+              href={AUTH_ROUTES.shelf}
+              subtitle={t(locale, 'admin.shell.subtitle')}
+              ariaLabel={t(locale, 'nav.brandHomeAria')}
+            />
           </div>
           <p className="mb-3 text-sm font-medium tracking-[0.16em] text-primary">
             {t(locale, 'admin.shell.forbiddenEyebrow')}
@@ -162,6 +166,7 @@ export function AdminShell({ children }: AdminShellProps) {
                   href={ADMIN_ROUTES.works}
                   size="md"
                   subtitle={t(locale, 'admin.shell.contentSubtitle')}
+                  ariaLabel={t(locale, 'nav.brandHomeAria')}
                   className="mb-10"
                 />
                 <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
@@ -188,6 +193,7 @@ export function AdminShell({ children }: AdminShellProps) {
           <BrandMark
             href={ADMIN_ROUTES.works}
             subtitle={t(locale, 'admin.shell.contentSubtitle')}
+            ariaLabel={t(locale, 'nav.brandHomeAria')}
             className="min-w-0"
           />
         </div>
@@ -209,6 +215,7 @@ export function AdminShell({ children }: AdminShellProps) {
             href={ADMIN_ROUTES.works}
             size="md"
             subtitle={t(locale, 'admin.shell.contentSubtitle')}
+            ariaLabel={t(locale, 'nav.brandHomeAria')}
             className="mb-12"
           />
 

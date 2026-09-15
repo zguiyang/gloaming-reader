@@ -4,7 +4,10 @@ import { Dialog as SheetPrimitive } from '@base-ui/react/dialog';
 import { XIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
+import { getClientLocale } from '@/lib/client-locale';
 import { cn } from '@/lib/utils';
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
@@ -65,7 +68,7 @@ function SheetContent({
             render={<Button variant="ghost" className="absolute top-3 right-3" size="icon-sm" />}
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t(getClientLocale(), 'common.close')}</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>

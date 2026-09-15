@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { BrandMark } from '@/components/brand-mark';
 import { AccountMenu, useNavAccount } from '@/components/navigation/account-menu';
 import { DesktopNav } from '@/components/navigation/desktop-nav';
@@ -26,7 +28,14 @@ export function SiteNav() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-sm">
       <nav className="container flex h-16 items-center justify-between gap-6 md:h-20" aria-label={navCopy.siteHeader}>
         <div className="flex min-w-0 items-center gap-8">
-          <BrandMark href="/" name={navCopy.wordmark} appearance="editorial" size="md" className="shrink-0" />
+          <BrandMark
+            href="/"
+            name={navCopy.wordmark}
+            ariaLabel={t(locale, 'nav.brandHomeAria')}
+            appearance="editorial"
+            size="md"
+            className="shrink-0"
+          />
           <div className="hidden md:block">
             {isPending ? <Skeleton className="h-6 w-80 rounded-md" /> : <DesktopNav />}
           </div>

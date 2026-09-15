@@ -1,14 +1,17 @@
 import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from 'lucide-react';
 import * as React from 'react';
 
+import { t } from '@gloaming/i18n';
+
 import { Button } from '@/components/ui/button';
+import { getClientLocale } from '@/lib/client-locale';
 import { cn } from '@/lib/utils';
 
 function Pagination({ className, ...props }: React.ComponentProps<'nav'>) {
   return (
     <nav
       role="navigation"
-      aria-label="pagination"
+      aria-label={t(getClientLocale(), 'common.pagination')}
       data-slot="pagination"
       className={cn('mx-auto flex w-full justify-center', className)}
       {...props}
@@ -45,25 +48,39 @@ function PaginationLink({ className, isActive, size = 'icon', ...props }: Pagina
 
 function PaginationPrevious({
   className,
-  text = 'Previous',
+  text,
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+  const locale = getClientLocale();
+  const label = text ?? t(locale, 'common.paginationPrevious');
   return (
-    <PaginationLink aria-label="Go to previous page" size="default" className={cn('pl-1.5!', className)} {...props}>
+    <PaginationLink
+      aria-label={t(locale, 'common.paginationGoToPrevious')}
+      size="default"
+      className={cn('pl-1.5!', className)}
+      {...props}
+    >
       <ChevronLeftIcon data-icon="inline-start" />
-      <span className="hidden sm:block">{text}</span>
+      <span className="hidden sm:block">{label}</span>
     </PaginationLink>
   );
 }
 
 function PaginationNext({
   className,
-  text = 'Next',
+  text,
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+  const locale = getClientLocale();
+  const label = text ?? t(locale, 'common.paginationNext');
   return (
-    <PaginationLink aria-label="Go to next page" size="default" className={cn('pr-1.5!', className)} {...props}>
-      <span className="hidden sm:block">{text}</span>
+    <PaginationLink
+      aria-label={t(locale, 'common.paginationGoToNext')}
+      size="default"
+      className={cn('pr-1.5!', className)}
+      {...props}
+    >
+      <span className="hidden sm:block">{label}</span>
       <ChevronRightIcon data-icon="inline-end" />
     </PaginationLink>
   );
@@ -78,7 +95,7 @@ function PaginationEllipsis({ className, ...props }: React.ComponentProps<'span'
       {...props}
     >
       <MoreHorizontalIcon />
-      <span className="sr-only">More pages</span>
+      <span className="sr-only">{t(getClientLocale(), 'common.paginationMorePages')}</span>
     </span>
   );
 }
