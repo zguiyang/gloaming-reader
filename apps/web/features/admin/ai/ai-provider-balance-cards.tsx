@@ -23,13 +23,13 @@ export function AiProviderBalanceCards({ providers }: { providers: LlmProvider[]
     try {
       const result = await queryLlmProviderBalance(provider.id);
       setResults((prev) => ({ ...prev, [provider.id]: result }));
-    } catch (error) {
+    } catch {
       setResults((prev) => ({
         ...prev,
         [provider.id]: {
           supported: false,
           reason: 'request-failed',
-          message: error instanceof Error ? error.message : t(locale, 'admin.logs.ai.providerQueryFailed'),
+          message: t(locale, 'admin.logs.ai.providerQueryFailed'),
         },
       }));
     } finally {

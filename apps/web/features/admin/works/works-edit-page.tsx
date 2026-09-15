@@ -32,7 +32,7 @@ import {
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
 import { formatWorkflowStep, formatWorkStatus, workflowModeLabels } from '@/features/admin/works/works-format';
-import type { AdminWorkView } from '@/features/admin/works/works-model';
+import { type AdminWorkView, canPreviewWork } from '@/features/admin/works/works-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -415,6 +415,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
   const isActing = actingStep !== null;
   const canRerun = isEpub && work.status !== 'published' && !isRunning && !isActing;
   const hasParts = work.parts.length > 0;
+  const canPreview = canPreviewWork(work);
   const workflowLabels = workflowModeLabels(work.workflowPolicy, locale);
   const unknownError = t(locale, 'admin.works.edit.unknownError');
 
@@ -441,7 +442,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {hasParts ? (
+          {canPreview ? (
             <Button
               type="button"
               variant="outline"
@@ -451,6 +452,10 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
             >
               {t(locale, 'admin.works.edit.previewWork')}
             </Button>
+          ) : hasParts ? (
+            <span className="self-center text-sm text-muted-foreground">
+              {t(locale, 'admin.works.list.previewUnavailable')}
+            </span>
           ) : null}
           {work.status !== 'published' ? (
             <Button type="button" variant="destructive" size="sm" onClick={() => void handleDelete()}>
@@ -562,11 +567,17 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                   </div>
                   <div>
                     <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.spineCount')}</dt>
-                    <dd className="mt-0.5 font-medium">{String(parsed.spineCount ?? '—')}</dd>
+                    <dd className="mt-0.5 font-medium">
+                      {parsed.spineCount == null
+                        ? t(locale, 'admin.content.common.notFilled')
+                        : String(parsed.spineCount)}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.navCount')}</dt>
-                    <dd className="mt-0.5 font-medium">{String(parsed.navCount ?? '—')}</dd>
+                    <dd className="mt-0.5 font-medium">
+                      {parsed.navCount == null ? t(locale, 'admin.content.common.notFilled') : String(parsed.navCount)}
+                    </dd>
                   </div>
                 </dl>
               ) : null}
@@ -584,11 +595,17 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                 </div>
                 <div>
                   <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.spineCount')}</dt>
-                  <dd className="mt-0.5 font-medium">{String(parsed.spineCount ?? '—')}</dd>
+                  <dd className="mt-0.5 font-medium">
+                    {parsed.spineCount == null
+                      ? t(locale, 'admin.content.common.notFilled')
+                      : String(parsed.spineCount)}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">{t(locale, 'admin.works.edit.navCount')}</dt>
-                  <dd className="mt-0.5 font-medium">{String(parsed.navCount ?? '—')}</dd>
+                  <dd className="mt-0.5 font-medium">
+                    {parsed.navCount == null ? t(locale, 'admin.content.common.notFilled') : String(parsed.navCount)}
+                  </dd>
                 </div>
               </dl>
               {work.status === 'published' ? (
@@ -606,16 +623,22 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                   >
                     {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'admin.works.edit.reparse')}
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    nativeButton={false}
-                    render={<Link href={ADMIN_ROUTES.workPreview(work.id)} />}
-                  >
-                    <ListTree data-icon="inline-start" />
-                    {t(locale, 'admin.works.edit.previewWork')}
-                  </Button>
+                  {canPreview ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      nativeButton={false}
+                      render={<Link href={ADMIN_ROUTES.workPreview(work.id)} />}
+                    >
+                      <ListTree data-icon="inline-start" />
+                      {t(locale, 'admin.works.edit.previewWork')}
+                    </Button>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      {t(locale, 'admin.works.list.previewUnavailable')}
+                    </span>
+                  )}
                 </div>
               )}
             </div>

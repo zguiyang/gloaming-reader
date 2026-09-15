@@ -232,20 +232,20 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
             <Input
               className="font-mono text-sm"
               value={values.balanceEndpoint}
-              placeholder="https://… 或 /user/balance"
+              placeholder={t(locale, 'admin.ai.provider.form.balanceEndpointPlaceholder')}
               onChange={(e) => setValues((p) => ({ ...p, balanceEndpoint: e.target.value }))}
             />
             <div className="grid gap-2 sm:grid-cols-2">
               <Input
                 className="font-mono text-sm"
                 value={values.balanceAmountPath}
-                placeholder="balance 或 data.balance"
+                placeholder={t(locale, 'admin.ai.provider.form.balanceAmountPathPlaceholder')}
                 onChange={(e) => setValues((p) => ({ ...p, balanceAmountPath: e.target.value }))}
               />
               <Input
                 className="font-mono text-sm"
                 value={values.balanceCurrencyPath}
-                placeholder="currency 或 data.currency"
+                placeholder={t(locale, 'admin.ai.provider.form.balanceCurrencyPathPlaceholder')}
                 onChange={(e) => setValues((p) => ({ ...p, balanceCurrencyPath: e.target.value }))}
               />
             </div>

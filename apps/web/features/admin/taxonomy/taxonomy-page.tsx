@@ -323,7 +323,9 @@ function TaxonomyPanel({ kind }: TaxonomyPanelProps) {
   }
 
   async function handleCleanup() {
-    if (!window.confirm(t(locale, 'admin.taxonomy.panel.confirmCleanup'))) return;
+    const cleanupKey =
+      kind === 'tag' ? 'admin.taxonomy.panel.confirmCleanupTag' : 'admin.taxonomy.panel.confirmCleanupCategory';
+    if (!window.confirm(t(locale, cleanupKey))) return;
     try {
       const result = await cleanupMutation.mutateAsync(kind === 'tag' ? 'tag' : 'category');
       toast.success(

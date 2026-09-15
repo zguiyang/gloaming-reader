@@ -3,7 +3,7 @@
 import { Pause, Play, RotateCcw } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-import { t } from '@gloaming/i18n';
+import { type Locale, t } from '@gloaming/i18n';
 import type { WorkAudioPartRow } from '@gloaming/shared/content-assets';
 
 import { Badge } from '@/components/ui/badge';
@@ -15,12 +15,34 @@ import { cn } from '@/lib/utils';
 
 function formatDurationMs(ms: number | null): string {
   if (ms == null || ms <= 0) {
-    return '—';
+    return '0:00';
   }
   const totalSec = Math.round(ms / 1000);
   const minutes = Math.floor(totalSec / 60);
   const seconds = totalSec % 60;
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function formatDurationDisplay(track: WorkAudioPartRow['track'], locale: Locale): string {
+  if (track.status === 'ready' && track.audioUrl) {
+    if (track.durationMs == null || track.durationMs <= 0) {
+      return t(locale, 'admin.content.common.notAvailable');
+    }
+    return formatDurationMs(track.durationMs);
+  }
+  if (track.status === 'none') {
+    return t(locale, 'admin.works.audioTrackStatus.none');
+  }
+  if (track.status === 'generating') {
+    return t(locale, 'admin.works.audioTrackStatus.generating');
+  }
+  if (track.status === 'failed') {
+    return t(locale, 'admin.works.audioTrackStatus.failed');
+  }
+  if (track.status === 'stale') {
+    return t(locale, 'admin.works.audioTrackStatus.stale');
+  }
+  return t(locale, 'admin.content.common.notAvailable');
 }
 
 type WorkAudioPartRowProps = {
@@ -89,7 +111,7 @@ export function WorkAudioPartRowView({ row, index, disabled, onRetry, onExclusiv
           canPlay ? 'text-muted-foreground' : 'text-muted-foreground/50',
         )}
       >
-        {canPlay ? formatDurationMs(track.durationMs) : '—'}
+        {formatDurationDisplay(track, locale)}
       </span>
 
       <Button

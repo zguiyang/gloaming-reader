@@ -1,5 +1,29 @@
 import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
-import { type AdminOriginAsset, type AdminWork, type AdminWorkSummary, type Work } from '@gloaming/shared/works';
+import {
+  type AdminOriginAsset,
+  type AdminWork,
+  type AdminWorkSummary,
+  type Work,
+  type WorkStatus,
+} from '@gloaming/shared/works';
+
+type WorkPreviewInput = {
+  status: WorkStatus;
+  partCount?: number;
+  parts?: readonly unknown[];
+};
+
+/** Whether admin work preview is available (parsed chapters, not in a blocking workflow state). */
+export function canPreviewWork(work: WorkPreviewInput): boolean {
+  const partCount = work.partCount ?? work.parts?.length ?? 0;
+  return (
+    partCount > 0 &&
+    work.status !== 'processing' &&
+    work.status !== 'metadata' &&
+    work.status !== 'uploaded' &&
+    work.status !== 'failed'
+  );
+}
 
 /** Work view model: dates as ISO strings. */
 export type WorkView = {

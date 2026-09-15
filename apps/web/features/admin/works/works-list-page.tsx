@@ -34,7 +34,7 @@ import {
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
 import { formatWorkStatus, formatWorkUpdatedAt } from '@/features/admin/works/works-format';
-import type { AdminWorkSummaryView } from '@/features/admin/works/works-model';
+import { type AdminWorkSummaryView, canPreviewWork } from '@/features/admin/works/works-model';
 import { useLocale } from '@/lib/locale-context';
 
 type StatusFilter = WorkStatus | 'all' | 'busy';
@@ -54,12 +54,8 @@ type WorkRowActionsProps = {
 function WorkRowActions({ work, onPublish, onUnpublish, onRetry, onDelete }: WorkRowActionsProps) {
   const { locale } = useLocale();
   const router = useRouter();
-  const canPreview =
-    work.partCount > 0 &&
-    work.status !== 'processing' &&
-    work.status !== 'metadata' &&
-    work.status !== 'uploaded' &&
-    work.status !== 'failed';
+  const canPreview = canPreviewWork(work);
+  const hasParts = work.partCount > 0;
 
   return (
     <div className="flex justify-end gap-2">
@@ -102,6 +98,11 @@ function WorkRowActions({ work, onPublish, onUnpublish, onRetry, onDelete }: Wor
             <DropdownMenuItem onClick={() => router.push(ADMIN_ROUTES.workPreview(work.id))}>
               <Eye />
               {t(locale, 'admin.works.list.preview')}
+            </DropdownMenuItem>
+          ) : hasParts ? (
+            <DropdownMenuItem disabled>
+              <Eye />
+              {t(locale, 'admin.works.list.previewUnavailable')}
             </DropdownMenuItem>
           ) : null}
           {work.status !== 'published' ? (
@@ -225,7 +226,7 @@ export function WorksListPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm(t(locale, 'admin.content.common.confirmDeleteWork'))) return;
+    if (!window.confirm(t(locale, 'admin.content.common.confirmDeleteWorkPermanent'))) return;
     try {
       await deleteAdminWork(id);
       await invalidate();
@@ -333,7 +334,9 @@ export function WorksListPage() {
                       {work.title}
                     </Link>
                   </TableCell>
-                  <TableCell className="px-5 py-4 text-muted-foreground">{work.author || '—'}</TableCell>
+                  <TableCell className="px-5 py-4 text-muted-foreground">
+                    {work.author || t(locale, 'admin.content.common.notFilled')}
+                  </TableCell>
                   <TableCell className="px-5 py-4">
                     <Badge
                       variant={
@@ -344,7 +347,9 @@ export function WorksListPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="px-5 py-4 text-muted-foreground">
-                    {work.originKind === 'admin_epub' ? work.partCount : '—'}
+                    {work.originKind === 'admin_epub'
+                      ? work.partCount
+                      : t(locale, 'admin.works.list.chaptersNotApplicable')}
                   </TableCell>
                   <TableCell className="px-5 py-4 text-muted-foreground">
                     {formatWorkUpdatedAt(work.updatedAt, locale)}

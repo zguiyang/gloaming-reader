@@ -80,7 +80,7 @@ function StatusBadge({
 
 export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObjectTableProps) {
   const { locale } = useLocale();
-  const { data, isLoading, isFetching, isError, error } = useScanObjectsQuery(scanId, query);
+  const { data, isLoading, isFetching, isError } = useScanObjectsQuery(scanId, query);
   const totalPages = data?.pagination.totalPages ?? 0;
 
   const statusTabs = (Object.keys(STATUS_FILTER_KEYS) as AssetStatusFilter[]).map((value) => ({
@@ -151,11 +151,7 @@ export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObject
           })}
         </div>
 
-        {isError ? (
-          <p className="text-destructive text-sm">
-            {error instanceof Error ? error.message : t(locale, 'admin.assets.table.loadFailed')}
-          </p>
-        ) : null}
+        {isError ? <p className="text-destructive text-sm">{t(locale, 'admin.assets.table.loadFailed')}</p> : null}
 
         <div className="overflow-x-auto rounded-lg ring-1 ring-foreground/10">
           <Table>
@@ -196,7 +192,9 @@ export function AssetsObjectTable({ scanId, query, onQueryChange }: AssetsObject
                     <StatusBadge status={item.status} locale={locale} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {item.lastModified ? formatMeasuredAt(item.lastModified, locale) : '—'}
+                    {item.lastModified
+                      ? formatMeasuredAt(item.lastModified, locale)
+                      : t(locale, 'admin.content.common.notFilled')}
                   </TableCell>
                 </TableRow>
               ))}
