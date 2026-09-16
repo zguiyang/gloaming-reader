@@ -255,7 +255,7 @@ describe('learner part audio', () => {
     expect(await partAudioAvail()).toEqual({ us: true, uk: true });
     expect(ttsCallCount).toBe(2);
     expect(audioJobs).toHaveLength(2);
-    expect(audioJobIds.every((jobId) => jobId.startsWith('part-audio-generate:'))).toBe(true);
+    expect(audioJobIds.every((jobId) => jobId.startsWith('part-audio-generate-'))).toBe(true);
     expect(audioJobs.map(({ role }) => role)).toEqual(['us', 'uk']);
     expect(audioJobs.every(({ generationKey, generationToken }) => generationKey && generationToken)).toBe(true);
 

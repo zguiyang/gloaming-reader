@@ -44,6 +44,11 @@ import { hashPartAudioContent } from '@/modules/works/content-hash';
 
 /** Must match `JOB_PART_AUDIO_GENERATE` in jobs/part-audio-generate.ts */
 const PART_AUDIO_JOB = 'part-audio-generate';
+
+/** BullMQ custom job ids must not contain `:`; generationKey embeds role separators. */
+function partAudioQueueJobId(generationToken: string): string {
+  return `${PART_AUDIO_JOB}-${generationToken}`;
+}
 const partAudioLogger = rootLogger.child({ module: 'ContentAssets' });
 
 const ALL_ROLES: TtsVoiceRole[] = ['us', 'uk'];
@@ -596,7 +601,7 @@ export async function enqueuePartAudio(partId: string, body: GeneratePartAudioBo
         {
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
-          jobId: `${PART_AUDIO_JOB}:${claim.generationKey}:${claim.generationToken}`,
+          jobId: partAudioQueueJobId(claim.generationToken),
         },
       );
     } catch (error) {
@@ -673,7 +678,7 @@ export async function enqueueWorkAudio(workId: string, body: GenerateWorkAudioBo
           {
             attempts: 3,
             backoff: { type: 'exponential', delay: 5000 },
-            jobId: `${PART_AUDIO_JOB}:${claim.generationKey}:${claim.generationToken}`,
+            jobId: partAudioQueueJobId(claim.generationToken),
           },
         );
       } catch (error) {
