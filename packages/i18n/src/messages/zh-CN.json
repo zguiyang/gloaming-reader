@@ -8,11 +8,6 @@
       "requestFailedRetry": "请求失败，请稍后重试"
     },
     "loading": "加载中…",
-    "loadingWait": "正在加载…",
-    "loadingPhrase1": "正在翻开下一页…",
-    "loadingPhrase2": "字句在路上…",
-    "loadingPhrase3": "正在加载…",
-    "loadingPhrase4": "书架轻轻挪动中…",
     "greeting": "你好，{name}",
     "close": "关闭",
     "pagination": "分页",

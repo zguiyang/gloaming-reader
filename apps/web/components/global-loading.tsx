@@ -1,24 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-
 import { t } from '@gloaming/i18n';
 
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-const PHRASE_KEYS = [
-  'common.loadingPhrase1',
-  'common.loadingPhrase2',
-  'common.loadingPhrase3',
-  'common.loadingPhrase4',
-] as const;
-
-const PHRASE_INTERVAL_MS = 2400;
-const PHRASE_FADE_MS = 280;
-
 type GlobalLoadingProps = {
-  /** When set, shows a fixed line instead of rotating phrases. */
+  /** When set, shows a custom loading line. */
   label?: string;
   className?: string;
 };
@@ -26,35 +14,7 @@ type GlobalLoadingProps = {
 /** Full-viewport overlay — route `loading.tsx` and shell session waits. */
 export function GlobalLoading({ label, className }: GlobalLoadingProps) {
   const { locale } = useLocale();
-  const phrases = useMemo(() => PHRASE_KEYS.map((key) => t(locale, key)), [locale]);
-  const [phraseIndex, setPhraseIndex] = useState(0);
-  const [isPhraseVisible, setIsPhraseVisible] = useState(true);
-  const isRotating = label == null;
-
-  useEffect(() => {
-    if (!isRotating) {
-      return;
-    }
-
-    let fadeTimer: number | undefined;
-
-    const intervalId = window.setInterval(() => {
-      setIsPhraseVisible(false);
-      fadeTimer = window.setTimeout(() => {
-        setPhraseIndex((current) => (current + 1) % phrases.length);
-        setIsPhraseVisible(true);
-      }, PHRASE_FADE_MS);
-    }, PHRASE_INTERVAL_MS);
-
-    return () => {
-      window.clearInterval(intervalId);
-      if (fadeTimer != null) {
-        window.clearTimeout(fadeTimer);
-      }
-    };
-  }, [isRotating, phrases.length]);
-
-  const phrase = label ?? phrases[phraseIndex];
+  const loadingLabel = label ?? t(locale, 'common.loading');
 
   return (
     <div
@@ -77,17 +37,8 @@ export function GlobalLoading({ label, className }: GlobalLoadingProps) {
           </span>
         </div>
 
-        <div className="flex min-h-12 flex-col items-center gap-2 text-center">
-          <p
-            className={cn(
-              'font-heading text-lg tracking-tight text-foreground',
-              'transition-opacity duration-300 ease-out-soft',
-              isRotating && !isPhraseVisible ? 'opacity-0' : 'opacity-100',
-            )}
-          >
-            {phrase}
-          </p>
-          <p className="text-xs tracking-[0.18em] text-muted-foreground">{t(locale, 'common.loadingWait')}</p>
+        <div className="flex min-h-12 flex-col items-center text-center">
+          <p className="font-heading text-lg tracking-tight text-foreground">{loadingLabel}</p>
         </div>
       </div>
     </div>

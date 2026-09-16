@@ -8,11 +8,6 @@
       "requestFailedRetry": "Request failed. Please try again later."
     },
     "loading": "Loading…",
-    "loadingWait": "Loading…",
-    "loadingPhrase1": "Turning the page…",
-    "loadingPhrase2": "Words on the way…",
-    "loadingPhrase3": "Loading…",
-    "loadingPhrase4": "Shelf shifting gently…",
     "greeting": "Hello, {name}",
     "close": "Close",
     "pagination": "Pagination",
