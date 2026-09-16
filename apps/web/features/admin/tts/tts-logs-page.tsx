@@ -180,7 +180,6 @@ export function TtsLogsPage() {
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto max-w-6xl">
       <div className="min-w-0">
         <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.logs.tts.title')}</h1>
-        <p className="mt-3 text-lg text-muted-foreground">{t(locale, 'admin.logs.tts.subtitle')}</p>
       </div>
 
       <div className="mt-10 flex flex-col gap-8">

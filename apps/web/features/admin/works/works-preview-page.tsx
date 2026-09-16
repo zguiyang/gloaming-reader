@@ -134,7 +134,6 @@ export function WorksPreviewPage({ workId }: { workId: string }) {
               ? t(locale, 'admin.works.preview.uploadedHint')
               : t(locale, 'admin.works.preview.processingHint')}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">{t(locale, 'admin.works.preview.progressHint')}</p>
         </div>
       ) : work.status === 'failed' ? (
         <div className="mt-10 rounded-2xl border border-destructive/30 bg-destructive/5 px-6 py-10 text-center">

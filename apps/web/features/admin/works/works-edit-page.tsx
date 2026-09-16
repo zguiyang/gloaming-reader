@@ -523,8 +523,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
           {!isEpub ? (
             <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.textWorkNoParse')}</p>
           ) : work.status === 'uploaded' ? (
-            <div className="mt-4 space-y-4">
-              <p className="text-sm text-muted-foreground">{t(locale, 'admin.works.edit.parseReadyHint')}</p>
+            <div className="mt-4">
               <Button type="button" size="sm" onClick={() => void handleRetry('parse')} disabled={!canRerun}>
                 {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'admin.works.edit.startParse')}
               </Button>
@@ -814,7 +813,6 @@ export function WorksEditPage({ workId }: WorksEditPageProps) {
       {!work ? (
         <>
           <StepIndicator states={stepStates(null)} />
-          <p className="-mt-4 mb-6 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.uploadHint')}</p>
           <div className="rounded-2xl border border-border bg-card px-6 py-8">
             <UploadMode onCreated={handleCreated} />
           </div>

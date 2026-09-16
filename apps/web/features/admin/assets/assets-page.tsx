@@ -12,7 +12,7 @@ import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import {
@@ -177,7 +177,6 @@ export function AssetsPage() {
               <HardDrive />
             </EmptyMedia>
             <EmptyTitle>{t(locale, 'admin.assets.page.emptyTitle')}</EmptyTitle>
-            <EmptyDescription>{t(locale, 'admin.assets.page.emptyDescription')}</EmptyDescription>
           </EmptyHeader>
           <Button onClick={() => void runScan()}>{t(locale, 'admin.assets.page.scanNow')}</Button>
         </Empty>
