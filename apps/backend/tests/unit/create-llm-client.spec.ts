@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { ERROR_CODES } from '@/lib/error-codes';
+import { AppError } from '@/lib/errors';
 import { createLlmClient } from '@/lib/llm/create-llm-client';
 import type { ResolvedLlm } from '@/lib/llm/resolve';
 
@@ -60,12 +62,17 @@ describe('createLlmClient', () => {
   });
 
   it('rejects unimplemented API families', () => {
-    expect(() =>
+    try {
       createLlmClient({
         ...resolved('claude-3'),
         apiFamily: 'anthropic',
         wireVariant: 'messages',
-      }),
-    ).toThrow(/not implemented/i);
+      });
+      expect.unreachable('should throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AppError);
+      expect((error as AppError).statusCode).toBe(503);
+      expect((error as AppError).code).toBe(ERROR_CODES.LLM.FAMILY_NOT_IMPLEMENTED);
+    }
   });
 });

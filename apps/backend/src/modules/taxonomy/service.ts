@@ -22,7 +22,7 @@ import type {
   TaxonomyListQuery,
   UpdateTaxonomyBody,
 } from '@gloaming/shared/taxonomy';
-import { LANGUAGE_CODES, resolveLocalizedText } from '@gloaming/shared/taxonomy';
+import { LANGUAGE_CODES, mergeLocalizedText, resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
@@ -131,6 +131,18 @@ function normalizeNamesInput(names: LocalizedTextMap): LocalizedTextMap {
     if (value) result[code] = value;
   }
   return result;
+}
+
+/** Apply only submitted locale labels while retaining other stored labels. */
+function mergeNames(existing: LocalizedTextMap | null | undefined, incoming: LocalizedTextMap): LocalizedTextMap {
+  let merged = existing ?? {};
+  for (const code of LANGUAGE_CODES) {
+    const value = incoming[code];
+    if (value) {
+      merged = mergeLocalizedText(merged, code, value);
+    }
+  }
+  return merged;
 }
 
 /** Canonical DB label for uniqueness/search — prefers en-US, then zh-CN. */
@@ -299,7 +311,7 @@ export async function updateTaxonomyItem(
         .where(eq((table as typeof tagTable).id, id))
         .limit(1);
       if (!current) throw new NotFoundError(taxonomyNotFoundCode(kind));
-      localizedNames = normalizeNamesInput(body.names);
+      localizedNames = mergeNames(current.localizedNames, normalizeNamesInput(body.names));
       name = canonicalTaxonomyName(localizedNames, current.name);
     }
     const [row] = await db

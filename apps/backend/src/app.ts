@@ -48,7 +48,13 @@ app.use('/api/*', async (c, next) => {
 });
 
 app.use('*', async (c, next) => {
-  if (c.req.path === '/' || c.req.path === '/api/health' || c.req.path.startsWith('/api/assets/')) {
+  if (
+    c.req.path === '/' ||
+    c.req.path === '/api/health' ||
+    c.req.path === '/api/health/live' ||
+    c.req.path === '/api/health/ready' ||
+    c.req.path.startsWith('/api/assets/')
+  ) {
     return next();
   }
   if (c.req.path.startsWith('/api/') && c.get('user')) {

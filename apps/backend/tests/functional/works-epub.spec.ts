@@ -15,10 +15,12 @@ import type { CreateEpubWorkResult, EpubReuseResult } from '@gloaming/shared/wor
 import app from '@/app';
 import { db } from '@/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
-import { hashFileContent } from '@/modules/uploads/service';
+import { acquireUploadedObject, hashFileContent } from '@/modules/uploads/service';
+import { EPUB_UPLOAD_SPEC, insertEpubWorkAndAsset } from '@/modules/works/service';
 
 import { createMemoryObjectStore } from '../helpers/memory-oss';
 import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';
+import { ensureWorkTaxonomyFixture } from '../helpers/taxonomy-fixture';
 
 const password = 'password123';
 
@@ -204,6 +206,93 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     expect(dedupRow?.refCount).toBe(2);
   });
 
+  it('converges concurrent same-content uploads on one live canonical object', async () => {
+    const concurrentBytes = Buffer.concat([
+      suiteZipBytes,
+      Buffer.from(`concurrent-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`),
+    ]);
+    const concurrentHash = trackContentHash(createdContentHashes, concurrentBytes);
+
+    const responses = await Promise.all([
+      uploadEpub(adminCookie, { fileName: 'Concurrent A.epub', bytes: concurrentBytes, type: 'application/epub+zip' }),
+      uploadEpub(adminCookie, { fileName: 'Concurrent B.epub', bytes: concurrentBytes, type: 'application/epub+zip' }),
+    ]);
+    expect(responses.map((response) => response.status)).toEqual([201, 201]);
+
+    const results = (await Promise.all(responses.map((response) => response.json()))) as CreateEpubWorkResult[];
+    createdWorkIds.push(...results.map((result) => result.id));
+    expect(new Set(results.map((result) => result.asset.storageKey))).toEqual(new Set([`epub/${concurrentHash}.epub`]));
+    expect(memory.store.has(`epub/${concurrentHash}.epub`)).toBe(true);
+
+    const rows = await db.select().from(uploadedObjectTable).where(eq(uploadedObjectTable.contentHash, concurrentHash));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.refCount).toBe(2);
+  });
+
+  it('does not register an uploaded object when storage write fails', async () => {
+    const failedBytes = Buffer.concat([suiteZipBytes, Buffer.from(`storage-failure-${Date.now()}`)]);
+    const failedHash = hashFileContent(failedBytes);
+    setObjectStoreForTests({
+      ...memory,
+      async put() {
+        throw new Error('storage unavailable');
+      },
+    });
+
+    const response = await uploadEpub(adminCookie, {
+      fileName: 'Storage Failure.epub',
+      bytes: failedBytes,
+      type: 'application/epub+zip',
+    });
+    expect(response.status).toBe(500);
+    const rows = await db.select().from(uploadedObjectTable).where(eq(uploadedObjectTable.contentHash, failedHash));
+    expect(rows).toHaveLength(0);
+    setObjectStoreForTests(memory);
+  });
+
+  it('rolls back the work when the asset insert fails', async () => {
+    const rollbackBytes = Buffer.concat([suiteZipBytes, Buffer.from(`rollback-${Date.now()}`)]);
+    const rollbackHash = hashFileContent(rollbackBytes);
+    const acquired = await acquireUploadedObject({
+      kind: 'file',
+      fileName: 'Rollback.epub',
+      body: rollbackBytes,
+      contentType: 'application/epub+zip',
+      spec: EPUB_UPLOAD_SPEC,
+    });
+    expect(acquired).not.toBeNull();
+    if (!acquired) throw new Error('expected uploaded object');
+
+    const workId = `rollback-work-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const assetId = `rollback-asset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await db.insert(contentAssetTable).values({
+      id: assetId,
+      kind: 'cover',
+      storageKey: `cover/${assetId}.jpg`,
+      mimeType: 'image/jpeg',
+      contentHash: `cover-${assetId}`,
+      meta: {},
+      status: 'ready',
+    });
+
+    await expect(
+      insertEpubWorkAndAsset({
+        fileName: 'Rollback.epub',
+        meta: acquired.meta,
+        reused: false,
+        workId,
+        assetId,
+      }),
+    ).rejects.toThrow();
+
+    expect(await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId))).toHaveLength(0);
+    expect(
+      await db.select().from(uploadedObjectTable).where(eq(uploadedObjectTable.contentHash, rollbackHash)),
+    ).toHaveLength(0);
+    expect(memory.store.has(acquired.meta.storageKey)).toBe(false);
+    await db.delete(contentAssetTable).where(eq(contentAssetTable.id, assetId));
+  });
+
   it('reuse endpoint creates a work instantly when the hash exists', async () => {
     const response = await reuseEpub(adminCookie, { fileName: 'Reuse Me.epub', contentHash: suiteZipHash });
     expect(response.status).toBe(201);
@@ -297,6 +386,37 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
       .from(uploadedObjectTable)
       .where(eq(uploadedObjectTable.contentHash, sharedHash));
     expect(remainingRows).toHaveLength(0);
+  });
+
+  it('commits DB deletion before a storage failure and leaves the object recoverable', async () => {
+    const deleteFailureBytes = Buffer.concat([suiteZipBytes, Buffer.from(`delete-failure-${Date.now()}`)]);
+    const created = (await (
+      await uploadEpub(adminCookie, {
+        fileName: 'Delete Failure.epub',
+        bytes: deleteFailureBytes,
+        type: 'application/epub+zip',
+      })
+    ).json()) as CreateEpubWorkResult;
+    createdWorkIds.push(created.id);
+
+    setObjectStoreForTests({
+      ...memory,
+      async delete() {
+        throw new Error('storage delete unavailable');
+      },
+    });
+    const response = await app.request(`/api/admin/works/${created.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: adminCookie },
+    });
+    expect(response.status).toBe(204);
+    expect(await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id))).toHaveLength(0);
+    expect(await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, created.id))).toHaveLength(0);
+    expect(
+      await db.select().from(uploadedObjectTable).where(eq(uploadedObjectTable.storageKey, created.asset.storageKey)),
+    ).toHaveLength(0);
+    expect(memory.store.has(created.asset.storageKey)).toBe(true);
+    setObjectStoreForTests(memory);
   });
 
   it('lists works as compact summaries without part bodies', async () => {
@@ -413,11 +533,12 @@ describe('publish / unpublish status guards', () => {
     expect(response.status).toBe(201);
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
+    const taxonomy = await ensureWorkTaxonomyFixture('works-epub');
 
     await app.request(`/api/admin/works/${created.id}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sources: ['demo'], tags: ['story'] }),
+      body: JSON.stringify(taxonomy),
     });
 
     await seedReadyDefaultAudioForWork(created.id);

@@ -3,7 +3,9 @@ import type { ContentParser, ParsedContent } from '@/modules/content-parser/type
 import { planChapters } from '@/modules/epub-ingest/chapters';
 import { cleanXhtml, IMAGE_PLACEHOLDER_PREFIX, stripOrphanImagePlaceholders } from '@/modules/epub-ingest/clean';
 import {
+  EPUB_ERROR_CODES,
   epubParentDir,
+  EpubValidationError,
   findEpubEntry,
   mimeForHref,
   parseEpub,
@@ -40,13 +42,16 @@ export const epubContentParser: ContentParser = {
         return token;
       });
       if (cleaned.html.length > MAX_CHAPTER_HTML_CHARS) {
-        throw new Error(`Chapter from ${href} exceeds ${MAX_CHAPTER_HTML_CHARS} chars`);
+        throw new EpubValidationError(
+          EPUB_ERROR_CODES.RESOURCE_LIMIT_EXCEEDED,
+          `Chapter from ${href} exceeds ${MAX_CHAPTER_HTML_CHARS} chars`,
+        );
       }
       return { title: '', html: cleaned.html, images: cleaned.images };
     });
 
     if (chapters.length === 0) {
-      throw new Error('EPUB produced no readable chapters');
+      throw new EpubValidationError(EPUB_ERROR_CODES.INVALID_STRUCTURE, 'EPUB produced no readable chapters');
     }
 
     const images: ParsedContent['images'] = [];

@@ -5,12 +5,13 @@ import { TRANSLATE_SSE_EVENT } from '@gloaming/shared/translate';
 
 import { formatThrownError } from '@/lib/response';
 import { type AuthVariables, requireAuth } from '@/middleware/auth';
+import { aiRateLimit } from '@/middleware/rate-limit';
 import * as translateService from '@/modules/translate/service';
 import { validateTranslatePart } from '@/modules/translate/validator';
 
 export const translateRoutes = new Hono<{ Variables: AuthVariables }>();
 
-translateRoutes.post('/api/translate/part', requireAuth, validateTranslatePart, async (c) => {
+translateRoutes.post('/api/translate/part', requireAuth, validateTranslatePart, aiRateLimit('translate'), async (c) => {
   const user = c.get('user');
   const body = c.req.valid('json');
 

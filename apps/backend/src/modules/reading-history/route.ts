@@ -64,6 +64,6 @@ readingHistoryRoutes.post('/api/reading-heartbeat', requireAuth, async (c) => {
       })),
     );
   }
-  const result = await readingHistoryService.recordReadingHeartbeat(user.id, parsed.data.seconds);
+  const result = await readingHistoryService.recordReadingHeartbeat(user.id, parsed.data);
   return c.json(result);
 });

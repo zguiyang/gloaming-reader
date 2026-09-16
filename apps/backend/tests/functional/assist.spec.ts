@@ -13,9 +13,13 @@ import type { AdminWork } from '@gloaming/shared/works';
 import app from '@/app';
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import * as aiService from '@/modules/ai/service';
 import * as conversationsService from '@/modules/conversations/service';
+
+import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';
+import { ensureWorkTaxonomyFixture } from '../helpers/taxonomy-fixture';
 
 const password = 'password123';
 
@@ -82,15 +86,14 @@ async function createPublishedWork(adminCookie: string, title: string, body: str
   });
   expect(create.status).toBe(201);
   const work = (await create.json()) as AdminWork;
-  expect(
-    (
-      await app.request(`/api/admin/works/${work.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', cookie: adminCookie },
-        body: JSON.stringify({ sources: ['demo'], tags: ['test'] }),
-      })
-    ).status,
-  ).toBe(200);
+  const taxonomy = await ensureWorkTaxonomyFixture('assist');
+  const taxonomyUpdate = await app.request(`/api/admin/works/${work.id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', cookie: adminCookie },
+    body: JSON.stringify(taxonomy),
+  });
+  expect(taxonomyUpdate.status).toBe(200);
+  await seedReadyDefaultAudioForWork(work.id);
   expect(
     (
       await app.request(`/api/admin/works/${work.id}/publish`, {
@@ -201,7 +204,7 @@ describe('Assist HTTP', () => {
     expect(messages).toHaveLength(2);
 
     async function* failStream(): AsyncGenerator<aiService.AiStreamEvent> {
-      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'AI unavailable');
+      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
       yield { type: 'delta', text: '' };
     }
 
@@ -219,8 +222,10 @@ describe('Assist HTTP', () => {
     expect(unavailable.status).toBe(200);
     const errEvents = parseSseBlocks(await unavailable.text());
     expect(errEvents.some((e) => e.event === ASSIST_SSE_EVENT.error)).toBe(true);
-    const errPayload = JSON.parse(errEvents.find((e) => e.event === ASSIST_SSE_EVENT.error)!.data) as AssistSseError;
-    expect(errPayload.error).toMatch(/AI unavailable/i);
+    const errPayload = JSON.parse(errEvents.find((e) => e.event === ASSIST_SSE_EVENT.error)!.data) as AssistSseError & {
+      code: string;
+    };
+    expect(errPayload.code).toBe(ERROR_CODES.AI.UNAVAILABLE);
     streamSpy.mockRestore();
     invokeSpy.mockRestore();
   });
@@ -406,8 +411,12 @@ describe('Assist HTTP', () => {
     expect(wrongWork.status).toBe(200);
     const wrongEvents = parseSseBlocks(await wrongWork.text());
     expect(wrongEvents.some((e) => e.event === ASSIST_SSE_EVENT.error)).toBe(true);
-    const errPayload = JSON.parse(wrongEvents.find((e) => e.event === ASSIST_SSE_EVENT.error)!.data) as AssistSseError;
-    expect(errPayload.error).toMatch(/conversation does not match work/i);
+    const errPayload = JSON.parse(
+      wrongEvents.find((e) => e.event === ASSIST_SSE_EVENT.error)!.data,
+    ) as AssistSseError & {
+      code: string;
+    };
+    expect(errPayload.code).toBe(ERROR_CODES.CONVERSATION.MISMATCH_WORK);
 
     streamSpy.mockRestore();
     invokeSpy.mockRestore();

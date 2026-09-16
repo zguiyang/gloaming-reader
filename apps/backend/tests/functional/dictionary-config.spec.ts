@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import {
   dictionaryConfig as dictionaryConfigTable,
   dictionaryEntry as dictionaryEntryTable,
+  readingWork as readingWorkTable,
   user as userTable,
 } from '@gloaming/db';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
@@ -16,6 +17,7 @@ import {
 
 import app from '@/app';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 import * as redisLib from '@/lib/redis';
 import { YoudaoDictionaryProvider } from '@/modules/dictionary/providers/youdao-dictionary';
 import { DICTIONARY_CONFIG_ID } from '@/modules/dictionary/service';
@@ -110,6 +112,7 @@ async function restorePriorConfig(): Promise<void> {
 }
 
 const createdLookupWords: string[] = [];
+const createdVisibilityWorkIds: string[] = [];
 
 function trackLookupWord(word: string): string {
   const clean = word.trim().toLowerCase();
@@ -193,10 +196,64 @@ afterEach(async () => {
 
 afterAll(async () => {
   await cleanupCreatedLookupWords();
+  if (createdVisibilityWorkIds.length > 0) {
+    await db.delete(readingWorkTable).where(eq(readingWorkTable.id, createdVisibilityWorkIds[0]!));
+    for (const workId of createdVisibilityWorkIds.slice(1)) {
+      await db.delete(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    }
+  }
   await restorePriorConfig();
 });
 
 describe('Dictionary config & lookup API', () => {
+  it('only includes catalog-visible work titles for guest and admin dictionary context', async () => {
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const publishedId = `dict-visible-${suffix}`;
+    const draftId = `dict-draft-${suffix}`;
+    const privateId = `dict-private-${suffix}`;
+    createdVisibilityWorkIds.push(publishedId, draftId, privateId);
+    createdLookupWords.push('visibility_probe');
+    await db.insert(readingWorkTable).values([
+      { id: publishedId, title: 'Published Dictionary Work', status: 'published', visibility: 'catalog' },
+      { id: draftId, title: 'Draft Dictionary Work', status: 'ready', visibility: 'catalog' },
+      { id: privateId, title: 'Private Dictionary Work', status: 'published', visibility: 'private' },
+    ]);
+
+    const memory = createMemoryRedis();
+    vi.spyOn(redisLib, 'getRedis').mockReturnValue(memory.client as never);
+    const admin = await createSession('admin');
+    await putDictionaryProvider(admin.cookie, DICTIONARY_PROVIDER_FREE);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            word: 'visibility_probe',
+            meanings: [{ partOfSpeech: 'noun', definitions: [{ definition: 'A visibility test' }] }],
+          },
+        ]),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    async function lookup(workId: string, cookie?: string) {
+      const response = await app.request(
+        `/api/dictionary/lookup?word=visibility_probe&contextSentence=${encodeURIComponent('A context sentence.')}&workId=${workId}`,
+        cookie ? { headers: { Cookie: cookie } } : undefined,
+      );
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as {
+        entry: { contextExamples?: Array<{ workTitle?: string }> };
+      };
+      return body.entry.contextExamples?.[0]?.workTitle;
+    }
+
+    expect(await lookup(publishedId)).toBe('Published Dictionary Work');
+    expect(await lookup(draftId)).toBeUndefined();
+    expect(await lookup(privateId)).toBeUndefined();
+    expect(await lookup('unknown-work-id')).toBeUndefined();
+    expect(await lookup(draftId, admin.cookie)).toBeUndefined();
+  });
+
   it('protects admin routes from anonymous and normal users', async () => {
     const anonGet = await app.request('/api/admin/dictionary/config');
     expect(anonGet.status).toBe(401);
@@ -482,8 +539,8 @@ describe('Dictionary config & lookup API', () => {
       body: JSON.stringify({ word }),
     });
     expect(testRes.status).toBe(400);
-    const body = (await testRes.json()) as { error: string };
-    expect(body.error).toMatch(/malformed response|must be an array/i);
+    const body = (await testRes.json()) as { error: string; code: string };
+    expect(body.code).toBe(ERROR_CODES.DICTIONARY.MALFORMED_RESPONSE);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(youdaoLookup).not.toHaveBeenCalled();
   });
@@ -510,10 +567,8 @@ describe('Dictionary config & lookup API', () => {
       body: JSON.stringify({ word }),
     });
     expect(testRes.status).toBe(502);
-    const body = (await testRes.json()) as { error: string };
-    expect(body.error).toMatch(/Free Dictionary API/i);
-    expect(body.error).toMatch(/fetch failed/i);
-    expect(body.error).not.toMatch(/Youdao Dictionary API/i);
+    const body = (await testRes.json()) as { error: string; code: string };
+    expect(body.code).toBe(ERROR_CODES.DICTIONARY.FETCH_FAILED);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -538,8 +593,8 @@ describe('Dictionary config & lookup API', () => {
       body: JSON.stringify({ word }),
     });
     expect(testRes.status).toBe(502);
-    const body = (await testRes.json()) as { error: string };
-    expect(body.error).toMatch(/Youdao Dictionary API/i);
+    const body = (await testRes.json()) as { error: string; code: string };
+    expect(body.code).toBe(ERROR_CODES.DICTIONARY.FETCH_FAILED);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(youdaoLookup).toHaveBeenCalledTimes(1);
   });

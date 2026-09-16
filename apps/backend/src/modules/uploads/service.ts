@@ -10,6 +10,7 @@ import { db } from '@/db';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
+import { acquireLockWithWait, releaseLock, startLockRenewal } from '@/lib/redis-lock';
 import { deleteObject, putObject } from '@/modules/oss';
 
 /**
@@ -49,6 +50,9 @@ export type AcquireUploadedObjectResult = {
 };
 
 const uploadLogger = rootLogger.child({ module: 'Uploads' });
+const UPLOAD_DEDUPE_LOCK_PREFIX = 'gloaming:upload:dedupe:';
+const UPLOAD_DEDUPE_LOCK_TTL_SECONDS = 5 * 60;
+const UPLOAD_DEDUPE_LOCK_MAX_WAIT_MS = 30_000;
 
 export function fileExtension(fileName: string): string {
   const match = /\.([^.]+)$/.exec(fileName);
@@ -121,15 +125,20 @@ async function registerUploadedObject(input: {
   storageKey: string;
   mimeType: string;
   size: number;
-}): Promise<void> {
-  await db.insert(uploadedObjectTable).values({
-    id: randomUUID(),
-    contentHash: input.contentHash,
-    storageKey: input.storageKey,
-    mimeType: input.mimeType,
-    size: input.size,
-    refCount: 1,
-  });
+}): Promise<boolean> {
+  const [registered] = await db
+    .insert(uploadedObjectTable)
+    .values({
+      id: randomUUID(),
+      contentHash: input.contentHash,
+      storageKey: input.storageKey,
+      mimeType: input.mimeType,
+      size: input.size,
+      refCount: 1,
+    })
+    .onConflictDoNothing()
+    .returning({ id: uploadedObjectTable.id });
+  return Boolean(registered);
 }
 
 /** Atomic increment of the dedup ref count for an existing object. */
@@ -175,41 +184,67 @@ export async function acquireUploadedObject(
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.UPLOAD.INVALID_HASH);
   }
 
-  const existing = await findUploadedObjectByHash(contentHash);
-  if (existing) {
-    await incrementUploadedObjectRef(contentHash);
-    return { meta: existing, duplicated: true };
+  const lockKey = `${UPLOAD_DEDUPE_LOCK_PREFIX}${contentHash}`;
+  const lockToken = randomUUID();
+  const locked = await acquireLockWithWait(lockKey, lockToken, UPLOAD_DEDUPE_LOCK_TTL_SECONDS, {
+    maxWaitMs: UPLOAD_DEDUPE_LOCK_MAX_WAIT_MS,
+  });
+  if (!locked) {
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.OSS.UNAVAILABLE);
   }
 
-  if (input.kind === 'hash') {
-    return null;
-  }
-
-  const { mimeType } = validateUploadInput({ fileName, body: input.body, contentType: input.contentType, spec });
-  const storageKey = spec.keyBuilder(contentHash);
+  const lockRenewal = startLockRenewal(lockKey, lockToken, UPLOAD_DEDUPE_LOCK_TTL_SECONDS, {
+    maxDurationMs: 15 * 60 * 1_000,
+  });
 
   try {
-    await putObject({ key: storageKey, body: input.body, contentType: mimeType });
-  } catch (error) {
-    uploadLogger.error({ err: error, storageKey }, 'Object store put failed');
-    throw error;
-  }
-
-  try {
-    await registerUploadedObject({ contentHash, storageKey, mimeType, size: input.body.length });
-  } catch (error) {
-    try {
-      await deleteObject(storageKey);
-    } catch (cleanupError) {
-      uploadLogger.warn({ err: cleanupError, storageKey }, 'Failed to clean up orphaned upload object');
+    // Re-check under the hash lock so concurrent uploads converge on one row.
+    const existing = await findUploadedObjectByHash(contentHash);
+    if (existing) {
+      await incrementUploadedObjectRef(contentHash);
+      return { meta: existing, duplicated: true };
     }
-    throw error;
-  }
 
-  return {
-    meta: { storageKey, mimeType, contentHash, size: input.body.length },
-    duplicated: false,
-  };
+    if (input.kind === 'hash') {
+      return null;
+    }
+
+    const { mimeType } = validateUploadInput({ fileName, body: input.body, contentType: input.contentType, spec });
+    const storageKey = spec.keyBuilder(contentHash);
+
+    try {
+      await putObject({ key: storageKey, body: input.body, contentType: mimeType });
+    } catch (error) {
+      uploadLogger.error({ err: error, storageKey }, 'Object store put failed');
+      throw error;
+    }
+
+    const registered = await registerUploadedObject({ contentHash, storageKey, mimeType, size: input.body.length });
+    if (!registered) {
+      // The lock should prevent this, but an older writer or a recovered lock
+      // may still win the unique constraint. Never delete a possibly shared key.
+      const canonical = await findUploadedObjectByHash(contentHash);
+      if (canonical) {
+        await incrementUploadedObjectRef(contentHash);
+        return { meta: canonical, duplicated: true };
+      }
+      throw new Error(`Uploaded object registration did not create a canonical row for ${contentHash}`);
+    }
+
+    return {
+      meta: { storageKey, mimeType, contentHash, size: input.body.length },
+      duplicated: false,
+    };
+  } finally {
+    lockRenewal.stop();
+    try {
+      await releaseLock(lockKey, lockToken);
+    } catch (error) {
+      // The lock has a finite TTL; do not turn a committed upload into a
+      // failed request merely because lock cleanup is temporarily unavailable.
+      uploadLogger.warn({ err: error, lockKey }, 'Failed to release upload dedupe lock');
+    }
+  }
 }
 
 /**

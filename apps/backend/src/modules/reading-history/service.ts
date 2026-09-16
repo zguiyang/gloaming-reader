@@ -1,16 +1,18 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, count, desc, eq, gt, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, lt, sql } from 'drizzle-orm';
 
 import {
   conversation as conversationTable,
   conversationMessage as conversationMessageTable,
   readingDay as readingDayTable,
+  readingHeartbeat as readingHeartbeatTable,
   readingState as readingStateTable,
   readingWork as readingWorkTable,
 } from '@gloaming/db';
 import type { ReadingStateStatus } from '@gloaming/shared/reader';
 import type {
+  ReadingHeartbeatBody,
   ReadingHeartbeatResult,
   ReadingHistoryData,
   ReadingHistorySummary,
@@ -23,6 +25,8 @@ import {
 } from '@gloaming/shared/reading-history';
 
 import { db } from '@/db';
+
+const READING_HEARTBEAT_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 
 function addCalendarDays(date: string, days: number): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
@@ -66,12 +70,12 @@ export async function touchReadingDay(userId: string, now = new Date()): Promise
 /** Credit engaged reading seconds for the Shanghai calendar day (reader heartbeat). */
 export async function recordReadingHeartbeat(
   userId: string,
-  seconds: number,
+  input: ReadingHeartbeatBody,
   now = new Date(),
 ): Promise<ReadingHeartbeatResult> {
-  const credit = Math.min(Math.max(0, Math.floor(seconds)), READING_HEARTBEAT_MAX_CREDIT_SECONDS);
+  const credit = Math.min(Math.max(0, Math.floor(input.seconds)), READING_HEARTBEAT_MAX_CREDIT_SECONDS);
+  const localDate = calendarDateInTimeZone(now);
   if (credit <= 0) {
-    const localDate = calendarDateInTimeZone(now);
     const [row] = await db
       .select({ engagedSeconds: readingDayTable.engagedSeconds })
       .from(readingDayTable)
@@ -80,32 +84,72 @@ export async function recordReadingHeartbeat(
     return { localDate, engagedSeconds: Number(row?.engagedSeconds ?? 0) };
   }
 
-  const localDate = calendarDateInTimeZone(now);
-  await db
-    .insert(readingDayTable)
-    .values({
-      id: randomUUID(),
-      userId,
-      localDate,
-      engagedSeconds: credit,
-    })
-    .onConflictDoUpdate({
-      target: [readingDayTable.userId, readingDayTable.localDate],
-      set: {
-        engagedSeconds: sql`least(${READING_DAY_ENGAGED_SECONDS_CAP}, ${readingDayTable.engagedSeconds} + ${credit})`,
-      },
-    });
+  return db.transaction(async (tx) => {
+    // Keep the dedupe table bounded without relying on a second worker system.
+    await tx
+      .delete(readingHeartbeatTable)
+      .where(lt(readingHeartbeatTable.createdAt, new Date(now.getTime() - READING_HEARTBEAT_RETENTION_MS)));
 
-  const [row] = await db
-    .select({ engagedSeconds: readingDayTable.engagedSeconds })
-    .from(readingDayTable)
-    .where(and(eq(readingDayTable.userId, userId), eq(readingDayTable.localDate, localDate)))
-    .limit(1);
+    const [accepted] = await tx
+      .insert(readingHeartbeatTable)
+      .values({
+        id: randomUUID(),
+        userId,
+        sessionId: input.sessionId,
+        sequenceNumber: input.sequenceNumber,
+        seconds: credit,
+        localDate,
+      })
+      .onConflictDoNothing({
+        target: [readingHeartbeatTable.userId, readingHeartbeatTable.sessionId, readingHeartbeatTable.sequenceNumber],
+      })
+      .returning({ localDate: readingHeartbeatTable.localDate, seconds: readingHeartbeatTable.seconds });
 
-  return {
-    localDate,
-    engagedSeconds: Number(row?.engagedSeconds ?? credit),
-  };
+    let effectiveDate = accepted?.localDate ?? localDate;
+    if (!accepted) {
+      const [duplicate] = await tx
+        .select({ localDate: readingHeartbeatTable.localDate })
+        .from(readingHeartbeatTable)
+        .where(
+          and(
+            eq(readingHeartbeatTable.userId, userId),
+            eq(readingHeartbeatTable.sessionId, input.sessionId),
+            eq(readingHeartbeatTable.sequenceNumber, input.sequenceNumber),
+          ),
+        )
+        .limit(1);
+      if (duplicate) {
+        effectiveDate = duplicate.localDate;
+      }
+    }
+    if (accepted) {
+      await tx
+        .insert(readingDayTable)
+        .values({
+          id: randomUUID(),
+          userId,
+          localDate: effectiveDate,
+          engagedSeconds: accepted.seconds,
+        })
+        .onConflictDoUpdate({
+          target: [readingDayTable.userId, readingDayTable.localDate],
+          set: {
+            engagedSeconds: sql`least(${READING_DAY_ENGAGED_SECONDS_CAP}, ${readingDayTable.engagedSeconds} + ${accepted.seconds})`,
+          },
+        });
+    }
+
+    const [row] = await tx
+      .select({ engagedSeconds: readingDayTable.engagedSeconds })
+      .from(readingDayTable)
+      .where(and(eq(readingDayTable.userId, userId), eq(readingDayTable.localDate, effectiveDate)))
+      .limit(1);
+
+    return {
+      localDate: effectiveDate,
+      engagedSeconds: Number(row?.engagedSeconds ?? 0),
+    };
+  });
 }
 
 function pushShanghaiDates(target: Set<string>, ...values: Array<Date | null | undefined>): void {

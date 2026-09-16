@@ -3,11 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import {
-  dictionaryConfig as dictionaryConfigTable,
-  dictionaryEntry as dictionaryEntryTable,
-  readingWork,
-} from '@gloaming/db';
+import { dictionaryConfig as dictionaryConfigTable, dictionaryEntry as dictionaryEntryTable } from '@gloaming/db';
 import {
   DEFAULT_DICTIONARY_CONFIG,
   DICTIONARY_PROVIDER_FREE,
@@ -34,6 +30,7 @@ import { isTransientDictionaryProviderFailure } from '@/modules/dictionary/provi
 import { FreeDictionaryProvider } from '@/modules/dictionary/providers/free-dictionary';
 import { YoudaoDictionaryProvider } from '@/modules/dictionary/providers/youdao-dictionary';
 import type { DictionaryProvider, RawProviderResult } from '@/modules/dictionary/types';
+import { getPublishedWorkTitle } from '@/modules/works/service';
 
 export const DICTIONARY_CONFIG_ID = 'default';
 
@@ -444,12 +441,7 @@ async function resolveWorkTitle(workId?: string): Promise<string | undefined> {
     return undefined;
   }
   try {
-    const [work] = await db
-      .select({ title: readingWork.title })
-      .from(readingWork)
-      .where(eq(readingWork.id, workId))
-      .limit(1);
-    return work?.title;
+    return await getPublishedWorkTitle(workId);
   } catch {
     return undefined;
   }

@@ -25,6 +25,16 @@ export function getRedis(): Redis {
   return client;
 }
 
-export async function redisPing(): Promise<string> {
-  return getRedis().ping();
+export async function redisPing(timeoutMs = 1_000): Promise<string> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      getRedis().ping(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Redis ping timed out')), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }

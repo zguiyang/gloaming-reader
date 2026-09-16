@@ -27,6 +27,7 @@ export {
   llmProviderRelations,
   readingDay,
   readingDayRelations,
+  readingHeartbeat,
   readingPart,
   readingPartRelations,
   readingState,

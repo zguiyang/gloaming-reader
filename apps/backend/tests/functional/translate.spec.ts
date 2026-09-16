@@ -89,16 +89,67 @@ function parseSseBlocks(raw: string): ParsedSse[] {
 
 function createMemoryRedis() {
   const store = new Map<string, string>();
-  return {
-    store,
-    client: {
-      get: vi.fn(async (key: string) => store.get(key) ?? null),
-      set: vi.fn(async (key: string, value: string) => {
-        store.set(key, value);
-        return 'OK';
-      }),
-    },
+  const expiresAt = new Map<string, number>();
+  const purgeExpired = (key: string) => {
+    const expires = expiresAt.get(key);
+    if (expires !== undefined && expires <= Date.now()) {
+      store.delete(key);
+      expiresAt.delete(key);
+    }
   };
+  const client = {
+    get: vi.fn(async (key: string) => {
+      purgeExpired(key);
+      return store.get(key) ?? null;
+    }),
+    set: vi.fn(async (key: string, value: string, mode?: string, ttl?: number, nx?: string) => {
+      purgeExpired(key);
+      if (nx === 'NX' && store.has(key)) return null;
+      store.set(key, value);
+      if (mode === 'EX' && ttl !== undefined) expiresAt.set(key, Date.now() + ttl * 1000);
+      return 'OK';
+    }),
+    del: vi.fn(async (key: string) => {
+      purgeExpired(key);
+      const existed = store.delete(key);
+      expiresAt.delete(key);
+      return existed ? 1 : 0;
+    }),
+    eval: vi.fn(async (script: string, _keyCount: number, key: string, ...args: string[]) => {
+      purgeExpired(key);
+      const current = Number(store.get(key) ?? '0');
+      if (script.includes('current >=') && current >= Number(args[0])) return 0;
+      if (script.includes('local next')) {
+        const next = current + 1;
+        store.set(key, String(next));
+        expiresAt.set(key, Date.now() + Number(args[1]) * 1000);
+        return next;
+      }
+      if (current <= 1) {
+        store.delete(key);
+        expiresAt.delete(key);
+        return 1;
+      }
+      const next = current - 1;
+      store.set(key, String(next));
+      return next;
+    }),
+    defineCommand(name: string) {
+      if (name === 'rlflxIncr') {
+        client.rlflxIncr = vi.fn(async (args: string[]) => {
+          const [key, points, seconds] = args;
+          if (!key || !points || !seconds) throw new Error('Invalid rate limiter arguments');
+          purgeExpired(key);
+          const next = Number(store.get(key) ?? '0') + Number(points);
+          store.set(key, String(next));
+          if (!expiresAt.has(key)) expiresAt.set(key, Date.now() + Number(seconds) * 1000);
+          return [next, Math.max(0, expiresAt.get(key)! - Date.now())];
+        });
+      }
+    },
+    rlflxIncr: undefined as ReturnType<typeof vi.fn> | undefined,
+  };
+  return { store, client };
 }
 
 async function* translateStream(): AsyncGenerator<aiService.AiStreamEvent> {

@@ -9,6 +9,9 @@ import type { AdminWork } from '@gloaming/shared/works';
 import app from '@/app';
 import { db } from '@/db';
 
+import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';
+import { ensureWorkTaxonomyFixture } from '../helpers/taxonomy-fixture';
+
 const password = 'password123';
 
 function uniqueEmail(prefix: string) {
@@ -95,15 +98,14 @@ describe('Shelf HTTP', () => {
       });
       expect(create.status).toBe(201);
       const work = (await create.json()) as AdminWork;
-      expect(
-        (
-          await app.request(`/api/admin/works/${work.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
-            body: JSON.stringify({ sources: ['demo'], tags: ['story'] }),
-          })
-        ).status,
-      ).toBe(200);
+      const taxonomy = await ensureWorkTaxonomyFixture('shelf');
+      const taxonomyUpdate = await app.request(`/api/admin/works/${work.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
+        body: JSON.stringify(taxonomy),
+      });
+      expect(taxonomyUpdate.status).toBe(200);
+      await seedReadyDefaultAudioForWork(work.id);
       expect(
         (
           await app.request(`/api/admin/works/${work.id}/publish`, {

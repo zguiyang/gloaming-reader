@@ -67,8 +67,13 @@ export const READING_HEARTBEAT_INTERVAL_MS = 30_000 as const;
  */
 export const READING_HEARTBEAT_MAX_CREDIT_SECONDS = 45 as const;
 
+/** PostgreSQL integer upper bound used by the persisted dedupe identity. */
+export const READING_HEARTBEAT_MAX_SEQUENCE_NUMBER = 2_147_483_647 as const;
+
 export const readingHeartbeatBodySchema = z.object({
   seconds: z.number().int().positive().max(READING_HEARTBEAT_MAX_CREDIT_SECONDS),
+  sessionId: z.string().trim().min(1).max(128),
+  sequenceNumber: z.number().int().positive().max(READING_HEARTBEAT_MAX_SEQUENCE_NUMBER),
 });
 
 export type ReadingHeartbeatBody = z.infer<typeof readingHeartbeatBodySchema>;

@@ -1,20 +1,16 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { username } from 'better-auth/plugins';
-import { Resend } from 'resend';
 
 import * as schema from '@gloaming/db/schema';
 import { AUTH_PASSWORD_POLICY, AUTH_USER_ROLE, AUTH_USERNAME_POLICY, isValidUsername } from '@gloaming/shared/auth';
 
 import { db } from '@/db';
 import { bindAuthDatabaseForAdapter, resolveBootstrapRoleForNewUser } from '@/lib/auth-bootstrap';
-import { buildVerificationUrl, logDevAuthLink } from '@/lib/auth-mail';
+import { buildVerificationUrl, logDevAuthLink, sendAuthMail } from '@/lib/auth-mail';
 import { env } from '@/lib/env';
-import { authLogger } from '@/lib/logger';
 
 const authDatabase = bindAuthDatabaseForAdapter(db);
-
-const resend = new Resend(env.RESEND_API_KEY);
 
 const socialProviders =
   env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
@@ -32,20 +28,6 @@ const DICEBEAR_STYLES = ['lorelei', 'adventurer', 'big-smile', 'croodles', 'pers
 function diceBearAvatarUrl(seed: string): string {
   const style = DICEBEAR_STYLES[Math.floor(Math.random() * DICEBEAR_STYLES.length)]!;
   return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}`;
-}
-
-async function sendMail(input: { to: string; subject: string; text: string }): Promise<void> {
-  const { error } = await resend.emails.send({
-    from: `${env.MAIL_FROM_NAME} <${env.MAIL_FROM_ADDRESS}>`,
-    to: input.to,
-    subject: input.subject,
-    text: input.text,
-  });
-
-  if (error) {
-    // Log only — auth flows should not fail open/closed on transactional mail transport errors.
-    authLogger.error({ error }, 'Failed to send email via Resend');
-  }
 }
 
 export const auth = betterAuth({
@@ -72,7 +54,9 @@ export const auth = betterAuth({
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, token }) => {
       const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${encodeURIComponent(token)}`;
-      void sendMail({
+      await sendAuthMail({
+        operation: 'password_reset',
+        userId: user.id,
         to: user.email,
         subject: 'Reset your Gloaming password',
         text: `Reset your password: ${resetUrl}`,
@@ -98,7 +82,9 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, token }) => {
       const verifyUrl = buildVerificationUrl(token);
       logDevAuthLink({ to: user.email, url: verifyUrl, kind: 'verify-email' });
-      void sendMail({
+      await sendAuthMail({
+        operation: 'verification',
+        userId: user.id,
         to: user.email,
         subject: 'Verify your Gloaming email',
         text: `Verify your email: ${verifyUrl}`,

@@ -21,6 +21,11 @@ function isPublicAssetKind(kind: string): boolean {
   return kind === 'image' || kind === 'cover' || kind.startsWith('audio_');
 }
 
+/** Only published learner-facing assets may use shared public caching. */
+export function isPublicAsset(asset: Pick<ResolvedAsset, 'kind' | 'workStatus'>): boolean {
+  return asset.workStatus === 'published' && isPublicAssetKind(asset.kind);
+}
+
 export function resolveAssetViewer(user: AuthSessionUser | null): AssetViewer {
   if (!user) {
     return 'anonymous';
@@ -70,10 +75,7 @@ export function isAssetAuthorized(viewer: AssetViewer, asset: ResolvedAsset): bo
   if (viewer === 'admin') {
     return true;
   }
-  if (asset.workStatus !== 'published') {
-    return false;
-  }
-  return isPublicAssetKind(asset.kind);
+  return isPublicAsset(asset);
 }
 
 export async function streamAsset(asset: ResolvedAsset, range?: ObjectRange): Promise<ObjectGetStreamResult | null> {

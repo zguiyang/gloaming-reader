@@ -8,6 +8,7 @@ import { AUTH_ADMIN_ROLE, AUTH_USER_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { db } from '@/db';
+import { ERROR_CODES } from '@/lib/error-codes';
 
 const password = 'password123';
 const newPassword = 'password456';
@@ -155,7 +156,7 @@ describe('Better Auth HTTP', () => {
 
     const meAnon = await app.request('/api/me');
     expect(meAnon.status).toBe(401);
-    await expect(meAnon.json()).resolves.toEqual({ error: 'Unauthorized' });
+    await expect(meAnon.json()).resolves.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED });
 
     const loginUsername = await signInUsername(username);
     expect(loginUsername.status).toBe(200);
@@ -212,13 +213,13 @@ describe('Better Auth HTTP', () => {
   it('returns 401 on protected probe without session', async () => {
     const response = await app.request('/api/me');
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: 'Unauthorized' });
+    await expect(response.json()).resolves.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED });
   });
 
   it('guards admin probe by authenticated admin role', async () => {
     const anonymous = await app.request('/api/admin/probe');
     expect(anonymous.status).toBe(401);
-    await expect(anonymous.json()).resolves.toEqual({ error: 'Unauthorized' });
+    await expect(anonymous.json()).resolves.toMatchObject({ code: ERROR_CODES.UNAUTHORIZED });
 
     const userEmail = uniqueEmail('regular-admin-probe');
     const userUsername = `regular_${Date.now().toString(36)}`;
@@ -232,7 +233,7 @@ describe('Better Auth HTTP', () => {
       headers: { cookie: cookieHeader(userLogin) },
     });
     expect(userDenied.status).toBe(403);
-    await expect(userDenied.json()).resolves.toEqual({ error: 'Forbidden' });
+    await expect(userDenied.json()).resolves.toMatchObject({ code: ERROR_CODES.FORBIDDEN });
 
     const adminEmail = uniqueEmail('admin-probe');
     const adminUsername = `admin_${Date.now().toString(36)}`;

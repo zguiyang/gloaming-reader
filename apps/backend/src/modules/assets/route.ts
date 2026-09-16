@@ -3,7 +3,13 @@ import { Hono } from 'hono';
 import { HTTP_STATUS } from '@/constants';
 import type { ObjectRange } from '@/lib/oss';
 import type { AuthVariables } from '@/middleware/auth';
-import { isAssetAuthorized, resolveAsset, resolveAssetViewer, streamAsset } from '@/modules/assets/service';
+import {
+  isAssetAuthorized,
+  isPublicAsset,
+  resolveAsset,
+  resolveAssetViewer,
+  streamAsset,
+} from '@/modules/assets/service';
 
 export const assetsRoutes = new Hono<{ Variables: AuthVariables }>();
 
@@ -50,7 +56,7 @@ assetsRoutes.get('/api/assets/:assetId', async (c) => {
   const headers = new Headers();
   headers.set('Content-Type', object.contentType);
   headers.set('Accept-Ranges', 'bytes');
-  headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  headers.set('Cache-Control', isPublicAsset(asset) ? 'public, max-age=31536000, immutable' : 'private, no-store');
   headers.set('X-Content-Type-Options', 'nosniff');
   if (object.etag) {
     headers.set('ETag', object.etag);

@@ -27,6 +27,7 @@ import { TTS_CONFIG_ID } from '@/modules/tts/service';
 import { hashPartAudioContent } from '@/modules/works/content-hash';
 
 import { createMemoryObjectStore } from '../helpers/memory-oss';
+import { ensureWorkTaxonomyFixture } from '../helpers/taxonomy-fixture';
 
 const password = 'password123';
 
@@ -166,13 +167,14 @@ describe('learner part audio', () => {
     expect(create.status).toBe(201);
     const work = (await create.json()) as AdminWork;
     const partId = work.parts[0]!.id;
+    const taxonomy = await ensureWorkTaxonomyFixture('reader-audio');
 
     expect(
       (
         await app.request(`/api/admin/works/${work.id}`, {
           method: 'PATCH',
           headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sources: ['demo'], tags: ['daily'] }),
+          body: JSON.stringify(taxonomy),
         })
       ).status,
     ).toBe(200);

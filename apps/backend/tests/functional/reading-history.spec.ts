@@ -25,6 +25,7 @@ import * as conversationsService from '@/modules/conversations/service';
 import { recordReadingHeartbeat } from '@/modules/reading-history/service';
 
 import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';
+import { ensureWorkTaxonomyFixture } from '../helpers/taxonomy-fixture';
 
 const password = 'password123';
 
@@ -98,13 +99,14 @@ async function createPublishedWork(adminCookie: string, title: string): Promise<
   });
   expect(create.status).toBe(201);
   const work = (await create.json()) as AdminWork;
+  const taxonomy = await ensureWorkTaxonomyFixture('reading-history');
 
   expect(
     (
       await app.request(`/api/admin/works/${work.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', cookie: adminCookie },
-        body: JSON.stringify({ sources: ['demo'], tags: ['science'] }),
+        body: JSON.stringify(taxonomy),
       })
     ).status,
   ).toBe(200);
@@ -357,21 +359,25 @@ describe('Reading history HTTP', () => {
     const unauthorized = await app.request('/api/reading-heartbeat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ seconds: 30 }),
+      body: JSON.stringify({ seconds: 30, sessionId: 'history-session', sequenceNumber: 1 }),
     });
     expect(unauthorized.status).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     const overLimit = await app.request('/api/reading-heartbeat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
-      body: JSON.stringify({ seconds: READING_HEARTBEAT_MAX_CREDIT_SECONDS + 1 }),
+      body: JSON.stringify({
+        seconds: READING_HEARTBEAT_MAX_CREDIT_SECONDS + 1,
+        sessionId: 'history-session',
+        sequenceNumber: 1,
+      }),
     });
     expect(overLimit.status).toBe(HTTP_STATUS.BAD_REQUEST);
 
     const first = await app.request('/api/reading-heartbeat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
-      body: JSON.stringify({ seconds: 30 }),
+      body: JSON.stringify({ seconds: 30, sessionId: 'history-session', sequenceNumber: 1 }),
     });
     expect(first.status).toBe(200);
     expect(await first.json()).toEqual({
@@ -379,10 +385,21 @@ describe('Reading history HTTP', () => {
       engagedSeconds: 30,
     });
 
+    const firstRetry = await app.request('/api/reading-heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ seconds: 30, sessionId: 'history-session', sequenceNumber: 1 }),
+    });
+    expect(firstRetry.status).toBe(200);
+    expect(await firstRetry.json()).toEqual({
+      localDate: calendarDateInTimeZone(),
+      engagedSeconds: 30,
+    });
+
     const second = await app.request('/api/reading-heartbeat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
-      body: JSON.stringify({ seconds: 15 }),
+      body: JSON.stringify({ seconds: 15, sessionId: 'history-session', sequenceNumber: 2 }),
     });
     expect(second.status).toBe(200);
     expect(await second.json()).toEqual({
@@ -390,8 +407,53 @@ describe('Reading history HTTP', () => {
       engagedSeconds: 45,
     });
 
+    const secondRetry = await app.request('/api/reading-heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ seconds: 15, sessionId: 'history-session', sequenceNumber: 2 }),
+    });
+    expect(secondRetry.status).toBe(200);
+    expect(await secondRetry.json()).toEqual({
+      localDate: calendarDateInTimeZone(),
+      engagedSeconds: 45,
+    });
+
+    const outOfOrderSessionId = `history-out-of-order-${randomUUID()}`;
+    const later = await app.request('/api/reading-heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ seconds: 15, sessionId: outOfOrderSessionId, sequenceNumber: 2 }),
+    });
+    expect(later.status).toBe(200);
+    expect(await later.json()).toEqual({
+      localDate: calendarDateInTimeZone(),
+      engagedSeconds: 60,
+    });
+
+    const earlier = await app.request('/api/reading-heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ seconds: 10, sessionId: outOfOrderSessionId, sequenceNumber: 1 }),
+    });
+    expect(earlier.status).toBe(200);
+    expect(await earlier.json()).toEqual({
+      localDate: calendarDateInTimeZone(),
+      engagedSeconds: 70,
+    });
+
+    const earlierRetry = await app.request('/api/reading-heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ seconds: 10, sessionId: outOfOrderSessionId, sequenceNumber: 1 }),
+    });
+    expect(earlierRetry.status).toBe(200);
+    expect(await earlierRetry.json()).toEqual({
+      localDate: calendarDateInTimeZone(),
+      engagedSeconds: 70,
+    });
+
     const history = await getReadingHistory(learner.cookie);
-    expect(history.activity).toEqual([{ date: calendarDateInTimeZone(), engagedSeconds: 45 }]);
+    expect(history.activity).toEqual([{ date: calendarDateInTimeZone(), engagedSeconds: 70 }]);
     expect(history.portrait.readingDays).toBe(1);
     expect(history.portrait.consecutiveDays).toBe(1);
 
@@ -399,10 +461,15 @@ describe('Reading history HTTP', () => {
       .update(readingDayTable)
       .set({ engagedSeconds: READING_DAY_ENGAGED_SECONDS_CAP - 1 })
       .where(and(eq(readingDayTable.userId, learner.userId), eq(readingDayTable.localDate, calendarDateInTimeZone())));
-    expect((await recordReadingHeartbeat(learner.userId, READING_HEARTBEAT_MAX_CREDIT_SECONDS)).engagedSeconds).toBe(
+    const capHeartbeat = {
+      seconds: READING_HEARTBEAT_MAX_CREDIT_SECONDS,
+      sessionId: 'cap-session',
+      sequenceNumber: 1,
+    };
+    expect((await recordReadingHeartbeat(learner.userId, capHeartbeat)).engagedSeconds).toBe(
       READING_DAY_ENGAGED_SECONDS_CAP,
     );
-    expect((await recordReadingHeartbeat(learner.userId, READING_HEARTBEAT_MAX_CREDIT_SECONDS)).engagedSeconds).toBe(
+    expect((await recordReadingHeartbeat(learner.userId, capHeartbeat)).engagedSeconds).toBe(
       READING_DAY_ENGAGED_SECONDS_CAP,
     );
   });

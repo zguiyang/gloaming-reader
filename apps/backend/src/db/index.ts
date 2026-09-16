@@ -17,4 +17,9 @@ const pool = new Pool({
 
 export const db = drizzle(pool, { schema });
 
+/** Bounded dependency probe used by the readiness endpoint. */
+export async function dbPing(): Promise<void> {
+  await pool.query('SELECT 1');
+}
+
 dbLogger.info('Connected to PostgreSQL');

@@ -569,7 +569,13 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     const top = await listExistingTagsTool().invoke({});
     const parsedTop = JSON.parse(top) as { tags: Array<{ name: string; usage: number }> };
     expect(parsedTop.tags.length).toBeGreaterThanOrEqual(2);
-    expect(parsedTop.tags.some((t) => t.name === 'Science')).toBe(true);
+    expect(parsedTop.tags.every((tag, index) => index === 0 || parsedTop.tags[index - 1]!.usage >= tag.usage)).toBe(
+      true,
+    );
+
+    const science = await listExistingTagsTool().invoke({ query: 'science' });
+    const parsedScience = JSON.parse(science) as { tags: Array<{ name: string; usage: number }> };
+    expect(parsedScience.tags.map((tag) => tag.name)).toContain('Science');
 
     const searched = await listExistingTagsTool().invoke({ query: 'adventure' });
     const parsedSearch = JSON.parse(searched) as { tags: Array<{ name: string; usage: number }> };

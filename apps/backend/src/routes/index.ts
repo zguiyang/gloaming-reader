@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 
+import { checkReadiness } from '@/lib/health';
 import { enqueuePing } from '@/lib/queue';
-import { redisPing } from '@/lib/redis';
 import { type AuthVariables, requireAdmin, requireAuth } from '@/middleware/auth';
 import { aiRoutes } from '@/modules/ai/route';
 import { assetManagementRoutes } from '@/modules/asset-management/route';
@@ -23,9 +23,25 @@ import { worksRoutes } from '@/modules/works/route';
 /** Route composition entry — mount feature modules here as they are added. */
 export const routes = new Hono<{ Variables: AuthVariables }>();
 
+routes.get('/api/health/live', (c) => {
+  return c.json({ status: 'live' });
+});
+
+routes.get('/api/health/ready', async (c) => {
+  const result = await checkReadiness();
+  return c.json(
+    { status: result.ready ? 'ready' : 'not_ready', dependencies: result.dependencies },
+    result.ready ? 200 : 503,
+  );
+});
+
+/** Compatibility alias for existing operators; readiness is the safe default. */
 routes.get('/api/health', async (c) => {
-  const redis = await redisPing();
-  return c.json({ ok: true, redis });
+  const result = await checkReadiness();
+  return c.json(
+    { status: result.ready ? 'ready' : 'not_ready', dependencies: result.dependencies },
+    result.ready ? 200 : 503,
+  );
 });
 
 routes.get('/api/me', requireAuth, (c) => {

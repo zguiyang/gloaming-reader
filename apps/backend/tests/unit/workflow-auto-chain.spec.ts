@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getWorkflowPolicyProjection, WORKFLOW_AUTO_CHAIN } from '@/lib/workflow-policy';
+import { EpubResourceLimitError } from '@/modules/epub-ingest/epub';
 
 const processContentWork = vi.fn();
 const enqueue = vi.fn();
@@ -27,6 +28,16 @@ describe('WORKFLOW_AUTO_CHAIN gates', () => {
     const { processContentParse } = await import('@/jobs/content-parse');
     await processContentParse({ workId: 'work-1', retryJobToken: 'retry-a' }, 'parse-attempt-a');
     expect(processContentWork).toHaveBeenCalledWith('work-1', 'retry-a', 'parse-attempt-a');
+    expect(enqueue).not.toHaveBeenCalled();
+  });
+
+  it('marks permanent EPUB validation failures as unrecoverable', async () => {
+    processContentWork.mockRejectedValueOnce(new EpubResourceLimitError('test limit'));
+    const { processContentParse } = await import('@/jobs/content-parse');
+
+    await expect(
+      processContentParse({ workId: 'work-1', retryJobToken: 'retry-a' }, 'parse-attempt-a'),
+    ).rejects.toMatchObject({ name: 'UnrecoverableError', message: expect.stringContaining('test limit') });
     expect(enqueue).not.toHaveBeenCalled();
   });
 });

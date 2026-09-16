@@ -813,6 +813,27 @@ export const readingDayRelations = relations(readingDay, ({ one }) => ({
   }),
 }));
 
+/** Durable dedupe records for reader heartbeat delivery within a bounded retry window. */
+export const readingHeartbeat = pgTable(
+  'reading_heartbeat',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').notNull(),
+    sequenceNumber: integer('sequence_number').notNull(),
+    seconds: integer('seconds').notNull(),
+    localDate: date('local_date', { mode: 'string' }).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('reading_heartbeat_identity_uidx').on(table.userId, table.sessionId, table.sequenceNumber),
+    index('reading_heartbeat_created_at_idx').on(table.createdAt),
+    index('reading_heartbeat_user_created_at_idx').on(table.userId, table.createdAt),
+  ],
+);
+
 /**
  * Content-addressed object registry for the generic upload service.
  * One row per unique file (contentHash unique). `refCount` tracks how many

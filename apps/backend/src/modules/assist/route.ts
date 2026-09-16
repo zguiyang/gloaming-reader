@@ -5,12 +5,13 @@ import { ASSIST_SSE_EVENT } from '@gloaming/shared/assist';
 
 import { formatThrownError } from '@/lib/response';
 import { type AuthVariables, requireAuth } from '@/middleware/auth';
+import { aiRateLimit } from '@/middleware/rate-limit';
 import * as assistService from '@/modules/assist/service';
 import { validateAssistAsk } from '@/modules/assist/validator';
 
 export const assistRoutes = new Hono<{ Variables: AuthVariables }>();
 
-assistRoutes.post('/api/assist/ask', requireAuth, validateAssistAsk, async (c) => {
+assistRoutes.post('/api/assist/ask', requireAuth, validateAssistAsk, aiRateLimit('assist'), async (c) => {
   const user = c.get('user');
   const body = c.req.valid('json');
 

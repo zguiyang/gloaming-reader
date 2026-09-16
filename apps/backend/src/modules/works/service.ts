@@ -5,6 +5,7 @@ import { and, asc, count, desc, eq, exists, ilike, inArray, or, type SQL, sql } 
 import {
   category as categoryTable,
   contentAsset as contentAssetTable,
+  type ContentAssetMeta,
   conversation as conversationTable,
   readingPart as readingPartTable,
   readingWork as readingWorkTable,
@@ -13,6 +14,7 @@ import {
   readingWorkTag as readingWorkTagTable,
   source as sourceTable,
   tag as tagTable,
+  uploadedObject as uploadedObjectTable,
   type WorkMetadataProvenance,
   type WorkMetadataProvenanceMap,
 } from '@gloaming/db';
@@ -59,6 +61,8 @@ import {
   workflowLeaseExpiresAt,
 } from '@/lib/workflow';
 import { getWorkflowPolicyProjection, TTS_STEP_ENABLED, WORKFLOW_AUTO_CHAIN } from '@/lib/workflow-policy';
+import { collectReferencedStorageKeys } from '@/modules/asset-management/service';
+import { allAudioObjectKeysForLegacyCleanup } from '@/modules/content-assets/service';
 import { getWorksDerivedFreshness } from '@/modules/derived-freshness';
 import { deleteObject } from '@/modules/oss';
 import { computePartReadingStats, computeWorkReadingStats } from '@/modules/reading-stats/service';
@@ -592,8 +596,12 @@ function escapeIlikePattern(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
-function catalogPublishedWorkFilter(): SQL {
-  return and(eq(readingWorkTable.status, 'published'), eq(readingWorkTable.visibility, 'catalog'))!;
+function catalogPublishedWorkFilter(id?: string): SQL {
+  return and(
+    ...(id ? [eq(readingWorkTable.id, id)] : []),
+    eq(readingWorkTable.status, 'published'),
+    eq(readingWorkTable.visibility, 'catalog'),
+  )!;
 }
 
 function publishedListWhere(query: Pick<CatalogListQuery, 'tag' | 'category' | 'q'>): SQL {
@@ -750,12 +758,15 @@ function stripFileExtension(fileName: string): string {
  * that reference an uploaded object. DB stores only the object storage key.
  * On failure the acquired reference is released (may garbage-collect the object).
  */
-async function insertEpubWorkAndAsset(input: {
+export async function insertEpubWorkAndAsset(input: {
   fileName: string;
   meta: UploadedFileMeta;
   reused: boolean;
+  /** Internal test seam for deterministic rollback verification. */
+  workId?: string;
+  assetId?: string;
 }): Promise<CreateEpubWorkResult> {
-  const workId = randomUUID();
+  const workId = input.workId ?? randomUUID();
   const title = stripFileExtension(input.fileName).slice(0, 200) || input.fileName;
   const retryJobToken = WORKFLOW_AUTO_CHAIN ? randomUUID() : undefined;
   const originMeta = {
@@ -765,25 +776,27 @@ async function insertEpubWorkAndAsset(input: {
   };
 
   try {
-    await db.insert(readingWorkTable).values({
-      id: workId,
-      title,
-      description: '',
-      status: WORKFLOW_AUTO_CHAIN ? 'processing' : 'uploaded',
-      originKind: 'admin_epub',
-      originMeta,
-      publishedAt: null,
-    });
+    await db.transaction(async (tx) => {
+      await tx.insert(readingWorkTable).values({
+        id: workId,
+        title,
+        description: '',
+        status: WORKFLOW_AUTO_CHAIN ? 'processing' : 'uploaded',
+        originKind: 'admin_epub',
+        originMeta,
+        publishedAt: null,
+      });
 
-    await db.insert(contentAssetTable).values({
-      id: randomUUID(),
-      workId,
-      kind: 'origin_file',
-      status: 'ready',
-      storageKey: input.meta.storageKey,
-      mimeType: input.meta.mimeType,
-      contentHash: input.meta.contentHash,
-      meta: { size: input.meta.size, originalFileName: input.fileName, reused: input.reused },
+      await tx.insert(contentAssetTable).values({
+        id: input.assetId ?? randomUUID(),
+        workId,
+        kind: 'origin_file',
+        status: 'ready',
+        storageKey: input.meta.storageKey,
+        mimeType: input.meta.mimeType,
+        contentHash: input.meta.contentHash,
+        meta: { size: input.meta.size, originalFileName: input.fileName, reused: input.reused },
+      });
     });
   } catch (error) {
     try {
@@ -1253,50 +1266,108 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
   return getAdminWork(id);
 }
 
+type WorkExternalCleanup = {
+  partIds: string[];
+  storageKeys: string[];
+};
+
+/** Delete an object only when no committed DB row still references it. */
+async function cleanupWorkStorageKey(workId: string, storageKey: string): Promise<void> {
+  const referencedKeys = await collectReferencedStorageKeys();
+  if (referencedKeys.allReferencedKeys.has(storageKey)) {
+    return;
+  }
+
+  try {
+    await deleteObject(storageKey);
+  } catch (error) {
+    // The DB no longer serves the work. Asset management's orphan scan can
+    // safely discover and retry this external cleanup later.
+    workLogger.warn({ err: error, workId, storageKey }, 'Failed to delete work storage object after DB commit');
+  }
+}
+
+/**
+ * Delete a work in two durable phases: remove DB facts and uploaded-object
+ * references in one transaction, then perform best-effort external cleanup.
+ * A failed object deletion is an orphan, not a healthy work resource, and is
+ * recoverable by the existing asset-management scan/retry workflow.
+ */
 export async function deleteWork(id: string): Promise<void> {
-  const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
-  if (!existing) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
-  }
-  if (existing.status === 'published') {
-    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.UNPUBLISH_FIRST);
-  }
-
-  const parts = await loadPartsForWork(id);
-  const assetRows = await db
-    .select({
-      storageKey: contentAssetTable.storageKey,
-      kind: contentAssetTable.kind,
-      partId: contentAssetTable.partId,
-      meta: contentAssetTable.meta,
-    })
-    .from(contentAssetTable)
-    .where(eq(contentAssetTable.workId, id));
-
-  for (const row of assetRows) {
-    if (!row.storageKey) {
-      continue;
+  const cleanup = await db.transaction(async (tx): Promise<WorkExternalCleanup> => {
+    const [existing] = await tx
+      .select()
+      .from(readingWorkTable)
+      .where(eq(readingWorkTable.id, id))
+      .for('update')
+      .limit(1);
+    if (!existing) {
+      throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
     }
-    if (row.kind === 'origin_file') {
-      // Dedup-registered objects: release one reference; garbage-collected at zero.
-      await releaseUploadedObject(row.storageKey);
-    } else if (row.kind.startsWith('audio_')) {
-      const { deleteAudioAssetObjects } = await import('@/modules/content-assets/service');
-      await deleteAudioAssetObjects({ kind: row.kind, storageKey: row.storageKey, meta: row.meta });
-    } else {
-      await deleteObject(row.storageKey);
+    if (existing.status === 'published') {
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.UNPUBLISH_FIRST);
+    }
+
+    const parts = await tx
+      .select({ id: readingPartTable.id })
+      .from(readingPartTable)
+      .where(eq(readingPartTable.workId, id));
+    const assetRows = await tx
+      .select({ storageKey: contentAssetTable.storageKey, kind: contentAssetTable.kind, meta: contentAssetTable.meta })
+      .from(contentAssetTable)
+      .where(eq(contentAssetTable.workId, id));
+    const storageKeys = new Set<string>();
+
+    for (const asset of assetRows) {
+      const keys = asset.kind.startsWith('audio_')
+        ? allAudioObjectKeysForLegacyCleanup({ storageKey: asset.storageKey, meta: asset.meta as ContentAssetMeta })
+        : [asset.storageKey, ...((asset.meta as ContentAssetMeta).objectKeys ?? [])];
+      for (const key of keys) {
+        if (key) storageKeys.add(key);
+      }
+
+      if (asset.kind !== 'origin_file') {
+        continue;
+      }
+
+      const [uploaded] = await tx
+        .select({ id: uploadedObjectTable.id, refCount: uploadedObjectTable.refCount })
+        .from(uploadedObjectTable)
+        .where(eq(uploadedObjectTable.storageKey, asset.storageKey))
+        .for('update')
+        .limit(1);
+      if (!uploaded) {
+        continue;
+      }
+      if (uploaded.refCount <= 1) {
+        await tx.delete(uploadedObjectTable).where(eq(uploadedObjectTable.id, uploaded.id));
+      } else {
+        await tx
+          .update(uploadedObjectTable)
+          .set({ refCount: sql`${uploadedObjectTable.refCount} - 1` })
+          .where(eq(uploadedObjectTable.id, uploaded.id));
+        storageKeys.delete(asset.storageKey);
+      }
+    }
+
+    await tx
+      .delete(conversationTable)
+      .where(and(eq(conversationTable.subjectType, 'reading_work'), eq(conversationTable.subjectId, id)));
+    await tx.delete(readingWorkTable).where(eq(readingWorkTable.id, id));
+
+    return { partIds: parts.map((part) => part.id), storageKeys: [...storageKeys] };
+  });
+
+  for (const partId of cleanup.partIds) {
+    try {
+      await deleteBilingualCacheForPart(partId);
+    } catch (error) {
+      workLogger.warn({ err: error, workId: id, partId }, 'Failed to delete bilingual cache after work commit');
     }
   }
-
-  for (const part of parts) {
-    await deleteBilingualCacheForPart(part.id);
+  for (const storageKey of cleanup.storageKeys) {
+    await cleanupWorkStorageKey(id, storageKey);
   }
-
-  await db
-    .delete(conversationTable)
-    .where(and(eq(conversationTable.subjectType, 'reading_work'), eq(conversationTable.subjectId, id)));
-
-  await db.delete(readingWorkTable).where(eq(readingWorkTable.id, id));
 }
 
 async function listCatalogTaxonomyFacets(kind: 'tag' | 'category'): Promise<CatalogTaxonomyListData> {
@@ -1375,17 +1446,7 @@ export async function listCatalogWorks(query: CatalogListQuery): Promise<Catalog
 }
 
 export async function getPublishedWork(id: string): Promise<Work> {
-  const [row] = await db
-    .select()
-    .from(readingWorkTable)
-    .where(
-      and(
-        eq(readingWorkTable.id, id),
-        eq(readingWorkTable.status, 'published'),
-        eq(readingWorkTable.visibility, 'catalog'),
-      ),
-    )
-    .limit(1);
+  const [row] = await db.select().from(readingWorkTable).where(catalogPublishedWorkFilter(id)).limit(1);
 
   if (!row) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
@@ -1397,6 +1458,16 @@ export async function getPublishedWork(id: string): Promise<Work> {
     loadSourcesForWork(id),
   ]);
   return toWork(hydrated, tags, sources, category);
+}
+
+/** Resolve only catalog-visible metadata for request-scoped public context. */
+export async function getPublishedWorkTitle(id: string): Promise<string | undefined> {
+  const [row] = await db
+    .select({ title: readingWorkTable.title })
+    .from(readingWorkTable)
+    .where(catalogPublishedWorkFilter(id))
+    .limit(1);
+  return row?.title;
 }
 
 export async function requirePublishedWorkWithParts(workId: string): Promise<{ work: WorkRow; parts: PartRow[] }> {

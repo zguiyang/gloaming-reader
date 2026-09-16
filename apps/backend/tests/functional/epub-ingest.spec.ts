@@ -24,6 +24,8 @@ import { hashFileContent } from '@/modules/uploads/service';
 
 import { buildEpubBytes, buildSampleEpubBytes } from '../helpers/epub-builder';
 import { createMemoryObjectStore } from '../helpers/memory-oss';
+import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';
+import { ensureWorkTaxonomyFixture } from '../helpers/taxonomy-fixture';
 
 const password = 'password123';
 
@@ -347,12 +349,18 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
   it('refuses to retry published works', async () => {
     const workId = await uploadAndRun();
     await db.update(readingWorkTable).set({ status: 'ready' }).where(eq(readingWorkTable.id, workId));
+    const taxonomy = await ensureWorkTaxonomyFixture('epub-ingest');
     await app.request(`/api/admin/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sources: ['demo'], tags: ['story'] }),
+      body: JSON.stringify(taxonomy),
     });
-    await app.request(`/api/admin/works/${workId}/publish`, { method: 'POST', headers: { Cookie: adminCookie } });
+    await seedReadyDefaultAudioForWork(workId);
+    const publish = await app.request(`/api/admin/works/${workId}/publish`, {
+      method: 'POST',
+      headers: { Cookie: adminCookie },
+    });
+    expect(publish.status).toBe(200);
 
     const retry = await retryRequest(workId, { step: 'parse' });
     expect(retry.status).toBe(409);

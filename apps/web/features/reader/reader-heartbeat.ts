@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import {
   READING_HEARTBEAT_INTERVAL_MS,
   READING_HEARTBEAT_MAX_CREDIT_SECONDS,
+  type ReadingHeartbeatBody,
   readingHeartbeatBodySchema,
 } from '@gloaming/shared/reading-history';
 
@@ -16,13 +17,32 @@ function creditSeconds(elapsedMs: number): number {
   return Math.min(seconds, READING_HEARTBEAT_MAX_CREDIT_SECONDS);
 }
 
-function postHeartbeat(seconds: number, mode: 'fetch' | 'beacon'): void {
-  const body = readingHeartbeatBodySchema.parse({ seconds });
+type PendingHeartbeat = ReadingHeartbeatBody;
+
+function createSessionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `reader-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function heartbeatKey(heartbeat: PendingHeartbeat): string {
+  return `${heartbeat.sessionId}:${heartbeat.sequenceNumber}`;
+}
+
+function postHeartbeat(
+  heartbeat: PendingHeartbeat,
+  mode: 'fetch' | 'beacon',
+  onDelivered: (key: string) => void,
+): void {
+  const body = readingHeartbeatBodySchema.parse(heartbeat);
   const payload = JSON.stringify(body);
+  const key = heartbeatKey(heartbeat);
 
   if (mode === 'beacon' && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
     const hasQueued = navigator.sendBeacon('/api/reading-heartbeat', new Blob([payload], { type: 'application/json' }));
     if (hasQueued) {
+      onDelivered(key);
       return;
     }
   }
@@ -33,9 +53,15 @@ function postHeartbeat(seconds: number, mode: 'fetch' | 'beacon'): void {
     body: payload,
     credentials: 'same-origin',
     keepalive: true,
-  }).catch(() => {
-    // Best-effort telemetry — do not surface to the reader.
-  });
+  })
+    .then((response) => {
+      if (response.ok) {
+        onDelivered(key);
+      }
+    })
+    .catch(() => {
+      // Best-effort telemetry — do not surface to the reader.
+    });
 }
 
 /**
@@ -44,11 +70,28 @@ function postHeartbeat(seconds: number, mode: 'fetch' | 'beacon'): void {
  */
 export function useReadingHeartbeat(enabled: boolean): void {
   const lastTickAtRef = useRef<number | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const nextSequenceRef = useRef(1);
+  const pendingRef = useRef<Map<string, PendingHeartbeat>>(new Map());
 
   useEffect(() => {
     if (!enabled || typeof document === 'undefined') {
       return;
     }
+
+    if (!sessionIdRef.current) {
+      sessionIdRef.current = createSessionId();
+    }
+
+    const removeDelivered = (key: string) => {
+      pendingRef.current.delete(key);
+    };
+
+    const dispatchPending = (mode: 'fetch' | 'beacon') => {
+      for (const heartbeat of pendingRef.current.values()) {
+        postHeartbeat(heartbeat, mode, removeDelivered);
+      }
+    };
 
     const flush = (mode: 'fetch' | 'beacon') => {
       const last = lastTickAtRef.current;
@@ -58,8 +101,15 @@ export function useReadingHeartbeat(enabled: boolean): void {
       const seconds = creditSeconds(Date.now() - last);
       lastTickAtRef.current = Date.now();
       if (seconds > 0) {
-        postHeartbeat(seconds, mode);
+        const heartbeat = {
+          seconds,
+          sessionId: sessionIdRef.current!,
+          sequenceNumber: nextSequenceRef.current,
+        } satisfies PendingHeartbeat;
+        nextSequenceRef.current += 1;
+        pendingRef.current.set(heartbeatKey(heartbeat), heartbeat);
       }
+      dispatchPending(mode);
     };
 
     const start = () => {

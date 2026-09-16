@@ -164,6 +164,7 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
     const adminResponse = await app.request(`/api/assets/${assetId}`, { headers: { Cookie: adminCookie } });
     expect(adminResponse.status).toBe(200);
     expect(await adminResponse.text()).toBe('png-data-draft-img');
+    expect(adminResponse.headers.get('Cache-Control')).toBe('private, no-store');
   });
 
   it('keeps origin_file admin-only', async () => {
@@ -178,6 +179,7 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
     const adminResponse = await app.request(`/api/assets/${assetId}`, { headers: { Cookie: adminCookie } });
     expect(adminResponse.status).toBe(200);
     expect(await adminResponse.text()).toBe('epub');
+    expect(adminResponse.headers.get('Cache-Control')).toBe('private, no-store');
   });
 
   it('returns 404 for unknown assets', async () => {

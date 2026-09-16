@@ -70,9 +70,17 @@ describe('reading-history api contracts', () => {
   });
 
   it('accepts heartbeat seconds within the credit ceiling', () => {
-    expect(readingHeartbeatBodySchema.parse({ seconds: 30 })).toEqual({ seconds: 30 });
-    expect(readingHeartbeatBodySchema.safeParse({ seconds: READING_HEARTBEAT_MAX_CREDIT_SECONDS + 1 }).success).toBe(
-      false,
-    );
+    expect(readingHeartbeatBodySchema.parse({ seconds: 30, sessionId: 'session-1', sequenceNumber: 1 })).toEqual({
+      seconds: 30,
+      sessionId: 'session-1',
+      sequenceNumber: 1,
+    });
+    expect(
+      readingHeartbeatBodySchema.safeParse({
+        seconds: READING_HEARTBEAT_MAX_CREDIT_SECONDS + 1,
+        sessionId: 'session-1',
+        sequenceNumber: 1,
+      }).success,
+    ).toBe(false);
   });
 });

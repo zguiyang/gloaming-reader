@@ -250,6 +250,8 @@ committing `docker-compose.yaml` with secrets.
 After deploy, without running local `docker build` in CI unless desired:
 
 1. `web` serves the public domain over HTTPS (Dokploy Domain).
-2. `GET /api/health` succeeds from inside the `api` container (Compose healthcheck).
+2. `GET /api/health/ready` returns `200` from inside the `api` container
+   (Compose healthcheck). It reports only `up`/`down` status for Postgres and
+   Redis; `GET /api/health/live` remains `200` while either dependency is down.
 3. Sign-in and reader flows work through the web origin (no direct public API URL).
 4. Worker processes a ping job, TTS jobs when triggered, and the publish default-US gate passes on a smoke work before catalog go-live.

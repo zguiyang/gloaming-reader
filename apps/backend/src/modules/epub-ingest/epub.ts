@@ -3,11 +3,47 @@ import * as cheerio from 'cheerio';
 import { XMLParser } from 'fast-xml-parser';
 import { fromBuffer as yauzlFromBuffer } from 'yauzl';
 
+import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
+
 import { rootLogger } from '@/lib/logger';
 
 import type { EpubBook, EpubNavItem } from './types';
 
 const epubLogger = rootLogger.child({ module: 'EpubIngest' });
+
+export const EPUB_ERROR_CODES = {
+  INVALID_ARCHIVE: 'EPUB_INVALID_ARCHIVE',
+  INVALID_STRUCTURE: 'EPUB_INVALID_STRUCTURE',
+  RESOURCE_LIMIT_EXCEEDED: 'EPUB_RESOURCE_LIMIT_EXCEEDED',
+} as const;
+
+export const EPUB_RESOURCE_LIMITS = {
+  maxCompressedBytes: EPUB_UPLOAD_MAX_BYTES,
+  maxEntries: 10_000,
+  maxSingleUncompressedBytes: 32 * 1024 * 1024,
+  maxTotalUncompressedBytes: 128 * 1024 * 1024,
+} as const;
+
+export class EpubValidationError extends Error {
+  constructor(
+    public readonly code: (typeof EPUB_ERROR_CODES)[keyof typeof EPUB_ERROR_CODES],
+    message: string,
+  ) {
+    super(`[${code}] ${message}`);
+    this.name = 'EpubValidationError';
+  }
+}
+
+export class EpubResourceLimitError extends EpubValidationError {
+  constructor(message: string) {
+    super(EPUB_ERROR_CODES.RESOURCE_LIMIT_EXCEEDED, message);
+    this.name = 'EpubResourceLimitError';
+  }
+}
+
+export function isEpubValidationError(error: unknown): error is EpubValidationError {
+  return error instanceof EpubValidationError;
+}
 
 const IMAGE_MIME_BY_EXT: Record<string, string> = {
   '.jpg': 'image/jpeg',
@@ -68,39 +104,118 @@ function parentDir(path: string): string {
   return idx >= 0 ? path.slice(0, idx) : '';
 }
 
-/** Read every zip entry into memory (EPUBs are capped at 50MB on upload). */
-function readZipEntries(buffer: Buffer): Promise<Map<string, Buffer>> {
+/** Read zip entries with both metadata and actual streamed byte limits. */
+function readZipEntries(buffer: Buffer, limits: typeof EPUB_RESOURCE_LIMITS): Promise<Map<string, Buffer>> {
   return new Promise((resolve, reject) => {
-    yauzlFromBuffer(buffer, { lazyEntries: true }, (err, zip) => {
+    if (buffer.length > limits.maxCompressedBytes) {
+      reject(new EpubResourceLimitError(`compressed EPUB exceeds ${limits.maxCompressedBytes} bytes`));
+      return;
+    }
+
+    yauzlFromBuffer(buffer, { lazyEntries: true, validateEntrySizes: true }, (err, zip) => {
       if (err) {
-        reject(new Error(`EPUB is not a valid zip: ${err.message}`));
+        reject(new EpubValidationError(EPUB_ERROR_CODES.INVALID_ARCHIVE, `EPUB is not a valid zip: ${err.message}`));
         return;
       }
       if (!zip) {
-        reject(new Error('EPUB zip could not be opened'));
+        reject(new EpubValidationError(EPUB_ERROR_CODES.INVALID_ARCHIVE, 'EPUB zip could not be opened'));
         return;
       }
 
       const entries = new Map<string, Buffer>();
       const normalized = new Map<string, string>();
+      let settled = false;
+      let declaredTotalBytes = 0;
+      let actualTotalBytes = 0;
 
-      zip.on('error', (readErr) => reject(readErr));
-      zip.on('end', () => resolve(entries));
+      const fail = (error: unknown): void => {
+        if (settled) return;
+        settled = true;
+        try {
+          zip.close();
+        } catch {
+          // The archive may already be closed after a parse error.
+        }
+        reject(error);
+      };
+
+      const failArchive = (error: unknown): void => {
+        fail(
+          error instanceof EpubValidationError
+            ? error
+            : new EpubValidationError(
+                EPUB_ERROR_CODES.INVALID_ARCHIVE,
+                `EPUB zip could not be read: ${error instanceof Error ? error.message : String(error)}`,
+              ),
+        );
+      };
+
+      zip.on('error', failArchive);
+      zip.on('end', () => {
+        if (!settled) {
+          settled = true;
+          resolve(entries);
+        }
+      });
+      if (zip.entryCount > limits.maxEntries) {
+        fail(new EpubResourceLimitError(`EPUB contains more than ${limits.maxEntries} entries`));
+        return;
+      }
       zip.on('entry', (entry) => {
+        if (settled) return;
         const name = decodePath(entry.fileName);
         const key = normalizeHref(name);
+        const declaredBytes = entry.uncompressedSize;
+        if (!Number.isFinite(declaredBytes) || declaredBytes < 0) {
+          failArchive(new Error(`invalid uncompressed size for zip entry: ${name}`));
+          return;
+        }
+        if (declaredBytes > limits.maxSingleUncompressedBytes) {
+          fail(
+            new EpubResourceLimitError(
+              `EPUB entry exceeds ${limits.maxSingleUncompressedBytes} uncompressed bytes: ${name}`,
+            ),
+          );
+          return;
+        }
+        declaredTotalBytes += declaredBytes;
+        if (declaredTotalBytes > limits.maxTotalUncompressedBytes) {
+          fail(new EpubResourceLimitError(`EPUB exceeds ${limits.maxTotalUncompressedBytes} total uncompressed bytes`));
+          return;
+        }
         zip.openReadStream(entry, (openErr, stream) => {
           if (openErr) {
-            reject(openErr);
+            failArchive(openErr);
             return;
           }
           if (!stream) {
-            reject(new Error(`No read stream for zip entry: ${name}`));
+            failArchive(new Error(`No read stream for zip entry: ${name}`));
             return;
           }
           const chunks: Buffer[] = [];
-          stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+          let actualEntryBytes = 0;
+          stream.on('data', (chunk: Buffer) => {
+            if (settled) return;
+            actualEntryBytes += chunk.length;
+            actualTotalBytes += chunk.length;
+            if (actualEntryBytes > limits.maxSingleUncompressedBytes) {
+              fail(
+                new EpubResourceLimitError(
+                  `EPUB entry exceeds ${limits.maxSingleUncompressedBytes} uncompressed bytes: ${name}`,
+                ),
+              );
+              return;
+            }
+            if (actualTotalBytes > limits.maxTotalUncompressedBytes) {
+              fail(
+                new EpubResourceLimitError(`EPUB exceeds ${limits.maxTotalUncompressedBytes} total uncompressed bytes`),
+              );
+              return;
+            }
+            chunks.push(chunk);
+          });
           stream.on('end', () => {
+            if (settled) return;
             const existing = normalized.get(key);
             if (!existing || existing.length < name.length) {
               normalized.set(key, name);
@@ -108,7 +223,7 @@ function readZipEntries(buffer: Buffer): Promise<Map<string, Buffer>> {
             entries.set(key, Buffer.concat(chunks));
             zip.readEntry();
           });
-          stream.on('error', (streamErr) => reject(streamErr));
+          stream.on('error', failArchive);
         });
       });
 
@@ -290,105 +405,113 @@ function parseNavDocument(html: string): EpubNavItem[] {
  * Parse an EPUB byte buffer into the container model:
  * entries, OPF metadata, spine, navigation (nav.xhtml → NCX), cover href.
  */
-export async function parseEpub(buffer: Buffer): Promise<EpubBook> {
-  const entries = await readZipEntries(buffer);
-  const container = findEntryCaseInsensitive(entries, 'META-INF/container.xml');
-  if (!container) {
-    throw new Error('EPUB is missing META-INF/container.xml');
-  }
-
-  const opfPath = rootfilePath(container);
-  if (!opfPath) {
-    throw new Error('EPUB container.xml has no OPF rootfile');
-  }
-
-  const opfXml = findEntryCaseInsensitive(entries, opfPath);
-  if (!opfXml) {
-    throw new Error(`EPUB OPF not found: ${opfPath}`);
-  }
-
-  const opf = parseXml(opfXml.toString('utf8')) as { package?: Record<string, unknown> };
-  const pkg = (opf.package ?? opf) as Record<string, unknown>;
-  const metadata = (pkg.metadata ?? {}) as Record<string, unknown>;
-
-  const title = textOfDeep(metadataByLocalName(metadata, 'title')).trim();
-
-  const creators = metadataValuesByLocalName(metadata, 'creator');
-  const authors = creators.map((c) => textOfDeep(c).trim()).filter(Boolean);
-
-  const languageRaw = textOfDeep(metadataByLocalName(metadata, 'language'));
-  const language = normalizeLanguage(languageRaw);
-
-  const description = textOfDeep(metadataByLocalName(metadata, 'description')).trim();
-
-  const subjects = metadataValuesByLocalName(metadata, 'subject')
-    .map((s) => textOfDeep(s).trim())
-    .filter(Boolean);
-
-  const sourceRaw = textOfDeep(metadataByLocalName(metadata, 'source')).trim();
-
-  // Manifest hrefs are relative to the OPF directory (e.g. "chapter-1.xhtml"
-  // lives at "OEBPS/chapter-1.xhtml"); resolve before matching zip entries.
-  const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/')) : '';
-  const resolve = (href: string): string => resolveHref(opfDir, href);
-
-  const manifest = manifestItems(pkg).map((item) => ({ ...item, href: resolve(item.href) }));
-  const idToHref = new Map(manifest.map((item) => [item.id, item.href]));
-  const spine = spineItems(pkg)
-    .map((item) => ({ href: idToHref.get(item.idref) ?? '', idref: item.idref }))
-    .filter((item) => Boolean(item.href));
-
-  if (spine.length === 0) {
-    throw new Error('EPUB has an empty spine (no reading content)');
-  }
-
-  // Navigation: EPUB3 nav document first, EPUB2 NCX fallback.
-  const navItem = manifest.find((item) => item.properties?.split(/\s+/).includes('nav'));
-  let nav: EpubNavItem[] = [];
-  if (navItem) {
-    const navHtml = findEntryCaseInsensitive(entries, navItem.href);
-    if (navHtml) {
-      nav = parseNavDocument(navHtml.toString('utf8')).map((item) => ({
-        ...item,
-        href: resolve(item.href),
-      }));
+export async function parseEpub(buffer: Buffer, limits = EPUB_RESOURCE_LIMITS): Promise<EpubBook> {
+  const entries = await readZipEntries(buffer, limits);
+  try {
+    const container = findEntryCaseInsensitive(entries, 'META-INF/container.xml');
+    if (!container) {
+      throw new EpubValidationError(EPUB_ERROR_CODES.INVALID_STRUCTURE, 'EPUB is missing META-INF/container.xml');
     }
-  }
-  if (nav.length === 0) {
-    const spineToc = (pkg.spine as { '@_toc'?: string } | undefined)?.['@_toc'];
-    const ncxHref = spineToc ? idToHref.get(spineToc) : null;
-    const ncxEntry =
-      (ncxHref && findEntryCaseInsensitive(entries, ncxHref)) ||
-      findEntryCaseInsensitive(entries, 'toc.ncx') ||
-      [...entries.entries()].find(([key]) => key.toLowerCase().endsWith('.ncx'))?.[1];
-    if (ncxEntry) {
-      const ncx = parseXml(ncxEntry.toString('utf8')) as { ncx?: { navMap?: unknown } };
-      // NCX hrefs are relative to the OPF directory — resolve like nav.xhtml.
-      nav = parseNavTree(ncx.ncx?.navMap).map((item) => ({ ...item, href: resolve(item.href) }));
+
+    const opfPath = rootfilePath(container);
+    if (!opfPath) {
+      throw new EpubValidationError(EPUB_ERROR_CODES.INVALID_STRUCTURE, 'EPUB container.xml has no OPF rootfile');
     }
+
+    const opfXml = findEntryCaseInsensitive(entries, opfPath);
+    if (!opfXml) {
+      throw new EpubValidationError(EPUB_ERROR_CODES.INVALID_STRUCTURE, `EPUB OPF not found: ${opfPath}`);
+    }
+
+    const opf = parseXml(opfXml.toString('utf8')) as { package?: Record<string, unknown> };
+    const pkg = (opf.package ?? opf) as Record<string, unknown>;
+    const metadata = (pkg.metadata ?? {}) as Record<string, unknown>;
+
+    const title = textOfDeep(metadataByLocalName(metadata, 'title')).trim();
+
+    const creators = metadataValuesByLocalName(metadata, 'creator');
+    const authors = creators.map((c) => textOfDeep(c).trim()).filter(Boolean);
+
+    const languageRaw = textOfDeep(metadataByLocalName(metadata, 'language'));
+    const language = normalizeLanguage(languageRaw);
+
+    const description = textOfDeep(metadataByLocalName(metadata, 'description')).trim();
+
+    const subjects = metadataValuesByLocalName(metadata, 'subject')
+      .map((s) => textOfDeep(s).trim())
+      .filter(Boolean);
+
+    const sourceRaw = textOfDeep(metadataByLocalName(metadata, 'source')).trim();
+
+    // Manifest hrefs are relative to the OPF directory (e.g. "chapter-1.xhtml"
+    // lives at "OEBPS/chapter-1.xhtml"); resolve before matching zip entries.
+    const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/')) : '';
+    const resolve = (href: string): string => resolveHref(opfDir, href);
+
+    const manifest = manifestItems(pkg).map((item) => ({ ...item, href: resolve(item.href) }));
+    const idToHref = new Map(manifest.map((item) => [item.id, item.href]));
+    const spine = spineItems(pkg)
+      .map((item) => ({ href: idToHref.get(item.idref) ?? '', idref: item.idref }))
+      .filter((item) => Boolean(item.href));
+
+    if (spine.length === 0) {
+      throw new EpubValidationError(EPUB_ERROR_CODES.INVALID_STRUCTURE, 'EPUB has an empty spine (no reading content)');
+    }
+
+    // Navigation: EPUB3 nav document first, EPUB2 NCX fallback.
+    const navItem = manifest.find((item) => item.properties?.split(/\s+/).includes('nav'));
+    let nav: EpubNavItem[] = [];
+    if (navItem) {
+      const navHtml = findEntryCaseInsensitive(entries, navItem.href);
+      if (navHtml) {
+        nav = parseNavDocument(navHtml.toString('utf8')).map((item) => ({
+          ...item,
+          href: resolve(item.href),
+        }));
+      }
+    }
+    if (nav.length === 0) {
+      const spineToc = (pkg.spine as { '@_toc'?: string } | undefined)?.['@_toc'];
+      const ncxHref = spineToc ? idToHref.get(spineToc) : null;
+      const ncxEntry =
+        (ncxHref && findEntryCaseInsensitive(entries, ncxHref)) ||
+        findEntryCaseInsensitive(entries, 'toc.ncx') ||
+        [...entries.entries()].find(([key]) => key.toLowerCase().endsWith('.ncx'))?.[1];
+      if (ncxEntry) {
+        const ncx = parseXml(ncxEntry.toString('utf8')) as { ncx?: { navMap?: unknown } };
+        // NCX hrefs are relative to the OPF directory — resolve like nav.xhtml.
+        nav = parseNavTree(ncx.ncx?.navMap).map((item) => ({ ...item, href: resolve(item.href) }));
+      }
+    }
+
+    const coverHref = resolveCoverHref(pkg, manifest, entries);
+
+    epubLogger.info(
+      { title, authors: authors.join(', '), spineCount: spine.length, navCount: nav.length, coverHref },
+      'EPUB parsed',
+    );
+
+    return {
+      entries,
+      opfPath,
+      title,
+      authors,
+      description,
+      language,
+      subjects,
+      sourceRaw,
+      spine,
+      nav,
+      coverHref,
+      coverMime: coverHref ? mimeForHref(coverHref) : null,
+    };
+  } catch (error) {
+    if (error instanceof EpubValidationError) throw error;
+    throw new EpubValidationError(
+      EPUB_ERROR_CODES.INVALID_STRUCTURE,
+      `EPUB structure could not be parsed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-
-  const coverHref = resolveCoverHref(pkg, manifest, entries);
-
-  epubLogger.info(
-    { title, authors: authors.join(', '), spineCount: spine.length, navCount: nav.length, coverHref },
-    'EPUB parsed',
-  );
-
-  return {
-    entries,
-    opfPath,
-    title,
-    authors,
-    description,
-    language,
-    subjects,
-    sourceRaw,
-    spine,
-    nav,
-    coverHref,
-    coverMime: coverHref ? mimeForHref(coverHref) : null,
-  };
 }
 
 export function normalizeLanguage(raw: string): string {
