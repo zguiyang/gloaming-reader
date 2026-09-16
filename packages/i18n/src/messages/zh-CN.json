@@ -114,13 +114,12 @@
       "passwordLabel": "新密码",
       "passwordPlaceholder": "至少 8 位",
       "confirmLabel": "再输入一次",
-      "confirmPlaceholder": "再输入一次新密码",
       "submit": "保存新密码",
       "submitting": "保存中…",
       "success": "密码已更新",
       "invalidToken": "重置链接无效或已过期，请重新申请",
       "failed": "重置失败，请重新申请链接",
-      "backToProduct": "返回产品"
+      "backToProduct": "返回首页"
     },
     "verifyEmail": {
       "titlePending": "确认中",
@@ -132,8 +131,7 @@
       "successToast": "邮箱已确认",
       "goToShelf": "进入书架",
       "backToSignIn": "返回登录",
-      "backToHome": "返回首页",
-      "backToProduct": "返回产品"
+      "backToHome": "返回首页"
     },
     "dialog": {
       "closeAria": "关闭认证窗口",
@@ -459,8 +457,8 @@
         "enableAria": "启用词典服务"
       },
       "provider": {
-        "label": "服务提供商 (Provider)",
-        "placeholder": "选择词典服务商",
+        "label": "服务商",
+        "placeholder": "选择服务商",
         "youdao": "有道词典开放接口（中文释义、英美发音）",
         "free": "Free Dictionary API（英文释义，可能需要代理）",
         "customLegacy": "自定义 Provider（暂未实现）",
@@ -1165,7 +1163,7 @@
       "unavailableDefault": "当前无法获取书籍内容，请稍后再试。",
       "reload": "重新加载",
       "recommendationsColdStart": "新上架",
-      "recommendationsPersonalized": "您可能也会喜欢",
+      "recommendationsPersonalized": "相关推荐",
       "difficultyPrefix": "难度: {label}"
     },
     "reader": {

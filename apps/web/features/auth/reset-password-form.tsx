@@ -112,7 +112,6 @@ export function ResetPasswordForm() {
                   type="password"
                   autoComplete="new-password"
                   required
-                  placeholder={t(locale, 'auth.resetPassword.confirmPlaceholder')}
                   className={authInputClassName}
                   value={field.state.value}
                   onBlur={field.handleBlur}

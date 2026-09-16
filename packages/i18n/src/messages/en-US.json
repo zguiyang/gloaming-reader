@@ -114,13 +114,12 @@
       "passwordLabel": "New password",
       "passwordPlaceholder": "At least 8 characters",
       "confirmLabel": "Confirm password",
-      "confirmPlaceholder": "Enter new password again",
       "submit": "Save new password",
       "submitting": "Saving…",
       "success": "Password updated",
       "invalidToken": "Reset link is invalid or expired. Please request a new one.",
       "failed": "Reset failed. Please request a new link.",
-      "backToProduct": "Back to product"
+      "backToProduct": "Back to home"
     },
     "verifyEmail": {
       "titlePending": "Verifying…",
@@ -132,8 +131,7 @@
       "successToast": "Email confirmed",
       "goToShelf": "Go to shelf",
       "backToSignIn": "Back to sign in",
-      "backToHome": "Back to home",
-      "backToProduct": "Back to product"
+      "backToHome": "Back to home"
     },
     "dialog": {
       "closeAria": "Close sign-in dialog",
@@ -460,7 +458,7 @@
       },
       "provider": {
         "label": "Provider",
-        "placeholder": "Select dictionary provider",
+        "placeholder": "Select provider",
         "youdao": "Youdao Open API (Chinese definitions, US/UK audio)",
         "free": "Free Dictionary API (English definitions, may need a proxy)",
         "customLegacy": "Custom provider (not implemented)",
@@ -1165,7 +1163,7 @@
       "unavailableDefault": "Book content is unavailable right now. Please try again later.",
       "reload": "Reload",
       "recommendationsColdStart": "New arrivals",
-      "recommendationsPersonalized": "You may also like",
+      "recommendationsPersonalized": "Related works",
       "difficultyPrefix": "Difficulty: {label}"
     },
     "reader": {
