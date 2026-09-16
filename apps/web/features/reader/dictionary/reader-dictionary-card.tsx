@@ -252,9 +252,6 @@ export function ReaderDictionaryCard({
             <p className="mt-2 text-xs font-medium text-foreground/80">
               {t(locale, 'content.reader.dictionary.notFoundTitle', { word })}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {t(locale, 'content.reader.dictionary.notFoundHint')}
-            </p>
           </div>
         )}
       </div>

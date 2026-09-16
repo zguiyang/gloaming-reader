@@ -8,7 +8,7 @@ import type { ConversationSummary } from '@gloaming/shared/conversations';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ReaderMarkdown } from '@/features/reader/assist/reader-markdown';
 import type { ReaderAiMessage } from '@/features/reader/reader-model';
 import { useLocale } from '@/lib/locale-context';
@@ -82,7 +82,6 @@ function AiHistory({
         <p className="font-heading text-sm font-semibold text-foreground">
           {t(locale, 'content.reader.assist.historyTitle')}
         </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{t(locale, 'content.reader.assist.historyHint')}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-3">
@@ -186,9 +185,6 @@ function AiThread({
           <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
             <p className="font-heading text-sm text-foreground/80">
               {t(locale, 'content.reader.assist.threadEmptyTitle')}
-            </p>
-            <p className="mt-1 max-w-[240px] text-xs leading-relaxed text-muted-foreground">
-              {t(locale, 'content.reader.assist.threadEmptyHint')}
             </p>
           </div>
         ) : (
@@ -347,11 +343,6 @@ export function ReaderAiDrawer({
             <p className="font-heading text-base font-semibold text-foreground">
               {t(locale, 'content.reader.assist.companionTitle')}
             </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {panel === 'history'
-                ? t(locale, 'content.reader.assist.companionHistorySubtitle')
-                : t(locale, 'content.reader.assist.companionThreadSubtitle')}
-            </p>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -423,11 +414,6 @@ export function ReaderAiDrawer({
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 text-left">
                 <SheetTitle>{t(locale, 'content.reader.assist.companionTitle')}</SheetTitle>
-                <SheetDescription>
-                  {panel === 'history'
-                    ? t(locale, 'content.reader.assist.sheetHistoryDescription')
-                    : t(locale, 'content.reader.assist.sheetThreadDescription')}
-                </SheetDescription>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Button

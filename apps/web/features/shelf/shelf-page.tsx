@@ -16,7 +16,7 @@ import { isUnauthorizedError } from '@/lib/api-request';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-function ShelfHeader({ hasResumeHint }: { hasResumeHint: boolean }) {
+function ShelfHeader() {
   const { locale } = useLocale();
 
   return (
@@ -24,11 +24,6 @@ function ShelfHeader({ hasResumeHint }: { hasResumeHint: boolean }) {
       <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-5xl md:leading-[1.15]">
         {t(locale, 'content.shelf.title')}
       </h1>
-      {hasResumeHint ? (
-        <p className="mt-3 text-base text-muted-foreground md:mt-4 md:text-xl md:leading-8">
-          {t(locale, 'content.shelf.subtitleResume')}
-        </p>
-      ) : null}
     </header>
   );
 }
@@ -68,7 +63,7 @@ export function ShelfPage() {
           'flex w-full flex-col',
         )}
       >
-        <ShelfHeader hasResumeHint={false} />
+        <ShelfHeader />
         <ShelfSkeleton />
       </div>
     );
@@ -82,7 +77,7 @@ export function ShelfPage() {
           'flex w-full flex-col',
         )}
       >
-        <ShelfHeader hasResumeHint={false} />
+        <ShelfHeader />
         <ShelfSkeleton />
       </div>
     );
@@ -96,7 +91,7 @@ export function ShelfPage() {
           'flex w-full flex-col',
         )}
       >
-        <ShelfHeader hasResumeHint={false} />
+        <ShelfHeader />
         <ShelfErrorState
           message={formatShelfApiError(shelfQuery.error)}
           onRetry={() => void queryClient.invalidateQueries({ queryKey: shelfQueryKey.all })}
@@ -120,12 +115,12 @@ export function ShelfPage() {
     >
       {isEmpty ? (
         <>
-          <ShelfHeader hasResumeHint={false} />
+          <ShelfHeader />
           <ShelfEmptyState />
         </>
       ) : (
         <>
-          <ShelfHeader hasResumeHint />
+          <ShelfHeader />
           <div className="flex flex-col gap-14 md:gap-20">
             {current ? <ShelfContinueHero entry={current} /> : null}
             <ShelfGrid items={items} />

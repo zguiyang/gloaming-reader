@@ -49,9 +49,6 @@ function ReadingAssistOverlay() {
         <p className="text-[10px] font-medium tracking-wide text-primary uppercase">
           {t(locale, 'landing.product.companionCardTitle')}
         </p>
-        <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
-          {t(locale, 'landing.product.companionOverlayHint')}
-        </p>
       </motion.div>
     </div>
   );

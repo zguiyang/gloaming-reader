@@ -54,12 +54,9 @@ export function HistoryEmptyState() {
       <h2 className="font-heading mt-10 text-2xl font-semibold tracking-tight text-foreground md:text-[2rem] md:leading-10">
         {t(locale, 'content.history.emptyTitle')}
       </h2>
-      <p className="mt-4 max-w-sm text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
-        {t(locale, 'content.history.emptyDescription')}
-      </p>
       <Button
         nativeButton={false}
-        className="mt-10 h-12 rounded-full px-10 text-base hover:bg-brand-deep active:scale-[0.98]"
+        className="mt-6 h-12 rounded-full px-10 text-base hover:bg-brand-deep active:scale-[0.98]"
         render={<Link href={AUTH_ROUTES.discover} />}
       >
         {t(locale, 'content.common.findBookCta')}
