@@ -132,6 +132,18 @@ export default defineConfig([
               regex: '\\.(js|mjs|cjs|jsx)$',
               message: 'Do not use JavaScript extensions in TypeScript imports; use .ts/.tsx or omit the extension.',
             },
+            {
+              group: ['@gloaming/shared/src/**'],
+              message: 'Do not deep-import package implementation; use declared @gloaming/shared package entrypoints.',
+            },
+            {
+              group: ['@gloaming/db/src/**'],
+              message: 'Do not deep-import package implementation; use declared @gloaming/db package entrypoints.',
+            },
+            {
+              group: ['@gloaming/i18n/src/**'],
+              message: 'Do not deep-import package implementation; use declared @gloaming/i18n package entrypoints.',
+            },
           ],
         },
       ],
@@ -280,5 +292,35 @@ export default defineConfig([
   {
     files: nextFiles,
     ...eslintConfigPrettier,
+  },
+
+  {
+    files: ['apps/backend/src/lib/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '\\.(js|mjs|cjs|jsx)$',
+              message: 'Do not use JavaScript extensions in TypeScript imports; use .ts/.tsx or omit the extension.',
+            },
+            {
+              group: ['@/modules/**'],
+              message:
+                'Backend lib must not import feature modules; depend on public module entrypoints or shared contracts instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
+    files: ['apps/backend/src/modules/**/service.ts'],
+    rules: {
+      // Structural drift signal only — not an automatic split rule.
+      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
+    },
   },
 ]);
