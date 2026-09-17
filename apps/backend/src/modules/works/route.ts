@@ -6,6 +6,7 @@ import { HTTP_STATUS } from '@/constants';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
+import { publishWork, retryWorkflow, unpublishWork } from '@/modules/works/admin-lifecycle';
 import { getPublishedWork, listCatalogCategories, listCatalogTags, listCatalogWorks } from '@/modules/works/queries';
 import {
   createAdminEpubWork,
@@ -13,10 +14,7 @@ import {
   deleteWork,
   getAdminWork,
   listAdminWorks,
-  publishWork,
-  retryWorkflow,
   reuseAdminEpubWork,
-  unpublishWork,
   updateWork,
 } from '@/modules/works/service';
 import {
