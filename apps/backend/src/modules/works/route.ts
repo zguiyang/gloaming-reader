@@ -6,7 +6,19 @@ import { HTTP_STATUS } from '@/constants';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
-import * as worksService from '@/modules/works/service';
+import { getPublishedWork, listCatalogCategories, listCatalogTags, listCatalogWorks } from '@/modules/works/queries';
+import {
+  createAdminEpubWork,
+  createAdminTextWork,
+  deleteWork,
+  getAdminWork,
+  listAdminWorks,
+  publishWork,
+  retryWorkflow,
+  reuseAdminEpubWork,
+  unpublishWork,
+  updateWork,
+} from '@/modules/works/service';
 import {
   validateAdminWorkListQuery,
   validateCatalogListQuery,
@@ -19,13 +31,13 @@ import {
 export const worksRoutes = new Hono<{ Variables: AuthVariables }>();
 
 worksRoutes.post('/api/admin/works', requireAdmin, validateCreateAdminTextWork, async (c) => {
-  const work = await worksService.createAdminTextWork(c.req.valid('json'));
+  const work = await createAdminTextWork(c.req.valid('json'));
   return c.json(work, HTTP_STATUS.CREATED);
 });
 
 /** Instant upload — dedupe lookup by content hash. Creates the work when the object exists. */
 worksRoutes.post('/api/admin/works/epub/reuse', requireAdmin, validateCheckEpubWorkReuse, async (c) => {
-  const result = await worksService.reuseAdminEpubWork(c.req.valid('json'));
+  const result = await reuseAdminEpubWork(c.req.valid('json'));
   if (!result) {
     return c.json({ duplicated: false });
   }
@@ -49,7 +61,7 @@ worksRoutes.post('/api/admin/works/epub', requireAdmin, async (c) => {
     return sendError(c, ERROR_CODES.UPLOAD.FILE_TOO_LARGE, HTTP_STATUS.BAD_REQUEST, { maxMb: 50 });
   }
 
-  const result = await worksService.createAdminEpubWork({
+  const result = await createAdminEpubWork({
     fileName: (file as File).name,
     body: bytes,
     contentType: (file as File).type,
@@ -58,57 +70,57 @@ worksRoutes.post('/api/admin/works/epub', requireAdmin, async (c) => {
 });
 
 worksRoutes.get('/api/admin/works', requireAdmin, validateAdminWorkListQuery, async (c) => {
-  const data = await worksService.listAdminWorks(c.req.valid('query'));
+  const data = await listAdminWorks(c.req.valid('query'));
   return c.json(data);
 });
 
 worksRoutes.get('/api/admin/works/:id', requireAdmin, async (c) => {
-  const work = await worksService.getAdminWork(c.req.param('id'));
+  const work = await getAdminWork(c.req.param('id'));
   return c.json(work);
 });
 
 worksRoutes.patch('/api/admin/works/:id', requireAdmin, validateUpdateWork, async (c) => {
-  const work = await worksService.updateWork(c.req.param('id'), c.req.valid('json'));
+  const work = await updateWork(c.req.param('id'), c.req.valid('json'));
   return c.json(work);
 });
 
 worksRoutes.post('/api/admin/works/:id/publish', requireAdmin, async (c) => {
-  const work = await worksService.publishWork(c.req.param('id'));
+  const work = await publishWork(c.req.param('id'));
   return c.json(work);
 });
 
 worksRoutes.post('/api/admin/works/:id/unpublish', requireAdmin, async (c) => {
-  const work = await worksService.unpublishWork(c.req.param('id'));
+  const work = await unpublishWork(c.req.param('id'));
   return c.json(work);
 });
 
 /** Retry / re-run the generation workflow — resume from the failed step, or re-run one step. */
 worksRoutes.post('/api/admin/works/:id/workflow/retry', requireAdmin, validateRetryWorkflow, async (c) => {
-  const work = await worksService.retryWorkflow(c.req.param('id'), c.req.valid('json'));
+  const work = await retryWorkflow(c.req.param('id'), c.req.valid('json'));
   return c.json(work);
 });
 
 worksRoutes.delete('/api/admin/works/:id', requireAdmin, async (c) => {
-  await worksService.deleteWork(c.req.param('id'));
+  await deleteWork(c.req.param('id'));
   return c.body(null, HTTP_STATUS.NO_CONTENT);
 });
 
 worksRoutes.get('/api/catalog/tags', async (c) => {
-  const data = await worksService.listCatalogTags();
+  const data = await listCatalogTags();
   return c.json(data);
 });
 
 worksRoutes.get('/api/catalog/categories', async (c) => {
-  const data = await worksService.listCatalogCategories();
+  const data = await listCatalogCategories();
   return c.json(data);
 });
 
 worksRoutes.get('/api/catalog/works', validateCatalogListQuery, async (c) => {
-  const data = await worksService.listCatalogWorks(c.req.valid('query'));
+  const data = await listCatalogWorks(c.req.valid('query'));
   return c.json(data);
 });
 
 worksRoutes.get('/api/catalog/works/:id', async (c) => {
-  const work = await worksService.getPublishedWork(c.req.param('id'));
+  const work = await getPublishedWork(c.req.param('id'));
   return c.json(work);
 });

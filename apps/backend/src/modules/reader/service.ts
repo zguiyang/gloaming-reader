@@ -24,7 +24,7 @@ import { AppError, NotFoundError } from '@/lib/errors';
 import { getPartAudioAvailability, getPublishedPartAudioTrack } from '@/modules/content-assets/service';
 import { reindexLeafParagraphOrdinals } from '@/modules/epub-ingest/clean';
 import { touchReadingDay } from '@/modules/reading-history/service';
-import { getPartById, loadTagsForWork, requirePublishedWorkWithParts } from '@/modules/works/service';
+import { getPartById, loadTagsForWork, requirePublishedWorkWithParts } from '@/modules/works/queries';
 
 type StateRow = typeof readingStateTable.$inferSelect;
 type PartRow = typeof readingPartTable.$inferSelect;

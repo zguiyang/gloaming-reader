@@ -1,11 +1,6 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
-import {
-  category as categoryTable,
-  readingState as readingStateTable,
-  readingWork as readingWorkTable,
-  readingWorkCategory as readingWorkCategoryTable,
-} from '@gloaming/db';
+import { readingState as readingStateTable, readingWork as readingWorkTable } from '@gloaming/db';
 import type { RecommendationsData, RecommendationsQuery } from '@gloaming/shared/recommendations';
 import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 import type { Work } from '@gloaming/shared/works';
@@ -17,8 +12,7 @@ import {
   type RecommendationFeatures,
   resolveRecommendationOrder,
 } from '@/modules/recommendations/score';
-import { loadSourcesByWorkIds, loadTagsByWorkIds } from '@/modules/works/service';
-import { toTaxonomyReference } from '@/modules/works/taxonomy-mapper';
+import { loadCategoriesByWorkIds, loadSourcesByWorkIds, loadTagsByWorkIds } from '@/modules/works/queries';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 
@@ -71,30 +65,6 @@ function toFeatures(
     estimatedMinutes: row.estimatedMinutes,
     publishedAt: row.publishedAt,
   };
-}
-
-async function loadCategoriesByWorkIds(workIds: string[]): Promise<Map<string, TaxonomyReference>> {
-  if (workIds.length === 0) {
-    return new Map();
-  }
-  const rows = await db
-    .select({
-      workId: readingWorkCategoryTable.workId,
-      id: categoryTable.id,
-      name: categoryTable.name,
-      localizedNames: categoryTable.localizedNames,
-      origin: categoryTable.origin,
-    })
-    .from(readingWorkCategoryTable)
-    .innerJoin(categoryTable, eq(readingWorkCategoryTable.categoryId, categoryTable.id))
-    .where(inArray(readingWorkCategoryTable.workId, workIds));
-  const map = new Map<string, TaxonomyReference>();
-  for (const row of rows) {
-    if (!map.has(row.workId)) {
-      map.set(row.workId, toTaxonomyReference(row));
-    }
-  }
-  return map;
 }
 
 export async function getRecommendations(userId: string, query: RecommendationsQuery): Promise<RecommendationsData> {

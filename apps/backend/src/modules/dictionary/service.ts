@@ -30,7 +30,7 @@ import { isTransientDictionaryProviderFailure } from '@/modules/dictionary/provi
 import { FreeDictionaryProvider } from '@/modules/dictionary/providers/free-dictionary';
 import { YoudaoDictionaryProvider } from '@/modules/dictionary/providers/youdao-dictionary';
 import type { DictionaryProvider, RawProviderResult } from '@/modules/dictionary/types';
-import { getPublishedWorkTitle } from '@/modules/works/service';
+import { getPublishedWorkTitle } from '@/modules/works/queries';
 
 export const DICTIONARY_CONFIG_ID = 'default';
 
