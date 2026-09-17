@@ -4,64 +4,77 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_ADMIN_ROLE, AUTH_USER_ROLE } from '@gloaming/shared/auth';
 
 import {
+  ADMIN_BOOTSTRAP_ADVISORY_LOCK_KEY,
+  AdminBootstrapAlreadyExistsError,
+  AdminBootstrapTransactionRequiredError,
   authTransactionStorage,
   bindAuthDatabaseForAdapter,
-  BootstrapTransactionRequiredError,
-  FIRST_USER_BOOTSTRAP_ADVISORY_LOCK_KEY,
-  resolveBootstrapRoleForNewUser,
+  resolveRoleForNewUser,
+  withAdminBootstrap,
 } from '@/lib/auth-bootstrap';
 
-function createMockTx(existingUserCount: number) {
-  const from = vi.fn().mockResolvedValue([{ value: existingUserCount }]);
+function createMockTx(existingAdminCount: number) {
+  const where = vi.fn().mockResolvedValue([{ value: existingAdminCount }]);
+  const from = vi.fn().mockReturnValue({ where });
   const select = vi.fn().mockReturnValue({ from });
   const execute = vi.fn().mockResolvedValue(undefined);
   return { select, from, execute };
 }
 
-describe('resolveBootstrapRoleForNewUser', () => {
+describe('resolveRoleForNewUser', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('acquires a transaction advisory lock before counting users', async () => {
+  it('assigns user to public signups without touching the database', async () => {
     const tx = createMockTx(0);
 
-    await authTransactionStorage.run(tx as never, () => resolveBootstrapRoleForNewUser(tx));
+    await authTransactionStorage.run(tx as never, () => resolveRoleForNewUser(tx));
 
-    expect(tx.execute).toHaveBeenCalledWith(
-      sql`select pg_advisory_xact_lock(${FIRST_USER_BOOTSTRAP_ADVISORY_LOCK_KEY})`,
-    );
+    await expect(resolveRoleForNewUser()).resolves.toBe(AUTH_USER_ROLE);
+    expect(tx.execute).not.toHaveBeenCalled();
+    expect(tx.select).not.toHaveBeenCalled();
+  });
+
+  it('assigns admin only inside the explicit admin bootstrap context', async () => {
+    const tx = createMockTx(0);
+
+    await expect(
+      authTransactionStorage.run(tx as never, () => withAdminBootstrap(() => resolveRoleForNewUser())),
+    ).resolves.toBe(AUTH_ADMIN_ROLE);
+
+    expect(tx.execute).toHaveBeenCalledWith(sql`select pg_advisory_xact_lock(${ADMIN_BOOTSTRAP_ADVISORY_LOCK_KEY})`);
     expect(tx.select).toHaveBeenCalledOnce();
     expect(tx.from).toHaveBeenCalledOnce();
   });
 
-  it('returns admin only when the user table is empty', async () => {
-    await expect(
-      authTransactionStorage.run(createMockTx(0) as never, () => resolveBootstrapRoleForNewUser()),
-    ).resolves.toBe(AUTH_ADMIN_ROLE);
-    await expect(
-      authTransactionStorage.run(createMockTx(1) as never, () => resolveBootstrapRoleForNewUser()),
-    ).resolves.toBe(AUTH_USER_ROLE);
-    await expect(
-      authTransactionStorage.run(createMockTx(12) as never, () => resolveBootstrapRoleForNewUser()),
-    ).resolves.toBe(AUTH_USER_ROLE);
+  it('rejects explicit admin bootstrap when no auth transaction is active', async () => {
+    await expect(withAdminBootstrap(() => resolveRoleForNewUser())).rejects.toBeInstanceOf(
+      AdminBootstrapTransactionRequiredError,
+    );
   });
 
-  it('rejects bootstrap when no auth transaction is active', async () => {
-    await expect(resolveBootstrapRoleForNewUser()).rejects.toBeInstanceOf(BootstrapTransactionRequiredError);
+  it('rejects explicit admin bootstrap when an administrator already exists', async () => {
+    const tx = createMockTx(1);
+
+    await expect(
+      authTransactionStorage.run(tx as never, () => withAdminBootstrap(() => resolveRoleForNewUser())),
+    ).rejects.toBeInstanceOf(AdminBootstrapAlreadyExistsError);
   });
 
-  it('rejects bootstrap when counting fails inside the transaction', async () => {
+  it('propagates admin count failures inside the transaction', async () => {
     const tx = {
       execute: vi.fn().mockResolvedValue(undefined),
       select: vi.fn().mockReturnValue({
-        from: vi.fn().mockRejectedValue(new Error('db unavailable')),
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error('db unavailable')),
+        }),
       }),
     };
 
-    await expect(authTransactionStorage.run(tx as never, () => resolveBootstrapRoleForNewUser(tx))).rejects.toThrow(
-      'db unavailable',
-    );
+    await expect(
+      authTransactionStorage.run(tx as never, () => withAdminBootstrap(() => resolveRoleForNewUser(tx))),
+    ).rejects.toThrow('db unavailable');
   });
 });
 
@@ -73,7 +86,7 @@ describe('bindAuthDatabaseForAdapter', () => {
 
     await database.transaction(async (innerTx) => {
       expect(innerTx).toBe(tx);
-      await expect(resolveBootstrapRoleForNewUser(innerTx)).resolves.toBe(AUTH_ADMIN_ROLE);
+      await expect(withAdminBootstrap(() => resolveRoleForNewUser(innerTx))).resolves.toBe(AUTH_ADMIN_ROLE);
     });
 
     expect(transaction).toHaveBeenCalledOnce();

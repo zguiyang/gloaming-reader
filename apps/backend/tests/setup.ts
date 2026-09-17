@@ -61,28 +61,3 @@ function assertTestDatabaseIsolation(): void {
 }
 
 assertTestDatabaseIsolation();
-
-/** First signup on an empty DB becomes admin (auth bootstrap). Pre-seed so test signups get `user`. */
-async function consumeBootstrapAdminSlot(): Promise<void> {
-  const { count } = await import('drizzle-orm');
-  const { user: userTable } = await import('@gloaming/db');
-  const { AUTH_ADMIN_ROLE } = await import('@gloaming/shared/auth');
-  const { db } = await import('@/db');
-
-  const [row] = await db.select({ value: count() }).from(userTable);
-  if (Number(row?.value ?? 0) > 0) {
-    return;
-  }
-
-  await db.insert(userTable).values({
-    id: 'vitest-bootstrap-admin',
-    name: 'Vitest Bootstrap',
-    email: 'vitest-bootstrap-admin@example.com',
-    emailVerified: true,
-    username: 'vitest_bootstrap_admin',
-    displayUsername: 'vitest_bootstrap_admin',
-    role: AUTH_ADMIN_ROLE,
-  });
-}
-
-await consumeBootstrapAdminSlot();
