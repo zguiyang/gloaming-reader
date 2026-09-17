@@ -32,6 +32,8 @@ RUN pnpm --filter @gloaming/backend build
 
 FROM base AS runner
 ENV NODE_ENV=production
+# Dokploy can override this at runtime for the separate Worker service.
+ENV GLOAMING_SERVICE=api
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/backend/node_modules ./apps/backend/node_modules
@@ -41,4 +43,4 @@ COPY --from=build /app/apps/backend/package.json ./apps/backend/package.json
 COPY package.json pnpm-workspace.yaml ./
 WORKDIR /app/apps/backend
 EXPOSE 3333
-CMD ["node", "--import", "tsx", "dist/index.js"]
+CMD ["sh", "-c", "if [ \"$GLOAMING_SERVICE\" = \"worker\" ]; then exec node --import tsx dist/worker.js; fi; exec node --import tsx dist/index.js"]

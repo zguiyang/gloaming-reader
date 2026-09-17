@@ -94,7 +94,7 @@ Names match [`apps/backend/.env.example`](../apps/backend/.env.example),
 Recommended production values:
 
 - `api`: `HOST=0.0.0.0`, `PORT=3333`, `NODE_ENV=production`
-- `worker`: use the smaller set in `.env.worker.example`, `NODE_ENV=production`, and set the startup command to `pnpm worker`
+- `worker`: use the smaller set in `.env.worker.example`, including `GLOAMING_SERVICE=worker`
 
 API and Worker validate their own runtime configuration at module load. Missing
 or invalid config **exits immediately** — there is no separate validate command.
@@ -109,7 +109,8 @@ or invalid config **exits immediately** — there is no separate validate comman
 | Object store   | `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, optional `S3_ENDPOINT` |
 
 Worker does not need `FRONTEND_URL`, `BETTER_AUTH_SECRET`, Resend, or GitHub
-OAuth variables. The API and Worker must still receive the same values for
+OAuth variables. The shared image defaults to the API command; setting
+`GLOAMING_SERVICE=worker` selects `dist/worker.js`. The API and Worker must still receive the same values for
 `DATABASE_URL`, `REDIS_URL`, `LLM_CONFIG_ENCRYPTION_KEY`, and `S3_*`.
 
 ## Dokploy setup (summary)
