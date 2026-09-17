@@ -52,8 +52,14 @@ track visibility, and jump to it. `MessageScrollerButton` sits inside
     <MessageScrollerViewport>
       <MessageScrollerContent>
         {messages.map((message) => (
-          <MessageScrollerItem key={message.id} messageId={message.id} scrollAnchor={message.role === 'user'}>
-            <Message align={message.role === 'user' ? 'end' : 'start'}>{/* ...message content... */}</Message>
+          <MessageScrollerItem
+            key={message.id}
+            messageId={message.id}
+            scrollAnchor={message.role === "user"}
+          >
+            <Message align={message.role === "user" ? "end" : "start"}>
+              {/* ...message content... */}
+            </Message>
           </MessageScrollerItem>
         ))}
       </MessageScrollerContent>
@@ -108,7 +114,9 @@ with absolutely-positioned `Badge`s.
 **Incorrect:**
 
 ```tsx
-<div className="w-fit rounded-2xl bg-primary px-3 py-2 text-primary-foreground">{text}</div>
+<div className="w-fit rounded-2xl bg-primary px-3 py-2 text-primary-foreground">
+  {text}
+</div>
 ```
 
 **Correct:**
@@ -200,6 +208,32 @@ write a `useStickToBottom` hook, a `ResizeObserver`, or manual `scrollTop` math.
   and scrolls back on click. `direction="end"` (default) or `direction="start"`.
   It is a self-managing control, so don't gate it behind your own scroll-position
   state.
+- **Open a saved transcript without a flash.** `defaultScrollPosition` applies
+  after mount. When it is `"end"` or `"last-anchor"`, the viewport has
+  `data-pending-scroll` until that position is applied. The styled viewport
+  hides. For `"end"` on first paint when messages are in the server HTML, copy
+  this script into the page, not into the primitive. Skip it for `"last-anchor"`
+  and for client-fetched messages. Keep `suppressHydrationWarning` on the
+  viewport. Pass a `nonce` if you use a Content Security Policy.
+
+```tsx
+const scrollToEndScript = `(function () {
+  var viewport = document.getElementById("messages")
+  if (!viewport) {
+    return
+  }
+  viewport.scrollTop = viewport.scrollHeight
+  viewport.removeAttribute("data-pending-scroll")
+})()`
+
+<MessageScroller>
+  <MessageScrollerViewport id="messages" suppressHydrationWarning>
+    <MessageScrollerContent>{/* transcript */}</MessageScrollerContent>
+  </MessageScrollerViewport>
+  <script dangerouslySetInnerHTML={{ __html: scrollToEndScript }} />
+  <MessageScrollerButton />
+</MessageScroller>
+```
 
 For a "thinking…" indicator while the model generates, apply the `shimmer`
 utility to text. Don't author a custom keyframe animation. See

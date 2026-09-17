@@ -12,7 +12,7 @@ Shows when investigation is broad and the AI must Stop & Ask before touching any
    - what the change involves (schema + migration + consumer updates + verification),
    - any conflicts found between docs, rules, and code,
    - the recommended approach (e.g. nullable field + backfill vs required + data migration).
-     Wait for the user's decision before writing anything.
+   Wait for the user's decision before writing anything.
 6. **After the decision** — implement per the chosen approach: schema change via the project's migration mechanism (never hand-written SQL in a project that has a migration tool), update types/schemas following the project's type-sharing pattern, update consumers.
 7. **Full verification** — run the project's migration check, type check, test suite (especially any integration tests with a real database), and lint. Report each command and its actual result.
 8. **Report** — the decision taken, what changed, migrations created, all verification output, and any remaining risk.

@@ -16,15 +16,15 @@ The full reference for how to resolve conflicts between sources of guidance.
 
 ## Layer responsibilities
 
-| Level            | Responsibility                            | Active when                 |
-| ---------------- | ----------------------------------------- | --------------------------- |
-| 1 User request   | Final goal; never violated                | Always                      |
-| 2 Project rules  | Project's persisted intent                | Rules exist                 |
-| 3 Project state  | Ground truth; anti-hallucination anchor   | All evidence gathering      |
-| 4 Conventions    | Inferred norms from actual code           | Rules silent                |
-| 5 Owner defaults | Defaults (simple, few deps, small steps)  | 1–4 have no answer          |
-| 6 Best practices | Generic fallback                          | 5 has no answer             |
-| 7 Assumptions    | Explicitly labeled, awaiting verification | Never a basis for decisions |
+| Level | Responsibility | Active when |
+|---|---|---|
+| 1 User request | Final goal; never violated | Always |
+| 2 Project rules | Project's persisted intent | Rules exist |
+| 3 Project state | Ground truth; anti-hallucination anchor | All evidence gathering |
+| 4 Conventions | Inferred norms from actual code | Rules silent |
+| 5 Owner defaults | Defaults (simple, few deps, small steps) | 1–4 have no answer |
+| 6 Best practices | Generic fallback | 5 has no answer |
+| 7 Assumptions | Explicitly labeled, awaiting verification | Never a basis for decisions |
 
 ## Rules ≠ Reality
 

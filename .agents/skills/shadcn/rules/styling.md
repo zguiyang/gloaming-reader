@@ -66,7 +66,9 @@ If you need a success/positive color that doesn't exist as a semantic token, use
 **Incorrect:**
 
 ```tsx
-<Button className="border border-input bg-transparent hover:bg-accent">Click me</Button>
+<Button className="border border-input bg-transparent hover:bg-accent">
+  Click me
+</Button>
 ```
 
 **Correct:**
@@ -98,7 +100,6 @@ Use `className` for layout (e.g. `max-w-md`, `mx-auto`, `mt-4`), **not** for ove
 ```
 
 To customize a component's appearance, prefer these approaches in order:
-
 1. **Built-in variants** — `variant="outline"`, `variant="destructive"`, etc.
 2. **Semantic color tokens** — `bg-primary`, `text-muted-foreground`.
 3. **CSS variables** — define custom colors in the global CSS file (see [customization.md](../customization.md)).
@@ -150,7 +151,7 @@ Use the `cn()` utility from the project for conditional or merged class names. D
 **Correct:**
 
 ```tsx
-import { cn } from "@/lib/utils"
+import { cn } from "cn"
 
 <div className={cn("flex items-center", isActive ? "bg-primary text-primary-foreground" : "bg-muted")}>
 ```
