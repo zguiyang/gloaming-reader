@@ -6,7 +6,7 @@ import { contentAsset as contentAssetTable, readingPart as readingPartTable } fr
 import { audioKindForRole } from '@gloaming/shared/content-assets';
 
 import { db } from '@/db';
-import { partAudioObjectKey } from '@/modules/content-assets/service';
+import { partAudioObjectKey } from '@/modules/content-assets/keys';
 import { hashPartAudioContent } from '@/modules/works/content-hash';
 
 /** Insert ready default-role (US) audio rows so publishWork audio gate passes in functional tests. */

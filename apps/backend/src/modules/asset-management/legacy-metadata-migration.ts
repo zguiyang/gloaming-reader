@@ -8,7 +8,7 @@ import { contentAsset as contentAssetTable, type ContentAssetMeta } from '@gloam
 import { isLegacyAudioSegmentKey } from '@gloaming/shared/assets';
 
 import { db } from '@/db';
-import { formalAudioObjectKeys } from '@/modules/content-assets/service';
+import { formalAudioObjectKeys } from '@/modules/content-assets/keys';
 
 import {
   computeMetadataMigrationFingerprint,

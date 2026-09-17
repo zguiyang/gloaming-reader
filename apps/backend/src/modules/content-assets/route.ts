@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
+import { enqueuePartAudio, enqueueWorkAudio } from '@/modules/content-assets/audio-generation';
 import * as contentAssetsService from '@/modules/content-assets/service';
 import {
   validateGeneratePartAudio,
@@ -19,7 +20,7 @@ contentAssetsRoutes.post(
   requireAdmin,
   validateGeneratePartAudio,
   async (c) => {
-    return c.json(await contentAssetsService.enqueuePartAudio(c.req.param('partId'), c.req.valid('json')));
+    return c.json(await enqueuePartAudio(c.req.param('partId'), c.req.valid('json')));
   },
 );
 
@@ -33,6 +34,6 @@ contentAssetsRoutes.post(
   requireAdmin,
   validateGenerateWorkAudio,
   async (c) => {
-    return c.json(await contentAssetsService.enqueueWorkAudio(c.req.param('workId'), c.req.valid('json')));
+    return c.json(await enqueueWorkAudio(c.req.param('workId'), c.req.valid('json')));
   },
 );

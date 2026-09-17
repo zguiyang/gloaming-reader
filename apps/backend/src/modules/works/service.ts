@@ -62,7 +62,7 @@ import {
 } from '@/lib/workflow';
 import { getWorkflowPolicyProjection, TTS_STEP_ENABLED, WORKFLOW_AUTO_CHAIN } from '@/lib/workflow-policy';
 import { collectReferencedStorageKeys } from '@/modules/asset-management/service';
-import { allAudioObjectKeysForLegacyCleanup } from '@/modules/content-assets/service';
+import { allAudioObjectKeysForLegacyCleanup } from '@/modules/content-assets/keys';
 import { getWorksDerivedFreshness } from '@/modules/derived-freshness';
 import { deleteObject } from '@/modules/oss';
 import { computePartReadingStats, computeWorkReadingStats } from '@/modules/reading-stats/service';
@@ -1208,7 +1208,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
     if (!claimed) {
       throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.STATE_CHANGED);
     }
-    const { enqueueWorkAudio } = await import('@/modules/content-assets/service');
+    const { enqueueWorkAudio } = await import('@/modules/content-assets/audio-generation');
     try {
       await enqueueWorkAudio(id, { force: false, roles: ['us', 'uk'] });
     } catch (error) {
