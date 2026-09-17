@@ -5,6 +5,7 @@ import { AUTH_ADMIN_ROLE, AUTH_PASSWORD_POLICY, AUTH_USERNAME_POLICY, isValidUse
 
 import { db } from '@/db';
 import { auth } from '@/lib/auth';
+import { withAdminBootstrap } from '@/lib/auth-bootstrap';
 
 const ADMIN_NAME = 'Gloaming Admin';
 const ADMIN_USERNAME = 'admin';
@@ -52,11 +53,6 @@ function readAdminCredentials(): AdminCredentials {
   return { email, password, name, username };
 }
 
-async function countUsers(): Promise<number> {
-  const [row] = await db.select({ value: count() }).from(userTable);
-  return Number(row?.value ?? 0);
-}
-
 async function countAdmins(): Promise<number> {
   const [row] = await db.select({ value: count() }).from(userTable).where(eq(userTable.role, AUTH_ADMIN_ROLE));
   return Number(row?.value ?? 0);
@@ -65,20 +61,15 @@ async function countAdmins(): Promise<number> {
 async function main(): Promise<void> {
   const adminCount = await countAdmins();
   if (adminCount > 0) {
-    throw new Error('Refusing to run: an administrator already exists. This command is for first-time bootstrap only.');
-  }
-
-  const userCount = await countUsers();
-  if (userCount > 0) {
-    throw new Error(
-      `Refusing to run: the user table is not empty (${userCount} user${userCount === 1 ? '' : 's'} found, but no administrator exists).`,
-    );
+    throw new Error('Refusing to run: an administrator already exists. This command can only be run once.');
   }
 
   const credentials = readAdminCredentials();
-  const result = await auth.api.signUpEmail({
-    body: credentials,
-  });
+  const result = await withAdminBootstrap(() =>
+    auth.api.signUpEmail({
+      body: credentials,
+    }),
+  );
 
   if (!result.user || result.user.role !== AUTH_ADMIN_ROLE) {
     throw new Error(

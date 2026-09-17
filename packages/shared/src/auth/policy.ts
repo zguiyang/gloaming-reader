@@ -24,14 +24,6 @@ export function isAdminRole(role: string | null | undefined): boolean {
   return role === AUTH_ADMIN_ROLE;
 }
 
-/** First registered account becomes admin; later signups stay regular users. */
-export function bootstrapRoleForNewUser(existingUserCount: number): AuthRole {
-  if (!Number.isFinite(existingUserCount) || existingUserCount < 0) {
-    return AUTH_USER_ROLE;
-  }
-  return existingUserCount === 0 ? AUTH_ADMIN_ROLE : AUTH_USER_ROLE;
-}
-
 export function isValidUsername(username: string): boolean {
   return AUTH_USERNAME_POLICY.pattern.test(username);
 }

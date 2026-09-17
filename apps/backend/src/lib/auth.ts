@@ -6,7 +6,7 @@ import * as schema from '@gloaming/db/schema';
 import { AUTH_PASSWORD_POLICY, AUTH_USER_ROLE, AUTH_USERNAME_POLICY, isValidUsername } from '@gloaming/shared/auth';
 
 import { db } from '@/db';
-import { bindAuthDatabaseForAdapter, resolveBootstrapRoleForNewUser } from '@/lib/auth-bootstrap';
+import { bindAuthDatabaseForAdapter, resolveRoleForNewUser } from '@/lib/auth-bootstrap';
 import { buildVerificationUrl, logDevAuthLink, sendAuthMail } from '@/lib/auth-mail';
 import { env } from '@/lib/env';
 
@@ -108,7 +108,7 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          const role = await resolveBootstrapRoleForNewUser();
+          const role = await resolveRoleForNewUser();
           return {
             data: {
               ...user,
