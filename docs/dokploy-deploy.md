@@ -150,11 +150,11 @@ pnpm db:migrate
 Use a CI job, Dokploy one-shot task, or operator shell — not `api` / `worker`
 startup. Do not run `seed:dev` in production.
 
-### 3. Confirm empty user table (pre-registration)
+### 3. Confirm administrator state (pre-registration)
 
-Confirm the `user` table has **0** rows before initializing the first admin.
-The bootstrap command refuses to run if an administrator already exists or if
-the table contains any user.
+Confirm the `user` table has **0** administrator rows before initializing an
+administrator. Ordinary users may already exist: public registration always
+creates `user`, and only the explicit bootstrap command can create `admin`.
 
 ### 4. Deploy application stack
 
@@ -164,7 +164,7 @@ full backend secrets, then **`web`** (Compose `depends_on` api health).
 Suggested Dokploy order on first deploy: configure secrets → migrate (step 2) →
 deploy compose → verify health.
 
-### 5. Initialize the first admin (one-off container command)
+### 5. Initialize an admin (one-off container command)
 
 Keep public registration closed. Inject these values only for this one-off
 command through Dokploy secrets or the operator shell:
@@ -181,11 +181,12 @@ docker compose -f docker-compose.production.yaml run --rm \
   api pnpm create:admin
 ```
 
-The command is intentionally one-time. It uses the existing Better Auth signup
-flow, so the password is hashed by the application. Because this is a trusted
-operator bootstrap, the created administrator is marked as email-verified;
-public registration still requires email verification. Do not put these values
-in the repository, compose file, or shell history.
+The command is intentionally one-time and refuses to run when an administrator
+already exists. It uses the existing Better Auth signup flow, so the password is
+hashed by the application. Because this is a trusted operator bootstrap, the
+created administrator is marked as email-verified; public registration still
+requires email verification. Do not put these values in the repository, compose
+file, or shell history.
 
 ### 6. Worker smoke: queue + TTS path
 

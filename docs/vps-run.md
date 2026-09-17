@@ -65,14 +65,14 @@ the Compose published ports (local example ports: `5433` / `6380`). Set web
 
 ## Admin bootstrap (one-time command)
 
-The first administrator is created deliberately by the backend bootstrap
-command. It refuses to run if an administrator already exists or if the user
-table contains any user.
+An administrator is created deliberately by the backend bootstrap command. It
+refuses to run if an administrator already exists; ordinary public registrations
+always create regular users.
 
-Before running it, confirm the database has **zero** users and keep public
-registration closed. Provide `ADMIN_EMAIL` and `ADMIN_PASSWORD` only through
-the operator environment or a secret manager; never commit or log their
-values.
+Before running it, confirm the database has **zero** administrators and keep
+public registration closed during the bootstrap. Provide `ADMIN_EMAIL` and
+`ADMIN_PASSWORD` only through the operator environment or a secret manager;
+never commit or log their values.
 
 ```bash
 pnpm --filter @gloaming/backend create:admin
@@ -142,7 +142,7 @@ pnpm --filter @gloaming/backend worker
 Importing `env` validates config via Zod at startup. Ensure the unit/process
 manager restarts the worker on failure.
 
-### 6. Initialize the first admin
+### 6. Initialize an admin
 
 Run the one-time admin bootstrap command from the backend container or a
 trusted host with the production environment loaded. Verify the email before
@@ -187,8 +187,8 @@ Stop and fix failures before inviting the public.
 ### 10. Open registration
 
 Only after steps 1–9 pass. Until then, keep the deployment off public traffic
-(firewall, reverse-proxy allowlist, or equivalent). After the first admin
-exists, further sign-ups receive a normal user role.
+(firewall, reverse-proxy allowlist, or equivalent). All public sign-ups receive
+a normal user role; only the explicit bootstrap command creates an admin.
 
 ## Process manager sketches
 
