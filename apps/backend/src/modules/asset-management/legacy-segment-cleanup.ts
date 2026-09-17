@@ -12,7 +12,7 @@ import {
 } from '@gloaming/shared/assets';
 
 import { db } from '@/db';
-import { env } from '@/lib/env';
+import { commonEnv } from '@/lib/env-common';
 import { rootLogger } from '@/lib/logger';
 import type { ObjectListItem } from '@/lib/oss';
 import { CLEANUP_BATCH_SIZE } from '@/modules/asset-management/cleanup-store';
@@ -277,7 +277,7 @@ export async function runLegacySegmentCleanup(options: {
   const manifest: LegacySegmentCleanupManifest = {
     createdAt,
     mode: 'dry-run',
-    targetBucket: env.S3_BUCKET,
+    targetBucket: commonEnv.S3_BUCKET,
     scanComplete: listed.complete,
     listedSegmentCount: segmentObjects.length,
     referencedSkippedCount: skipped.filter((entry) => entry.reason === 'still_referenced').length,
@@ -371,7 +371,7 @@ async function runLegacySegmentCleanupExecute(options: {
   outputPath: string;
 }): Promise<{ manifest: LegacySegmentCleanupManifest; manifestPath: string }> {
   const approved = await loadApprovedManifest(options.approvedManifestPath);
-  validateApprovedLegacyCleanupManifest(approved, options.expectedBucket, env.S3_BUCKET);
+  validateApprovedLegacyCleanupManifest(approved, options.expectedBucket, commonEnv.S3_BUCKET);
 
   const executedAt = new Date().toISOString();
   const manifest: LegacySegmentCleanupManifest = {

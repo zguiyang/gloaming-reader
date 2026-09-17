@@ -1,4 +1,4 @@
-import { type Env, isS3ObjectStorageConfigured } from '@/lib/env';
+import { type CommonEnv, isS3ObjectStorageConfigured } from '@/lib/env-common';
 import { createS3ObjectStore } from '@/lib/oss/s3';
 import type { ObjectStore } from '@/lib/oss/types';
 
@@ -6,7 +6,7 @@ import type { ObjectStore } from '@/lib/oss/types';
  * Build an ObjectStore from env. Boot requires all S3_* vars.
  * Returns null only if a caller passes an incomplete Env object (unit tests).
  */
-export function createObjectStoreFromEnv(config: Env): ObjectStore | null {
+export function createObjectStoreFromEnv(config: CommonEnv): ObjectStore | null {
   if (!isS3ObjectStorageConfigured(config)) {
     return null;
   }

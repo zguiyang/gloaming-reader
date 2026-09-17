@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
 
-import { env } from '@/lib/env';
+import { commonEnv } from '@/lib/env-common';
 import { redisLogger } from '@/lib/logger';
 
 let client: Redis | null = null;
@@ -12,7 +12,7 @@ export function getRedis(): Redis {
   }
 
   redisLogger.info('Connecting to Redis...');
-  client = new Redis(env.REDIS_URL);
+  client = new Redis(commonEnv.REDIS_URL);
 
   client.on('connect', () => {
     redisLogger.info('Connected to Redis');

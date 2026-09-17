@@ -12,7 +12,7 @@ import {
 import type { PingJobData } from '@/jobs/ping';
 import { JOB_PING, processPing } from '@/jobs/ping';
 import { JOB_METADATA_FILL, processWorkMetadataFill, type WorkMetadataFillJobData } from '@/jobs/work-metadata-fill';
-import { env } from '@/lib/env';
+import { commonEnv } from '@/lib/env-common';
 import { workerLogger } from '@/lib/logger';
 import { CLEANUP_QUEUE_NAME, closeQueue, getQueueConnection, QUEUE_NAME } from '@/lib/queue';
 
@@ -74,7 +74,10 @@ export function createWorkers(): { worker: Worker; cleanupWorker: Worker } {
 async function main(): Promise<void> {
   const { worker, cleanupWorker } = createWorkers();
 
-  workerLogger.info({ queue: QUEUE_NAME, cleanupQueue: CLEANUP_QUEUE_NAME, nodeEnv: env.NODE_ENV }, 'Worker listening');
+  workerLogger.info(
+    { queue: QUEUE_NAME, cleanupQueue: CLEANUP_QUEUE_NAME, nodeEnv: commonEnv.NODE_ENV },
+    'Worker listening',
+  );
 
   let shuttingDown = false;
   const shutdown = async (signal: string) => {

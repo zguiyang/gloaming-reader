@@ -10,26 +10,19 @@ import {
 } from '@aws-sdk/client-s3';
 import { describe, expect, it, vi } from 'vitest';
 
-import { type Env, env, isS3ObjectStorageConfigured } from '@/lib/env';
+import { type CommonEnv, commonEnv, isS3ObjectStorageConfigured } from '@/lib/env-common';
 import { AppError } from '@/lib/errors';
 import { createObjectStoreFromEnv, createS3ObjectStore, type ObjectStore } from '@/lib/oss';
 import { deleteManyObjects, putObject, resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 
 import { createMemoryObjectStore } from './helpers/memory-oss';
 
-function baseEnv(overrides: Partial<Env> = {}): Env {
+function baseEnv(overrides: Partial<CommonEnv> = {}): CommonEnv {
   return {
     NODE_ENV: 'test',
-    PORT: 3333,
-    HOST: 'localhost',
     LOG_LEVEL: 'info',
-    FRONTEND_URL: 'http://localhost:3000',
-    BETTER_AUTH_SECRET: 'test-secret-at-least-16',
     DATABASE_URL: 'postgresql://localhost:5432/test',
     REDIS_URL: 'redis://localhost:6379',
-    RESEND_API_KEY: 're_test_key',
-    MAIL_FROM_ADDRESS: 'noreply@example.com',
-    MAIL_FROM_NAME: 'Gloaming',
     LLM_CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
     S3_ENDPOINT: 'https://s3.example.com',
     S3_REGION: 'auto',
@@ -346,7 +339,7 @@ const runS3LiveConnectivity = process.env.GLOAMING_S3_LIVE_TEST === '1' && isS3O
 
 describe.skipIf(!runS3LiveConnectivity)('S3 live connectivity', () => {
   it('puts, reads, and deletes a namespaced probe object', async () => {
-    const store = createObjectStoreFromEnv(env);
+    const store = createObjectStoreFromEnv(commonEnv);
     expect(store).not.toBeNull();
     if (!store) {
       return;

@@ -1,6 +1,6 @@
 import pino from 'pino';
 
-import { env } from '@/lib/env';
+import { commonEnv } from '@/lib/env-common';
 import { REDACTED, sanitizeHeaders, sanitizeLogUrl, sanitizeLogValue, serializeLogError } from '@/lib/log-redaction';
 
 const SENSITIVE_LOG_PATHS = [
@@ -55,7 +55,7 @@ const SENSITIVE_LOG_PATHS = [
 ];
 
 export const rootLogger = pino({
-  level: env.LOG_LEVEL,
+  level: commonEnv.LOG_LEVEL,
   redact: { paths: SENSITIVE_LOG_PATHS, censor: REDACTED },
   serializers: {
     headers: (value) => sanitizeHeaders(value),
@@ -72,7 +72,7 @@ export const rootLogger = pino({
     err: serializeLogError,
   },
   transport:
-    env.NODE_ENV !== 'production'
+    commonEnv.NODE_ENV !== 'production'
       ? {
           target: 'pino-pretty',
           options: {

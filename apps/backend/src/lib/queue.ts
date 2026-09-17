@@ -3,7 +3,7 @@ import { Redis } from 'ioredis';
 
 import type { PingJobData } from '@/jobs/ping';
 import { JOB_PING } from '@/jobs/ping';
-import { env } from '@/lib/env';
+import { commonEnv } from '@/lib/env-common';
 import { queueLogger } from '@/lib/logger';
 
 export const QUEUE_NAME = 'gloaming';
@@ -21,7 +21,7 @@ export function getQueueConnection(): Redis {
     return connection;
   }
 
-  connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+  connection = new Redis(commonEnv.REDIS_URL, { maxRetriesPerRequest: null });
   connection.on('error', (err) => {
     queueLogger.error({ err }, 'Queue Redis connection error');
   });

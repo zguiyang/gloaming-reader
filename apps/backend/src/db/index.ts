@@ -3,13 +3,13 @@ import { Pool } from 'pg';
 
 import * as schema from '@gloaming/db/schema';
 
-import { env } from '@/lib/env';
+import { commonEnv } from '@/lib/env-common';
 import { dbLogger } from '@/lib/logger';
 
 dbLogger.info('Connecting to PostgreSQL...');
 
 const pool = new Pool({
-  connectionString: env.DATABASE_URL,
+  connectionString: commonEnv.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 5_000,

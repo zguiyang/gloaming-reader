@@ -5,7 +5,7 @@ import {
   publicFailedSample,
 } from '@gloaming/shared/assets';
 
-import { env } from '@/lib/env';
+import { commonEnv } from '@/lib/env-common';
 import { getRedis } from '@/lib/redis';
 
 const JOB_KEY_PREFIX = 'asset-management:cleanup:job:';
@@ -59,7 +59,7 @@ export type SaveCleanupJobOptions = {
 };
 
 export function snapshotTtlSeconds(): number {
-  return env.NODE_ENV === 'production' ? 7 * 24 * 60 * 60 : 24 * 60 * 60;
+  return commonEnv.NODE_ENV === 'production' ? 7 * 24 * 60 * 60 : 24 * 60 * 60;
 }
 
 export function cleanupJobIdForScan(scanId: string): string {

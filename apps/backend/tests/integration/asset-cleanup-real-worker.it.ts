@@ -218,7 +218,7 @@ async function main(): Promise<void> {
   const { default: app } = await import('@/app');
   const { HTTP_STATUS } = await import('@/constants');
   const { db } = await import('@/db');
-  const { env } = await import('@/lib/env');
+  const { commonEnv: env } = await import('@/lib/env-common');
   const { getRedis } = await import('@/lib/redis');
   const { CLEANUP_QUEUE_NAME, closeQueue } = await import('@/lib/queue');
   const { acquireLock, CLEANUP_LOCK_KEY, releaseLock, SCAN_LOCK_KEY } =

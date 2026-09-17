@@ -45,8 +45,9 @@ Local development Postgres/Redis remain in
 1. **Dokploy** (or compatible Compose host) with Traefik for HTTPS domains.
 2. **Existing PostgreSQL 15+** reachable from the Compose network.
 3. **Existing Redis** reachable from the Compose network.
-4. **S3-compatible object storage** and **Resend** credentials (required at
-   backend boot — see `apps/backend/.env.example`).
+4. **S3-compatible object storage** credentials (required at API and Worker
+   boot); Resend credentials are required by the API — see
+   `apps/backend/.env.example` and `.env.worker.example`.
 5. Repository connected to Dokploy (build context = repo root).
 
 ### Connecting to external Postgres / Redis
@@ -69,7 +70,8 @@ Dokploy domain), for CORS, Better Auth, and email links.
 ## Dokploy variable injection
 
 Configure variables per service in the Dokploy UI (or encrypted secrets store).
-Names match [`apps/backend/.env.example`](../apps/backend/.env.example) and
+Names match [`apps/backend/.env.example`](../apps/backend/.env.example),
+[`apps/backend/.env.worker.example`](../apps/backend/.env.worker.example), and
 [`apps/web/.env.example`](../apps/web/.env.example).
 
 ### `web` (required)
@@ -79,7 +81,7 @@ Names match [`apps/backend/.env.example`](../apps/backend/.env.example) and
 | `API_INTERNAL_URL`    | `http://api:3333` — Docker DNS to the `api` service    |
 | `NEXT_PUBLIC_APP_URL` | Public https origin (optional if same-origin suffices) |
 
-### `api` and `worker` (required — same secret set on both)
+### `api` (required)
 
 | Area         | Variable names                                                                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------------------------- |
@@ -92,10 +94,23 @@ Names match [`apps/backend/.env.example`](../apps/backend/.env.example) and
 Recommended production values:
 
 - `api`: `HOST=0.0.0.0`, `PORT=3333`, `NODE_ENV=production`
-- `worker`: `HOST=0.0.0.0`, `NODE_ENV=production` (`PORT` satisfies shared env schema)
+- `worker`: use the smaller set in `.env.worker.example`, `NODE_ENV=production`, and set the startup command to `pnpm worker`
 
-API and Worker import `env` at module load. Missing or invalid config **exits
-immediately** — there is no separate validate command.
+API and Worker validate their own runtime configuration at module load. Missing
+or invalid config **exits immediately** — there is no separate validate command.
+
+### `worker` (required)
+
+| Area           | Variable names                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Runtime        | `NODE_ENV`, optional `LOG_LEVEL`                                                                                    |
+| Data and queue | `DATABASE_URL`, `REDIS_URL`                                                                                         |
+| LLM keys       | `LLM_CONFIG_ENCRYPTION_KEY`                                                                                         |
+| Object store   | `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE`, optional `S3_ENDPOINT` |
+
+Worker does not need `FRONTEND_URL`, `BETTER_AUTH_SECRET`, Resend, or GitHub
+OAuth variables. The API and Worker must still receive the same values for
+`DATABASE_URL`, `REDIS_URL`, `LLM_CONFIG_ENCRYPTION_KEY`, and `S3_*`.
 
 ## Dokploy setup (summary)
 

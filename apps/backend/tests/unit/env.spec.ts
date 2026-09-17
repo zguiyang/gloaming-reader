@@ -7,6 +7,24 @@ import {
   loadEnvConfig,
   parseEnvConfig,
 } from '@/lib/env';
+import { parseCommonEnvConfig } from '@/lib/env-common';
+
+function validWorkerEnv(overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
+  return {
+    NODE_ENV: 'production',
+    LOG_LEVEL: 'info',
+    DATABASE_URL: 'postgresql://localhost:5432/gloaming_backend',
+    REDIS_URL: 'redis://localhost:6379',
+    LLM_CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    S3_ENDPOINT: 'https://s3.example.com',
+    S3_REGION: 'auto',
+    S3_BUCKET: 'bucket',
+    S3_ACCESS_KEY_ID: 'key',
+    S3_SECRET_ACCESS_KEY: 'secret',
+    S3_FORCE_PATH_STYLE: 'false',
+    ...overrides,
+  };
+}
 
 function validEnv(overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
   return {
@@ -133,6 +151,21 @@ describe('parseEnvConfig', () => {
       S3_ACCESS_KEY_ID: expect.any(String),
       S3_SECRET_ACCESS_KEY: expect.any(String),
     });
+  });
+});
+
+describe('parseCommonEnvConfig', () => {
+  it('accepts Worker configuration without API-only variables', () => {
+    const config = parseCommonEnvConfig(validWorkerEnv());
+    expect(config.DATABASE_URL).toContain('postgresql://');
+    expect(config.REDIS_URL).toContain('redis://');
+    expect(config.S3_BUCKET).toBe('bucket');
+  });
+
+  it('still rejects missing Worker runtime dependencies', () => {
+    const env = validWorkerEnv();
+    delete env.REDIS_URL;
+    expect(() => parseCommonEnvConfig(env)).toThrow(/REDIS_URL/);
   });
 });
 

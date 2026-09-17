@@ -1,13 +1,13 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 
-import { env } from '@/lib/env';
+import { commonEnv } from '@/lib/env-common';
 
 const CIPHER_PREFIX = 'v1:';
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
 function encryptionKeyBytes(): Buffer {
-  const raw = env.LLM_CONFIG_ENCRYPTION_KEY.trim();
+  const raw = commonEnv.LLM_CONFIG_ENCRYPTION_KEY.trim();
   if (/^[0-9a-fA-F]{64}$/.test(raw)) {
     return Buffer.from(raw, 'hex');
   }

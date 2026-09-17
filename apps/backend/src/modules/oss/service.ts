@@ -1,5 +1,5 @@
 import { HTTP_STATUS } from '@/constants';
-import { env } from '@/lib/env';
+import { commonEnv } from '@/lib/env-common';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
@@ -32,7 +32,7 @@ function resolveStore(): ObjectStore {
   }
 
   try {
-    cachedStore = createObjectStoreFromEnv(env);
+    cachedStore = createObjectStoreFromEnv(commonEnv);
   } catch (error) {
     ossLogger.error({ err: error }, 'Failed to create object store');
     throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.OSS.UNAVAILABLE);

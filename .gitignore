@@ -10,6 +10,7 @@ tmp
 .env.*
 !.env.example
 !.env.test.example
+!.env.worker.example
 
 # Local Docker Compose (copy from docker-compose.yaml.example)
 docker-compose.yaml
