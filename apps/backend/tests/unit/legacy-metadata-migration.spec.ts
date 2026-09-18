@@ -10,7 +10,7 @@ import {
   computeMigratedAudioMetadata,
   metadataHash,
   runLegacyMetadataMigration,
-} from '@/modules/asset-management/legacy-metadata-migration';
+} from '@/modules/asset-management/legacy/legacy-metadata-migration';
 import {
   assertMetadataMigrationExecuteArgs,
   assertSafeMetadataMigrationDatabase,
@@ -19,7 +19,7 @@ import {
   type LegacyMetadataMigrationCandidate,
   type LegacyMetadataMigrationManifest,
   validateApprovedMetadataMigrationManifest,
-} from '@/modules/asset-management/legacy-metadata-migration-guards';
+} from '@/modules/asset-management/legacy/legacy-metadata-migration-guards';
 
 import { parseMetadataMigrationArgs } from '../../scripts/migrate-legacy-audio-metadata.ts';
 

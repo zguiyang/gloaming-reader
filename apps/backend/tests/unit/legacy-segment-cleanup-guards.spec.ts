@@ -6,7 +6,7 @@ import {
   assertLegacyCleanupExecuteAuthorized,
   computeLegacyCleanupEligibleKeysFingerprint,
   validateApprovedLegacyCleanupManifest,
-} from '@/modules/asset-management/legacy-segment-cleanup-guards';
+} from '@/modules/asset-management/legacy/legacy-segment-cleanup-guards';
 
 function sampleManifest(
   overrides: Partial<ApprovedLegacySegmentCleanupManifest> = {},

@@ -16,6 +16,9 @@ import { commonEnv } from '@/lib/env-common';
 import { rootLogger } from '@/lib/logger';
 import type { ObjectListItem } from '@/lib/oss';
 import { CLEANUP_BATCH_SIZE } from '@/modules/asset-management/cleanup-store';
+import { collectReferencedStorageKeys, type ReferencedKeyIndex } from '@/modules/asset-management/service';
+import { deleteManyObjects, listObjects, objectExists } from '@/modules/oss';
+
 import {
   type ApprovedLegacySegmentCleanupManifest,
   assertLegacyCleanupExecuteArgs,
@@ -23,9 +26,7 @@ import {
   computeLegacyCleanupEligibleKeysFingerprint,
   type LegacySegmentCleanupVerification,
   validateApprovedLegacyCleanupManifest,
-} from '@/modules/asset-management/legacy-segment-cleanup-guards';
-import { collectReferencedStorageKeys, type ReferencedKeyIndex } from '@/modules/asset-management/service';
-import { deleteManyObjects, listObjects, objectExists } from '@/modules/oss';
+} from './legacy-segment-cleanup-guards';
 
 const logger = rootLogger.child({ module: 'LegacySegmentCleanup' });
 

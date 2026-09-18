@@ -18,12 +18,12 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { env } from '../src/lib/env.ts';
-import { runLegacyMetadataMigration } from '../src/modules/asset-management/legacy-metadata-migration.ts';
+import { runLegacyMetadataMigration } from '../src/modules/asset-management/legacy/legacy-metadata-migration.ts';
 import {
   assertMetadataMigrationExecuteArgs,
   assertSafeMetadataMigrationDatabase,
   databaseNameFromUrl,
-} from '../src/modules/asset-management/legacy-metadata-migration-guards.ts';
+} from '../src/modules/asset-management/legacy/legacy-metadata-migration-guards.ts';
 
 export function parseMetadataMigrationArgs(argv: string[]): {
   execute: boolean;

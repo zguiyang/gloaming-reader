@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   evaluateLegacySegmentCandidate,
   isActiveAudioGeneration,
-} from '@/modules/asset-management/legacy-segment-cleanup';
+} from '@/modules/asset-management/legacy/legacy-segment-cleanup';
 import {
   collectFormalKeysFromContentAssetRow,
   collectKeysFromContentAssetRow,

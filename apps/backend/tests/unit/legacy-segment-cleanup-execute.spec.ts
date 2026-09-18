@@ -5,12 +5,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   runLegacySegmentCleanup,
   verifyLegacySegmentCleanupAfterExecute,
-} from '@/modules/asset-management/legacy-segment-cleanup';
+} from '@/modules/asset-management/legacy/legacy-segment-cleanup';
 import {
   type ApprovedLegacySegmentCleanupManifest,
   computeLegacyCleanupEligibleKeysFingerprint,
   validateApprovedLegacyCleanupManifest,
-} from '@/modules/asset-management/legacy-segment-cleanup-guards';
+} from '@/modules/asset-management/legacy/legacy-segment-cleanup-guards';
 import * as assetService from '@/modules/asset-management/service';
 import * as ossModule from '@/modules/oss';
 

@@ -17,8 +17,8 @@ import { db } from '@/db';
 import {
   computeMigratedAudioMetadata,
   runLegacyMetadataMigration,
-} from '@/modules/asset-management/legacy-metadata-migration';
-import { runLegacySegmentCleanup } from '@/modules/asset-management/legacy-segment-cleanup';
+} from '@/modules/asset-management/legacy/legacy-metadata-migration';
+import { runLegacySegmentCleanup } from '@/modules/asset-management/legacy/legacy-segment-cleanup';
 import { setObjectStoreForTests } from '@/modules/oss';
 
 import { createMemoryObjectStore } from '../helpers/memory-oss';
@@ -156,7 +156,7 @@ describe('legacy audio migration to cleanup pipeline', () => {
       removedTimelineKeyCount: ourCandidate!.removedTimelineKeyCount,
     };
     const { computeMetadataMigrationFingerprint } =
-      await import('@/modules/asset-management/legacy-metadata-migration-guards');
+      await import('@/modules/asset-management/legacy/legacy-metadata-migration-guards');
     scopedManifest.fingerprint = computeMetadataMigrationFingerprint(scopedManifest.candidates);
     await writeFile(scopedDryRunPath, `${JSON.stringify(scopedManifest, null, 2)}\n`);
 
@@ -243,7 +243,7 @@ describe('legacy audio migration to cleanup pipeline', () => {
     expect(ourCandidate).toBeTruthy();
     const scopedDryRunPath = path.join(tempDir, `metadata-dry-run-scoped-only-${randomUUID()}.json`);
     const { computeMetadataMigrationFingerprint } =
-      await import('@/modules/asset-management/legacy-metadata-migration-guards');
+      await import('@/modules/asset-management/legacy/legacy-metadata-migration-guards');
     const approved = {
       ...dryRun.manifest,
       candidates: [ourCandidate!],

@@ -17,8 +17,8 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { runLegacySegmentCleanup } from '../src/modules/asset-management/legacy-segment-cleanup.ts';
-import { LEGACY_AUDIO_SEGMENT_CLEANUP_ENV } from '../src/modules/asset-management/legacy-segment-cleanup-guards.ts';
+import { runLegacySegmentCleanup } from '../src/modules/asset-management/legacy/legacy-segment-cleanup.ts';
+import { LEGACY_AUDIO_SEGMENT_CLEANUP_ENV } from '../src/modules/asset-management/legacy/legacy-segment-cleanup-guards.ts';
 
 function parsePathFlag(argv: string[], flag: string): string | undefined {
   const index = argv.findIndex((arg) => arg === flag);
