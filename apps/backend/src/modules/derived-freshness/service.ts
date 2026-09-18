@@ -4,7 +4,7 @@ import { contentAsset as contentAssetTable } from '@gloaming/db';
 import { type DerivedFreshness, type DerivedState } from '@gloaming/shared/works';
 
 import { db } from '@/db';
-import { hashPartContent } from '@/modules/works/content-hash';
+import { hashPartAudioContent } from '@/modules/works/content-hash';
 
 export type WorkPartSourceInput = {
   id: string;
@@ -51,7 +51,7 @@ export async function getWorksDerivedFreshness(works: WorkPartSourceInput[]): Pr
   }
 
   for (const work of works) {
-    const sourceHash = hashPartContent(work.title, work.body);
+    const sourceHash = hashPartAudioContent(work.body);
     result.set(work.id, {
       audio: audioStateForRows(audioByPart.get(work.partId) ?? [], sourceHash),
     });
