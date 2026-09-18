@@ -10,7 +10,12 @@ import { requireAdmin } from '@/middleware/auth';
 import { createAdminEpubWork, reuseAdminEpubWork } from '@/modules/works/admin/admin-epub-ingest';
 import { publishWork, retryWorkflow, unpublishWork } from '@/modules/works/admin/admin-lifecycle';
 import { getAdminWork, listAdminWorks } from '@/modules/works/admin/admin-work-read';
-import { getPublishedWork, listCatalogCategories, listCatalogTags, listCatalogWorks } from '@/modules/works/queries';
+import {
+  getPublishedWork,
+  listCatalogCategories,
+  listCatalogTags,
+  listCatalogWorks,
+} from '@/modules/works/read-model/catalog';
 import { createAdminTextWork, deleteWork, updateWork } from '@/modules/works/service';
 import {
   validateAdminWorkListQuery,

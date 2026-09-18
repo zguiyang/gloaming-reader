@@ -16,7 +16,7 @@ import { failWorkflowEnqueue, stepRunningStatus, workflowLeaseExpiresAt } from '
 import { TTS_STEP_ENABLED } from '@/lib/workflow-policy';
 import { buildPublishIssuesForWork } from '@/modules/works/admin/admin-publish-gate';
 import { getAdminWork } from '@/modules/works/admin/admin-work-read';
-import { loadPartsForWork, loadSourcesForWork, loadTagsForWork } from '@/modules/works/queries';
+import { loadPartsForWork, loadSourcesForWork, loadTagsForWork } from '@/modules/works/read-model/relations';
 import { failedStepOf } from '@/modules/works/workflow-meta';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;

@@ -24,7 +24,8 @@ import { ERROR_CODES } from '@/lib/errors/codes';
 import { getPartAudioAvailability, getPublishedPartAudioTrack } from '@/modules/content-assets/service';
 import { reindexLeafParagraphOrdinals } from '@/modules/epub-ingest/clean';
 import { touchReadingDay } from '@/modules/reading-history/service';
-import { getPartById, loadTagsForWork, requirePublishedWorkWithParts } from '@/modules/works/queries';
+import { getPartById, requirePublishedWorkWithParts } from '@/modules/works/read-model/access';
+import { loadTagsForWork } from '@/modules/works/read-model/relations';
 
 type StateRow = typeof readingStateTable.$inferSelect;
 type PartRow = typeof readingPartTable.$inferSelect;

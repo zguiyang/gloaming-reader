@@ -12,7 +12,7 @@ import {
   type RecommendationFeatures,
   resolveRecommendationOrder,
 } from '@/modules/recommendations/score';
-import { loadCategoriesByWorkIds, loadSourcesByWorkIds, loadTagsByWorkIds } from '@/modules/works/queries';
+import { loadCategoriesByWorkIds, loadSourcesByWorkIds, loadTagsByWorkIds } from '@/modules/works/read-model/relations';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 

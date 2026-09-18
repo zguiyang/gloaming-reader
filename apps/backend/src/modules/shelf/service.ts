@@ -6,7 +6,7 @@ import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { db } from '@/db';
 import { toReadingState } from '@/modules/reader/service';
-import { loadPartSortOrdersByWorkIds, loadTagsByWorkIds } from '@/modules/works/queries';
+import { loadPartSortOrdersByWorkIds, loadTagsByWorkIds } from '@/modules/works/read-model/relations';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 

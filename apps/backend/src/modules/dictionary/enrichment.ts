@@ -11,7 +11,7 @@ import type {
 import { rootLogger } from '@/lib/logger';
 import { invokeAi } from '@/modules/ai/service';
 import { toGenericDictionaryEntry } from '@/modules/dictionary/generic-entry';
-import { getPublishedWorkTitle } from '@/modules/works/queries';
+import { getPublishedWorkTitle } from '@/modules/works/read-model/catalog';
 
 const logger = rootLogger.child({ module: 'DictionaryService' });
 

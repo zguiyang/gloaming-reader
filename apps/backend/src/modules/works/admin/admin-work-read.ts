@@ -25,15 +25,13 @@ import { completeWorkflowStep } from '@/lib/workflow';
 import { getWorkflowPolicyProjection, TTS_STEP_ENABLED } from '@/lib/workflow-policy';
 import { getWorksDerivedFreshness } from '@/modules/derived-freshness';
 import { buildPublishIssuesForWork } from '@/modules/works/admin/admin-publish-gate';
+import { shouldHideTagsDuringProcessing, toPart, toWork } from '@/modules/works/read-model/projection';
 import {
   loadCategoryForWork,
   loadPartsForWork,
   loadSourcesForWork,
   loadTagsForWork,
-  shouldHideTagsDuringProcessing,
-  toPart,
-  toWork,
-} from '@/modules/works/queries';
+} from '@/modules/works/read-model/relations';
 import { failedStepOf } from '@/modules/works/workflow-meta';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
