@@ -4,7 +4,7 @@ import { ASSET_SCAN_OBJECT_LIMIT } from '@gloaming/shared/assets';
 
 import type * as cleanupStoreModule from '@/modules/asset-management/cleanup-store';
 import type { CleanupJobRecord } from '@/modules/asset-management/cleanup-store';
-import type * as assetManagementService from '@/modules/asset-management/service';
+import type * as referencedKeysModule from '@/modules/asset-management/referenced-keys';
 import type * as ossModule from '@/modules/oss';
 
 const mocks = vi.hoisted(() => {
@@ -43,8 +43,8 @@ vi.mock('@/modules/asset-management/cleanup-store', async (importOriginal) => {
   };
 });
 
-vi.mock('@/modules/asset-management/service', async (importOriginal) => {
-  const actual = await importOriginal<typeof assetManagementService>();
+vi.mock('@/modules/asset-management/referenced-keys', async (importOriginal) => {
+  const actual = await importOriginal<typeof referencedKeysModule>();
   return {
     ...actual,
     collectReferencedStorageKeys: mocks.collectReferencedStorageKeys,

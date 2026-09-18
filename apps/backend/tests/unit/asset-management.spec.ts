@@ -6,12 +6,11 @@ import {
 } from '@/modules/asset-management/legacy/legacy-segment-cleanup';
 import {
   collectFormalKeysFromContentAssetRow,
-  collectKeysFromContentAssetRow,
   collectKeysFromOriginMeta,
   collectLegacySegmentKeysFromContentAssetRow,
-  reconcileObjects,
   referencedKeyIndexFromKeys,
-} from '@/modules/asset-management/service';
+} from '@/modules/asset-management/referenced-keys';
+import { reconcileObjects } from '@/modules/asset-management/scan-reconcile';
 
 describe('collectFormalKeysFromContentAssetRow', () => {
   it('returns only chapter for audio assets with legacy segment metadata', () => {
@@ -59,9 +58,9 @@ describe('collectLegacySegmentKeysFromContentAssetRow', () => {
   });
 });
 
-describe('collectKeysFromContentAssetRow', () => {
+describe('formal and legacy key helpers combined', () => {
   it('collects storageKey, objectKeys, and timeline storageKeys without duplicates', () => {
-    const keys = collectKeysFromContentAssetRow({
+    const asset = {
       storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
       kind: 'audio_us',
       meta: {
@@ -77,12 +76,16 @@ describe('collectKeysFromContentAssetRow', () => {
           },
         ],
       },
-    });
+    };
+    const keys = [
+      ...collectFormalKeysFromContentAssetRow(asset),
+      ...collectLegacySegmentKeysFromContentAssetRow(asset),
+    ].filter((key, index, all) => all.indexOf(key) === index);
     expect(keys.sort()).toEqual(['part-audio/p1/audio_us/h/chapter.mp3', 'part-audio/p1/audio_us/h/seg/0000.mp3']);
   });
 
   it('keeps a timeline-only segment key that is absent from objectKeys', () => {
-    const keys = collectKeysFromContentAssetRow({
+    const asset = {
       storageKey: 'part-audio/p1/audio_us/old/chapter.mp3',
       kind: 'audio_us',
       meta: {
@@ -98,7 +101,11 @@ describe('collectKeysFromContentAssetRow', () => {
           },
         ],
       },
-    });
+    };
+    const keys = [
+      ...collectFormalKeysFromContentAssetRow(asset),
+      ...collectLegacySegmentKeysFromContentAssetRow(asset),
+    ].filter((key, index, all) => all.indexOf(key) === index);
     expect(keys.sort()).toEqual(['part-audio/p1/audio_us/old/chapter.mp3', 'part-audio/p1/audio_us/old/seg/0000.mp3']);
   });
 });

@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { ASSET_SCAN_OBJECT_LIMIT, type AssetCleanupJobVerification } from '@gloaming/shared/assets';
 
 import { rootLogger } from '@/lib/logger';
-import type { ObjectListItem } from '@/lib/oss';
 import {
   acquireLock,
   CLEANUP_BATCH_SIZE,
@@ -16,8 +15,10 @@ import {
   saveCleanupJob,
   startLockRenewal,
 } from '@/modules/asset-management/cleanup-store';
-import { collectReferencedStorageKeys, reconcileObjects } from '@/modules/asset-management/service';
-import { deleteManyObjects, listObjects } from '@/modules/oss';
+import { listBucketObjects } from '@/modules/asset-management/list-bucket-objects';
+import { collectReferencedStorageKeys } from '@/modules/asset-management/referenced-keys';
+import { reconcileObjects } from '@/modules/asset-management/scan-reconcile';
+import { deleteManyObjects } from '@/modules/oss';
 
 const logger = rootLogger.child({ module: 'AssetCleanupJob' });
 
@@ -141,27 +142,9 @@ async function persistOwnedCleanupJob(record: CleanupJobRecord, executionToken: 
   }
 }
 
-async function listAllObjectsBounded(limit: number): Promise<{ objects: ObjectListItem[]; complete: boolean }> {
-  const objects: ObjectListItem[] = [];
-  let cursor: string | undefined;
-  for (;;) {
-    const page = await listObjects(undefined, cursor);
-    for (const object of page.objects) {
-      if (objects.length >= limit) {
-        return { objects, complete: false };
-      }
-      objects.push(object);
-    }
-    if (!page.hasMore || !page.nextCursor) {
-      return { objects, complete: true };
-    }
-    cursor = page.nextCursor;
-  }
-}
-
 async function verifyStorageAfterCleanup(scanId: string): Promise<AssetCleanupJobVerification> {
   const [listed, referenced] = await Promise.all([
-    listAllObjectsBounded(ASSET_SCAN_OBJECT_LIMIT),
+    listBucketObjects({ limit: ASSET_SCAN_OBJECT_LIMIT }),
     collectReferencedStorageKeys(),
   ]);
   const { report } = reconcileObjects({

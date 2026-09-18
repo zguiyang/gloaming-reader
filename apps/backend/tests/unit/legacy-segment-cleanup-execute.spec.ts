@@ -11,7 +11,7 @@ import {
   computeLegacyCleanupEligibleKeysFingerprint,
   validateApprovedLegacyCleanupManifest,
 } from '@/modules/asset-management/legacy/legacy-segment-cleanup-guards';
-import * as assetService from '@/modules/asset-management/service';
+import * as referencedKeys from '@/modules/asset-management/referenced-keys';
 import * as ossModule from '@/modules/oss';
 
 import { parseCleanupLegacyAudioSegmentArgs } from '../../scripts/cleanup-legacy-audio-segments.ts';
@@ -150,7 +150,7 @@ describe('verifyLegacySegmentCleanupAfterExecute', () => {
       if (key === chapter) return true;
       return false;
     });
-    vi.spyOn(assetService, 'collectReferencedStorageKeys').mockResolvedValue({
+    vi.spyOn(referencedKeys, 'collectReferencedStorageKeys').mockResolvedValue({
       formalKeys: new Set([chapter]),
       externalReferencedKeys: new Set(),
       legacyAudioSegmentKeys: new Set(),
@@ -169,7 +169,7 @@ describe('verifyLegacySegmentCleanupAfterExecute', () => {
     expect(missingChapter.passed).toBe(false);
     expect(missingChapter.missingChapterKeys.length).toBeGreaterThan(0);
 
-    vi.spyOn(assetService, 'collectReferencedStorageKeys').mockResolvedValue({
+    vi.spyOn(referencedKeys, 'collectReferencedStorageKeys').mockResolvedValue({
       formalKeys: new Set(),
       externalReferencedKeys: new Set(),
       legacyAudioSegmentKeys: new Set(),
@@ -187,7 +187,7 @@ describe('verifyLegacySegmentCleanupAfterExecute', () => {
     const seg = 'part-audio/p1/audio_us/h/seg/0000.mp3';
     const chapter = 'part-audio/p1/audio_us/h/chapter.mp3';
     vi.spyOn(ossModule, 'objectExists').mockImplementation(async (key: string) => key === chapter);
-    vi.spyOn(assetService, 'collectReferencedStorageKeys').mockResolvedValue({
+    vi.spyOn(referencedKeys, 'collectReferencedStorageKeys').mockResolvedValue({
       formalKeys: new Set([chapter]),
       externalReferencedKeys: new Set(),
       legacyAudioSegmentKeys: new Set(),

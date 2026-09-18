@@ -16,8 +16,9 @@ import { commonEnv } from '@/lib/env-common';
 import { rootLogger } from '@/lib/logger';
 import type { ObjectListItem } from '@/lib/oss';
 import { CLEANUP_BATCH_SIZE } from '@/modules/asset-management/cleanup-store';
-import { collectReferencedStorageKeys, type ReferencedKeyIndex } from '@/modules/asset-management/service';
-import { deleteManyObjects, listObjects, objectExists } from '@/modules/oss';
+import { listBucketObjects } from '@/modules/asset-management/list-bucket-objects';
+import { collectReferencedStorageKeys, type ReferencedKeyIndex } from '@/modules/asset-management/referenced-keys';
+import { deleteManyObjects, objectExists } from '@/modules/oss';
 
 import {
   type ApprovedLegacySegmentCleanupManifest,
@@ -144,27 +145,6 @@ export function evaluateLegacySegmentCandidate(input: {
   };
 }
 
-async function listAllObjectsBounded(
-  prefix: string | undefined,
-  limit: number,
-): Promise<{ objects: ObjectListItem[]; complete: boolean }> {
-  const objects: ObjectListItem[] = [];
-  let cursor: string | undefined;
-  for (;;) {
-    const page = await listObjects(prefix, cursor);
-    for (const object of page.objects) {
-      if (objects.length >= limit) {
-        return { objects, complete: false };
-      }
-      objects.push(object);
-    }
-    if (!page.hasMore || !page.nextCursor) {
-      return { objects, complete: true };
-    }
-    cursor = page.nextCursor;
-  }
-}
-
 function assetPartKindKey(partId: string, kind: string): string {
   return `${partId}:${kind}`;
 }
@@ -207,7 +187,7 @@ export async function runLegacySegmentCleanup(options: {
   const createdAt = new Date().toISOString();
 
   const [listed, referenced] = await Promise.all([
-    listAllObjectsBounded('part-audio/', objectLimit),
+    listBucketObjects({ prefix: 'part-audio/', limit: objectLimit }),
     collectReferencedStorageKeys(),
   ]);
 

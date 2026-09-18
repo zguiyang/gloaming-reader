@@ -1,17 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import {
-  contentAsset as contentAssetTable,
-  type ContentAssetMeta,
-  readingWork as readingWorkTable,
-  uploadedObject as uploadedObjectTable,
-} from '@gloaming/db';
-import {
-  ASSET_CATEGORIES,
-  ASSET_LARGEST_OBJECTS_DEFAULT,
   ASSET_SCAN_OBJECT_LIMIT,
-  type AssetCategory,
-  type AssetCategorySummary,
   type AssetCleanupJob,
   type AssetCleanupJobAccepted,
   type AssetObjectItem,
@@ -19,18 +9,13 @@ import {
   type AssetObjectListQuery,
   type AssetScanReport,
   buildPaginationMeta,
-  classifyAssetKey,
-  isLegacyAudioSegmentKey,
 } from '@gloaming/shared/assets';
 
 import { HTTP_STATUS } from '@/constants';
-import { db } from '@/db';
 import { AppError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
-import type { ObjectListItem } from '@/lib/oss';
 import { enqueueCleanup } from '@/lib/queue';
-import { getRedis } from '@/lib/redis';
 import {
   acquireLock,
   applyCleanupRetryState,
@@ -44,379 +29,18 @@ import {
   saveCleanupJob,
   SCAN_LOCK_KEY,
   SCAN_LOCK_TTL_SECONDS,
-  snapshotTtlSeconds,
   startLockRenewal,
   toPublicCleanupJob,
 } from '@/modules/asset-management/cleanup-store';
-import { collectLegacyAudioSegmentKeysFromAsset, formalAudioObjectKeys } from '@/modules/content-assets/audio/keys';
-import { listObjects } from '@/modules/oss';
+import { listBucketObjects } from '@/modules/asset-management/list-bucket-objects';
+import { collectReferencedStorageKeys } from '@/modules/asset-management/referenced-keys';
+import { reconcileObjects } from '@/modules/asset-management/scan-reconcile';
+import { loadScanSnapshot, saveScanSnapshot } from '@/modules/asset-management/scan-snapshot';
 
 const logger = rootLogger.child({ module: 'AssetManagement' });
 
 /** Must match `JOB_ASSET_CLEANUP` in jobs/asset-cleanup.ts */
 const CLEANUP_JOB_NAME = 'asset-cleanup';
-const SCAN_KEY_PREFIX = 'asset-management:scan:';
-
-type ScanSnapshot = {
-  report: AssetScanReport;
-  objects: AssetObjectItem[];
-  orphanKeys: string[];
-  legacyDuplicateKeys: string[];
-};
-
-export type ReferencedKeyIndex = {
-  /** Formal chapter, cover, image, origin, and non-segment audio objects. */
-  formalKeys: Set<string>;
-  /** Segment keys referenced only via legacy audio metadata fields. */
-  legacyAudioSegmentKeys: Set<string>;
-  /** Keys from uploaded_object, workflow artifacts, and other non-audio sources. */
-  externalReferencedKeys: Set<string>;
-  /** Union of all reference sources. */
-  allReferencedKeys: Set<string>;
-  kindByKey: Map<string, string>;
-};
-
-export function createEmptyReferencedKeyIndex(): ReferencedKeyIndex {
-  return {
-    formalKeys: new Set(),
-    legacyAudioSegmentKeys: new Set(),
-    externalReferencedKeys: new Set(),
-    allReferencedKeys: new Set(),
-    kindByKey: new Map(),
-  };
-}
-
-/** Test helper — treats every key as a formal reference unless marked legacy/external. */
-export function referencedKeyIndexFromKeys(
-  keys: string[],
-  options: { kinds?: Record<string, string>; legacySegments?: string[]; external?: string[] } = {},
-): ReferencedKeyIndex {
-  const index = createEmptyReferencedKeyIndex();
-  const legacySet = new Set(options.legacySegments ?? []);
-  const externalSet = new Set(options.external ?? []);
-  for (const key of keys) {
-    if (externalSet.has(key)) {
-      addExternalReferencedKey(index, key);
-      continue;
-    }
-    if (legacySet.has(key) || isLegacyAudioSegmentKey(key)) {
-      addLegacyAudioSegmentKey(index, key);
-      continue;
-    }
-    addFormalReferencedKey(index, key, options.kinds?.[key]);
-  }
-  return index;
-}
-
-type ParseArtifactManifest = {
-  attemptToken: string;
-  keys: string[];
-};
-
-function scanRedisKey(scanId: string): string {
-  return `${SCAN_KEY_PREFIX}${scanId}`;
-}
-
-function addFormalReferencedKey(index: ReferencedKeyIndex, key: string | null | undefined, kind?: string | null): void {
-  if (!key) return;
-  index.formalKeys.add(key);
-  index.allReferencedKeys.add(key);
-  if (kind && !index.kindByKey.has(key)) {
-    index.kindByKey.set(key, kind);
-  }
-}
-
-function addLegacyAudioSegmentKey(index: ReferencedKeyIndex, key: string | null | undefined): void {
-  if (!key) return;
-  index.legacyAudioSegmentKeys.add(key);
-  index.allReferencedKeys.add(key);
-}
-
-function addExternalReferencedKey(index: ReferencedKeyIndex, key: string | null | undefined): void {
-  if (!key) return;
-  index.externalReferencedKeys.add(key);
-  index.allReferencedKeys.add(key);
-}
-
-function classifyListedObjectStatus(key: string, referenced: ReferencedKeyIndex): AssetObjectItem['status'] {
-  if (referenced.formalKeys.has(key) || referenced.externalReferencedKeys.has(key)) {
-    return 'referenced';
-  }
-  if (referenced.legacyAudioSegmentKeys.has(key) || isLegacyAudioSegmentKey(key)) {
-    return 'legacy_duplicate_audio';
-  }
-  return 'orphan';
-}
-
-function parseArtifactManifests(originMeta: unknown): ParseArtifactManifest[] {
-  if (!originMeta || typeof originMeta !== 'object') return [];
-  const value = (originMeta as Record<string, unknown>).workflowParseArtifacts;
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== 'object') return [];
-    const candidate = entry as { attemptToken?: unknown; keys?: unknown };
-    if (
-      typeof candidate.attemptToken !== 'string' ||
-      !Array.isArray(candidate.keys) ||
-      !candidate.keys.every((key): key is string => typeof key === 'string')
-    ) {
-      return [];
-    }
-    return [{ attemptToken: candidate.attemptToken, keys: candidate.keys }];
-  });
-}
-
-/** Collect every storage key currently referenced by database rows. */
-export async function collectReferencedStorageKeys(): Promise<ReferencedKeyIndex> {
-  const index = createEmptyReferencedKeyIndex();
-
-  const assets = await db
-    .select({
-      storageKey: contentAssetTable.storageKey,
-      kind: contentAssetTable.kind,
-      meta: contentAssetTable.meta,
-    })
-    .from(contentAssetTable);
-
-  for (const asset of assets) {
-    const meta = asset.meta as ContentAssetMeta;
-    if (asset.kind.startsWith('audio_')) {
-      for (const key of formalAudioObjectKeys({ storageKey: asset.storageKey, meta })) {
-        addFormalReferencedKey(index, key, asset.kind);
-      }
-      for (const key of collectLegacyAudioSegmentKeysFromAsset({ meta })) {
-        addLegacyAudioSegmentKey(index, key);
-      }
-      continue;
-    }
-    addFormalReferencedKey(index, asset.storageKey, asset.kind);
-    for (const key of meta.objectKeys ?? []) {
-      addFormalReferencedKey(index, key, asset.kind);
-    }
-  }
-
-  const uploaded = await db.select({ storageKey: uploadedObjectTable.storageKey }).from(uploadedObjectTable);
-  for (const row of uploaded) {
-    addExternalReferencedKey(index, row.storageKey);
-  }
-
-  const works = await db.select({ originMeta: readingWorkTable.originMeta }).from(readingWorkTable);
-  for (const work of works) {
-    for (const manifest of parseArtifactManifests(work.originMeta)) {
-      for (const key of manifest.keys) {
-        addExternalReferencedKey(index, key);
-      }
-    }
-  }
-
-  return index;
-}
-
-/** Pure helper — formal keys from a content_asset-shaped row (unit-testable). */
-export function collectFormalKeysFromContentAssetRow(asset: {
-  storageKey: string;
-  kind: string;
-  meta: ContentAssetMeta;
-}): string[] {
-  if (asset.kind.startsWith('audio_')) {
-    return formalAudioObjectKeys({ storageKey: asset.storageKey, meta: asset.meta });
-  }
-  return [asset.storageKey, ...(asset.meta.objectKeys ?? [])].filter((key): key is string => Boolean(key));
-}
-
-/** Pure helper — legacy segment keys from audio metadata (unit-testable). */
-export function collectLegacySegmentKeysFromContentAssetRow(asset: { meta: ContentAssetMeta }): string[] {
-  return collectLegacyAudioSegmentKeysFromAsset(asset);
-}
-
-/** @deprecated Prefer collectFormalKeysFromContentAssetRow or collectLegacySegmentKeysFromContentAssetRow. */
-export function collectKeysFromContentAssetRow(asset: {
-  storageKey: string;
-  kind: string;
-  meta: ContentAssetMeta;
-}): string[] {
-  return [...collectFormalKeysFromContentAssetRow(asset), ...collectLegacySegmentKeysFromContentAssetRow(asset)].filter(
-    (key, index, keys) => keys.indexOf(key) === index,
-  );
-}
-
-export function collectKeysFromOriginMeta(originMeta: unknown): string[] {
-  return parseArtifactManifests(originMeta).flatMap((manifest) => manifest.keys);
-}
-
-async function listAllObjects(limit: number): Promise<{ objects: ObjectListItem[]; complete: boolean }> {
-  const objects: ObjectListItem[] = [];
-  let cursor: string | undefined;
-  for (;;) {
-    const page = await listObjects(undefined, cursor);
-    for (const object of page.objects) {
-      if (objects.length >= limit) {
-        return { objects, complete: false };
-      }
-      objects.push(object);
-    }
-    if (!page.hasMore || !page.nextCursor) {
-      return { objects, complete: true };
-    }
-    cursor = page.nextCursor;
-  }
-}
-
-function toIso(value: Date | string | null): string | null {
-  if (value == null) return null;
-  if (value instanceof Date) return value.toISOString();
-  return value;
-}
-
-/** Reconcile OSS listing against a reference key set. Exported for unit tests. */
-export function reconcileObjects(input: {
-  listed: ObjectListItem[];
-  referenced: ReferencedKeyIndex;
-  measuredAt?: Date;
-  scanId?: string;
-  largestLimit?: number;
-  scanComplete?: boolean;
-  durationMs?: number;
-}): {
-  report: AssetScanReport;
-  objects: AssetObjectItem[];
-  orphanKeys: string[];
-  legacyDuplicateKeys: string[];
-} {
-  const measuredAt = (input.measuredAt ?? new Date()).toISOString();
-  const scanId = input.scanId ?? `scan_${randomUUID()}`;
-  const largestLimit = input.largestLimit ?? ASSET_LARGEST_OBJECTS_DEFAULT;
-  const scanComplete = input.scanComplete ?? true;
-  const durationMs = input.durationMs ?? 0;
-
-  const listedKeys = new Set(input.listed.map((object) => object.key));
-  const objects: AssetObjectItem[] = [];
-  const orphanKeys: string[] = [];
-  const legacyDuplicateKeys: string[] = [];
-
-  let totalBytes = 0;
-  let referencedObjectCount = 0;
-  let referencedBytes = 0;
-  let orphanCount = 0;
-  let orphanBytes = 0;
-  let legacyDuplicateCount = 0;
-  let legacyDuplicateBytes = 0;
-
-  const categoryTotals = new Map<AssetCategory, { objectCount: number; bytes: number }>();
-  for (const category of ASSET_CATEGORIES) {
-    categoryTotals.set(category, { objectCount: 0, bytes: 0 });
-  }
-
-  for (const listed of input.listed) {
-    const kind = input.referenced.kindByKey.get(listed.key);
-    const category = classifyAssetKey(listed.key, kind);
-    const status = classifyListedObjectStatus(listed.key, input.referenced);
-    const referenced = status === 'referenced';
-    const item: AssetObjectItem = {
-      key: listed.key,
-      category,
-      status,
-      size: listed.size,
-      lastModified: toIso(listed.lastModified),
-      etag: listed.etag,
-    };
-    objects.push(item);
-    totalBytes += listed.size;
-
-    const bucket = categoryTotals.get(category)!;
-    bucket.objectCount += 1;
-    bucket.bytes += listed.size;
-
-    if (referenced) {
-      referencedObjectCount += 1;
-      referencedBytes += listed.size;
-    } else if (status === 'legacy_duplicate_audio') {
-      legacyDuplicateCount += 1;
-      legacyDuplicateBytes += listed.size;
-      legacyDuplicateKeys.push(listed.key);
-    } else {
-      orphanCount += 1;
-      orphanBytes += listed.size;
-      orphanKeys.push(listed.key);
-    }
-  }
-
-  let missingCount = 0;
-  for (const key of input.referenced.allReferencedKeys) {
-    if (listedKeys.has(key)) continue;
-    missingCount += 1;
-    const kind = input.referenced.kindByKey.get(key);
-    objects.push({
-      key,
-      category: classifyAssetKey(key, kind),
-      status: 'missing',
-      size: 0,
-      lastModified: null,
-      etag: null,
-    });
-  }
-
-  const categories: AssetCategorySummary[] = ASSET_CATEGORIES.map((category) => {
-    const totals = categoryTotals.get(category)!;
-    return { category, objectCount: totals.objectCount, bytes: totals.bytes };
-  }).filter((entry) => entry.objectCount > 0 || entry.bytes > 0);
-
-  const largestObjects = objects
-    .filter((item) => item.status !== 'missing')
-    .toSorted((a, b) => b.size - a.size || a.key.localeCompare(b.key))
-    .slice(0, largestLimit);
-
-  const report: AssetScanReport = {
-    scanId,
-    measuredAt,
-    scanComplete,
-    objectCount: input.listed.length,
-    totalBytes,
-    referencedObjectCount,
-    referencedBytes,
-    orphanCount,
-    orphanBytes,
-    legacyDuplicateCount,
-    legacyDuplicateBytes,
-    missingCount,
-    durationMs,
-    categories,
-    largestObjects,
-  };
-
-  return { report, objects, orphanKeys, legacyDuplicateKeys };
-}
-
-async function saveSnapshot(snapshot: ScanSnapshot): Promise<void> {
-  await getRedis().set(scanRedisKey(snapshot.report.scanId), JSON.stringify(snapshot), 'EX', snapshotTtlSeconds());
-}
-
-async function loadSnapshot(scanId: string): Promise<ScanSnapshot> {
-  const raw = await getRedis().get(scanRedisKey(scanId));
-  if (!raw) {
-    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.SCAN_SNAPSHOT_EXPIRED);
-  }
-  try {
-    const parsed = JSON.parse(raw) as Partial<ScanSnapshot> & {
-      report: AssetScanReport;
-      objects: AssetObjectItem[];
-    };
-    const legacyDuplicateKeys =
-      parsed.legacyDuplicateKeys ??
-      parsed.objects.filter((item) => item.status === 'legacy_duplicate_audio').map((item) => item.key);
-    const orphanKeys =
-      parsed.orphanKeys ?? parsed.objects.filter((item) => item.status === 'orphan').map((item) => item.key);
-    return {
-      report: parsed.report,
-      objects: parsed.objects,
-      orphanKeys,
-      legacyDuplicateKeys,
-    };
-  } catch (error) {
-    logger.warn({ err: error, scanId }, 'Failed to parse scan snapshot');
-    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.SCAN_SNAPSHOT_EXPIRED);
-  }
-}
 
 export async function scanAssets(): Promise<AssetScanReport> {
   const scanId = `scan_${randomUUID()}`;
@@ -430,7 +54,7 @@ export async function scanAssets(): Promise<AssetScanReport> {
   const startedAt = Date.now();
   try {
     const [listed, referenced] = await Promise.all([
-      listAllObjects(ASSET_SCAN_OBJECT_LIMIT),
+      listBucketObjects({ limit: ASSET_SCAN_OBJECT_LIMIT }),
       collectReferencedStorageKeys(),
     ]);
     const durationMs = Date.now() - startedAt;
@@ -442,7 +66,7 @@ export async function scanAssets(): Promise<AssetScanReport> {
       scanComplete: listed.complete,
       durationMs,
     });
-    await saveSnapshot({ report, objects, orphanKeys, legacyDuplicateKeys });
+    await saveScanSnapshot({ report, objects, orphanKeys, legacyDuplicateKeys });
     logger.info(
       {
         scanId,
@@ -486,7 +110,7 @@ function compareObjects(
 }
 
 export async function listScanObjects(scanId: string, query: AssetObjectListQuery): Promise<AssetObjectListData> {
-  const snapshot = await loadSnapshot(scanId);
+  const snapshot = await loadScanSnapshot(scanId);
   let filtered = snapshot.objects;
   if (query.status !== 'all') {
     filtered = filtered.filter((item) => item.status === query.status);
@@ -513,7 +137,7 @@ export async function listScanObjects(scanId: string, query: AssetObjectListQuer
 }
 
 export async function enqueueOrphanCleanup(scanId: string): Promise<AssetCleanupJobAccepted> {
-  const snapshot = await loadSnapshot(scanId);
+  const snapshot = await loadScanSnapshot(scanId);
   if (!snapshot.report.scanComplete) {
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.SCAN_INCOMPLETE);
   }

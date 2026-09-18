@@ -23,7 +23,7 @@ import { db } from '@/db';
 import { AppError, NotFoundError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
-import { collectReferencedStorageKeys } from '@/modules/asset-management/service';
+import { collectReferencedStorageKeys } from '@/modules/asset-management/referenced-keys';
 import { allAudioObjectKeysForLegacyCleanup } from '@/modules/content-assets/audio/keys';
 import { deleteObject } from '@/modules/oss';
 import { computePartReadingStats, computeWorkReadingStats } from '@/modules/reading-stats/service';
