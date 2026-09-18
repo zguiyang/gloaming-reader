@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { dictionaryRoutes } from '@/modules/dictionary/route';
 import * as dictionaryService from '@/modules/dictionary/service';
 

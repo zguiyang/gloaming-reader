@@ -19,8 +19,8 @@ import {
 } from '@gloaming/shared/works';
 
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { NotFoundError } from '@/lib/errors';
+import { NotFoundError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { completeWorkflowStep } from '@/lib/workflow';
 import { getWorkflowPolicyProjection, TTS_STEP_ENABLED } from '@/lib/workflow-policy';
 import { getWorksDerivedFreshness } from '@/modules/derived-freshness';

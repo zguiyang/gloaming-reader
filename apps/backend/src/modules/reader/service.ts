@@ -19,8 +19,8 @@ import { estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
 import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError, NotFoundError } from '@/lib/errors';
+import { AppError, NotFoundError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { getPartAudioAvailability, getPublishedPartAudioTrack } from '@/modules/content-assets/service';
 import { reindexLeafParagraphOrdinals } from '@/modules/epub-ingest/clean';
 import { touchReadingDay } from '@/modules/reading-history/service';

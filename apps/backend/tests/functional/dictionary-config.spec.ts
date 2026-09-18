@@ -17,7 +17,7 @@ import {
 
 import app from '@/app';
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import * as redisLib from '@/lib/redis';
 import { YoudaoDictionaryProvider } from '@/modules/dictionary/providers/youdao-dictionary';
 import { DICTIONARY_CONFIG_ID } from '@/modules/dictionary/service';

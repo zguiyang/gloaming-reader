@@ -2,8 +2,8 @@ import type { Context } from 'hono';
 import { ZodError } from 'zod';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError, ValidationFailedError } from '@/lib/errors';
+import { AppError, ValidationFailedError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import { sendError, sendValidationError } from '@/lib/response';
 

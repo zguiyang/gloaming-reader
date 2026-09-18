@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildVerificationUrl, sendAuthMail, shouldLogDevAuthLink } from '@/lib/auth-mail';
+import { buildVerificationUrl, sendAuthMail, shouldLogDevAuthLink } from '@/lib/auth/mail';
 
 describe('auth-mail', () => {
   afterEach(() => {

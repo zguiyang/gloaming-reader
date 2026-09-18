@@ -5,7 +5,7 @@ import {
   type DictionaryPhonetic,
 } from '@gloaming/shared/dictionary';
 
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
 import { rootLogger } from '@/lib/logger';
 import {
   appErrorFromUpstreamDictionaryStatus,

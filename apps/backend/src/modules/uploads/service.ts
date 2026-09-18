@@ -7,8 +7,8 @@ import { uploadedObject as uploadedObjectTable } from '@gloaming/db';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import { acquireLockWithWait, releaseLock, startLockRenewal } from '@/lib/redis-lock';
 import { deleteObject, putObject } from '@/modules/oss';

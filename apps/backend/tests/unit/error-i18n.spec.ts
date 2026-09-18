@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError, NotFoundError, ValidationFailedError } from '@/lib/errors';
+import { AppError, NotFoundError, ValidationFailedError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { resolveRequestLocale } from '@/lib/locale';
 import { formatThrownError, sendError, sendValidationError } from '@/lib/response';
 import { errorHandler } from '@/middleware/error';

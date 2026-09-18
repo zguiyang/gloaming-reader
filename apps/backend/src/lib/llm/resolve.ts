@@ -6,8 +6,8 @@ import { assertWireVariantForFamily, isLlmApiFamily, isRuntimeImplemented } from
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { decryptApiKey } from '@/lib/llm/crypto';
 
 export type ResolvedLlm = {

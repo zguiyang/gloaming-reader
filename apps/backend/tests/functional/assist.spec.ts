@@ -13,8 +13,8 @@ import type { AdminWork } from '@gloaming/shared/works';
 import app from '@/app';
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import * as aiService from '@/modules/ai/service';
 import * as conversationsService from '@/modules/conversations/service';
 

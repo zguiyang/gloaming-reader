@@ -20,8 +20,8 @@ import type { AdminWork, CreateAdminTextWorkBody, UpdateWorkBody } from '@gloami
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError, NotFoundError } from '@/lib/errors';
+import { AppError, NotFoundError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import { collectReferencedStorageKeys } from '@/modules/asset-management/service';
 import { allAudioObjectKeysForLegacyCleanup } from '@/modules/content-assets/audio/keys';

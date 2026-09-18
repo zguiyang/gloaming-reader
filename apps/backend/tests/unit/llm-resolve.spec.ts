@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { llmModel as llmModelTable, llmProvider as llmProviderTable } from '@gloaming/db';
 
 import { db } from '@/db';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
 import { encryptApiKey, resolveLlmByModelRowId } from '@/lib/llm';
 
 describe('resolveLlmByModelRowId', () => {

@@ -4,7 +4,7 @@ import type { TaxonomyKind } from '@gloaming/shared/taxonomy';
 import { TAXONOMY_KINDS } from '@gloaming/shared/taxonomy';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { resolveRequestLocale } from '@/lib/locale';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';

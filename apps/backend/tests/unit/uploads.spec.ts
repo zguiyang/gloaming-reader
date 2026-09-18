@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 import {
   fileExtension,

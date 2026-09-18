@@ -1,7 +1,7 @@
 import { HTTP_STATUS } from '@/constants';
 import { commonEnv } from '@/lib/env-common';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import {
   createObjectStoreFromEnv,

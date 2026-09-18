@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DICTIONARY_PROVIDER_FREE, DICTIONARY_PROVIDER_YOUDAO } from '@gloaming/shared/dictionary';
 
 import { HTTP_STATUS } from '@/constants';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
 import {
   isTransientDictionaryProviderFailure,
   mapUpstreamDictionaryHttpStatus,

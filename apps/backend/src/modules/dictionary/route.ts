@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
 import { rateLimit } from '@/middleware/rate-limit';

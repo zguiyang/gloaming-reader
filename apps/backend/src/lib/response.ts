@@ -3,8 +3,8 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 import { t, type TranslationParams } from '@gloaming/i18n';
 
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError, type ValidationDetail } from '@/lib/errors';
+import { AppError, type ValidationDetail } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { resolveRequestLocale } from '@/lib/locale';
 
 export type LocalizedApiErrorBody = {

@@ -1,6 +1,6 @@
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 
 const BLOCKED_HOSTNAMES = new Set(['localhost', 'metadata.google.internal', 'metadata.goog']);
 

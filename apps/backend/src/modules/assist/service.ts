@@ -5,8 +5,8 @@ import { readingPart as readingPartTable, readingWork as readingWorkTable } from
 import { type AssistAskBody } from '@gloaming/shared/assist';
 
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { NotFoundError } from '@/lib/errors';
+import { NotFoundError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import { htmlToPlainText } from '@/lib/part-text';
 import { composePromptMessages, PROMPT_ROLE, PROMPT_SCENE, type PromptMessage, renderPrompt } from '@/lib/prompts';

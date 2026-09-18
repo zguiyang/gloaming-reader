@@ -8,7 +8,7 @@ import { AUTH_ADMIN_ROLE, AUTH_USER_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { ERROR_CODES } from '@/lib/errors/codes';
 
 const password = 'password123';
 const newPassword = 'password456';

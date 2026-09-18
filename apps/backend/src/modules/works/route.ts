@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { sendError } from '@/lib/response';
 import type { AuthVariables } from '@/middleware/auth';
 import { requireAdmin } from '@/middleware/auth';

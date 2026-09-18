@@ -11,11 +11,11 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 
 import { type CommonEnv, commonEnv, isS3ObjectStorageConfigured } from '@/lib/env-common';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
 import { createObjectStoreFromEnv, createS3ObjectStore, type ObjectStore } from '@/lib/oss';
 import { deleteManyObjects, putObject, resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 
-import { createMemoryObjectStore } from './helpers/memory-oss';
+import { createMemoryObjectStore } from '../helpers/memory-oss';
 
 function baseEnv(overrides: Partial<CommonEnv> = {}): CommonEnv {
   return {

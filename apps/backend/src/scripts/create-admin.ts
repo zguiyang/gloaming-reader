@@ -4,8 +4,8 @@ import { user as userTable } from '@gloaming/db';
 import { AUTH_ADMIN_ROLE, AUTH_PASSWORD_POLICY, AUTH_USERNAME_POLICY, isValidUsername } from '@gloaming/shared/auth';
 
 import { db } from '@/db';
-import { auth } from '@/lib/auth';
-import { withAdminBootstrap } from '@/lib/auth-bootstrap';
+import { auth } from '@/lib/auth/auth';
+import { withAdminBootstrap } from '@/lib/auth/bootstrap';
 
 const ADMIN_NAME = 'Gloaming Admin';
 const ADMIN_USERNAME = 'admin';

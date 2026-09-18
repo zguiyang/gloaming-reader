@@ -20,8 +20,8 @@ import { type ReaderAudioTrack } from '@gloaming/shared/reader';
 import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { NotFoundError } from '@/lib/errors';
+import { NotFoundError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import { deleteObject, objectExists } from '@/modules/oss';
 import { hashPartAudioContent } from '@/modules/works/content-hash';

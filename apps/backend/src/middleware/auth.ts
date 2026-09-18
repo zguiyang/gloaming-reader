@@ -3,8 +3,8 @@ import { createMiddleware } from 'hono/factory';
 import { isAdminRole } from '@gloaming/shared/auth';
 
 import { HTTP_STATUS } from '@/constants';
-import { auth, type AuthSession, type AuthSessionUser } from '@/lib/auth';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { auth, type AuthSession, type AuthSessionUser } from '@/lib/auth/auth';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { sendError } from '@/lib/response';
 
 export type AuthVariables = {

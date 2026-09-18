@@ -3,8 +3,8 @@ import { ChatOpenAI } from '@langchain/openai';
 import { isRuntimeImplemented } from '@gloaming/shared/llm';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { buildProxiedFetch } from '@/lib/llm/proxy';
 import type { ResolvedLlm } from '@/lib/llm/resolve';
 

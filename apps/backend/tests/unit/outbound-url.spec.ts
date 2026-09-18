@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
 import { assertSafeOutboundUrl, resolveProviderBalanceUrl } from '@/lib/llm/outbound-url';
 
 describe('assertSafeOutboundUrl', () => {

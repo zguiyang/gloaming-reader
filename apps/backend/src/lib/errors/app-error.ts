@@ -3,7 +3,7 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { TranslationParams } from '@gloaming/i18n';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES, type ErrorCode } from '@/lib/error-codes';
+import { ERROR_CODES, type ErrorCode } from '@/lib/errors/codes';
 
 export type ValidationDetail = {
   path: string;

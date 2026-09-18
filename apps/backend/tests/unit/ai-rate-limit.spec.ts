@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthSessionUser } from '@/lib/auth';
+import type { AuthSessionUser } from '@/lib/auth/auth';
 import { aiRateLimit } from '@/middleware/rate-limit';
 
 type FakeRedis = {

@@ -25,8 +25,8 @@ import {
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import type { ObjectListItem } from '@/lib/oss';
 import { enqueueCleanup } from '@/lib/queue';

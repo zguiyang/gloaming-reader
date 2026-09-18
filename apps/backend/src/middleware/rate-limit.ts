@@ -2,7 +2,7 @@ import { createMiddleware } from 'hono/factory';
 import { RateLimiterMemory, RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import { getRedis } from '@/lib/redis';
 import { sendError } from '@/lib/response';

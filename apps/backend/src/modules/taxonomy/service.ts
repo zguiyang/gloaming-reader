@@ -26,8 +26,8 @@ import { LANGUAGE_CODES, mergeLocalizedText, resolveLocalizedText } from '@gloam
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError, NotFoundError } from '@/lib/errors';
+import { AppError, NotFoundError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { normalizeTag } from '@/lib/text';
 
 const CANONICAL_LOCALE: LanguageCode = 'en-US';

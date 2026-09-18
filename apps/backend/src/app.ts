@@ -5,9 +5,9 @@ import { secureHeaders } from 'hono/secure-headers';
 import { rateLimiter } from 'hono-rate-limiter';
 
 import { HTTP_STATUS } from '@/constants';
-import { auth } from '@/lib/auth';
+import { auth } from '@/lib/auth/auth';
 import { env } from '@/lib/env';
-import { ERROR_CODES } from '@/lib/error-codes';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, sessionMiddleware } from '@/middleware/auth';
 import { errorHandler } from '@/middleware/error';

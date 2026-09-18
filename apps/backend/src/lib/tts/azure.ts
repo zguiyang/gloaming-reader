@@ -1,8 +1,8 @@
 import * as sdk from 'microsoft-cognitiveservices-speech-sdk';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 
 const azureTtsLogger = rootLogger.child({ module: 'AzureTts' });

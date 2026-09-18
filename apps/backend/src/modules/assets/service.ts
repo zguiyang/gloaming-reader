@@ -4,7 +4,7 @@ import { contentAsset as contentAssetTable, readingWork as readingWorkTable } fr
 import { isAdminRole } from '@gloaming/shared/auth';
 
 import { db } from '@/db';
-import type { AuthSessionUser } from '@/lib/auth';
+import type { AuthSessionUser } from '@/lib/auth/auth';
 import type { ObjectGetStreamResult, ObjectRange } from '@/lib/oss';
 import { getObjectStream } from '@/modules/oss';
 

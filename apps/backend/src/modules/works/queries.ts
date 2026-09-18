@@ -15,8 +15,8 @@ import type { CatalogTaxonomyListData, SourceReference, TaxonomyReference } from
 import { type CatalogListData, type CatalogListQuery, type Part, type Work } from '@gloaming/shared/works';
 
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { NotFoundError } from '@/lib/errors';
+import { NotFoundError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { computePartReadingStats, computeWorkReadingStats } from '@/modules/reading-stats/service';
 import { toCatalogTaxonomyFacet, toSourceReference, toTaxonomyReference } from '@/modules/works/taxonomy-mapper';
 

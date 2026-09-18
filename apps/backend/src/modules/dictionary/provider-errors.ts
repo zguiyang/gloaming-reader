@@ -1,8 +1,8 @@
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 import { HTTP_STATUS } from '@/constants';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 
 const providerLogger = rootLogger.child({ module: 'DictionaryProvider' });

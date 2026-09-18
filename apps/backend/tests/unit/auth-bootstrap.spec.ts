@@ -11,7 +11,7 @@ import {
   bindAuthDatabaseForAdapter,
   resolveRoleForNewUser,
   withAdminBootstrap,
-} from '@/lib/auth-bootstrap';
+} from '@/lib/auth/bootstrap';
 
 function createMockTx(existingAdminCount: number) {
   const where = vi.fn().mockResolvedValue([{ value: existingAdminCount }]);

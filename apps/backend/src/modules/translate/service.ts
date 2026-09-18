@@ -8,8 +8,8 @@ import {
 } from '@gloaming/shared/translate';
 
 import { db } from '@/db';
-import { ERROR_CODES } from '@/lib/error-codes';
-import { NotFoundError } from '@/lib/errors';
+import { NotFoundError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import { composePromptMessages, PROMPT_ROLE, PROMPT_SCENE } from '@/lib/prompts';
 import { getRedis } from '@/lib/redis';

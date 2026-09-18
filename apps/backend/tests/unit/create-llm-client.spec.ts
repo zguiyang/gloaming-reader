@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { ERROR_CODES } from '@/lib/error-codes';
-import { AppError } from '@/lib/errors';
+import { AppError } from '@/lib/errors/app-error';
+import { ERROR_CODES } from '@/lib/errors/codes';
 import { createLlmClient } from '@/lib/llm/create-llm-client';
 import type { ResolvedLlm } from '@/lib/llm/resolve';
 
