@@ -7,7 +7,7 @@ import { enqueue } from '@/lib/queue';
 import { failWorkflowEnqueue, rotateWorkflowJobToken } from '@/lib/workflow';
 import { WORKFLOW_AUTO_CHAIN } from '@/lib/workflow-policy';
 import { processContentWork } from '@/modules/content-parser';
-import { isEpubValidationError } from '@/modules/epub-ingest/epub';
+import { isEpubValidationError } from '@/modules/epub-ingest/archive/limits';
 
 export const JOB_CONTENT_PARSE = 'content-parse';
 

@@ -1,16 +1,10 @@
 import { registerParser } from '@/modules/content-parser/registry';
 import type { ContentParser, ParsedContent } from '@/modules/content-parser/types';
+import { EPUB_ERROR_CODES, EpubValidationError } from '@/modules/epub-ingest/archive/limits';
 import { planChapters } from '@/modules/epub-ingest/chapters';
 import { cleanXhtml, IMAGE_PLACEHOLDER_PREFIX, stripOrphanImagePlaceholders } from '@/modules/epub-ingest/clean';
-import {
-  EPUB_ERROR_CODES,
-  epubParentDir,
-  EpubValidationError,
-  findEpubEntry,
-  mimeForHref,
-  parseEpub,
-  resolveEpubAgainstBase,
-} from '@/modules/epub-ingest/epub';
+import { parseEpub } from '@/modules/epub-ingest/opf/parse';
+import { epubParentDir, findEpubEntry, mimeForHref, resolveEpubAgainstBase } from '@/modules/epub-ingest/opf/paths';
 
 /** Max HTML chars per chapter (abuse / runaway protection). */
 const MAX_CHAPTER_HTML_CHARS = 1_500_000;

@@ -18,7 +18,7 @@ import { db } from '@/db';
 import { processContentWork } from '@/modules/content-parser';
 import { planChapters } from '@/modules/epub-ingest/chapters';
 import { cleanXhtml } from '@/modules/epub-ingest/clean';
-import { parseEpub } from '@/modules/epub-ingest/epub';
+import { parseEpub } from '@/modules/epub-ingest/opf/parse';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 import { hashFileContent } from '@/modules/uploads/service';
 

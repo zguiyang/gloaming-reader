@@ -1,3 +1,3 @@
 export { cleanXhtml } from './clean';
-export { parseEpub } from './epub';
+export { parseEpub } from './opf/parse';
 export { epubContentParser } from './parser';

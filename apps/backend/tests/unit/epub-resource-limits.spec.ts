@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { EPUB_ERROR_CODES, EPUB_RESOURCE_LIMITS, parseEpub } from '@/modules/epub-ingest/epub';
+import { EPUB_ERROR_CODES, EPUB_RESOURCE_LIMITS } from '@/modules/epub-ingest/archive/limits';
+import { parseEpub } from '@/modules/epub-ingest/opf/parse';
 
 import { buildEpubBytes } from '../helpers/epub-builder';
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getWorkflowPolicyProjection, WORKFLOW_AUTO_CHAIN } from '@/lib/workflow-policy';
-import { EpubResourceLimitError } from '@/modules/epub-ingest/epub';
+import { EpubResourceLimitError } from '@/modules/epub-ingest/archive/limits';
 
 const processContentWork = vi.fn();
 const enqueue = vi.fn();

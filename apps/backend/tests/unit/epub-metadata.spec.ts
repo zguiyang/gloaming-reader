@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { metadataByLocalName, parseEpub, textOfDeep } from '@/modules/epub-ingest/epub';
 import { cleanDescription } from '@/modules/epub-ingest/metadata';
+import { parseEpub } from '@/modules/epub-ingest/opf/parse';
+import { metadataByLocalName, textOfDeep } from '@/modules/epub-ingest/opf/xml';
 
 import { buildEpubBytes } from '../helpers/epub-builder';
 
