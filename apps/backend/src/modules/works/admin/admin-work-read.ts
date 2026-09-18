@@ -24,7 +24,7 @@ import { NotFoundError } from '@/lib/errors';
 import { completeWorkflowStep } from '@/lib/workflow';
 import { getWorkflowPolicyProjection, TTS_STEP_ENABLED } from '@/lib/workflow-policy';
 import { getWorksDerivedFreshness } from '@/modules/derived-freshness';
-import { buildPublishIssuesForWork } from '@/modules/works/admin-publish-gate';
+import { buildPublishIssuesForWork } from '@/modules/works/admin/admin-publish-gate';
 import {
   loadCategoryForWork,
   loadPartsForWork,

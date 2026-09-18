@@ -28,7 +28,7 @@ import { allAudioObjectKeysForLegacyCleanup } from '@/modules/content-assets/key
 import { deleteObject } from '@/modules/oss';
 import { computePartReadingStats, computeWorkReadingStats } from '@/modules/reading-stats/service';
 import { deleteBilingualCacheForPart } from '@/modules/translate/service';
-import { getAdminWork, toAdminWork } from '@/modules/works/admin-work-read';
+import { getAdminWork, toAdminWork } from '@/modules/works/admin/admin-work-read';
 
 const workLogger = rootLogger.child({ module: 'Works' });
 

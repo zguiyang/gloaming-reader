@@ -14,8 +14,8 @@ import { AppError, NotFoundError, ValidationFailedError } from '@/lib/errors';
 import { enqueue } from '@/lib/queue';
 import { failWorkflowEnqueue, stepRunningStatus, workflowLeaseExpiresAt } from '@/lib/workflow';
 import { TTS_STEP_ENABLED } from '@/lib/workflow-policy';
-import { buildPublishIssuesForWork } from '@/modules/works/admin-publish-gate';
-import { getAdminWork } from '@/modules/works/admin-work-read';
+import { buildPublishIssuesForWork } from '@/modules/works/admin/admin-publish-gate';
+import { getAdminWork } from '@/modules/works/admin/admin-work-read';
 import { loadPartsForWork, loadSourcesForWork, loadTagsForWork } from '@/modules/works/queries';
 import { failedStepOf } from '@/modules/works/workflow-meta';
 
