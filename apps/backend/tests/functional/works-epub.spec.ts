@@ -16,7 +16,7 @@ import app from '@/app';
 import { db } from '@/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 import { acquireUploadedObject, hashFileContent } from '@/modules/uploads/service';
-import { EPUB_UPLOAD_SPEC, insertEpubWorkAndAsset } from '@/modules/works/service';
+import { EPUB_UPLOAD_SPEC, insertEpubWorkAndAsset } from '@/modules/works/admin-epub-ingest';
 
 import { createMemoryObjectStore } from '../helpers/memory-oss';
 import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';

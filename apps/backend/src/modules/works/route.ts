@@ -7,16 +7,11 @@ import { ERROR_CODES } from '@/lib/error-codes';
 import { sendError } from '@/lib/response';
 import type { AuthVariables } from '@/middleware/auth';
 import { requireAdmin } from '@/middleware/auth';
+import { createAdminEpubWork, reuseAdminEpubWork } from '@/modules/works/admin-epub-ingest';
 import { publishWork, retryWorkflow, unpublishWork } from '@/modules/works/admin-lifecycle';
 import { getAdminWork, listAdminWorks } from '@/modules/works/admin-work-read';
 import { getPublishedWork, listCatalogCategories, listCatalogTags, listCatalogWorks } from '@/modules/works/queries';
-import {
-  createAdminEpubWork,
-  createAdminTextWork,
-  deleteWork,
-  reuseAdminEpubWork,
-  updateWork,
-} from '@/modules/works/service';
+import { createAdminTextWork, deleteWork, updateWork } from '@/modules/works/service';
 import {
   validateAdminWorkListQuery,
   validateCatalogListQuery,
