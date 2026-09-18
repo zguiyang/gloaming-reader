@@ -48,7 +48,7 @@ import {
   startLockRenewal,
   toPublicCleanupJob,
 } from '@/modules/asset-management/cleanup-store';
-import { collectLegacyAudioSegmentKeysFromAsset, formalAudioObjectKeys } from '@/modules/content-assets/keys';
+import { collectLegacyAudioSegmentKeysFromAsset, formalAudioObjectKeys } from '@/modules/content-assets/audio/keys';
 import { listObjects } from '@/modules/oss';
 
 const logger = rootLogger.child({ module: 'AssetManagement' });

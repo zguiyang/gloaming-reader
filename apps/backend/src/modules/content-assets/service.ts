@@ -26,7 +26,7 @@ import { rootLogger } from '@/lib/logger';
 import { deleteObject, objectExists } from '@/modules/oss';
 import { hashPartAudioContent } from '@/modules/works/content-hash';
 
-import { allAudioObjectKeysForLegacyCleanup, formalAudioObjectKeys } from './keys';
+import { allAudioObjectKeysForLegacyCleanup, formalAudioObjectKeys } from './audio/keys';
 
 const partAudioLogger = rootLogger.child({ module: 'ContentAssets' });
 

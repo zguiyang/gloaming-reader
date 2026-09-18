@@ -21,7 +21,7 @@ import { encryptApiKey } from '@/lib/llm';
 import * as queueLib from '@/lib/queue';
 import * as redisLib from '@/lib/redis';
 import * as azureTts from '@/lib/tts/azure';
-import { partAudioObjectKey, partAudioSegmentKey } from '@/modules/content-assets/keys';
+import { partAudioObjectKey, partAudioSegmentKey } from '@/modules/content-assets/audio/keys';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 import { TTS_CONFIG_ID } from '@/modules/tts/service';
 import { hashPartAudioContent } from '@/modules/works/content-hash';

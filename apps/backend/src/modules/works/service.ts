@@ -24,7 +24,7 @@ import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, NotFoundError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { collectReferencedStorageKeys } from '@/modules/asset-management/service';
-import { allAudioObjectKeysForLegacyCleanup } from '@/modules/content-assets/keys';
+import { allAudioObjectKeysForLegacyCleanup } from '@/modules/content-assets/audio/keys';
 import { deleteObject } from '@/modules/oss';
 import { computePartReadingStats, computeWorkReadingStats } from '@/modules/reading-stats/service';
 import { deleteBilingualCacheForPart } from '@/modules/translate/service';

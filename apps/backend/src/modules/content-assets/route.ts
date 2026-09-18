@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
-import { enqueuePartAudio, enqueueWorkAudio } from '@/modules/content-assets/audio-generation';
+import { enqueuePartAudio, enqueueWorkAudio } from '@/modules/content-assets/audio/generation';
 import * as contentAssetsService from '@/modules/content-assets/service';
 import {
   validateGeneratePartAudio,

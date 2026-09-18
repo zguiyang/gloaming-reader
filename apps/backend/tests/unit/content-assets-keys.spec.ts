@@ -5,7 +5,7 @@ import {
   collectAudioObjectKeys,
   collectLegacyAudioSegmentKeysFromAsset,
   formalAudioObjectKeys,
-} from '@/modules/content-assets/keys';
+} from '@/modules/content-assets/audio/keys';
 
 describe('formalAudioObjectKeys', () => {
   it('returns only chapter and non-segment objectKeys from legacy metadata', () => {

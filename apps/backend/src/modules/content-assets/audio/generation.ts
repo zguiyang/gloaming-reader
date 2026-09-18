@@ -34,8 +34,8 @@ import { recordTtsInvocation } from '@/modules/tts/log';
 import { synthesizeTts } from '@/modules/tts/service';
 import { hashPartAudioContent } from '@/modules/works/content-hash';
 
+import { needsRegen } from '../service';
 import { allAudioObjectKeysForLegacyCleanup, partAudioChapterKey } from './keys';
-import { needsRegen } from './service';
 
 /** Must match `JOB_PART_AUDIO_GENERATE` in jobs/part-audio-generate.ts */
 const PART_AUDIO_JOB = 'part-audio-generate';

@@ -182,7 +182,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
     if (!claimed) {
       throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.STATE_CHANGED);
     }
-    const { enqueueWorkAudio } = await import('@/modules/content-assets/audio-generation');
+    const { enqueueWorkAudio } = await import('@/modules/content-assets/audio/generation');
     try {
       await enqueueWorkAudio(id, { force: false, roles: ['us', 'uk'] });
     } catch (error) {

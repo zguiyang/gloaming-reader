@@ -164,7 +164,7 @@ async function completeMetadataStep(
     return false;
   }
   if (TTS_STEP_ENABLED) {
-    const { enqueueWorkAudio } = await import('@/modules/content-assets/audio-generation');
+    const { enqueueWorkAudio } = await import('@/modules/content-assets/audio/generation');
     try {
       await enqueueWorkAudio(workId, { force: false, roles: ['us', 'uk'] });
     } catch (error) {
