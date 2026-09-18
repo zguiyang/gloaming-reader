@@ -5,15 +5,15 @@ import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
 import { HTTP_STATUS } from '@/constants';
 import { ERROR_CODES } from '@/lib/error-codes';
 import { sendError } from '@/lib/response';
-import { type AuthVariables, requireAdmin } from '@/middleware/auth';
+import type { AuthVariables } from '@/middleware/auth';
+import { requireAdmin } from '@/middleware/auth';
 import { publishWork, retryWorkflow, unpublishWork } from '@/modules/works/admin-lifecycle';
+import { getAdminWork, listAdminWorks } from '@/modules/works/admin-work-read';
 import { getPublishedWork, listCatalogCategories, listCatalogTags, listCatalogWorks } from '@/modules/works/queries';
 import {
   createAdminEpubWork,
   createAdminTextWork,
   deleteWork,
-  getAdminWork,
-  listAdminWorks,
   reuseAdminEpubWork,
   updateWork,
 } from '@/modules/works/service';

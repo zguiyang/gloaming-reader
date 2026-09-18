@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
+import type { ContentAssetMeta } from '@gloaming/db';
 import {
   category as categoryTable,
   contentAsset as contentAssetTable,
-  type ContentAssetMeta,
   conversation as conversationTable,
   readingPart as readingPartTable,
   readingWork as readingWorkTable,
@@ -15,21 +15,9 @@ import {
   source as sourceTable,
   tag as tagTable,
   uploadedObject as uploadedObjectTable,
-  type WorkMetadataProvenance,
-  type WorkMetadataProvenanceMap,
 } from '@gloaming/db';
-import { buildPaginationMeta } from '@gloaming/shared/pagination';
-import {
-  type AdminOriginAsset,
-  type AdminWork,
-  type AdminWorkListData,
-  type AdminWorkListQuery,
-  type AdminWorkSummary,
-  type CreateAdminTextWorkBody,
-  type CreateEpubWorkResult,
-  EPUB_UPLOAD_MAX_BYTES,
-  type UpdateWorkBody,
-} from '@gloaming/shared/works';
+import type { AdminWork, CreateAdminTextWorkBody, CreateEpubWorkResult, UpdateWorkBody } from '@gloaming/shared/works';
+import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
@@ -38,181 +26,24 @@ import { ERROR_CODES } from '@/lib/error-codes';
 import { AppError, NotFoundError, ValidationFailedError } from '@/lib/errors';
 import { rootLogger } from '@/lib/logger';
 import { enqueue } from '@/lib/queue';
-import { completeWorkflowStep, failWorkflowEnqueue, prepareWorkflowEnqueue } from '@/lib/workflow';
-import { getWorkflowPolicyProjection, TTS_STEP_ENABLED, WORKFLOW_AUTO_CHAIN } from '@/lib/workflow-policy';
+import { failWorkflowEnqueue, prepareWorkflowEnqueue } from '@/lib/workflow';
+import { WORKFLOW_AUTO_CHAIN } from '@/lib/workflow-policy';
 import { collectReferencedStorageKeys } from '@/modules/asset-management/service';
 import { allAudioObjectKeysForLegacyCleanup } from '@/modules/content-assets/keys';
-import { getWorksDerivedFreshness } from '@/modules/derived-freshness';
 import { deleteObject } from '@/modules/oss';
 import { computePartReadingStats, computeWorkReadingStats } from '@/modules/reading-stats/service';
 import { deleteBilingualCacheForPart } from '@/modules/translate/service';
+import type { UploadedFileMeta, UploadSpec } from '@/modules/uploads/service';
 import {
   acquireUploadedObject,
   fileExtension,
   isValidContentHash,
   isZipFile,
   releaseUploadedObject,
-  type UploadedFileMeta,
-  type UploadSpec,
 } from '@/modules/uploads/service';
-import { failedStepOf } from '@/modules/works/admin-lifecycle';
-import { buildPublishIssuesForWork } from '@/modules/works/admin-publish-gate';
-import {
-  loadCategoryForWork,
-  loadPartsForWork,
-  loadSourcesForWork,
-  loadTagsForWork,
-  shouldHideTagsDuringProcessing,
-  toPart,
-  toWork,
-} from '@/modules/works/queries';
-
-type WorkRow = typeof readingWorkTable.$inferSelect;
-type PartRow = typeof readingPartTable.$inferSelect;
+import { getAdminWork, toAdminWork } from '@/modules/works/admin-work-read';
 
 const workLogger = rootLogger.child({ module: 'Works' });
-
-function resolveTagProvenance(provenances: WorkMetadataProvenance[]): WorkMetadataProvenance | undefined {
-  if (provenances.some((p) => p === 'manual')) return 'manual';
-  if (provenances.some((p) => p === 'ai')) return 'ai';
-  if (provenances.some((p) => p === 'extracted')) return 'extracted';
-  return undefined;
-}
-
-async function loadTagProvenanceForWork(workId: string): Promise<WorkMetadataProvenance | undefined> {
-  const rows = await db
-    .select({ provenance: readingWorkTagTable.provenance })
-    .from(readingWorkTagTable)
-    .where(eq(readingWorkTagTable.workId, workId));
-  return resolveTagProvenance(rows.map((row) => row.provenance));
-}
-
-async function loadCategoryProvenanceForWork(workId: string): Promise<WorkMetadataProvenance | undefined> {
-  const [row] = await db
-    .select({ provenance: readingWorkCategoryTable.provenance })
-    .from(readingWorkCategoryTable)
-    .where(eq(readingWorkCategoryTable.workId, workId))
-    .limit(1);
-  return row?.provenance;
-}
-
-/** Runtime admin API projection — not persisted on reading_work. */
-function buildMetadataProvenance(
-  row: WorkRow,
-  junction: { tagProvenance?: WorkMetadataProvenance; categoryProvenance?: WorkMetadataProvenance },
-): WorkMetadataProvenanceMap {
-  const map: WorkMetadataProvenanceMap = {};
-  if (row.descriptionProvenance) {
-    map.description = row.descriptionProvenance;
-  }
-  if (junction.tagProvenance && !shouldHideTagsDuringProcessing(row)) {
-    map.tags = junction.tagProvenance;
-  }
-  if (junction.categoryProvenance) {
-    map.category = junction.categoryProvenance;
-  }
-  return map;
-}
-
-async function loadPrimaryPartForWork(workId: string): Promise<PartRow | null> {
-  const [row] = await db
-    .select()
-    .from(readingPartTable)
-    .where(eq(readingPartTable.workId, workId))
-    .orderBy(asc(readingPartTable.sortOrder), asc(readingPartTable.id))
-    .limit(1);
-  return row ?? null;
-}
-
-async function countPartsForWork(workId: string): Promise<number> {
-  const [row] = await db.select({ value: count() }).from(readingPartTable).where(eq(readingPartTable.workId, workId));
-  return Number(row?.value ?? 0);
-}
-
-async function loadOriginFileAsset(workId: string): Promise<AdminOriginAsset | null> {
-  const [row] = await db
-    .select({
-      storageKey: contentAssetTable.storageKey,
-      mimeType: contentAssetTable.mimeType,
-      contentHash: contentAssetTable.contentHash,
-      meta: contentAssetTable.meta,
-    })
-    .from(contentAssetTable)
-    .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'origin_file')))
-    .limit(1);
-  if (!row) {
-    return null;
-  }
-  const meta = row.meta ?? {};
-  return {
-    fileName: String(meta.originalFileName ?? ''),
-    size: Number(meta.size ?? 0),
-    mimeType: row.mimeType,
-    contentHash: row.contentHash,
-    reused: Boolean(meta.reused),
-  };
-}
-
-async function toAdminWork(row: WorkRow, parts?: PartRow[]): Promise<AdminWork> {
-  const partRows = parts ?? (await loadPartsForWork(row.id));
-  const primaryPart = partRows[0];
-  const freshness = primaryPart
-    ? (
-        await getWorksDerivedFreshness([
-          { id: row.id, partId: primaryPart.id, title: primaryPart.title, body: primaryPart.body },
-        ])
-      ).get(row.id)
-    : { audio: 'missing' as const };
-  const [tags, tagProvenance, category, categoryProvenance, sources] = await Promise.all([
-    loadTagsForWork(row.id),
-    loadTagProvenanceForWork(row.id),
-    loadCategoryForWork(row.id),
-    loadCategoryProvenanceForWork(row.id),
-    loadSourcesForWork(row.id),
-  ]);
-  const publishIssues = await buildPublishIssuesForWork(row, partRows, tags, sources);
-  return {
-    ...toWork(row, tags, sources, category),
-    workflowPolicy: getWorkflowPolicyProjection(),
-    derivedFreshness: freshness ?? { audio: 'missing' },
-    publishIssues,
-    originMeta: row.originMeta,
-    originAsset: await loadOriginFileAsset(row.id),
-    parts: partRows.map(toPart),
-    failedStep: failedStepOf(row),
-    metadataProvenance: buildMetadataProvenance(row, { tagProvenance, categoryProvenance }),
-  };
-}
-
-/** List row projection — part bodies are too heavy for the admin table. */
-async function toAdminWorkSummary(row: WorkRow): Promise<AdminWorkSummary> {
-  const primaryPart = await loadPrimaryPartForWork(row.id);
-  const freshness = primaryPart
-    ? (
-        await getWorksDerivedFreshness([
-          { id: row.id, partId: primaryPart.id, title: primaryPart.title, body: primaryPart.body },
-        ])
-      ).get(row.id)
-    : { audio: 'missing' as const };
-  const partCount = await countPartsForWork(row.id);
-  const [tags, tagProvenance, category, categoryProvenance, sources] = await Promise.all([
-    loadTagsForWork(row.id),
-    loadTagProvenanceForWork(row.id),
-    loadCategoryForWork(row.id),
-    loadCategoryProvenanceForWork(row.id),
-    loadSourcesForWork(row.id),
-  ]);
-  return {
-    ...toWork(row, tags, sources, category),
-    workflowPolicy: getWorkflowPolicyProjection(),
-    derivedFreshness: freshness ?? { audio: 'missing' },
-    originMeta: row.originMeta,
-    originAsset: await loadOriginFileAsset(row.id),
-    partCount,
-    failedStep: failedStepOf(row),
-    metadataProvenance: buildMetadataProvenance(row, { tagProvenance, categoryProvenance }),
-  };
-}
 
 /** Escape text for HTML body storage. */
 function escapeHtmlText(value: string): string {
@@ -220,7 +51,7 @@ function escapeHtmlText(value: string): string {
 }
 
 /** Convert a plain-text body (textarea input) into paragraph HTML. */
-export function textToParagraphHtml(body: string): string {
+function textToParagraphHtml(body: string): string {
   return body
     .replace(/\r\n/g, '\n')
     .split(/\n\s*\n/)
@@ -478,62 +309,6 @@ export async function reuseAdminEpubWork(input: {
     }
   }
   return created;
-}
-
-export async function listAdminWorks(query: AdminWorkListQuery): Promise<AdminWorkListData> {
-  const statuses = query.status ? query.status.split(',') : undefined;
-  const where = statuses ? inArray(readingWorkTable.status, statuses) : undefined;
-  const primary = query.sortOrder === 'asc' ? asc(readingWorkTable.updatedAt) : desc(readingWorkTable.updatedAt);
-  const offset = (query.page - 1) * query.pageSize;
-
-  const [countRow] = where
-    ? await db.select({ value: count() }).from(readingWorkTable).where(where)
-    : await db.select({ value: count() }).from(readingWorkTable);
-  const total = Number(countRow?.value ?? 0);
-
-  const rows = where
-    ? await db
-        .select()
-        .from(readingWorkTable)
-        .where(where)
-        .orderBy(primary, desc(readingWorkTable.id))
-        .limit(query.pageSize)
-        .offset(offset)
-    : await db
-        .select()
-        .from(readingWorkTable)
-        .orderBy(primary, desc(readingWorkTable.id))
-        .limit(query.pageSize)
-        .offset(offset);
-
-  const items = await Promise.all(rows.map((row) => toAdminWorkSummary(row)));
-
-  return {
-    items,
-    pagination: buildPaginationMeta({
-      page: query.page,
-      pageSize: query.pageSize,
-      total,
-      sortBy: query.sortBy,
-      sortOrder: query.sortOrder,
-    }),
-  };
-}
-
-export async function getAdminWork(id: string): Promise<AdminWork> {
-  let [row] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
-  if (!row) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
-  }
-  // Heal works left in `tts` after the auto-TTS pipeline was turned off.
-  if (!TTS_STEP_ENABLED && row.status === 'tts') {
-    await completeWorkflowStep(id, 'ready');
-    [row] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
-    if (!row) {
-      throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
-    }
-  }
-  return toAdminWork(row);
 }
 
 export async function updateWork(id: string, input: UpdateWorkBody): Promise<AdminWork> {

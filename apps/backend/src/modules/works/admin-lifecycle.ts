@@ -4,7 +4,6 @@ import { and, eq, or, sql } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@gloaming/db';
 import type { AdminWork, RetryWorkflowBody, WorkflowStep } from '@gloaming/shared/works';
-import { WORKFLOW_STEPS } from '@gloaming/shared/works';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
@@ -16,7 +15,9 @@ import { enqueue } from '@/lib/queue';
 import { failWorkflowEnqueue, stepRunningStatus, workflowLeaseExpiresAt } from '@/lib/workflow';
 import { TTS_STEP_ENABLED } from '@/lib/workflow-policy';
 import { buildPublishIssuesForWork } from '@/modules/works/admin-publish-gate';
+import { getAdminWork } from '@/modules/works/admin-work-read';
 import { loadPartsForWork, loadSourcesForWork, loadTagsForWork } from '@/modules/works/queries';
+import { failedStepOf } from '@/modules/works/workflow-meta';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 
@@ -24,14 +25,6 @@ const STEP_JOB: Record<Exclude<WorkflowStep, 'tts'>, string> = {
   parse: JOB_CONTENT_PARSE,
   metadata: JOB_METADATA_FILL,
 };
-
-/** The step that failed (originMeta.failedStep), validated against the enum. */
-export function failedStepOf(row: WorkRow): WorkflowStep | null {
-  const value = row.originMeta?.failedStep;
-  return typeof value === 'string' && (WORKFLOW_STEPS as readonly string[]).includes(value)
-    ? (value as WorkflowStep)
-    : null;
-}
 
 function hasExpiredWorkflowClaim(row: WorkRow, step: WorkflowStep): boolean {
   const meta = row.originMeta as Record<string, unknown>;
@@ -73,7 +66,6 @@ function workflowRetryLeaseRecoveryWhere(step: WorkflowStep) {
 }
 
 async function loadAdminWorkAfterMutation(id: string): Promise<AdminWork> {
-  const { getAdminWork } = await import('@/modules/works/service');
   return getAdminWork(id);
 }
 
