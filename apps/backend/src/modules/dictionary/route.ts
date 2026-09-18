@@ -5,7 +5,8 @@ import { ERROR_CODES } from '@/lib/errors/codes';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
 import { rateLimit } from '@/middleware/rate-limit';
-import * as dictionaryService from '@/modules/dictionary/service';
+import { getDictionaryConfig, putDictionaryConfig } from '@/modules/dictionary/config';
+import { lookupWord, testDictionary } from '@/modules/dictionary/lookup';
 import {
   validateLookupDictionaryQuery,
   validatePutDictionaryConfig,
@@ -16,15 +17,15 @@ export const dictionaryRoutes = new Hono<{ Variables: AuthVariables }>();
 
 // Admin Config
 dictionaryRoutes.get('/api/admin/dictionary/config', requireAdmin, async (c) => {
-  return c.json(await dictionaryService.getDictionaryConfig());
+  return c.json(await getDictionaryConfig());
 });
 
 dictionaryRoutes.put('/api/admin/dictionary/config', requireAdmin, validatePutDictionaryConfig, async (c) => {
-  return c.json(await dictionaryService.putDictionaryConfig(c.req.valid('json')));
+  return c.json(await putDictionaryConfig(c.req.valid('json')));
 });
 
 dictionaryRoutes.post('/api/admin/dictionary/test', requireAdmin, validateTestDictionary, async (c) => {
-  return c.json(await dictionaryService.testDictionary(c.req.valid('json')));
+  return c.json(await testDictionary(c.req.valid('json')));
 });
 
 // Public / Reader Lookup (open to guests and authenticated users)
@@ -34,7 +35,7 @@ dictionaryRoutes.get(
   validateLookupDictionaryQuery,
   async (c) => {
     const query = c.req.valid('query');
-    const entry = await dictionaryService.lookupWord({
+    const entry = await lookupWord({
       word: query.word,
       contextSentence: query.contextSentence,
       workId: query.workId,

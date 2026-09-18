@@ -1,5 +1,9 @@
+export { DICTIONARY_CONFIG_ID, getDictionaryConfig, putDictionaryConfig } from './config';
+export { toGenericDictionaryEntry } from './generic-entry';
+export type { LookupWordOptions } from './lookup';
+export { lookupWord, testDictionary } from './lookup';
+export { getDictionaryProvider } from './provider-registry';
 export * from './providers/free-dictionary';
-export * from './route';
-export * from './service';
+export { dictionaryRoutes } from './route';
 export type { DictionaryProvider, ProviderLookupOptions, RawProviderResult } from './types';
-export * from './validator';
+export { validateLookupDictionaryQuery, validatePutDictionaryConfig, validateTestDictionary } from './validator';

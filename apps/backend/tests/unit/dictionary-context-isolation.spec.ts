@@ -70,7 +70,8 @@ vi.mock('@/modules/dictionary/providers/youdao-dictionary', () => ({
   },
 }));
 
-import { lookupWord, toGenericDictionaryEntry } from '@/modules/dictionary/service';
+import { toGenericDictionaryEntry } from '@/modules/dictionary/generic-entry';
+import { lookupWord } from '@/modules/dictionary/lookup';
 
 const REDIS_CONFIG_KEY = 'gloaming:dictionary:config:default';
 

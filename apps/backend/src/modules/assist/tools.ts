@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { type AssistAskBody } from '@gloaming/shared/assist';
 
-import { lookupWord } from '@/modules/dictionary/service';
+import { lookupWord } from '@/modules/dictionary/lookup';
 
 const SLICE_MAX = 2000;
 

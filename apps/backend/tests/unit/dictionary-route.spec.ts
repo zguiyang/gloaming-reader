@@ -5,13 +5,16 @@ import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { HTTP_STATUS } from '@/constants';
 import { ERROR_CODES } from '@/lib/errors/codes';
+import * as dictionaryLookup from '@/modules/dictionary/lookup';
 import { dictionaryRoutes } from '@/modules/dictionary/route';
-import * as dictionaryService from '@/modules/dictionary/service';
 
-vi.mock('@/modules/dictionary/service', () => ({
-  lookupWord: vi.fn(),
+vi.mock('@/modules/dictionary/config', () => ({
   getDictionaryConfig: vi.fn(),
   putDictionaryConfig: vi.fn(),
+}));
+
+vi.mock('@/modules/dictionary/lookup', () => ({
+  lookupWord: vi.fn(),
   testDictionary: vi.fn(),
 }));
 
@@ -34,7 +37,7 @@ describe('dictionaryRoutes /api/dictionary/lookup', () => {
   });
 
   it('returns localized error and stable code when word is not found', async () => {
-    vi.mocked(dictionaryService.lookupWord).mockResolvedValue(null);
+    vi.mocked(dictionaryLookup.lookupWord).mockResolvedValue(null);
 
     const response = await createApp().request('/api/dictionary/lookup?word=missing', {
       headers: { 'Accept-Language': 'en-US' },
@@ -48,7 +51,7 @@ describe('dictionaryRoutes /api/dictionary/lookup', () => {
   });
 
   it('localizes not-found error for zh-CN', async () => {
-    vi.mocked(dictionaryService.lookupWord).mockResolvedValue(null);
+    vi.mocked(dictionaryLookup.lookupWord).mockResolvedValue(null);
 
     const response = await createApp().request('/api/dictionary/lookup?word=xyz', {
       headers: { 'Accept-Language': 'zh-CN' },
@@ -62,13 +65,13 @@ describe('dictionaryRoutes /api/dictionary/lookup', () => {
   });
 
   it('preserves success response shape when entry exists', async () => {
-    vi.mocked(dictionaryService.lookupWord).mockResolvedValue(sampleEntry);
+    vi.mocked(dictionaryLookup.lookupWord).mockResolvedValue(sampleEntry);
 
     const response = await createApp().request('/api/dictionary/lookup?word=hello');
 
     expect(response.status).toBe(HTTP_STATUS.OK);
     await expect(response.json()).resolves.toEqual({ ok: true, entry: sampleEntry });
-    expect(dictionaryService.lookupWord).toHaveBeenCalledWith({
+    expect(dictionaryLookup.lookupWord).toHaveBeenCalledWith({
       word: 'hello',
       contextSentence: undefined,
       workId: undefined,
