@@ -8,7 +8,7 @@ import { AI_PURPOSE_TO_SETTING_KEY } from '@gloaming/shared/llm';
 
 import app from '@/app';
 import { db } from '@/db';
-import * as aiService from '@/modules/ai/service';
+import * as aiService from '@/modules/ai/runtime/service';
 
 const password = 'password123';
 const ASSIST_SETTING_KEY = AI_PURPOSE_TO_SETTING_KEY.assist;

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
-import * as invocationLog from '@/modules/ai/log';
-import { validateInvocationListQuery, validateInvocationStatsQuery } from '@/modules/ai/validator';
+import * as invocationLog from '@/modules/ai/invocations/log';
+import { validateInvocationListQuery, validateInvocationStatsQuery } from '@/modules/ai/invocations/validator';
 
 export const aiRoutes = new Hono<{ Variables: AuthVariables }>();
 

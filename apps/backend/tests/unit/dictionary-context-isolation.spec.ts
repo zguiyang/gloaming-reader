@@ -52,7 +52,7 @@ vi.mock('@/db', () => {
   };
 });
 
-vi.mock('@/modules/ai/service', () => ({
+vi.mock('@/modules/ai/runtime/service', () => ({
   invokeAi: mocks.invokeAi,
 }));
 

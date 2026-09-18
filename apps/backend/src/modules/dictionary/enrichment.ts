@@ -9,7 +9,7 @@ import type {
 } from '@gloaming/shared/dictionary';
 
 import { rootLogger } from '@/lib/logger';
-import { invokeAi } from '@/modules/ai/service';
+import { invokeAi } from '@/modules/ai';
 import { toGenericDictionaryEntry } from '@/modules/dictionary/generic-entry';
 import { getPublishedWorkTitle } from '@/modules/works/read-model/catalog';
 

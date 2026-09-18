@@ -13,7 +13,7 @@ import {
 import app from '@/app';
 import { db } from '@/db';
 import * as redisLib from '@/lib/redis';
-import * as aiService from '@/modules/ai/service';
+import * as aiService from '@/modules/ai/runtime/service';
 import { hashPartContent } from '@/modules/translate/split';
 
 const password = 'password123';

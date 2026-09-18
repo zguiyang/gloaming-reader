@@ -15,7 +15,7 @@ import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
 import { AppError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
-import * as aiService from '@/modules/ai/service';
+import * as aiService from '@/modules/ai/runtime/service';
 import * as conversationsService from '@/modules/conversations/service';
 
 import { seedReadyDefaultAudioForWork } from '../helpers/publish-audio-fixture';

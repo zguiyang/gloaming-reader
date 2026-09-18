@@ -1,187 +1,36 @@
-import type { AIMessageChunk, BaseMessage, UsageMetadata } from '@langchain/core/messages';
-import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';
-import type { StructuredToolInterface } from '@langchain/core/tools';
-import { eq } from 'drizzle-orm';
+import { AIMessage, type AIMessageChunk, HumanMessage, ToolMessage } from '@langchain/core/messages';
 import type { z, ZodTypeAny } from 'zod';
 
-import { llmAppSetting as llmAppSettingTable } from '@gloaming/db';
-
 import { HTTP_STATUS } from '@/constants';
-import { db } from '@/db';
 import { AppError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
 import { createLlmClient, type ResolvedLlm, resolveLlmByModelRowId } from '@/lib/llm';
 import { rootLogger } from '@/lib/logger';
-import { recordInvocation, truncatePreview } from '@/modules/ai/log';
-import { type AiPurpose, settingKeyForPurpose } from '@/modules/ai/purposes';
+import { recordInvocation, truncatePreview } from '@/modules/ai/invocations/log';
+import {
+  addUsage,
+  emptyTokens,
+  messageContentToString,
+  replyTextFromContent,
+  toBaseMessages,
+} from '@/modules/ai/runtime/messages';
+import { resolveModelRowId } from '@/modules/ai/runtime/purpose-model';
+import { buildRequestSummary } from '@/modules/ai/runtime/request-summary';
+import type { AiInvokeOptions, AiInvokeResult, AiStreamEvent, AiStreamOptions } from '@/modules/ai/runtime/types';
 
 const aiLogger = rootLogger.child({ module: 'Ai' });
 const DEFAULT_MAX_TOOL_ROUNDS = 3;
 
-export type AiMessageInput = {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-};
-
-export type AiInvokeRef = {
-  type: string;
-  id: string;
-};
-
-export type AiInvokeOptions<TSchema extends ZodTypeAny | undefined = undefined> = {
-  purpose?: AiPurpose;
-  /** Explicit model row (admin test / future pin). Overrides purpose when set. */
-  modelRowId?: string;
-  source: string;
-  userId?: string;
-  ref?: AiInvokeRef;
-  messages: AiMessageInput[];
-  tools?: StructuredToolInterface[];
-  outputSchema?: TSchema;
-  maxToolRounds?: number;
-  timeoutMs?: number;
-  /** Thinking mode toggle; off by default. Only forwarded when the provider declares a thinking param. */
-  enableThinking?: boolean;
-  requestSummaryExtra?: Record<string, unknown>;
-};
-
-export type AiInvokeResult<T = string> = {
-  content: T;
-  model: { rowId: string; label: string; modelId: string };
-  usage: { inputTokens: number; outputTokens: number; totalTokens: number };
-};
-
-export type AiStreamOptions = {
-  purpose?: AiPurpose;
-  modelRowId?: string;
-  source: string;
-  userId?: string;
-  ref?: AiInvokeRef;
-  messages: AiMessageInput[];
-  tools?: StructuredToolInterface[];
-  maxToolRounds?: number;
-  timeoutMs?: number;
-  /** Thinking mode toggle; off by default. Only forwarded when the provider declares a thinking param. */
-  enableThinking?: boolean;
-  requestSummaryExtra?: Record<string, unknown>;
-  signal?: AbortSignal;
-};
-
-export type AiStreamDeltaEvent = { type: 'delta'; text: string };
-export type AiStreamDoneEvent = {
-  type: 'done';
-  content: string;
-  model: { rowId: string; label: string; modelId: string };
-  usage: { inputTokens: number; outputTokens: number; totalTokens: number };
-};
-export type AiStreamEvent = AiStreamDeltaEvent | AiStreamDoneEvent;
-
-type TokenBucket = { inputTokens: number; outputTokens: number; totalTokens: number };
-
-function emptyTokens(): TokenBucket {
-  return { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-}
-
-function addUsage(bucket: TokenBucket, usage?: UsageMetadata | null): void {
-  if (!usage) {
-    return;
-  }
-  bucket.inputTokens += usage.input_tokens ?? 0;
-  bucket.outputTokens += usage.output_tokens ?? 0;
-  const total = usage.total_tokens ?? (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
-  bucket.totalTokens += total;
-}
-
-function toBaseMessages(messages: AiMessageInput[]): BaseMessage[] {
-  return messages.map((message) => {
-    if (message.role === 'system') {
-      return new SystemMessage(message.content);
-    }
-    if (message.role === 'assistant') {
-      return new AIMessage(message.content);
-    }
-    return new HumanMessage(message.content);
-  });
-}
-
-function messageContentToString(content: unknown): string {
-  if (typeof content === 'string') {
-    return content;
-  }
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => {
-        if (typeof part === 'string') {
-          return part;
-        }
-        if (part && typeof part === 'object' && 'text' in part && typeof part.text === 'string') {
-          return part.text;
-        }
-        return '';
-      })
-      .join('');
-  }
-  return content == null ? '' : String(content);
-}
-
-function replyTextFromContent(content: unknown): string {
-  if (typeof content === 'string') {
-    return content;
-  }
-  if (
-    content &&
-    typeof content === 'object' &&
-    'reply' in content &&
-    typeof (content as { reply: unknown }).reply === 'string'
-  ) {
-    return (content as { reply: string }).reply;
-  }
-  return JSON.stringify(content);
-}
-
-async function resolveModelRowId(options: { modelRowId?: string; purpose?: AiPurpose }): Promise<string> {
-  if (options.modelRowId) {
-    return options.modelRowId;
-  }
-  const purpose = options.purpose ?? 'assist';
-  const key = settingKeyForPurpose(purpose);
-  const rows = await db.select().from(llmAppSettingTable).where(eq(llmAppSettingTable.key, key)).limit(1);
-  const value = rows[0]?.value;
-  if (!value) {
-    const label =
-      purpose === 'assist'
-        ? 'Assist'
-        : purpose === 'translate'
-          ? 'Translate'
-          : purpose === 'metadata-enrich'
-            ? 'Metadata enrich'
-            : 'AI';
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.MODEL_NOT_CONFIGURED, { label });
-  }
-  return value;
-}
-
-function buildRequestSummary(
-  options: {
-    messages: AiMessageInput[];
-    tools?: StructuredToolInterface[];
-    requestSummaryExtra?: Record<string, unknown>;
-  },
-  toolRoundCount: number,
-) {
-  const userText = options.messages
-    .filter((m) => m.role === 'user')
-    .map((m) => m.content)
-    .join('\n');
-  return {
-    messageCount: options.messages.length,
-    selectionPreview: userText ? truncatePreview(userText) : undefined,
-    selectionLength: userText.length || undefined,
-    toolNames: options.tools?.map((t) => t.name),
-    toolRoundCount,
-    ...options.requestSummaryExtra,
-  };
-}
+export type {
+  AiInvokeOptions,
+  AiInvokeRef,
+  AiInvokeResult,
+  AiMessageInput,
+  AiStreamDeltaEvent,
+  AiStreamDoneEvent,
+  AiStreamEvent,
+  AiStreamOptions,
+} from '@/modules/ai/runtime/types';
 
 /**
  * Global AI entry: resolve purpose/model, invoke LangChain chat (optional tools), audit log.

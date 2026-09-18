@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { checkReadiness } from '@/lib/health';
 import { enqueuePing } from '@/lib/queue';
 import { type AuthVariables, requireAdmin, requireAuth } from '@/middleware/auth';
-import { aiRoutes } from '@/modules/ai/route';
+import { aiRoutes } from '@/modules/ai/invocations/route';
 import { assetManagementRoutes } from '@/modules/asset-management/route';
 import { assetsRoutes } from '@/modules/assets/route';
 import { assistRoutes } from '@/modules/assist/route';

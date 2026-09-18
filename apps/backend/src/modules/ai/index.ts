@@ -1,5 +1,6 @@
 export type { AiPurpose } from '@/modules/ai/purposes';
 export { AI_PURPOSE, AI_SETTING_KEYS, isAiSettingKey, settingKeyForPurpose } from '@/modules/ai/purposes';
+export { invokeAi, streamAi } from '@/modules/ai/runtime/service';
 export type {
   AiInvokeOptions,
   AiInvokeRef,
@@ -9,5 +10,4 @@ export type {
   AiStreamDoneEvent,
   AiStreamEvent,
   AiStreamOptions,
-} from '@/modules/ai/service';
-export { invokeAi, streamAi } from '@/modules/ai/service';
+} from '@/modules/ai/runtime/types';

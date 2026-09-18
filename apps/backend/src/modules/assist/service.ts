@@ -11,7 +11,7 @@ import { rootLogger } from '@/lib/logger';
 import { htmlToPlainText } from '@/lib/part-text';
 import { composePromptMessages, PROMPT_ROLE, PROMPT_SCENE, type PromptMessage, renderPrompt } from '@/lib/prompts';
 import { type AiStreamDeltaEvent, type AiStreamDoneEvent, invokeAi, streamAi } from '@/modules/ai';
-import { truncatePreview } from '@/modules/ai/log';
+import { truncatePreview } from '@/modules/ai/invocations/log';
 import { resolveAssistToolsForAction } from '@/modules/assist/tools';
 import * as conversationsService from '@/modules/conversations/service';
 
