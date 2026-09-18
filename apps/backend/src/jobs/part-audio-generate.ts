@@ -1,6 +1,6 @@
 import type { TtsVoiceRole } from '@gloaming/shared/tts';
 
-import { runPartAudioGenerate } from '@/modules/content-assets/audio/generation';
+import { runPartAudioGenerate } from '@/modules/content-assets/audio/part-audio-run';
 
 export const JOB_PART_AUDIO_GENERATE = 'part-audio-generate';
 
