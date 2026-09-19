@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 import { and, eq, sql } from 'drizzle-orm';
 
@@ -10,94 +10,30 @@ import {
 
 import { db } from '@/db';
 import { rootLogger } from '@/lib/logger';
-import { claimWorkflowStep, failWorkflowStep, renewWorkflowClaim, workflowClaimWhere } from '@/lib/workflow';
+import { claimWorkflowStep, failWorkflowStep, workflowClaimWhere } from '@/lib/workflow';
 import { WORKFLOW_AUTO_CHAIN } from '@/lib/workflow-policy';
 import { parserFor } from '@/modules/content-parser/registry';
 import type { ParsedContent } from '@/modules/content-parser/types';
 import { resetParseStepOutputs } from '@/modules/ingest-reset/service';
-import { deleteObject, getObject, putObject } from '@/modules/oss';
+import { getObject, putObject } from '@/modules/oss';
 import { computePartReadingStats, computeWorkReadingStats } from '@/modules/reading-stats/service';
+
+import {
+  coverKey,
+  deleteParseArtifactKeys,
+  imageKey,
+  parseArtifactManifests,
+  registerParseArtifactManifest,
+  sha256,
+} from './parse-artifacts';
+import { ParseWorkflowLeaseLostError, startParseWorkflowLease } from './parse-workflow-lease';
 
 const ingestLogger = rootLogger.child({ module: 'ContentParser' });
 
 /** Max images extracted per book (abuse / runaway protection). */
 const MAX_BOOK_IMAGES = 200;
-const PARSE_LEASE_HEARTBEAT_MS = 5 * 60 * 1000;
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
-
-function imageKey(workId: string, attemptToken: string, contentHash: string, mime: string): string {
-  const ext = mime === 'image/png' ? 'png' : mime === 'image/gif' ? 'gif' : mime === 'image/webp' ? 'webp' : 'jpg';
-  return `book-images/${workId}/${attemptToken}/${contentHash}.${ext}`;
-}
-
-function coverKey(workId: string, attemptToken: string, mime: string): string {
-  const ext = mime === 'image/png' ? 'png' : mime === 'image/gif' ? 'gif' : mime === 'image/webp' ? 'webp' : 'jpg';
-  return `covers/${workId}/${attemptToken}.${ext}`;
-}
-
-function sha256(buffer: Buffer): string {
-  return createHash('sha256').update(buffer).digest('hex');
-}
-
-type ParseArtifactManifest = {
-  attemptToken: string;
-  keys: string[];
-};
-
-class ParseWorkflowLeaseLostError extends Error {
-  constructor() {
-    super('Parse workflow lease lost');
-    this.name = 'ParseWorkflowLeaseLostError';
-  }
-}
-
-function parseArtifactManifests(originMeta: WorkRow['originMeta']): ParseArtifactManifest[] {
-  const value = (originMeta as Record<string, unknown>).workflowParseArtifacts;
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== 'object') {
-      return [];
-    }
-    const candidate = entry as { attemptToken?: unknown; keys?: unknown };
-    if (
-      typeof candidate.attemptToken !== 'string' ||
-      !Array.isArray(candidate.keys) ||
-      !candidate.keys.every((key): key is string => typeof key === 'string')
-    ) {
-      return [];
-    }
-    return [{ attemptToken: candidate.attemptToken, keys: candidate.keys }];
-  });
-}
-
-async function deleteParseArtifactKeys(keys: string[]): Promise<void> {
-  for (const key of [...new Set(keys)]) {
-    try {
-      await deleteObject(key);
-    } catch (error) {
-      ingestLogger.warn({ err: error, key }, 'Failed to delete uncommitted parse artifact');
-    }
-  }
-}
-
-async function registerParseArtifactManifest(
-  workId: string,
-  retryJobToken: string,
-  attemptToken: string,
-  keys: string[],
-): Promise<boolean> {
-  const [registered] = await db
-    .update(readingWorkTable)
-    .set({
-      originMeta: sql`jsonb_set(${readingWorkTable.originMeta}, '{workflowParseArtifacts}', coalesce(${readingWorkTable.originMeta}->'workflowParseArtifacts', '[]'::jsonb) || ${JSON.stringify([{ attemptToken, keys }])}::jsonb, true)`,
-    })
-    .where(workflowClaimWhere(workId, 'parse', retryJobToken, attemptToken))
-    .returning({ id: readingWorkTable.id });
-  return Boolean(registered);
-}
 
 async function loadOriginBytes(workId: string): Promise<Buffer> {
   const [asset] = await db
@@ -167,42 +103,16 @@ export async function processContentWork(
     return false;
   }
 
-  let leaseLost = false;
-  let heartbeat: Promise<void> | null = null;
-  const renew = async (): Promise<boolean> => {
-    if (leaseLost) {
-      return false;
-    }
-    try {
-      const owned = await renewWorkflowClaim(workId, 'parse', jobToken, attemptToken);
-      if (!owned) {
-        leaseLost = true;
-      }
-      return owned;
-    } catch (error) {
-      leaseLost = true;
-      ingestLogger.warn({ err: error, workId, attemptToken }, 'Parse workflow lease renewal failed');
-      return false;
-    }
-  };
-  const ensureOwned = async (): Promise<void> => {
-    if (!(await renew())) {
-      throw new ParseWorkflowLeaseLostError();
-    }
-  };
-  const heartbeatTimer = setInterval(() => {
-    if (!heartbeat) {
-      heartbeat = renew()
-        .then(() => undefined)
-        .finally(() => {
-          heartbeat = null;
-        });
-    }
-  }, PARSE_LEASE_HEARTBEAT_MS);
+  const lease = startParseWorkflowLease({
+    workId,
+    jobToken,
+    attemptToken,
+    logger: ingestLogger,
+  });
 
   const uploadedKeys: string[] = [];
   try {
-    await ensureOwned();
+    await lease.ensureOwned();
 
     const previousArtifacts = parseArtifactManifests(work.originMeta)
       .filter((manifest) => manifest.attemptToken !== attemptToken)
@@ -214,7 +124,7 @@ export async function processContentWork(
     const bytes = await loadOriginBytes(workId);
     const parser = parserFor(work.originKind);
     const content = await parser.parse(bytes);
-    await ensureOwned();
+    await lease.ensureOwned();
 
     if (content.chapters.length === 0) {
       throw new Error(`${work.originKind} produced no readable chapters`);
@@ -254,18 +164,18 @@ export async function processContentWork(
     // owner-scoped final transaction commits.
     const hrefToAssetId = new Map<string, string>();
     for (const draft of imageDrafts) {
-      await ensureOwned();
+      await lease.ensureOwned();
       await putObject({ key: draft.key, body: draft.image.bytes, contentType: draft.image.mime });
       uploadedKeys.push(draft.key);
-      await ensureOwned();
+      await lease.ensureOwned();
       hrefToAssetId.set(draft.image.href, draft.id);
     }
 
     if (coverDraft && content.cover) {
-      await ensureOwned();
+      await lease.ensureOwned();
       await putObject({ key: coverDraft.key, body: content.cover.bytes, contentType: content.cover.mime });
       uploadedKeys.push(coverDraft.key);
-      await ensureOwned();
+      await lease.ensureOwned();
     }
 
     const partBodies: { body: string }[] = [];
@@ -286,7 +196,7 @@ export async function processContentWork(
     const hasParsedBefore = Boolean(work.originMeta?.parsed);
     const metadata = content.metadata;
 
-    await ensureOwned();
+    await lease.ensureOwned();
     await db.transaction(async (tx) => {
       const [owned] = await tx
         .select({ id: readingWorkTable.id })
@@ -386,13 +296,13 @@ export async function processContentWork(
   } catch (error) {
     ingestLogger.error({ err: error, workId }, 'Content ingest failed');
     await deleteParseArtifactKeys(uploadedKeys);
-    if (error instanceof ParseWorkflowLeaseLostError || leaseLost) {
+    if (error instanceof ParseWorkflowLeaseLostError || lease.isLeaseLost()) {
       return false;
     }
     await failWorkflowStep(workId, 'parse', jobToken, attemptToken, error);
     throw error;
   } finally {
-    clearInterval(heartbeatTimer);
+    lease.stopHeartbeat();
   }
 }
 
