@@ -10,8 +10,9 @@ import {
   METADATA_FIELD_IDS,
   type MetadataFieldId,
 } from '@/modules/metadata-enrich/fields';
-import { isStopwordTag, isWeakFieldValue } from '@/modules/metadata-enrich/quality';
+import { isWeakFieldValue } from '@/modules/metadata-enrich/quality';
 import { buildLocalizedNamesMap, parseLocalizedNameEntries } from '@/modules/metadata-enrich/taxonomy-localized';
+import { isStopwordTag } from '@/modules/metadata-rules/tag-stopwords';
 
 /**
  * Extensible per-field definition. Adding a new fillable field (e.g.

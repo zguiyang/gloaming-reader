@@ -1,5 +1,5 @@
 /**
- * Weak-value heuristics and stopwords for AI-backfill eligibility.
+ * Weak-value heuristics for AI-backfill eligibility.
  * Values that are empty, too short, generic, or shouty count as "weak" and
  * become fill targets (provenance=ai) — real hand-edited values never do.
  */
@@ -14,22 +14,6 @@ const GENERIC_DESCRIPTION_WORDS = new Set([
   'the book',
   'about',
   'story about',
-]);
-
-/** Tags that carry no signal on their own (filtered from AI output). */
-export const TAG_STOPWORDS = new Set([
-  'book',
-  'books',
-  'story',
-  'stories',
-  'novel',
-  'novels',
-  'fiction',
-  'nonfiction',
-  'english',
-  'ebook',
-  'reading',
-  'library',
 ]);
 
 export function isShouty(value: string): boolean {
@@ -58,8 +42,4 @@ export function isWeakDescription(value: string): boolean {
 export function isWeakFieldValue(value: string | undefined): boolean {
   if (!value || !value.trim()) return true;
   return isWeakDescription(value);
-}
-
-export function isStopwordTag(value: string): boolean {
-  return TAG_STOPWORDS.has(value.toLowerCase().trim());
 }

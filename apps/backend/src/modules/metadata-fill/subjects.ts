@@ -1,4 +1,4 @@
-import { isStopwordTag } from '@/modules/metadata-enrich/quality';
+import { isStopwordTag } from '@/modules/metadata-rules/tag-stopwords';
 
 /** Align with AI tag cap — product tags from EPUB subjects stay concise. */
 export const PRODUCT_TAG_MAX_LEN = 40 as const;

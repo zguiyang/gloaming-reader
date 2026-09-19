@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildEnrichMessages } from '@/modules/metadata-enrich/prompt';
-import { isShouty, isStopwordTag, isWeakDescription } from '@/modules/metadata-enrich/quality';
+import { isShouty, isWeakDescription } from '@/modules/metadata-enrich/quality';
 import {
   buildMetadataOutputSchema,
   cleanCategoryRef,
@@ -9,6 +9,7 @@ import {
   localizedNameEntrySchema,
 } from '@/modules/metadata-enrich/registry';
 import { areWorkTagsWeak, isCategoryWeak } from '@/modules/metadata-enrich/taxonomy-localized';
+import { isStopwordTag } from '@/modules/metadata-rules/tag-stopwords';
 
 describe('metadata-enrich quality heuristics', () => {
   it('treats short, generic and shouty descriptions as weak', () => {
