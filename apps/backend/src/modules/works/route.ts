@@ -9,6 +9,7 @@ import type { AuthVariables } from '@/middleware/auth';
 import { requireAdmin } from '@/middleware/auth';
 import { createAdminEpubWork, reuseAdminEpubWork } from '@/modules/works/admin/admin-epub-ingest';
 import { publishWork, retryWorkflow, unpublishWork } from '@/modules/works/admin/admin-lifecycle';
+import { deleteWork } from '@/modules/works/admin/admin-work-delete';
 import { getAdminWork, listAdminWorks } from '@/modules/works/admin/admin-work-read';
 import {
   getPublishedWork,
@@ -16,7 +17,7 @@ import {
   listCatalogTags,
   listCatalogWorks,
 } from '@/modules/works/read-model/catalog';
-import { createAdminTextWork, deleteWork, updateWork } from '@/modules/works/service';
+import { createAdminTextWork, updateWork } from '@/modules/works/service';
 import {
   validateAdminWorkListQuery,
   validateCatalogListQuery,
