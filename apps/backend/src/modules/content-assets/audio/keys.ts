@@ -39,11 +39,6 @@ export function allAudioObjectKeysForLegacyCleanup(asset: {
   return [...new Set(keys.filter((key): key is string => Boolean(key)))];
 }
 
-/** @deprecated Prefer allAudioObjectKeysForLegacyCleanup or formalAudioObjectKeys explicitly. */
-export function collectAudioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
-  return allAudioObjectKeysForLegacyCleanup(asset);
-}
-
 /** Segment keys still recorded in legacy audio metadata (objectKeys or timeline.storageKey). */
 export function collectLegacyAudioSegmentKeysFromAsset(asset: { meta: ContentAssetMeta }): string[] {
   const keys: string[] = [];
