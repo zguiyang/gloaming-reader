@@ -11,11 +11,11 @@ import {
   tag as tagTable,
   uploadedObject as uploadedObjectTable,
   user as userTable,
+  verification as verificationTable,
 } from '@gloaming/db';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
-import app from '@/app';
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
 import { processMetadataEnrich } from '@/jobs/metadata-enrich';
@@ -33,54 +33,128 @@ import { hashFileContent } from '@/modules/uploads/service';
 import { buildEpubBytes } from '../helpers/epub-builder';
 import { createMemoryObjectStore } from '../helpers/memory-oss';
 
-const { invokeAiMock } = vi.hoisted(() => ({ invokeAiMock: vi.fn() }));
+const { invokeAiMock, sendAuthMailMock } = vi.hoisted(() => ({
+  invokeAiMock: vi.fn(),
+  sendAuthMailMock: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock('@/modules/ai', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return { ...actual, invokeAi: invokeAiMock };
 });
 
+vi.mock('@/lib/auth/mail', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, sendAuthMail: sendAuthMailMock };
+});
+
+import app from '@/app';
+
 const password = 'password123';
 
-function uniqueEmail(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-
-function cookieHeader(response: Response): string {
-  const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.();
-  if (getSetCookie?.length) {
-    return getSetCookie.map((entry) => entry.split(';')[0]).join('; ');
-  }
-  const single = response.headers.get('set-cookie');
-  return single ? single.split(';')[0]! : '';
-}
-
 describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
+  const suiteRunId = randomUUID();
   const memory = createMemoryObjectStore();
   const createdWorkIds: string[] = [];
   const createdCategoryIds: string[] = [];
   const createdContentHashes: string[] = [];
   const createdTagIds: string[] = [];
   let adminCookie = '';
+  let adminEmail = '';
 
-  /** Categories are no longer seeded (0020) — create on demand for fixtures. */
+  function suiteLabel(fragment: string): string {
+    return `metadata-enrich-${fragment}-${suiteRunId}`;
+  }
+
+  function suiteTagId(fragment: string): string {
+    return `tag-me-${fragment}-${suiteRunId}`;
+  }
+
+  function suiteCategoryId(): string {
+    return `cat-me-${randomUUID()}`;
+  }
+
+  function trackTagId(id: string) {
+    if (!createdTagIds.includes(id)) {
+      createdTagIds.push(id);
+    }
+  }
+
+  function trackCategoryId(id: string) {
+    if (!createdCategoryIds.includes(id)) {
+      createdCategoryIds.push(id);
+    }
+  }
+
+  /** Always inserts a new category row for this suite — never reuses or updates existing rows. */
   async function ensureCategory(name: string): Promise<string> {
-    const existing = await db
-      .select({ id: categoryTable.id })
-      .from(categoryTable)
-      .where(eq(categoryTable.name, name))
-      .limit(1);
-    if (existing[0]) return existing[0].id;
     const [row] = await db
       .insert(categoryTable)
       .values({
-        id: `cat-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: suiteCategoryId(),
         name,
         normalized: normalizeTag(name),
       })
       .returning({ id: categoryTable.id });
-    createdCategoryIds.push(row!.id);
+    trackCategoryId(row!.id);
     return row!.id;
+  }
+
+  async function insertOwnedTag(values: {
+    id?: string;
+    name: string;
+    normalized: string;
+    localizedNames?: Record<string, string>;
+    origin: 'manual' | 'extracted' | 'ai';
+  }): Promise<string> {
+    const id = values.id ?? suiteTagId(randomUUID().slice(0, 8));
+    const [row] = await db
+      .insert(tagTable)
+      .values({
+        id,
+        name: values.name,
+        normalized: values.normalized,
+        localizedNames: values.localizedNames,
+        origin: values.origin,
+      })
+      .returning({ id: tagTable.id });
+    trackTagId(row!.id);
+    return row!.id;
+  }
+
+  /** Inserts a tag fixture; only tracks ids when the row was actually inserted. */
+  async function insertTagFixtureIfAbsent(values: {
+    id: string;
+    name: string;
+    normalized: string;
+    localizedNames?: Record<string, string>;
+    origin: 'manual' | 'extracted' | 'ai';
+  }): Promise<string> {
+    const inserted = await db.insert(tagTable).values(values).onConflictDoNothing().returning({ id: tagTable.id });
+    if (inserted[0]) {
+      trackTagId(inserted[0].id);
+      return inserted[0].id;
+    }
+    const [existing] = await db.select({ id: tagTable.id }).from(tagTable).where(eq(tagTable.id, values.id)).limit(1);
+    if (!existing) {
+      throw new Error(`Expected tag fixture ${values.id} to exist after conflict`);
+    }
+    return existing.id;
+  }
+
+  async function trackCreatedTaxonomyByNames(names: { tags?: string[]; categories?: string[] }) {
+    for (const name of names.tags ?? []) {
+      const [row] = await db.select({ id: tagTable.id }).from(tagTable).where(eq(tagTable.name, name)).limit(1);
+      if (row) trackTagId(row.id);
+    }
+    for (const name of names.categories ?? []) {
+      const [row] = await db
+        .select({ id: categoryTable.id })
+        .from(categoryTable)
+        .where(eq(categoryTable.name, name))
+        .limit(1);
+      if (row) trackCategoryId(row.id);
+    }
   }
 
   const chapter = {
@@ -98,19 +172,19 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   beforeAll(async () => {
     memory.store.clear();
     setObjectStoreForTests(memory);
-    const email = uniqueEmail('admin');
-    const username = `admin_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    adminEmail = `admin-${suiteRunId}@example.com`;
+    const username = `admin_${suiteRunId.replace(/-/g, '').slice(0, 12)}`;
     await app.request('/api/auth/sign-up/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-      body: JSON.stringify({ email, password, name: 'admin', username }),
+      body: JSON.stringify({ email: adminEmail, password, name: 'admin', username }),
     });
-    await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.email, email));
-    await db.update(userTable).set({ role: AUTH_ADMIN_ROLE }).where(eq(userTable.email, email));
+    await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.email, adminEmail));
+    await db.update(userTable).set({ role: AUTH_ADMIN_ROLE }).where(eq(userTable.email, adminEmail));
     const login = await app.request('/api/auth/sign-in/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: adminEmail, password }),
     });
     adminCookie = cookieHeader(login);
   });
@@ -119,12 +193,25 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     for (const workId of createdWorkIds) {
       await db.delete(readingWorkTable).where(eq(readingWorkTable.id, workId));
     }
-    await db.delete(categoryTable).where(inArray(categoryTable.id, createdCategoryIds));
+    if (createdCategoryIds.length > 0) {
+      await db.delete(categoryTable).where(inArray(categoryTable.id, createdCategoryIds));
+    }
     if (createdContentHashes.length > 0) {
       await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdContentHashes));
     }
     if (createdTagIds.length > 0) {
       await db.delete(tagTable).where(inArray(tagTable.id, createdTagIds));
+    }
+    if (adminEmail) {
+      const [adminUser] = await db
+        .select({ id: userTable.id })
+        .from(userTable)
+        .where(eq(userTable.email, adminEmail))
+        .limit(1);
+      if (adminUser) {
+        await db.delete(verificationTable).where(eq(verificationTable.value, adminUser.id));
+      }
+      await db.delete(userTable).where(eq(userTable.email, adminEmail));
     }
     resetObjectStoreCache();
   });
@@ -193,30 +280,30 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   });
 
   it('short-circuits with completed when nothing needs AI (zero cost)', async () => {
+    const categoryDisplayName = suiteLabel('complete-category');
+    const tagDisplayName = suiteLabel('complete-tag');
     const workId = await createParsedWork({
-      title: 'Complete Book',
+      title: suiteLabel('Complete Book'),
       description:
         'A fully written description with plenty of detail to be useful for readers browsing the catalog shelf.',
-      subjects: ['Science'],
+      subjects: [suiteLabel('complete-subject')],
     });
-    const categoryId = await ensureCategory('Science');
+    const categoryId = await ensureCategory(categoryDisplayName);
     await db
       .update(categoryTable)
-      .set({ localizedNames: { 'zh-CN': '科学', 'en-US': 'Science' }, origin: 'manual' })
-      .where(eq(categoryTable.id, categoryId));
-    await db.insert(readingWorkCategoryTable).values({ workId, categoryId, provenance: 'manual' });
-    const [tag] = await db
-      .insert(tagTable)
-      .values({
-        id: `tag-complete-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: 'Science',
-        normalized: 'science',
-        localizedNames: { 'zh-CN': '科学', 'en-US': 'Science' },
+      .set({
+        localizedNames: { 'zh-CN': suiteLabel('complete-category-zh'), 'en-US': categoryDisplayName },
         origin: 'manual',
       })
-      .returning({ id: tagTable.id });
-    createdTagIds.push(tag!.id);
-    await db.insert(readingWorkTagTable).values({ workId, tagId: tag!.id, provenance: 'manual' });
+      .where(eq(categoryTable.id, categoryId));
+    await db.insert(readingWorkCategoryTable).values({ workId, categoryId, provenance: 'manual' });
+    const tagId = await insertOwnedTag({
+      name: tagDisplayName,
+      normalized: normalizeTag(tagDisplayName),
+      localizedNames: { 'zh-CN': suiteLabel('complete-tag-zh'), 'en-US': tagDisplayName },
+      origin: 'manual',
+    });
+    await db.insert(readingWorkTagTable).values({ workId, tagId, provenance: 'manual' });
 
     await enrichWorkMetadata(workId);
 
@@ -227,42 +314,46 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
   it('treats catalog-like extracted tags as weak and overwrites them with AI tags', async () => {
     const workId = await createParsedWork({
-      title: 'LCSH Legacy Book',
+      title: suiteLabel('LCSH Legacy Book'),
       description:
         'A fully written description with plenty of detail to be useful for readers browsing the catalog shelf.',
     });
-    const lcshName = 'Fables, Greek -- Translations into English';
-    await db
-      .insert(tagTable)
-      .values({
-        id: 'tag-lcsh-legacy',
-        name: lcshName,
-        normalized: normalizeTag(lcshName),
-        origin: 'extracted',
-      })
-      .onConflictDoNothing();
-    createdTagIds.push('tag-lcsh-legacy');
-    const [lcshTag] = await db.select({ id: tagTable.id }).from(tagTable).where(eq(tagTable.name, lcshName));
+    const lcshName = suiteLabel('Fables, Greek -- Translations into English');
+    const lcshTagId = suiteTagId('lcsh-legacy');
+    const lcshTagRowId = await insertTagFixtureIfAbsent({
+      id: lcshTagId,
+      name: lcshName,
+      normalized: normalizeTag(lcshName),
+      origin: 'extracted',
+    });
     await db.delete(readingWorkTagTable).where(eq(readingWorkTagTable.workId, workId));
     await db
       .insert(readingWorkTagTable)
-      .values({ workId, tagId: lcshTag!.id, provenance: 'extracted' })
+      .values({ workId, tagId: lcshTagRowId, provenance: 'extracted' })
       .onConflictDoNothing();
     await db.update(readingWorkTable).set({ status: 'metadata' }).where(eq(readingWorkTable.id, workId));
+
+    const fablesName = suiteLabel('Fables');
+    const moralityName = suiteLabel('Morality');
+    const folkloreCategoryName = suiteLabel('Folklore');
 
     invokeAiMock.mockResolvedValueOnce({
       content: {
         tags: [
-          { id: null, name: 'Fables' },
-          { id: null, name: 'Morality' },
+          { id: null, name: fablesName },
+          { id: null, name: moralityName },
         ],
-        category: { id: null, name: 'Folklore' },
+        category: { id: null, name: folkloreCategoryName },
       },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
     });
 
     await enrichWorkMetadata(workId);
+    await trackCreatedTaxonomyByNames({
+      tags: [fablesName, moralityName],
+      categories: [folkloreCategoryName],
+    });
 
     expect(invokeAiMock).toHaveBeenCalledTimes(1);
     const invokeArgs = invokeAiMock.mock.calls[0]![0] as {
@@ -274,7 +365,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     );
 
     const apiWork = await fetchAdminWork(workId);
-    expect(tagLabels(apiWork.tags).sort()).toEqual(['Fables', 'Morality']);
+    expect(tagLabels(apiWork.tags).sort()).toEqual([fablesName, moralityName].sort());
     expect(apiWork.metadataProvenance.tags).toBe('ai');
     expect(tagLabels(apiWork.tags)).not.toContain(lcshName);
 
@@ -286,22 +377,29 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   });
 
   it('fills empty/weak fields with ai provenance via junction SSOT', async () => {
-    const workId = await createParsedWork({ title: 'Fill Book' });
+    const workId = await createParsedWork({ title: suiteLabel('Fill Book') });
+    const spaceName = suiteLabel('Space');
+    const adventureName = suiteLabel('Adventure');
+    const zetaFictionName = suiteLabel('Zeta Fiction');
 
     invokeAiMock.mockResolvedValueOnce({
       content: {
         description: 'An AI written summary of the book.',
         tags: [
-          { id: null, name: 'Space' },
-          { id: null, name: 'Adventure' },
+          { id: null, name: spaceName },
+          { id: null, name: adventureName },
         ],
-        category: { id: null, name: 'Zeta Fiction' },
+        category: { id: null, name: zetaFictionName },
       },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
     });
 
     await enrichWorkMetadata(workId);
+    await trackCreatedTaxonomyByNames({
+      tags: [spaceName, adventureName],
+      categories: [zetaFictionName],
+    });
 
     expect(invokeAiMock).toHaveBeenCalledTimes(1);
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
@@ -317,13 +415,12 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
     const apiWork = await fetchAdminWork(workId);
     expect(apiWork.metadataProvenance).toMatchObject({ description: 'ai', tags: 'ai', category: 'ai' });
-    expect(tagLabels(apiWork.tags).sort()).toEqual(['Adventure', 'Space']);
+    expect(tagLabels(apiWork.tags).sort()).toEqual([adventureName, spaceName].sort());
 
-    // AI-created tags are recorded as origin='ai' on the dimension row.
     const [spaceTag] = await db
       .select({ origin: tagTable.origin })
       .from(tagTable)
-      .where(eq(tagTable.name, 'Space'))
+      .where(eq(tagTable.name, spaceName))
       .limit(1);
     expect(spaceTag?.origin).toBe('ai');
 
@@ -334,28 +431,31 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     expect(categoryRows).toHaveLength(1);
     expect(categoryRows[0]!.provenance).toBe('ai');
 
-    // No existing category matched — the AI-created one lands with origin='ai'.
     const [createdCategory] = await db
       .select({ origin: categoryTable.origin, name: categoryTable.name })
       .from(categoryTable)
-      .where(eq(categoryTable.name, 'Zeta Fiction'))
+      .where(eq(categoryTable.name, zetaFictionName))
       .limit(1);
     expect(createdCategory?.origin).toBe('ai');
   });
 
   it('reuses existing dimensions when the model returns existing ids', async () => {
-    const workId = await createParsedWork({ title: 'Reuse Book' });
-    await db
-      .insert(tagTable)
-      .values({ id: 'tag-reuse-fixture', name: 'Reuse Tag', normalized: 'reusetag', origin: 'manual' })
-      .onConflictDoNothing();
-    createdTagIds.push('tag-reuse-fixture');
-    const categoryId = await ensureCategory('Reuse Category');
+    const workId = await createParsedWork({ title: suiteLabel('Reuse Book') });
+    const reuseTagId = suiteTagId('reuse-fixture');
+    const reuseTagName = suiteLabel('Reuse Tag');
+    const reuseCategoryName = suiteLabel('Reuse Category');
+    await insertTagFixtureIfAbsent({
+      id: reuseTagId,
+      name: reuseTagName,
+      normalized: normalizeTag(reuseTagName),
+      origin: 'manual',
+    });
+    const categoryId = await ensureCategory(reuseCategoryName);
 
     invokeAiMock.mockResolvedValueOnce({
       content: {
-        tags: [{ id: 'tag-reuse-fixture', name: 'Reuse Tag' }],
-        category: { id: categoryId, name: 'Reuse Category' },
+        tags: [{ id: reuseTagId, name: reuseTagName }],
+        category: { id: categoryId, name: reuseCategoryName },
       },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
@@ -367,14 +467,10 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     expect(work!.status).toBe('ready');
 
     const apiWork = await fetchAdminWork(workId);
-    expect(tagLabels(apiWork.tags)).toEqual(['Reuse Tag']);
+    expect(tagLabels(apiWork.tags)).toEqual([reuseTagName]);
     expect(apiWork.metadataProvenance.tags).toBe('ai');
 
-    // Reused rows keep their original creator — no origin rewrite, no dupes.
-    const [tag] = await db
-      .select({ origin: tagTable.origin })
-      .from(tagTable)
-      .where(eq(tagTable.id, 'tag-reuse-fixture'));
+    const [tag] = await db.select({ origin: tagTable.origin }).from(tagTable).where(eq(tagTable.id, reuseTagId));
     expect(tag?.origin).toBe('manual');
     const [category] = await db
       .select({ origin: categoryTable.origin })
@@ -384,68 +480,69 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
     const rows = await db.select().from(readingWorkTagTable).where(eq(readingWorkTagTable.workId, workId));
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.tagId).toBe('tag-reuse-fixture');
+    expect(rows[0]!.tagId).toBe(reuseTagId);
   });
 
   it('falls back to creating when an existing id is invalid', async () => {
-    const workId = await createParsedWork({ title: 'Ghost Id Book' });
+    const workId = await createParsedWork({ title: suiteLabel('Ghost Id Book') });
+    const ghostTagName = suiteLabel('Ghost Tag');
+    const ghostCategoryName = suiteLabel('Ghost Category');
 
     invokeAiMock.mockResolvedValueOnce({
       content: {
-        tags: [{ id: 'no-such-tag', name: 'Ghost Tag' }],
-        category: { id: 'no-such-cat', name: 'Ghost Category' },
+        tags: [{ id: 'no-such-tag', name: ghostTagName }],
+        category: { id: 'no-such-cat', name: ghostCategoryName },
       },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     });
 
     await enrichWorkMetadata(workId);
+    await trackCreatedTaxonomyByNames({ tags: [ghostTagName], categories: [ghostCategoryName] });
 
     const [tag] = await db
       .select({ origin: tagTable.origin })
       .from(tagTable)
-      .where(eq(tagTable.name, 'Ghost Tag'))
+      .where(eq(tagTable.name, ghostTagName))
       .limit(1);
     expect(tag?.origin).toBe('ai');
     const [category] = await db
       .select({ origin: categoryTable.origin })
       .from(categoryTable)
-      .where(eq(categoryTable.name, 'Ghost Category'))
+      .where(eq(categoryTable.name, ghostCategoryName))
       .limit(1);
     expect(category?.origin).toBe('ai');
   });
 
   it('sends an output schema containing only the required fields', async () => {
-    const workId = await createParsedWork({ title: 'Schema Book' });
+    const workId = await createParsedWork({ title: suiteLabel('Schema Book') });
+    const schemaCategoryName = suiteLabel('Schema Category');
 
-    const [manualTag] = await db
-      .insert(tagTable)
-      .values({
-        id: `tag-schema-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: 'Manual Fill Tag',
-        normalized: `manual-fill-tag-${Date.now()}`,
-        localizedNames: { 'zh-CN': '手动填充标签', 'en-US': 'Manual Fill Tag' },
-        origin: 'manual',
-      })
-      .returning({ id: tagTable.id });
-    createdTagIds.push(manualTag!.id);
+    const manualTagName = suiteLabel('Manual Fill Tag');
+    const manualTagId = await insertOwnedTag({
+      name: manualTagName,
+      normalized: normalizeTag(manualTagName),
+      localizedNames: { 'zh-CN': suiteLabel('manual-fill-tag-zh'), 'en-US': manualTagName },
+      origin: 'manual',
+    });
 
     await app.request(`/api/admin/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         description: 'A solid hand-written description that is long enough for the manual requirement.',
-        tags: [{ id: manualTag!.id }],
+        tags: [{ id: manualTagId }],
       }),
     });
 
     invokeAiMock.mockResolvedValueOnce({
-      content: { category: { id: null, name: 'Schema Category' } },
+      content: { category: { id: null, name: schemaCategoryName } },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     });
 
     await enrichWorkMetadata(workId);
+    await trackCreatedTaxonomyByNames({ categories: [schemaCategoryName] });
 
     const invokeArgs = invokeAiMock.mock.calls[0]![0] as { outputSchema: { shape: Record<string, unknown> } };
     expect(Object.keys(invokeArgs.outputSchema.shape)).toEqual(['category']);
@@ -461,25 +558,24 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   });
 
   it('does not override manual values and skips works outside the metadata step', async () => {
-    const workId = await createParsedWork({ title: 'Manual Fill Book', subjects: ['Science'] });
+    const workId = await createParsedWork({
+      title: suiteLabel('Manual Fill Book'),
+      subjects: [suiteLabel('manual-subject')],
+    });
 
-    const [manualTag] = await db
-      .insert(tagTable)
-      .values({
-        id: `tag-manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: 'Manual Tag',
-        normalized: `manual-tag-${Date.now()}`,
-        localizedNames: { 'zh-CN': '手动标签', 'en-US': 'Manual Tag' },
-        origin: 'manual',
-      })
-      .returning({ id: tagTable.id });
-    createdTagIds.push(manualTag!.id);
+    const manualTagName = suiteLabel('Manual Tag');
+    const manualTagId = await insertOwnedTag({
+      name: manualTagName,
+      normalized: normalizeTag(manualTagName),
+      localizedNames: { 'zh-CN': suiteLabel('manual-tag-zh'), 'en-US': manualTagName },
+      origin: 'manual',
+    });
 
     await app.request(`/api/admin/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        tags: [{ id: manualTag!.id }],
+        tags: [{ id: manualTagId }],
         description: 'A solid hand-written description that is long enough.',
       }),
     });
@@ -492,16 +588,15 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
     const apiWork = await fetchAdminWork(workId);
     expect(apiWork.metadataProvenance.description).toBe('manual');
-    expect(tagLabels(apiWork.tags)).toContain('Manual Tag');
+    expect(tagLabels(apiWork.tags)).toContain(manualTagName);
 
-    // Second run on a completed work must not invoke the model again.
     const callsAfterFirst = invokeAiMock.mock.calls.length;
     await enrichWorkMetadata(workId);
     expect(invokeAiMock.mock.calls.length).toBe(callsAfterFirst);
   });
 
   it('degrades to skipped when the model is not configured (503)', async () => {
-    const workId = await createParsedWork({ title: 'No Model Book' });
+    const workId = await createParsedWork({ title: suiteLabel('No Model Book') });
 
     invokeAiMock.mockRejectedValueOnce(
       new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.MODEL_NOT_CONFIGURED),
@@ -514,7 +609,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   });
 
   it('does not degrade generic AI 503s (e.g. bad JSON) into a successful ready step', async () => {
-    const workId = await createParsedWork({ title: 'Bad Json Book' });
+    const workId = await createParsedWork({ title: suiteLabel('Bad Json Book') });
 
     invokeAiMock.mockRejectedValueOnce(
       new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, 'Unexpected token \'d\', "descriptio"... is not valid JSON'),
@@ -529,7 +624,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   });
 
   it('restores the failed step so the bounded retry can re-claim (at-least-once)', async () => {
-    const workId = await createParsedWork({ title: 'Retry Book' });
+    const workId = await createParsedWork({ title: suiteLabel('Retry Book') });
     const [prepared] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
     const retryJobToken = prepared!.originMeta.retryJobToken as string;
     const firstAttemptToken = randomUUID();
@@ -564,29 +659,68 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   });
 
   it('list_existing_tags returns top-N by usage and searches by normalized name', async () => {
-    await createParsedWork({ title: 'Tool Book', subjects: ['Science', 'Adventure'] });
+    const tagHighName = suiteLabel('tool-high');
+    const tagLowName = suiteLabel('tool-low');
+    const tagHighId = await insertOwnedTag({
+      name: tagHighName,
+      normalized: normalizeTag(tagHighName),
+      origin: 'manual',
+    });
+    const tagLowId = await insertOwnedTag({
+      name: tagLowName,
+      normalized: normalizeTag(tagLowName),
+      origin: 'manual',
+    });
 
-    const top = await listExistingTagsTool().invoke({});
+    const workIdA = await createParsedWork({ title: suiteLabel('Tool Book A') });
+    const workIdB = await createParsedWork({ title: suiteLabel('Tool Book B') });
+    await db
+      .insert(readingWorkTagTable)
+      .values({ workId: workIdA, tagId: tagHighId, provenance: 'manual' })
+      .onConflictDoNothing();
+    await db
+      .insert(readingWorkTagTable)
+      .values({ workId: workIdB, tagId: tagHighId, provenance: 'manual' })
+      .onConflictDoNothing();
+    await db
+      .insert(readingWorkTagTable)
+      .values({ workId: workIdA, tagId: tagLowId, provenance: 'manual' })
+      .onConflictDoNothing();
+
+    const suiteQuery = normalizeTag(suiteRunId);
+    const top = await listExistingTagsTool().invoke({ query: suiteQuery, limit: 10 });
     const parsedTop = JSON.parse(top) as { tags: Array<{ name: string; usage: number }> };
     expect(parsedTop.tags.length).toBeGreaterThanOrEqual(2);
     expect(parsedTop.tags.every((tag, index) => index === 0 || parsedTop.tags[index - 1]!.usage >= tag.usage)).toBe(
       true,
     );
+    const topNames = parsedTop.tags.map((tag) => tag.name);
+    expect(topNames).toContain(tagHighName);
+    expect(topNames).toContain(tagLowName);
+    const highUsage = parsedTop.tags.find((tag) => tag.name === tagHighName)!.usage;
+    const lowUsage = parsedTop.tags.find((tag) => tag.name === tagLowName)!.usage;
+    expect(highUsage).toBeGreaterThanOrEqual(lowUsage);
 
-    const science = await listExistingTagsTool().invoke({ query: 'science' });
-    const parsedScience = JSON.parse(science) as { tags: Array<{ name: string; usage: number }> };
-    expect(parsedScience.tags.map((tag) => tag.name)).toContain('Science');
-
-    const searched = await listExistingTagsTool().invoke({ query: 'adventure' });
+    const searched = await listExistingTagsTool().invoke({ query: normalizeTag(tagLowName) });
     const parsedSearch = JSON.parse(searched) as { tags: Array<{ name: string; usage: number }> };
-    expect(parsedSearch.tags.map((t) => t.name)).toContain('Adventure');
+    expect(parsedSearch.tags.map((t) => t.name)).toContain(tagLowName);
   });
 
   it('list_categories returns the admin-managed enumeration with ids', async () => {
-    await ensureCategory('Mystery');
+    const mysteryName = suiteLabel('Mystery');
+    await ensureCategory(mysteryName);
     const raw = await listCategoriesTool().invoke({});
     const parsed = JSON.parse(raw) as { categories: Array<{ id: string; name: string }> };
-    expect(parsed.categories.some((c) => c.name === 'Mystery')).toBe(true);
+    expect(parsed.categories.some((c) => c.name === mysteryName)).toBe(true);
     expect(parsed.categories.every((c) => Boolean(c.id))).toBe(true);
   });
 });
+
+function cookieHeader(response: Response): string {
+  const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.();
+  if (getSetCookie?.length) {
+    return getSetCookie.map((entry) => entry.split(';')[0]).join('; ');
+  }
+  const single = response.headers.get('set-cookie');
+  return single ? single.split(';')[0]! : '';
+}
