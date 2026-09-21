@@ -8,7 +8,6 @@ import {
   type PutTtsConfigBody,
   type TestTtsBody,
   type TestTtsResult,
-  TTS_CACHE_KEY_PREFIX_V1,
   TTS_CACHE_KEY_PREFIX_V2,
   TTS_CACHE_MAX_RAW_AUDIO_BYTES,
   TTS_CACHE_SCHEMA_VERSION,
@@ -66,7 +65,7 @@ export type SynthesizeTtsResult = {
 type TtsCacheLookup = {
   payload: TtsCachePayload;
   key: string;
-  version: 'v2' | 'v1';
+  version: 'v2';
   cachePayloadBytes: number;
 };
 
@@ -126,14 +125,6 @@ function resolveVoice(row: TtsConfigRow, options: { voice?: string; role?: TtsVo
 
 export function normalizeTtsText(text: string): string {
   return text.trim().replace(/\s+/g, ' ');
-}
-
-/** Legacy v1 digest: text + voice + mime + region (no schema version). */
-export function buildTtsCacheKeyV1(normalizedText: string, voice: string, region: string): string {
-  const digest = createHash('sha256')
-    .update(`${normalizedText}\0${voice}\0${TTS_OUTPUT_MIME}\0${region}`, 'utf8')
-    .digest('hex');
-  return `${TTS_CACHE_KEY_PREFIX_V1}${digest}`;
 }
 
 /** v2 digest: schema version + text + voice + mime + region. */
