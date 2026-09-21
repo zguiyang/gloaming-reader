@@ -13,7 +13,7 @@ import {
 
 import type { ObjectListItem } from '@/lib/oss';
 
-import type { ReferencedKeyIndex } from './referenced-keys';
+import type { ReferencedKeyIndex } from '../referenced-keys';
 
 function classifyListedObjectStatus(key: string, referenced: ReferencedKeyIndex): AssetObjectItem['status'] {
   if (referenced.formalKeys.has(key) || referenced.externalReferencedKeys.has(key)) {

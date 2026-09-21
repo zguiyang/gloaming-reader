@@ -23,15 +23,9 @@ import { db } from '@/db';
 import { processAssetCleanup } from '@/jobs/asset-cleanup';
 import type { ObjectStore } from '@/lib/oss';
 import { getRedis } from '@/lib/redis';
-import {
-  acquireLock,
-  CLEANUP_LOCK_KEY,
-  loadCleanupJob,
-  releaseLock,
-  renewLock,
-  saveCleanupJob,
-  SCAN_LOCK_KEY,
-} from '@/modules/asset-management/cleanup-store';
+import { CLEANUP_LOCK_KEY, loadCleanupJob, saveCleanupJob } from '@/modules/asset-management/cleanup/store';
+import { acquireLock, releaseLock, renewLock } from '@/modules/asset-management/lock-store';
+import { SCAN_LOCK_KEY } from '@/modules/asset-management/scan/config';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 
 import { createMemoryObjectStore } from '../helpers/memory-oss';

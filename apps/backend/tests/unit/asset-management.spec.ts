@@ -10,7 +10,7 @@ import {
   collectLegacySegmentKeysFromContentAssetRow,
   referencedKeyIndexFromKeys,
 } from '@/modules/asset-management/referenced-keys';
-import { reconcileObjects } from '@/modules/asset-management/scan-reconcile';
+import { reconcileObjects } from '@/modules/asset-management/scan/reconcile';
 
 describe('collectFormalKeysFromContentAssetRow', () => {
   it('returns only chapter for audio assets with legacy segment metadata', () => {

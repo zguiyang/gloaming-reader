@@ -5,7 +5,7 @@ import { AppError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
 import { rootLogger } from '@/lib/logger';
 import { getRedis } from '@/lib/redis';
-import { snapshotTtlSeconds } from '@/modules/asset-management/cleanup-store';
+import { snapshotTtlSeconds } from '@/modules/asset-management/scan/config';
 
 const logger = rootLogger.child({ module: 'AssetManagement' });
 

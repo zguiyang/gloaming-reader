@@ -1,4 +1,4 @@
-import { runAssetCleanupJob } from '@/modules/asset-management/cleanup-job';
+import { runAssetCleanupJob } from '@/modules/asset-management/cleanup/job';
 
 export const JOB_ASSET_CLEANUP = 'asset-cleanup';
 

@@ -15,9 +15,9 @@ import { db } from '@/db';
 import { commonEnv } from '@/lib/env-common';
 import { rootLogger } from '@/lib/logger';
 import type { ObjectListItem } from '@/lib/oss';
-import { CLEANUP_BATCH_SIZE } from '@/modules/asset-management/cleanup-store';
-import { listBucketObjects } from '@/modules/asset-management/list-bucket-objects';
+import { CLEANUP_BATCH_SIZE } from '@/modules/asset-management/cleanup/store';
 import { collectReferencedStorageKeys, type ReferencedKeyIndex } from '@/modules/asset-management/referenced-keys';
+import { listBucketObjects } from '@/modules/asset-management/storage/list-bucket-objects';
 import { deleteManyObjects, objectExists } from '@/modules/oss';
 
 import {

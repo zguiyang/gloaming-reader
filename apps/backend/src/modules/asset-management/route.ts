@@ -2,13 +2,14 @@ import { Hono } from 'hono';
 
 import { HTTP_STATUS } from '@/constants';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
-import * as assetManagementService from '@/modules/asset-management/service';
+import * as assetCleanupService from '@/modules/asset-management/cleanup/service';
+import * as assetScanService from '@/modules/asset-management/scan/service';
 import { validateAssetCleanupBody, validateAssetObjectListQuery } from '@/modules/asset-management/validator';
 
 export const assetManagementRoutes = new Hono<{ Variables: AuthVariables }>();
 
 assetManagementRoutes.post('/api/admin/assets/scan', requireAdmin, async (c) => {
-  const report = await assetManagementService.scanAssets();
+  const report = await assetScanService.scanAssets();
   return c.json(report);
 });
 
@@ -17,7 +18,7 @@ assetManagementRoutes.get(
   requireAdmin,
   validateAssetObjectListQuery,
   async (c) => {
-    const data = await assetManagementService.listScanObjects(c.req.param('scanId'), c.req.valid('query'));
+    const data = await assetScanService.listScanObjects(c.req.param('scanId'), c.req.valid('query'));
     return c.json(data);
   },
 );
@@ -27,13 +28,13 @@ assetManagementRoutes.post(
   requireAdmin,
   validateAssetCleanupBody,
   async (c) => {
-    const result = await assetManagementService.enqueueOrphanCleanup(c.req.param('scanId'));
+    const result = await assetCleanupService.enqueueOrphanCleanup(c.req.param('scanId'));
     return c.json(result, HTTP_STATUS.ACCEPTED);
   },
 );
 
 assetManagementRoutes.get('/api/admin/assets/cleanup-jobs/:jobId', requireAdmin, async (c) => {
-  const job = await assetManagementService.getCleanupJob(c.req.param('jobId'));
+  const job = await assetCleanupService.getCleanupJob(c.req.param('jobId'));
   return c.json(job);
 });
 
@@ -42,7 +43,7 @@ assetManagementRoutes.post(
   requireAdmin,
   validateAssetCleanupBody,
   async (c) => {
-    const result = await assetManagementService.retryCleanupJob(c.req.param('jobId'));
+    const result = await assetCleanupService.retryCleanupJob(c.req.param('jobId'));
     return c.json(result, HTTP_STATUS.ACCEPTED);
   },
 );

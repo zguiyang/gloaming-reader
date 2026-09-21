@@ -4,20 +4,18 @@ import { ASSET_SCAN_OBJECT_LIMIT, type AssetCleanupJobVerification } from '@gloa
 
 import { rootLogger } from '@/lib/logger';
 import {
-  acquireLock,
   CLEANUP_BATCH_SIZE,
   CLEANUP_LOCK_KEY,
   CLEANUP_LOCK_TTL_SECONDS,
   type CleanupJobRecord,
   loadCleanupJob,
   mergeFailures,
-  releaseLock,
   saveCleanupJob,
-  startLockRenewal,
-} from '@/modules/asset-management/cleanup-store';
-import { listBucketObjects } from '@/modules/asset-management/list-bucket-objects';
+} from '@/modules/asset-management/cleanup/store';
+import { acquireLock, releaseLock, startLockRenewal } from '@/modules/asset-management/lock-store';
 import { collectReferencedStorageKeys } from '@/modules/asset-management/referenced-keys';
-import { reconcileObjects } from '@/modules/asset-management/scan-reconcile';
+import { reconcileObjects } from '@/modules/asset-management/scan/reconcile';
+import { listBucketObjects } from '@/modules/asset-management/storage/list-bucket-objects';
 import { deleteManyObjects } from '@/modules/oss';
 
 const logger = rootLogger.child({ module: 'AssetCleanupJob' });

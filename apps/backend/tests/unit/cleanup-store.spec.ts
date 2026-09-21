@@ -51,7 +51,6 @@ vi.mock('@/lib/redis', () => ({
 }));
 
 import {
-  acquireLock,
   applyCleanupRetryState,
   CLEANUP_LOCK_KEY,
   type CleanupJobRecord,
@@ -59,12 +58,10 @@ import {
   createQueuedCleanupJob,
   loadCleanupJob,
   loadCleanupJobIdForScan,
-  releaseLock,
-  renewLock,
   saveCleanupJob,
-  startLockRenewal,
   toPublicCleanupJob,
-} from '@/modules/asset-management/cleanup-store';
+} from '@/modules/asset-management/cleanup/store';
+import { acquireLock, releaseLock, renewLock, startLockRenewal } from '@/modules/asset-management/lock-store';
 
 function sampleRecord(overrides: Partial<CleanupJobRecord> = {}): CleanupJobRecord {
   const now = '2026-09-10T00:00:00.000Z';

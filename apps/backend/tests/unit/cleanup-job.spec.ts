@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ASSET_SCAN_OBJECT_LIMIT } from '@gloaming/shared/assets';
 
-import type * as cleanupStoreModule from '@/modules/asset-management/cleanup-store';
-import type { CleanupJobRecord } from '@/modules/asset-management/cleanup-store';
+import type * as cleanupStoreModule from '@/modules/asset-management/cleanup/store';
+import type { CleanupJobRecord } from '@/modules/asset-management/cleanup/store';
+import type * as lockStoreModule from '@/modules/asset-management/lock-store';
 import type * as referencedKeysModule from '@/modules/asset-management/referenced-keys';
 import type * as ossModule from '@/modules/oss';
 
@@ -31,13 +32,20 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@/modules/asset-management/cleanup-store', async (importOriginal) => {
-  const actual = await importOriginal<typeof cleanupStoreModule>();
+vi.mock('@/modules/asset-management/lock-store', async (importOriginal) => {
+  const actual = await importOriginal<typeof lockStoreModule>();
   return {
     ...actual,
     acquireLock: mocks.acquireLock,
     releaseLock: mocks.releaseLock,
     startLockRenewal: mocks.startLockRenewal,
+  };
+});
+
+vi.mock('@/modules/asset-management/cleanup/store', async (importOriginal) => {
+  const actual = await importOriginal<typeof cleanupStoreModule>();
+  return {
+    ...actual,
     loadCleanupJob: mocks.loadCleanupJob,
     saveCleanupJob: mocks.saveCleanupJob,
   };
@@ -60,8 +68,8 @@ vi.mock('@/modules/oss', async (importOriginal) => {
   };
 });
 
-import { resolveCleanupTerminalStatus, runAssetCleanupJob } from '@/modules/asset-management/cleanup-job';
-import { CLEANUP_LOCK_KEY } from '@/modules/asset-management/cleanup-store';
+import { resolveCleanupTerminalStatus, runAssetCleanupJob } from '@/modules/asset-management/cleanup/job';
+import { CLEANUP_LOCK_KEY } from '@/modules/asset-management/cleanup/store';
 
 function sampleRecord(overrides: Partial<CleanupJobRecord> = {}): CleanupJobRecord {
   const now = '2026-09-10T00:00:00.000Z';
