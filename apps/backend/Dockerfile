@@ -13,7 +13,7 @@ COPY apps/backend/package.json ./apps/backend/
 COPY packages/db/package.json ./packages/db/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/i18n/package.json ./packages/i18n/
-# tsx is a runtime devDependency used by start/worker scripts.
+# Production entrypoints run compiled JavaScript with plain node.
 RUN pnpm install --frozen-lockfile --filter @gloaming/backend...
 
 FROM base AS build
@@ -41,4 +41,4 @@ COPY --from=build /app/apps/backend/package.json ./apps/backend/package.json
 COPY package.json pnpm-workspace.yaml ./
 WORKDIR /app/apps/backend
 EXPOSE 3333
-CMD ["node", "--import", "tsx", "dist/index.js"]
+CMD ["node", "dist/index.js"]
