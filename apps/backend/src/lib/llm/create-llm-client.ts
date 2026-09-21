@@ -59,7 +59,4 @@ export function createLlmClient(resolved: ResolvedLlm, options?: CreateLlmClient
   }
 }
 
-/** @deprecated Use createLlmClient — kept for tests during migration. */
-export const createChatModel = createLlmClient;
-
 export type CreateChatModelOptions = CreateLlmClientOptions;
