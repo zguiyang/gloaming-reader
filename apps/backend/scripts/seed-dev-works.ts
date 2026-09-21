@@ -8,7 +8,7 @@ import { readingWork as readingWorkTable } from '@gloaming/db';
 
 import { db } from '../src/db/index.ts';
 import { publishWork } from '../src/modules/works/admin/admin-lifecycle.ts';
-import { createAdminTextWork, updateWork } from '../src/modules/works/service.ts';
+import { createAdminTextWork, updateWork } from '../src/modules/works/admin/admin-work-write.ts';
 
 const SEED_TITLE = '[dev-seed] Morning Light';
 

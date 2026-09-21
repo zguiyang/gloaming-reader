@@ -11,13 +11,13 @@ import { createAdminEpubWork, reuseAdminEpubWork } from '@/modules/works/admin/a
 import { publishWork, retryWorkflow, unpublishWork } from '@/modules/works/admin/admin-lifecycle';
 import { deleteWork } from '@/modules/works/admin/admin-work-delete';
 import { getAdminWork, listAdminWorks } from '@/modules/works/admin/admin-work-read';
+import { createAdminTextWork, updateWork } from '@/modules/works/admin/admin-work-write';
 import {
   getPublishedWork,
   listCatalogCategories,
   listCatalogTags,
   listCatalogWorks,
 } from '@/modules/works/read-model/catalog';
-import { createAdminTextWork, updateWork } from '@/modules/works/service';
 import {
   validateAdminWorkListQuery,
   validateCatalogListQuery,

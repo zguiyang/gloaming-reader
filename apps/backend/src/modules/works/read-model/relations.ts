@@ -12,7 +12,7 @@ import {
 import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { db } from '@/db';
-import { toSourceReference, toTaxonomyReference } from '@/modules/works/taxonomy-mapper';
+import { toSourceReference, toTaxonomyReference } from '@/modules/works/read-model/taxonomy-mapper';
 
 import type { PartRow } from './projection';
 

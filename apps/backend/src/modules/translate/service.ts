@@ -14,7 +14,6 @@ import { rootLogger } from '@/lib/logger';
 import { composePromptMessages, PROMPT_ROLE, PROMPT_SCENE } from '@/lib/prompts';
 import { getRedis } from '@/lib/redis';
 import { streamAi } from '@/modules/ai';
-import { reindexLeafParagraphOrdinals } from '@/modules/epub-ingest/clean';
 import {
   createTranslateLineParser,
   formatSentenceListForPrompt,
@@ -22,6 +21,7 @@ import {
   splitPartSentences,
   type SplitSentence,
 } from '@/modules/translate/split';
+import { reindexLeafParagraphOrdinals } from '@/modules/works/part-content/paragraph-identity';
 
 const translateLogger = rootLogger.child({ module: 'Translate' });
 

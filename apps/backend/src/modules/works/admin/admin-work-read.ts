@@ -25,6 +25,7 @@ import { completeWorkflowStep } from '@/lib/workflow';
 import { getWorkflowPolicyProjection, TTS_STEP_ENABLED } from '@/lib/workflow-policy';
 import { getWorksDerivedFreshness } from '@/modules/derived-freshness';
 import { buildPublishIssuesForWork } from '@/modules/works/admin/admin-publish-gate';
+import { failedStepOf } from '@/modules/works/admin/workflow-meta';
 import { shouldHideTagsDuringProcessing, toPart, toWork } from '@/modules/works/read-model/projection';
 import {
   loadCategoryForWork,
@@ -32,7 +33,6 @@ import {
   loadSourcesForWork,
   loadTagsForWork,
 } from '@/modules/works/read-model/relations';
-import { failedStepOf } from '@/modules/works/workflow-meta';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 type PartRow = typeof readingPartTable.$inferSelect;

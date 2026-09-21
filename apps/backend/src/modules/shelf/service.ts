@@ -5,7 +5,7 @@ import { SHELF_ITEMS_LIMIT, type ShelfData } from '@gloaming/shared/shelf';
 import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { db } from '@/db';
-import { toReadingState } from '@/modules/reader/service';
+import { toReadingState } from '@/modules/reader/reading-state';
 import { loadPartSortOrdersByWorkIds, loadTagsByWorkIds } from '@/modules/works/read-model/relations';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;

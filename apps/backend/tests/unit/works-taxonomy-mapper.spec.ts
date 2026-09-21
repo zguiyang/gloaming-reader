@@ -6,7 +6,7 @@ import {
   toCatalogTaxonomyFacet,
   toSourceReference,
   toTaxonomyReference,
-} from '@/modules/works/taxonomy-mapper';
+} from '@/modules/works/read-model/taxonomy-mapper';
 
 describe('works taxonomy mapper', () => {
   it('builds full names from localized_names without dropping locales', () => {

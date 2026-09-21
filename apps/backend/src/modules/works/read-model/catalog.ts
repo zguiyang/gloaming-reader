@@ -14,7 +14,7 @@ import { type CatalogListData, type CatalogListQuery, type Work } from '@gloamin
 import { db } from '@/db';
 import { NotFoundError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
-import { toCatalogTaxonomyFacet } from '@/modules/works/taxonomy-mapper';
+import { toCatalogTaxonomyFacet } from '@/modules/works/read-model/taxonomy-mapper';
 
 import { toWork } from './projection';
 import {

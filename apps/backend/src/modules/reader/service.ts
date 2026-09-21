@@ -5,11 +5,9 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { readingPart as readingPartTable } from '@gloaming/db';
 import { readingState as readingStateTable } from '@gloaming/db';
 import {
-  computeChapterProgress,
   mergeReadingCompletion,
   mergeReadingPosition,
   NO_CHAPTERS_COMPLETED,
-  type PartSortOrder,
   type ReaderPartData,
   type ReaderPartsData,
   type ReadingState,
@@ -22,8 +20,9 @@ import { db } from '@/db';
 import { AppError, NotFoundError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
 import { getPartAudioAvailability, getPublishedPartAudioTrack } from '@/modules/content-assets/service';
-import { reindexLeafParagraphOrdinals } from '@/modules/epub-ingest/clean';
+import { toReadingState } from '@/modules/reader/reading-state';
 import { touchReadingDay } from '@/modules/reading-history/service';
+import { reindexLeafParagraphOrdinals } from '@/modules/works/part-content/paragraph-identity';
 import { getPartById, requirePublishedWorkWithParts } from '@/modules/works/read-model/access';
 import { loadTagsForWork } from '@/modules/works/read-model/relations';
 
@@ -65,25 +64,6 @@ function toWorkSummary(
     tags,
     coverAssetId: work.coverAssetId,
     publishedAt: work.publishedAt ? toIso(work.publishedAt) : null,
-  };
-}
-
-function toReadingState(row: StateRow, parts: PartSortOrder[]): ReadingState {
-  const partSortOrders = parts.map((part) => ({ sortOrder: part.sortOrder }));
-  const completedThrough = row.completedThroughSortOrder ?? NO_CHAPTERS_COMPLETED;
-  return {
-    status: row.status as ReadingState['status'],
-    currentPartId: row.currentPartId,
-    completedThroughSortOrder: completedThrough,
-    revision: row.revision,
-    progressRatio: computeChapterProgress({
-      status: row.status as ReadingState['status'],
-      completedThroughSortOrder: completedThrough,
-      parts: partSortOrders,
-    }),
-    totalPartCount: parts.length,
-    lastReadAt: toIso(row.lastReadAt),
-    completedAt: row.completedAt ? toIso(row.completedAt) : null,
   };
 }
 
@@ -297,4 +277,4 @@ export async function updateReadingState(
   return toReadingState(state, parts);
 }
 
-export { getPublishedPartAudioTrack, toReadingState };
+export { getPublishedPartAudioTrack };
