@@ -9,13 +9,7 @@ import {
 
 import * as redisLib from '@/lib/redis';
 import * as azureTts from '@/lib/tts/azure';
-import {
-  buildTtsCacheKeyV1,
-  buildTtsCacheKeyV2,
-  normalizeTtsText,
-  shouldWriteTtsCache,
-  synthesizeTts,
-} from '@/modules/tts/service';
+import { buildTtsCacheKeyV2, normalizeTtsText, shouldWriteTtsCache, synthesizeTts } from '@/modules/tts/service';
 
 vi.mock('@/db', () => ({
   db: {
@@ -46,13 +40,10 @@ function createMemoryRedis() {
 }
 
 describe('TTS Redis cache keys and size gate', () => {
-  it('builds distinct v1/v2 keys and embeds mime + region + schema in v2', () => {
+  it('builds stable v2 keys with prefix and varies by voice and region', () => {
     const text = normalizeTtsText('  hello   world  ');
-    const v1 = buildTtsCacheKeyV1(text, 'en-US-JennyNeural', 'eastasia');
     const v2 = buildTtsCacheKeyV2(text, 'en-US-JennyNeural', 'eastasia');
-    expect(v1.startsWith(TTS_CACHE_KEY_PREFIX_V1)).toBe(true);
     expect(v2.startsWith(TTS_CACHE_KEY_PREFIX_V2)).toBe(true);
-    expect(v1).not.toBe(v2);
     expect(buildTtsCacheKeyV2(text, 'en-US-JennyNeural', 'eastasia')).toBe(v2);
     expect(buildTtsCacheKeyV2(text, 'en-US-GuyNeural', 'eastasia')).not.toBe(v2);
     expect(buildTtsCacheKeyV2(text, 'en-US-JennyNeural', 'westus')).not.toBe(v2);
@@ -119,7 +110,7 @@ describe('synthesizeTts Redis governance', () => {
   });
 
   it('does not read legacy v1 keys and writes only v2 on miss', async () => {
-    const v1Key = buildTtsCacheKeyV1('hello world', 'en-US-JennyNeural', 'eastasia');
+    const v1Key = `${TTS_CACHE_KEY_PREFIX_V1}${'a'.repeat(64)}`;
     memory.store.set(v1Key, {
       value: JSON.stringify({
         mimeType: 'audio/mpeg',
