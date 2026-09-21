@@ -5,15 +5,15 @@ import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { HTTP_STATUS } from '@/constants';
 import { ERROR_CODES } from '@/lib/errors/codes';
-import * as dictionaryLookup from '@/modules/dictionary/lookup';
+import * as dictionaryLookup from '@/modules/dictionary/lookup/index';
 import { dictionaryRoutes } from '@/modules/dictionary/route';
 
-vi.mock('@/modules/dictionary/config', () => ({
+vi.mock('@/modules/dictionary/config/service', () => ({
   getDictionaryConfig: vi.fn(),
   putDictionaryConfig: vi.fn(),
 }));
 
-vi.mock('@/modules/dictionary/lookup', () => ({
+vi.mock('@/modules/dictionary/lookup/index', () => ({
   lookupWord: vi.fn(),
   testDictionary: vi.fn(),
 }));

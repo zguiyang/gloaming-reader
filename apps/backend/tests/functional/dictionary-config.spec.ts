@@ -19,7 +19,7 @@ import app from '@/app';
 import { db } from '@/db';
 import { ERROR_CODES } from '@/lib/errors/codes';
 import * as redisLib from '@/lib/redis';
-import { DICTIONARY_CONFIG_ID } from '@/modules/dictionary/config';
+import { DICTIONARY_CONFIG_ID } from '@/modules/dictionary/config/service';
 import { YoudaoDictionaryProvider } from '@/modules/dictionary/providers/youdao-dictionary';
 
 const password = 'password123';

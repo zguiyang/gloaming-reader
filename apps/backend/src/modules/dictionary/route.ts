@@ -5,8 +5,8 @@ import { ERROR_CODES } from '@/lib/errors/codes';
 import { sendError } from '@/lib/response';
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
 import { rateLimit } from '@/middleware/rate-limit';
-import { getDictionaryConfig, putDictionaryConfig } from '@/modules/dictionary/config';
-import { lookupWord, testDictionary } from '@/modules/dictionary/lookup';
+import { getDictionaryConfig, putDictionaryConfig } from '@/modules/dictionary/config/service';
+import { lookupWord, testDictionary } from '@/modules/dictionary/lookup/index';
 import {
   validateLookupDictionaryQuery,
   validatePutDictionaryConfig,

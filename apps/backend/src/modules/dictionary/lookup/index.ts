@@ -15,7 +15,7 @@ import { ERROR_CODES } from '@/lib/errors/codes';
 import { decryptApiKey } from '@/lib/llm';
 import { rootLogger } from '@/lib/logger';
 import { getRedis } from '@/lib/redis';
-import { getDictionaryConfig, loadConfigRow } from '@/modules/dictionary/config';
+import { getDictionaryConfig, loadConfigRow } from '@/modules/dictionary/config/service';
 import {
   attachContextForResponse,
   enrichFreshEntryWithAi,
@@ -23,11 +23,11 @@ import {
   type LookupContext,
   resolveWorkTitle,
   withStaticRequestContext,
-} from '@/modules/dictionary/enrichment';
-import { persistGenericDictionaryEntry, toGenericDictionaryEntry } from '@/modules/dictionary/generic-entry';
-import { isTransientDictionaryProviderFailure } from '@/modules/dictionary/provider-errors';
-import { getDictionaryProvider, youdaoDictionaryProvider } from '@/modules/dictionary/provider-registry';
-import type { RawProviderResult } from '@/modules/dictionary/types';
+} from '@/modules/dictionary/lookup/enrichment';
+import { persistGenericDictionaryEntry, toGenericDictionaryEntry } from '@/modules/dictionary/lookup/generic-entry';
+import { isTransientDictionaryProviderFailure } from '@/modules/dictionary/providers/errors';
+import { getDictionaryProvider, youdaoDictionaryProvider } from '@/modules/dictionary/providers/registry';
+import type { RawProviderResult } from '@/modules/dictionary/providers/types';
 
 const logger = rootLogger.child({ module: 'DictionaryService' });
 

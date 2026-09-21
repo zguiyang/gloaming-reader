@@ -6,7 +6,7 @@ import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 import { db } from '@/db';
 import { rootLogger } from '@/lib/logger';
 import { getRedis } from '@/lib/redis';
-import type { RawProviderResult } from '@/modules/dictionary/types';
+import type { RawProviderResult } from '@/modules/dictionary/providers/types';
 
 const logger = rootLogger.child({ module: 'DictionaryService' });
 

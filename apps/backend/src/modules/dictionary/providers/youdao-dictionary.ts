@@ -10,8 +10,12 @@ import { rootLogger } from '@/lib/logger';
 import {
   appErrorFromUpstreamDictionaryStatus,
   rethrowClassifiedDictionaryProviderError,
-} from '@/modules/dictionary/provider-errors';
-import type { DictionaryProvider, ProviderLookupOptions, RawProviderResult } from '@/modules/dictionary/types';
+} from '@/modules/dictionary/providers/errors';
+import type {
+  DictionaryProvider,
+  ProviderLookupOptions,
+  RawProviderResult,
+} from '@/modules/dictionary/providers/types';
 
 const logger = rootLogger.child({ module: 'YoudaoDictionaryProvider' });
 const PROVIDER_LABEL = 'Youdao Dictionary API';

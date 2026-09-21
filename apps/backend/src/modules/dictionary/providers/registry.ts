@@ -4,8 +4,8 @@ import { HTTP_STATUS } from '@/constants';
 import { AppError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
 import { FreeDictionaryProvider } from '@/modules/dictionary/providers/free-dictionary';
+import type { DictionaryProvider } from '@/modules/dictionary/providers/types';
 import { YoudaoDictionaryProvider } from '@/modules/dictionary/providers/youdao-dictionary';
-import type { DictionaryProvider } from '@/modules/dictionary/types';
 
 const freeDictionaryProvider = new FreeDictionaryProvider();
 export const youdaoDictionaryProvider = new YoudaoDictionaryProvider();

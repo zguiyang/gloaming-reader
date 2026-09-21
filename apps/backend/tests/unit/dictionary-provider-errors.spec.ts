@@ -8,7 +8,7 @@ import {
   isTransientDictionaryProviderFailure,
   mapUpstreamDictionaryHttpStatus,
   rethrowClassifiedDictionaryProviderError,
-} from '@/modules/dictionary/provider-errors';
+} from '@/modules/dictionary/providers/errors';
 import { FreeDictionaryProvider } from '@/modules/dictionary/providers/free-dictionary';
 import { YoudaoDictionaryProvider } from '@/modules/dictionary/providers/youdao-dictionary';
 

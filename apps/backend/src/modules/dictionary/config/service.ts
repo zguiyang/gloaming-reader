@@ -14,7 +14,7 @@ import { ERROR_CODES } from '@/lib/errors/codes';
 import { decryptApiKey, encryptApiKey, maskApiKey } from '@/lib/llm';
 import { rootLogger } from '@/lib/logger';
 import { getRedis } from '@/lib/redis';
-import { isDictionaryProviderRegistered } from '@/modules/dictionary/provider-registry';
+import { isDictionaryProviderRegistered } from '@/modules/dictionary/providers/registry';
 
 export const DICTIONARY_CONFIG_ID = 'default';
 
