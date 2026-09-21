@@ -1,4 +1,4 @@
-export type { CreateChatModelOptions, CreateLlmClientOptions } from '@/lib/llm/create-llm-client';
+export type { CreateLlmClientOptions } from '@/lib/llm/create-llm-client';
 export { createLlmClient } from '@/lib/llm/create-llm-client';
 export { decryptApiKey, encryptApiKey, maskApiKey } from '@/lib/llm/crypto';
 export { assertSafeOutboundUrl, resolveProviderBalanceUrl } from '@/lib/llm/outbound-url';

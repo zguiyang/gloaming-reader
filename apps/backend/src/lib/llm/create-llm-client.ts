@@ -58,5 +58,3 @@ export function createLlmClient(resolved: ResolvedLlm, options?: CreateLlmClient
       });
   }
 }
-
-export type CreateChatModelOptions = CreateLlmClientOptions;
