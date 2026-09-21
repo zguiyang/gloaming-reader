@@ -27,6 +27,7 @@ import { processContentWork } from '@/modules/content-parser';
 import { enrichWorkMetadata } from '@/modules/metadata-enrich/service';
 import { listCategoriesTool, listExistingTagsTool } from '@/modules/metadata-enrich/tools';
 import { fillWorkMetadata } from '@/modules/metadata-fill/service';
+import { PRODUCT_TAG_MAX_LEN } from '@/modules/metadata-fill/subjects';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
 import { hashFileContent } from '@/modules/uploads/service';
 
@@ -64,6 +65,15 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
   function suiteLabel(fragment: string): string {
     return `metadata-enrich-${fragment}-${suiteRunId}`;
+  }
+
+  /** Product tag names must stay within PRODUCT_TAG_MAX_LEN (AI registry truncates; longer names are weak). */
+  function suiteTagName(fragment: string): string {
+    const suffix = suiteRunId.replace(/-/g, '').slice(0, 8);
+    const prefix = 'me-';
+    const maxFragmentLen = PRODUCT_TAG_MAX_LEN - prefix.length - 1 - suffix.length;
+    const safeFragment = fragment.slice(0, Math.max(1, maxFragmentLen));
+    return `${prefix}${safeFragment}-${suffix}`;
   }
 
   function suiteTagId(fragment: string): string {
@@ -281,7 +291,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
   it('short-circuits with completed when nothing needs AI (zero cost)', async () => {
     const categoryDisplayName = suiteLabel('complete-category');
-    const tagDisplayName = suiteLabel('complete-tag');
+    const tagDisplayName = suiteTagName('complete-tag');
     const workId = await createParsedWork({
       title: suiteLabel('Complete Book'),
       description:
@@ -333,8 +343,8 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       .onConflictDoNothing();
     await db.update(readingWorkTable).set({ status: 'metadata' }).where(eq(readingWorkTable.id, workId));
 
-    const fablesName = suiteLabel('Fables');
-    const moralityName = suiteLabel('Morality');
+    const fablesName = suiteTagName('Fables');
+    const moralityName = suiteTagName('Morality');
     const folkloreCategoryName = suiteLabel('Folklore');
 
     invokeAiMock.mockResolvedValueOnce({
@@ -378,8 +388,8 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
   it('fills empty/weak fields with ai provenance via junction SSOT', async () => {
     const workId = await createParsedWork({ title: suiteLabel('Fill Book') });
-    const spaceName = suiteLabel('Space');
-    const adventureName = suiteLabel('Adventure');
+    const spaceName = suiteTagName('Space');
+    const adventureName = suiteTagName('Adventure');
     const zetaFictionName = suiteLabel('Zeta Fiction');
 
     invokeAiMock.mockResolvedValueOnce({
@@ -442,7 +452,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   it('reuses existing dimensions when the model returns existing ids', async () => {
     const workId = await createParsedWork({ title: suiteLabel('Reuse Book') });
     const reuseTagId = suiteTagId('reuse-fixture');
-    const reuseTagName = suiteLabel('Reuse Tag');
+    const reuseTagName = suiteTagName('Reuse Tag');
     const reuseCategoryName = suiteLabel('Reuse Category');
     await insertTagFixtureIfAbsent({
       id: reuseTagId,
@@ -485,7 +495,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
   it('falls back to creating when an existing id is invalid', async () => {
     const workId = await createParsedWork({ title: suiteLabel('Ghost Id Book') });
-    const ghostTagName = suiteLabel('Ghost Tag');
+    const ghostTagName = suiteTagName('Ghost Tag');
     const ghostCategoryName = suiteLabel('Ghost Category');
 
     invokeAiMock.mockResolvedValueOnce({
@@ -518,7 +528,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     const workId = await createParsedWork({ title: suiteLabel('Schema Book') });
     const schemaCategoryName = suiteLabel('Schema Category');
 
-    const manualTagName = suiteLabel('Manual Fill Tag');
+    const manualTagName = suiteTagName('Manual Fill Tag');
     const manualTagId = await insertOwnedTag({
       name: manualTagName,
       normalized: normalizeTag(manualTagName),
@@ -563,7 +573,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       subjects: [suiteLabel('manual-subject')],
     });
 
-    const manualTagName = suiteLabel('Manual Tag');
+    const manualTagName = suiteTagName('Manual Tag');
     const manualTagId = await insertOwnedTag({
       name: manualTagName,
       normalized: normalizeTag(manualTagName),
@@ -659,8 +669,8 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   });
 
   it('list_existing_tags returns top-N by usage and searches by normalized name', async () => {
-    const tagHighName = suiteLabel('tool-high');
-    const tagLowName = suiteLabel('tool-low');
+    const tagHighName = suiteTagName('tool-high');
+    const tagLowName = suiteTagName('tool-low');
     const tagHighId = await insertOwnedTag({
       name: tagHighName,
       normalized: normalizeTag(tagHighName),
@@ -687,7 +697,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       .values({ workId: workIdA, tagId: tagLowId, provenance: 'manual' })
       .onConflictDoNothing();
 
-    const suiteQuery = normalizeTag(suiteRunId);
+    const suiteQuery = suiteRunId.replace(/-/g, '').slice(0, 8);
     const top = await listExistingTagsTool().invoke({ query: suiteQuery, limit: 10 });
     const parsedTop = JSON.parse(top) as { tags: Array<{ name: string; usage: number }> };
     expect(parsedTop.tags.length).toBeGreaterThanOrEqual(2);
