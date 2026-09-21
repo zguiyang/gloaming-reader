@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 
 import { type AuthVariables, requireAdmin } from '@/middleware/auth';
+import { getConfig, listVoicePresets, putConfig } from '@/modules/tts/config/service';
+import { testTts } from '@/modules/tts/config/test-connection';
 import * as ttsLog from '@/modules/tts/log';
-import * as ttsService from '@/modules/tts/service';
 import {
   validatePutTtsConfig,
   validateTestTts,
@@ -13,20 +14,20 @@ import {
 export const ttsRoutes = new Hono<{ Variables: AuthVariables }>();
 
 ttsRoutes.get('/api/admin/tts/config', requireAdmin, async (c) => {
-  return c.json(await ttsService.getConfig());
+  return c.json(await getConfig());
 });
 
 ttsRoutes.put('/api/admin/tts/config', requireAdmin, validatePutTtsConfig, async (c) => {
-  return c.json(await ttsService.putConfig(c.req.valid('json')));
+  return c.json(await putConfig(c.req.valid('json')));
 });
 
 ttsRoutes.get('/api/admin/tts/voice-presets', requireAdmin, async (c) => {
-  return c.json(ttsService.listVoicePresets());
+  return c.json(listVoicePresets());
 });
 
 ttsRoutes.post('/api/admin/tts/test', requireAdmin, validateTestTts, async (c) => {
   const user = c.get('user');
-  return c.json(await ttsService.testTts(c.req.valid('json'), { userId: user?.id }));
+  return c.json(await testTts(c.req.valid('json'), { userId: user?.id }));
 });
 
 ttsRoutes.get('/api/admin/tts/invocations/stats', requireAdmin, validateTtsInvocationStatsQuery, async (c) => {

@@ -16,14 +16,14 @@ import type { AdminWork } from '@gloaming/shared/works';
 import app from '@/app';
 import { db } from '@/db';
 import { processPartAudioGenerate } from '@/jobs/part-audio-generate';
-import * as audioConcat from '@/lib/audio-concat';
 import { encryptApiKey } from '@/lib/llm';
 import * as queueLib from '@/lib/queue';
 import * as redisLib from '@/lib/redis';
 import * as azureTts from '@/lib/tts/azure';
+import * as audioConcat from '@/modules/content-assets/audio/audio-concat';
 import { partAudioObjectKey, partAudioSegmentKey } from '@/modules/content-assets/audio/keys';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/modules/oss';
-import { TTS_CONFIG_ID } from '@/modules/tts/service';
+import { TTS_CONFIG_ID } from '@/modules/tts/config/store';
 import { hashPartAudioContent } from '@/modules/works/content-hash';
 
 import { createMemoryObjectStore } from '../helpers/memory-oss';

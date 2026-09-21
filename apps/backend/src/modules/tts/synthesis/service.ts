@@ -1,43 +1,28 @@
 import { createHash } from 'node:crypto';
 
-import { eq } from 'drizzle-orm';
-
-import { ttsConfig as ttsConfigTable } from '@gloaming/db';
 import {
-  DEFAULT_TTS_VOICES,
-  type PutTtsConfigBody,
-  type TestTtsBody,
-  type TestTtsResult,
   TTS_CACHE_KEY_PREFIX_V2,
   TTS_CACHE_MAX_RAW_AUDIO_BYTES,
   TTS_CACHE_SCHEMA_VERSION,
   TTS_CACHE_TTL_SECONDS,
   TTS_PROVIDER_AZURE,
-  TTS_VOICE_PRESETS,
   type TtsCachePayload,
   ttsCachePayloadSchema,
-  type TtsConfigView,
-  type TtsVoicePreset,
   type TtsVoiceRole,
 } from '@gloaming/shared/tts';
 
 import { HTTP_STATUS } from '@/constants';
-import { db } from '@/db';
 import { AppError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
-import { decryptApiKey, encryptApiKey, maskApiKey } from '@/lib/llm';
+import { decryptApiKey } from '@/lib/llm';
 import { rootLogger } from '@/lib/logger';
 import { getRedis } from '@/lib/redis';
 import { synthesizeAzureTts } from '@/lib/tts';
-import { recordTtsInvocation } from '@/modules/tts/log';
-
-export const TTS_CONFIG_ID = 'default';
+import { loadConfigRow, type TtsConfigRow } from '@/modules/tts/config/store';
 
 const ttsLogger = rootLogger.child({ module: 'Tts' });
 
 const TTS_OUTPUT_MIME = 'audio/mpeg';
-
-type TtsConfigRow = typeof ttsConfigTable.$inferSelect;
 
 export type SynthesizeTtsOptions = {
   text: string;
@@ -68,47 +53,6 @@ type TtsCacheLookup = {
   version: 'v2';
   cachePayloadBytes: number;
 };
-
-function emptyConfigView(): TtsConfigView {
-  return {
-    configured: false,
-    provider: TTS_PROVIDER_AZURE,
-    region: '',
-    isEnabled: false,
-    apiKeySet: false,
-    apiKeyMasked: null,
-    defaultVoice: DEFAULT_TTS_VOICES.defaultVoice,
-    usVoice: DEFAULT_TTS_VOICES.usVoice,
-    ukVoice: DEFAULT_TTS_VOICES.ukVoice,
-    updatedAt: null,
-  };
-}
-
-function toConfigView(row: TtsConfigRow): TtsConfigView {
-  let apiKeyMasked: string | null = null;
-  try {
-    apiKeyMasked = maskApiKey(decryptApiKey(row.apiKeyCiphertext));
-  } catch {
-    apiKeyMasked = '****';
-  }
-  return {
-    configured: true,
-    provider: TTS_PROVIDER_AZURE,
-    region: row.region,
-    isEnabled: row.isEnabled,
-    apiKeySet: true,
-    apiKeyMasked,
-    defaultVoice: row.defaultVoice,
-    usVoice: row.usVoice,
-    ukVoice: row.ukVoice,
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
-async function loadConfigRow(): Promise<TtsConfigRow | null> {
-  const rows = await db.select().from(ttsConfigTable).where(eq(ttsConfigTable.id, TTS_CONFIG_ID)).limit(1);
-  return rows[0] ?? null;
-}
 
 function resolveVoice(row: TtsConfigRow, options: { voice?: string; role?: TtsVoiceRole }): string {
   if (options.voice?.trim()) {
@@ -221,51 +165,6 @@ async function writeTtsCache(
   }
 }
 
-export function listVoicePresets(): TtsVoicePreset[] {
-  return TTS_VOICE_PRESETS.map((preset) => ({ ...preset }));
-}
-
-export async function getConfig(): Promise<TtsConfigView> {
-  const row = await loadConfigRow();
-  return row ? toConfigView(row) : emptyConfigView();
-}
-
-export async function putConfig(body: PutTtsConfigBody): Promise<TtsConfigView> {
-  const existing = await loadConfigRow();
-  if (!existing && !body.apiKey?.trim()) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.TTS.API_KEY_REQUIRED);
-  }
-
-  const apiKeyCiphertext = body.apiKey?.trim() ? encryptApiKey(body.apiKey.trim()) : existing!.apiKeyCiphertext;
-
-  const [row] = await db
-    .insert(ttsConfigTable)
-    .values({
-      id: TTS_CONFIG_ID,
-      provider: TTS_PROVIDER_AZURE,
-      region: body.region,
-      apiKeyCiphertext,
-      isEnabled: body.isEnabled,
-      defaultVoice: body.defaultVoice,
-      usVoice: body.usVoice,
-      ukVoice: body.ukVoice,
-    })
-    .onConflictDoUpdate({
-      target: ttsConfigTable.id,
-      set: {
-        region: body.region,
-        apiKeyCiphertext,
-        isEnabled: body.isEnabled,
-        defaultVoice: body.defaultVoice,
-        usVoice: body.usVoice,
-        ukVoice: body.ukVoice,
-      },
-    })
-    .returning();
-
-  return toConfigView(row!);
-}
-
 /**
  * Global TTS entry for admin and future learner flows.
  * Loads dynamic config, resolves voice, then calls the Azure adapter (or Redis cache).
@@ -376,59 +275,4 @@ export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<Synt
   }
 
   return result;
-}
-
-export async function testTts(body: TestTtsBody, options: { userId?: string } = {}): Promise<TestTtsResult> {
-  const started = Date.now();
-  try {
-    const result = await synthesizeTts({
-      text: body.text,
-      role: body.role,
-      voice: body.voice,
-      source: 'admin.tts_test',
-      userId: options.userId,
-      bypassCache: true,
-    });
-    const latencyMs = Date.now() - started;
-
-    await recordTtsInvocation({
-      status: 'success',
-      source: 'admin.tts_test',
-      userId: options.userId,
-      voice: result.voice,
-      role: body.role ?? null,
-      textPreview: body.text,
-      textLength: body.text.length,
-      latencyMs,
-      // Admin connectivity probe always bypasses cache.
-      cached: false,
-    });
-
-    return {
-      ok: true,
-      latencyMs,
-      voice: result.voice,
-      mimeType: result.mimeType,
-      audioBase64: result.audio.toString('base64'),
-      wordTimings: result.wordTimings,
-    };
-  } catch (error) {
-    const latencyMs = Date.now() - started;
-    const message = error instanceof Error ? error.message : String(error);
-    const errorCode = error instanceof AppError ? String(error.statusCode) : '500';
-    await recordTtsInvocation({
-      status: 'failure',
-      errorCode,
-      errorMessage: message,
-      source: 'admin.tts_test',
-      userId: options.userId,
-      voice: body.voice ?? null,
-      role: body.role ?? null,
-      textPreview: body.text,
-      textLength: body.text.length,
-      latencyMs,
-      cached: null,
-    });
-    throw error;
-  }
 }

@@ -9,7 +9,12 @@ import {
 
 import * as redisLib from '@/lib/redis';
 import * as azureTts from '@/lib/tts/azure';
-import { buildTtsCacheKeyV2, normalizeTtsText, shouldWriteTtsCache, synthesizeTts } from '@/modules/tts/service';
+import {
+  buildTtsCacheKeyV2,
+  normalizeTtsText,
+  shouldWriteTtsCache,
+  synthesizeTts,
+} from '@/modules/tts/synthesis/service';
 
 vi.mock('@/db', () => ({
   db: {

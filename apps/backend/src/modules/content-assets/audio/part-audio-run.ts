@@ -12,16 +12,15 @@ import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { HTTP_STATUS } from '@/constants';
 import { db } from '@/db';
-import { concatMp3Buffers } from '@/lib/audio-concat';
 import { AppError, NotFoundError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
-import { splitForTts } from '@/lib/part-audio-split';
 import { htmlToPlainText } from '@/lib/part-text';
 import { putObject } from '@/modules/oss';
 import { recordTtsInvocation } from '@/modules/tts/log';
-import { synthesizeTts } from '@/modules/tts/service';
+import { synthesizeTts } from '@/modules/tts/synthesis/service';
 import { hashPartAudioContent } from '@/modules/works/content-hash';
 
+import { concatMp3Buffers } from './audio-concat';
 import {
   assertAndRenewGenerationLease,
   assertGenerationOwnership,
@@ -30,6 +29,7 @@ import {
   GenerationOwnershipLostError,
 } from './generation-claim';
 import { partAudioChapterKey } from './keys';
+import { splitForTts } from './part-audio-split';
 import { tryAdvanceTtsWorkflow } from './workflow-tts-advance';
 
 const AUDIO_MIME = 'audio/mpeg';

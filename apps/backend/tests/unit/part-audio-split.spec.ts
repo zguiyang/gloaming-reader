@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { splitForTts } from '@/lib/part-audio-split';
+import { splitForTts } from '@/modules/content-assets/audio/part-audio-split';
 
 describe('splitForTts', () => {
   it('returns a single segment for short text', () => {

@@ -10,8 +10,8 @@ import { db } from '@/db';
 import { encryptApiKey } from '@/lib/llm';
 import * as redisLib from '@/lib/redis';
 import * as azureTts from '@/lib/tts/azure';
-import * as ttsService from '@/modules/tts/service';
-import { TTS_CONFIG_ID } from '@/modules/tts/service';
+import { TTS_CONFIG_ID } from '@/modules/tts/config/store';
+import { synthesizeTts } from '@/modules/tts/synthesis/service';
 
 const password = 'password123';
 
@@ -250,7 +250,7 @@ describe('admin TTS config', () => {
       wordTimings: [{ text: 'hello', audioOffsetMs: 0, durationMs: 120, textOffset: 0 }],
     });
 
-    const first = await ttsService.synthesizeTts({
+    const first = await synthesizeTts({
       text: '  hello   world  ',
       source: 'test.cache',
     });
@@ -260,7 +260,7 @@ describe('admin TTS config', () => {
     expect(memory.client.set).toHaveBeenCalled();
 
     synthesizeSpy.mockClear();
-    const second = await ttsService.synthesizeTts({
+    const second = await synthesizeTts({
       text: 'hello world',
       source: 'test.cache',
     });
