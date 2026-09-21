@@ -253,10 +253,10 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     invokeAiMock.mockResolvedValueOnce({
       content: {
         tags: [
-          { kind: 'new', name: 'Fables' },
-          { kind: 'new', name: 'Morality' },
+          { id: null, name: 'Fables' },
+          { id: null, name: 'Morality' },
         ],
-        category: { kind: 'new', name: 'Folklore' },
+        category: { id: null, name: 'Folklore' },
       },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
@@ -292,10 +292,10 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       content: {
         description: 'An AI written summary of the book.',
         tags: [
-          { kind: 'new', name: 'Space' },
-          { kind: 'new', name: 'Adventure' },
+          { id: null, name: 'Space' },
+          { id: null, name: 'Adventure' },
         ],
-        category: { kind: 'new', name: 'Zeta Fiction' },
+        category: { id: null, name: 'Zeta Fiction' },
       },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
@@ -354,8 +354,8 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
     invokeAiMock.mockResolvedValueOnce({
       content: {
-        tags: [{ kind: 'existing', id: 'tag-reuse-fixture', name: 'Reuse Tag' }],
-        category: { kind: 'existing', id: categoryId, name: 'Reuse Category' },
+        tags: [{ id: 'tag-reuse-fixture', name: 'Reuse Tag' }],
+        category: { id: categoryId, name: 'Reuse Category' },
       },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
@@ -392,8 +392,8 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
 
     invokeAiMock.mockResolvedValueOnce({
       content: {
-        tags: [{ kind: 'existing', id: 'no-such-tag', name: 'Ghost Tag' }],
-        category: { kind: 'existing', id: 'no-such-cat', name: 'Ghost Category' },
+        tags: [{ id: 'no-such-tag', name: 'Ghost Tag' }],
+        category: { id: 'no-such-cat', name: 'Ghost Category' },
       },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
@@ -440,7 +440,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     });
 
     invokeAiMock.mockResolvedValueOnce({
-      content: { category: { kind: 'new', name: 'Schema Category' } },
+      content: { category: { id: null, name: 'Schema Category' } },
       model: { rowId: 'row', label: 'mock', modelId: 'mock-model' },
       usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     });

@@ -56,12 +56,10 @@ export const taxonomyRefSchema = z.object({
 
 export type TaxonomyRef = z.infer<typeof taxonomyRefSchema>;
 
-/** Resolve reuse id from flat `{ id }` or legacy `{ kind:"existing", id }`. */
+/** Resolve reuse id only from flat refs `{ id }` without a legacy `kind` discriminant. */
 function existingIdFromRef(ref: Record<string, unknown>): string | undefined {
+  if ('kind' in ref) return undefined;
   if (typeof ref.id === 'string' && ref.id) {
-    // Flat schema: null means create; non-empty string means reuse.
-    // Legacy discriminated: only trust id when kind is existing (or kind absent with id).
-    if (ref.kind === 'new') return undefined;
     return ref.id;
   }
   return undefined;

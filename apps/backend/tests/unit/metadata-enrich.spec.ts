@@ -203,6 +203,31 @@ describe('metadata-enrich taxonomy refs and dynamic schema', () => {
     expect(localizedNameEntrySchema.safeParse({ locale: 'fr-FR', name: 'Science' }).success).toBe(false);
   });
 
+  it('cleanTagRefs ignores legacy kind:existing ids and only reuses flat id refs', () => {
+    expect(
+      cleanTagRefs([
+        { kind: 'existing', id: 'legacy-tag', name: 'Legacy', localizedNames: fablesLocalized },
+        { id: 'tag-flat', name: 'Flat', localizedNames: fablesLocalized },
+      ]),
+    ).toEqual([
+      {
+        name: 'Legacy',
+        localizedNames: { 'zh-CN': '寓言', 'en-US': 'Fables' },
+      },
+      {
+        name: 'Flat',
+        existingId: 'tag-flat',
+        localizedNames: { 'zh-CN': '寓言', 'en-US': 'Fables' },
+      },
+    ]);
+    expect(
+      cleanCategoryRef({ kind: 'existing', id: 'legacy-cat', name: 'Legacy Cat', localizedNames: fablesLocalized }),
+    ).toEqual({
+      name: 'Legacy Cat',
+      localizedNames: { 'zh-CN': '寓言', 'en-US': 'Fables' },
+    });
+  });
+
   it('cleanTagRefs keeps reuse ids, localized names, and drops junk', () => {
     expect(
       cleanTagRefs([
