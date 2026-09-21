@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 
-import { reindexLeafParagraphOrdinals } from './clean';
+import { reindexLeafParagraphOrdinals } from '@/modules/works/part-content/paragraph-identity';
+
 import type { CleanedChapter, EpubBook, EpubNavItem } from './types';
 
 /**

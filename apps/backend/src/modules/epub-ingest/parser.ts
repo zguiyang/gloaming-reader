@@ -2,7 +2,8 @@ import { registerParser } from '@/modules/content-parser/registry';
 import type { ContentParser, ParsedContent } from '@/modules/content-parser/types';
 import { EPUB_ERROR_CODES, EpubValidationError } from '@/modules/epub-ingest/archive/limits';
 import { planChapters } from '@/modules/epub-ingest/chapters';
-import { cleanXhtml, IMAGE_PLACEHOLDER_PREFIX, stripOrphanImagePlaceholders } from '@/modules/epub-ingest/clean';
+import { IMAGE_PLACEHOLDER_PREFIX, stripOrphanImagePlaceholders } from '@/modules/epub-ingest/normalization/images';
+import { cleanXhtml } from '@/modules/epub-ingest/normalization/normalize-xhtml';
 import { parseEpub } from '@/modules/epub-ingest/opf/parse';
 import { epubParentDir, findEpubEntry, mimeForHref, resolveEpubAgainstBase } from '@/modules/epub-ingest/opf/paths';
 

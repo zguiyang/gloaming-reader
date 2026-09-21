@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { planChapters, splitSingleFileByHeadings } from '@/modules/epub-ingest/chapters';
-import { cleanXhtml } from '@/modules/epub-ingest/clean';
+import { cleanXhtml } from '@/modules/epub-ingest/normalization/normalize-xhtml';
 import type { EpubBook } from '@/modules/epub-ingest/types';
 
 function book(entries: Array<[string, string]>): EpubBook {

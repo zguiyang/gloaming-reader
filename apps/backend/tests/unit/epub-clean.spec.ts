@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { cleanXhtml, reindexLeafParagraphOrdinals, stripOrphanImagePlaceholders } from '@/modules/epub-ingest/clean';
+import { stripOrphanImagePlaceholders } from '@/modules/epub-ingest/normalization/images';
+import { cleanXhtml } from '@/modules/epub-ingest/normalization/normalize-xhtml';
+import { reindexLeafParagraphOrdinals } from '@/modules/works/part-content/paragraph-identity';
 
 describe('cleanXhtml', () => {
   it('keeps allowed tags and strips dangerous ones (blacklist)', () => {

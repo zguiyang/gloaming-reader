@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { describe, expect, it } from 'vitest';
 
 import { planChapters } from '@/modules/epub-ingest/chapters';
-import { cleanXhtml } from '@/modules/epub-ingest/clean';
+import { cleanXhtml } from '@/modules/epub-ingest/normalization/normalize-xhtml';
 import {
   applyTextPipeline,
   fixDoubleEncodedEntities,
