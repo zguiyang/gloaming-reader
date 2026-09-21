@@ -6,7 +6,8 @@ import { AppError } from '@/lib/errors/app-error';
 import { ERROR_CODES } from '@/lib/errors/codes';
 import { createLlmClient, type ResolvedLlm, resolveLlmByModelRowId } from '@/lib/llm';
 import { rootLogger } from '@/lib/logger';
-import { recordInvocation, truncatePreview } from '@/modules/ai/invocations/log';
+import { recordInvocation } from '@/modules/ai/invocations/log';
+import { truncatePreview } from '@/modules/ai/preview-text';
 import {
   addUsage,
   emptyTokens,

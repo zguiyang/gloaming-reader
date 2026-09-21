@@ -1,6 +1,6 @@
 import type { StructuredToolInterface } from '@langchain/core/tools';
 
-import { truncatePreview } from '@/modules/ai/invocations/log';
+import { truncatePreview } from '@/modules/ai/preview-text';
 import type { AiMessageInput } from '@/modules/ai/runtime/types';
 
 export function buildRequestSummary(

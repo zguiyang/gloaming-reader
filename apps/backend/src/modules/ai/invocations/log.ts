@@ -19,8 +19,8 @@ import {
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
 import { db } from '@/db';
+import { truncatePreview } from '@/modules/ai/preview-text';
 
-const PREVIEW_MAX = 200;
 const ERROR_MESSAGE_MAX = 500;
 
 export type InvocationLogInput = {
@@ -43,13 +43,6 @@ export type InvocationLogInput = {
   requestSummary?: AiInvocationRequestSummary | null;
   responseSummary?: AiInvocationResponseSummary | null;
 };
-
-export function truncatePreview(text: string, max = PREVIEW_MAX): string {
-  if (text.length <= max) {
-    return text;
-  }
-  return `${text.slice(0, max - 1)}…`;
-}
 
 export function truncateErrorMessage(message: string): string {
   return truncatePreview(message, ERROR_MESSAGE_MAX);
