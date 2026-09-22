@@ -1,7 +1,7 @@
 import type { RealWorkerHarness } from './harness';
 import { redactRedis } from './isolation';
 
-/** Required order: stop Worker → wait → S3 objects → DB rows → Redis/BullMQ. */
+/** Required order: stop Worker → wait → S3 objects → DB rows → Redis/BullMQ → close cache Redis. */
 export async function runTeardown(harness: RealWorkerHarness): Promise<void> {
   const { prefix, report, deps, createdEmails, workIds, assetIds, uploadedIds, redisKeysCreated } = harness;
   const {
@@ -15,8 +15,11 @@ export async function runTeardown(harness: RealWorkerHarness): Promise<void> {
     env,
     getRedis,
     closeQueue,
+    closeRedis,
     resetObjectStoreCache,
   } = deps;
+
+  const blocked = harness.blockedByRedisPrecheck;
 
   try {
     await harness.stopWorker();
@@ -30,40 +33,44 @@ export async function runTeardown(harness: RealWorkerHarness): Promise<void> {
     report.errors.push(`closeQueue: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  try {
-    report.remainingPrefixKeys = await harness.listPrefixKeys(prefix);
-    if (report.remainingPrefixKeys.length > 0) {
-      const removed = await harness.deletePrefixObjects(prefix);
-      for (const key of removed) {
-        if (!report.teardownDeletedObjectKeys.includes(key)) {
-          report.teardownDeletedObjectKeys.push(key);
-        }
-      }
+  if (blocked) {
+    report.devBucketAfter = report.devBucketBefore;
+    report.redis.cleanupMode = 'blocked-precheck';
+    report.redis.keyCountAfterCleanup = report.redis.keyCountBefore;
+  } else {
+    try {
       report.remainingPrefixKeys = await harness.listPrefixKeys(prefix);
+      if (report.remainingPrefixKeys.length > 0) {
+        const removed = await harness.deletePrefixObjects(prefix);
+        for (const key of removed) {
+          if (!report.teardownDeletedObjectKeys.includes(key)) {
+            report.teardownDeletedObjectKeys.push(key);
+          }
+        }
+        report.remainingPrefixKeys = await harness.listPrefixKeys(prefix);
+      }
+    } catch (error) {
+      report.errors.push(`prefix cleanup: ${error instanceof Error ? error.message : String(error)}`);
     }
-  } catch (error) {
-    report.errors.push(`prefix cleanup: ${error instanceof Error ? error.message : String(error)}`);
-  }
 
-  try {
-    if (assetIds.length > 0) {
-      await db.delete(contentAssetTable).where(inArray(contentAssetTable.id, assetIds));
+    try {
+      if (assetIds.length > 0) {
+        await db.delete(contentAssetTable).where(inArray(contentAssetTable.id, assetIds));
+      }
+      if (uploadedIds.length > 0) {
+        await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.id, uploadedIds));
+      }
+      if (workIds.length > 0) {
+        await db.delete(readingWorkTable).where(inArray(readingWorkTable.id, workIds));
+      }
+      for (const email of createdEmails) {
+        await db.delete(userTable).where(eq(userTable.email, email));
+      }
+    } catch (error) {
+      report.errors.push(`db cleanup: ${error instanceof Error ? error.message : String(error)}`);
     }
-    if (uploadedIds.length > 0) {
-      await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.id, uploadedIds));
-    }
-    if (workIds.length > 0) {
-      await db.delete(readingWorkTable).where(inArray(readingWorkTable.id, workIds));
-    }
-    for (const email of createdEmails) {
-      await db.delete(userTable).where(eq(userTable.email, email));
-    }
-  } catch (error) {
-    report.errors.push(`db cleanup: ${error instanceof Error ? error.message : String(error)}`);
-  }
 
-  try {
-    if (!harness.blockedByRedisPrecheck) {
+    try {
       const redis = getRedis();
       if (redactRedis(env.REDIS_URL).db !== '1') {
         report.errors.push('refused Redis cleanup on non-DB-1 connection');
@@ -122,12 +129,15 @@ export async function runTeardown(harness: RealWorkerHarness): Promise<void> {
           report.errors.push(`redis leftover keys after cleanup: ${leftover.join(', ')}`);
         }
       }
-    } else {
-      report.redis.cleanupMode = 'blocked-precheck';
-      report.redis.keyCountAfterCleanup = report.redis.keyCountBefore;
+    } catch (error) {
+      report.errors.push(`redis cleanup: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  try {
+    await closeRedis();
   } catch (error) {
-    report.errors.push(`redis cleanup: ${error instanceof Error ? error.message : String(error)}`);
+    report.errors.push(`closeRedis: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   try {
@@ -136,9 +146,11 @@ export async function runTeardown(harness: RealWorkerHarness): Promise<void> {
     report.errors.push(`resetObjectStoreCache: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  try {
-    report.devBucketAfter = await harness.countBucketObjects('gloaming-development');
-  } catch (error) {
-    report.errors.push(`dev bucket recount: ${error instanceof Error ? error.message : String(error)}`);
+  if (!blocked) {
+    try {
+      report.devBucketAfter = await harness.countBucketObjects('gloaming-development');
+    } catch (error) {
+      report.errors.push(`dev bucket recount: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }

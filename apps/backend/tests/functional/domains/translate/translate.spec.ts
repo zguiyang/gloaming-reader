@@ -12,7 +12,7 @@ import {
 
 import app from '@/app';
 import * as aiService from '@/domains/ai';
-import { hashPartContent } from '@/domains/translate';
+import { hashPartContent } from '@/domains/works/content';
 import * as redisLib from '@/infra/cache';
 import { db } from '@/infra/db';
 

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { dictionaryRoutes } from '@/domains/dictionary';
-import * as dictionaryLookup from '@/domains/dictionary/lookup/index';
+import * as dictionaryLookup from '@/domains/dictionary/lookup/service';
 import { HTTP_STATUS } from '@/shared/constants';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
@@ -13,7 +13,7 @@ vi.mock('@/domains/dictionary/config/service', () => ({
   putDictionaryConfig: vi.fn(),
 }));
 
-vi.mock('@/domains/dictionary/lookup/index', () => ({
+vi.mock('@/domains/dictionary/lookup/service', () => ({
   lookupWord: vi.fn(),
   testDictionary: vi.fn(),
 }));

@@ -7,7 +7,7 @@ import {
   mergeTaxonomyLocalizedNames,
   parseLocalizedNameEntries,
   supportedLocalesLabel,
-} from '@/domains/metadata/enrich';
+} from '@/domains/metadata/enrich/taxonomy-localized';
 
 describe('metadata-enrich taxonomy localization helpers', () => {
   it('lists supported locales from @gloaming/i18n', () => {

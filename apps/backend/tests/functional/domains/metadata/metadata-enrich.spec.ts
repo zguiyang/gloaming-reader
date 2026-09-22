@@ -16,15 +16,18 @@ import {
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
+import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
 import { processMetadataEnrich } from '@/application/jobs/metadata-enrich';
-import { processContentWork } from '@/domains/ingest';
-import { enrichWorkMetadata } from '@/domains/metadata/enrich';
-import { listCategoriesTool, listExistingTagsTool } from '@/domains/metadata/enrich';
-import { fillWorkMetadata } from '@/domains/metadata/fill';
-import { PRODUCT_TAG_MAX_LEN } from '@/domains/metadata/fill';
+import { hashFileContent } from '@/domains/assets/uploads';
+import {
+  enrichWorkMetadata,
+  fillWorkMetadata,
+  listCategoriesTool,
+  listExistingTagsTool,
+  PRODUCT_TAG_MAX_LEN,
+} from '@/domains/metadata';
 import { normalizeTag } from '@/domains/taxonomy';
-import { hashFileContent } from '@/domains/uploads';
-import { claimWorkflowStep, rotateWorkflowJobToken } from '@/domains/works';
+import { claimWorkflowStep, rotateWorkflowJobToken } from '@/domains/works/lifecycle';
 import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -243,7 +246,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     expect(response.status).toBe(201);
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
-    await processContentWork(created.id);
+    await runContentParseWorkflow(created.id);
     const [parsed] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
     const fillRetryJobToken = parsed!.originMeta.retryJobToken as string;
     const fillAttemptToken = randomUUID();

@@ -13,8 +13,8 @@ import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import type { CreateEpubWorkResult, EpubReuseResult } from '@gloaming/shared/works';
 
 import app from '@/app';
-import { acquireUploadedObject, hashFileContent } from '@/domains/uploads';
-import { EPUB_UPLOAD_SPEC, insertEpubWorkAndAsset } from '@/domains/works';
+import { acquireUploadedObject, hashFileContent } from '@/domains/assets/uploads';
+import { EPUB_UPLOAD_SPEC, insertEpubWorkAndAsset } from '@/domains/works/admin';
 import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 

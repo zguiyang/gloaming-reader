@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { areProductTagsWeak, cleanSubjectsToProductTags, isCatalogLikeTag } from '@/domains/metadata/fill';
+import { areProductTagsWeak, cleanSubjectsToProductTags, isCatalogLikeTag } from '@/domains/metadata';
 
 describe('metadata-fill subject → product tags', () => {
   it('detects LCSH / catalog-like strings', () => {

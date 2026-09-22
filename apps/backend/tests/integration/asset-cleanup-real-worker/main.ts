@@ -12,18 +12,15 @@
  *   stop this-run Worker → wait for exit → delete test objects → delete test DB rows →
  *   delete this-run Redis / BullMQ keys.
  *
- * Run via: `pnpm exec tsx tests/integration/asset-cleanup-real-worker/main.ts`
- * (from apps/backend, after env isolation is applied by this harness itself)
+ * Run via: `pnpm test:integration:worker` (from apps/backend) or
+ * `pnpm test:backend:integration` (from repo root). Env isolation is applied by this harness.
  */
 import { randomBytes } from 'node:crypto';
 
-import { createHarness, loadAppDeps } from './harness';
+import { loadAppDeps } from './harness';
 import { applyIsolatedEnv } from './isolation';
-import { buildReportOutput, computeFinalVerdict, createInitialReport } from './report';
-import { runScenarioA } from './scenario-a';
-import { runScenarioB } from './scenario-b';
-import { scenarioCNotRun, scenarioDNotRun } from './scenarios-not-run';
-import { runTeardown } from './teardown';
+import { runRealWorkerIntegration } from './orchestrate';
+import { createInitialReport } from './report';
 
 const isolated = applyIsolatedEnv();
 const runId = `asset-it-${Date.now()}-${randomBytes(3).toString('hex')}`;
@@ -32,48 +29,18 @@ const report = createInitialReport();
 
 async function main(): Promise<void> {
   const deps = await loadAppDeps();
-  const harness = createHarness({ isolated, runId, prefix, report, deps });
-
-  harness.assertRuntimeIsolation();
-
-  try {
-    const canRun = await harness.runRedisDb1Precheck();
-    if (!canRun) {
-      return;
-    }
-
-    report.devBucketBefore = await harness.countBucketObjects('gloaming-development');
-    await harness.startWorker();
-
-    const adminCookie = await harness.createAdminSession();
-    harness.logIsolationBanner();
-
-    report.scenarios.push(await runScenarioA(harness, adminCookie));
-    report.scenarios.push(await runScenarioB(harness, adminCookie));
-    report.scenarios.push(scenarioCNotRun());
-    report.scenarios.push(scenarioDNotRun());
-  } catch (error) {
-    report.errors.push(error instanceof Error ? error.message : String(error));
-    if (String(error).includes('BLOCKED')) {
-      report.finalVerdict = 'BLOCKED';
-    }
-  } finally {
-    await runTeardown(harness);
-  }
-
-  computeFinalVerdict(report, isolated, harness.blockedByRedisPrecheck);
-
-  const output = buildReportOutput({
-    report,
+  const { output, exitCode } = await runRealWorkerIntegration({
     isolated,
-    redisDb1EmptyBefore: harness.redisDb1EmptyBefore,
-    workerLog: harness.workerLog,
+    runId,
+    prefix,
+    report,
+    deps,
   });
 
   console.log('\n===== REAL WORKER INTEGRATION REPORT =====\n');
   console.log(JSON.stringify(output, null, 2));
 
-  process.exit(report.finalVerdict === 'PASS' ? 0 : 1);
+  process.exit(exitCode);
 }
 
 main().catch((error) => {

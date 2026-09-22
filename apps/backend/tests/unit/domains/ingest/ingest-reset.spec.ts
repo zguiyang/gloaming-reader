@@ -14,7 +14,7 @@ vi.mock('@/domains/assets/content/audio/object-lifecycle', () => ({
   deleteAudioAssetObjects: mocks.deleteAudioAssetObjects,
 }));
 
-import { resetParseStepOutputs } from '@/domains/ingest';
+import { resetParseStepOutputs } from '@/domains/ingest/reset';
 
 describe('resetParseStepOutputs', () => {
   it('does not delete derived objects when the database reset transaction fails', async () => {

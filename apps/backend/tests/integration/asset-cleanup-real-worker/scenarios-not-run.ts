@@ -7,7 +7,7 @@ export function scenarioCNotRun(): ScenarioResult {
     status: 'NOT RUN',
     observations: [],
     evidence: [
-      'Unit coverage: apps/backend/tests/unit/cleanup-job.spec.ts (partial on delete failures, retryable status)',
+      'Unit coverage: tests/unit/domains/assets/cleanup-job.spec.ts (partial on delete failures, retryable status)',
       'Functional coverage uses MemoryObjectStore failure injection, not live R2',
     ],
     notRunReason:
@@ -22,8 +22,8 @@ export function scenarioDNotRun(): ScenarioResult {
     status: 'NOT RUN',
     observations: [],
     evidence: [
-      'Unit coverage: apps/backend/tests/unit/cleanup-job.spec.ts (stale worker / lock ownership lost)',
-      'Unit coverage: apps/backend/tests/unit/cleanup-store.spec.ts (owned save script)',
+      'Unit coverage: tests/unit/domains/assets/cleanup-job.spec.ts (stale worker / lock ownership lost)',
+      'Unit coverage: tests/unit/domains/assets/cleanup-store.spec.ts (owned save script)',
     ],
     notRunReason:
       'Safe dual-Worker orchestration against shared lock timing is not available without invasive hooks; not claimed as real dual-Worker PASS.',

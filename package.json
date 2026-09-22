@@ -28,6 +28,7 @@
     "typecheck:web": "pnpm --filter @gloaming/web typecheck",
     "test": "pnpm --filter @gloaming/shared test && pnpm --filter @gloaming/i18n test && pnpm --filter @gloaming/backend test && pnpm --filter @gloaming/web test",
     "test:backend": "pnpm --filter @gloaming/backend test",
+    "test:backend:integration": "pnpm --filter @gloaming/backend test:integration:worker",
     "test:shared": "pnpm --filter @gloaming/shared test",
     "test:i18n": "pnpm --filter @gloaming/i18n test",
     "test:web": "pnpm --filter @gloaming/web test",

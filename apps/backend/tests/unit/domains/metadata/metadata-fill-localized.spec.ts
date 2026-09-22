@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { LocalizedTextMap } from '@gloaming/shared/taxonomy';
 
-import { inferLocaleForLabel, mergeTaxonomyLocalizedNames } from '@/domains/metadata/enrich';
+import { inferLocaleForLabel, mergeTaxonomyLocalizedNames } from '@/domains/metadata/enrich/taxonomy-localized';
 
 /** Verifies locale inference used when AI taxonomy names are assembled. */
 function buildExtractedTagLocalizedNames(name: string, bookLanguage?: string): LocalizedTextMap {

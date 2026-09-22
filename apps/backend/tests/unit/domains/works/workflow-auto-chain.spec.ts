@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { EpubResourceLimitError } from '@/domains/ingest';
-import { getWorkflowPolicyProjection, WORKFLOW_AUTO_CHAIN } from '@/domains/works';
+import { EpubResourceLimitError } from '@/domains/ingest/epub';
+import { getWorkflowPolicyProjection, WORKFLOW_AUTO_CHAIN } from '@/domains/works/lifecycle';
 
-const processContentWork = vi.fn();
+const runContentParseWorkflow = vi.fn();
 const enqueue = vi.fn();
 
-vi.mock('@/domains/ingest/parser', () => ({
-  processContentWork: (...args: unknown[]) => processContentWork(...args),
+vi.mock('@/application/commands/run-content-parse-workflow', () => ({
+  runContentParseWorkflow: (...args: unknown[]) => runContentParseWorkflow(...args),
 }));
 
 vi.mock('@/infra/queue', () => ({
@@ -16,9 +16,9 @@ vi.mock('@/infra/queue', () => ({
 
 describe('WORKFLOW_AUTO_CHAIN gates', () => {
   beforeEach(() => {
-    processContentWork.mockReset();
+    runContentParseWorkflow.mockReset();
     enqueue.mockReset();
-    processContentWork.mockResolvedValue(true);
+    runContentParseWorkflow.mockResolvedValue(true);
     enqueue.mockResolvedValue(undefined);
   });
 
@@ -27,12 +27,12 @@ describe('WORKFLOW_AUTO_CHAIN gates', () => {
     expect(getWorkflowPolicyProjection()).toEqual({ autoChainEnabled: false, ttsStepEnabled: false });
     const { processContentParse } = await import('@/application/jobs/content-parse');
     await processContentParse({ workId: 'work-1', retryJobToken: 'retry-a' }, 'parse-attempt-a');
-    expect(processContentWork).toHaveBeenCalledWith('work-1', 'retry-a', 'parse-attempt-a');
+    expect(runContentParseWorkflow).toHaveBeenCalledWith('work-1', 'retry-a', 'parse-attempt-a');
     expect(enqueue).not.toHaveBeenCalled();
   });
 
   it('marks permanent EPUB validation failures as unrecoverable', async () => {
-    processContentWork.mockRejectedValueOnce(new EpubResourceLimitError('test limit'));
+    runContentParseWorkflow.mockRejectedValueOnce(new EpubResourceLimitError('test limit'));
     const { processContentParse } = await import('@/application/jobs/content-parse');
 
     await expect(

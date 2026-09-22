@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildEnrichMessages } from '@/domains/metadata/enrich';
-import { isShouty, isWeakDescription } from '@/domains/metadata/enrich';
-import { buildMetadataOutputSchema, cleanCategoryRef, cleanTagRefs } from '@/domains/metadata/enrich';
-import { areWorkTagsWeak, isCategoryWeak } from '@/domains/metadata/enrich';
+import { buildEnrichMessages } from '@/domains/metadata/enrich/prompt';
+import { isShouty, isWeakDescription } from '@/domains/metadata/enrich/quality';
+import { buildMetadataOutputSchema, cleanCategoryRef, cleanTagRefs } from '@/domains/metadata/enrich/registry';
 import { localizedNameEntrySchema } from '@/domains/metadata/enrich/registry';
+import { areWorkTagsWeak, isCategoryWeak } from '@/domains/metadata/enrich/taxonomy-localized';
 import { isStopwordTag } from '@/domains/metadata/rules';
 
 describe('metadata-enrich quality heuristics', () => {

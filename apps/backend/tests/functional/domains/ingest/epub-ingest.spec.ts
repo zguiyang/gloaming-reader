@@ -11,14 +11,14 @@ import {
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
-import type { ParsedContent } from '@/domains/ingest';
-import { processContentWork } from '@/domains/ingest';
-import { registerParser } from '@/domains/ingest';
-import { epubContentParser } from '@/domains/ingest';
-import { resetMetadataAiOutputs } from '@/domains/ingest';
-import { fillWorkMetadata } from '@/domains/metadata/fill';
-import { hashFileContent } from '@/domains/uploads';
-import { failWorkflowEnqueue, rotateWorkflowJobToken } from '@/domains/works';
+import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
+import { hashFileContent } from '@/domains/assets/uploads';
+import { epubContentParser } from '@/domains/ingest/parser/epub-parser';
+import { registerParser } from '@/domains/ingest/parser/registry';
+import type { ParsedContent } from '@/domains/ingest/parser/types';
+import { resetMetadataAiOutputs } from '@/domains/ingest/reset';
+import { fillWorkMetadata } from '@/domains/metadata';
+import { failWorkflowEnqueue, rotateWorkflowJobToken } from '@/domains/works/lifecycle';
 import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
@@ -141,7 +141,7 @@ describe('EPUB ingest pipeline', () => {
     createdWorkIds.push(created.id);
 
     // Upload leaves the work in `uploaded`; run parse + fill synchronously.
-    await processContentWork(created.id);
+    await runContentParseWorkflow(created.id);
     await db.update(readingWorkTable).set({ status: 'metadata' }).where(eq(readingWorkTable.id, created.id));
     await fillWorkMetadata(created.id);
 
@@ -194,7 +194,7 @@ describe('EPUB ingest pipeline', () => {
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
 
-    await processContentWork(created.id);
+    await runContentParseWorkflow(created.id);
 
     const parts = await db
       .select()
@@ -214,7 +214,7 @@ describe('EPUB ingest pipeline', () => {
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
 
-    await expect(processContentWork(created.id)).rejects.toThrow();
+    await expect(runContentParseWorkflow(created.id)).rejects.toThrow();
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
     expect(work!.status).toBe('failed');
@@ -252,7 +252,7 @@ describe('EPUB ingest pipeline', () => {
     });
 
     try {
-      const staleAttempt = processContentWork(created.id, undefined, 'attempt-a');
+      const staleAttempt = runContentParseWorkflow(created.id, undefined, 'attempt-a');
       await attemptAEntered;
       const [claimed] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
       expect(claimed!.originMeta.workflowClaimAttempt).toBe('attempt-a');
@@ -266,7 +266,7 @@ describe('EPUB ingest pipeline', () => {
         })
         .where(eq(readingWorkTable.id, created.id));
 
-      await expect(processContentWork(created.id, undefined, 'attempt-b')).resolves.toBe(true);
+      await expect(runContentParseWorkflow(created.id, undefined, 'attempt-b')).resolves.toBe(true);
       releaseAttemptA();
       await expect(staleAttempt).resolves.toBe(false);
 
@@ -321,7 +321,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     expect(response.status).toBe(201);
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
-    await processContentWork(created.id);
+    await runContentParseWorkflow(created.id);
     await db.update(readingWorkTable).set({ status: 'metadata' }).where(eq(readingWorkTable.id, created.id));
     await fillWorkMetadata(created.id);
     return created.id;
@@ -523,7 +523,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     const [mid] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
     expect(mid!.status).toBe('processing');
 
-    await processContentWork(workId);
+    await runContentParseWorkflow(workId);
     await db.update(readingWorkTable).set({ status: 'metadata' }).where(eq(readingWorkTable.id, workId));
     await fillWorkMetadata(workId);
 

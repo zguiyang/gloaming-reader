@@ -18,7 +18,7 @@ import type appDefault from '@/app';
 import type { CLEANUP_LOCK_KEY } from '@/domains/assets/cleanup/store';
 import type { acquireLock, releaseLock } from '@/domains/assets/management/lock-store';
 import type { SCAN_LOCK_KEY } from '@/domains/assets/scan/config';
-import type { getRedis } from '@/infra/cache';
+import type { closeRedis, getRedis } from '@/infra/cache';
 import type { commonEnv } from '@/infra/config/env-common';
 import type { db } from '@/infra/db';
 import type { CLEANUP_QUEUE_NAME, closeQueue } from '@/infra/queue';
@@ -45,6 +45,7 @@ export type AppDeps = {
   db: typeof db;
   env: typeof commonEnv;
   getRedis: typeof getRedis;
+  closeRedis: typeof closeRedis;
   CLEANUP_QUEUE_NAME: typeof CLEANUP_QUEUE_NAME;
   closeQueue: typeof closeQueue;
   acquireLock: typeof acquireLock;
@@ -81,7 +82,7 @@ export async function loadAppDeps(): Promise<AppDeps> {
   const { HTTP_STATUS } = await import('@/shared/constants');
   const { db } = await import('@/infra/db');
   const { commonEnv: env } = await import('@/infra/config/env-common');
-  const { getRedis } = await import('@/infra/cache');
+  const { closeRedis, getRedis } = await import('@/infra/cache');
   const { CLEANUP_QUEUE_NAME, closeQueue } = await import('@/infra/queue');
   const { acquireLock, releaseLock } = await import('@/domains/assets/management/lock-store');
   const { CLEANUP_LOCK_KEY } = await import('@/domains/assets/cleanup/store');
@@ -106,6 +107,7 @@ export async function loadAppDeps(): Promise<AppDeps> {
     db,
     env,
     getRedis,
+    closeRedis,
     CLEANUP_QUEUE_NAME,
     closeQueue,
     acquireLock,
@@ -168,6 +170,49 @@ export type RealWorkerHarness = {
 
 function trackRedisKey(key: string, tracked: Set<string>): void {
   tracked.add(key);
+}
+
+const REDIS_PRECHECK_KEYS_TIMEOUT_MS = 5_000;
+
+async function redisKeysWithTimeout(redis: ReturnType<typeof getRedis>, timeoutMs: number): Promise<string[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      redis.keys('*'),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Redis KEYS timed out')), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function markRedisPrecheckBlocked(
+  harness: RealWorkerHarness,
+  report: IntegrationReport,
+  reason: string,
+  detail: string,
+  keyCount: number,
+): void {
+  harness.blockedByRedisPrecheck = true;
+  report.finalVerdict = 'BLOCKED';
+  report.redis.emptyBefore = false;
+  report.redis.cleanupMode = 'blocked-precheck';
+  report.redis.keyCountBefore = keyCount;
+  report.redis.keyCountAfterPrecheck = keyCount;
+  report.errors.push(`BLOCKED: ${detail}`);
+  console.log(
+    JSON.stringify(
+      {
+        phase: 'BLOCKED',
+        reason,
+        keyCount,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 export function createHarness(input: {
@@ -485,30 +530,31 @@ export function createHarness(input: {
       if (redactRedis(env.REDIS_URL).db !== '1') {
         throw new Error('BLOCKED: Redis precheck refused non-DB-1 connection');
       }
-      const keysBefore = await redis.keys('*');
+      let keysBefore: string[];
+      try {
+        keysBefore = await redisKeysWithTimeout(redis, REDIS_PRECHECK_KEYS_TIMEOUT_MS);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        markRedisPrecheckBlocked(
+          harness,
+          report,
+          'redis-keys-failed',
+          `Redis KEYS precheck failed: ${message}`,
+          report.redis.keyCountBefore,
+        );
+        return false;
+      }
       report.redis.keyCountBefore = keysBefore.length;
       report.redis.keyCountAfterPrecheck = keysBefore.length;
       if (keysBefore.length > 0) {
-        blockedByRedisPrecheck = true;
-        report.finalVerdict = 'BLOCKED';
-        report.redis.emptyBefore = false;
-        report.redis.cleanupMode = 'blocked-precheck';
-        report.errors.push(
-          `BLOCKED: Redis DB 1 has ${keysBefore.length} unexpected key(s); refuse to run. sample=${keysBefore
+        markRedisPrecheckBlocked(
+          harness,
+          report,
+          'redis-db1-not-empty',
+          `Redis DB 1 has ${keysBefore.length} unexpected key(s); refuse to run. sample=${keysBefore
             .slice(0, 20)
             .join(', ')}`,
-        );
-        console.log(
-          JSON.stringify(
-            {
-              phase: 'BLOCKED',
-              reason: 'redis-db1-not-empty',
-              keyCount: keysBefore.length,
-              sampleKeys: keysBefore.slice(0, 20),
-            },
-            null,
-            2,
-          ),
+          keysBefore.length,
         );
         return false;
       }

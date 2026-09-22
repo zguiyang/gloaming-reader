@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { cleanBookTitle, joinAuthors } from '@/domains/ingest';
-import { htmlToPlainText, normalizePartText } from '@/domains/works';
-import { partPlainText } from '@/domains/works/content/part-text';
+import { cleanBookTitle, joinAuthors } from '@/domains/ingest/epub';
+import { htmlToPlainText, normalizePartText, partPlainText } from '@/domains/works/content';
 
 describe('cleanBookTitle', () => {
   it('strips empty "for" parentheticals with template placeholders', () => {

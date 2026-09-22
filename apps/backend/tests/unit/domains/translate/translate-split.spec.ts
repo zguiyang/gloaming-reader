@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createTranslateLineParser, parseTranslateOutputLine, splitPartSentences } from '@/domains/translate';
-import { hashPartAudioContent, hashPartContent } from '@/domains/works';
+import { hashPartAudioContent, hashPartContent } from '@/domains/works/content';
 
 describe('hashPartContent', () => {
   it('is stable for equivalent whitespace', () => {

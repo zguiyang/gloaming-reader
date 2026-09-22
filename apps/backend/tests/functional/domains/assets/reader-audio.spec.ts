@@ -18,7 +18,7 @@ import { processPartAudioGenerate } from '@/application/jobs/part-audio-generate
 import * as audioConcat from '@/domains/assets/audio/audio-concat';
 import { partAudioObjectKey, partAudioSegmentKey } from '@/domains/assets/audio/keys';
 import { TTS_CONFIG_ID } from '@/domains/tts';
-import { hashPartAudioContent } from '@/domains/works';
+import { hashPartAudioContent } from '@/domains/works/content';
 import * as redisLib from '@/infra/cache';
 import { db } from '@/infra/db';
 import { encryptApiKey } from '@/infra/llm';

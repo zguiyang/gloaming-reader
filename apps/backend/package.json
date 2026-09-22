@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "pnpm -w exec eslint apps/backend",
     "test": "vitest run",
+    "test:integration:worker": "tsx tests/integration/asset-cleanup-real-worker/main.ts",
     "seed:dev": "tsx scripts/seed-dev-works.ts",
     "reset:content": "tsx scripts/reset-content.ts",
     "create:admin": "node dist/application/commands/create-admin.js"

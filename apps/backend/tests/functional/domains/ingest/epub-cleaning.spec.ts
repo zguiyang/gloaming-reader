@@ -1,10 +1,15 @@
 import * as cheerio from 'cheerio';
 import { describe, expect, it } from 'vitest';
 
-import type { EpubBook } from '@/domains/ingest';
-import { planChapters } from '@/domains/ingest';
-import { cleanXhtml } from '@/domains/ingest';
-import { applyTextPipeline, fixDoubleEncodedEntities, normalizeWhitespace, removeEmptyTags } from '@/domains/ingest';
+import type { EpubBook } from '@/domains/ingest/epub';
+import {
+  applyTextPipeline,
+  cleanXhtml,
+  fixDoubleEncodedEntities,
+  normalizeWhitespace,
+  planChapters,
+  removeEmptyTags,
+} from '@/domains/ingest/epub';
 
 function clean(html: string): { html: string; images: unknown[] } {
   return cleanXhtml(html, (src) => src);

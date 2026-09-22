@@ -14,11 +14,9 @@ import {
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
-import { processContentWork } from '@/domains/ingest';
-import { planChapters } from '@/domains/ingest';
-import { cleanXhtml } from '@/domains/ingest';
-import { parseEpub } from '@/domains/ingest';
-import { hashFileContent } from '@/domains/uploads';
+import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
+import { hashFileContent } from '@/domains/assets/uploads';
+import { cleanXhtml, parseEpub, planChapters } from '@/domains/ingest/epub';
 import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
@@ -184,7 +182,7 @@ describe('EPUB ingest pipeline with real Gutenberg book (integration)', () => {
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
 
-    await processContentWork(created.id);
+    await runContentParseWorkflow(created.id);
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
     expect(work!.status).toBe('parsed');
@@ -243,7 +241,7 @@ describe('EPUB cleaning & chaptering fixes (builder fixtures)', () => {
     expect(response.status).toBe(201);
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
-    await processContentWork(created.id);
+    await runContentParseWorkflow(created.id);
     return created.id;
   }
 

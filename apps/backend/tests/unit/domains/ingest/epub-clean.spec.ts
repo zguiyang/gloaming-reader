@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { stripOrphanImagePlaceholders } from '@/domains/ingest';
-import { cleanXhtml } from '@/domains/ingest';
-import { reindexLeafParagraphOrdinals } from '@/domains/works';
+import { cleanXhtml, stripOrphanImagePlaceholders } from '@/domains/ingest/epub';
+import { reindexLeafParagraphOrdinals } from '@/domains/works/content';
 
 describe('cleanXhtml', () => {
   it('keeps allowed tags and strips dangerous ones (blacklist)', () => {

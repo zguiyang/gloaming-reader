@@ -16,10 +16,10 @@ import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import app from '@/app';
-import { processContentWork } from '@/domains/ingest';
-import { fillWorkMetadata } from '@/domains/metadata/fill';
-import { hashFileContent } from '@/domains/uploads';
-import { claimWorkflowStep, completeWorkflowStep, failWorkflowStep } from '@/domains/works';
+import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
+import { hashFileContent } from '@/domains/assets/uploads';
+import { fillWorkMetadata } from '@/domains/metadata';
+import { claimWorkflowStep, completeWorkflowStep, failWorkflowStep } from '@/domains/works/lifecycle';
 import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
@@ -120,7 +120,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     expect(response.status).toBe(201);
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
-    await processContentWork(created.id);
+    await runContentParseWorkflow(created.id);
     await fillWorkMetadata(created.id);
     return created.id;
   }

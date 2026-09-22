@@ -19,7 +19,7 @@ import {
   failWorkflowEnqueue,
   failWorkflowStep,
   renewWorkflowClaim,
-} from '@/domains/works';
+} from '@/domains/works/lifecycle';
 
 describe('workflow CAS helpers', () => {
   beforeEach(() => {

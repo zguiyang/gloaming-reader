@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { getWorkDerivedFreshness } from '@/domains/derived-freshness';
-import { hashPartAudioContent } from '@/domains/works';
+import { hashPartAudioContent } from '@/domains/works/content';
+import { getWorkDerivedFreshness } from '@/domains/works/read-model/derived-freshness';
 
 vi.mock('@/infra/db', () => ({
   db: {

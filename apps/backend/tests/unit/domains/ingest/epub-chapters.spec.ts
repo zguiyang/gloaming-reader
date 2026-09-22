@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EpubBook } from '@/domains/ingest';
-import { planChapters, splitSingleFileByHeadings } from '@/domains/ingest';
-import { cleanXhtml } from '@/domains/ingest';
+import type { EpubBook } from '@/domains/ingest/epub';
+import { cleanXhtml, planChapters, splitSingleFileByHeadings } from '@/domains/ingest/epub';
 
 function book(entries: Array<[string, string]>): EpubBook {
   return {

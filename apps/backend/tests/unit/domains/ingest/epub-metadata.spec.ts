@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { cleanDescription } from '@/domains/ingest';
-import { parseEpub } from '@/domains/ingest';
-import { metadataByLocalName, textOfDeep } from '@/domains/ingest';
+import { cleanDescription, metadataByLocalName, parseEpub, textOfDeep } from '@/domains/ingest/epub';
 
 import { buildEpubBytes } from '../../../helpers/epub-builder';
 

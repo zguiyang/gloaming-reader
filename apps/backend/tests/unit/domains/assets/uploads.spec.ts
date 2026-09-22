@@ -8,7 +8,7 @@ import {
   uploadObjectFile,
   type UploadSpec,
   validateUploadInput,
-} from '@/domains/uploads';
+} from '@/domains/assets/uploads';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 import { AppError } from '@/shared/errors/app-error';
 
