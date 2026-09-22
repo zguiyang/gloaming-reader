@@ -7,7 +7,7 @@ import { type TtsVoiceRole } from '@gloaming/shared/tts';
 import { formalAudioObjectKeys } from '@/domains/assets/audio/keys';
 import { loadPart } from '@/domains/assets/content/part-access';
 import { type AssetRow } from '@/domains/assets/content/track-view';
-import { hashPartAudioContent } from '@/domains/works';
+import { hashPartAudioContent } from '@/domains/works/content';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 import { objectExists } from '@/infra/storage';

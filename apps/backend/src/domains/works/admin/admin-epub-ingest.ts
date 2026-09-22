@@ -13,7 +13,7 @@ import {
   releaseUploadedObject,
   type UploadedFileMeta,
   type UploadSpec,
-} from '@/domains/uploads';
+} from '@/domains/assets/uploads';
 import { WORKFLOW_AUTO_CHAIN } from '@/domains/works/lifecycle/policy';
 import { failWorkflowEnqueue, prepareWorkflowEnqueue } from '@/domains/works/lifecycle/workflow';
 import { db } from '@/infra/db';

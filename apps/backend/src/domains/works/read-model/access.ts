@@ -34,3 +34,40 @@ export async function getPartById(partId: string): Promise<PartRow> {
   }
   return row;
 }
+
+export type PublishedPartAccess = {
+  workId: string;
+  workTitle: string;
+  partId: string;
+  partTitle: string;
+  body: string;
+};
+
+export async function requirePublishedPart(
+  partId: string,
+  options?: { workId?: string },
+): Promise<PublishedPartAccess> {
+  const predicates = [eq(readingPartTable.id, partId), eq(readingWorkTable.status, 'published')];
+  if (options?.workId) {
+    predicates.push(eq(readingPartTable.workId, options.workId));
+  }
+
+  const rows = await db
+    .select({
+      workId: readingWorkTable.id,
+      workTitle: readingWorkTable.title,
+      partId: readingPartTable.id,
+      partTitle: readingPartTable.title,
+      body: readingPartTable.body,
+    })
+    .from(readingPartTable)
+    .innerJoin(readingWorkTable, eq(readingPartTable.workId, readingWorkTable.id))
+    .where(and(...predicates))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) {
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
+  }
+  return row;
+}

@@ -2,5 +2,5 @@
 // before exposing the orchestrator, so callers never wire parsers manually.
 import '@/domains/ingest/parser/epub-parser';
 
-export type { ContentWorkRow } from './service';
-export { processContentWork } from './service';
+export type { ContentParsePersisted, ContentWorkRow, ParseWorkflowLease } from './service';
+export { ParseWorkflowLeaseLostError, runContentParse, startParseWorkflowLease } from './service';

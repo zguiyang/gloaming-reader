@@ -7,7 +7,7 @@ import {
   source as sourceTable,
 } from '@gloaming/db';
 
-import { cleanBookTitle, cleanDescription, joinAuthors } from '@/domains/ingest';
+import { cleanBookTitle, cleanDescription, joinAuthors } from '@/domains/ingest/epub';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 

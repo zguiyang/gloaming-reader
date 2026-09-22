@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@gloaming/db';
 
-import { createAdminTextWork, publishWork, updateWork } from '../src/domains/works/index.ts';
+import { createAdminTextWork, publishWork, updateWork } from '../src/domains/works/admin/index.ts';
 import { db } from '../src/infra/db/index.ts';
 
 const SEED_TITLE = '[dev-seed] Morning Light';

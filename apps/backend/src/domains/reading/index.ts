@@ -6,7 +6,6 @@ export {
 } from '@/domains/reading/history';
 export type { ReadingStateRow } from '@/domains/reading/reader';
 export {
-  getPublishedPartAudioTrack,
   getReaderPart,
   getReaderParts,
   getReadingState,

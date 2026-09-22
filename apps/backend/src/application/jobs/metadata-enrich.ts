@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { enqueueWorkAudio } from '@/domains/assets';
 import { enrichWorkMetadata } from '@/domains/metadata';
-import { claimWorkflowStep, failWorkflowEnqueue, failWorkflowStep } from '@/domains/works';
+import { claimWorkflowStep, failWorkflowEnqueue, failWorkflowStep } from '@/domains/works/lifecycle';
 import { rootLogger } from '@/infra/logging/logger';
 
 export const JOB_METADATA_ENRICH = 'metadata-enrich';

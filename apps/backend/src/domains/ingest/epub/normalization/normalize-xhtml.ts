@@ -9,7 +9,7 @@ import { collectAndRewriteImages } from '@/domains/ingest/epub/normalization/ima
 import { fixSelfClosingTags, removeDangerousTags, scrubAttributes } from '@/domains/ingest/epub/normalization/sanitize';
 import { applyTextPipeline } from '@/domains/ingest/epub/text-pipeline';
 import type { ChapterImageRef } from '@/domains/ingest/epub/types';
-import { assignLeafParagraphOrdinals } from '@/domains/works';
+import { assignLeafParagraphOrdinals } from '@/domains/works/content';
 
 export type CleanResult = {
   html: string;

@@ -12,7 +12,7 @@ import { shelfRoutes } from '@/domains/shelf';
 import { taxonomyRoutes } from '@/domains/taxonomy';
 import { translateRoutes } from '@/domains/translate';
 import { ttsRoutes } from '@/domains/tts';
-import { worksRoutes } from '@/domains/works';
+import { worksRoutes } from '@/domains/works/routes';
 import { checkReadiness } from '@/infra/http/health';
 import { type AuthVariables, requireAdmin, requireAuth } from '@/infra/http/middleware/auth';
 import { enqueuePing } from '@/infra/queue';

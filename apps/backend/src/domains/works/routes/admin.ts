@@ -2,11 +2,18 @@ import { Hono } from 'hono';
 
 import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
 
-import { createAdminEpubWork, reuseAdminEpubWork } from '@/domains/works/admin/admin-epub-ingest';
-import { publishWork, retryWorkflow, unpublishWork } from '@/domains/works/admin/admin-lifecycle';
-import { deleteWork } from '@/domains/works/admin/admin-work-delete';
-import { getAdminWork, listAdminWorks } from '@/domains/works/admin/admin-work-read';
-import { createAdminTextWork, updateWork } from '@/domains/works/admin/admin-work-write';
+import { deleteWork } from '@/application/commands/delete-work';
+import { retryWorkflow } from '@/application/commands/retry-workflow';
+import {
+  createAdminEpubWork,
+  createAdminTextWork,
+  getAdminWork,
+  listAdminWorks,
+  publishWork,
+  reuseAdminEpubWork,
+  unpublishWork,
+  updateWork,
+} from '@/domains/works/admin';
 import {
   validateAdminWorkListQuery,
   validateCheckEpubWorkReuse,

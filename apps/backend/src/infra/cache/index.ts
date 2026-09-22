@@ -38,3 +38,18 @@ export async function redisPing(timeoutMs = 1_000): Promise<string> {
     if (timer) clearTimeout(timer);
   }
 }
+
+/** Release the shared health/cache Redis client so the process can exit cleanly. */
+export async function closeRedis(): Promise<void> {
+  if (!client) {
+    return;
+  }
+  const active = client;
+  client = null;
+  try {
+    await active.quit();
+  } catch (err) {
+    redisLogger.warn({ err }, 'Redis quit failed; forcing disconnect');
+    active.disconnect();
+  }
+}

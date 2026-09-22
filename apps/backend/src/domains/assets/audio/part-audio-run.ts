@@ -11,7 +11,7 @@ import { audioKindForRole, buildContentAssetGenerationKey, buildPartAudioText } 
 import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { recordTtsInvocation, synthesizeTts } from '@/domains/tts';
-import { hashPartAudioContent, htmlToPlainText } from '@/domains/works';
+import { hashPartAudioContent, htmlToPlainText } from '@/domains/works/content';
 import { db } from '@/infra/db';
 import { putObject } from '@/infra/storage';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -28,8 +28,6 @@ import {
 } from './generation-claim';
 import { partAudioChapterKey } from './keys';
 import { splitForTts } from './part-audio-split';
-import { tryAdvanceTtsWorkflow } from './workflow-tts-advance';
-
 const AUDIO_MIME = 'audio/mpeg';
 
 type AssetRow = typeof contentAssetTable.$inferSelect;
@@ -79,8 +77,8 @@ async function loadPart(partId: string): Promise<{
   return row;
 }
 
-/** Worker entry — synthesize segments, concat chapter, upsert asset. */
-export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promise<void> {
+/** Worker entry — synthesize segments, concat chapter, upsert asset. Returns true when a chapter asset was committed. */
+export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promise<boolean> {
   const part = await loadPart(input.partId);
   if (part.workId !== input.workId) {
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONTENT_ASSET.PART_NOT_IN_WORK);
@@ -95,7 +93,7 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
   const kind = audioKindForRole(input.role);
   const generationKey = buildContentAssetGenerationKey({ partId: input.partId, kind, contentHash });
   if (generationKey !== input.generationKey) {
-    return;
+    return false;
   }
   const segments = splitForTts(text);
   if (segments.length === 0) {
@@ -107,7 +105,7 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
     existing = await assertGenerationOwnership(input, kind);
   } catch (error) {
     if (error instanceof GenerationOwnershipLostError) {
-      return;
+      return false;
     }
     throw error;
   }
@@ -226,12 +224,11 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
       latencyMs: Date.now() - started,
       cached: allSegmentsCached,
     });
-
-    await tryAdvanceTtsWorkflow(input.workId);
+    return true;
   } catch (error) {
     if (error instanceof GenerationOwnershipLostError) {
       await cleanupOrphanObjectsAfterOwnershipLoss(input, kind, contentHash, objectKeys);
-      return;
+      return false;
     }
     const message = error instanceof Error ? error.message : String(error);
     const errorCode = error instanceof AppError ? String(error.statusCode) : '500';
@@ -242,7 +239,7 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
       } catch (ownershipError) {
         if (ownershipError instanceof GenerationOwnershipLostError) {
           await cleanupOrphanObjectsAfterOwnershipLoss(input, kind, contentHash, objectKeys);
-          return;
+          return false;
         }
         throw ownershipError;
       }
@@ -283,7 +280,7 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
       )
       .returning({ id: contentAssetTable.id });
     if (!failed) {
-      return;
+      return false;
     }
 
     await recordTtsInvocation({

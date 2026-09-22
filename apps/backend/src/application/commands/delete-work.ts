@@ -18,7 +18,7 @@ import { HTTP_STATUS } from '@/shared/constants';
 import { AppError, NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
-const workLogger = rootLogger.child({ module: 'Works' });
+const deleteWorkLogger = rootLogger.child({ module: 'DeleteWork' });
 
 type WorkExternalCleanup = {
   partIds: string[];
@@ -37,7 +37,7 @@ async function cleanupWorkStorageKey(workId: string, storageKey: string): Promis
   } catch (error) {
     // The DB no longer serves the work. Asset management's orphan scan can
     // safely discover and retry this external cleanup later.
-    workLogger.warn({ err: error, workId, storageKey }, 'Failed to delete work storage object after DB commit');
+    deleteWorkLogger.warn({ err: error, workId, storageKey }, 'Failed to delete work storage object after DB commit');
   }
 }
 
@@ -116,7 +116,7 @@ export async function deleteWork(id: string): Promise<void> {
     try {
       await deleteBilingualCacheForPart(partId);
     } catch (error) {
-      workLogger.warn({ err: error, workId: id, partId }, 'Failed to delete bilingual cache after work commit');
+      deleteWorkLogger.warn({ err: error, workId: id, partId }, 'Failed to delete bilingual cache after work commit');
     }
   }
   for (const storageKey of cleanup.storageKeys) {

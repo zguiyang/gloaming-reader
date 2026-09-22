@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@gloaming/db';
 
-import { workflowClaimWhere } from '@/domains/works';
+import { workflowClaimWhere } from '@/domains/works/lifecycle';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 import { deleteObject } from '@/infra/storage';

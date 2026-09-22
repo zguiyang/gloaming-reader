@@ -18,11 +18,11 @@ import {
   type AdminWorkSummary,
 } from '@gloaming/shared/works';
 
-import { getWorksDerivedFreshness } from '@/domains/derived-freshness';
 import { buildPublishIssuesForWork } from '@/domains/works/admin/admin-publish-gate';
 import { failedStepOf } from '@/domains/works/admin/workflow-meta';
 import { getWorkflowPolicyProjection, TTS_STEP_ENABLED } from '@/domains/works/lifecycle/policy';
 import { completeWorkflowStep } from '@/domains/works/lifecycle/workflow';
+import { getWorksDerivedFreshness } from '@/domains/works/read-model/derived-freshness';
 import { shouldHideTagsDuringProcessing, toPart, toWork } from '@/domains/works/read-model/projection';
 import {
   loadCategoryForWork,

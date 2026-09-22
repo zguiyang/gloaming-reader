@@ -5,14 +5,14 @@ import {
   incrementUploadedObjectRef,
   registerUploadedObject,
   type UploadedFileMeta,
-} from '@/domains/uploads/registry';
-import { storeValidatedUpload } from '@/domains/uploads/storage';
+} from '@/domains/assets/uploads/registry';
+import { storeValidatedUpload } from '@/domains/assets/uploads/storage';
 import {
   hashFileContent,
   isValidContentHash,
   type UploadSpec,
   validateUploadInput,
-} from '@/domains/uploads/validation';
+} from '@/domains/assets/uploads/validation';
 import { acquireLockWithWait, releaseLock, startLockRenewal } from '@/infra/cache/lock';
 import { rootLogger } from '@/infra/logging/logger';
 import { HTTP_STATUS } from '@/shared/constants';

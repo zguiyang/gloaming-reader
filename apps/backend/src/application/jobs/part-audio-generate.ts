@@ -1,5 +1,6 @@
 import type { TtsVoiceRole } from '@gloaming/shared/tts';
 
+import { tryAdvanceTtsWorkflow } from '@/application/commands/advance-tts-workflow';
 import { runPartAudioGenerate } from '@/domains/assets';
 
 export const JOB_PART_AUDIO_GENERATE = 'part-audio-generate';
@@ -16,6 +17,9 @@ export type PartAudioGenerateJobData = {
 };
 
 export async function processPartAudioGenerate(data: PartAudioGenerateJobData): Promise<{ ok: true }> {
-  await runPartAudioGenerate(data);
+  const completed = await runPartAudioGenerate(data);
+  if (completed) {
+    await tryAdvanceTtsWorkflow(data.workId);
+  }
   return { ok: true };
 }

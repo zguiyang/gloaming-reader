@@ -9,7 +9,7 @@ export {
   putObject,
   resetObjectStoreCache,
   setObjectStoreForTests,
-} from '@/infra/storage/legacy-adapter';
+} from '@/infra/storage/object-store';
 export type { S3ObjectStoreConfig } from '@/infra/storage/s3';
 export { createS3ObjectStore } from '@/infra/storage/s3';
 export type {

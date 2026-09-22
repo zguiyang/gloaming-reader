@@ -5,9 +5,14 @@ import { eq } from 'drizzle-orm';
 import { readingWork as readingWorkTable } from '@gloaming/db';
 
 import { JOB_METADATA_ENRICH } from '@/application/jobs/metadata-enrich';
-import { resetMetadataAiOutputs } from '@/domains/ingest';
+import { resetMetadataAiOutputs } from '@/domains/ingest/reset';
 import { fillWorkMetadata } from '@/domains/metadata';
-import { claimWorkflowStep, failWorkflowEnqueue, failWorkflowStep, rotateWorkflowJobToken } from '@/domains/works';
+import {
+  claimWorkflowStep,
+  failWorkflowEnqueue,
+  failWorkflowStep,
+  rotateWorkflowJobToken,
+} from '@/domains/works/lifecycle';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 import { enqueue } from '@/infra/queue';

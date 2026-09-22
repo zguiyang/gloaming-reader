@@ -1,5 +1,5 @@
-import type { UploadedFileMeta } from '@/domains/uploads/registry';
-import { hashFileContent, type UploadSpec, validateUploadInput } from '@/domains/uploads/validation';
+import type { UploadedFileMeta } from '@/domains/assets/uploads/registry';
+import { hashFileContent, type UploadSpec, validateUploadInput } from '@/domains/assets/uploads/validation';
 import { putObject } from '@/infra/storage';
 
 /**

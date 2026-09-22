@@ -1,11 +1,6 @@
 import { Hono } from 'hono';
 
-import {
-  getPublishedWork,
-  listCatalogCategories,
-  listCatalogTags,
-  listCatalogWorks,
-} from '@/domains/works/catalog/catalog';
+import { getPublishedWork, listCatalogCategories, listCatalogTags, listCatalogWorks } from '@/domains/works/catalog';
 import { validateCatalogListQuery } from '@/domains/works/routes/validator';
 import type { AuthVariables } from '@/infra/http/middleware/auth';
 

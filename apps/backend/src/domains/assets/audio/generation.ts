@@ -10,7 +10,7 @@ import {
 import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { needsRegen } from '@/domains/assets/content/availability';
-import { hashPartAudioContent, htmlToPlainText } from '@/domains/works';
+import { hashPartAudioContent, htmlToPlainText } from '@/domains/works/content';
 import { db } from '@/infra/db';
 import { enqueue } from '@/infra/queue';
 import { HTTP_STATUS } from '@/shared/constants';

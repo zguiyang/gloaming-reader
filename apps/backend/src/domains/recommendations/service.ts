@@ -11,7 +11,7 @@ import {
   type RecommendationFeatures,
   resolveRecommendationOrder,
 } from '@/domains/recommendations/score';
-import { loadCategoriesByWorkIds, loadSourcesByWorkIds, loadTagsByWorkIds } from '@/domains/works';
+import { loadCategoriesByWorkIds, loadSourcesByWorkIds, loadTagsByWorkIds } from '@/domains/works/read-model';
 import { db } from '@/infra/db';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;

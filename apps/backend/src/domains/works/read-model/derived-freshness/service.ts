@@ -3,7 +3,7 @@ import { inArray } from 'drizzle-orm';
 import { contentAsset as contentAssetTable } from '@gloaming/db';
 import { type DerivedFreshness, type DerivedState } from '@gloaming/shared/works';
 
-import { hashPartAudioContent } from '@/domains/works';
+import { hashPartAudioContent } from '@/domains/works/content';
 import { db } from '@/infra/db';
 
 export type WorkPartSourceInput = {

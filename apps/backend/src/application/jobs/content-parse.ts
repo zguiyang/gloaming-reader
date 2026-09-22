@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 
 import { UnrecoverableError } from 'bullmq';
 
+import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
 import { JOB_METADATA_FILL } from '@/application/jobs/work-metadata-fill';
-import { isEpubValidationError, processContentWork } from '@/domains/ingest';
-import { failWorkflowEnqueue, rotateWorkflowJobToken, WORKFLOW_AUTO_CHAIN } from '@/domains/works';
+import { isEpubValidationError } from '@/domains/ingest/epub';
+import { failWorkflowEnqueue, rotateWorkflowJobToken, WORKFLOW_AUTO_CHAIN } from '@/domains/works/lifecycle';
 import { enqueue } from '@/infra/queue';
 
 export const JOB_CONTENT_PARSE = 'content-parse';
@@ -19,7 +20,7 @@ export async function processContentParse(
   attemptToken = randomUUID(),
 ): Promise<{ ok: true; workId: string }> {
   try {
-    if (!(await processContentWork(data.workId, data.retryJobToken, attemptToken))) {
+    if (!(await runContentParseWorkflow(data.workId, data.retryJobToken, attemptToken))) {
       return { ok: true, workId: data.workId };
     }
   } catch (error) {

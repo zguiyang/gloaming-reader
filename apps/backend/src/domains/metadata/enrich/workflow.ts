@@ -1,5 +1,5 @@
 import type { MetadataFieldId } from '@/domains/metadata/enrich/fields';
-import { completeWorkflowStep, TTS_STEP_ENABLED, workflowLeaseExpiresAt } from '@/domains/works';
+import { completeWorkflowStep, TTS_STEP_ENABLED, workflowLeaseExpiresAt } from '@/domains/works/lifecycle';
 
 export type CompleteMetadataStepResult = {
   completed: boolean;

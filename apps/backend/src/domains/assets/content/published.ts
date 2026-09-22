@@ -10,7 +10,7 @@ import { type ReaderAudioTrack } from '@gloaming/shared/reader';
 import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { assetUrl, intMs } from '@/domains/assets/content/track-view';
-import { hashPartAudioContent } from '@/domains/works';
+import { hashPartAudioContent } from '@/domains/works/content';
 import { db } from '@/infra/db';
 import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';

@@ -1,6 +1,3 @@
-import { and, eq } from 'drizzle-orm';
-
-import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
 import {
   type BilingualCachePayload,
   bilingualCachePayloadSchema,
@@ -11,16 +8,13 @@ import { composePromptMessages, PROMPT_ROLE, PROMPT_SCENE, streamAi } from '@/do
 import {
   createTranslateLineParser,
   formatSentenceListForPrompt,
-  hashPartContent,
   splitPartSentences,
   type SplitSentence,
 } from '@/domains/translate/split';
-import { reindexLeafParagraphOrdinals } from '@/domains/works';
+import { hashPartContent, reindexLeafParagraphOrdinals } from '@/domains/works/content';
+import { requirePublishedPart } from '@/domains/works/read-model';
 import { getRedis } from '@/infra/cache';
-import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
-import { NotFoundError } from '@/shared/errors/app-error';
-import { ERROR_CODES } from '@/shared/errors/codes';
 
 const translateLogger = rootLogger.child({ module: 'Translate' });
 
@@ -83,25 +77,6 @@ export async function deleteBilingualCacheForPart(partId: string): Promise<void>
   }
 }
 
-async function loadPublishedPart(partId: string): Promise<{ id: string; title: string; body: string }> {
-  const rows = await db
-    .select({
-      id: readingPartTable.id,
-      title: readingPartTable.title,
-      body: readingPartTable.body,
-    })
-    .from(readingPartTable)
-    .innerJoin(readingWorkTable, eq(readingPartTable.workId, readingWorkTable.id))
-    .where(and(eq(readingPartTable.id, partId), eq(readingWorkTable.status, 'published')))
-    .limit(1);
-
-  const row = rows[0];
-  if (!row) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
-  }
-  return row;
-}
-
 async function readCache(partId: string, contentHash: string): Promise<BilingualCachePayload | null> {
   try {
     const raw = await getRedis().get(cacheKey(partId, contentHash));
@@ -147,12 +122,12 @@ export async function* streamTranslatePart(
   body: TranslatePartBody,
   options: StreamTranslatePartOptions = {},
 ): AsyncGenerator<TranslateStreamEvent> {
-  const part = await loadPublishedPart(body.partId);
+  const part = await requirePublishedPart(body.partId);
   const readingBody = reindexLeafParagraphOrdinals(part.body);
-  const contentHash = hashPartContent(part.title, part.body);
+  const contentHash = hashPartContent(part.partTitle, part.body);
   const sentences = splitPartSentences(readingBody);
 
-  const cached = await readCache(part.id, contentHash);
+  const cached = await readCache(part.partId, contentHash);
   if (cached) {
     yield* emitCachedPayload(contentHash, cached);
     return;
@@ -161,11 +136,11 @@ export async function* streamTranslatePart(
   yield {
     type: 'meta',
     contentHash,
-    titleEn: part.title,
+    titleEn: part.partTitle,
     sentences,
   };
 
-  if (sentences.length === 0 && !part.title.trim()) {
+  if (sentences.length === 0 && !part.partTitle.trim()) {
     yield { type: 'done', contentHash, cached: false };
     return;
   }
@@ -177,7 +152,7 @@ export async function* streamTranslatePart(
     vars: {
       targetLanguage: 'English',
       replyLanguage: 'Chinese',
-      titleEn: part.title,
+      titleEn: part.partTitle,
       sentenceList: formatSentenceListForPrompt(sentences),
     },
   });
@@ -226,9 +201,9 @@ export async function* streamTranslatePart(
     return;
   }
 
-  const resolvedTitleZh = titleZh?.trim() || part.title.trim() || '（无标题）';
+  const resolvedTitleZh = titleZh?.trim() || part.partTitle.trim() || '（无标题）';
   const assembled: BilingualCachePayload = {
-    titleEn: part.title,
+    titleEn: part.partTitle,
     titleZh: resolvedTitleZh,
     sentences: sentences.map((sentence) => {
       const zh = zhByIndex.get(sentence.index)?.trim();
@@ -239,15 +214,15 @@ export async function* streamTranslatePart(
     }),
   };
 
-  if (assembled.sentences.length === 0 && !titleZh?.trim() && !part.title.trim()) {
+  if (assembled.sentences.length === 0 && !titleZh?.trim() && !part.partTitle.trim()) {
     yield { type: 'done', contentHash, cached: false };
     return;
   }
 
-  if (titleZh == null && part.title.trim()) {
+  if (titleZh == null && part.partTitle.trim()) {
     yield { type: 'title', zh: resolvedTitleZh };
   }
 
-  await writeCache(part.id, contentHash, assembled);
+  await writeCache(part.partId, contentHash, assembled);
   yield { type: 'done', contentHash, cached: false };
 }

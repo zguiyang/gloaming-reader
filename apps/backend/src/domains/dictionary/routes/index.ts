@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 
 import { getDictionaryConfig, putDictionaryConfig } from '@/domains/dictionary/config/service';
-import { lookupWord, testDictionary } from '@/domains/dictionary/lookup/index';
+import { lookupWord, testDictionary } from '@/domains/dictionary/lookup';
 import {
   validateLookupDictionaryQuery,
   validatePutDictionaryConfig,

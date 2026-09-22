@@ -4,8 +4,9 @@ import { readingPart as readingPartTable, readingWork as readingWorkTable } from
 import { buildPartAudioText } from '@gloaming/shared/content-assets';
 import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
-import { needsRegen } from '@/domains/assets/content/availability';
-import { completeWorkflowStep, hashPartAudioContent, htmlToPlainText, TTS_STEP_ENABLED } from '@/domains/works';
+import { needsRegen } from '@/domains/assets';
+import { hashPartAudioContent, htmlToPlainText } from '@/domains/works/content';
+import { completeWorkflowStep, TTS_STEP_ENABLED } from '@/domains/works/lifecycle';
 import { db } from '@/infra/db';
 
 const ALL_ROLES: TtsVoiceRole[] = ['us', 'uk'];

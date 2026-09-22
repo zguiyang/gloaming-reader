@@ -1,7 +1,5 @@
-import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
 import { type AssistAskBody } from '@gloaming/shared/assist';
 
 import {
@@ -18,11 +16,9 @@ import {
 } from '@/domains/ai';
 import { resolveAssistToolsForAction } from '@/domains/assist/tools';
 import { appendAssistTurn, assertAssistConversation } from '@/domains/conversations';
-import { htmlToPlainText } from '@/domains/works';
-import { db } from '@/infra/db';
+import { htmlToPlainText } from '@/domains/works/content';
+import { requirePublishedPart } from '@/domains/works/read-model';
 import { rootLogger } from '@/infra/logging/logger';
-import { NotFoundError } from '@/shared/errors/app-error';
-import { ERROR_CODES } from '@/shared/errors/codes';
 
 const assistLogger = rootLogger.child({ module: 'Assist' });
 
@@ -135,38 +131,12 @@ async function buildFollowUpMessages(input: {
   ];
 }
 
-async function loadPublishedPart(workId: string, partId: string) {
-  const rows = await db
-    .select({
-      workId: readingWorkTable.id,
-      workTitle: readingWorkTable.title,
-      partId: readingPartTable.id,
-      partTitle: readingPartTable.title,
-      body: readingPartTable.body,
-    })
-    .from(readingPartTable)
-    .innerJoin(readingWorkTable, eq(readingPartTable.workId, readingWorkTable.id))
-    .where(
-      and(
-        eq(readingPartTable.id, partId),
-        eq(readingPartTable.workId, workId),
-        eq(readingWorkTable.status, 'published'),
-      ),
-    )
-    .limit(1);
-  const row = rows[0];
-  if (!row) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
-  }
-  return row;
-}
-
 export async function* streamAssistAsk(
   userId: string,
   body: AssistAskBody,
   options?: StreamAssistAskOptions,
 ): AsyncGenerator<AssistStreamEvent> {
-  const part = await loadPublishedPart(body.workId, body.partId);
+  const part = await requirePublishedPart(body.partId, { workId: body.workId });
 
   if (body.conversationId) {
     await assertAssistConversation({

@@ -16,7 +16,7 @@ import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { loadPart } from '@/domains/assets/content/part-access';
 import { type AssetRow, toTrack } from '@/domains/assets/content/track-view';
-import { hashPartAudioContent } from '@/domains/works';
+import { hashPartAudioContent } from '@/domains/works/content';
 import { db } from '@/infra/db';
 import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';

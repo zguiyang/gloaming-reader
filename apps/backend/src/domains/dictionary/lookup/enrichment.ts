@@ -10,7 +10,7 @@ import type {
 
 import { invokeAi } from '@/domains/ai';
 import { toGenericDictionaryEntry } from '@/domains/dictionary/lookup/generic-entry';
-import { getPublishedWorkTitle } from '@/domains/works';
+import { getPublishedWorkTitle } from '@/domains/works/catalog';
 import { rootLogger } from '@/infra/logging/logger';
 
 const logger = rootLogger.child({ module: 'DictionaryService' });

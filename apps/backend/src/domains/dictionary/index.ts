@@ -5,8 +5,8 @@ export {
   putDictionaryConfig,
 } from '@/domains/dictionary/config/service';
 export { persistGenericDictionaryEntry, toGenericDictionaryEntry } from '@/domains/dictionary/lookup/generic-entry';
-export type { LookupWordOptions } from '@/domains/dictionary/lookup/index';
-export { lookupWord, testDictionary } from '@/domains/dictionary/lookup/index';
+export type { LookupWordOptions } from '@/domains/dictionary/lookup/service';
+export { lookupWord, testDictionary } from '@/domains/dictionary/lookup/service';
 export type { DictionaryProviderErrorPhase } from '@/domains/dictionary/providers/errors';
 export {
   appErrorFromUpstreamDictionaryStatus,

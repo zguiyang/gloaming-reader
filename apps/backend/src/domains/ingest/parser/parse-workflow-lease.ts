@@ -1,4 +1,4 @@
-import { renewWorkflowClaim } from '@/domains/works';
+import { renewWorkflowClaim } from '@/domains/works/lifecycle';
 
 const PARSE_LEASE_HEARTBEAT_MS = 5 * 60 * 1000;
 
