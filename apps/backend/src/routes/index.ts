@@ -1,24 +1,21 @@
 import { Hono } from 'hono';
 
-import { checkReadiness } from '@/lib/health';
-import { enqueuePing } from '@/lib/queue';
-import { type AuthVariables, requireAdmin, requireAuth } from '@/middleware/auth';
-import { aiRoutes } from '@/modules/ai/invocations/route';
-import { assetManagementRoutes } from '@/modules/asset-management/route';
-import { assetsRoutes } from '@/modules/assets/route';
-import { assistRoutes } from '@/modules/assist/route';
-import { contentAssetsRoutes } from '@/modules/content-assets/route';
-import { conversationsRoutes } from '@/modules/conversations/route';
-import { dictionaryRoutes } from '@/modules/dictionary/route';
-import { llmConfigRoutes } from '@/modules/llm-config/route';
-import { readerRoutes } from '@/modules/reader/route';
-import { readingHistoryRoutes } from '@/modules/reading-history/route';
-import { recommendationsRoutes } from '@/modules/recommendations/route';
-import { shelfRoutes } from '@/modules/shelf/route';
-import { taxonomyRoutes } from '@/modules/taxonomy/route';
-import { translateRoutes } from '@/modules/translate/route';
-import { ttsRoutes } from '@/modules/tts/route';
-import { worksRoutes } from '@/modules/works/route';
+import { aiRoutes } from '@/domains/ai';
+import { assetManagementRoutes, assetsRoutes, contentAssetsRoutes } from '@/domains/assets';
+import { assistRoutes } from '@/domains/assist';
+import { conversationsRoutes } from '@/domains/conversations';
+import { dictionaryRoutes } from '@/domains/dictionary';
+import { llmConfigRoutes } from '@/domains/llm';
+import { readerRoutes, readingHistoryRoutes } from '@/domains/reading';
+import { recommendationsRoutes } from '@/domains/recommendations';
+import { shelfRoutes } from '@/domains/shelf';
+import { taxonomyRoutes } from '@/domains/taxonomy';
+import { translateRoutes } from '@/domains/translate';
+import { ttsRoutes } from '@/domains/tts';
+import { worksRoutes } from '@/domains/works';
+import { checkReadiness } from '@/infra/http/health';
+import { type AuthVariables, requireAdmin, requireAuth } from '@/infra/http/middleware/auth';
+import { enqueuePing } from '@/infra/queue';
 
 /** Route composition entry — mount feature modules here as they are added. */
 export const routes = new Hono<{ Variables: AuthVariables }>();
@@ -28,15 +25,6 @@ routes.get('/api/health/live', (c) => {
 });
 
 routes.get('/api/health/ready', async (c) => {
-  const result = await checkReadiness();
-  return c.json(
-    { status: result.ready ? 'ready' : 'not_ready', dependencies: result.dependencies },
-    result.ready ? 200 : 503,
-  );
-});
-
-/** Compatibility alias for existing operators; readiness is the safe default. */
-routes.get('/api/health', async (c) => {
   const result = await checkReadiness();
   return c.json(
     { status: result.ready ? 'ready' : 'not_ready', dependencies: result.dependencies },

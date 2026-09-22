@@ -4,16 +4,16 @@ import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
 import { rateLimiter } from 'hono-rate-limiter';
 
-import { HTTP_STATUS } from '@/constants';
-import { auth } from '@/lib/auth/auth';
-import { env } from '@/lib/env';
-import { ERROR_CODES } from '@/lib/errors/codes';
-import { sendError } from '@/lib/response';
-import { type AuthVariables, sessionMiddleware } from '@/middleware/auth';
-import { errorHandler } from '@/middleware/error';
-import { logger } from '@/middleware/logger';
-import { getClientIp } from '@/middleware/rate-limit';
+import { auth } from '@/infra/auth/auth';
+import { env } from '@/infra/config/env';
+import { type AuthVariables, sessionMiddleware } from '@/infra/http/middleware/auth';
+import { errorHandler } from '@/infra/http/middleware/error';
+import { logger } from '@/infra/http/middleware/logger';
+import { getClientIp } from '@/infra/http/middleware/rate-limit';
+import { sendError } from '@/infra/http/response';
 import { routes } from '@/routes';
+import { HTTP_STATUS } from '@/shared/constants';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 /** Guest/API baseline — 60 requests / 60s / IP. Authenticated users bypass this limiter. */
 const apiLimiter = rateLimiter({
@@ -50,7 +50,6 @@ app.use('/api/*', async (c, next) => {
 app.use('*', async (c, next) => {
   if (
     c.req.path === '/' ||
-    c.req.path === '/api/health' ||
     c.req.path === '/api/health/live' ||
     c.req.path === '/api/health/ready' ||
     c.req.path.startsWith('/api/assets/')

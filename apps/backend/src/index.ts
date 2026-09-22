@@ -1,8 +1,8 @@
 import { serve } from '@hono/node-server';
 
 import app from '@/app';
-import { env } from '@/lib/env';
-import { serverLogger } from '@/lib/logger';
+import { env } from '@/infra/config/env';
+import { serverLogger } from '@/infra/logging/logger';
 
 serverLogger.info(`Listening on http://${env.HOST}:${env.PORT}`);
 

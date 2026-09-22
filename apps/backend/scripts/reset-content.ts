@@ -20,9 +20,9 @@ import {
   uploadedObject as uploadedObjectTable,
 } from '@gloaming/db';
 
-import { db } from '../src/db/index.ts';
-import { env } from '../src/lib/env.ts';
-import { deleteObject, listObjects } from '../src/modules/oss/index.ts';
+import { env } from '../src/infra/config/env.ts';
+import { db } from '../src/infra/db/index.ts';
+import { deleteObject, listObjects } from '../src/infra/storage/index.ts';
 
 const CACHE_PATTERNS = ['gloaming:tts:v2:*', 'gloaming:tts:v1:*', 'gloaming:bilingual:v2:*'] as const;
 

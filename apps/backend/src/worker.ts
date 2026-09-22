@@ -1,20 +1,28 @@
 import type { Job, Worker } from 'bullmq';
 import { Worker as BullWorker } from 'bullmq';
 
-import { JOB_ASSET_CLEANUP, processAssetCleanup } from '@/jobs/asset-cleanup';
-import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from '@/jobs/content-parse';
-import { JOB_METADATA_ENRICH, type MetadataEnrichJobData, processMetadataEnrich } from '@/jobs/metadata-enrich';
+import { JOB_ASSET_CLEANUP, processAssetCleanup } from '@/application/jobs/asset-cleanup';
+import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from '@/application/jobs/content-parse';
+import {
+  JOB_METADATA_ENRICH,
+  type MetadataEnrichJobData,
+  processMetadataEnrich,
+} from '@/application/jobs/metadata-enrich';
 import {
   JOB_PART_AUDIO_GENERATE,
   type PartAudioGenerateJobData,
   processPartAudioGenerate,
-} from '@/jobs/part-audio-generate';
-import type { PingJobData } from '@/jobs/ping';
-import { JOB_PING, processPing } from '@/jobs/ping';
-import { JOB_METADATA_FILL, processWorkMetadataFill, type WorkMetadataFillJobData } from '@/jobs/work-metadata-fill';
-import { commonEnv } from '@/lib/env-common';
-import { workerLogger } from '@/lib/logger';
-import { CLEANUP_QUEUE_NAME, closeQueue, getQueueConnection, QUEUE_NAME } from '@/lib/queue';
+} from '@/application/jobs/part-audio-generate';
+import type { PingJobData } from '@/application/jobs/ping';
+import { JOB_PING, processPing } from '@/application/jobs/ping';
+import {
+  JOB_METADATA_FILL,
+  processWorkMetadataFill,
+  type WorkMetadataFillJobData,
+} from '@/application/jobs/work-metadata-fill';
+import { commonEnv } from '@/infra/config/env-common';
+import { workerLogger } from '@/infra/logging/logger';
+import { CLEANUP_QUEUE_NAME, closeQueue, getQueueConnection, QUEUE_NAME } from '@/infra/queue';
 
 export const CLEANUP_WORKER_CONCURRENCY = 1;
 
