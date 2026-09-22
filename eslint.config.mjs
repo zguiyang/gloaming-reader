@@ -295,7 +295,7 @@ export default defineConfig([
   },
 
   {
-    files: ['apps/backend/src/lib/**/*.ts'],
+    files: ['apps/backend/src/infra/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -306,9 +306,9 @@ export default defineConfig([
               message: 'Do not use JavaScript extensions in TypeScript imports; use .ts/.tsx or omit the extension.',
             },
             {
-              group: ['@/modules/**'],
+              group: ['@/domains/**'],
               message:
-                'Backend lib must not import feature modules; depend on public module entrypoints or shared contracts instead.',
+                'Backend infra must not import domain modules; depend on application wiring, public domain entrypoints, or shared contracts instead.',
             },
           ],
         },
@@ -317,7 +317,7 @@ export default defineConfig([
   },
 
   {
-    files: ['apps/backend/src/modules/**/service.ts'],
+    files: ['apps/backend/src/domains/**/service.ts'],
     rules: {
       // Structural drift signal only — not an automatic split rule.
       'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
