@@ -1,0 +1,362 @@
+import { randomUUID } from 'node:crypto';
+
+import {
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
+import { describe, expect, it, vi } from 'vitest';
+
+import { type CommonEnv, commonEnv, isS3ObjectStorageConfigured } from '@/infra/config/env-common';
+import { createObjectStoreFromEnv, createS3ObjectStore, type ObjectStore } from '@/infra/storage';
+import { deleteManyObjects, putObject, resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
+import { AppError } from '@/shared/errors/app-error';
+
+import { createMemoryObjectStore } from '../../helpers/memory-oss';
+
+function baseEnv(overrides: Partial<CommonEnv> = {}): CommonEnv {
+  return {
+    NODE_ENV: 'test',
+    LOG_LEVEL: 'info',
+    DATABASE_URL: 'postgresql://localhost:5432/test',
+    REDIS_URL: 'redis://localhost:6379',
+    LLM_CONFIG_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    S3_ENDPOINT: 'https://s3.example.com',
+    S3_REGION: 'auto',
+    S3_BUCKET: 'bucket',
+    S3_ACCESS_KEY_ID: 'key',
+    S3_SECRET_ACCESS_KEY: 'secret',
+    S3_FORCE_PATH_STYLE: false,
+    ...overrides,
+  };
+}
+
+describe('createObjectStoreFromEnv', () => {
+  it('returns null when S3 credentials are incomplete', () => {
+    expect(
+      createObjectStoreFromEnv(
+        baseEnv({
+          S3_REGION: '',
+          S3_BUCKET: '',
+          S3_ACCESS_KEY_ID: '',
+          S3_SECRET_ACCESS_KEY: '',
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it('builds an S3 store when all S3 credentials are present', () => {
+    const store = createObjectStoreFromEnv(baseEnv());
+    expect(store).not.toBeNull();
+  });
+});
+
+describe('createS3ObjectStore', () => {
+  it('maps put/get/exists/delete to S3 commands', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof PutObjectCommand) {
+        return {};
+      }
+      if (command instanceof GetObjectCommand) {
+        return {
+          Body: {
+            transformToByteArray: async () => new Uint8Array([1, 2, 3]),
+          },
+          ContentType: 'audio/mpeg',
+        };
+      }
+      if (command instanceof HeadObjectCommand) {
+        return {};
+      }
+      if (command instanceof DeleteObjectCommand) {
+        return {};
+      }
+      if (command instanceof ListObjectsV2Command) {
+        return {
+          Contents: [{ Key: 'a.mp3', Size: 3, ETag: 'etag' }],
+          IsTruncated: false,
+        };
+      }
+      throw new Error(`unexpected command ${String(command)}`);
+    });
+
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+
+    await store.put({ key: 'a.mp3', body: Buffer.from('abc'), contentType: 'audio/mpeg' });
+    expect(send.mock.calls[0]?.[0]).toBeInstanceOf(PutObjectCommand);
+
+    const got = await store.get('a.mp3');
+    expect(got).toEqual({ body: Buffer.from([1, 2, 3]), contentType: 'audio/mpeg' });
+    expect(send.mock.calls[1]?.[0]).toBeInstanceOf(GetObjectCommand);
+
+    await expect(store.exists('a.mp3')).resolves.toBe(true);
+    expect(send.mock.calls[2]?.[0]).toBeInstanceOf(HeadObjectCommand);
+
+    await store.delete('a.mp3');
+    expect(send.mock.calls[3]?.[0]).toBeInstanceOf(DeleteObjectCommand);
+
+    await expect(store.list('audio/')).resolves.toEqual({
+      objects: [{ key: 'a.mp3', size: 3, lastModified: null, etag: 'etag' }],
+      nextCursor: null,
+      hasMore: false,
+    });
+    expect(send.mock.calls[4]?.[0]).toBeInstanceOf(ListObjectsV2Command);
+  });
+
+  it('treats missing objects as null / false', async () => {
+    const send = vi.fn(async () => {
+      const error = new Error('missing');
+      (error as { name?: string }).name = 'NoSuchKey';
+      throw error;
+    });
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+    await expect(store.get('missing.mp3')).resolves.toBeNull();
+    await expect(store.exists('missing.mp3')).resolves.toBe(false);
+  });
+
+  it('uses DeleteObjectsCommand for deleteMany and reports partial Errors', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      expect(command).toBeInstanceOf(DeleteObjectsCommand);
+      const input = (command as DeleteObjectsCommand).input;
+      expect(input.Delete?.Quiet).toBe(false);
+      expect(input.Delete?.Objects).toEqual([{ Key: 'ok' }, { Key: 'bad' }, { Key: 'missing' }]);
+      return {
+        Deleted: [{ Key: 'ok' }],
+        Errors: [{ Key: 'bad', Code: 'AccessDenied', Message: 'denied' }],
+      };
+    });
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+
+    await expect(store.deleteMany?.(['ok', 'bad', 'missing'])).resolves.toEqual({
+      deleted: ['ok'],
+      failed: [
+        { key: 'bad', error: 'AccessDenied: denied' },
+        { key: 'missing', error: 'Object store did not report a delete result' },
+      ],
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not send DeleteObjects for empty keys', async () => {
+    const send = vi.fn();
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+    await expect(store.deleteMany?.([])).resolves.toEqual({ deleted: [], failed: [] });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('marks every key in a chunk failed when DeleteObjects throws', async () => {
+    const send = vi.fn(async () => {
+      throw new Error('network down');
+    });
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+    await expect(store.deleteMany?.(['a', 'b'])).resolves.toEqual({
+      deleted: [],
+      failed: [
+        { key: 'a', error: 'network down' },
+        { key: 'b', error: 'network down' },
+      ],
+    });
+  });
+
+  it('chunks DeleteObjects at 1000 keys', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      expect(command).toBeInstanceOf(DeleteObjectsCommand);
+      const objects = (command as DeleteObjectsCommand).input.Delete?.Objects ?? [];
+      expect(objects.length).toBeLessThanOrEqual(1000);
+      return { Deleted: objects.map((object) => ({ Key: object.Key })) };
+    });
+    const store = createS3ObjectStore({
+      endpoint: 'https://s3.example.com',
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+    const keys = Array.from({ length: 1001 }, (_, index) => `k${index}`);
+    const result = await store.deleteMany?.(keys);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(result?.deleted).toHaveLength(1001);
+    expect(result?.failed).toEqual([]);
+  });
+});
+
+function stubStore(overrides: Partial<ObjectStore>): ObjectStore {
+  return {
+    async put() {},
+    async get() {
+      return null;
+    },
+    async getStream() {
+      return null;
+    },
+    async exists() {
+      return false;
+    },
+    async delete() {},
+    async list() {
+      return { objects: [], nextCursor: null, hasMore: false };
+    },
+    ...overrides,
+  };
+}
+
+describe('oss facade', () => {
+  it('Fail Fast with 503 when unconfigured', async () => {
+    resetObjectStoreCache();
+    setObjectStoreForTests(null);
+    await expect(putObject({ key: 'x', body: Buffer.from('x'), contentType: 'text/plain' })).rejects.toSatisfy(
+      (error: unknown) => error instanceof AppError && error.statusCode === 503,
+    );
+    resetObjectStoreCache();
+  });
+
+  it('deleteManyObjects returns empty result for empty keys without resolving the store', async () => {
+    resetObjectStoreCache();
+    setObjectStoreForTests(null);
+    await expect(deleteManyObjects([])).resolves.toEqual({ deleted: [], failed: [] });
+    resetObjectStoreCache();
+  });
+
+  it('deleteManyObjects uses store.deleteMany when present', async () => {
+    resetObjectStoreCache();
+    const memory = createMemoryObjectStore();
+    await memory.put({ key: 'a', body: Buffer.from('a'), contentType: 'text/plain' });
+    await memory.put({ key: 'b', body: Buffer.from('b'), contentType: 'text/plain' });
+    setObjectStoreForTests(memory);
+    await expect(deleteManyObjects(['a', 'b'])).resolves.toEqual({ deleted: ['a', 'b'], failed: [] });
+    expect(memory.store.has('a')).toBe(false);
+    expect(memory.store.has('b')).toBe(false);
+    resetObjectStoreCache();
+  });
+
+  it('chunks at 1000 when calling store.deleteMany', async () => {
+    resetObjectStoreCache();
+    const calls: number[] = [];
+    setObjectStoreForTests(
+      stubStore({
+        async deleteMany(keys) {
+          calls.push(keys.length);
+          return { deleted: keys, failed: [] };
+        },
+      }),
+    );
+    const keys = Array.from({ length: 1001 }, (_, index) => `k${index}`);
+    const result = await deleteManyObjects(keys);
+    expect(calls).toEqual([1000, 1]);
+    expect(result.deleted).toHaveLength(1001);
+    expect(result.failed).toEqual([]);
+    resetObjectStoreCache();
+  });
+
+  it('falls back to concurrency 8 when store has no deleteMany', async () => {
+    resetObjectStoreCache();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const keys = Array.from({ length: 16 }, (_, index) => `k${index}`);
+    setObjectStoreForTests(
+      stubStore({
+        async delete() {
+          inFlight += 1;
+          maxInFlight = Math.max(maxInFlight, inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          inFlight -= 1;
+        },
+      }),
+    );
+
+    const result = await deleteManyObjects(keys);
+    expect(result.deleted).toEqual(keys);
+    expect(result.failed).toEqual([]);
+    expect(maxInFlight).toBeGreaterThan(1);
+    expect(maxInFlight).toBeLessThanOrEqual(8);
+    resetObjectStoreCache();
+  });
+
+  it('collects per-key failures on the fallback path', async () => {
+    resetObjectStoreCache();
+    setObjectStoreForTests(
+      stubStore({
+        async delete(key) {
+          if (key === 'bad') {
+            throw new Error('boom');
+          }
+        },
+      }),
+    );
+    await expect(deleteManyObjects(['ok', 'bad'])).resolves.toEqual({
+      deleted: ['ok'],
+      failed: [{ key: 'bad', error: 'boom' }],
+    });
+    resetObjectStoreCache();
+  });
+});
+
+/**
+ * Live S3 is opt-in: Vitest setup loads developer `.env`, so S3_* may be present
+ * even when `.env.test` omits them. Default `pnpm test` must not depend on DNS/network
+ * to the provider. Set GLOAMING_S3_LIVE_TEST=1 to run the probe.
+ */
+const runS3LiveConnectivity = process.env.GLOAMING_S3_LIVE_TEST === '1' && isS3ObjectStorageConfigured();
+
+describe.skipIf(!runS3LiveConnectivity)('S3 live connectivity', () => {
+  it('puts, reads, and deletes a namespaced probe object', async () => {
+    const store = createObjectStoreFromEnv(commonEnv);
+    expect(store).not.toBeNull();
+    if (!store) {
+      return;
+    }
+
+    const key = `gloaming-dev-connectivity/${randomUUID()}.txt`;
+    const body = Buffer.from('gloaming-s3-probe', 'utf8');
+    try {
+      await store.put({ key, body, contentType: 'text/plain' });
+      await expect(store.exists(key)).resolves.toBe(true);
+      const got = await store.get(key);
+      expect(got).not.toBeNull();
+      expect(got?.contentType).toBe('text/plain');
+      expect(got?.body.equals(body)).toBe(true);
+    } finally {
+      await store.delete(key);
+      await expect(store.exists(key)).resolves.toBe(false);
+    }
+  });
+});

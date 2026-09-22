@@ -1,5 +1,5 @@
 /**
- * Vitest global setup — enforces test DB isolation before any spec imports `@/db`.
+ * Vitest global setup — enforces test DB isolation before any spec imports `@/infra/db`.
  * Loads `apps/backend/.env.test` (see `.env.test.example`).
  */
 import path from 'node:path';

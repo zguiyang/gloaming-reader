@@ -4,7 +4,7 @@ import type {
   ObjectGetStreamResult,
   ObjectRange,
   ObjectStore,
-} from '@/lib/oss';
+} from '@/infra/storage';
 
 /** In-memory ObjectStore for functional tests. */
 export function createMemoryObjectStore(): ObjectStore & { store: Map<string, { body: Buffer; contentType: string }> } {

@@ -5,9 +5,9 @@ import { eq } from 'drizzle-orm';
 import { contentAsset as contentAssetTable, readingPart as readingPartTable } from '@gloaming/db';
 import { audioKindForRole } from '@gloaming/shared/content-assets';
 
-import { db } from '@/db';
-import { partAudioObjectKey } from '@/modules/content-assets/audio/keys';
-import { hashPartAudioContent } from '@/modules/works/content-hash';
+import { partAudioObjectKey } from '@/domains/assets/audio/keys';
+import { hashPartAudioContent } from '@/domains/works';
+import { db } from '@/infra/db';
 
 /** Insert ready default-role (US) audio rows so publishWork audio gate passes in functional tests. */
 export async function seedReadyDefaultAudioForWork(workId: string): Promise<void> {

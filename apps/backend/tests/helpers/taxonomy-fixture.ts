@@ -2,8 +2,8 @@ import { eq } from 'drizzle-orm';
 
 import { source as sourceTable, tag as tagTable } from '@gloaming/db';
 
-import { db } from '@/db';
-import { normalizeTag } from '@/lib/text';
+import { normalizeTag } from '@/domains/taxonomy';
+import { db } from '@/infra/db';
 
 export async function ensureWorkTaxonomyFixture(label: string): Promise<{
   sources: [{ id: string }];

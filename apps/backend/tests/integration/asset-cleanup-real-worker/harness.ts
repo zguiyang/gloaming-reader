@@ -15,15 +15,15 @@ import type {
 import type { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import type appDefault from '@/app';
-import type { HTTP_STATUS } from '@/constants';
-import type { db } from '@/db';
-import type { commonEnv } from '@/lib/env-common';
-import type { CLEANUP_QUEUE_NAME, closeQueue } from '@/lib/queue';
-import type { getRedis } from '@/lib/redis';
-import type { CLEANUP_LOCK_KEY } from '@/modules/asset-management/cleanup/store';
-import type { acquireLock, releaseLock } from '@/modules/asset-management/lock-store';
-import type { SCAN_LOCK_KEY } from '@/modules/asset-management/scan/config';
-import type { listObjects, objectExists, putObject, resetObjectStoreCache } from '@/modules/oss';
+import type { CLEANUP_LOCK_KEY } from '@/domains/assets/cleanup/store';
+import type { acquireLock, releaseLock } from '@/domains/assets/management/lock-store';
+import type { SCAN_LOCK_KEY } from '@/domains/assets/scan/config';
+import type { getRedis } from '@/infra/cache';
+import type { commonEnv } from '@/infra/config/env-common';
+import type { db } from '@/infra/db';
+import type { CLEANUP_QUEUE_NAME, closeQueue } from '@/infra/queue';
+import type { listObjects, objectExists, putObject, resetObjectStoreCache } from '@/infra/storage';
+import type { HTTP_STATUS } from '@/shared/constants';
 
 import { backendRoot, redactRedis } from './isolation';
 import type { IntegrationReport, IsolatedEnv } from './types';
@@ -78,15 +78,15 @@ export async function loadAppDeps(): Promise<AppDeps> {
   ]);
 
   const { default: app } = await import('@/app');
-  const { HTTP_STATUS } = await import('@/constants');
-  const { db } = await import('@/db');
-  const { commonEnv: env } = await import('@/lib/env-common');
-  const { getRedis } = await import('@/lib/redis');
-  const { CLEANUP_QUEUE_NAME, closeQueue } = await import('@/lib/queue');
-  const { acquireLock, releaseLock } = await import('@/modules/asset-management/lock-store');
-  const { CLEANUP_LOCK_KEY } = await import('@/modules/asset-management/cleanup/store');
-  const { SCAN_LOCK_KEY } = await import('@/modules/asset-management/scan/config');
-  const { listObjects, objectExists, putObject, resetObjectStoreCache } = await import('@/modules/oss');
+  const { HTTP_STATUS } = await import('@/shared/constants');
+  const { db } = await import('@/infra/db');
+  const { commonEnv: env } = await import('@/infra/config/env-common');
+  const { getRedis } = await import('@/infra/cache');
+  const { CLEANUP_QUEUE_NAME, closeQueue } = await import('@/infra/queue');
+  const { acquireLock, releaseLock } = await import('@/domains/assets/management/lock-store');
+  const { CLEANUP_LOCK_KEY } = await import('@/domains/assets/cleanup/store');
+  const { SCAN_LOCK_KEY } = await import('@/domains/assets/scan/config');
+  const { listObjects, objectExists, putObject, resetObjectStoreCache } = await import('@/infra/storage');
   const { S3Client, ListObjectsV2Command } = await import('@aws-sdk/client-s3');
 
   return {
@@ -282,7 +282,7 @@ export function createHarness(input: {
     async deletePrefixObjects(targetPrefix: string) {
       const keys = await harness.listPrefixKeys(targetPrefix);
       for (const key of keys) {
-        const { deleteObject } = await import('@/modules/oss');
+        const { deleteObject } = await import('@/infra/storage');
         await deleteObject(key);
       }
       return keys;
