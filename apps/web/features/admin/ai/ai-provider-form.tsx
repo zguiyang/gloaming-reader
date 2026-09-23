@@ -9,7 +9,7 @@ import { getWireFamilyDefinition, providerSupportsOptionalField } from '@gloamin
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { getApiFamilyLabel } from '@/features/admin/ai/ai-locale';
 import { useLocale } from '@/lib/locale-context';
@@ -235,6 +235,7 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
               placeholder={t(locale, 'admin.ai.provider.form.balanceEndpointPlaceholder')}
               onChange={(e) => setValues((p) => ({ ...p, balanceEndpoint: e.target.value }))}
             />
+            <FieldDescription>{t(locale, 'admin.ai.provider.form.balanceEndpointHint')}</FieldDescription>
             <div className="grid gap-2 sm:grid-cols-2">
               <Input
                 className="font-mono text-sm"
