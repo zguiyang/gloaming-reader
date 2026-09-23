@@ -352,8 +352,8 @@
 | **清理**             | 无                                                                                                                                                      |
 | **BLOCKED**          | 无邮件                                                                                                                                                  |
 | **验证分层**         | 浏览器 E2E；辅证：`auth.spec.ts` `resets password via BA endpoints`                                                                                     |
-| **结果状态（本轮）** | PARTIAL                                                                                                                                                 |
-| **本轮当前证据**     | 历史轮次有邮件/重置页面证据；本轮未重新取得完整邮件证据                                                                                                 |
+| **结果状态（本轮）** | PASS                                                                                                                                                    |
+| **本轮当前证据**     | 2026-09-23 补充验收：学习者测试账号经**最新**重置密码邮件完成 `/reset-password` → 重置后登录成功；`/account` 显示邮箱已验证（见 §22B）                  |
 
 **【环境依赖】E2E-AUTH-011 — 重置密码：无效 token / 缺失 token**
 
@@ -486,15 +486,15 @@
 
 **【必须通过】E2E-DSC-007 — 从详情打开阅读**
 
-| 项                   | 内容                            |
-| -------------------- | ------------------------------- |
-| **步骤**             | 详情页进入 Reader               |
-| **预期**             | 跳转 `/read/[workId]`，内容加载 |
-| **证据**             | URL + 正文                      |
-| **清理**             | 无                              |
-| **验证分层**         | 浏览器 E2E                      |
-| **结果状态（本轮）** | NOT_RUN                         |
-| **本轮当前证据**     | 无                              |
+| 项                   | 内容                                                                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **步骤**             | 详情页进入 Reader                                                                                                                                           |
+| **预期**             | 跳转 `/read/[workId]`，内容加载                                                                                                                             |
+| **证据**             | URL + 正文                                                                                                                                                  |
+| **清理**             | 无                                                                                                                                                          |
+| **验证分层**         | 浏览器 E2E                                                                                                                                                  |
+| **结果状态（本轮）** | PASS                                                                                                                                                        |
+| **本轮当前证据**     | 2026-09-23 内置浏览器：从 `/discover/e0c79dd9-a70b-404c-81a0-cd3f0b15cadc` 点击「继续阅读」→ `/read/e0c79dd9-a70b-404c-81a0-cd3f0b15cadc`，正文加载（§22D） |
 
 **【必须通过】E2E-DSC-008 — 未登录加入书架门禁**
 
@@ -624,13 +624,16 @@
 
 **【环境依赖】E2E-DIC-001 — 查词成功**
 
-| 项          | 内容                                           |
-| ----------- | ---------------------------------------------- |
-| **前置**    | 管理员 `/admin/config?tab=dictionary` 启用词典 |
-| **步骤**    | Reader 选中单词 → 打开词典                     |
-| **预期**    | 桌面：Popover；移动：Sheet；展示释义           |
-| **证据**    | 词典 UI 截图                                   |
-| **BLOCKED** | 词典未配置                                     |
+| 项                   | 内容                                                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **前置**             | 管理员 `/admin/config?tab=dictionary` 启用词典                                                                                   |
+| **步骤**             | Reader 拖选正文 → 选「查词」                                                                                                     |
+| **预期**             | 桌面：Popover；移动：Sheet；展示释义、英美音标                                                                                   |
+| **证据**             | 词典 UI 截图                                                                                                                     |
+| **BLOCKED**          | 词典未配置                                                                                                                       |
+| **验证分层**         | 浏览器 E2E；辅证：`dictionary-route.spec.ts`、管理员配置页连通测试                                                               |
+| **结果状态（本轮）** | PASS                                                                                                                             |
+| **本轮当前证据**     | 2026-09-23 补充验收：登录态 Reader 拖选后出现「解释/问 AI/查词/翻译选中内容」；查词 `world` 展示词典卡片、英美音标与释义（§22B） |
 
 **【环境依赖】E2E-DIC-002 — 无结果/错误**
 
@@ -701,13 +704,16 @@
 
 **【环境依赖】E2E-AI-002 — 选中文本 inline 解释**
 
-| 项          | 内容                           |
-| ----------- | ------------------------------ |
-| **前置**    | LLM 已配置                     |
-| **步骤**    | 选中一段 → 「解释」类操作      |
-| **预期**    | 流式回答； grounded 在当前段落 |
-| **证据**    | 回答截图、SSE/流式 Network     |
-| **BLOCKED** | LLM                            |
+| 项                   | 内容                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| **前置**             | LLM 已配置                                                                                       |
+| **步骤**             | 拖选正文 → 「解释」                                                                              |
+| **预期**             | 流式或完整中文短答； grounded 在选中内容                                                         |
+| **证据**             | 回答截图、SSE/流式 Network                                                                       |
+| **BLOCKED**          | LLM                                                                                              |
+| **验证分层**         | 浏览器 E2E；辅证：`assist.spec.ts`                                                               |
+| **结果状态（本轮）** | PASS                                                                                             |
+| **本轮当前证据**     | 2026-09-23 补充验收：拖选后「解释」返回中文 AI 短答；同轮「翻译选中内容」「问 AI」亦成功（§22B） |
 
 **【环境依赖】E2E-AI-003 — Drawer 对话与历史**
 
@@ -720,12 +726,15 @@
 
 **【环境依赖】E2E-AI-004 — 新对话**
 
-| 项       | 内容                      |
-| -------- | ------------------------- |
-| **步骤** | 侧栏创建新对话 → 再提问   |
-| **预期** | 新 thread；不与旧消息混淆 |
-| **证据** | 对话列表                  |
-| **清理** | 无                        |
+| 项                   | 内容                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| **步骤**             | 侧栏创建新对话 → 再提问                                                                       |
+| **预期**             | 新 thread；不与旧消息混淆；新对话内提问返回完整答案                                           |
+| **证据**             | 对话列表、新对话回答截图                                                                      |
+| **清理**             | 无                                                                                            |
+| **验证分层**         | 浏览器 E2E；辅证：`conversations.spec.ts`                                                     |
+| **结果状态（本轮）** | PASS                                                                                          |
+| **本轮当前证据**     | 2026-09-23 补充验收：AI Drawer 首问与「新建 AI 对话」均返回完整答案；历史对话列表可见（§22B） |
 
 **【环境依赖】E2E-AI-005 — AI 失败降级**
 
@@ -813,15 +822,15 @@
 
 **【必须通过】E2E-ACC-004 — 退出登录**
 
-| 项                   | 内容                                                           |
-| -------------------- | -------------------------------------------------------------- |
-| **步骤**             | `/more` → 退出（`DELETE /api/auth/logout` 清 HttpOnly Cookie） |
-| **预期**             | Cookie 清除；回 Landing；再访 `/my-shelf` 需登录               |
-| **证据**             | Cookie 面板前后、`sign-out` Network                            |
-| **清理**             | 无                                                             |
-| **验证分层**         | 浏览器 E2E；辅证：`auth.spec.ts` sign-out 后 `/api/me` 401     |
-| **结果状态（本轮）** | NOT_RUN                                                        |
-| **本轮当前证据**     | 后端 sign-out 已覆盖                                           |
+| 项                   | 内容                                                                         |
+| -------------------- | ---------------------------------------------------------------------------- |
+| **步骤**             | `/more` → 退出（`DELETE /api/auth/logout` 清 HttpOnly Cookie）               |
+| **预期**             | Cookie 清除；回 Landing；再访 `/my-shelf` 需登录                             |
+| **证据**             | Cookie 面板前后、`sign-out` Network                                          |
+| **清理**             | 无                                                                           |
+| **验证分层**         | 浏览器 E2E；辅证：`auth.spec.ts` sign-out 后 `/api/me` 401                   |
+| **结果状态（本轮）** | PASS                                                                         |
+| **本轮当前证据**     | 2026-09-23 补充验收：学习者 `/more` 退出登录成功；再访受保护页需登录（§22B） |
 
 ---
 
@@ -1087,94 +1096,95 @@
 
 ## 21. 本轮证据汇总矩阵（执行 SSOT）
 
-**本轮执行口径：** 第21节矩阵与第22A汇总是本轮唯一统计 SSOT；前文逐条用例卡片保留步骤与预期，若其历史状态字段与矩阵不同，以第21节为准。
+**本轮执行口径：** 第21节矩阵为各用例**结果状态**的执行 SSOT；**当前**状态计数与覆盖率以 **§22E** 为准。§22A–§22D 为同日历史验收快照（统计勿与当前混读）。前文逐条用例卡片保留步骤与预期，若其历史状态字段与矩阵不同，以第21节为准。
 
 **填写规则：** 执行 Chrome 步骤后更新「结果状态」与「本轮当前证据」。后端自动化仅作辅证，**不得**单独将状态标为 PASS（应标 PARTIAL 或仍 NOT_RUN）。
 
 **默认列（文档修订轮次）：** 浏览器 **NOT_RUN**；有 Vitest 辅证者在「后端自动化参考」列注明。
 
-| ID               | 门禁         | 验证分层（主）     | 后端自动化参考（辅）                                                              | 结果状态（本轮） | 本轮当前证据                                                                                                                                                                               |
-| ---------------- | ------------ | ------------------ | --------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| E2E-FLOW-001     | 必须         | 浏览器 E2E         | `shelf.spec.ts`（部分）                                                           | PASS             | 本地 Chromium `localhost:3000`：注册→发现→加书架→Reader 首读（沿用同轮已记录页面证据）                                                                                                     |
-| E2E-FLOW-002     | 必须         | 浏览器 E2E         | `reader.spec.ts`                                                                  | PASS             | 本地 Chromium：书架「继续阅读」恢复章节（沿用同轮页面证据）                                                                                                                                |
-| E2E-AUTH-001     | 必须         | 浏览器 E2E         | `auth.spec.ts` 注册                                                               | PASS             | 本地 Chromium：临时未验证账号注册成功，页显「再发一次」                                                                                                                                    |
-| E2E-AUTH-002     | 环境         | 浏览器 E2E         | `auth.spec.ts` verify-email                                                       | NOT_RUN          | 本轮未执行邮件验证成功路径                                                                                                                                                                 |
-| E2E-AUTH-003     | 必须         | 浏览器 E2E         | `auth.spec.ts` sign-in                                                            | PASS             | 本地 Chromium：管理员邮箱+密码登录成功                                                                                                                                                     |
-| E2E-AUTH-004     | 必须         | 浏览器 E2E         | `auth.spec.ts` EMAIL_NOT_VERIFIED                                                 | PASS             | 本地 Chromium：未验证账号登录被拦截                                                                                                                                                        |
-| E2E-AUTH-005     | 环境         | 浏览器 E2E         | `auth.spec.ts` reset-password                                                     | PARTIAL          | 历史轮次有邮件/重置页面证据；本轮未重新取得完整邮件证据                                                                                                                                    |
-| E2E-AUTH-006     | **不计分母** | 浏览器 E2E（可选） | —                                                                                 | SKIP             | GitHub OAuth 本轮不测；不计分母                                                                                                                                                            |
-| E2E-AUTH-007     | 必须         | 浏览器 E2E         | `auth.spec.ts` 401                                                                | PASS             | 本地 Chromium：未登录访问 `/my-shelf`、`/reading-history` 出现登录门禁                                                                                                                     |
-| E2E-AUTH-008     | 必须         | 浏览器 E2E         | `auth.spec.ts` username                                                           | PASS             | 本地 Chromium：用户名+密码登录成功                                                                                                                                                         |
-| E2E-AUTH-009     | 环境         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：`/verify-email` 无 token/无效 token 显示链接无效                                                                                                                            |
-| E2E-AUTH-010     | 环境         | 浏览器 E2E         | `send-verification-email.spec.ts`、`auth-mail.spec.ts`（8/8）                     | PARTIAL          | 本地 Chromium：重发仍受 Resend `validation_error` 阻塞（测试环境邮件外部限制，**非**代码 PASS）；辅证 Vitest 路由/发信单元 8/8                                                             |
-| E2E-AUTH-011     | 环境         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：无效 token 提交 `/reset-password` 后显示链接无效                                                                                                                            |
-| E2E-AUTH-012     | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：两次密码不一致客户端校验                                                                                                                                                    |
-| E2E-DSC-001      | 必须         | 浏览器 E2E         | `catalog-taxonomy.spec.ts`                                                        | PASS             | 本地 Chromium `/discover` 列表（沿用同轮页面证据）                                                                                                                                         |
-| E2E-DSC-002      | 必须         | 浏览器 E2E         | `catalog-taxonomy.spec.ts`                                                        | PASS             | 本地 Chromium：分类/标签筛选（沿用同轮页面证据）                                                                                                                                           |
-| E2E-DSC-003      | 可选         | API/工具           | `catalog-taxonomy.spec.ts`                                                        | SKIP             | 发现页无搜索 UI；不计分母                                                                                                                                                                  |
-| E2E-DSC-004      | 必须         | 浏览器 E2E         | catalog GET                                                                       | PASS             | 本地 Chromium 作品详情页（沿用同轮页面证据）                                                                                                                                               |
-| E2E-DSC-005      | 必须         | 浏览器 E2E         | `shelf.spec.ts`                                                                   | PASS             | 本地 Chromium：加入书架（沿用同轮页面证据）                                                                                                                                                |
-| E2E-DSC-006      | 必须         | 浏览器 E2E         | —                                                                                 | NOT_RUN          | 本轮未执行                                                                                                                                                                                 |
-| E2E-DSC-007      | 必须         | 浏览器 E2E         | —                                                                                 | NOT_RUN          | 本轮未执行                                                                                                                                                                                 |
-| E2E-DSC-008      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：未登录详情页加书架弹出登录（沿用同轮页面证据）                                                                                                                              |
-| E2E-RDR-001      | 必须         | 浏览器 E2E         | `reader.spec.ts` navigate                                                         | PASS             | 本地 Chromium：公开作品 Reader 加载，第 1 章进入第 2 章                                                                                                                                    |
-| E2E-RDR-002      | 必须         | 浏览器 E2E         | `reader.spec.ts`                                                                  | PASS             | 本地 Chromium：从阅读器离开后书架继续阅读回到已同步章节（沿用同轮页面证据）                                                                                                                |
-| E2E-RDR-003      | 必须         | 浏览器 E2E         | `reading-history.spec.ts`                                                         | PASS             | 本地 Chromium：进度同步与历史页有数据（沿用同轮页面证据）                                                                                                                                  |
-| E2E-RDR-004      | 必须         | 浏览器 E2E         | `reader.spec.ts` finish/restart                                                   | PASS             | 本地 Chromium：读完/重启页面表现（沿用同轮页面证据）                                                                                                                                       |
-| E2E-RDR-005      | 必须         | 浏览器 E2E         | `reader.spec.ts` 409                                                              | NOT_RUN          | 本轮未执行双窗口冲突                                                                                                                                                                       |
-| E2E-RDR-006      | 必须         | 浏览器 E2E         | —                                                                                 | NOT_RUN          | 本轮未执行                                                                                                                                                                                 |
-| E2E-AUD-001      | 环境         | 浏览器 E2E         | `reader-audio.spec.ts`（2/2）                                                     | PASS             | 本地 Chromium：美音已生成作品 Listen 路径可用（沿用同轮页面证据）                                                                                                                          |
-| E2E-AUD-002      | 可选         | 浏览器 E2E         | `reader-audio.spec.ts`（2/2）                                                     | PARTIAL          | 管理员作品页 6 章均未生成英音；无 UK 播放，降级分支已观察                                                                                                                                  |
-| E2E-AUD-003      | 必须         | 浏览器 E2E         | `reader-audio.spec.ts`（2/2）                                                     | NOT_RUN          | 本轮未准备无音频已发布作品，降级 Toast 未执行                                                                                                                                              |
-| E2E-AUD-004      | 可选         | 浏览器 E2E         | —                                                                                 | NOT_RUN          | 本轮未执行                                                                                                                                                                                 |
-| E2E-DIC-001      | 环境         | 浏览器 E2E         | `dictionary-route.spec.ts`                                                        | PARTIAL          | 管理员配置页「测试查词」成功；Reader 选词查词未完成                                                                                                                                        |
-| E2E-DIC-002      | 环境         | 浏览器 E2E         | `dictionary-provider-errors`                                                      | NOT_RUN          | 本轮未执行                                                                                                                                                                                 |
-| E2E-TRN-001      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：未登录 Reader 开启双语弹出 reason=bilingual 登录门禁（沿用同轮页面证据）                                                                                                    |
-| E2E-TRN-002      | 环境         | 浏览器 E2E         | `translate.spec.ts`（`assist`+`translate` 功能 7/7）                              | PASS             | 本地 Chromium：键盘 Space 激活双语后出现完整中文译文；后台 AI 日志有双语翻译成功记录                                                                                                       |
-| E2E-TRN-003      | 环境         | 浏览器 E2E         | `translate.spec.ts` cached                                                        | PARTIAL          | 译文未出现，缓存命中路径未在浏览器验证                                                                                                                                                     |
-| E2E-TRN-004      | 环境         | 浏览器 E2E         | `translate.spec.ts`                                                               | NOT_RUN          | 本轮未执行                                                                                                                                                                                 |
-| E2E-AI-001       | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 未登录 Reader 的 AI 操作出现 reason=ai 登录门禁（沿用同轮页面证据）                                                                                                                        |
-| E2E-AI-002       | 环境         | 浏览器 E2E         | `assist.spec.ts`（`assist`+`translate` 7/7）                                      | NOT_RUN          | 本轮未执行选中文本 inline 解释（仅 API 自动化通过，不得标 PASS）                                                                                                                           |
-| E2E-AI-003       | 环境         | 浏览器 E2E         | `assist.spec.ts`、`conversations.spec.ts`、`stream-ai-tool-rounds.spec.ts`（5/5） | PASS             | 2026-09-23 本地 Chromium：登录态 Reader 打开 AI Drawer，提交「请用一句话概括这一章的主要冲突。」→ 完整中文答案，无「AI 服务不可用」；辅证 tool rounds 后空最终回复致 `streamAi` 503 已修复 |
-| E2E-AI-004       | 环境         | 浏览器 E2E         | `conversations.spec.ts`                                                           | PARTIAL          | 新对话 UI 已观察；本轮未完成新 thread 的有效回答                                                                                                                                           |
-| E2E-AI-005       | 环境         | 浏览器 E2E         | `ai-invocations.spec.ts`                                                          | PARTIAL          | 未使用专用无效模型/断网夹具验证失败降级；历史 503 产品缺陷已修复，本轮未专测 E2E-AI-005                                                                                                    |
-| E2E-HIS-001      | 必须         | 浏览器 E2E         | `reading-history.spec.ts`                                                         | PASS             | 本地 Chromium 历史空态（沿用同轮页面证据）                                                                                                                                                 |
-| E2E-HIS-002      | 必须         | 浏览器 E2E         | `reading-history.spec.ts`                                                         | PASS             | 本地 Chromium 历史有数据（沿用同轮页面证据）                                                                                                                                               |
-| E2E-ACC-001      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium `/more` 账号入口                                                                                                                                                             |
-| E2E-ACC-002      | 必须         | 浏览器 E2E         | `auth.spec.ts` change-password                                                    | PASS             | 本地 Chromium `/account` 改密成功                                                                                                                                                          |
-| E2E-ACC-003      | 环境         | 浏览器 E2E         | `auth.spec.ts` change-email                                                       | PARTIAL          | 本轮未完整执行改邮+新邮箱验证邮件链                                                                                                                                                        |
-| E2E-ACC-004      | 必须         | 浏览器 E2E         | `auth.spec.ts` sign-out                                                           | PASS             | 本地 Chromium 退出后受保护页需登录（沿用同轮页面证据）                                                                                                                                     |
-| E2E-ACC-005      | 必须         | 浏览器 E2E         | `auth.spec.ts` INVALID_PASSWORD                                                   | PASS             | 本地 Chromium：当前密码错误提示                                                                                                                                                            |
-| E2E-ADM-001      | 必须         | 浏览器 E2E         | `admin/layout` + 403 UI                                                           | PARTIAL          | 学习者访问 `/admin` 拒绝页本轮未单独复测                                                                                                                                                   |
-| E2E-ADM-002      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium 管理员导航各子页                                                                                                                                                             |
-| E2E-ADM-003      | 必须         | 浏览器 E2E + API   | `auth.spec.ts` admin probe                                                        | PARTIAL          | 学习者 Cookie 探针 403 本轮未在浏览器抽样                                                                                                                                                  |
-| E2E-ADM-EPUB-001 | 环境         | 浏览器 E2E         | `works-epub.spec.ts`、`epub-ingest.spec.ts`                                       | PASS             | 本地 Chromium EPUB 上传创建作品（本轮页面）                                                                                                                                                |
-| E2E-ADM-EPUB-002 | 环境         | 浏览器 E2E         | `works-epub.spec.ts`、`epub-ingest.spec.ts`                                       | PASS             | 本地 Chromium：作品预览与章节预览成功                                                                                                                                                      |
-| E2E-ADM-EPUB-003 | 环境         | 浏览器 E2E         | `works-epub.spec.ts`                                                              | PASS             | 本地 Chromium 元数据编辑保存                                                                                                                                                               |
-| E2E-ADM-EPUB-004 | 环境         | 浏览器 E2E         | `works-epub.spec.ts`、TTS Worker                                                  | PASS             | 本地 Chromium 美式音频生成 ready                                                                                                                                                           |
-| E2E-ADM-EPUB-005 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` retry                                                        | NOT_RUN          | 本轮未执行                                                                                                                                                                                 |
-| E2E-ADM-EPUB-006 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` publish guard                                                | PASS             | 本地 Chromium 无音频发布被门禁拦截                                                                                                                                                         |
-| E2E-ADM-EPUB-007 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` publish                                                      | PASS             | 本地 Chromium 发布后学习者可见                                                                                                                                                             |
-| E2E-ADM-EPUB-008 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` unpublish                                                    | NOT_RUN          | 本轮未执行                                                                                                                                                                                 |
-| E2E-ADM-EPUB-009 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` delete                                                       | NOT_RUN          | 本轮未执行                                                                                                                                                                                 |
-| E2E-ADM-AST-001  | 环境         | 浏览器 E2E         | `asset-management.spec.ts` scan                                                   | PASS             | 本地 Chromium 扫描完成：15.5MB / 8 对象 / 0 孤儿 / 0 缺失                                                                                                                                  |
-| E2E-ADM-AST-002  | 环境         | 浏览器 E2E         | `asset-management.spec.ts` cleanup                                                | BLOCKED          | 无孤儿夹具，清理按钮不可用                                                                                                                                                                 |
-| E2E-ADM-TAX-001  | 必须         | 浏览器 E2E         | `taxonomy.spec.ts` categories                                                     | PASS             | 本地 Chromium 分类创建/删除成功                                                                                                                                                            |
-| E2E-ADM-TAX-002  | 必须         | 浏览器 E2E         | `taxonomy.spec.ts` tags                                                           | PASS             | 本地 Chromium 标签创建/删除成功                                                                                                                                                            |
-| E2E-ADM-TAX-003  | 必须         | 浏览器 E2E         | —                                                                                 | NOT_RUN          | 本轮未执行作品绑定来源                                                                                                                                                                     |
-| E2E-ADM-TAX-004  | 必须         | 浏览器 E2E         | `taxonomy.spec.ts`                                                                | PARTIAL          | 来源创建成功；系统来源不可删除                                                                                                                                                             |
-| E2E-ADM-CFG-001  | 环境         | 浏览器 E2E         | `llm-config.spec.ts`、`prompts-compose.spec.ts`（8/8）                            | PASS             | 本地 Chromium AI 连通测试成功                                                                                                                                                              |
-| E2E-ADM-CFG-002  | 环境         | 浏览器 E2E         | `tts-config.spec.ts`                                                              | PASS             | 本地 Chromium TTS 连通测试成功                                                                                                                                                             |
-| E2E-ADM-CFG-003  | 环境         | 浏览器 E2E         | `dictionary-config.spec.ts`                                                       | PASS             | 本地 Chromium 词典连通测试成功                                                                                                                                                             |
-| E2E-ADM-LOG-001  | 环境         | 浏览器 E2E         | `ai-invocations.spec.ts`                                                          | PASS             | 本地 Chromium AI 日志可见                                                                                                                                                                  |
-| E2E-ADM-LOG-002  | 环境         | 浏览器 E2E         | TTS invocations 路由                                                              | PASS             | 本地 Chromium TTS 日志可见                                                                                                                                                                 |
+| ID               | 门禁         | 验证分层（主）     | 后端自动化参考（辅）                                                              | 结果状态（本轮） | 本轮当前证据                                                                                                                                                                |
+| ---------------- | ------------ | ------------------ | --------------------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E2E-FLOW-001     | 必须         | 浏览器 E2E         | `shelf.spec.ts`（部分）                                                           | PASS             | 本地 Chromium `localhost:3000`：注册→发现→加书架→Reader 首读（沿用同轮已记录页面证据）                                                                                      |
+| E2E-FLOW-002     | 必须         | 浏览器 E2E         | `reader.spec.ts`                                                                  | PASS             | 2026-09-23 补充：学习者 `/my-shelf` 续读进入 Reader（§22B）                                                                                                                 |
+| E2E-AUTH-001     | 必须         | 浏览器 E2E         | `auth.spec.ts` 注册                                                               | PASS             | 本地 Chromium：临时未验证账号注册成功，页显「再发一次」                                                                                                                     |
+| E2E-AUTH-002     | 环境         | 浏览器 E2E         | `auth.spec.ts` verify-email                                                       | NOT_RUN          | 本轮未执行邮件验证成功路径                                                                                                                                                  |
+| E2E-AUTH-003     | 必须         | 浏览器 E2E         | `auth.spec.ts` sign-in                                                            | PASS             | 本地 Chromium：管理员邮箱+密码登录成功                                                                                                                                      |
+| E2E-AUTH-004     | 必须         | 浏览器 E2E         | `auth.spec.ts` EMAIL_NOT_VERIFIED                                                 | PASS             | 本地 Chromium：未验证账号登录被拦截                                                                                                                                         |
+| E2E-AUTH-005     | 环境         | 浏览器 E2E         | `auth.spec.ts` reset-password                                                     | PASS             | 2026-09-23 补充：学习者测试账号最新重置邮件 → 重置页 → 重置后登录；Mail 已收信；`/account` 邮箱已验证（§22B）                                                               |
+| E2E-AUTH-006     | **不计分母** | 浏览器 E2E（可选） | —                                                                                 | SKIP             | GitHub OAuth 本轮不测；不计分母                                                                                                                                             |
+| E2E-AUTH-007     | 必须         | 浏览器 E2E         | `auth.spec.ts` 401                                                                | PASS             | 本地 Chromium：未登录访问 `/my-shelf`、`/reading-history` 出现登录门禁                                                                                                      |
+| E2E-AUTH-008     | 必须         | 浏览器 E2E         | `auth.spec.ts` username                                                           | PASS             | 本地 Chromium：用户名+密码登录成功                                                                                                                                          |
+| E2E-AUTH-009     | 环境         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：`/verify-email` 无 token/无效 token 显示链接无效                                                                                                             |
+| E2E-AUTH-010     | 环境         | 浏览器 E2E         | `send-verification-email.spec.ts`、`auth-mail.spec.ts`（8/8）                     | PARTIAL          | 本地 Chromium：重发仍受 Resend `validation_error` 阻塞（测试环境邮件外部限制，**非**代码 PASS）；辅证 Vitest 路由/发信单元 8/8                                              |
+| E2E-AUTH-011     | 环境         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：无效 token 提交 `/reset-password` 后显示链接无效                                                                                                             |
+| E2E-AUTH-012     | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：两次密码不一致客户端校验                                                                                                                                     |
+| E2E-DSC-001      | 必须         | 浏览器 E2E         | `catalog-taxonomy.spec.ts`                                                        | PASS             | 本地 Chromium `/discover` 列表（沿用同轮页面证据）                                                                                                                          |
+| E2E-DSC-002      | 必须         | 浏览器 E2E         | `catalog-taxonomy.spec.ts`                                                        | PASS             | 本地 Chromium：分类/标签筛选（沿用同轮页面证据）                                                                                                                            |
+| E2E-DSC-003      | 可选         | API/工具           | `catalog-taxonomy.spec.ts`                                                        | SKIP             | 发现页无搜索 UI；不计分母                                                                                                                                                   |
+| E2E-DSC-004      | 必须         | 浏览器 E2E         | catalog GET                                                                       | PASS             | 本地 Chromium 作品详情页（沿用同轮页面证据）                                                                                                                                |
+| E2E-DSC-005      | 必须         | 浏览器 E2E         | `shelf.spec.ts`                                                                   | PASS             | 本地 Chromium：加入书架（沿用同轮页面证据）                                                                                                                                 |
+| E2E-DSC-006      | 必须         | 浏览器 E2E         | —                                                                                 | NOT_RUN          | 本轮未执行                                                                                                                                                                  |
+| E2E-DSC-007      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 2026-09-23 内置浏览器：`/discover/e0c79dd9-a70b-404c-81a0-cd3f0b15cadc` 点击「继续阅读」→ `/read/e0c79dd9-a70b-404c-81a0-cd3f0b15cadc`，正文加载（§22D）                    |
+| E2E-DSC-008      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：未登录详情页加书架弹出登录（沿用同轮页面证据）                                                                                                               |
+| E2E-RDR-001      | 必须         | 浏览器 E2E         | `reader.spec.ts` navigate                                                         | PASS             | 2026-09-23 补充：学习者 Reader「下一章」成功；返回书架成功（§22B）；早轮第 1→2 章亦 PASS                                                                                    |
+| E2E-RDR-002      | 必须         | 浏览器 E2E         | `reader.spec.ts`                                                                  | PASS             | 本地 Chromium：从阅读器离开后书架继续阅读回到已同步章节（沿用同轮页面证据）                                                                                                 |
+| E2E-RDR-003      | 必须         | 浏览器 E2E         | `reading-history.spec.ts`                                                         | PASS             | 本地 Chromium：进度同步与历史页有数据（沿用同轮页面证据）                                                                                                                   |
+| E2E-RDR-004      | 必须         | 浏览器 E2E         | `reader.spec.ts` finish/restart                                                   | PASS             | 本地 Chromium：读完/重启页面表现（沿用同轮页面证据）                                                                                                                        |
+| E2E-RDR-005      | 必须         | 浏览器 E2E         | `reader.spec.ts` 409                                                              | PASS             | 2026-09-23 补充：两个内置浏览器窗口同账号；旧 revision 提交触发 409，页面显示「阅读进度已同步，请从当前章节继续」并恢复（§22C）                                             |
+| E2E-RDR-006      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 2026-09-23 补充：未登录直接进入 Reader，点击章节导航弹出「登录后同步你的阅读进度」登录门禁（§22C）                                                                          |
+| E2E-AUD-001      | 环境         | 浏览器 E2E         | `reader-audio.spec.ts`（2/2）                                                     | PASS             | 2026-09-23 补充：登录态 Reader 美音 TTS 自动播放、暂停、1.5× 倍速；管理员 `/admin/works` 已发布作品 6 章 `audio_us` ready（§22B）                                           |
+| E2E-AUD-002      | 可选         | 浏览器 E2E         | `reader-audio.spec.ts`（2/2）                                                     | PARTIAL          | 管理员作品页 6 章均未生成英音；无 UK 播放，降级分支已观察                                                                                                                   |
+| E2E-AUD-003      | 必须         | 浏览器 E2E         | `reader-audio.spec.ts`（2/2）                                                     | NOT_RUN          | 本轮未准备无音频已发布作品，降级 Toast 未执行                                                                                                                               |
+| E2E-AUD-004      | 可选         | 浏览器 E2E         | —                                                                                 | NOT_RUN          | 本轮未执行                                                                                                                                                                  |
+| E2E-DIC-001      | 环境         | 浏览器 E2E         | `dictionary-route.spec.ts`                                                        | PASS             | 2026-09-23 补充：Reader 拖选「查词」→ `world` 词典卡片含英美音标与释义（§22B）；管理员词典连通测试仍有效                                                                    |
+| E2E-DIC-002      | 环境         | 浏览器 E2E         | `dictionary-provider-errors`                                                      | NOT_RUN          | 本轮未执行                                                                                                                                                                  |
+| E2E-TRN-001      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium：未登录 Reader 开启双语弹出 reason=bilingual 登录门禁（沿用同轮页面证据）                                                                                     |
+| E2E-TRN-002      | 环境         | 浏览器 E2E         | `translate.spec.ts`（`assist`+`translate` 功能 7/7）                              | PASS             | 2026-09-23 补充：登录态 Reader 双语视图显示中文译文；拖选「翻译选中内容」为中文 AI 短答（§22B）；早前 Space 激活双语亦 PASS                                                 |
+| E2E-TRN-003      | 环境         | 浏览器 E2E         | `translate.spec.ts` cached                                                        | PARTIAL          | 浏览器同 part 关闭再开后译文即时恢复；隔离测试 `translate.spec.ts` 已断言第二次请求 `cached:true`，但本轮未取得浏览器 Network 的 `cached:true` 证据，保持 PARTIAL           |
+| E2E-TRN-004      | 环境         | 浏览器 E2E         | `translate.spec.ts`（新增失败用例）                                               | NOT_RUN          | 浏览器未执行；后端辅证：`apps/backend/tests/functional/domains/translate/translate.spec.ts` 翻译 SSE 失败用例 gloaming_test/Redis DB1 通过 2/2，**不得**单独标 PASS（§22D） |
+| E2E-AI-001       | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 未登录 Reader 的 AI 操作出现 reason=ai 登录门禁（沿用同轮页面证据）                                                                                                         |
+| E2E-AI-002       | 环境         | 浏览器 E2E         | `assist.spec.ts`（`assist`+`translate` 7/7）                                      | PASS             | 2026-09-23 补充：拖选「解释」中文短答；「问 AI」选中文字提问成功（§22B）                                                                                                    |
+| E2E-AI-003       | 环境         | 浏览器 E2E         | `assist.spec.ts`、`conversations.spec.ts`、`stream-ai-tool-rounds.spec.ts`（5/5） | PASS             | 2026-09-23 补充：AI Drawer 首问完整答案 + 历史对话可见；同日早轮 Drawer 概括章冲突亦 PASS（streamAi 503 已修复）                                                            |
+| E2E-AI-004       | 环境         | 浏览器 E2E         | `conversations.spec.ts`                                                           | PASS             | 2026-09-23 补充：新建 AI 对话后提问返回完整答案，与旧 thread 不混淆（§22B）                                                                                                 |
+| E2E-AI-005       | 环境         | 浏览器 E2E         | `ai-invocations.spec.ts`                                                          | PARTIAL          | 未使用专用无效模型/断网夹具验证失败降级；历史 503 产品缺陷已修复，本轮未专测 E2E-AI-005                                                                                     |
+| E2E-HIS-001      | 必须         | 浏览器 E2E         | `reading-history.spec.ts`                                                         | PASS             | 本地 Chromium 历史空态（沿用同轮页面证据）                                                                                                                                  |
+| E2E-HIS-002      | 必须         | 浏览器 E2E         | `reading-history.spec.ts`                                                         | PASS             | 本地 Chromium 历史有数据（沿用同轮页面证据）                                                                                                                                |
+| E2E-ACC-001      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 本地 Chromium `/more` 账号入口                                                                                                                                              |
+| E2E-ACC-002      | 必须         | 浏览器 E2E         | `auth.spec.ts` change-password                                                    | PASS             | 本地 Chromium `/account` 改密成功                                                                                                                                           |
+| E2E-ACC-003      | 环境         | 浏览器 E2E         | `auth.spec.ts` change-email                                                       | PARTIAL          | 本轮未完整执行改邮+新邮箱验证邮件链                                                                                                                                         |
+| E2E-ACC-004      | 必须         | 浏览器 E2E         | `auth.spec.ts` sign-out                                                           | PASS             | 2026-09-23 补充：学习者账户页浏览 + `/more` 退出成功（§22B）                                                                                                                |
+| E2E-ACC-005      | 必须         | 浏览器 E2E         | `auth.spec.ts` INVALID_PASSWORD                                                   | PASS             | 本地 Chromium：当前密码错误提示                                                                                                                                             |
+| E2E-ADM-001      | 必须         | 浏览器 E2E         | `admin/layout` + 403 UI                                                           | PASS             | 2026-09-23 内置浏览器：学习者访问 `/admin/works`，显示「无法进入管理后台/当前账号没有管理员权限」，无 500（§22D）                                                           |
+| E2E-ADM-002      | 必须         | 浏览器 E2E         | —                                                                                 | PASS             | 2026-09-23 补充：管理员重新登录；`/admin/works`、`/admin/assets`、`/admin/config`（AI 可见）、`/admin/taxonomy`、`/admin/log-center` 均可用（§22B）                         |
+| E2E-ADM-003      | 必须         | 浏览器 E2E + API   | `auth.spec.ts` admin probe                                                        | PARTIAL          | 学习者 Cookie 探针 403 本轮未在浏览器抽样                                                                                                                                   |
+| E2E-ADM-EPUB-001 | 环境         | 浏览器 E2E         | `works-epub.spec.ts`、`epub-ingest.spec.ts`                                       | PASS             | 本地 Chromium EPUB 上传创建作品（本轮页面）                                                                                                                                 |
+| E2E-ADM-EPUB-002 | 环境         | 浏览器 E2E         | `works-epub.spec.ts`、`epub-ingest.spec.ts`                                       | PASS             | 本地 Chromium：作品预览与章节预览成功                                                                                                                                       |
+| E2E-ADM-EPUB-003 | 环境         | 浏览器 E2E         | `works-epub.spec.ts`                                                              | PASS             | 本地 Chromium 元数据编辑保存                                                                                                                                                |
+| E2E-ADM-EPUB-004 | 环境         | 浏览器 E2E         | `works-epub.spec.ts`、TTS Worker                                                  | PASS             | 本地 Chromium 美式音频生成 ready                                                                                                                                            |
+| E2E-ADM-EPUB-005 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` retry                                                        | NOT_RUN          | 本轮未执行                                                                                                                                                                  |
+| E2E-ADM-EPUB-006 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` publish guard                                                | PASS             | 本地 Chromium 无音频发布被门禁拦截                                                                                                                                          |
+| E2E-ADM-EPUB-007 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` publish                                                      | PASS             | 本地 Chromium 发布后学习者可见                                                                                                                                              |
+| E2E-ADM-EPUB-008 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` unpublish                                                    | PASS             | 2026-09-23 内置浏览器：管理员在 `/admin/works/e0c79dd9-a70b-404c-81a0-cd3f0b15cadc` 下架→待发布/「已下架」；重新发布→已发布/「已发布」；未执行删除（§22E）                  |
+| E2E-ADM-EPUB-009 | 环境         | 浏览器 E2E         | `works-epub.spec.ts` delete                                                       | NOT_RUN          | 本轮未执行                                                                                                                                                                  |
+| E2E-ADM-AST-001  | 环境         | 浏览器 E2E         | `asset-management.spec.ts` scan                                                   | PASS             | 本地 Chromium 扫描完成：15.5MB / 8 对象 / 0 孤儿 / 0 缺失                                                                                                                   |
+| E2E-ADM-AST-002  | 环境         | 浏览器 E2E         | `asset-management.spec.ts` cleanup                                                | BLOCKED          | 无孤儿夹具，清理按钮不可用                                                                                                                                                  |
+| E2E-ADM-TAX-001  | 必须         | 浏览器 E2E         | `taxonomy.spec.ts` categories                                                     | PASS             | 本地 Chromium 分类创建/删除成功                                                                                                                                             |
+| E2E-ADM-TAX-002  | 必须         | 浏览器 E2E         | `taxonomy.spec.ts` tags                                                           | PASS             | 本地 Chromium 标签创建/删除成功                                                                                                                                             |
+| E2E-ADM-TAX-003  | 必须         | 浏览器 E2E         | —                                                                                 | NOT_RUN          | 本轮未执行作品绑定来源                                                                                                                                                      |
+| E2E-ADM-TAX-004  | 必须         | 浏览器 E2E         | `taxonomy.spec.ts`                                                                | PASS             | 2026-09-23 补充：来源 Tab 系统来源删除控件禁用（预期）；自定义来源 CRUD 早轮已测（§22B）                                                                                    |
+| E2E-ADM-CFG-001  | 环境         | 浏览器 E2E         | `llm-config.spec.ts`、`prompts-compose.spec.ts`（8/8）                            | PASS             | 本地 Chromium AI 连通测试成功                                                                                                                                               |
+| E2E-ADM-CFG-002  | 环境         | 浏览器 E2E         | `tts-config.spec.ts`                                                              | PASS             | 本地 Chromium TTS 连通测试成功                                                                                                                                              |
+| E2E-ADM-CFG-003  | 环境         | 浏览器 E2E         | `dictionary-config.spec.ts`                                                       | PASS             | 本地 Chromium 词典连通测试成功                                                                                                                                              |
+| E2E-ADM-LOG-001  | 环境         | 浏览器 E2E         | `ai-invocations.spec.ts`                                                          | PASS             | 本地 Chromium AI 日志可见                                                                                                                                                   |
+| E2E-ADM-LOG-002  | 环境         | 浏览器 E2E         | TTS invocations 路由                                                              | PASS             | 本地 Chromium TTS 日志可见                                                                                                                                                  |
 
-**分母速查（2026-09-23 本轮）：** §21 矩阵 **73** 行；**E2E-AUTH-006**、**E2E-DSC-003** 为 **SKIP** 且**不计分母**。门禁分母 = **71**。本轮状态计数见 **§22A**；覆盖率 = PASS / 71（仅 PASS 计入通过数）。后端辅证：`apps/backend` + `apps/web` `tsc --noEmit` 通过；改动文件 `eslint` 通过。
+**分母速查（2026-09-23，含补充验收）：** §21 矩阵 **73** 行；**E2E-AUTH-006**、**E2E-DSC-003** 为 **SKIP** 且**不计分母**。门禁分母 = **71**。**当前**状态计数与覆盖率见 **§22E**（§22A–§22D 保留历史快照，勿删）。覆盖率 = PASS / 71（仅 PASS 计入通过数）。**不得**将覆盖率表述为已达 95% 发布目标。
 
 ---
 
 ## 22A. 2026-09-23 本轮实际结果
 
+**（本节统计为历史快照；当前计数见 §22E。）**
 **执行方式：** Codex 可用环境下的本地 Chromium 页面验收（`http://localhost:3000`）。当前**无**可连接的 Chrome 扩展/CDP 会话，证据为页面操作观察，非 Chrome 扩展录制。双语第一次鼠标自动化点击未切换，改用键盘 Space 成功，故此前双语失败记录视为自动化操作误报。**2026-09-23** 补充：登录态 Reader **AI Drawer** 真实提问验收（E2E-AI-003 PASS）。
 
 **后端/前端自动化辅证（本轮，非 Chrome E2E）：** `stream-ai-tool-rounds.spec.ts` 5/5；`assist.spec.ts` + `translate.spec.ts` 7/7；`llm-config.spec.ts` + `prompts-compose.spec.ts` 8/8；`reader-audio.spec.ts` 2/2；`send-verification-email.spec.ts` + `auth-mail.spec.ts` 8/8；`apps/web/features/reader/reader-model.spec.ts` 15/15；`tsc --noEmit` 与改动文件 `eslint` 通过。
@@ -1199,6 +1209,169 @@
 - 无音频降级 Toast 未测（E2E-AUD-003 NOT_RUN：本轮未准备无音频已发布作品）。
 - Reader 选词查词未完成（DIC-001 PARTIAL）。
 - 多条 **NOT_RUN**（含 E2E-AI-002 inline、双窗口冲突、部分发现/账号浏览器分支）；发布前须补 Chrome 证据或接受未覆盖声明。
+
+---
+
+## 22B. 2026-09-23 补充验收（内置浏览器）
+
+**与 §22A 关系：** §22A 记录同日**早轮** Chromium 验收与统计快照（45 PASS 等），**全文保留**作历史证据。本节为**同日晚**基于本地内置浏览器（`http://localhost:3000`）的追加验收；§21 矩阵已按本节及后续 §22C–§22E 更新。**当前**统计 SSOT 见 **§22E**。
+
+**执行身份与账号：**
+
+- **学习者：** 学习者测试账号（已验证邮箱；经**最新**密码重置邮件完成改密并登录）。
+- **管理员：** 退出学习者会话后重新登录管理员账号。
+
+**已确认浏览器证据（摘要）：**
+
+| 主题           | 观察结果                                                                                                                                                                                                                    | 主要用例 ID                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 密码重置与账号 | 最新重置邮件在 **Mail** 送达；邮件链完成重置 → 新密码登录成功；`/account` 显示邮箱已验证                                                                                                                                    | E2E-AUTH-005、E2E-ACC-001                                                           |
+| 书架与 Reader  | `/my-shelf` 续读进入 Reader；双语显示中文；下一章与返回书架成功                                                                                                                                                             | E2E-FLOW-002、E2E-RDR-001、E2E-TRN-002                                              |
+| TTS            | 美音自动播放、暂停、**1.5×** 倍速                                                                                                                                                                                           | E2E-AUD-001                                                                         |
+| 选区辅助       | 拖选后出现「解释 / 问 AI / 查词 / 翻译选中内容」；查词 `world` 含英美音标与释义；解释与翻译为中文 AI 短答；选中问 AI 成功                                                                                                   | E2E-DIC-001、E2E-AI-002、E2E-TRN-002                                                |
+| AI Drawer      | 首问与新建 AI 对话均返回**完整**答案；历史对话可见                                                                                                                                                                          | E2E-AI-003、E2E-AI-004                                                              |
+| 退出           | 学习者账户页与退出登录成功                                                                                                                                                                                                  | E2E-ACC-004                                                                         |
+| 管理员         | `/admin/works` 已发布作品、**6 章**音频 ready；`/admin/assets` 扫描 **15.5MB / 8 对象 / 0 孤儿 / 0 缺失**；`/admin/config` AI 配置可见；`/admin/taxonomy` 来源页**系统来源删除禁用**；`/admin/log-center` AI 与语音日志可见 | E2E-ADM-002、E2E-ADM-AST-001、E2E-ADM-CFG-001、E2E-ADM-TAX-004、E2E-ADM-LOG-001/002 |
+
+**邮件与 token 说明（非产品缺陷）：**
+
+- **旧**邮箱验证或重置链接失败：属**过期或已消费 token** 的预期行为，**不得**记为代码缺陷（与 E2E-AUTH-009 / E2E-AUTH-011 一致）。
+- **最新**重置密码邮件投递与全流程已成功（E2E-AUTH-005 **PASS**）。注册后**首次**验证成功路径（E2E-AUTH-002）与重发验证（E2E-AUTH-010）本轮**未**在浏览器复测，矩阵保持 **NOT_RUN** / **PARTIAL**。
+
+**相对 §22A 的主要状态修正：**
+
+| ID              | §22A 状态 | §22B（当前） | 说明                          |
+| --------------- | --------- | ------------ | ----------------------------- |
+| E2E-AUTH-005    | PARTIAL   | **PASS**     | 完整邮件链 + 新密码登录       |
+| E2E-DIC-001     | PARTIAL   | **PASS**     | Reader 内查词，非仅配置页测试 |
+| E2E-AI-002      | NOT_RUN   | **PASS**     | 拖选解释 / 问 AI              |
+| E2E-AI-004      | PARTIAL   | **PASS**     | 新对话 + 完整回答             |
+| E2E-ADM-TAX-004 | PARTIAL   | **PASS**     | 系统来源删除禁用已观察        |
+
+**统计（§21 矩阵，补充验收后；§22B 截止时点历史快照）：**
+
+| 结果    | 数量 | 计入通过？                       |
+| ------- | ---: | -------------------------------- |
+| PASS    |   50 | 是（仅分母内 PASS）              |
+| PARTIAL |    7 | 否                               |
+| FAIL    |    0 | 否                               |
+| BLOCKED |    1 | 否（E2E-ADM-AST-002 无孤儿夹具） |
+| SKIP    |    2 | 否（AUTH-006、DSC-003 不计分母） |
+| NOT_RUN |   13 | 否                               |
+
+**覆盖率（§1.6）：** 50 / 71 ≈ **70.4%**。**未**达到 95% 发布门禁目标；亦**不得**对外声称已达 95% 覆盖率。
+
+**仍开放 / 待补 Chrome（节选）：**
+
+（以下为 §22B 截止时点的历史快照；后续补齐结果见 §22C、§22D。）
+
+- E2E-AUTH-002（验证邮件成功链）、E2E-AUTH-010（重发验证，测试环境 Resend 历史限制见 §22A）。
+- E2E-DSC-006、E2E-DSC-007；E2E-RDR-005、E2E-RDR-006；E2E-AUD-003（无音频降级）；E2E-TRN-003（缓存命中）；E2E-ADM-001、E2E-ADM-003；部分 EPUB 取消发布/删除等 **NOT_RUN** 项见 §21。
+
+---
+
+## 22C. 2026-09-23 冲突与缓存补充验收
+
+**浏览器补充：**
+
+- **E2E-RDR-005 PASS：** 同一账号打开两个内置浏览器窗口。窗口 B 的打开动作使窗口 A 持有旧 revision；窗口 A 再提交章节操作时收到 409，页面显示「阅读进度已同步，请从当前章节继续」，并保持在服务端最新章节。
+- **E2E-RDR-006 PASS：** 未登录直接打开公开 Reader，点击章节导航后弹出「登录后同步你的阅读进度」登录窗口，未静默写入进度。
+- **E2E-TRN-003 保持 PARTIAL：** 浏览器关闭再开启双语后译文即时恢复；隔离后端测试已断言第二次翻译请求返回 `cached: true`，但当前浏览器验收未取得 Network 面板证据。
+
+**后端隔离测试：**
+
+- `tests/functional/domains/translate/translate.spec.ts`：1 个测试通过，覆盖首次生成与第二次请求缓存命中。
+- `tests/functional/domains/assets/reader-audio.spec.ts`：2 个测试通过，覆盖章节音频可用性、缺失对象与内容过期降级。
+- 测试仅使用 `gloaming_test` 与 Redis DB1；Resend 验证邮件错误为测试邮件服务环境限制，不影响本两组断言。
+
+**音频结论：** 无音频分支已在前端实现（无可用音频、缺失美音/英音、播放失败均有处理），但本轮没有可用于浏览器验收的「已发布且整章无音频」夹具，因此 E2E-AUD-003 仍为 NOT_RUN。
+
+**统计（§21 矩阵，§22C 截止时点历史快照）：**
+
+| 结果    | 数量 | 计入通过？                       |
+| ------- | ---: | -------------------------------- |
+| PASS    |   52 | 是（仅分母内 PASS）              |
+| PARTIAL |    7 | 否                               |
+| FAIL    |    0 | 否                               |
+| BLOCKED |    1 | 否（E2E-ADM-AST-002 无孤儿夹具） |
+| SKIP    |    2 | 否（AUTH-006、DSC-003 不计分母） |
+| NOT_RUN |   11 | 否                               |
+
+**覆盖率（§1.6）：** 52 / 71 ≈ **73.2%**。仍未达到 95% 发布门禁目标。
+
+**仍开放（§22C 截止时点历史快照）：** AUTH-002/AUTH-010、发现筛选分支、音频无音频浏览器降级、翻译缓存浏览器 Network 证据、管理员权限拒绝与部分 EPUB 下架/删除等。**当前**待补项见 **§22E** 与 §21 矩阵。
+
+---
+
+## 22D. 2026-09-23 P0 浏览器补充验收
+
+**（本节统计为历史快照；当前计数见 §22E。）**
+
+**与 §22A–§22C 关系：** 前三节统计为同日**历史快照**；本节记录 **P0 浏览器补充**截止时点汇总（54 PASS 等），**全文保留**；§21 矩阵后续按 §22E 更新。**当前**统计 SSOT 见 **§22E**。
+
+**浏览器补充（PASS）：**
+
+- **E2E-DSC-007 PASS：** 内置浏览器从 `/discover/e0c79dd9-a70b-404c-81a0-cd3f0b15cadc` 点击「继续阅读」，跳转 `/read/e0c79dd9-a70b-404c-81a0-cd3f0b15cadc`，正文加载。
+- **E2E-ADM-001 PASS：** 内置浏览器以学习者账号访问 `/admin/works`，页面显示「无法进入管理后台/当前账号没有管理员权限」，**无** 500。
+
+**后端隔离辅证（不得单独标浏览器 PASS）：**
+
+- `apps/backend/tests/functional/domains/translate/translate.spec.ts`：Cursor 增补翻译 SSE **失败**用例；在 **gloaming_test** / **Redis DB1** 下运行通过 **2/2**。仅作 **E2E-TRN-004** 后端辅证；**E2E-TRN-004** 矩阵状态仍为 **NOT_RUN**（浏览器错误 Toast / 断网路径未验收）。
+- `apps/backend/tests/functional/domains/works/catalog-taxonomy.spec.ts`：本轮 **4/4** 通过；新增公开作品详情 **sources** 投影用例。仅作 **E2E-ADM-TAX-003** 后端辅证；**E2E-ADM-TAX-003** 矩阵状态仍为 **NOT_RUN**（浏览器作品绑定来源未验收）。
+- **完整后端套件** `pnpm --filter @gloaming/backend test`：**78/78** 测试文件通过，**554/555** 用例通过，**1** 条条件 **skip**，退出码 **0**；**PostgreSQL**=`gloaming_test`，**Redis**=**DB1**。日志中的 Resend `validation_error` 仅为已知环境噪声，**不**记为产品 FAIL，**不**改变 §21 浏览器矩阵状态。
+
+**相对 §22C 的状态修正：**
+
+| ID          | §22C 状态 | §22D（当前） | 说明                           |
+| ----------- | --------- | ------------ | ------------------------------ |
+| E2E-DSC-007 | NOT_RUN   | **PASS**     | 详情「继续阅读」→ Reader       |
+| E2E-ADM-001 | PARTIAL   | **PASS**     | 学习者 `/admin/works` 无权限页 |
+
+**统计（§21 矩阵，§22D 截止时点历史快照）：**
+
+| 结果    | 数量 | 计入通过？                       |
+| ------- | ---: | -------------------------------- |
+| PASS    |   54 | 是（仅分母内 PASS）              |
+| PARTIAL |    6 | 否                               |
+| FAIL    |    0 | 否                               |
+| BLOCKED |    1 | 否（E2E-ADM-AST-002 无孤儿夹具） |
+| SKIP    |    2 | 否（AUTH-006、DSC-003 不计分母） |
+| NOT_RUN |   10 | 否                               |
+
+**覆盖率（§1.6）：** 54 / 71 ≈ **76.1%**。**未**达到 95% 发布门禁目标。
+
+**仍开放（§22D 截止时点历史快照）：** E2E-AUTH-002 / E2E-AUTH-010（邮件环境）；E2E-DSC-006；E2E-AUD-003（无音频降级浏览器夹具）；E2E-TRN-003（浏览器 Network `cached:true` 证据）；**E2E-TRN-004**（浏览器失败路径，后端辅证见上）；**E2E-ADM-TAX-003**（浏览器作品绑定来源，后端辅证见上）；E2E-ADM-003；部分 EPUB 重试/取消发布/删除等 **NOT_RUN** 项详见 §21。**当前**待补项见 **§22E**。
+
+---
+
+## 22E. 2026-09-23 管理员 EPUB 下架/再发布验收
+
+**与 §22A–§22D 关系：** 前四节统计为同日**历史快照**；本节为 **取消发布（下架）与再发布** 浏览器验收后的**当前**汇总；§21 矩阵已按本节更新 **E2E-ADM-EPUB-008**。
+
+**浏览器补充（PASS）：**
+
+- **E2E-ADM-EPUB-008 PASS：** 2026-09-23 内置浏览器，管理员在既有作品 `/admin/works/e0c79dd9-a70b-404c-81a0-cd3f0b15cadc` 执行下架后，作品页显示**待发布**与「**已下架**」；随后重新发布，状态恢复**已发布**并出现「**已发布**」。**未**执行删除（**E2E-ADM-EPUB-009** 仍 **NOT_RUN**）。
+
+**相对 §22D 的状态修正：**
+
+| ID               | §22D 状态 | §22E（当前） | 说明                              |
+| ---------------- | --------- | ------------ | --------------------------------- |
+| E2E-ADM-EPUB-008 | NOT_RUN   | **PASS**     | 下架→待发布/已下架；再发布→已发布 |
+
+**统计（§21 矩阵，当前）：**
+
+| 结果    | 数量 | 计入通过？                       |
+| ------- | ---: | -------------------------------- |
+| PASS    |   55 | 是（仅分母内 PASS）              |
+| PARTIAL |    6 | 否                               |
+| FAIL    |    0 | 否                               |
+| BLOCKED |    1 | 否（E2E-ADM-AST-002 无孤儿夹具） |
+| SKIP    |    2 | 否（AUTH-006、DSC-003 不计分母） |
+| NOT_RUN |    9 | 否                               |
+
+**覆盖率（§1.6）：** 55 / 71 ≈ **77.5%**。**未**达到 95% 发布门禁目标。
+
+**当前仍开放（节选）：** E2E-AUTH-002 / E2E-AUTH-010（邮件环境）；E2E-DSC-006；E2E-AUD-003（无音频降级浏览器夹具）；E2E-TRN-003（浏览器 Network `cached:true` 证据）；**E2E-TRN-004**（浏览器失败路径）；**E2E-ADM-TAX-003**（浏览器作品绑定来源）；E2E-ADM-003；**E2E-ADM-EPUB-009**（删除作品，本轮未跑）；其余 **NOT_RUN** 项详见 §21。
 
 ---
 
@@ -1351,10 +1524,15 @@
 
 ## 27. 修订记录
 
-| 日期       | 说明                                                                                                       |
-| ---------- | ---------------------------------------------------------------------------------------------------------- |
-| 2026-09-22 | 首版：基于 MVP 1a 当前实现与产品 SSOT                                                                      |
-| 2026-09-22 | 事实校正：认证验证/重置后会话与跳转、用户名登录、HIS-002 步骤表                                            |
-| 2026-09-23 | 验证分层与覆盖率规则；证据矩阵；补齐 AUTH/DSC/ACC/EPUB/TAX 分支；GitHub 不计分母；默认 NOT_RUN             |
-| 2026-09-23 | §21 矩阵填入本地 Chromium 验收结果；新增 §22A 本轮汇总；§22–§26 顺延为 §23–§27                             |
-| 2026-09-23 | E2E-AI-003 PASS（Reader Drawer + streamAi 回归）；回填 Vitest/tsc/eslint 辅证；§22A 统计与发布门禁说明更新 |
+| 日期       | 说明                                                                                                                                                                                   |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-22 | 首版：基于 MVP 1a 当前实现与产品 SSOT                                                                                                                                                  |
+| 2026-09-22 | 事实校正：认证验证/重置后会话与跳转、用户名登录、HIS-002 步骤表                                                                                                                        |
+| 2026-09-23 | 验证分层与覆盖率规则；证据矩阵；补齐 AUTH/DSC/ACC/EPUB/TAX 分支；GitHub 不计分母；默认 NOT_RUN                                                                                         |
+| 2026-09-23 | §21 矩阵填入本地 Chromium 验收结果；新增 §22A 本轮汇总；§22–§26 顺延为 §23–§27                                                                                                         |
+| 2026-09-23 | E2E-AI-003 PASS（Reader Drawer + streamAi 回归）；回填 Vitest/tsc/eslint 辅证；§22A 统计与发布门禁说明更新                                                                             |
+| 2026-09-23 | 新增 §22B 补充验收（内置浏览器）；§21 修正 AUTH-005、DIC-001、AI-002/004、双语/TTS/管理员来源等；保留 §22A 历史快照                                                                    |
+| 2026-09-23 | 新增 §22C 冲突与缓存补充验收；RDR-005/006 浏览器 PASS；补充翻译缓存与音频隔离测试证据                                                                                                  |
+| 2026-09-23 | 新增 §22D P0 浏览器补充验收；DSC-007、ADM-001 PASS；TRN-004 后端失败用例辅证；当前覆盖率 54/71 ≈ 76.1%                                                                                 |
+| 2026-09-23 | §22D 增补后端隔离辅证：`catalog-taxonomy.spec.ts` 4/4（ADM-TAX-003 sources 投影，矩阵仍 NOT_RUN）；全量 `@gloaming/backend` test 78/78 文件、554/555 用例（1 条件 skip）；矩阵统计未变 |
+| 2026-09-23 | 新增 §22E 管理员 EPUB 下架/再发布验收；ADM-EPUB-008 PASS；学习者测试账号称谓去敏；§22D 保留历史快照；当前覆盖率 55/71 ≈ 77.5%                                                          |
