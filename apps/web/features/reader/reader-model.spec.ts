@@ -36,6 +36,14 @@ describe('resolveAudioRole', () => {
     expect(resolveAudioRole({ us: true, uk: true }, 'uk')).toBe('uk');
     expect(resolveAudioRole({ us: true, uk: false }, 'uk')).toBe('us');
   });
+
+  /** ReaderTts shows the US/UK segment only when both roles are API-available. */
+  it('requires both accents available before accent switching is offered', () => {
+    const shouldOfferAccentSwitch = (available: { us: boolean; uk: boolean }) => available.us && available.uk;
+    expect(shouldOfferAccentSwitch({ us: true, uk: true })).toBe(true);
+    expect(shouldOfferAccentSwitch({ us: true, uk: false })).toBe(false);
+    expect(shouldOfferAccentSwitch({ us: false, uk: false })).toBe(false);
+  });
 });
 
 describe('playback rate', () => {

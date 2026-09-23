@@ -468,4 +468,122 @@ describe('learner part audio', () => {
     vi.restoreAllMocks();
     resetObjectStoreCache();
   });
+
+  it('maps learner availability to role readiness, object loss, and content-stale degradation', async () => {
+    const admin = await createSession('admin');
+    const learner = await createSession('user');
+    await ensureTtsConfig();
+
+    const partBody = 'Role matrix body.';
+    const create = await app.request('/api/admin/works', {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Role Matrix',
+        body: partBody,
+      }),
+    });
+    expect(create.status).toBe(201);
+    const work = (await create.json()) as AdminWork;
+    const partId = work.parts[0]!.id;
+    const taxonomy = await ensureWorkTaxonomyFixture('reader-audio-roles');
+
+    expect(
+      (
+        await app.request(`/api/admin/works/${work.id}`, {
+          method: 'PATCH',
+          headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify(taxonomy),
+        })
+      ).status,
+    ).toBe(200);
+
+    const memoryRedis = createMemoryRedis();
+    const objectStore = createMemoryObjectStore();
+    setObjectStoreForTests(objectStore);
+    const redisSpy = vi.spyOn(redisLib, 'getRedis').mockReturnValue(memoryRedis.client as never);
+    vi.spyOn(azureTts, 'synthesizeAzureTts').mockImplementation(async (input) => ({
+      audio: Buffer.from(`mp3-${input.voice}`),
+      mimeType: 'audio/mpeg',
+      wordTimings: [{ text: 'Role', audioOffsetMs: 0, durationMs: 80, textOffset: 0 }],
+    }));
+    vi.spyOn(audioConcat, 'concatMp3Buffers').mockImplementation(async (parts) => Buffer.concat(parts));
+    vi.spyOn(queueLib, 'enqueue').mockImplementation(async (name, data) => {
+      if (name === 'part-audio-generate') {
+        await processPartAudioGenerate(data as Parameters<typeof processPartAudioGenerate>[0]);
+      }
+      return `job-${Date.now()}`;
+    });
+
+    async function partAudioAvail(): Promise<ReaderPartData['audioAvailable']> {
+      const res = await app.request(`/api/reader/parts/${partId}`, {
+        headers: { Cookie: learner.cookie },
+      });
+      expect(res.status).toBe(200);
+      return ((await res.json()) as ReaderPartData).audioAvailable;
+    }
+
+    async function learnerTrack(role: 'us' | 'uk') {
+      return app.request(`/api/reader/parts/${partId}/audio?role=${role}`, {
+        headers: { Cookie: learner.cookie },
+      });
+    }
+
+    const usOnlyGeneration = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roles: ['us'] }),
+    });
+    expect(usOnlyGeneration.status).toBe(200);
+
+    expect(
+      (
+        await app.request(`/api/admin/works/${work.id}/publish`, {
+          method: 'POST',
+          headers: { Cookie: admin.cookie },
+        })
+      ).status,
+    ).toBe(200);
+
+    expect(await partAudioAvail()).toEqual({ us: true, uk: false });
+    expect((await learnerTrack('us')).status).toBe(200);
+    expect((await learnerTrack('uk')).status).toBe(404);
+
+    const ukGeneration = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roles: ['uk'] }),
+    });
+    expect(ukGeneration.status).toBe(200);
+    expect(await partAudioAvail()).toEqual({ us: true, uk: true });
+
+    const usTrackRes = await learnerTrack('us');
+    const ukTrackRes = await learnerTrack('uk');
+    expect(usTrackRes.status).toBe(200);
+    expect(ukTrackRes.status).toBe(200);
+    const usTrack = (await usTrackRes.json()) as ReaderAudioTrack;
+    const ukTrack = (await ukTrackRes.json()) as ReaderAudioTrack;
+
+    const contentHash = hashPartAudioContent(partBody);
+    const usChapterKey = partAudioObjectKey(partId, audioKindForRole('us'), contentHash);
+    objectStore.store.delete(usChapterKey);
+
+    expect(await partAudioAvail()).toEqual({ us: true, uk: true });
+    expect((await app.request(`/api/assets/${usTrack.assetId}`, { headers: { Cookie: learner.cookie } })).status).toBe(
+      404,
+    );
+    expect((await app.request(`/api/assets/${ukTrack.assetId}`, { headers: { Cookie: learner.cookie } })).status).toBe(
+      200,
+    );
+
+    await db.update(readingPartTable).set({ body: 'Role matrix changed.' }).where(eq(readingPartTable.id, partId));
+    expect(await partAudioAvail()).toEqual({ us: false, uk: false });
+    expect((await learnerTrack('us')).status).toBe(404);
+    expect((await learnerTrack('uk')).status).toBe(404);
+
+    await db.delete(readingWorkTable).where(eq(readingWorkTable.id, work.id));
+    redisSpy.mockRestore();
+    vi.restoreAllMocks();
+    resetObjectStoreCache();
+  });
 });
