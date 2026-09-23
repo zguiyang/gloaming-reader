@@ -10,6 +10,7 @@ import {
   isLlmApiFamily,
   type LlmApiFamily,
   type LlmProvider,
+  normalizeBalanceEndpoint,
   type ProviderBalanceResult,
   providerSupportsOptionalField,
   type TestLlmProviderBody,
@@ -32,7 +33,7 @@ import {
 } from '@/infra/llm';
 import { rootLogger } from '@/infra/logging/logger';
 import { HTTP_STATUS } from '@/shared/constants';
-import { AppError, NotFoundError } from '@/shared/errors/app-error';
+import { AppError, NotFoundError, ValidationFailedError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 type ProviderRow = typeof llmProviderTable.$inferSelect;
@@ -122,7 +123,16 @@ export async function updateProvider(id: string, body: UpdateLlmProviderBody): P
     patch.thinkingParam = body.thinkingParam;
   }
   if (body.balanceEndpoint !== undefined) {
-    patch.balanceEndpoint = body.balanceEndpoint;
+    if (body.balanceEndpoint == null || !body.balanceEndpoint.trim()) {
+      patch.balanceEndpoint = null;
+    } else {
+      const effectiveBaseUrl = body.baseUrl ?? existing[0].baseUrl;
+      const normalized = normalizeBalanceEndpoint(body.balanceEndpoint, effectiveBaseUrl);
+      if (!normalized.ok) {
+        throw new ValidationFailedError([{ path: 'balanceEndpoint', message: normalized.message }]);
+      }
+      patch.balanceEndpoint = normalized.value;
+    }
   }
   if (body.balanceAmountPath !== undefined) {
     patch.balanceAmountPath = body.balanceAmountPath;
