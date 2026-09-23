@@ -292,6 +292,24 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
       return;
     }
 
+    if (!replyText.trim() && toolRoundCount > 0) {
+      let assembled: AIMessageChunk | null = null;
+      for await (const chunk of await chat.stream(conversation, runConfig)) {
+        if (options.signal?.aborted) {
+          return;
+        }
+        assembled = assembled ? assembled.concat(chunk) : chunk;
+        const text = messageContentToString(chunk.content);
+        if (text) {
+          yield { type: 'delta', text };
+        }
+      }
+      if (assembled) {
+        addUsage(tokens, assembled.usage_metadata);
+        replyText = messageContentToString(assembled.content);
+      }
+    }
+
     if (!replyText.trim()) {
       throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
     }
