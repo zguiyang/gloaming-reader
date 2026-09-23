@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildVerificationUrl, sendAuthMail, shouldLogDevAuthLink } from '@/infra/auth/mail';
+import { AuthMailSubmissionError, buildVerificationUrl, sendAuthMail, shouldLogDevAuthLink } from '@/infra/auth/mail';
 
 describe('auth-mail', () => {
   afterEach(() => {
@@ -37,25 +37,37 @@ describe('auth-mail', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('surfaces provider rejection without logging message content', async () => {
+  it('surfaces Resend 429 as AUTH_MAIL_PROVIDER_ERROR without leaking provider body', async () => {
+    const providerDetail = 'try later';
     vi.stubGlobal(
       'fetch',
       vi
         .fn()
         .mockResolvedValue(
-          new Response(JSON.stringify({ name: 'rate_limit_exceeded', message: 'try later' }), { status: 429 }),
+          new Response(JSON.stringify({ name: 'rate_limit_exceeded', message: providerDetail }), { status: 429 }),
         ),
     );
 
-    await expect(
-      sendAuthMail({
-        operation: 'password_reset',
+    let caught: unknown;
+    try {
+      await sendAuthMail({
+        operation: 'verification',
         userId: 'user-1',
         to: 'person@example.com',
-        subject: 'Reset',
-        text: 'Reset your password',
-      }),
-    ).rejects.toMatchObject({ code: 'AUTH_MAIL_PROVIDER_ERROR' });
+        subject: 'Verify',
+        text: 'Verify your email',
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(AuthMailSubmissionError);
+    expect(caught).toMatchObject({
+      code: 'AUTH_MAIL_PROVIDER_ERROR',
+      message: 'Auth email provider rejected the request',
+    });
+    expect(String((caught as Error).message)).not.toContain(providerDetail);
+    expect(String((caught as Error).message)).not.toContain('rate_limit_exceeded');
   });
 
   it('bounds a provider request that never completes', async () => {
