@@ -1,7 +1,26 @@
 import { z } from 'zod';
 
+import { normalizeBalanceEndpoint } from './balance-endpoint.ts';
 import { AI_SETTING_KEY_VALUES } from './llm-config-keys.ts';
 import { LLM_API_FAMILIES } from './wire-registry.ts';
+
+const balanceEndpointInputSchema = z.string().trim().max(500).optional().nullable();
+
+function normalizeBalanceEndpointField(
+  balanceEndpoint: string | null | undefined,
+  baseUrl: string,
+  ctx: z.RefinementCtx,
+): string | null {
+  if (balanceEndpoint == null || !balanceEndpoint.trim()) {
+    return null;
+  }
+  const result = normalizeBalanceEndpoint(balanceEndpoint, baseUrl);
+  if (!result.ok) {
+    ctx.addIssue({ code: 'custom', message: result.message, path: ['balanceEndpoint'] });
+    return null;
+  }
+  return result.value;
+}
 
 export const llmApiFamilySchema = z.enum(LLM_API_FAMILIES);
 
@@ -26,40 +45,43 @@ export const llmProviderSchema = z.object({
 
 export type LlmProvider = z.infer<typeof llmProviderSchema>;
 
-export const createLlmProviderBodySchema = z.object({
-  apiFamily: llmApiFamilySchema,
-  name: z.string().trim().min(1).max(120),
-  baseUrl: z.string().trim().url().max(500),
-  apiKey: z.string().min(1).max(2000),
-  proxyUrl: z
-    .string()
-    .trim()
-    .url()
-    .max(500)
-    .refine((value) => /^(https?|socks5):\/\//i.test(value), { message: '代理地址需为 http/https/socks5' })
-    .optional()
-    .nullable(),
-  thinkingParam: z
-    .string()
-    .trim()
-    .min(1)
-    .max(100)
-    .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, { message: '思考参数名需为合法标识符' })
-    .optional()
-    .nullable(),
-  balanceEndpoint: z
-    .string()
-    .trim()
-    .max(500)
-    .refine((value) => /^(https?):\/\//i.test(value) || value.startsWith('/'), {
-      message: '余额端点需为 http(s) 地址或以 / 开头的路径',
-    })
-    .optional()
-    .nullable(),
-  balanceAmountPath: z.string().trim().min(1).max(200).optional().nullable(),
-  balanceCurrencyPath: z.string().trim().min(1).max(50).optional().nullable(),
-  isEnabled: z.boolean().optional().default(true),
-});
+export const createLlmProviderBodySchema = z
+  .object({
+    apiFamily: llmApiFamilySchema,
+    name: z.string().trim().min(1).max(120),
+    baseUrl: z.string().trim().url().max(500),
+    apiKey: z.string().min(1).max(2000),
+    proxyUrl: z
+      .string()
+      .trim()
+      .url()
+      .max(500)
+      .refine((value) => /^(https?|socks5):\/\//i.test(value), { message: '代理地址需为 http/https/socks5' })
+      .optional()
+      .nullable(),
+    thinkingParam: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, { message: '思考参数名需为合法标识符' })
+      .optional()
+      .nullable(),
+    balanceEndpoint: balanceEndpointInputSchema,
+    balanceAmountPath: z.string().trim().min(1).max(200).optional().nullable(),
+    balanceCurrencyPath: z.string().trim().min(1).max(50).optional().nullable(),
+    isEnabled: z.boolean().optional().default(true),
+  })
+  .superRefine((body, ctx) => {
+    normalizeBalanceEndpointField(body.balanceEndpoint, body.baseUrl, ctx);
+  })
+  .transform((body) => {
+    if (!body.balanceEndpoint?.trim()) {
+      return { ...body, balanceEndpoint: null };
+    }
+    const result = normalizeBalanceEndpoint(body.balanceEndpoint, body.baseUrl);
+    return { ...body, balanceEndpoint: result.ok ? result.value : null };
+  });
 
 export type CreateLlmProviderBody = z.infer<typeof createLlmProviderBodySchema>;
 
@@ -84,15 +106,7 @@ export const updateLlmProviderBodySchema = z
       .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, { message: '思考参数名需为合法标识符' })
       .optional()
       .nullable(),
-    balanceEndpoint: z
-      .string()
-      .trim()
-      .max(500)
-      .refine((value) => /^(https?):\/\//i.test(value) || value.startsWith('/'), {
-        message: '余额端点需为 http(s) 地址或以 / 开头的路径',
-      })
-      .optional()
-      .nullable(),
+    balanceEndpoint: balanceEndpointInputSchema,
     balanceAmountPath: z.string().trim().min(1).max(200).optional().nullable(),
     balanceCurrencyPath: z.string().trim().min(1).max(50).optional().nullable(),
     isEnabled: z.boolean().optional(),

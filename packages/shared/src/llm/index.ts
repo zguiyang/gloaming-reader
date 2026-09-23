@@ -1,3 +1,4 @@
+export { normalizeBalanceEndpoint } from './balance-endpoint.ts';
 export type {
   CreateLlmModelBody,
   CreateLlmProviderBody,
