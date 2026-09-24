@@ -4,6 +4,7 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import {
   contentAsset as contentAssetTable,
+  type ContentAssetMeta,
   readingPart as readingPartTable,
   readingWork as readingWorkTable,
 } from '@gloaming/db';
@@ -16,6 +17,7 @@ import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 import { getObject, putObject } from '@/infra/storage';
 
+import { type ImageOptimizeResult, optimizeIngestImage } from './image-optimizer';
 import {
   coverKey,
   deleteParseArtifactKeys,
@@ -60,6 +62,17 @@ async function loadOriginBytes(workId: string): Promise<Buffer> {
     throw new Error(`Origin file object missing: ${asset.storageKey}`);
   }
   return object.body;
+}
+
+function ingestImageAssetMeta(originalPath: string, optimized: ImageOptimizeResult): ContentAssetMeta {
+  return {
+    originalPath,
+    size: optimized.finalByteLength,
+    sourceMimeType: optimized.originalMime,
+    sourceSize: optimized.originalByteLength,
+    transform: optimized.transform,
+    transformVersion: optimized.transformVersion,
+  };
 }
 
 /** Rewrite placeholder tokens to published asset URLs (or drop unresolved ones). */
@@ -110,21 +123,31 @@ export async function runContentParse(
     const chapterHtml = content.chapters.map((chapter) => chapter.html).join('\n');
     const usedImages = content.images.filter((image) => chapterHtml.includes(image.token)).slice(0, MAX_BOOK_IMAGES);
 
-    const imageDrafts = usedImages.map((image) => {
-      const hash = sha256(image.bytes);
-      return {
-        id: randomUUID(),
-        image,
-        hash,
-        key: imageKey(workId, attemptToken, hash, image.mime),
-      };
-    });
-    const coverDraft = content.cover
-      ? {
+    const imageDrafts = await Promise.all(
+      usedImages.map(async (image) => {
+        const sourceHash = sha256(image.bytes);
+        const optimized = await optimizeIngestImage({ bytes: image.bytes, mime: image.mime });
+        return {
           id: randomUUID(),
-          key: coverKey(workId, attemptToken, content.cover.mime),
-          hash: sha256(content.cover.bytes),
-        }
+          image,
+          sourceHash,
+          optimized,
+          key: imageKey(workId, attemptToken, sourceHash, optimized.mime),
+        };
+      }),
+    );
+    const coverDraft = content.cover
+      ? await (async () => {
+          const sourceHash = sha256(content.cover!.bytes);
+          const optimized = await optimizeIngestImage({ bytes: content.cover!.bytes, mime: content.cover!.mime });
+          return {
+            id: randomUUID(),
+            cover: content.cover!,
+            sourceHash,
+            optimized,
+            key: coverKey(workId, attemptToken, sourceHash, optimized.mime),
+          };
+        })()
       : null;
     const plannedKeys = [...imageDrafts.map((draft) => draft.key), ...(coverDraft ? [coverDraft.key] : [])];
 
@@ -136,7 +159,7 @@ export async function runContentParse(
     const hrefToAssetId = new Map<string, string>();
     for (const draft of imageDrafts) {
       await lease.ensureOwned();
-      await putObject({ key: draft.key, body: draft.image.bytes, contentType: draft.image.mime });
+      await putObject({ key: draft.key, body: draft.optimized.bytes, contentType: draft.optimized.mime });
       uploadedKeys.push(draft.key);
       await lease.ensureOwned();
       hrefToAssetId.set(draft.image.href, draft.id);
@@ -144,7 +167,11 @@ export async function runContentParse(
 
     if (coverDraft && content.cover) {
       await lease.ensureOwned();
-      await putObject({ key: coverDraft.key, body: content.cover.bytes, contentType: content.cover.mime });
+      await putObject({
+        key: coverDraft.key,
+        body: coverDraft.optimized.bytes,
+        contentType: coverDraft.optimized.mime,
+      });
       uploadedKeys.push(coverDraft.key);
       await lease.ensureOwned();
     }
@@ -190,9 +217,9 @@ export async function runContentParse(
           workId,
           kind: 'image',
           storageKey: draft.key,
-          mimeType: draft.image.mime,
-          contentHash: draft.hash,
-          meta: { originalPath: draft.image.href, size: draft.image.bytes.length },
+          mimeType: draft.optimized.mime,
+          contentHash: draft.sourceHash,
+          meta: ingestImageAssetMeta(draft.image.href, draft.optimized),
           status: 'ready',
         });
       }
@@ -202,9 +229,9 @@ export async function runContentParse(
           workId,
           kind: 'cover',
           storageKey: coverDraft.key,
-          mimeType: content.cover.mime,
-          contentHash: coverDraft.hash,
-          meta: { originalPath: content.cover.originalPath, size: content.cover.bytes.length },
+          mimeType: coverDraft.optimized.mime,
+          contentHash: coverDraft.sourceHash,
+          meta: ingestImageAssetMeta(content.cover.originalPath, coverDraft.optimized),
           status: 'ready',
         });
       }

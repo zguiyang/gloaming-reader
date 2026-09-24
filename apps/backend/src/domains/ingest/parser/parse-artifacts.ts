@@ -18,14 +18,37 @@ export type ParseArtifactManifest = {
   keys: string[];
 };
 
-export function imageKey(workId: string, attemptToken: string, contentHash: string, mime: string): string {
-  const ext = mime === 'image/png' ? 'png' : mime === 'image/gif' ? 'gif' : mime === 'image/webp' ? 'webp' : 'jpg';
-  return `book-images/${workId}/${attemptToken}/${contentHash}.${ext}`;
+const PARSE_IMAGE_KEY_VERSION = 'img-v1';
+
+/** File extension for object keys from the final stored MIME type (not a default JPEG). */
+export function storageExtensionForMime(mime: string): string {
+  const normalized = mime.trim().toLowerCase();
+  if (normalized === 'image/jpeg' || normalized === 'image/jpg') {
+    return 'jpg';
+  }
+  if (normalized === 'image/png') {
+    return 'png';
+  }
+  if (normalized === 'image/gif') {
+    return 'gif';
+  }
+  if (normalized === 'image/webp') {
+    return 'webp';
+  }
+  if (normalized === 'image/svg+xml') {
+    return 'svg';
+  }
+  return 'bin';
 }
 
-export function coverKey(workId: string, attemptToken: string, mime: string): string {
-  const ext = mime === 'image/png' ? 'png' : mime === 'image/gif' ? 'gif' : mime === 'image/webp' ? 'webp' : 'jpg';
-  return `covers/${workId}/${attemptToken}.${ext}`;
+export function imageKey(workId: string, attemptToken: string, sourceHash: string, mime: string): string {
+  const ext = storageExtensionForMime(mime);
+  return `book-images/${workId}/${attemptToken}/${PARSE_IMAGE_KEY_VERSION}/${sourceHash}.${ext}`;
+}
+
+export function coverKey(workId: string, attemptToken: string, sourceHash: string, mime: string): string {
+  const ext = storageExtensionForMime(mime);
+  return `covers/${workId}/${attemptToken}/${PARSE_IMAGE_KEY_VERSION}/${sourceHash}.${ext}`;
 }
 
 export function sha256(buffer: Buffer): string {

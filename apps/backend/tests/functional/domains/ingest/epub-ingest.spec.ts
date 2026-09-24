@@ -1,4 +1,5 @@
 import { eq, inArray } from 'drizzle-orm';
+import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -14,6 +15,8 @@ import app from '@/app';
 import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
 import { hashFileContent } from '@/domains/assets/uploads';
 import { epubContentParser } from '@/domains/ingest/parser/epub-parser';
+import { IMAGE_OPTIMIZER_TRANSFORM_VERSION } from '@/domains/ingest/parser/image-optimizer';
+import { coverKey, imageKey, sha256 } from '@/domains/ingest/parser/parse-artifacts';
 import { registerParser } from '@/domains/ingest/parser/registry';
 import type { ParsedContent } from '@/domains/ingest/parser/types';
 import { resetMetadataAiOutputs } from '@/domains/ingest/reset';
@@ -168,10 +171,116 @@ describe('EPUB ingest pipeline', () => {
     const cover = assets.find((a) => a.kind === 'cover');
     expect(cover).toBeDefined();
     expect(work!.coverAssetId).toBe(cover!.id);
+    expect(cover!.storageKey).toMatch(new RegExp(`^covers/${created.id}/[^/]+/img-v1/[a-f0-9]{64}\\.jpg$`));
+    expect(cover!.contentHash).toHaveLength(64);
+    expect(cover!.meta?.transform).toBe('none');
+    expect(cover!.meta?.transformVersion).toBe(IMAGE_OPTIMIZER_TRANSFORM_VERSION);
+    expect(cover!.meta?.size).toBe(memory.store.get(cover!.storageKey!)!.body.length);
+    expect(cover!.mimeType).toBe(memory.store.get(cover!.storageKey!)!.contentType);
 
     const parsed = work!.originMeta.parsed as { chapterCount: number; imageCount: number; authors: string[] };
     expect(parsed.chapterCount).toBe(3);
     expect(parsed.authors).toEqual(['Jane Author']);
+  });
+
+  it('stores versioned object keys and final bytes for optimized chapter images', async () => {
+    const pngBytes = await sharp({
+      create: { width: 400, height: 300, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .png({ compressionLevel: 0 })
+      .toBuffer();
+    const sourceHash = sha256(pngBytes);
+    const bytes = await buildEpubBytes({
+      title: 'Optimized Images',
+      language: 'en',
+      coverHref: 'cover.svg',
+      coverBytes: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+      chapters: [
+        {
+          href: 'chapter-1.xhtml',
+          tocLabel: 'Chapter 1',
+          content: `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter 1</title></head>
+<body><h1>Chapter 1</h1><p><img src="images/fig1.png" alt="fig"/></p></body></html>`,
+        },
+      ],
+      extraEntries: { 'images/fig1.png': pngBytes },
+    });
+    const response = await uploadEpub(adminCookie, bytes, createdContentHashes);
+    expect(response.status).toBe(201);
+    const created = (await response.json()) as { id: string };
+    createdWorkIds.push(created.id);
+
+    await runContentParseWorkflow(created.id);
+
+    const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, created.id));
+    const image = assets.find((asset) => asset.kind === 'image');
+    const cover = assets.find((asset) => asset.kind === 'cover');
+    expect(image).toBeDefined();
+    expect(cover).toBeDefined();
+
+    const attemptMatch = image!.storageKey!.match(new RegExp(`^book-images/${created.id}/([^/]+)/img-v1/`));
+    expect(attemptMatch).not.toBeNull();
+    const attemptToken = attemptMatch![1]!;
+
+    const expectedImageKey = imageKey(created.id, attemptToken, sourceHash, 'image/webp');
+    expect(image!.storageKey).toBe(expectedImageKey);
+    expect(image!.contentHash).toBe(sourceHash);
+    expect(image!.mimeType).toBe('image/webp');
+    expect(image!.meta?.sourceMimeType).toBe('image/png');
+    expect(image!.meta?.sourceSize).toBe(pngBytes.length);
+    expect(image!.meta?.size).toBeLessThan(pngBytes.length);
+    expect(image!.meta?.transform).toBe('webp');
+    expect(image!.meta?.transformVersion).toBe(IMAGE_OPTIMIZER_TRANSFORM_VERSION);
+
+    const coverSourceHash = sha256(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'));
+    expect(cover!.storageKey).toBe(coverKey(created.id, attemptToken!, coverSourceHash, 'image/svg+xml'));
+    expect(cover!.mimeType).toBe('image/svg+xml');
+    expect(cover!.meta?.transform).toBe('none');
+
+    const storedImage = memory.store.get(expectedImageKey);
+    expect(storedImage?.contentType).toBe('image/webp');
+    expect(storedImage?.body.length).toBe(image!.meta?.size);
+
+    const [part] = await db
+      .select({ body: readingPartTable.body })
+      .from(readingPartTable)
+      .where(eq(readingPartTable.workId, created.id));
+    expect(part!.body).toContain(`/api/assets/${image!.id}`);
+  });
+
+  it('keeps corrupt image bytes when optimization cannot run', async () => {
+    const corruptPng = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const bytes = await buildEpubBytes({
+      title: 'Corrupt Image Bytes',
+      language: 'en',
+      chapters: [
+        {
+          href: 'chapter-1.xhtml',
+          tocLabel: 'Chapter 1',
+          content: `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter 1</title></head>
+<body><h1>Chapter 1</h1><p><img src="images/broken.png" alt="fig"/></p></body></html>`,
+        },
+      ],
+      extraEntries: { 'images/broken.png': corruptPng },
+    });
+    const response = await uploadEpub(adminCookie, bytes, createdContentHashes);
+    expect(response.status).toBe(201);
+    const created = (await response.json()) as { id: string };
+    createdWorkIds.push(created.id);
+
+    await expect(runContentParseWorkflow(created.id)).resolves.toBe(true);
+
+    const image = (await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, created.id))).find(
+      (asset) => asset.kind === 'image',
+    );
+    expect(image).toBeDefined();
+    expect(image!.contentHash).toBe(sha256(corruptPng));
+    expect(image!.mimeType).toBe('image/png');
+    expect(image!.meta?.transform).toBe('none');
+    expect(image!.meta?.size).toBe(corruptPng.length);
+    expect(memory.store.get(image!.storageKey!)?.body.equals(corruptPng)).toBe(true);
   });
 
   it('handles a single-file EPUB split by headings and drops front matter', async () => {

@@ -553,6 +553,14 @@ export type ContentAssetMeta = {
   size?: number;
   /** Original path inside the source EPUB (image / cover assets). */
   originalPath?: string;
+  /** MIME type of the source bytes before ingest image optimization. */
+  sourceMimeType?: string;
+  /** Byte length of the source image before ingest optimization. */
+  sourceSize?: number;
+  /** Ingest image optimization applied at parse time (`none` | `webp`). */
+  transform?: 'none' | 'webp';
+  /** Version of the ingest image transform rules (e.g. `1`). */
+  transformVersion?: string;
   /** True when the upload reused an already-stored object (dedupe / instant upload). */
   reused?: boolean;
 };
