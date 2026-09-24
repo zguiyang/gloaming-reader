@@ -8,11 +8,13 @@ import {
   readingPart as readingPartTable,
   readingWork as readingWorkTable,
   readingWorkCategory as readingWorkCategoryTable,
+  readingWorkSource as readingWorkSourceTable,
   readingWorkTag as readingWorkTagTable,
+  source as sourceTable,
   tag as tagTable,
 } from '@gloaming/db';
 import { catalogTaxonomyListDataSchema } from '@gloaming/shared/taxonomy';
-import { catalogListDataSchema } from '@gloaming/shared/works';
+import { catalogListDataSchema, workSchema } from '@gloaming/shared/works';
 
 import app from '@/app';
 import { normalizeTag } from '@/domains/taxonomy';
@@ -184,5 +186,76 @@ describe('public catalog taxonomy APIs', () => {
     const titles = body.items.map((item) => item.title).sort();
     expect(titles).toEqual(['History Match', 'Science Match']);
     expect(body.items.every((item) => item.category?.id === categoryId)).toBe(true);
+  });
+
+  describe('GET /api/catalog/works/:id', () => {
+    const workIds: string[] = [];
+    const partIds: string[] = [];
+    const sourceIds: string[] = [];
+
+    afterAll(async () => {
+      if (workIds.length > 0) {
+        await db.delete(readingWorkSourceTable).where(inArray(readingWorkSourceTable.workId, workIds));
+        await db.delete(readingPartTable).where(inArray(readingPartTable.id, partIds));
+        await db.delete(readingWorkTable).where(inArray(readingWorkTable.id, workIds));
+      }
+      if (sourceIds.length > 0) {
+        await db.delete(sourceTable).where(inArray(sourceTable.id, sourceIds));
+      }
+    });
+
+    it('projects linked sources on published catalog-visible work detail', async () => {
+      const sourceId = randomUUID();
+      const workId = randomUUID();
+      const partId = randomUUID();
+      sourceIds.push(sourceId);
+      workIds.push(workId);
+      partIds.push(partId);
+
+      const sourceName = 'Catalog Detail Source';
+      const matchRule = 'catalog-detail.example';
+
+      await db.insert(sourceTable).values({
+        id: sourceId,
+        name: sourceName,
+        origin: 'manual',
+        matchRule,
+      });
+      await db.insert(readingWorkTable).values({
+        id: workId,
+        title: 'Work With Source',
+        status: 'published',
+        visibility: 'catalog',
+        originKind: 'admin_text',
+        publishedAt: new Date(),
+      });
+      await db.insert(readingPartTable).values({
+        id: partId,
+        workId,
+        sortOrder: 0,
+        kind: 'body',
+        title: 'Body',
+        body: '<p>Catalog source projection test body.</p>',
+      });
+      await db.insert(readingWorkSourceTable).values({
+        workId,
+        sourceId,
+        provenance: 'manual',
+      });
+
+      const response = await app.request(`/api/catalog/works/${workId}`);
+      expect(response.status).toBe(200);
+      const body = workSchema.parse(await response.json());
+
+      expect(body.id).toBe(workId);
+      expect(body.sources).toEqual([
+        {
+          id: sourceId,
+          name: sourceName,
+          origin: 'manual',
+          matchRule,
+        },
+      ]);
+    });
   });
 });

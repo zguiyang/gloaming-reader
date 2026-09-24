@@ -5,6 +5,7 @@ import { readingPart as readingPartTable, readingWork as readingWorkTable, user 
 import {
   TRANSLATE_SSE_EVENT,
   type TranslateSseDone,
+  type TranslateSseError,
   type TranslateSseMeta,
   type TranslateSseSentence,
   type TranslateSseTitle,
@@ -15,6 +16,9 @@ import * as aiService from '@/domains/ai';
 import { hashPartContent } from '@/domains/works/content';
 import * as redisLib from '@/infra/cache';
 import { db } from '@/infra/db';
+import { HTTP_STATUS } from '@/shared/constants';
+import { AppError } from '@/shared/errors/app-error';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 const password = 'password123';
 
@@ -264,6 +268,64 @@ describe('Translate HTTP', () => {
       thirdEvents.find((e) => e.event === TRANSLATE_SSE_EVENT.done)!.data,
     ) as TranslateSseDone;
     expect(thirdDone.cached).toBe(false);
+    expect(streamSpy).toHaveBeenCalledTimes(1);
+
+    streamSpy.mockRestore();
+    redisSpy.mockRestore();
+  });
+
+  it('returns text/event-stream with translate SSE error when streamAi throws AppError', async () => {
+    const user = await createSession();
+    createdEmails.push(user.email);
+
+    const workId = `work_tr_err_${Date.now().toString(36)}`;
+    const partId = `part_tr_err_${Date.now().toString(36)}`;
+    createdWorkIds.push(workId);
+    const title = 'Fox Error Test';
+    const body = 'The fox jumped over the lazy dog.';
+    await db.insert(readingWorkTable).values({
+      id: workId,
+      title,
+      status: 'published',
+      publishedAt: new Date(),
+    });
+    await db.insert(readingPartTable).values({
+      id: partId,
+      workId,
+      sortOrder: 0,
+      kind: 'body',
+      title,
+      body,
+    });
+
+    const memory = createMemoryRedis();
+    const redisSpy = vi.spyOn(redisLib, 'getRedis').mockReturnValue(memory.client as never);
+
+    async function* failStream(): AsyncGenerator<aiService.AiStreamEvent> {
+      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
+      yield { type: 'delta', text: '' };
+    }
+
+    const streamSpy = vi.spyOn(aiService, 'streamAi').mockImplementation(() => failStream());
+
+    const response = await app.request('/api/translate/part', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', cookie: user.cookie },
+      body: JSON.stringify({ partId }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type') ?? '').toContain('text/event-stream');
+
+    const events = parseSseBlocks(await response.text());
+    expect(events.map((e) => e.event)).toEqual([TRANSLATE_SSE_EVENT.meta, TRANSLATE_SSE_EVENT.error]);
+
+    const meta = JSON.parse(events[0]!.data) as TranslateSseMeta;
+    expect(meta.contentHash).toBe(hashPartContent(title, body));
+
+    const errPayload = JSON.parse(events[1]!.data) as TranslateSseError & { code: string };
+    expect(errPayload.code).toBe(ERROR_CODES.AI.UNAVAILABLE);
+    expect(errPayload.error).toBeTruthy();
     expect(streamSpy).toHaveBeenCalledTimes(1);
 
     streamSpy.mockRestore();

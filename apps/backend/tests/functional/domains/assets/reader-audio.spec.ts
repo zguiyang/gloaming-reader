@@ -25,6 +25,7 @@ import { encryptApiKey } from '@/infra/llm';
 import * as queueLib from '@/infra/queue';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 import * as azureTts from '@/infra/tts/azure';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 import { ensureWorkTaxonomyFixture } from '../../../helpers/taxonomy-fixture';
@@ -585,5 +586,63 @@ describe('learner part audio', () => {
     redisSpy.mockRestore();
     vi.restoreAllMocks();
     resetObjectStoreCache();
+  });
+
+  it('E2E-AUD-003: published part with no ready audio reports unavailable accents and part-audio not-found', async () => {
+    const admin = await createSession('admin');
+    const learner = await createSession('user');
+
+    const create = await app.request('/api/admin/works', {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'No Audio Fallback',
+        body: 'Gate placeholder.',
+      }),
+    });
+    expect(create.status).toBe(201);
+    const work = (await create.json()) as AdminWork;
+    const partId = work.parts[0]!.id;
+    const taxonomy = await ensureWorkTaxonomyFixture('reader-audio-no-ready');
+
+    expect(
+      (
+        await app.request(`/api/admin/works/${work.id}`, {
+          method: 'PATCH',
+          headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify(taxonomy),
+        })
+      ).status,
+    ).toBe(200);
+
+    await db
+      .update(readingPartTable)
+      .set({ body: '<p><img src="/api/reader/assets/figure" alt="Figure"></p>' })
+      .where(eq(readingPartTable.id, partId));
+
+    expect(
+      (
+        await app.request(`/api/admin/works/${work.id}/publish`, {
+          method: 'POST',
+          headers: { Cookie: admin.cookie },
+        })
+      ).status,
+    ).toBe(200);
+
+    const partRes = await app.request(`/api/reader/parts/${partId}`, {
+      headers: { Cookie: learner.cookie },
+    });
+    expect(partRes.status).toBe(200);
+    const partData = (await partRes.json()) as ReaderPartData;
+    expect(partData.audioAvailable).toEqual({ us: false, uk: false });
+    expect(partData.part.body).toContain('<img');
+
+    const usAudio = await app.request(`/api/reader/parts/${partId}/audio?role=us`, {
+      headers: { Cookie: learner.cookie },
+    });
+    expect(usAudio.status).toBe(404);
+    expect(await usAudio.json()).toMatchObject({ code: ERROR_CODES.NOT_FOUND.PART_AUDIO });
+
+    await db.delete(readingWorkTable).where(eq(readingWorkTable.id, work.id));
   });
 });
