@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { apiRequest, ApiRequestError, formatApiError, isUnauthorizedError } from './api-request';
+import {
+  API_INVALID_RESPONSE_CODE,
+  apiRequest,
+  ApiRequestError,
+  formatApiError,
+  isUnauthorizedError,
+} from './api-request';
 import { LOCALE_COOKIE_NAME } from './client-locale';
 
 afterEach(() => {
@@ -186,6 +192,27 @@ describe('apiRequest', () => {
     await expect(apiRequest('/api/ping', { schema: pingSchema })).rejects.toMatchObject({
       message: '响应格式无效',
       status: 502,
+      code: API_INVALID_RESPONSE_CODE,
+    });
+  });
+
+  it('throws INVALID_RESPONSE when response body is not JSON', async () => {
+    vi.stubGlobal('document', { cookie: '' });
+    vi.stubGlobal('navigator', { language: '' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('not json', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    await expect(apiRequest('/api/ping', { schema: pingSchema })).rejects.toMatchObject({
+      message: '响应格式无效',
+      status: 502,
+      code: API_INVALID_RESPONSE_CODE,
     });
   });
 

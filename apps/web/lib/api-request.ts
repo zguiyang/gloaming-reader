@@ -9,6 +9,9 @@ function clientApiMessage(key: string): string {
   return t(getClientLocale(), key);
 }
 
+/** Stable client-side code when HTTP succeeded but the body is not valid JSON or fails schema. */
+export const API_INVALID_RESPONSE_CODE = 'INVALID_RESPONSE';
+
 export type ApiRequestErrorInfo = {
   message: string;
   status: number;
@@ -124,12 +127,26 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions<T>)
     try {
       payload = JSON.parse(rawText) as unknown;
     } catch {
-      throwApiError({ message: clientApiMessage('common.api.invalidResponse'), status: 502 }, onError);
+      throwApiError(
+        {
+          message: clientApiMessage('common.api.invalidResponse'),
+          status: 502,
+          code: API_INVALID_RESPONSE_CODE,
+        },
+        onError,
+      );
     }
   }
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
-    throwApiError({ message: clientApiMessage('common.api.invalidResponse'), status: 502 }, onError);
+    throwApiError(
+      {
+        message: clientApiMessage('common.api.invalidResponse'),
+        status: 502,
+        code: API_INVALID_RESPONSE_CODE,
+      },
+      onError,
+    );
   }
   return parsed.data;
 }

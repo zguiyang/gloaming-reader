@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkAudioPartRowView } from '@/features/admin/works/work-audio-part-row';
+import { workAudioRefetchIntervalMs } from '@/features/admin/works/work-audio-refetch-interval';
 import { formatWorksApiError } from '@/features/admin/works/works-api';
 import { apiRequest } from '@/lib/api-request';
 import { useLocale } from '@/lib/locale-context';
@@ -74,13 +75,11 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
   const query = useQuery({
     queryKey: audioQueryKey.work(workId, role),
     queryFn: ({ signal }) => fetchWorkAudio(workId, role, signal),
-    refetchInterval: (q) => {
-      const data = q.state.data;
-      if (!data) {
-        return false;
-      }
-      return data.summary.generating > 0 ? 2000 : false;
-    },
+    refetchInterval: (q) =>
+      workAudioRefetchIntervalMs({
+        error: q.state.error,
+        data: q.state.data,
+      }),
   });
 
   const invalidate = () => {
