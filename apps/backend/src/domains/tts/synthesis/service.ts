@@ -1,14 +1,18 @@
 import { createHash } from 'node:crypto';
 
 import {
+  normalizeTtsInput,
   TTS_CACHE_KEY_PREFIX_V2,
   TTS_CACHE_MAX_RAW_AUDIO_BYTES,
   TTS_CACHE_SCHEMA_VERSION,
   TTS_CACHE_TTL_SECONDS,
+  TTS_INPUT_NORMALIZATION_VERSION,
   TTS_PROVIDER_AZURE,
   type TtsCachePayload,
   ttsCachePayloadSchema,
   type TtsVoiceRole,
+  type TtsWordTiming,
+  validateAzureWordTimings,
 } from '@gloaming/shared/tts';
 
 import { loadConfigRow, type TtsConfigRow } from '@/domains/tts/config/store';
@@ -23,6 +27,33 @@ import { ERROR_CODES } from '@/shared/errors/codes';
 const ttsLogger = rootLogger.child({ module: 'Tts' });
 
 const TTS_OUTPUT_MIME = 'audio/mpeg';
+
+const mapTtsOffsetIdentity = (ttsOffset: number): number => ttsOffset;
+
+function mapWordTimingsToSourceOffsets(
+  timings: readonly TtsWordTiming[],
+  mapTtsOffsetToSource: (ttsOffset: number) => number,
+): TtsWordTiming[] {
+  return timings.map((timing) => ({
+    ...timing,
+    textOffset: mapTtsOffsetToSource(timing.textOffset),
+  }));
+}
+
+function validateWordTimingsInTtsSpace(
+  boundaries: readonly {
+    text: string;
+    audioOffsetMs: number;
+    durationMs: number;
+    textOffset: number;
+  }[],
+  ttsTextLength: number,
+): TtsWordTiming[] {
+  return validateAzureWordTimings(boundaries, {
+    ttsTextLength,
+    mapTtsOffsetToSource: mapTtsOffsetIdentity,
+  });
+}
 
 export type SynthesizeTtsOptions = {
   text: string;
@@ -67,14 +98,19 @@ function resolveVoice(row: TtsConfigRow, options: { voice?: string; role?: TtsVo
   return row.defaultVoice;
 }
 
+/** Returns Azure synth text for a plain segment (see `normalizeTtsInput` for source mapping). */
 export function normalizeTtsText(text: string): string {
-  return text.trim().replace(/\s+/g, ' ');
+  return normalizeTtsInput(text).ttsText;
 }
 
-/** v2 digest: schema version + text + voice + mime + region. */
-export function buildTtsCacheKeyV2(normalizedText: string, voice: string, region: string): string {
+/** v2 digest: schema version + normalization version + synth text + voice + mime + region. */
+export function buildTtsCacheKeyV2(synthText: string, voice: string, region: string): string {
   const digest = createHash('sha256')
-    .update(`${TTS_CACHE_SCHEMA_VERSION}\0${normalizedText}\0${voice}\0${TTS_OUTPUT_MIME}\0${region}`, 'utf8')
+    .update(
+      `${TTS_CACHE_SCHEMA_VERSION}\0${TTS_INPUT_NORMALIZATION_VERSION}\0${synthText}\0` +
+        `${voice}\0${TTS_OUTPUT_MIME}\0${region}`,
+      'utf8',
+    )
     .digest('hex');
   return `${TTS_CACHE_KEY_PREFIX_V2}${digest}`;
 }
@@ -181,7 +217,8 @@ export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<Synt
     throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.UNSUPPORTED_PROVIDER);
   }
 
-  const text = normalizeTtsText(options.text);
+  const normalizedInput = normalizeTtsInput(options.text);
+  const text = normalizedInput.ttsText;
   if (!text) {
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.TTS.TEXT_REQUIRED);
   }
@@ -212,11 +249,18 @@ export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<Synt
         },
         'TTS cache hit',
       );
+      const ttsSpaceTimings = validateWordTimingsInTtsSpace(cached.payload.wordTimings, text.length);
+      if (cached.payload.wordTimings.length > 0 && ttsSpaceTimings.length === 0) {
+        ttsLogger.warn(
+          { source: options.source, key: cached.key, rawBoundaryCount: cached.payload.wordTimings.length },
+          'Cached word timings failed validation; returning audio without timings',
+        );
+      }
       return {
         audio,
         mimeType: cached.payload.mimeType,
         voice: cached.payload.voice,
-        wordTimings: cached.payload.wordTimings,
+        wordTimings: mapWordTimingsToSourceOffsets(ttsSpaceTimings, normalizedInput.mapTtsOffsetToSource),
         cached: true,
       };
     }
@@ -238,11 +282,20 @@ export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<Synt
     text,
   });
 
+  const ttsSpaceTimings = validateWordTimingsInTtsSpace(synthesized.wordTimings, text.length);
+  if (synthesized.wordTimings.length > 0 && ttsSpaceTimings.length === 0) {
+    ttsLogger.warn(
+      { source: options.source, rawBoundaryCount: synthesized.wordTimings.length },
+      'Azure word timings failed validation; returning audio without timings',
+    );
+  }
+  const wordTimings = mapWordTimingsToSourceOffsets(ttsSpaceTimings, normalizedInput.mapTtsOffsetToSource);
+
   const result: SynthesizeTtsResult = {
     audio: synthesized.audio,
     mimeType: synthesized.mimeType,
     voice,
-    wordTimings: synthesized.wordTimings,
+    wordTimings,
     cached: false,
   };
 
@@ -264,7 +317,7 @@ export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<Synt
         mimeType: result.mimeType,
         voice: result.voice,
         audioBase64: result.audio.toString('base64'),
-        wordTimings: result.wordTimings,
+        wordTimings: ttsSpaceTimings,
       };
       const serialized = JSON.stringify(payload);
       await writeTtsCache(v2Key, payload, {

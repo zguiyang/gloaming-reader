@@ -8,7 +8,7 @@ import {
   readingPart as readingPartTable,
 } from '@gloaming/db';
 import { audioKindForRole, buildContentAssetGenerationKey, buildPartAudioText } from '@gloaming/shared/content-assets';
-import { type TtsVoiceRole } from '@gloaming/shared/tts';
+import { filterPersistedWordTimings, type TtsVoiceRole, type TtsWordTiming } from '@gloaming/shared/tts';
 
 import { recordTtsInvocation, synthesizeTts } from '@/domains/tts';
 import { hashPartAudioContent, htmlToPlainText } from '@/domains/works/content';
@@ -52,6 +52,28 @@ function intMs(n: number): number {
   return Math.round(n);
 }
 
+/** Segment duration when word timings are missing or were dropped at the TTS boundary. */
+export function estimateSegmentDurationMs(wordTimings: readonly TtsWordTiming[], audioByteLength: number): number {
+  return intMs(
+    wordTimings.length > 0
+      ? Math.max(...wordTimings.map((w) => w.audioOffsetMs + w.durationMs), 0)
+      : Math.max(1, (audioByteLength * 8) / 32),
+  );
+}
+
+export function offsetWordTimingsForChapterSegment(
+  wordTimings: readonly TtsWordTiming[],
+  audioCursorMs: number,
+  textCursor: number,
+): TtsWordTiming[] {
+  return filterPersistedWordTimings(wordTimings).map((w) => ({
+    ...w,
+    audioOffsetMs: intMs(w.audioOffsetMs + audioCursorMs),
+    durationMs: intMs(w.durationMs),
+    textOffset: w.textOffset + textCursor,
+  }));
+}
+
 async function loadPart(partId: string): Promise<{
   id: string;
   workId: string;
@@ -77,7 +99,10 @@ async function loadPart(partId: string): Promise<{
   return row;
 }
 
-/** Worker entry — synthesize segments, concat chapter, upsert asset. Returns true when a chapter asset was committed. */
+/**
+ * Worker entry — synthesize segments, concat chapter, upsert asset. Returns true when a chapter
+ * asset was committed.
+ */
 export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promise<boolean> {
   const part = await loadPart(input.partId);
   if (part.workId !== input.workId) {
@@ -138,23 +163,15 @@ export async function runPartAudioGenerate(input: PartAudioGenerateInput): Promi
       // Segments stay in memory (and concat temp dir); do not putObject(seg/*.mp3).
       segBuffers.push(result.audio);
 
-      const durationMs = intMs(
-        result.wordTimings.length > 0
-          ? Math.max(...result.wordTimings.map((w) => w.audioOffsetMs + w.durationMs), 0)
-          : Math.max(1, (result.audio.length * 8) / 32),
-      );
+      const segmentWordTimings = filterPersistedWordTimings(result.wordTimings);
+      const durationMs = estimateSegmentDurationMs(segmentWordTimings, result.audio.length);
 
       timeline.push({
         index: i,
         textHash: segmentTextHash(segText),
         startMs: cursorMs,
         durationMs,
-        wordTimings: result.wordTimings.map((w) => ({
-          ...w,
-          audioOffsetMs: intMs(w.audioOffsetMs + cursorMs),
-          durationMs: intMs(w.durationMs),
-          textOffset: w.textOffset + textCursor,
-        })),
+        wordTimings: offsetWordTimingsForChapterSegment(segmentWordTimings, cursorMs, textCursor),
       });
       cursorMs += durationMs;
       textCursor += segText.length + (i < segments.length - 1 ? 1 : 0);

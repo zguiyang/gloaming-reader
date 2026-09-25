@@ -1,6 +1,6 @@
 import { type contentAsset as contentAssetTable, type ContentAssetMeta } from '@gloaming/db';
 import { type ContentAssetTrack, deriveAudioTrackStatus } from '@gloaming/shared/content-assets';
-import { type TtsVoiceRole } from '@gloaming/shared/tts';
+import { filterPersistedWordTimings, type TtsVoiceRole, type TtsWordTiming } from '@gloaming/shared/tts';
 
 export type AssetRow = typeof contentAssetTable.$inferSelect;
 
@@ -36,12 +36,15 @@ function timelineForApi(timeline: NonNullable<ContentAssetMeta['timeline']>): Co
     ...seg,
     startMs: intMs(seg.startMs),
     durationMs: intMs(seg.durationMs),
-    wordTimings: seg.wordTimings.map((w) => ({
-      ...w,
-      audioOffsetMs: intMs(w.audioOffsetMs),
-      durationMs: intMs(w.durationMs),
-    })),
+    wordTimings: filterPersistedWordTimings(seg.wordTimings ?? []),
   }));
+}
+
+/** Flatten chapter timeline word timings for learner APIs (drops invalid historical rows). */
+export function wordTimingsFromTimeline(
+  timeline: NonNullable<ContentAssetMeta['timeline']> | undefined,
+): TtsWordTiming[] {
+  return (timeline ?? []).flatMap((seg) => filterPersistedWordTimings(seg.wordTimings ?? []));
 }
 
 export function toTrack(role: TtsVoiceRole, currentContentHash: string, asset: AssetRow | null): ContentAssetTrack {

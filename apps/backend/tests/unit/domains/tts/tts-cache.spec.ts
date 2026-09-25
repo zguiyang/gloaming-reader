@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  normalizeTtsInput,
   TTS_CACHE_KEY_PREFIX_V1,
   TTS_CACHE_KEY_PREFIX_V2,
   TTS_CACHE_MAX_RAW_AUDIO_BYTES,
@@ -152,5 +153,52 @@ describe('synthesizeTts Redis governance', () => {
     expect(result.cached).toBe(false);
     expect(synthesizeSpy).toHaveBeenCalledTimes(1);
     expect(memory.client.set).toHaveBeenCalled();
+  });
+
+  it('re-maps cached word timings to the current request source offsets on cache hit', async () => {
+    const altSource = 'A&B';
+    const sharedSource = 'A and B';
+    const alt = normalizeTtsInput(altSource);
+    const shared = normalizeTtsInput(sharedSource);
+    expect(shared.ttsText).toBe(alt.ttsText);
+
+    const andOffsetInTts = alt.ttsText.indexOf('and');
+    expect(andOffsetInTts).toBeGreaterThan(0);
+
+    synthesizeSpy.mockResolvedValue({
+      audio: Buffer.from('shared-mp3'),
+      mimeType: 'audio/mpeg',
+      wordTimings: [{ text: 'and', audioOffsetMs: 0, durationMs: 100, textOffset: andOffsetInTts }],
+    });
+
+    const first = await synthesizeTts({ text: altSource, source: 'unit' });
+    expect(first.cached).toBe(false);
+    expect(first.wordTimings).toHaveLength(1);
+    expect(first.wordTimings[0]?.textOffset).toBe(alt.mapTtsOffsetToSource(andOffsetInTts));
+
+    const v2Key = buildTtsCacheKeyV2(alt.ttsText, 'en-US-JennyNeural', 'eastasia');
+    const cachedPayload = JSON.parse(memory.store.get(v2Key)!.value) as { wordTimings: { textOffset: number }[] };
+    expect(cachedPayload.wordTimings[0]?.textOffset).toBe(andOffsetInTts);
+
+    synthesizeSpy.mockClear();
+    const second = await synthesizeTts({ text: sharedSource, source: 'unit' });
+    expect(second.cached).toBe(true);
+    expect(synthesizeSpy).not.toHaveBeenCalled();
+    expect(second.wordTimings).toHaveLength(1);
+    expect(second.wordTimings[0]?.textOffset).toBe(shared.mapTtsOffsetToSource(andOffsetInTts));
+    expect(second.wordTimings[0]?.textOffset).not.toBe(first.wordTimings[0]?.textOffset);
+  });
+
+  it('returns audio but drops invalid word timings instead of failing synthesis', async () => {
+    synthesizeSpy.mockResolvedValue({
+      audio: Buffer.from('mp3-with-bad-timing'),
+      mimeType: 'audio/mpeg',
+      wordTimings: [{ text: 'amp;', audioOffsetMs: 0, durationMs: 100, textOffset: -1 }],
+    });
+
+    const result = await synthesizeTts({ text: 'hello', source: 'unit' });
+    expect(result.audio.toString()).toBe('mp3-with-bad-timing');
+    expect(result.wordTimings).toEqual([]);
+    expect(result.cached).toBe(false);
   });
 });

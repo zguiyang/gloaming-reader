@@ -9,7 +9,7 @@ import { audioKindForRole, roleForAudioKind } from '@gloaming/shared/content-ass
 import { type ReaderAudioTrack } from '@gloaming/shared/reader';
 import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
-import { assetUrl, intMs } from '@/domains/assets/content/track-view';
+import { assetUrl, intMs, wordTimingsFromTimeline } from '@/domains/assets/content/track-view';
 import { hashPartAudioContent } from '@/domains/works/content';
 import { db } from '@/infra/db';
 import { NotFoundError } from '@/shared/errors/app-error';
@@ -48,13 +48,7 @@ export async function getPublishedPartAudioTrack(partId: string, role: TtsVoiceR
   }
 
   const meta = asset.meta ?? {};
-  const wordTimings = (meta.timeline ?? []).flatMap((seg) =>
-    seg.wordTimings.map((w) => ({
-      ...w,
-      audioOffsetMs: intMs(w.audioOffsetMs),
-      durationMs: intMs(w.durationMs),
-    })),
-  );
+  const wordTimings = wordTimingsFromTimeline(meta.timeline);
 
   return {
     role,
