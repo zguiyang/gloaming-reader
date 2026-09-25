@@ -1,7 +1,7 @@
 'use client';
 
 import { Pause, Play, RotateCcw } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { type Locale, t } from '@gloaming/i18n';
 import type { WorkAudioPartRow } from '@gloaming/shared/content-assets';
@@ -45,6 +45,28 @@ function formatDurationDisplay(track: WorkAudioPartRow['track'], locale: Locale)
   return t(locale, 'admin.content.common.notAvailable');
 }
 
+/** Bumps the play epoch so in-flight `audio.play()` promises cannot commit playback. */
+export function invalidateAudioPlayEpoch(epochRef: { current: number }): number {
+  epochRef.current += 1;
+  return epochRef.current;
+}
+
+export function shouldCommitAudioPlay(attemptEpoch: number, epochRef: { current: number }): boolean {
+  return attemptEpoch === epochRef.current;
+}
+
+export function stopHtmlAudioElement(audio: HTMLAudioElement | null | undefined): void {
+  if (!audio) {
+    return;
+  }
+  audio.pause();
+  try {
+    audio.currentTime = 0;
+  } catch {
+    // Some browsers reject resetting before metadata is loaded.
+  }
+}
+
 type WorkAudioPartRowProps = {
   row: WorkAudioPartRow;
   index: number;
@@ -56,11 +78,22 @@ type WorkAudioPartRowProps = {
 export function WorkAudioPartRowView({ row, index, disabled, onRetry, onExclusivePlay }: WorkAudioPartRowProps) {
   const { locale } = useLocale();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playEpochRef = useRef(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const track = row.track;
   const canPlay = track.status === 'ready' && Boolean(track.audioUrl);
   const isBusy = track.status === 'generating';
   const displayTitle = row.title.trim() || t(locale, 'admin.works.audio.noTitle');
+  const audioUrl = track.audioUrl ?? null;
+
+  useEffect(() => {
+    invalidateAudioPlayEpoch(playEpochRef);
+    const audio = audioRef.current;
+    return () => {
+      invalidateAudioPlayEpoch(playEpochRef);
+      stopHtmlAudioElement(audio);
+    };
+  }, [audioUrl]);
 
   async function togglePlay() {
     const audio = audioRef.current;
@@ -68,15 +101,28 @@ export function WorkAudioPartRowView({ row, index, disabled, onRetry, onExclusiv
       return;
     }
     if (isPlaying) {
+      invalidateAudioPlayEpoch(playEpochRef);
       audio.pause();
       return;
     }
+    const attemptEpoch = invalidateAudioPlayEpoch(playEpochRef);
     onExclusivePlay(audio);
     try {
       await audio.play();
+      if (!shouldCommitAudioPlay(attemptEpoch, playEpochRef)) {
+        return;
+      }
+      setIsPlaying(true);
     } catch {
-      setIsPlaying(false);
+      if (shouldCommitAudioPlay(attemptEpoch, playEpochRef)) {
+        setIsPlaying(false);
+      }
     }
+  }
+
+  function handlePause() {
+    invalidateAudioPlayEpoch(playEpochRef);
+    setIsPlaying(false);
   }
 
   return (
@@ -140,9 +186,8 @@ export function WorkAudioPartRowView({ row, index, disabled, onRetry, onExclusiv
           preload="none"
           src={track.audioUrl!}
           className="sr-only"
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
+          onPause={handlePause}
+          onEnded={handlePause}
         />
       ) : null}
 

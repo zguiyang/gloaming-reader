@@ -61,6 +61,11 @@ async function enqueuePartAudio(partId: string, body: { roles: TtsVoiceRole[]; f
   });
 }
 
+/** React list key: voice role and part id must not be reused across US/UK rows. */
+export function workAudioPartRowReactKey(role: TtsVoiceRole, partId: string): string {
+  return `${role}:${partId}`;
+}
+
 type WorkAudioPanelProps = {
   workId: string;
 };
@@ -120,7 +125,15 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
   const roleLabel = role === 'us' ? t(locale, 'admin.works.audio.usVoice') : t(locale, 'admin.works.audio.ukVoice');
 
   function stopExclusivePlayback() {
-    playingRef.current?.pause();
+    const audio = playingRef.current;
+    if (audio) {
+      audio.pause();
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // Ignore browsers that reject seek before metadata is ready.
+      }
+    }
     playingRef.current = null;
   }
 
@@ -192,7 +205,7 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
           ) : (
             data!.parts.map((row, index) => (
               <WorkAudioPartRowView
-                key={row.partId}
+                key={workAudioPartRowReactKey(role, row.partId)}
                 row={row}
                 index={index}
                 disabled={isMutating}
