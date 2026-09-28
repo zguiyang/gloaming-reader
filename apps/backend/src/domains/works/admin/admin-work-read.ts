@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, isNotNull, isNull, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, or, type SQL, sql } from 'drizzle-orm';
 
 import {
   contentAsset as contentAssetTable,
@@ -20,6 +20,7 @@ import {
 
 import { buildPublishIssuesForWork } from '@/domains/works/admin/admin-publish-gate';
 import { failedStepOf } from '@/domains/works/admin/workflow-meta';
+import { catalogWorkPredicate } from '@/domains/works/catalog/policy';
 import { getWorkflowPolicyProjection } from '@/domains/works/lifecycle/policy';
 import { getWorksDerivedFreshness } from '@/domains/works/read-model/derived-freshness';
 import { shouldHideTagsDuringProcessing, toPart, toWork } from '@/domains/works/read-model/projection';
@@ -179,11 +180,19 @@ async function toAdminWorkSummary(row: WorkRow): Promise<AdminWorkSummary> {
 }
 
 function buildAdminWorkListWhere(query: AdminWorkListQuery): SQL | undefined {
-  const clauses: SQL[] = [];
+  const clauses: SQL[] = [catalogWorkPredicate()];
+  const activityFilters: SQL[] = [];
   const statuses = query.processingStatus ? query.processingStatus.split(',') : undefined;
-  if (statuses) {
-    clauses.push(inArray(readingWorkTable.processingStatus, statuses));
+  if (statuses) activityFilters.push(inArray(readingWorkTable.processingStatus, statuses));
+  if (query.workflowStep) {
+    activityFilters.push(
+      or(
+        sql`${readingWorkTable.originMeta}->>'workflowEnqueueStep' = ${query.workflowStep}`,
+        sql`${readingWorkTable.originMeta}->>'workflowClaimStep' = ${query.workflowStep}`,
+      )!,
+    );
   }
+  if (activityFilters.length > 0) clauses.push(or(...activityFilters)!);
   if (query.publicationStatus === 'published') {
     clauses.push(isNotNull(readingWorkTable.publishedAt));
   } else if (query.publicationStatus === 'unpublished') {
@@ -232,7 +241,11 @@ export async function listAdminWorks(query: AdminWorkListQuery): Promise<AdminWo
 }
 
 export async function getAdminWork(id: string): Promise<AdminWork> {
-  const [row] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
   if (!row) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }

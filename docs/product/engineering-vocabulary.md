@@ -54,13 +54,14 @@ Part-scoped APIs: TTS / translate / assist use `partId` (+ `workId` for thread s
 
 ---
 
-## Admin catalog (target vs current)
+## Admin catalog (target and current)
 
-| Concern        | Target (User-first)              | Current code (PR-01 branch — not migrated) |
-| -------------- | -------------------------------- | ------------------------------------------ |
-| Web routes     | `/admin/catalog/works`, …        | `/admin/works`, …                          |
-| Admin list API | `GET /api/admin/catalog/works`   | `GET /api/admin/works`                     |
-| Feature folder | `features/admin/catalog/…` (TBD) | `features/admin/works/…`                   |
+| Concern        | Current code (PR-04)                 | Boundary                                                     |
+| -------------- | ------------------------------------ | ------------------------------------------------------------ |
+| Web routes     | `/admin/catalog/works`, …            | Legacy `/admin/works` has no alias                           |
+| Admin API      | `/api/admin/catalog/works`, …        | Catalog Works only; ownerless and `visibility=catalog`       |
+| Audio API      | Work- and Part-scoped Catalog routes | Personal Works return not found                              |
+| Feature folder | `features/admin/works/…`             | Internal module name; route path defines the product surface |
 
 Treat **target** paths as the epic end state. PR-01 does **not** complete admin route renaming.
 
@@ -92,7 +93,7 @@ Reader playback may degrade gracefully when audio is temporarily unavailable.
 ## Current code vs target (honest matrix)
 
 **Phase 3A** retired `Article` and shipped ReadingWork + `admin_epub`. That remains true.
-**User-first** items below are partial on the PR-01 branch unless marked **done**.
+**User-first** items below reflect the current repository unless marked **open**.
 
 | Layer / concern          | Current (repository reality)                                                  | Target (ADR-001 User-first)                          |
 | ------------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------- |
@@ -104,10 +105,10 @@ Reader playback may degrade gracefully when audio is temporarily unavailable.
 | `reading_state` role     | still used for shelf listing **open**                                         | position/status only; remove from membership         |
 | Provider scope           | `owner_user_id` on LLM/TTS tables **done** (schema + constraints)             | instance vs user on same tables                      |
 | Discover API             | `GET /api/catalog/works` **done**                                             | same                                                 |
-| Admin CMS API (path)     | `/api/admin/works` **open** (rename pending)                                  | `/api/admin/catalog/works`                           |
-| Admin CMS UI (path)      | `/admin/works` **open**                                                       | `/admin/catalog/works`                               |
+| Admin CMS API (path)     | `/api/admin/catalog/works` **done**; Catalog-only query/mutation boundary     | same                                                 |
+| Admin CMS UI (path)      | `/admin/catalog/works` **done**                                               | same                                                 |
 | Conversation subject     | `subject_type = reading_work` **done**                                        | same                                                 |
-| Admin “busy” list + TTS  | API query includes `ready`; UI refines TTS via `origin_meta` **open**         | aligned server-side filter or documented contract    |
+| Admin “busy” list + TTS  | server `workflowStep=tts` filter **done**                                     | UI and server share status/workflow-step query       |
 | Legacy Remaining audit   | not closed **open**                                                           | **0** at epic closeout                               |
 
 Do **not** reintroduce Article names — see Retired names below.
@@ -128,11 +129,12 @@ Do **not** reintroduce Article names — see Retired names below.
 
 ## Content origins (MVP)
 
-| `origin_kind`                     | MVP               | Role                                                                   |
-| --------------------------------- | ----------------- | ---------------------------------------------------------------------- |
-| `admin_epub`                      | **Yes — primary** | Official catalog supply: upload → process → publish                    |
-| `admin_text`                      | Internal only     | Dev/test seed: 1 work + 1 part (`kind=body`); **not** product identity |
-| `user_epub`, `user_pdf`, `web`, … | No (Phase 1b+)    | Reserved in schema; not implemented in MVP                             |
+| `origin_kind`        | MVP                | Role                                                                          |
+| -------------------- | ------------------ | ----------------------------------------------------------------------------- |
+| `admin_epub`         | **Yes — primary**  | Official catalog supply: upload → process → publish                           |
+| `admin_text`         | Internal only      | Dev/test seed: 1 work + 1 part (`kind=body`); **not** product identity        |
+| `user_epub`          | **Yes — Personal** | `/api/works` → shared parser → private owner Work; no publish or Library step |
+| `user_pdf`, `web`, … | No (follow-on)     | Future source kinds; not implemented                                          |
 
 ---
 
@@ -167,6 +169,7 @@ Do **not** reintroduce Article names — see Retired names below.
 | Date       | Change                                                                                                                                                     |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-09-28 | User-first vocabulary — Library vs State, `processing_status` / `published_at`, provider scope, honest current vs target matrix, admin catalog path target |
+| 2026-09-28 | PR-04 — Personal EPUB ingestion and Catalog-only Admin route/API boundary; server workflow-step list filter                                                |
 | 2026-08-24 | Phase 3A complete — ReadingWork domain; Article retired                                                                                                    |
 | 2026-08-24 | Rewritten for ReadingWork domain (ADR-001); Article retired                                                                                                |
 | 2026-08-24 | Prior version listed Article as MVP 1a entity.                                                                                                             |

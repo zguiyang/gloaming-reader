@@ -39,7 +39,6 @@ import {
   adminWorksListQueryForFilter,
   type AdminWorkSummaryView,
   canPreviewWork,
-  filterAdminWorksListItems,
   isWorkPublished,
 } from '@/features/admin/works/works-model';
 import { useLocale } from '@/lib/locale-context';
@@ -234,7 +233,7 @@ export function WorksListPage() {
     }
   }
 
-  const items = filterAdminWorksListItems(listQuery.data?.items ?? [], statusFilter);
+  const items = listQuery.data?.items ?? [];
 
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto w-full max-w-6xl">

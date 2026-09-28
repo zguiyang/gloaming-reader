@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { eq, inArray } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   contentAsset as contentAssetTable,
@@ -14,7 +14,7 @@ import type { CreateEpubWorkResult, EpubReuseResult } from '@gloaming/shared/wor
 
 import app from '@/app';
 import { acquireUploadedObject, hashFileContent } from '@/domains/assets/uploads';
-import { EPUB_UPLOAD_SPEC, insertEpubWorkAndAsset } from '@/domains/works/admin';
+import { createEpubIngestWork, EPUB_UPLOAD_SPEC } from '@/domains/ingest/epub/work-upload';
 import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
@@ -23,6 +23,12 @@ import { seedReadyDefaultAudioForWork } from '../../../helpers/publish-audio-fix
 import { ensureWorkTaxonomyFixture } from '../../../helpers/taxonomy-fixture';
 
 const password = 'password123';
+const { sendAuthMailMock } = vi.hoisted(() => ({ sendAuthMailMock: vi.fn().mockResolvedValue(undefined) }));
+
+vi.mock('@/infra/auth/mail', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, sendAuthMail: sendAuthMailMock };
+});
 
 function createSuiteZipBytes(runId: string): Buffer {
   return Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from(`fake epub content for tests ${runId}`)]);
@@ -94,7 +100,7 @@ async function createSession(role: 'user' | 'admin' = 'user') {
 async function uploadEpub(cookie: string, input: { fileName: string; bytes: Buffer; type: string }) {
   const form = new FormData();
   form.append('file', new File([new Blob([input.bytes])], input.fileName, { type: input.type }));
-  return app.request('/api/admin/works/epub', {
+  return app.request('/api/admin/catalog/works/epub', {
     method: 'POST',
     headers: { Cookie: cookie },
     body: form,
@@ -102,14 +108,14 @@ async function uploadEpub(cookie: string, input: { fileName: string; bytes: Buff
 }
 
 async function reuseEpub(cookie: string, input: { fileName: string; contentHash: string }) {
-  return app.request('/api/admin/works/epub/reuse', {
+  return app.request('/api/admin/catalog/works/epub/reuse', {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 }
 
-describe('POST /api/admin/works/epub (dedupe-aware)', () => {
+describe('POST /api/admin/catalog/works/epub (dedupe-aware)', () => {
   const memory = createMemoryObjectStore();
   const createdWorkIds: string[] = [];
   const createdContentHashes: string[] = [];
@@ -168,7 +174,13 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
 
     const [workRow] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, result.id));
     expect(workRow).toBeDefined();
-    expect(workRow?.originKind).toBe('admin_epub');
+    expect(workRow).toMatchObject({
+      originKind: 'admin_epub',
+      ownerUserId: null,
+      visibility: 'catalog',
+      publishedAt: null,
+      processingStatus: 'uploaded',
+    });
     expect(workRow?.originMeta).toMatchObject({ originalFileName: 'The Great Book.epub' });
 
     const assetRows = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, result.id));
@@ -276,7 +288,10 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     });
 
     await expect(
-      insertEpubWorkAndAsset({
+      createEpubIngestWork({
+        originKind: 'admin_epub',
+        ownerUserId: null,
+        visibility: 'catalog',
         fileName: 'Rollback.epub',
         meta: acquired.meta,
         reused: false,
@@ -361,7 +376,7 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     expect(afterTwoUploads?.refCount).toBe(2);
     expect(memory.store.has(storageKey)).toBe(true);
 
-    const deleteFirst = await app.request(`/api/admin/works/${first.id}`, {
+    const deleteFirst = await app.request(`/api/admin/catalog/works/${first.id}`, {
       method: 'DELETE',
       headers: { Cookie: adminCookie },
     });
@@ -374,7 +389,7 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
       .where(eq(uploadedObjectTable.contentHash, sharedHash));
     expect(afterFirstDelete?.refCount).toBe(1);
 
-    const deleteSecond = await app.request(`/api/admin/works/${second.id}`, {
+    const deleteSecond = await app.request(`/api/admin/catalog/works/${second.id}`, {
       method: 'DELETE',
       headers: { Cookie: adminCookie },
     });
@@ -405,7 +420,7 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
         throw new Error('storage delete unavailable');
       },
     });
-    const response = await app.request(`/api/admin/works/${created.id}`, {
+    const response = await app.request(`/api/admin/catalog/works/${created.id}`, {
       method: 'DELETE',
       headers: { Cookie: adminCookie },
     });
@@ -428,7 +443,7 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     const created = (await upload.json()) as CreateEpubWorkResult;
     createdWorkIds.push(created.id);
 
-    const response = await app.request('/api/admin/works', { headers: { Cookie: adminCookie } });
+    const response = await app.request('/api/admin/catalog/works', { headers: { Cookie: adminCookie } });
     expect(response.status).toBe(200);
     const data = (await response.json()) as {
       items: Array<{ id: string; partCount?: number; parts?: unknown }>;
@@ -441,7 +456,7 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
 
   it('filters by publicationStatus and processingStatus with matching pagination total', async () => {
     async function createReadyTextWork(title: string) {
-      const response = await app.request('/api/admin/works', {
+      const response = await app.request('/api/admin/catalog/works', {
         method: 'POST',
         headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, body: 'Body for list filter test.' }),
@@ -456,20 +471,20 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     const unpublishedReadyId = await createReadyTextWork('List Filter Unpublished');
     const publishedReadyId = await createReadyTextWork('List Filter Published');
     const taxonomy = await ensureWorkTaxonomyFixture('works-epub-list-filter');
-    await app.request(`/api/admin/works/${publishedReadyId}`, {
+    await app.request(`/api/admin/catalog/works/${publishedReadyId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify(taxonomy),
     });
     await seedReadyDefaultAudioForWork(publishedReadyId);
-    const publish = await app.request(`/api/admin/works/${publishedReadyId}/publish`, {
+    const publish = await app.request(`/api/admin/catalog/works/${publishedReadyId}/publish`, {
       method: 'POST',
       headers: { Cookie: adminCookie },
     });
     expect(publish.status).toBe(200);
 
     const readyUnpublished = await app.request(
-      '/api/admin/works?processingStatus=ready&publicationStatus=unpublished&pageSize=50',
+      '/api/admin/catalog/works?processingStatus=ready&publicationStatus=unpublished&pageSize=50',
       { headers: { Cookie: adminCookie } },
     );
     expect(readyUnpublished.status).toBe(200);
@@ -481,7 +496,7 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     expect(readyUnpublishedBody.items.some((item) => item.id === unpublishedReadyId)).toBe(true);
     expect(readyUnpublishedBody.items.every((item) => item.id !== publishedReadyId)).toBe(true);
 
-    const publishedOnly = await app.request('/api/admin/works?publicationStatus=published&pageSize=50', {
+    const publishedOnly = await app.request('/api/admin/catalog/works?publicationStatus=published&pageSize=50', {
       headers: { Cookie: adminCookie },
     });
     expect(publishedOnly.status).toBe(200);
@@ -494,7 +509,7 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     expect(publishedBody.pagination.total).toBeGreaterThanOrEqual(1);
 
     const paged = await app.request(
-      '/api/admin/works?processingStatus=ready&publicationStatus=unpublished&page=1&pageSize=1',
+      '/api/admin/catalog/works?processingStatus=ready&publicationStatus=unpublished&page=1&pageSize=1',
       { headers: { Cookie: adminCookie } },
     );
     expect(paged.status).toBe(200);
@@ -532,14 +547,14 @@ describe('publish / unpublish status guards', () => {
   });
 
   async function publishRequest(id: string) {
-    return app.request(`/api/admin/works/${id}/publish`, {
+    return app.request(`/api/admin/catalog/works/${id}/publish`, {
       method: 'POST',
       headers: { Cookie: adminCookie },
     });
   }
 
   async function unpublishRequest(id: string) {
-    return app.request(`/api/admin/works/${id}/unpublish`, {
+    return app.request(`/api/admin/catalog/works/${id}/unpublish`, {
       method: 'POST',
       headers: { Cookie: adminCookie },
     });
@@ -579,7 +594,7 @@ describe('publish / unpublish status guards', () => {
   });
 
   it('refuses to unpublish a non-published work', async () => {
-    const response = await app.request('/api/admin/works', {
+    const response = await app.request('/api/admin/catalog/works', {
       method: 'POST',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Guard Draft', body: 'Some body text.' }),
@@ -593,7 +608,7 @@ describe('publish / unpublish status guards', () => {
   });
 
   it('publishes a draft with required fields and unpublishes it back', async () => {
-    const response = await app.request('/api/admin/works', {
+    const response = await app.request('/api/admin/catalog/works', {
       method: 'POST',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Publishable Draft', body: 'Some body text.' }),
@@ -603,7 +618,7 @@ describe('publish / unpublish status guards', () => {
     createdWorkIds.push(created.id);
     const taxonomy = await ensureWorkTaxonomyFixture('works-epub');
 
-    await app.request(`/api/admin/works/${created.id}`, {
+    await app.request(`/api/admin/catalog/works/${created.id}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify(taxonomy),

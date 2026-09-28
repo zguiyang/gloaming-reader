@@ -47,12 +47,13 @@ export const WORK_VISIBILITY_LABELS = {
   private: 'Private',
 } as const satisfies Record<WorkVisibility, string>;
 
-export const WORK_ORIGIN_KINDS = ['admin_text', 'admin_epub'] as const;
+export const WORK_ORIGIN_KINDS = ['admin_text', 'admin_epub', 'user_epub'] as const;
 export type WorkOriginKind = (typeof WORK_ORIGIN_KINDS)[number];
 export const workOriginKindSchema = z.enum(WORK_ORIGIN_KINDS);
 export const WORK_ORIGIN_KIND_LABELS = {
   admin_text: 'Admin text',
   admin_epub: 'Admin EPUB',
+  user_epub: 'Personal EPUB',
 } as const satisfies Record<WorkOriginKind, string>;
 
 export const PART_KINDS = ['chapter', 'body', 'section', 'segment'] as const;
@@ -215,7 +216,7 @@ export const createAdminTextWorkBodySchema = z.object({
 
 export type CreateAdminTextWorkBody = z.infer<typeof createAdminTextWorkBodySchema>;
 
-/** Response of `POST /api/admin/works/epub` — upload creates work + origin_file asset. */
+/** Catalog upload response — the admin source asset is exposed only on the protected Catalog API. */
 export const createEpubWorkResultSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -232,7 +233,15 @@ export const createEpubWorkResultSchema = z.object({
 
 export type CreateEpubWorkResult = z.infer<typeof createEpubWorkResultSchema>;
 
-/** Body of `POST /api/admin/works/epub/reuse` — instant-upload dedupe lookup. */
+/** Safe Personal API response; source storage keys and workflow tokens are intentionally omitted. */
+export const personalWorkUploadResultSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  processingStatus: workProcessingStatusSchema,
+});
+export type PersonalWorkUploadResult = z.infer<typeof personalWorkUploadResultSchema>;
+
+/** Body of the Catalog EPUB reuse endpoint — instant-upload dedupe lookup. */
 export const checkEpubWorkReuseBodySchema = z.object({
   fileName: z.string().trim().min(1).max(255),
   contentHash: z.string().regex(/^[a-f0-9]{64}$/, '文件哈希无效'),
@@ -284,6 +293,8 @@ const workProcessingStatusFilterSchema = z.preprocess(
 );
 
 export const adminWorkListQuerySchema = paginationQuerySchema.extend({
+  /** Restrict to works with an active workflow step; used to classify TTS work server-side. */
+  workflowStep: z.enum(WORKFLOW_STEPS).optional(),
   sortBy: createSortByQuerySchema(ADMIN_WORK_SORT_FIELDS, DEFAULT_ADMIN_WORK_SORT_BY),
   processingStatus: workProcessingStatusFilterSchema,
   publicationStatus: z.preprocess(emptyToUndefined, adminWorkPublicationStatusSchema.optional()),
@@ -291,7 +302,7 @@ export const adminWorkListQuerySchema = paginationQuerySchema.extend({
 
 export type AdminWorkListQuery = z.infer<typeof adminWorkListQuerySchema>;
 
-/** Body of `POST /api/admin/works/:id/workflow/retry` — resume the failed step or re-run one step. */
+/** Body of `POST /api/admin/catalog/works/:id/workflow/retry` — resume or re-run one step. */
 export const retryWorkflowBodySchema = z.object({
   step: z.enum(WORKFLOW_STEPS).optional(),
 });

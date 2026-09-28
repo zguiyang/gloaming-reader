@@ -51,7 +51,7 @@ export function adminWorksListQueryForFilter(filter: AdminListStatusFilter): Par
     case 'all':
       return {};
     case 'busy':
-      return { processingStatus: 'uploaded,processing,parsed,metadata,ready' };
+      return { processingStatus: 'uploaded,processing,parsed,metadata', workflowStep: 'tts' };
     case 'published':
       return { publicationStatus: 'published' };
     case 'ready':
@@ -60,26 +60,6 @@ export function adminWorksListQueryForFilter(filter: AdminListStatusFilter): Par
       return { processingStatus: 'failed' };
     default:
       return { processingStatus: filter };
-  }
-}
-
-/** Client refinement when API filters cannot express TTS-step semantics on the busy tab. */
-export function filterAdminWorksListItems(
-  items: AdminWorkSummaryView[],
-  filter: AdminListStatusFilter,
-): AdminWorkSummaryView[] {
-  switch (filter) {
-    case 'busy':
-      return items.filter(
-        (work) =>
-          work.processingStatus === 'uploaded' ||
-          work.processingStatus === 'processing' ||
-          work.processingStatus === 'parsed' ||
-          work.processingStatus === 'metadata' ||
-          isTtsWorkflowActive(work),
-      );
-    default:
-      return items;
   }
 }
 

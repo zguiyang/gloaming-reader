@@ -126,7 +126,7 @@ LibraryWorks(user) =
 
 **Target (User-first):** Admin catalog management lives at **`/admin/catalog/works`** (web) and **`/api/admin/catalog/works`** (API). Legacy **`/admin/works`** and **`/api/admin/works`** are removed after migration.
 
-**Current reality (PR-01 branch):** Routes and web paths under **`/admin/works`** and **`/api/admin/works`** still exist; catalog path migration is **not** complete in PR-01. See the implementation plan for the dedicated routing task.
+**Current reality (PR-04):** Admin catalog pages are mounted under **`/admin/catalog/works`** and APIs under **`/api/admin/catalog/works`**, including Work- and Part-scoped audio operations. The former `/admin/works`, `/api/admin/works`, and `/api/admin/parts/:partId/audio*` routes have no aliases. Catalog reads and mutations require `owner_user_id IS NULL AND visibility = 'catalog'`.
 
 ---
 
@@ -156,12 +156,12 @@ LibraryWorks(user) =
 
 ### Reserved / follow-on (User-first epic)
 
-| Area                            | Reserved via                                                |
-| ------------------------------- | ----------------------------------------------------------- |
-| User EPUB/PDF upload            | `owner_user_id`, `visibility=private`, `origin_kind=user_*` |
-| Web / video / podcast           | `origin_kind`, `part.kind`, `part.meta`                     |
-| Library CRUD APIs & shelf union | `user_library_item` + read models                           |
-| Vocabulary product / RAG tables | Conversation message IDs as future pointers                 |
+| Area                             | Reserved via                                                                                                                 |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Personal EPUB upload             | `POST /api/works`; `owner_user_id`, `visibility=private`, `origin_kind=user_epub`; shared EPUB parser; no Library membership |
+| User PDF / web / video / podcast | Future `origin_kind`, `part.kind`, `part.meta`                                                                               |
+| Library CRUD APIs & shelf union  | `user_library_item` + read models                                                                                            |
+| Vocabulary product / RAG tables  | Conversation message IDs as future pointers                                                                                  |
 
 ---
 
@@ -203,5 +203,6 @@ LibraryWorks(user) =
 
 | Date       | Change                                                                                                                                                                                                                                               |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-28 | **PR-04 implementation** — shared EPUB ingest core; Personal `user_epub` upload/read boundary; Catalog-only Admin namespace; server TTS workflow filter                                                                                              |
 | 2026-09-28 | **User-first amendment** — `processing_status` + `published_at`; `user_library_item`; `reading_state` = position only; provider `owner_user_id`; target admin catalog paths; supersede shelf-on-state clauses; clarify `failed` at any pipeline step |
 | 2026-08-24 | Initial ADR — frozen at Phase 1 domain alignment                                                                                                                                                                                                     |

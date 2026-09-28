@@ -35,9 +35,10 @@ export async function listAdminWorks(
   if (query.page) search.set('page', String(query.page));
   if (query.pageSize) search.set('pageSize', String(query.pageSize));
   if (query.processingStatus) search.set('processingStatus', query.processingStatus);
+  if (query.workflowStep) search.set('workflowStep', query.workflowStep);
   if (query.publicationStatus) search.set('publicationStatus', query.publicationStatus);
   const qs = search.toString();
-  const data = await apiRequest(`/api/admin/works${qs ? `?${qs}` : ''}`, {
+  const data = await apiRequest(`/api/admin/catalog/works${qs ? `?${qs}` : ''}`, {
     schema: adminWorkListDataSchema,
     signal: init?.signal,
   });
@@ -45,7 +46,7 @@ export async function listAdminWorks(
 }
 
 export async function getAdminWork(id: string, init?: { signal?: AbortSignal }): Promise<AdminWorkView> {
-  const raw = await apiRequest(`/api/admin/works/${encodeURIComponent(id)}`, {
+  const raw = await apiRequest(`/api/admin/catalog/works/${encodeURIComponent(id)}`, {
     schema: adminWorkSchema,
     signal: init?.signal,
   });
@@ -55,7 +56,7 @@ export async function getAdminWork(id: string, init?: { signal?: AbortSignal }):
 export async function uploadAdminEpub(file: File, init?: { signal?: AbortSignal }) {
   const formData = new FormData();
   formData.append('file', file);
-  return apiRequest('/api/admin/works/epub', {
+  return apiRequest('/api/admin/catalog/works/epub', {
     method: 'POST',
     body: formData,
     schema: createEpubWorkResultSchema,
@@ -65,7 +66,7 @@ export async function uploadAdminEpub(file: File, init?: { signal?: AbortSignal 
 
 /** Instant-upload dedupe lookup — creates the work when the file hash already exists. */
 export async function checkEpubWorkReuse(body: CheckEpubWorkReuseBody, init?: { signal?: AbortSignal }) {
-  return apiRequest('/api/admin/works/epub/reuse', {
+  return apiRequest('/api/admin/catalog/works/epub/reuse', {
     method: 'POST',
     json: body,
     schema: epubReuseResultSchema,
@@ -74,7 +75,7 @@ export async function checkEpubWorkReuse(body: CheckEpubWorkReuseBody, init?: { 
 }
 
 export async function updateAdminWork(id: string, body: UpdateWorkBody, init?: { signal?: AbortSignal }) {
-  const raw = await apiRequest(`/api/admin/works/${encodeURIComponent(id)}`, {
+  const raw = await apiRequest(`/api/admin/catalog/works/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     schema: adminWorkSchema,
     json: body,
@@ -84,7 +85,7 @@ export async function updateAdminWork(id: string, body: UpdateWorkBody, init?: {
 }
 
 export async function publishAdminWork(id: string, init?: { signal?: AbortSignal }) {
-  const raw = await apiRequest(`/api/admin/works/${encodeURIComponent(id)}/publish`, {
+  const raw = await apiRequest(`/api/admin/catalog/works/${encodeURIComponent(id)}/publish`, {
     method: 'POST',
     schema: adminWorkSchema,
     signal: init?.signal,
@@ -93,7 +94,7 @@ export async function publishAdminWork(id: string, init?: { signal?: AbortSignal
 }
 
 export async function unpublishAdminWork(id: string, init?: { signal?: AbortSignal }) {
-  const raw = await apiRequest(`/api/admin/works/${encodeURIComponent(id)}/unpublish`, {
+  const raw = await apiRequest(`/api/admin/catalog/works/${encodeURIComponent(id)}/unpublish`, {
     method: 'POST',
     schema: adminWorkSchema,
     signal: init?.signal,
@@ -106,7 +107,7 @@ export async function unpublishAdminWork(id: string, init?: { signal?: AbortSign
  * with `step` it re-runs that step and everything after it.
  */
 export async function retryAdminWorkflow(id: string, step?: WorkflowStep, init?: { signal?: AbortSignal }) {
-  const raw = await apiRequest(`/api/admin/works/${encodeURIComponent(id)}/workflow/retry`, {
+  const raw = await apiRequest(`/api/admin/catalog/works/${encodeURIComponent(id)}/workflow/retry`, {
     method: 'POST',
     schema: adminWorkSchema,
     ...(step ? { json: { step } satisfies RetryWorkflowBody } : {}),
@@ -116,7 +117,7 @@ export async function retryAdminWorkflow(id: string, step?: WorkflowStep, init?:
 }
 
 export async function deleteAdminWork(id: string, init?: { signal?: AbortSignal }) {
-  await apiRequest(`/api/admin/works/${encodeURIComponent(id)}`, {
+  await apiRequest(`/api/admin/catalog/works/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     schema: z.void(),
     signal: init?.signal,

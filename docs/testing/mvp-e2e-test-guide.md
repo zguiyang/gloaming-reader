@@ -5,7 +5,9 @@
 **依据：** 当前仓库实现与 [`docs/product/mvp-scope.md`](../product/mvp-scope.md)、[`docs/product/mvp-1-modules.md`](../product/mvp-1-modules.md)、[`docs/product/prototype-flows.md`](../product/prototype-flows.md)、[`docs/product/feature-audit.md`](../product/feature-audit.md)、[`docs/deployment.md`](../deployment.md)。
 **非依据：** 路线图 Phase 1b（用户上传）、Practice/Review/SRS、独立搜索页等未实现或未纳入 MVP 1 学习者能力。
 
-**版本：** 与仓库当前 `dev` 行为对齐（ReadingWork 域、admin EPUB 供应、手动工作流 + Worker 队列）。
+**版本：** 与当前仓库行为对齐（ReadingWork 域、Catalog EPUB 供应、手动工作流 + Worker 队列）。
+
+**当前路径（2026-09-28）：** Admin Catalog 使用 `/admin/catalog/works` 和 `/api/admin/catalog/works`，音频 API 也以 Catalog Work 为路径范围。Personal EPUB 已有认证 API `POST /api/works`；本指南仍不把它列为浏览器 UI E2E 能力，因为当前没有学习者上传界面。下方较早日期的验收记录保留当时实际访问的旧路径。
 
 ---
 
@@ -34,7 +36,7 @@
 
 | 排除项                                   | 说明                                                                                                               |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **用户上传 / 导入**                      | Phase 1b，学习者界面无入口                                                                                         |
+| **用户上传 / 导入 UI**                   | 当前没有学习者界面；Personal EPUB API 的自动化验收不属于本指南的浏览器 UI 用例                                     |
 | **Practice / Review / SRS / 测验**       | 已从代码库移除                                                                                                     |
 | **`admin_text` 创建路径**                | 内部 dev/test/seed（如 `seed:dev`），**不是**产品 EPUB 供应流程；学习者只见已发布作品                              |
 | **独立「搜索」页**                       | 产品未设独立 Search 模块；发现页 UI 为**分类 + 标签**筛选（后端 catalog API 支持 `q`，当前发现页**无**标题搜索框） |
@@ -199,7 +201,7 @@
 | 角色                   | 创建方式                            | 权限                             | 典型入口                 |
 | ---------------------- | ----------------------------------- | -------------------------------- | ------------------------ |
 | **学习者（Learner）**  | 注册 + 邮箱验证                     | 发现、书架、Reader、历史、账号   | `/my-shelf`、`/discover` |
-| **管理员（Admin）**    | `create:admin` 或 DB `role = admin` | `/admin/**` + API `requireAdmin` | `/admin/works`           |
+| **管理员（Admin）**    | `create:admin` 或 DB `role = admin` | `/admin/**` + API `requireAdmin` | `/admin/catalog/works`   |
 | **未登录访客**         | 无 Cookie                           | Landing、Auth 弹窗               | `/`                      |
 | **普通用户访问 Admin** | 学习者登录后访问 `/admin`           | UI 拒绝（403 文案页）            | `/admin`                 |
 
@@ -1618,8 +1620,10 @@ cd apps/backend && pnpm test tests/functional/domains/assets/reader-audio.spec.t
 | `/verify-email`                                | 邮箱验证                           |
 | `/reset-password`                              | 重置密码                           |
 | `/auth-error`                                  | 社交登录错误                       |
-| `/admin/works`                                 | 作品管理                           |
-| `/admin/works/new`                             | 新建/上传 EPUB                     |
+| `/admin/catalog/works`                         | Catalog 作品管理                   |
+| `/admin/catalog/works/new`                     | 新建/上传 Catalog EPUB             |
+| `POST /api/admin/catalog/works/epub`           | Admin Catalog EPUB 上传            |
+| `POST /api/works`                              | 登录用户的 Personal EPUB 上传      |
 | `/admin/assets`                                | 资源                               |
 | `/admin/config`                                | AI/TTS/词典配置                    |
 | `/admin/taxonomy`                              | 分类/标签                          |
@@ -1627,6 +1631,7 @@ cd apps/backend && pnpm test tests/functional/domains/assets/reader-audio.spec.t
 | `/admin/ai`、`/admin/tts`、`/admin/dictionary` | 配置快捷入口（与 config 中心并存） |
 | `/admin/ai-logs`、`/admin/tts-logs`            | 日志（与 log-center 并存）         |
 | `GET /api/catalog/works`                       | 发现/catalog（访客可读）           |
+| `/api/admin/catalog/works/:workId/audio*`      | Catalog Work 音频管理              |
 | `GET/POST /api/reader/...`                     | Reader 状态机（`reader.spec.ts`）  |
 | `GET /api/admin/probe`                         | 管理员探针（ADM-003）              |
 

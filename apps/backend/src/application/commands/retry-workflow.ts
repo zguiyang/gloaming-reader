@@ -9,6 +9,7 @@ import { JOB_CONTENT_PARSE } from '@/application/jobs/content-parse';
 import { JOB_METADATA_FILL } from '@/application/jobs/work-metadata-fill';
 import { enqueueWorkAudio } from '@/domains/assets';
 import { failedStepOf, getAdminWork } from '@/domains/works/admin';
+import { catalogWorkPredicate } from '@/domains/works/catalog/policy';
 import {
   failWorkflowEnqueue,
   stepRunningStatus,
@@ -75,7 +76,11 @@ function workflowRetryLeaseRecoveryWhere(step: WorkflowStep) {
  * actively running or while published.
  */
 export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): Promise<AdminWork> {
-  const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
   if (!existing) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
@@ -124,6 +129,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
       .where(
         and(
           eq(readingWorkTable.id, id),
+          catalogWorkPredicate(),
           eq(readingWorkTable.processingStatus, existing.processingStatus),
           running ? workflowRetryLeaseRecoveryWhere(step) : sql`true`,
         ),
@@ -166,6 +172,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
     .where(
       and(
         eq(readingWorkTable.id, id),
+        catalogWorkPredicate(),
         eq(readingWorkTable.processingStatus, existing.processingStatus),
         running ? workflowRetryLeaseRecoveryWhere(step) : sql`true`,
       ),

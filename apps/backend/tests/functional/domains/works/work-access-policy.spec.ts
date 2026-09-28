@@ -26,6 +26,12 @@ import { HTTP_STATUS } from '@/shared/constants';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
 const password = 'password123';
+const { sendAuthMailMock } = vi.hoisted(() => ({ sendAuthMailMock: vi.fn().mockResolvedValue(undefined) }));
+
+vi.mock('@/infra/auth/mail', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, sendAuthMail: sendAuthMailMock };
+});
 const memory = createMemoryObjectStore();
 
 function uniqueEmail(prefix: string) {

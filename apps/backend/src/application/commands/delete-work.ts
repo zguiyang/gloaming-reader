@@ -11,6 +11,7 @@ import {
 
 import { allAudioObjectKeysForLegacyCleanup, collectReferencedStorageKeys } from '@/domains/assets';
 import { deleteBilingualCacheForPart } from '@/domains/translate';
+import { isCatalogWork } from '@/domains/works/catalog/policy';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 import { deleteObject } from '@/infra/storage';
@@ -56,6 +57,9 @@ export async function deleteWork(id: string): Promise<void> {
       .for('update')
       .limit(1);
     if (!existing) {
+      throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
+    }
+    if (!isCatalogWork(existing)) {
       throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
     }
     if (existing.publishedAt) {

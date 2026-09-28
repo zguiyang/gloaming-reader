@@ -31,6 +31,12 @@ import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 import { ensureWorkTaxonomyFixture } from '../../../helpers/taxonomy-fixture';
 
 const password = 'password123';
+const { sendAuthMailMock } = vi.hoisted(() => ({ sendAuthMailMock: vi.fn().mockResolvedValue(undefined) }));
+
+vi.mock('@/infra/auth/mail', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, sendAuthMail: sendAuthMailMock };
+});
 
 type TtsConfigRow = typeof ttsConfigTable.$inferSelect;
 
@@ -157,7 +163,7 @@ describe('learner part audio', () => {
     const learner = await createSession('user');
     await ensureTtsConfig();
 
-    const create = await app.request('/api/admin/works', {
+    const create = await app.request('/api/admin/catalog/works', {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -172,7 +178,7 @@ describe('learner part audio', () => {
 
     expect(
       (
-        await app.request(`/api/admin/works/${work.id}`, {
+        await app.request(`/api/admin/catalog/works/${work.id}`, {
           method: 'PATCH',
           headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
           body: JSON.stringify(taxonomy),
@@ -215,14 +221,14 @@ describe('learner part audio', () => {
 
     expect(
       (
-        await app.request(`/api/admin/works/${work.id}/publish`, {
+        await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
           method: 'POST',
           headers: { Cookie: admin.cookie },
         })
       ).status,
     ).toBe(400);
 
-    const initialGeneration = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
+    const initialGeneration = await app.request(`/api/admin/catalog/works/${work.id}/parts/${partId}/audio/generate`, {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -246,7 +252,7 @@ describe('learner part audio', () => {
 
     expect(
       (
-        await app.request(`/api/admin/works/${work.id}/publish`, {
+        await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
           method: 'POST',
           headers: { Cookie: admin.cookie },
         })
@@ -262,7 +268,7 @@ describe('learner part audio', () => {
 
     expect(
       (
-        await app.request(`/api/admin/parts/${partId}/audio/generate`, {
+        await app.request(`/api/admin/catalog/works/${work.id}/parts/${partId}/audio/generate`, {
           method: 'POST',
           headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
@@ -281,7 +287,7 @@ describe('learner part audio', () => {
     expect(usBeforeEnqueueFailure?.status).toBe('ready');
     const originalUsKeys = usBeforeEnqueueFailure?.meta.objectKeys ?? [];
     queueSpy.mockRejectedValueOnce(new Error('queue unavailable'));
-    const enqueueFailure = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
+    const enqueueFailure = await app.request(`/api/admin/catalog/works/${work.id}/parts/${partId}/audio/generate`, {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ force: true, roles: ['us'] }),
@@ -315,7 +321,7 @@ describe('learner part audio', () => {
         generationLeaseExpiresAt: new Date(Date.now() + 60_000),
       })
       .where(and(eq(contentAssetTable.partId, partId), eq(contentAssetTable.kind, usKind)));
-    const forceWhileActive = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
+    const forceWhileActive = await app.request(`/api/admin/catalog/works/${work.id}/parts/${partId}/audio/generate`, {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ force: true, roles: ['us'] }),
@@ -328,11 +334,14 @@ describe('learner part audio', () => {
     expect(ttsCallCount).toBe(2);
 
     await db.update(readingPartTable).set({ body: 'Listen body changed.' }).where(eq(readingPartTable.id, partId));
-    const forceWhileDifferentHashActive = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
-      method: 'POST',
-      headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ force: true, roles: ['us'] }),
-    });
+    const forceWhileDifferentHashActive = await app.request(
+      `/api/admin/catalog/works/${work.id}/parts/${partId}/audio/generate`,
+      {
+        method: 'POST',
+        headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true, roles: ['us'] }),
+      },
+    );
     expect(forceWhileDifferentHashActive.status).toBe(200);
     expect(ttsCallCount).toBe(2);
     expect(audioJobs).toHaveLength(2);
@@ -358,7 +367,7 @@ describe('learner part audio', () => {
       .where(and(eq(contentAssetTable.partId, partId), eq(contentAssetTable.kind, usKind)));
 
     const staleJob = audioJobs[0]!;
-    const forcedRegeneration = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
+    const forcedRegeneration = await app.request(`/api/admin/catalog/works/${work.id}/parts/${partId}/audio/generate`, {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ force: true }),
@@ -476,7 +485,7 @@ describe('learner part audio', () => {
     await ensureTtsConfig();
 
     const partBody = 'Role matrix body.';
-    const create = await app.request('/api/admin/works', {
+    const create = await app.request('/api/admin/catalog/works', {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -491,7 +500,7 @@ describe('learner part audio', () => {
 
     expect(
       (
-        await app.request(`/api/admin/works/${work.id}`, {
+        await app.request(`/api/admin/catalog/works/${work.id}`, {
           method: 'PATCH',
           headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
           body: JSON.stringify(taxonomy),
@@ -530,7 +539,7 @@ describe('learner part audio', () => {
       });
     }
 
-    const usOnlyGeneration = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
+    const usOnlyGeneration = await app.request(`/api/admin/catalog/works/${work.id}/parts/${partId}/audio/generate`, {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ roles: ['us'] }),
@@ -539,7 +548,7 @@ describe('learner part audio', () => {
 
     expect(
       (
-        await app.request(`/api/admin/works/${work.id}/publish`, {
+        await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
           method: 'POST',
           headers: { Cookie: admin.cookie },
         })
@@ -550,7 +559,7 @@ describe('learner part audio', () => {
     expect((await learnerTrack('us')).status).toBe(200);
     expect((await learnerTrack('uk')).status).toBe(404);
 
-    const ukGeneration = await app.request(`/api/admin/parts/${partId}/audio/generate`, {
+    const ukGeneration = await app.request(`/api/admin/catalog/works/${work.id}/parts/${partId}/audio/generate`, {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ roles: ['uk'] }),
@@ -592,7 +601,7 @@ describe('learner part audio', () => {
     const admin = await createSession('admin');
     const learner = await createSession('user');
 
-    const create = await app.request('/api/admin/works', {
+    const create = await app.request('/api/admin/catalog/works', {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -607,7 +616,7 @@ describe('learner part audio', () => {
 
     expect(
       (
-        await app.request(`/api/admin/works/${work.id}`, {
+        await app.request(`/api/admin/catalog/works/${work.id}`, {
           method: 'PATCH',
           headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
           body: JSON.stringify(taxonomy),
@@ -622,7 +631,7 @@ describe('learner part audio', () => {
 
     expect(
       (
-        await app.request(`/api/admin/works/${work.id}/publish`, {
+        await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
           method: 'POST',
           headers: { Cookie: admin.cookie },
         })

@@ -5,6 +5,7 @@ import type { AdminWork } from '@gloaming/shared/works';
 
 import { buildPublishIssuesForWork } from '@/domains/works/admin/admin-publish-gate';
 import { getAdminWork } from '@/domains/works/admin/admin-work-read';
+import { catalogWorkPredicate } from '@/domains/works/catalog/policy';
 import { loadPartsForWork, loadSourcesForWork, loadTagsForWork } from '@/domains/works/read-model/relations';
 import { db } from '@/infra/db';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -16,7 +17,11 @@ async function loadAdminWorkAfterMutation(id: string): Promise<AdminWork> {
 }
 
 export async function publishWork(id: string): Promise<AdminWork> {
-  const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
   if (!existing) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
@@ -40,14 +45,18 @@ export async function publishWork(id: string): Promise<AdminWork> {
   const [row] = await db
     .update(readingWorkTable)
     .set({ publishedAt })
-    .where(and(eq(readingWorkTable.id, id), isNull(readingWorkTable.publishedAt)))
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate(), isNull(readingWorkTable.publishedAt)))
     .returning();
 
   if (row) {
     return loadAdminWorkAfterMutation(id);
   }
 
-  const [afterRace] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  const [afterRace] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
   if (!afterRace) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
@@ -55,7 +64,11 @@ export async function publishWork(id: string): Promise<AdminWork> {
 }
 
 export async function unpublishWork(id: string): Promise<AdminWork> {
-  const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
   if (!existing) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
@@ -66,7 +79,7 @@ export async function unpublishWork(id: string): Promise<AdminWork> {
   const [row] = await db
     .update(readingWorkTable)
     .set({ publishedAt: null })
-    .where(eq(readingWorkTable.id, id))
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
     .returning();
 
   if (!row) {

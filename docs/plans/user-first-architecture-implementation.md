@@ -46,7 +46,7 @@ Technical layer order within each phase remains `db → shared → backend → t
 | Backend domain migration to `processingStatus`     | Modified paths under `apps/backend/src/domains/works/**`, `apps/backend/src/application/commands/*`, jobs, shelf, recommendations, assets, metadata, etc. (see branch diff)                              |
 | Admin read/list filters                            | `apps/backend/src/domains/works/admin/admin-work-read.ts` — `publicationStatus` + `processingStatus`                                                                                                     |
 | Web admin work model                               | `apps/web/features/admin/works/works-model.ts` — `isWorkPublished`, TTS workflow helpers, list query mapping                                                                                             |
-| Web admin API client                               | `apps/web/features/admin/works/works-api.ts` — still calls `/api/admin/works` (path rename **not** done)                                                                                                 |
+| Web admin API client                               | `apps/web/features/admin/works/works-api.ts` — calls `/api/admin/catalog/works`; internal feature folder retains its current name                                                                        |
 | Functional regression updates                      | e.g. `apps/backend/tests/functional/domains/works/works-epub.spec.ts` (publication + processing filters)                                                                                                 |
 | PR-01 DB constraint tests                          | `apps/backend/tests/functional/domains/db/user-first-pr01-schema-constraints.spec.ts` — unique `(user_id, work_id)`, provider/setting/TTS scope indexes                                                  |
 
@@ -78,13 +78,13 @@ pnpm --filter @gloaming/web test -- features/admin/works/works-model.spec.ts fea
 
 ### Open / in progress (PR-01 or immediate follow-ups)
 
-| Item                                         | State                         | Notes                                                                                                                                                                                                                                                                                                       |
-| -------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Admin route rename                           | **open**                      | Web: `apps/web/app/admin/works/**`; API: `/api/admin/works`. Target: `/admin/catalog/works`, `/api/admin/catalog/works`.                                                                                                                                                                                    |
-| Library APIs & shelf union                   | **open**                      | `user_library_item` not referenced in `apps/backend/src/**`; `getShelf` still `reading_state`-only (`apps/backend/src/domains/shelf/service.ts`).                                                                                                                                                           |
-| Admin “busy” tab vs TTS (Catalog/Ingest)     | **open** — known taxonomy gap | `adminWorksListQueryForFilter('busy')` requests `processingStatus` including `ready`; `filterAdminWorksListItems` drops idle `ready` rows client-side (`works-model.ts`, `works-model.spec.ts`). Server/client classification mismatch — **not** PR-01 scope; tracked under **C2** in Catalog/Ingest phase. |
-| User read access (private / user-owned Work) | **open**                      | No dedicated authorization boundary task landed; see **AC1–AC2** (Access phase).                                                                                                                                                                                                                            |
-| Legacy Remaining audit                       | **open**                      | No automated “Remaining = 0” gate in repo; closeout task below.                                                                                                                                                                                                                                             |
+| Item                                         | State            | Notes                                                                                                                                             |
+| -------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admin route rename                           | **done (PR-04)** | Web routes and all Work/Part audio APIs use Catalog namespace; old paths have no aliases.                                                         |
+| Library APIs & shelf union                   | **open**         | `user_library_item` not referenced in `apps/backend/src/**`; `getShelf` still `reading_state`-only (`apps/backend/src/domains/shelf/service.ts`). |
+| Admin “busy” tab vs TTS (Catalog/Ingest)     | **done (PR-04)** | The shared query supports `workflowStep`; server combines it with pipeline statuses, and the Web busy filter requests `workflowStep=tts`.         |
+| User read access (private / user-owned Work) | **done (PR-02)** | Shared `canReadWorkRow` gates Reader and Asset access; Personal upload tests exercise owner, other-user, anonymous, and Admin Catalog boundaries. |
+| Legacy Remaining audit                       | **open**         | No automated “Remaining = 0” gate in repo; closeout task below.                                                                                   |
 
 ---
 
@@ -251,7 +251,7 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 | **Done when**     | “Busy” tab needs no client-side drop of valid `ready` rows OR contract documents server filter including TTS meta               |
 | **Checks**        | `pnpm --filter @gloaming/web test -- features/admin/works/works-model.spec.ts`; extend backend list test if server filter added |
 
-**Status:** **open** (known server/client “busy” vs TTS taxonomy gap; Catalog/Ingest phase — **not** claimed done in PR-01).
+**Status:** **done** in PR-04. The shared query accepts `workflowStep`; `listAdminWorks` applies it within Catalog scope and the busy tab sends the TTS step alongside pipeline states. Shared contract and Web model specs cover the query shape.
 
 #### C3 — Rename admin catalog routes (API)
 
@@ -262,7 +262,7 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 | **Done when**     | No `/api/admin/works` registrars; tests and web clients updated                                     |
 | **Checks**        | `rg '/api/admin/works' apps/backend apps/web packages` → no matches (except changelog/docs history) |
 
-**Status:** **open**.
+**Status:** **done** in PR-04. All `/api/admin/works*` routes moved to `/api/admin/catalog/works*`, including audio. The old namespace has no compatibility routes; regression tests request old collection and upload paths and receive 404.
 
 #### C4 — Rename admin catalog routes (web)
 
@@ -273,7 +273,7 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 | **Done when**     | `/admin/works` returns 404 or redirect; nav links target catalog path                  |
 | **Checks**        | `rg '/admin/works' apps/web`; `pnpm typecheck:web`                                     |
 
-**Status:** **open**.
+**Status:** **done** in PR-04. App Router pages and navigation use `/admin/catalog/works`; no old App Router path or redirect remains. The feature directory name remains an internal module path.
 
 ---
 
@@ -422,18 +422,28 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 
 Follow locked phase order. **Do not** place Library (PR-05) before Catalog/Ingest routing (PR-04). **Do not** combine Provider runtime (E2) and Settings UI (E3) in one PR.
 
-| PR        | Phase                                                                      | Tasks                                                             | Status                                                                                                                   |
-| --------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **PR-01** | Schema foundation (+ the linked processing/publication contract migration) | B1, B2, A1, A2, C1, E1, F1                                        | **done within PR-01 scope** on `codex/user-first-pr01-schema-foundation` — evidence above; later epic phases remain open |
-| **PR-02** | Access                                                                     | AC1, AC2                                                          | **done** in worktree (policy + regression tests above; acceptance by calling agent)                                      |
-| **PR-03** | Publication                                                                | A3 (idempotent `publishWork` / `published_at` SSOT)               | **done** — evidence under **A3** (2026-09-28 closeout)                                                                   |
-| **PR-04** | Catalog/Ingest                                                             | C2 (TTS “busy” / list taxonomy), C3 (API routes), C4 (web routes) | **open** (C2 known gap)                                                                                                  |
-| **PR-05** | Library                                                                    | D1, D2, D3, D4                                                    | **open**                                                                                                                 |
-| **PR-06** | Provider                                                                   | E2 (backend scope behavior only)                                  | **open**                                                                                                                 |
-| **PR-07** | Settings                                                                   | E3 (web settings UI)                                              | **open**                                                                                                                 |
-| **PR-08** | closeout                                                                   | G1, G2, G3                                                        | **open**                                                                                                                 |
+| PR        | Phase                                                                      | Tasks                                                                                          | Status                                                                                                                   |
+| --------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **PR-01** | Schema foundation (+ the linked processing/publication contract migration) | B1, B2, A1, A2, C1, E1, F1                                                                     | **done within PR-01 scope** on `codex/user-first-pr01-schema-foundation` — evidence above; later epic phases remain open |
+| **PR-02** | Access                                                                     | AC1, AC2                                                                                       | **done** in worktree (policy + regression tests above; acceptance by calling agent)                                      |
+| **PR-03** | Publication                                                                | A3 (idempotent `publishWork` / `published_at` SSOT)                                            | **done** — evidence under **A3** (2026-09-28 closeout)                                                                   |
+| **PR-04** | Catalog/Ingest                                                             | C2 (TTS “busy” / list taxonomy), C3 (API routes), C4 (web routes), shared Personal EPUB ingest | **done** — see PR-04 closeout below                                                                                      |
+| **PR-05** | Library                                                                    | D1, D2, D3, D4                                                                                 | **open**                                                                                                                 |
+| **PR-06** | Provider                                                                   | E2 (backend scope behavior only)                                                               | **open**                                                                                                                 |
+| **PR-07** | Settings                                                                   | E3 (web settings UI)                                                                           | **open**                                                                                                                 |
+| **PR-08** | closeout                                                                   | G1, G2, G3                                                                                     | **open**                                                                                                                 |
 
-**Explicitly not done after PR-03:** **PR-04** Catalog/Ingest (C2–C4), **PR-05** Library (D1–D4), **PR-06** Provider (E2), **PR-07** Settings (E3), **PR-08** closeout (G1–G3). Full monorepo `pnpm test` / root `pnpm lint` / root `pnpm typecheck` remain **open**. These are follow-on epic phases, not unfinished PR-03 acceptance items.
+**Explicitly not done after PR-04:** **PR-05** Library (D1–D4), **PR-06** Provider (E2), **PR-07** Settings (E3), **PR-08** closeout (G1–G3). Full monorepo `pnpm test` / root `pnpm lint` remain **open**; PR-04 ran focused checks recorded below.
+
+### PR-04 closeout — Catalog/Ingest and Personal EPUB
+
+**Shared ingest:** Catalog and Personal upload use one EPUB upload specification, content-addressed source storage, `origin_file` persistence, and the existing EPUB parser and parse workflow. No migration or new Work/Library model was added.
+
+**Personal:** Authenticated `POST /api/works` derives `owner_user_id` from the session, stores `visibility=private`, `origin_kind=user_epub`, and `published_at=NULL`; extra multipart fields are rejected. Its response contains only `id`, `title`, and `processingStatus`. Successful parsing persists readable parts and deterministic core metadata, then sets the Work `ready`; no metadata AI or TTS job is enqueued. Parse failure retains the source asset and marks the Work failed without readable or derived assets. PR-02 Work access policy protects Reader and asset gateways.
+
+**Catalog:** Admin list/detail/mutation/workflow/audio operations are limited to ownerless Works with `visibility=catalog`. Catalog EPUB uploads remain unpublished until the existing explicit publish action writes `published_at`. `/api/admin/works*`, `/api/admin/parts/:partId/audio*`, and `/admin/works` have no compatibility alias; the App Router, web API clients, navigation, and tests use Catalog paths.
+
+**Focused verification (2026-09-28):** Shared, Backend, and Web TypeScript checks passed. Personal EPUB (2), Catalog EPUB, Work access policy, and reader audio tests passed (**25 backend tests**); Shared Works contract **15/15**; Web admin Works model **5/5**. No full monorepo suite or root lint was run.
 
 ---
 
@@ -445,3 +455,4 @@ Follow locked phase order. **Do not** place Library (PR-05) before Catalog/Inges
 | 2026-09-28 | Locked phase order; Access tasks; PR order fix; verification evidence; filter-relative test paths                  |
 | 2026-09-28 | PR-03 Publication (A3 idempotent publish) **done**; roadmap renumbered PR-04 Catalog/Ingest through PR-08 closeout |
 | 2026-09-28 | PR-03 documentation verification closeout — A3 evidence, checks, legacy audit; “not done after PR-03” ledger       |
+| 2026-09-28 | PR-04 Personal EPUB ingest, Catalog-only Admin routes, TTS busy filter, and focused validation closeout            |

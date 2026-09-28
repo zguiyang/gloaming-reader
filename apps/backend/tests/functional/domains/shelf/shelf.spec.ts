@@ -88,7 +88,7 @@ describe('Shelf HTTP', () => {
     createdEmails.push(admin.email, learner.email);
 
     async function createAndPublish(title: string): Promise<AdminWork> {
-      const create = await app.request('/api/admin/works', {
+      const create = await app.request('/api/admin/catalog/works', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
         body: JSON.stringify({
@@ -99,7 +99,7 @@ describe('Shelf HTTP', () => {
       expect(create.status).toBe(201);
       const work = (await create.json()) as AdminWork;
       const taxonomy = await ensureWorkTaxonomyFixture('shelf');
-      const taxonomyUpdate = await app.request(`/api/admin/works/${work.id}`, {
+      const taxonomyUpdate = await app.request(`/api/admin/catalog/works/${work.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
         body: JSON.stringify(taxonomy),
@@ -108,7 +108,7 @@ describe('Shelf HTTP', () => {
       await seedReadyDefaultAudioForWork(work.id);
       expect(
         (
-          await app.request(`/api/admin/works/${work.id}/publish`, {
+          await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
             method: 'POST',
             headers: { cookie: admin.cookie },
           })
@@ -183,7 +183,7 @@ describe('Shelf HTTP', () => {
     createdEmails.push(admin.email, learner.email);
 
     async function createAndPublish(title: string): Promise<AdminWork> {
-      const create = await app.request('/api/admin/works', {
+      const create = await app.request('/api/admin/catalog/works', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
         body: JSON.stringify({
@@ -194,7 +194,7 @@ describe('Shelf HTTP', () => {
       expect(create.status).toBe(201);
       const work = (await create.json()) as AdminWork;
       const taxonomy = await ensureWorkTaxonomyFixture('shelf-policy');
-      const taxonomyUpdate = await app.request(`/api/admin/works/${work.id}`, {
+      const taxonomyUpdate = await app.request(`/api/admin/catalog/works/${work.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
         body: JSON.stringify(taxonomy),
@@ -203,7 +203,7 @@ describe('Shelf HTTP', () => {
       await seedReadyDefaultAudioForWork(work.id);
       expect(
         (
-          await app.request(`/api/admin/works/${work.id}/publish`, {
+          await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
             method: 'POST',
             headers: { cookie: admin.cookie },
           })

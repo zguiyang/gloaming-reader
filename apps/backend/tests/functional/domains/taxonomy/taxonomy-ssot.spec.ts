@@ -80,7 +80,7 @@ describe('taxonomy SSOT projection', () => {
     await db.insert(tagTable).values({ id: tagId, name: 'Kept Manual', normalized: normalizeTag('Kept Manual') });
     await db.insert(readingWorkTagTable).values({ workId, tagId, provenance: 'manual' });
 
-    const response = await app.request(`/api/admin/works/${workId}`, { headers: { Cookie: adminCookie } });
+    const response = await app.request(`/api/admin/catalog/works/${workId}`, { headers: { Cookie: adminCookie } });
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       tags: string[];

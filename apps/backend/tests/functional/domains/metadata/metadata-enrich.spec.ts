@@ -238,7 +238,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     createdContentHashes.push(hashFileContent(bytes));
     const form = new FormData();
     form.append('file', new File([new Blob([bytes])], 'book.epub', { type: 'application/epub+zip' }));
-    const response = await app.request('/api/admin/works/epub', {
+    const response = await app.request('/api/admin/catalog/works/epub', {
       method: 'POST',
       headers: { Cookie: adminCookie },
       body: form,
@@ -271,7 +271,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   }
 
   async function fetchAdminWork(workId: string) {
-    const response = await app.request(`/api/admin/works/${workId}`, { headers: { Cookie: adminCookie } });
+    const response = await app.request(`/api/admin/catalog/works/${workId}`, { headers: { Cookie: adminCookie } });
     expect(response.status).toBe(200);
     return (await response.json()) as {
       tags: TaxonomyReference[];
@@ -539,7 +539,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       origin: 'manual',
     });
 
-    await app.request(`/api/admin/works/${workId}`, {
+    await app.request(`/api/admin/catalog/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -584,7 +584,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       origin: 'manual',
     });
 
-    await app.request(`/api/admin/works/${workId}`, {
+    await app.request(`/api/admin/catalog/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({

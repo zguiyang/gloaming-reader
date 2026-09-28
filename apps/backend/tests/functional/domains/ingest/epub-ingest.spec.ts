@@ -107,7 +107,7 @@ async function uploadEpub(cookie: string, bytes: Buffer, contentHashes: string[]
   contentHashes.push(hashFileContent(bytes));
   const form = new FormData();
   form.append('file', new File([new Blob([bytes])], 'book.epub', { type: 'application/epub+zip' }));
-  return app.request('/api/admin/works/epub', {
+  return app.request('/api/admin/catalog/works/epub', {
     method: 'POST',
     headers: { Cookie: cookie },
     body: form,
@@ -400,7 +400,7 @@ describe('EPUB ingest pipeline', () => {
   });
 });
 
-describe('POST /api/admin/works/:id/workflow/retry', () => {
+describe('POST /api/admin/catalog/works/:id/workflow/retry', () => {
   const memory = createMemoryObjectStore();
   const createdWorkIds: string[] = [];
   const createdContentHashes: string[] = [];
@@ -423,7 +423,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
   });
 
   async function retryRequest(id: string, body?: Record<string, unknown>) {
-    return app.request(`/api/admin/works/${id}/workflow/retry`, {
+    return app.request(`/api/admin/catalog/works/${id}/workflow/retry`, {
       method: 'POST',
       headers: { Cookie: adminCookie, ...(body ? { 'Content-Type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
@@ -477,13 +477,13 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
       })
       .where(eq(readingWorkTable.id, workId));
     const taxonomy = await ensureWorkTaxonomyFixture('epub-ingest');
-    await app.request(`/api/admin/works/${workId}`, {
+    await app.request(`/api/admin/catalog/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify(taxonomy),
     });
     await seedReadyDefaultAudioForWork(workId);
-    const publish = await app.request(`/api/admin/works/${workId}/publish`, {
+    const publish = await app.request(`/api/admin/catalog/works/${workId}/publish`, {
       method: 'POST',
       headers: { Cookie: adminCookie },
     });
@@ -606,7 +606,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
         processingStatus: 'ready',
       })
       .where(eq(readingWorkTable.id, workId));
-    await app.request(`/api/admin/works/${workId}`, {
+    await app.request(`/api/admin/catalog/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Edited Title', author: 'Edited Author', description: 'Edited description' }),
@@ -734,7 +734,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     const tts = await retryRequest(workId, { step: 'tts' });
     expect(tts.status).toBe(400);
 
-    const text = await app.request('/api/admin/works', {
+    const text = await app.request('/api/admin/catalog/works', {
       method: 'POST',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Text Guard', body: '<p>Body.</p>' }),

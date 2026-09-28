@@ -5,9 +5,11 @@ import {
   getPublishAudioIssues,
   getPublishPartAudioIssues,
   mergePublishWorkIssues,
+  personalWorkUploadResultSchema,
   PUBLISH_DEFAULT_AUDIO_ROLE,
   updateWorkBodySchema,
   WORK_PROCESSING_STATUSES,
+  workOriginKindSchema,
   workProcessingStatusSchema,
   workSchema,
 } from './works.ts';
@@ -84,6 +86,25 @@ describe('work processing status contracts', () => {
     });
     expect(adminWorkListQuerySchema.safeParse({ publicationStatus: 'draft' }).success).toBe(false);
     expect(adminWorkListQuerySchema.parse({ status: 'published' }).publicationStatus).toBeUndefined();
+  });
+
+  it('supports server-side TTS workflow filtering and safe Personal upload results', () => {
+    expect(
+      adminWorkListQuerySchema.parse({ processingStatus: 'uploaded,processing,parsed,metadata', workflowStep: 'tts' }),
+    ).toMatchObject({ processingStatus: 'uploaded,processing,parsed,metadata', workflowStep: 'tts' });
+    expect(adminWorkListQuerySchema.safeParse({ workflowStep: 'unknown' }).success).toBe(false);
+    expect(workOriginKindSchema.parse('user_epub')).toBe('user_epub');
+    expect(personalWorkUploadResultSchema.parse({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' })).toEqual(
+      { id: 'work-1', title: 'Book', processingStatus: 'uploaded' },
+    );
+    expect(
+      personalWorkUploadResultSchema.parse({
+        id: 'work-1',
+        title: 'Book',
+        processingStatus: 'uploaded',
+        storageKey: 'epub/private.epub',
+      }),
+    ).toEqual({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' });
   });
 });
 

@@ -5,12 +5,12 @@ import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
 import { deleteWork } from '@/application/commands/delete-work';
 import { retryWorkflow } from '@/application/commands/retry-workflow';
 import {
-  createAdminEpubWork,
   createAdminTextWork,
+  createCatalogEpubWork,
   getAdminWork,
   listAdminWorks,
   publishWork,
-  reuseAdminEpubWork,
+  reuseCatalogEpubWork,
   unpublishWork,
   updateWork,
 } from '@/domains/works/admin';
@@ -27,23 +27,23 @@ import { sendError } from '@/infra/http/response';
 import { HTTP_STATUS } from '@/shared/constants';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
-export const worksAdminRoutes = new Hono<{ Variables: AuthVariables }>();
+export const catalogAdminRoutes = new Hono<{ Variables: AuthVariables }>();
 
-worksAdminRoutes.post('/api/admin/works', requireAdmin, validateCreateAdminTextWork, async (c) => {
+catalogAdminRoutes.post('/api/admin/catalog/works', requireAdmin, validateCreateAdminTextWork, async (c) => {
   const work = await createAdminTextWork(c.req.valid('json'));
   return c.json(work, HTTP_STATUS.CREATED);
 });
 
 /** Instant upload — dedupe lookup by content hash. Creates the work when the object exists. */
-worksAdminRoutes.post('/api/admin/works/epub/reuse', requireAdmin, validateCheckEpubWorkReuse, async (c) => {
-  const result = await reuseAdminEpubWork(c.req.valid('json'));
+catalogAdminRoutes.post('/api/admin/catalog/works/epub/reuse', requireAdmin, validateCheckEpubWorkReuse, async (c) => {
+  const result = await reuseCatalogEpubWork(c.req.valid('json'));
   if (!result) {
     return c.json({ duplicated: false });
   }
   return c.json({ ...result, duplicated: true }, HTTP_STATUS.CREATED);
 });
 
-worksAdminRoutes.post('/api/admin/works/epub', requireAdmin, async (c) => {
+catalogAdminRoutes.post('/api/admin/catalog/works/epub', requireAdmin, async (c) => {
   const contentLength = Number(c.req.header('content-length') ?? 0);
   if (contentLength > EPUB_UPLOAD_MAX_BYTES + 1024) {
     return sendError(c, ERROR_CODES.UPLOAD.FILE_TOO_LARGE, HTTP_STATUS.BAD_REQUEST, { maxMb: 50 });
@@ -60,7 +60,7 @@ worksAdminRoutes.post('/api/admin/works/epub', requireAdmin, async (c) => {
     return sendError(c, ERROR_CODES.UPLOAD.FILE_TOO_LARGE, HTTP_STATUS.BAD_REQUEST, { maxMb: 50 });
   }
 
-  const result = await createAdminEpubWork({
+  const result = await createCatalogEpubWork({
     fileName: (file as File).name,
     body: bytes,
     contentType: (file as File).type,
@@ -68,38 +68,43 @@ worksAdminRoutes.post('/api/admin/works/epub', requireAdmin, async (c) => {
   return c.json(result, HTTP_STATUS.CREATED);
 });
 
-worksAdminRoutes.get('/api/admin/works', requireAdmin, validateAdminWorkListQuery, async (c) => {
+catalogAdminRoutes.get('/api/admin/catalog/works', requireAdmin, validateAdminWorkListQuery, async (c) => {
   const data = await listAdminWorks(c.req.valid('query'));
   return c.json(data);
 });
 
-worksAdminRoutes.get('/api/admin/works/:id', requireAdmin, async (c) => {
+catalogAdminRoutes.get('/api/admin/catalog/works/:id', requireAdmin, async (c) => {
   const work = await getAdminWork(c.req.param('id'));
   return c.json(work);
 });
 
-worksAdminRoutes.patch('/api/admin/works/:id', requireAdmin, validateUpdateWork, async (c) => {
+catalogAdminRoutes.patch('/api/admin/catalog/works/:id', requireAdmin, validateUpdateWork, async (c) => {
   const work = await updateWork(c.req.param('id'), c.req.valid('json'));
   return c.json(work);
 });
 
-worksAdminRoutes.post('/api/admin/works/:id/publish', requireAdmin, async (c) => {
+catalogAdminRoutes.post('/api/admin/catalog/works/:id/publish', requireAdmin, async (c) => {
   const work = await publishWork(c.req.param('id'));
   return c.json(work);
 });
 
-worksAdminRoutes.post('/api/admin/works/:id/unpublish', requireAdmin, async (c) => {
+catalogAdminRoutes.post('/api/admin/catalog/works/:id/unpublish', requireAdmin, async (c) => {
   const work = await unpublishWork(c.req.param('id'));
   return c.json(work);
 });
 
 /** Retry / re-run the generation workflow — resume from the failed step, or re-run one step. */
-worksAdminRoutes.post('/api/admin/works/:id/workflow/retry', requireAdmin, validateRetryWorkflow, async (c) => {
-  const work = await retryWorkflow(c.req.param('id'), c.req.valid('json'));
-  return c.json(work);
-});
+catalogAdminRoutes.post(
+  '/api/admin/catalog/works/:id/workflow/retry',
+  requireAdmin,
+  validateRetryWorkflow,
+  async (c) => {
+    const work = await retryWorkflow(c.req.param('id'), c.req.valid('json'));
+    return c.json(work);
+  },
+);
 
-worksAdminRoutes.delete('/api/admin/works/:id', requireAdmin, async (c) => {
+catalogAdminRoutes.delete('/api/admin/catalog/works/:id', requireAdmin, async (c) => {
   await deleteWork(c.req.param('id'));
   return c.body(null, HTTP_STATUS.NO_CONTENT);
 });

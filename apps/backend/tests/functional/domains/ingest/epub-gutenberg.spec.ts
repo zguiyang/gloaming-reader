@@ -80,7 +80,7 @@ async function uploadEpub(cookie: string, bytes: Buffer, contentHashes: string[]
   contentHashes.push(hashFileContent(bytes));
   const form = new FormData();
   form.append('file', new File([new Blob([bytes])], fileName, { type: 'application/epub+zip' }));
-  return app.request('/api/admin/works/epub', {
+  return app.request('/api/admin/catalog/works/epub', {
     method: 'POST',
     headers: { Cookie: cookie },
     body: form,

@@ -1,11 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
 import { UnrecoverableError } from 'bullmq';
+import { eq } from 'drizzle-orm';
+
+import { readingWork as readingWorkTable } from '@gloaming/db';
 
 import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
 import { JOB_METADATA_FILL } from '@/application/jobs/work-metadata-fill';
 import { isEpubValidationError } from '@/domains/ingest/epub';
 import { failWorkflowEnqueue, rotateWorkflowJobToken, WORKFLOW_AUTO_CHAIN } from '@/domains/works/lifecycle';
+import { db } from '@/infra/db';
 import { enqueue } from '@/infra/queue';
 
 export const JOB_CONTENT_PARSE = 'content-parse';
@@ -34,6 +38,12 @@ export async function processContentParse(
   // Auto-chain kept for future: when WORKFLOW_AUTO_CHAIN flips back to true,
   // parse success immediately queues metadata-fill without an admin click.
   if (WORKFLOW_AUTO_CHAIN) {
+    const [work] = await db
+      .select({ originKind: readingWorkTable.originKind })
+      .from(readingWorkTable)
+      .where(eq(readingWorkTable.id, data.workId))
+      .limit(1);
+    if (work?.originKind === 'user_epub') return { ok: true, workId: data.workId };
     const retryJobToken = randomUUID();
     const metadataEnqueueAttemptToken = randomUUID();
     if (
