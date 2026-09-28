@@ -75,7 +75,7 @@ describe('book-detail-model', () => {
     expect(difficultyStarCount(5)).toBe(5);
   });
 
-  it('derives reading status from shelf/reader state', () => {
+  it('derives reading status from independent reader state', () => {
     expect(readingStatusFromProgress('completed', 100)).toBe('completed');
     expect(readingStatusFromProgress('in_progress', 40)).toBe('in_progress');
     expect(readingStatusFromProgress('in_progress', 0)).toBe('unread');
@@ -160,14 +160,14 @@ describe('chaptersFromParts', () => {
     },
   ];
 
-  it('marks all unread without shelf state', () => {
+  it('marks all unread without reading state', () => {
     const chapters = chaptersFromParts(parts, null);
     expect(chapters.map((c) => c.status)).toEqual(['unread', 'unread', 'unread']);
     expect(chapters[0]?.estimatedMinutes).toBe(1);
     expect(chapters[0]?.wordCount).toBe(100);
   });
 
-  it('marks current and prior chapters from shelf progress', () => {
+  it('marks current and prior chapters from reading progress', () => {
     const chapters = chaptersFromParts(parts, {
       status: 'in_progress',
       currentPartId: 'p2',
@@ -233,7 +233,7 @@ describe('toBookDetail', () => {
       },
     ];
 
-    const book = toBookDetail(work, parts, undefined);
+    const book = toBookDetail(work, parts, false, null);
     expect(book.estimatedMinutes).toBe(2);
     expect(book.suggestedVocabSize).toBeNull();
     expect(book.sourceLabel).toBe('official');
@@ -264,7 +264,8 @@ describe('toBookDetail', () => {
         tags: [taxonomyTag, taxonomyTagSecond],
       },
       parts,
-      undefined,
+      false,
+      null,
     );
 
     expect(book.category).toEqual(taxonomyCategory);
@@ -287,7 +288,7 @@ describe('toBookDetail', () => {
       },
     ];
 
-    const book = toBookDetail({ ...work, category: null, tags: [taxonomyTag] }, parts, undefined);
+    const book = toBookDetail({ ...work, category: null, tags: [taxonomyTag] }, parts, false, null);
 
     expect(book.category).toBe(BOOK_DETAIL_DEFAULT_CATEGORY);
     expect(book.tags).toEqual([taxonomyTag]);

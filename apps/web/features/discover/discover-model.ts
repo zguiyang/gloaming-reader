@@ -1,8 +1,8 @@
 import { type Locale } from '@gloaming/i18n';
 import { type CatalogTaxonomyFacet, resolveLocalizedText, type TaxonomyReference } from '@gloaming/shared/taxonomy';
 
-/** Catalog membership relative to the reader's shelf. */
-export type DiscoverShelfStatus = 'available' | 'on_shelf' | 'in_progress';
+/** Catalog membership only; reading progress is carried separately. */
+export type DiscoverLibraryStatus = 'available' | 'in_library';
 
 export type DiscoverItem = {
   id: string;
@@ -16,7 +16,7 @@ export type DiscoverItem = {
   /** `/api/assets/:id` or null when the work has no cover. */
   coverImageUrl: string | null;
   publishedAt: string;
-  shelfStatus: DiscoverShelfStatus;
+  libraryStatus: DiscoverLibraryStatus;
   progressRatio: number | null;
 };
 

@@ -26,7 +26,7 @@ There are **no production users** and **no historical data compatibility** requi
 4. Adopt **`ReadingState`** for reading progress and position only (replaces `reading_progress`). Removing a work from Library **does not** delete `reading_state`.
 5. Adopt **`ContentAsset`** for source files and derived resources (replaces `article_audio`).
 6. Keep **`Conversation`**; `subject_type = reading_work`, `subject_id = work.id`.
-7. Treat **`My Library`** as a **read-model aggregate**: works the user **owns** (`reading_work.owner_user_id = user`) **UNION** works explicitly saved via **`user_library_item`** (typically catalog works). **Shelf** (continue-reading UX) may compose Library membership with `reading_state` but membership is not stored on `reading_state`.
+7. Treat **`My Library`** as a **read-model aggregate**: works the user **owns** (`reading_work.owner_user_id = user`) **UNION** works explicitly saved via **`user_library_item`** (typically catalog works). **Continue Reading** is a separate projection of accessible in-progress `reading_state` and may contain an unsaved work.
 8. **MVP primary supply:** `admin_epub` (Admin EPUB upload → processing → publish).
 9. **`admin_text`:** internal fallback only (dev/test/seed) — **not** a product capability.
 10. **Provider settings (User-first):** `llm_provider`, `llm_app_setting`, and `tts_config` are scoped by **`owner_user_id`**: `NULL` = instance (platform) scope; non-`NULL` = that user’s scope. **Do not** introduce parallel `user_llm_*` tables.
@@ -118,7 +118,7 @@ LibraryWorks(user) =
   { work | EXISTS user_library_item(user, work) }
 ```
 
-**Shelf / continue reading (UX):** may filter Library-visible or published works and join `reading_state` for position — implementation detail of product surfaces (`/my-shelf`, etc.), not ADR-owned storage.
+**Library / Continue Reading (read model):** Library items are owned works union explicitly saved Catalog works. Their `reading_state` is an optional progress decoration. Continue Reading is queried independently from accessible `reading_state` rows and may include an unsaved Catalog work; reading never creates Library membership.
 
 ---
 
@@ -156,12 +156,12 @@ LibraryWorks(user) =
 
 ### Reserved / follow-on (User-first epic)
 
-| Area                             | Reserved via                                                                                                                 |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Personal EPUB upload             | `POST /api/works`; `owner_user_id`, `visibility=private`, `origin_kind=user_epub`; shared EPUB parser; no Library membership |
-| User PDF / web / video / podcast | Future `origin_kind`, `part.kind`, `part.meta`                                                                               |
-| Library CRUD APIs & shelf union  | `user_library_item` + read models                                                                                            |
-| Vocabulary product / RAG tables  | Conversation message IDs as future pointers                                                                                  |
+| Area                                       | Reserved via                                                                                                                 |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Personal EPUB upload                       | `POST /api/works`; `owner_user_id`, `visibility=private`, `origin_kind=user_epub`; shared EPUB parser; no Library membership |
+| User PDF / web / video / podcast           | Future `origin_kind`, `part.kind`, `part.meta`                                                                               |
+| Library CRUD APIs & owned/saved read model | `user_library_item` + read models                                                                                            |
+| Vocabulary product / RAG tables            | Conversation message IDs as future pointers                                                                                  |
 
 ---
 

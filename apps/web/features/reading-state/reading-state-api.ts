@@ -28,8 +28,3 @@ export async function patchReadingState(
     signal: init?.signal,
   });
 }
-
-/** Silent shelf add — creates 0% state without opening reader. */
-export async function addWorkToShelf(workId: string): Promise<void> {
-  await patchReadingState(workId, { action: 'add_to_shelf' });
-}

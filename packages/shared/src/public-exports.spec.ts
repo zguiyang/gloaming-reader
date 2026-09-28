@@ -18,7 +18,7 @@ const ACCEPTED_MODULES = [
   'reading-history',
   'reading-stats',
   'recommendations',
-  'shelf',
+  'library',
   'taxonomy',
   'translate',
   'tts',

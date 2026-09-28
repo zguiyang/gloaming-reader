@@ -149,7 +149,7 @@ export function useReaderStateMutation(workId: string) {
     },
     onSuccess: (state) => {
       queryClient.setQueryData(stateKey, state);
-      void queryClient.invalidateQueries({ queryKey: ['shelf'] });
+      void queryClient.invalidateQueries({ queryKey: ['library'] });
       void queryClient.invalidateQueries({ queryKey: ['book-detail'] });
     },
     onError: async (error) => {

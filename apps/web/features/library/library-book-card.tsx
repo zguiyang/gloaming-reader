@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 import { type Locale, t } from '@gloaming/i18n';
-import type { ShelfItem } from '@gloaming/shared/shelf';
+import type { LibraryItem } from '@gloaming/shared/library';
 import { resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import { AUTH_ROUTES } from '@/constants';
@@ -12,7 +12,10 @@ import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-function statusLabel(entry: ShelfItem, locale: Locale): string {
+function statusLabel(entry: LibraryItem, locale: Locale): string {
+  if (!entry.state) {
+    return t(locale, 'content.shelf.statusNotStarted');
+  }
   if (entry.state.status === 'completed') {
     return t(locale, 'content.shelf.statusCompleted');
   }
@@ -22,7 +25,7 @@ function statusLabel(entry: ShelfItem, locale: Locale): string {
   return t(locale, 'content.shelf.statusReadProgress', { ratio: entry.state.progressRatio });
 }
 
-export function ShelfBookCard({ entry }: { entry: ShelfItem }) {
+export function LibraryBookCard({ entry }: { entry: LibraryItem }) {
   const { locale } = useLocale();
   const { work, state } = entry;
   const detailHref = AUTH_ROUTES.bookDetail(work.id);
@@ -31,7 +34,7 @@ export function ShelfBookCard({ entry }: { entry: ShelfItem }) {
     .map((tag) => resolveLocalizedText(tag.names, locale))
     .filter(Boolean)
     .join(' · ');
-  const hasProgressBar = state.status === 'in_progress' && state.progressRatio > 0;
+  const hasProgressBar = state?.status === 'in_progress' && state.progressRatio > 0;
   const coverImageUrl = coverUrlFromAssetId(work.coverAssetId);
 
   return (
@@ -68,7 +71,7 @@ export function ShelfBookCard({ entry }: { entry: ShelfItem }) {
           <div className="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-muted/80">
             <div
               className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out-soft"
-              style={{ width: `${Math.min(100, state.progressRatio)}%` }}
+              style={{ width: `${Math.min(100, state!.progressRatio)}%` }}
             />
           </div>
         ) : null}

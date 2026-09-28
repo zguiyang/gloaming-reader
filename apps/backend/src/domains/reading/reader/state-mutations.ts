@@ -62,7 +62,7 @@ export async function updateReadingState(
       .for('update')
       .limit(1);
 
-    if (!existing && (input.action === 'add_to_shelf' || input.action === 'open' || input.action === 'restart')) {
+    if (!existing && (input.action === 'open' || input.action === 'restart')) {
       const [created] = await tx
         .insert(readingStateTable)
         .values({
@@ -110,10 +110,6 @@ export async function updateReadingState(
       }
       return updated;
     };
-
-    if (input.action === 'add_to_shelf') {
-      return existing;
-    }
 
     const currentPart = existing.currentPartId ? parts.find((part) => part.id === existing.currentPartId) : undefined;
     const currentPartId = currentPart?.id ?? null;

@@ -4,7 +4,7 @@ import { BookOpenIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { type Locale, t } from '@gloaming/i18n';
-import type { ShelfItem } from '@gloaming/shared/shelf';
+import type { ContinueReadingItem } from '@gloaming/shared/library';
 import { resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-function metaLine(entry: ShelfItem, locale: Locale): string {
+function metaLine(entry: ContinueReadingItem, locale: Locale): string {
   const parts: string[] = [];
   const firstTag = entry.work.tags[0];
   if (firstTag) {
@@ -30,7 +30,7 @@ function progressLabel(ratio: number, locale: Locale): string {
   return t(locale, 'content.shelf.progressRead', { ratio });
 }
 
-export function ShelfContinueHero({ entry }: { entry: ShelfItem }) {
+export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
   const { locale } = useLocale();
   const ratio = entry.state.progressRatio;
   const detailHref = AUTH_ROUTES.bookDetail(entry.work.id);

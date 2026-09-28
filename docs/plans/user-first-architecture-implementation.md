@@ -81,7 +81,7 @@ pnpm --filter @gloaming/web test -- features/admin/works/works-model.spec.ts fea
 | Item                                         | State            | Notes                                                                                                                                             |
 | -------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Admin route rename                           | **done (PR-04)** | Web routes and all Work/Part audio APIs use Catalog namespace; old paths have no aliases.                                                         |
-| Library APIs & shelf union                   | **open**         | `user_library_item` not referenced in `apps/backend/src/**`; `getShelf` still `reading_state`-only (`apps/backend/src/domains/shelf/service.ts`). |
+| Library APIs & owned/saved union             | **done (PR-05)** | Library reads owned works plus explicitly saved published Catalog Works; progress is optional and Continue Reading is independent.                |
 | Admin “busy” tab vs TTS (Catalog/Ingest)     | **done (PR-04)** | The shared query supports `workflowStep`; server combines it with pipeline statuses, and the Web busy filter requests `workflowStep=tts`.         |
 | User read access (private / user-owned Work) | **done (PR-02)** | Shared `canReadWorkRow` gates Reader and Asset access; Personal upload tests exercise owner, other-user, anonymous, and Admin Catalog boundaries. |
 | Legacy Remaining audit                       | **open**         | No automated “Remaining = 0” gate in repo; closeout task below.                                                                                   |
@@ -281,47 +281,47 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 
 #### D1 — Library membership service
 
-|                   |                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------- |
-| **Scope**         | CRUD for `user_library_item`; idempotent add/remove                             |
-| **Prerequisites** | B1, AC1, AC2; after Catalog/Ingest PR-04 (C2–C4) for stable admin/user surfaces |
-| **Done when**     | API can add/remove catalog work; unique violation surfaced as 409               |
-| **Checks**        | New functional spec under `tests/functional/domains/library/`                   |
+|                   |                                                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Scope**         | CRUD for `user_library_item`; idempotent add/remove                                                                          |
+| **Prerequisites** | B1, AC1, AC2; after Catalog/Ingest PR-04 (C2–C4) for stable admin/user surfaces                                              |
+| **Done when**     | Authenticated add/remove changes only the caller's Catalog membership; add is idempotent and removing a missing row succeeds |
+| **Checks**        | New functional spec under `tests/functional/domains/library/`                                                                |
 
-**Status:** **open**.
+**Status:** **done in PR-05**.
 
 #### D2 — My Library read model
 
-|                   |                                                                     |
-| ----------------- | ------------------------------------------------------------------- |
-| **Scope**         | Query owned works ∪ library items; shared DTO if new public surface |
-| **Prerequisites** | D1, A2                                                              |
-| **Done when**     | Documented union matches ADR; pagination if needed                  |
-| **Checks**        | Functional + shared schema tests                                    |
+|                   |                                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Scope**         | Query owned works ∪ library items; shared DTO if new public surface                                                                             |
+| **Prerequisites** | D1, A2                                                                                                                                          |
+| **Done when**     | Owned Personal Works ∪ explicitly saved accessible Catalog Works; optional progress does not define membership; Continue Reading may be unsaved |
+| **Checks**        | Functional + shared schema tests                                                                                                                |
 
-**Status:** **open**.
+**Status:** **done in PR-05**.
 
-#### D3 — Shelf uses membership + `reading_state`
+#### D3 — Library uses membership + optional `reading_state`
 
-|                   |                                                                                             |
-| ----------------- | ------------------------------------------------------------------------------------------- |
-| **Scope**         | `apps/backend/src/domains/shelf/service.ts`, shared `ShelfData` if shape changes            |
-| **Prerequisites** | D2                                                                                          |
-| **Done when**     | Shelf listing does not treat `reading_state` row as implicit library join for catalog saves |
-| **Checks**        | `pnpm --filter @gloaming/backend test` (shelf/history specs)                                |
+|                   |                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Scope**         | `apps/backend/src/domains/library/service.ts`, `LibraryData`, and migrated callers                                                   |
+| **Prerequisites** | D2                                                                                                                                   |
+| **Done when**     | Reading a Catalog work does not add membership; Library includes no-progress works; no Shelf API/shared compatibility module remains |
+| **Checks**        | Library, Reader, history, shared, and web regression checks                                                                          |
 
-**Status:** **open**.
+**Status:** **done in PR-05**.
 
 #### D4 — Reader/book-detail “Save to library” UX
 
-|                   |                                                                                      |
-| ----------------- | ------------------------------------------------------------------------------------ |
-| **Scope**         | Web feature + API wiring                                                             |
-| **Prerequisites** | D1                                                                                   |
-| **Done when**     | User can save catalog work; remove from library retains reading state                |
-| **Checks**        | `pnpm --filter @gloaming/web test -- features/book-detail/book-detail-model.spec.ts` |
+|                   |                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------- |
+| **Scope**         | Web feature + API wiring                                                                              |
+| **Prerequisites** | D1                                                                                                    |
+| **Done when**     | Book Detail saves through Library API; progress is queried separately and survives membership removal |
+| **Checks**        | `pnpm --filter @gloaming/web test -- features/book-detail/book-detail-model.spec.ts`                  |
 
-**Status:** **open**.
+**Status:** **done in PR-05**.
 
 ---
 

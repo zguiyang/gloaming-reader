@@ -21,14 +21,7 @@ export const READING_STATE_CREATE_CONFLICT_RULE = 'existing_row_wins' as const;
 /** No chapters fully completed yet. */
 export const NO_CHAPTERS_COMPLETED = -1 as const;
 
-export const READING_STATE_ACTIONS = [
-  'open',
-  'complete_chapter',
-  'navigate',
-  'finish',
-  'restart',
-  'add_to_shelf',
-] as const;
+export const READING_STATE_ACTIONS = ['open', 'complete_chapter', 'navigate', 'finish', 'restart'] as const;
 export type ReadingStateAction = (typeof READING_STATE_ACTIONS)[number];
 
 export const readingStateSchema = z.object({

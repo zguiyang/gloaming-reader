@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { useLocale } from '@/lib/locale-context';
 
-function EmptyShelfIllustration() {
+function EmptyLibraryIllustration() {
   return (
     <div
       className="flex size-40 items-center justify-center rounded-full bg-muted ring-1 ring-border/40 md:size-52"
@@ -42,12 +42,12 @@ function EmptyShelfIllustration() {
   );
 }
 
-export function ShelfEmptyState() {
+export function LibraryEmptyState() {
   const { locale } = useLocale();
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center px-2 py-16 text-center md:py-24">
-      <EmptyShelfIllustration />
+      <EmptyLibraryIllustration />
       <h2 className="font-heading mt-10 text-2xl font-semibold tracking-tight text-foreground md:text-[2rem] md:leading-10">
         {t(locale, 'content.shelf.emptyTitle')}
       </h2>

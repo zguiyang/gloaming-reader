@@ -1,17 +1,24 @@
-# ADR-006: Frontend shelf and reader-parts recorded public seams
+# ADR-006: Frontend Library and reader-parts recorded public seams
 
 **Status:** Accepted
 **Date:** 2026-09-08
-**Scope:** `apps/web/features/shelf/shelf-public.ts` and
-`apps/web/features/reader/reader-parts-public.ts` cross-Feature public seams
-only. Does not change Auth, App Shell, Site Chrome, Navigation, Shared, or
-reading-state recorded seams.
+**Scope:** `apps/web/features/library/library-public.ts` and
+`apps/web/features/reader/reader-parts-public.ts` cross-Feature public seams.
+The User-first amendment updates the Library Shared subpath only; it does not
+change Auth, App Shell, Site Chrome, Navigation, or reading-state seams.
 
 Related: [`.cursor/rules/frontend.mdc`](../../.cursor/rules/frontend.mdc) ·
 [`docs/adr/004-frontend-reading-state-public-seams.md`](./004-frontend-reading-state-public-seams.md)
 (separate reading-state seam record; not superseded here) ·
 [`docs/adr/005-frontend-app-shell-site-chrome-ownership.md`](./005-frontend-app-shell-site-chrome-ownership.md)
 (separate App Shell / Site Chrome record; not superseded here)
+
+**User-first amendment (2026-09-28):** PR-05 retires the Shelf module seam and
+replaces it with the Library seam below. `/my-shelf` remains the existing route;
+the runtime API and Shared contract are `/api/library` and
+`@gloaming/shared/library`. Continue Reading is a separate progress projection,
+not Library membership. This amendment supersedes older statements here that
+prohibited renaming the Shelf seam.
 
 ---
 
@@ -24,12 +31,12 @@ requires owner, explicit entry path, documented public intent, and either a
 real cross-boundary consumer or an explicit non-hypothetical stable public
 contract / framework requirement.
 
-`shelf-public` and `reader-parts-public` already have real cross-Feature
+`library-public` and `reader-parts-public` already have real cross-Feature
 consumers. Recording them prevents a future cleanup from treating these files
 as internal-only and deleting, merging, or deep-rewiring them solely because
 of the default-private rule. This ADR documents the current approved contract;
-it does not approve directory migration, file merges, or runtime behavior
-changes.
+it does not approve additional directory migration, file merges, or runtime
+behavior changes beyond the explicit User-first amendment.
 
 ---
 
@@ -39,16 +46,16 @@ The following two files are intentional public seams of their owning Features.
 They are **not** a precedent that every `*-public.ts`, `*-api.ts`,
 `*-client.ts`, or Feature `index.ts` is public.
 
-### `shelf-public`
+### `library-public`
 
-| Field                                                   | Value                                                                                                                        |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Owner                                                   | `features/shelf`                                                                                                             |
-| Public entry                                            | `@/features/shelf/shelf-public` (`apps/web/features/shelf/shelf-public.ts`)                                                  |
-| Approved public symbols                                 | `getShelf`, `buildShelfItemMap`                                                                                              |
-| Role                                                    | Cross-Feature shelf data access and shelf-item indexing. No React Query hooks and no page components.                        |
-| Cross-Feature consumers (verified)                      | `features/book-detail/book-detail-api.ts`, `features/discover/discover-api.ts`                                               |
-| Same-Feature consumers (not the cross-Feature contract) | `features/shelf/shelf-api.ts` (`getShelf`), plus owner unit test `features/shelf/shelf-public.spec.ts` (`buildShelfItemMap`) |
+| Field                                                   | Value                                                                                                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner                                                   | `features/library`                                                                                                                       |
+| Public entry                                            | `@/features/library/library-public` (`apps/web/features/library/library-public.ts`)                                                      |
+| Approved public symbols                                 | `getLibrary`, `buildLibraryItemMap`                                                                                                      |
+| Role                                                    | Cross-Feature Library data access and membership-only item indexing. Continue Reading stays separate. No hooks or pages.                 |
+| Cross-Feature consumers (verified)                      | `features/book-detail/book-detail-api.ts`, `features/discover/discover-api.ts`                                                           |
+| Same-Feature consumers (not the cross-Feature contract) | `features/library/library-api.ts` (`getLibrary`), plus owner unit test `features/library/library-public.spec.ts` (`buildLibraryItemMap`) |
 
 ### `reader-parts-public`
 
@@ -63,7 +70,7 @@ They are **not** a precedent that every `*-public.ts`, `*-api.ts`,
 
 ### Same-Feature consumers are not the cross-Feature contract
 
-Same-Feature imports (for example `shelf-api` → `shelf-public`, or
+Same-Feature imports (for example `library-api` → `library-public`, or
 `reader-api` → `reader-parts-public`) are owner-internal composition. They
 demonstrate that the seam is used inside the owner Feature; they do **not** by
 themselves establish or widen the cross-Feature public contract. The
@@ -75,24 +82,24 @@ verified cross-Feature consumers.
 Allowed:
 
 ```text
-book-detail  →  shelf-public
-discover     →  shelf-public
+book-detail  →  library-public
+discover     →  library-public
 book-detail  →  reader-parts-public
-shelf (owner internals)   →  shelf-public
+library (owner internals) →  library-public
 reader (owner internals)  →  reader-parts-public
 ```
 
 Forbidden reverse / cyclic dependencies for these seams:
 
-- `shelf` must not depend on `book-detail` or `discover` to satisfy shelf data
+- `library` must not depend on `book-detail` or `discover` to satisfy Library data
   access.
 - `reader` must not depend on `book-detail` to satisfy work-parts data access.
 - Consumers must import only the recorded public entries above; they must not
-  deep-import shelf or reader private implementation for these capabilities.
+  deep-import Library or reader private implementation for these capabilities.
 
-Verified at record time: no other Feature deep-imports shelf or reader private
-implementation for shelf data or work-parts data; no reverse dependency from
-`shelf`/`reader` into `book-detail`/`discover` for these seams.
+Verified at PR-05: no other Feature deep-imports Library or reader private
+implementation for Library data or work-parts data; no reverse dependency from
+`library`/`reader` into `book-detail`/`discover` for these seams.
 
 ### Naming is not automatic publicity
 
@@ -118,16 +125,16 @@ rules from `frontend.mdc` or ADR-005.
 
 This decision deliberately does **not**:
 
-- migrate, merge, rename, or relocate `shelf-public` or `reader-parts-public`;
-- change runtime behavior of `getShelf`, `buildShelfItemMap`, or `getWorkParts`;
+- merge or relocate `library-public` or `reader-parts-public`;
+- change runtime behavior of `getLibrary`, `buildLibraryItemMap`, or `getWorkParts`;
 - narrow or redesign Auth (`auth/index.ts`, `useRequireAuth`);
-- change Shared, App Shell, Site Chrome, Navigation, or reading-state recorded
-  decisions;
+- change broader Shared package rules, App Shell, Site Chrome, Navigation, or
+  reading-state recorded decisions;
 - create a generic `shared` / `common` directory;
 - decide admin/reader directory structure.
 
-Those remain separate ownership questions and require their own investigate →
-decide gates.
+The legacy Shelf seam rename is complete under the explicit User-first
+decision; other Feature ownership changes still require their own gates.
 
 ### Lifecycle
 

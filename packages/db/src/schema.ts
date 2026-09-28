@@ -296,7 +296,7 @@ export const readingPart = pgTable(
   ],
 );
 
-/** User shelf membership — distinct from reading position in reading_state (ADR-001). */
+/** Explicit Catalog membership in a user's Library — separate from reading_state progress (ADR-001). */
 export const userLibraryItem = pgTable(
   'user_library_item',
   {

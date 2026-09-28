@@ -148,20 +148,12 @@ describe('Reader HTTP', () => {
     const partRes = await app.request(`/api/reader/parts/${partId}`);
     expect(partRes.status).toBe(200);
 
-    const [open, addToShelf] = await Promise.all([
-      app.request(`/api/reader/works/${work.id}/state`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
-        body: JSON.stringify({ action: 'open' }),
-      }),
-      app.request(`/api/reader/works/${work.id}/state`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
-        body: JSON.stringify({ action: 'add_to_shelf' }),
-      }),
-    ]);
+    const open = await app.request(`/api/reader/works/${work.id}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ action: 'open' }),
+    });
     expect(open.status).toBe(200);
-    expect(addToShelf.status).toBe(200);
     const opened = (await open.json()) as ReadingState;
     const [learnerRow] = await db
       .select({ id: userTable.id })

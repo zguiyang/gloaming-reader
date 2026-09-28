@@ -15,7 +15,7 @@ export type BookChapter = {
   status: BookChapterStatus;
 };
 
-export type BookDetailShelfStatus = 'available' | 'on_shelf';
+export type BookDetailLibraryStatus = 'available' | 'in_library';
 
 export type BookDetailSourceLabel = 'official';
 
@@ -40,7 +40,7 @@ export type BookDetail = {
   language: string;
   languageLabel: string;
   coverImageUrl: string | null;
-  shelfStatus: BookDetailShelfStatus;
+  libraryStatus: BookDetailLibraryStatus;
   readingStatus: BookReadingStatus;
   progressRatio: number | null;
   lastReadAt: string | null;

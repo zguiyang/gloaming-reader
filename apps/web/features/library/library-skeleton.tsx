@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const GRID_SKELETON_COUNT = 4;
 
-export function ShelfSkeleton() {
+export function LibrarySkeleton() {
   return (
     <div className="flex w-full flex-col gap-12 md:gap-16" aria-hidden>
       <div className="flex flex-col items-center gap-8 rounded-[1.75rem] border border-border/30 bg-paper p-6 md:flex-row md:gap-12 md:rounded-[2rem] md:p-10">

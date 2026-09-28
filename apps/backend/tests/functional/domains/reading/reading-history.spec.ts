@@ -147,14 +147,14 @@ describe('Reading history HTTP', () => {
     }
   });
 
-  it('requires a session and does not treat shelf as a reading-activity day', async () => {
+  it('requires a session and keeps Library separate from reading activity', async () => {
     const anonymous = await app.request('/api/reading-history');
     expect(anonymous.status).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     const learner = await createSession('user');
     createdEmails.push(learner.email);
 
-    expect((await app.request('/api/shelf', { headers: { cookie: learner.cookie } })).status).toBe(200);
+    expect((await app.request('/api/library', { headers: { cookie: learner.cookie } })).status).toBe(200);
 
     const empty = await getReadingHistory(learner.cookie);
     expect(empty.today).toBe(calendarDateInTimeZone());

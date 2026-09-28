@@ -21,8 +21,8 @@
     "wordmark": "Gloaming",
     "brandHomeAria": "Gloaming home",
     "discover": "Discover",
-    "shelf": "My shelf",
-    "shelfShort": "Shelf",
+    "shelf": "My Library",
+    "shelfShort": "Library",
     "history": "Reading history",
     "historyShort": "History",
     "more": "More",
@@ -129,7 +129,7 @@
       "failed": "Verification failed. Please request a new email.",
       "failedToast": "Verification failed",
       "successToast": "Email confirmed",
-      "goToShelf": "Go to shelf",
+      "goToShelf": "Go to My Library",
       "backToSignIn": "Back to sign in",
       "backToHome": "Back to home"
     },
@@ -140,7 +140,7 @@
       "signUpTab": "Sign up",
       "forgotPasswordTitle": "Reset password",
       "reasonSave": "Sign in to save what you're reading.",
-      "reasonBookmark": "Sign in to add content to your shelf.",
+      "reasonBookmark": "Sign in to add content to your Library.",
       "reasonSync": "Sign in to sync your reading progress.",
       "reasonAi": "Sign in to use lookup, translation, and explanation in the reader.",
       "reasonBilingual": "Sign in to use bilingual view.",
@@ -218,7 +218,7 @@
     },
     "cta": {
       "signInToRead": "Sign in to read",
-      "goToShelf": "Go to shelf"
+      "goToShelf": "Go to My Library"
     },
     "hero": {
       "title": "Read. Look up, translate, or ask when you need help.",
@@ -236,13 +236,13 @@
       "companionBody": "Select text to look up a word, translate a passage, or request a sentence explanation. Results appear beside the text.",
       "companionCardTitle": "Sentence explanation",
       "companionCardBody": "Explains the selected sentence in context, including word meaning and how the clause fits the surrounding text.",
-      "shelfTitle": "Shelf",
-      "shelfBody": "Keep the works you are reading together on your shelf.",
-      "shelfImageAlt": "Gloaming Shelf interface"
+      "shelfTitle": "My Library",
+      "shelfBody": "Keep the works you own or choose to save together in your Library.",
+      "shelfImageAlt": "Gloaming Library interface"
     },
     "invite": {
       "title": "Pick up where you left off.",
-      "body": "Sign in to save progress, manage your shelf, and use the reader tools."
+      "body": "Sign in to save progress, manage your Library, and use the reader tools."
     }
   },
   "admin": {
@@ -1059,7 +1059,7 @@
       "viewBookDetailAria": "View details for {title}",
       "findBookCta": "Discover a book to read",
       "backToDiscover": "Back to Discover",
-      "backToShelf": "Back to My shelf"
+      "backToShelf": "Back to My Library"
     },
     "discover": {
       "title": "Discover",
@@ -1086,10 +1086,10 @@
       "nextPage": "Next"
     },
     "shelf": {
-      "title": "My shelf",
-      "metaTitle": "My shelf · Gloaming Reader",
-      "loadFailed": "Could not load shelf",
-      "emptyTitle": "Your shelf is empty",
+      "title": "My Library",
+      "metaTitle": "My Library · Gloaming Reader",
+      "loadFailed": "Could not load your library",
+      "emptyTitle": "Your library is empty",
       "continueReading": "Continue reading",
       "myCollection": "My collection",
       "readingInProgress": "Reading",
@@ -1145,10 +1145,10 @@
       "progressRead": "{ratio}% read",
       "lastReadPrefix": "Last read: {time}",
       "readingProgress": "Reading progress",
-      "addToShelf": "Add to shelf",
-      "addToShelfAria": "Add to shelf",
-      "onShelf": "On shelf",
-      "addedToShelfToast": "Added to shelf",
+      "addToShelf": "Add to Library",
+      "addToShelfAria": "Add to Library",
+      "onShelf": "In Library",
+      "addedToShelfToast": "Added to Library",
       "readInfo": "Reading info",
       "difficulty": "Difficulty",
       "difficultyAria": "Difficulty {label}, {filled} of {total} stars",
@@ -1190,7 +1190,7 @@
         "lastChapter": "Last chapter",
         "previousChapter": "Previous chapter",
         "nextChapter": "Next chapter",
-        "finishAndReturn": "Finish book, return to shelf"
+        "finishAndReturn": "Finish book, return to My Library"
       },
       "selection": {
         "toolbarAria": "Selection tools",

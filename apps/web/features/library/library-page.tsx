@@ -7,16 +7,16 @@ import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
 import { useAuthDialog } from '@/features/auth';
-import { formatShelfApiError, shelfQueryKey, useShelfQuery } from '@/features/shelf/shelf-api';
-import { ShelfContinueHero } from '@/features/shelf/shelf-continue-hero';
-import { ShelfEmptyState } from '@/features/shelf/shelf-empty-state';
-import { ShelfGrid } from '@/features/shelf/shelf-grid';
-import { ShelfSkeleton } from '@/features/shelf/shelf-skeleton';
+import { formatLibraryApiError, libraryQueryKey, useLibraryQuery } from '@/features/library/library-api';
+import { LibraryContinueHero } from '@/features/library/library-continue-hero';
+import { LibraryEmptyState } from '@/features/library/library-empty-state';
+import { LibraryGrid } from '@/features/library/library-grid';
+import { LibrarySkeleton } from '@/features/library/library-skeleton';
 import { isUnauthorizedError } from '@/lib/api-request';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-function ShelfHeader() {
+function LibraryHeader() {
   const { locale } = useLocale();
 
   return (
@@ -28,7 +28,7 @@ function ShelfHeader() {
   );
 }
 
-function ShelfErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+function LibraryErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
   const { locale } = useLocale();
 
   return (
@@ -44,18 +44,18 @@ function ShelfErrorState({ message, onRetry }: { message: string; onRetry: () =>
   );
 }
 
-export function ShelfPage() {
+export function LibraryPage() {
   const queryClient = useQueryClient();
   const { openLogin } = useAuthDialog();
-  const shelfQuery = useShelfQuery();
+  const libraryQuery = useLibraryQuery();
 
   useEffect(() => {
-    if (shelfQuery.isError && isUnauthorizedError(shelfQuery.error)) {
+    if (libraryQuery.isError && isUnauthorizedError(libraryQuery.error)) {
       openLogin();
     }
-  }, [openLogin, shelfQuery.error, shelfQuery.isError]);
+  }, [openLogin, libraryQuery.error, libraryQuery.isError]);
 
-  if (shelfQuery.isPending) {
+  if (libraryQuery.isPending) {
     return (
       <div
         className={cn(
@@ -63,13 +63,13 @@ export function ShelfPage() {
           'flex w-full flex-col',
         )}
       >
-        <ShelfHeader />
-        <ShelfSkeleton />
+        <LibraryHeader />
+        <LibrarySkeleton />
       </div>
     );
   }
 
-  if (shelfQuery.isError && isUnauthorizedError(shelfQuery.error)) {
+  if (libraryQuery.isError && isUnauthorizedError(libraryQuery.error)) {
     return (
       <div
         className={cn(
@@ -77,13 +77,13 @@ export function ShelfPage() {
           'flex w-full flex-col',
         )}
       >
-        <ShelfHeader />
-        <ShelfSkeleton />
+        <LibraryHeader />
+        <LibrarySkeleton />
       </div>
     );
   }
 
-  if (shelfQuery.isError) {
+  if (libraryQuery.isError) {
     return (
       <div
         className={cn(
@@ -91,18 +91,18 @@ export function ShelfPage() {
           'flex w-full flex-col',
         )}
       >
-        <ShelfHeader />
-        <ShelfErrorState
-          message={formatShelfApiError(shelfQuery.error)}
-          onRetry={() => void queryClient.invalidateQueries({ queryKey: shelfQueryKey.all })}
+        <LibraryHeader />
+        <LibraryErrorState
+          message={formatLibraryApiError(libraryQuery.error)}
+          onRetry={() => void queryClient.invalidateQueries({ queryKey: libraryQueryKey.all })}
         />
       </div>
     );
   }
 
-  const data = shelfQuery.data;
+  const data = libraryQuery.data;
   const current = data.current;
-  const items = data.items;
+  const items = current ? data.items.filter((item) => item.work.id !== current.work.id) : data.items;
   const isEmpty = !current && items.length === 0;
 
   return (
@@ -115,15 +115,15 @@ export function ShelfPage() {
     >
       {isEmpty ? (
         <>
-          <ShelfHeader />
-          <ShelfEmptyState />
+          <LibraryHeader />
+          <LibraryEmptyState />
         </>
       ) : (
         <>
-          <ShelfHeader />
+          <LibraryHeader />
           <div className="flex flex-col gap-14 md:gap-20">
-            {current ? <ShelfContinueHero entry={current} /> : null}
-            <ShelfGrid items={items} />
+            {current ? <LibraryContinueHero entry={current} /> : null}
+            <LibraryGrid items={items} />
           </div>
         </>
       )}

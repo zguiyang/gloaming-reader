@@ -81,14 +81,14 @@ The reading atom is a **ReadingWork** the user is in the middle of—not “toda
 
 ### 4.1 Domain entities (ADR-001)
 
-| Entity           | User concept        | Responsibility                                             |
-| ---------------- | ------------------- | ---------------------------------------------------------- |
-| **ReadingWork**  | 书 / 阅读内容       | Metadata, source, publish status, visibility — **no body** |
-| **ReadingPart**  | 章节                | Ordered text — Reader / TTS / Translate / Assist boundary  |
-| **ReadingState** | 阅读状态 / 书架成员 | Per user × work position; shelf membership                 |
-| **ContentAsset** | (internal)          | EPUB file, cover, TTS audio, future derivatives            |
-| **Conversation** | AI 帮助             | Thread scoped to `reading_work`                            |
-| **Shelf**        | 我的书架            | Read model over `reading_state`                            |
+| Entity           | User concept  | Responsibility                                                     |
+| ---------------- | ------------- | ------------------------------------------------------------------ |
+| **ReadingWork**  | 书 / 阅读内容 | Metadata, source, publish status, visibility — **no body**         |
+| **ReadingPart**  | 章节          | Ordered text — Reader / TTS / Translate / Assist boundary          |
+| **ReadingState** | 阅读进度状态  | Per user × work position; never Library membership                 |
+| **ContentAsset** | (internal)    | EPUB file, cover, TTS audio, future derivatives                    |
+| **Conversation** | AI 帮助       | Thread scoped to `reading_work`                                    |
+| **My Library**   | 我的书库      | Owned works + explicitly saved Catalog works; progress is optional |
 
 **Product rule:** one kind of thing you read — not Article-the-lesson plus Book-the-other-app.
 
@@ -182,7 +182,7 @@ A catalog work is publishable only if:
 | When           | Content work                                                  |
 | -------------- | ------------------------------------------------------------- |
 | MVP (Phase 1a) | Admin EPUB pipeline + ReadingWork reader + companion on parts |
-| Phase 1b       | User import; `用户` source label on shelf                     |
+| Phase 1b       | User import; `用户` source label in My Library                |
 | Phase 2+       | More sources via `origin_kind` — same Work/Part model         |
 
 Empty reader is a failure mode. Filling it with generated articles is a worse failure mode.

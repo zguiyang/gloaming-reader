@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers';
 
 import { t } from '@gloaming/i18n';
 
-import { ShelfPage } from '@/features/shelf';
+import { LibraryPage } from '@/features/library';
 import { getClientLocale, LOCALE_COOKIE_NAME } from '@/lib/client-locale';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,6 +19,6 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function MyShelfPage() {
-  return <ShelfPage />;
+export default function MyLibraryPage() {
+  return <LibraryPage />;
 }
