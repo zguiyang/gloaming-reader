@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { llmModel as llmModelTable, llmProvider as llmProviderTable } from '@gloaming/db';
 import {
@@ -14,6 +14,7 @@ import {
 
 import { parseApiFamily } from '@/domains/llm/config/api-family';
 import { settingReferencesModel } from '@/domains/llm/config/settings/references';
+import { requireInstanceProvider } from '@/domains/provider-scope';
 import { db } from '@/infra/db';
 import { HTTP_STATUS } from '@/shared/constants';
 import { AppError, NotFoundError } from '@/shared/errors/app-error';
@@ -39,21 +40,28 @@ function toModel(row: ModelRow): LlmModel {
 }
 
 export async function listModels(query: LlmModelListQuery): Promise<LlmModel[]> {
+  if (query.providerId) {
+    await requireInstanceProvider(query.providerId);
+  }
   const rows = query.providerId
     ? await db
-        .select()
+        .select({ model: llmModelTable })
         .from(llmModelTable)
-        .where(eq(llmModelTable.providerId, query.providerId))
+        .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
+        .where(and(eq(llmModelTable.providerId, query.providerId), isNull(llmProviderTable.ownerUserId)))
         .orderBy(asc(llmModelTable.sortOrder), asc(llmModelTable.createdAt))
-    : await db.select().from(llmModelTable).orderBy(asc(llmModelTable.sortOrder), asc(llmModelTable.createdAt));
-  return rows.map(toModel);
+    : await db
+        .select({ model: llmModelTable })
+        .from(llmModelTable)
+        .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
+        .where(isNull(llmProviderTable.ownerUserId))
+        .orderBy(asc(llmModelTable.sortOrder), asc(llmModelTable.createdAt));
+  return rows.map((row) => toModel(row.model));
 }
 
 export async function createModel(body: CreateLlmModelBody): Promise<LlmModel> {
-  const provider = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, body.providerId)).limit(1);
-  if (!provider[0]) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
-  }
+  const providerRow = await requireInstanceProvider(body.providerId);
+  const provider = [providerRow];
   const apiFamily = parseApiFamily(provider[0].apiFamily);
   const wireVariant = body.wireVariant ?? getDefaultWireVariant(apiFamily);
   try {
@@ -93,7 +101,7 @@ export async function updateModel(id: string, body: UpdateLlmModelBody): Promise
     })
     .from(llmModelTable)
     .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
-    .where(eq(llmModelTable.id, id))
+    .where(and(eq(llmModelTable.id, id), isNull(llmProviderTable.ownerUserId)))
     .limit(1);
   if (!existing[0]) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
@@ -140,7 +148,12 @@ export async function updateModel(id: string, body: UpdateLlmModelBody): Promise
 }
 
 export async function deleteModel(id: string): Promise<void> {
-  const existing = await db.select().from(llmModelTable).where(eq(llmModelTable.id, id)).limit(1);
+  const existing = await db
+    .select({ id: llmModelTable.id })
+    .from(llmModelTable)
+    .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
+    .where(and(eq(llmModelTable.id, id), isNull(llmProviderTable.ownerUserId)))
+    .limit(1);
   if (!existing[0]) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
   }

@@ -15,7 +15,7 @@ import { HTTP_STATUS } from '@/shared/constants';
 import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
-function emptyConfigView(): TtsConfigView {
+export function emptyConfigView(): TtsConfigView {
   return {
     configured: false,
     provider: TTS_PROVIDER_AZURE,
@@ -30,7 +30,7 @@ function emptyConfigView(): TtsConfigView {
   };
 }
 
-function toConfigView(row: TtsConfigRow): TtsConfigView {
+export function toConfigView(row: TtsConfigRow): TtsConfigView {
   let apiKeyMasked: string | null = null;
   try {
     apiKeyMasked = maskApiKey(decryptApiKey(row.apiKeyCiphertext));
@@ -72,6 +72,7 @@ export async function putConfig(body: PutTtsConfigBody): Promise<TtsConfigView> 
     .insert(ttsConfigTable)
     .values({
       id: TTS_CONFIG_ID,
+      ownerUserId: null,
       provider: TTS_PROVIDER_AZURE,
       region: body.region,
       apiKeyCiphertext,

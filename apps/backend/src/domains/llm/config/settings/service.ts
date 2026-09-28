@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import {
   llmAppSetting as llmAppSettingTable,
@@ -39,7 +39,7 @@ export async function listSettings(): Promise<LlmAppSettingView[]> {
           })
           .from(llmModelTable)
           .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
-          .where(inArray(llmModelTable.id, modelIds))
+          .where(and(inArray(llmModelTable.id, modelIds), isNull(llmProviderTable.ownerUserId)))
       : [];
   const modelById = new Map(models.map((m) => [m.id, m]));
 
@@ -74,7 +74,7 @@ export async function putSetting(key: string, body: PutLlmAppSettingBody): Promi
     })
     .from(llmModelTable)
     .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
-    .where(eq(llmModelTable.id, body.modelId))
+    .where(and(eq(llmModelTable.id, body.modelId), isNull(llmProviderTable.ownerUserId)))
     .limit(1);
 
   const model = models[0];

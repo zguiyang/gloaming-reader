@@ -12,6 +12,12 @@ import app from '@/app';
 import * as aiService from '@/domains/ai';
 import { db } from '@/infra/db';
 
+vi.mock('@/infra/auth/mail', () => ({
+  buildVerificationUrl: (token: string) => `http://localhost:3000/verify-email?token=${encodeURIComponent(token)}`,
+  logDevAuthLink: vi.fn(),
+  sendAuthMail: vi.fn().mockResolvedValue(undefined),
+}));
+
 const password = 'password123';
 const ASSIST_SETTING_KEY = AI_PURPOSE_TO_SETTING_KEY.assist;
 

@@ -15,7 +15,8 @@ import {
   validateAzureWordTimings,
 } from '@gloaming/shared/tts';
 
-import { loadConfigRow, type TtsConfigRow } from '@/domains/tts/config/store';
+import { resolveScopedTtsConfigRow, runtimeActorFromUserId } from '@/domains/provider-scope';
+import type { TtsConfigRow } from '@/domains/tts/config/store';
 import { getRedis } from '@/infra/cache';
 import { decryptApiKey } from '@/infra/llm';
 import { rootLogger } from '@/infra/logging/logger';
@@ -206,7 +207,7 @@ async function writeTtsCache(
  * Loads dynamic config, resolves voice, then calls the Azure adapter (or Redis cache).
  */
 export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<SynthesizeTtsResult> {
-  const row = await loadConfigRow();
+  const row = await resolveScopedTtsConfigRow(runtimeActorFromUserId(options.userId));
   if (!row) {
     throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.NOT_CONFIGURED);
   }

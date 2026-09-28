@@ -88,7 +88,10 @@ function withRequestContextExample(
 }
 
 /** Generic meaning enrichment only — safe to persist. */
-export async function enrichGenericMeaningsWithAi(entry: DictionaryEntry): Promise<DictionaryEntry> {
+export async function enrichGenericMeaningsWithAi(
+  entry: DictionaryEntry,
+  userId?: string | null,
+): Promise<DictionaryEntry> {
   try {
     const promptLines: string[] = [
       `You are an expert English-to-Chinese lexicographer and reading companion.`,
@@ -108,6 +111,7 @@ export async function enrichGenericMeaningsWithAi(entry: DictionaryEntry): Promi
     const aiResult = await invokeAi({
       purpose: 'assist',
       source: 'dictionary:enrichment',
+      userId: userId ?? undefined,
       messages: [{ role: 'user', content: promptLines.join('\n') }],
       outputSchema: aiEnrichmentOutputSchema,
       timeoutMs: 15000,
@@ -131,6 +135,7 @@ export async function enrichGenericMeaningsWithAi(entry: DictionaryEntry): Promi
 export async function enrichFreshEntryWithAi(
   entry: DictionaryEntry,
   context?: LookupContext,
+  userId?: string | null,
 ): Promise<{ generic: DictionaryEntry; response: DictionaryEntry }> {
   const hasContext = Boolean(context?.sentence?.trim());
   try {
@@ -162,6 +167,7 @@ export async function enrichFreshEntryWithAi(
     const aiResult = await invokeAi({
       purpose: 'assist',
       source: 'dictionary:enrichment',
+      userId: userId ?? undefined,
       messages: [{ role: 'user', content: promptLines.join('\n') }],
       outputSchema: aiEnrichmentOutputSchema,
       timeoutMs: 15000,
@@ -196,7 +202,11 @@ export async function enrichFreshEntryWithAi(
 }
 
 /** Request-scoped context only — must never be written to shared Redis/DB. */
-async function attachRequestScopedContext(entry: DictionaryEntry, context: LookupContext): Promise<DictionaryEntry> {
+async function attachRequestScopedContext(
+  entry: DictionaryEntry,
+  context: LookupContext,
+  userId?: string | null,
+): Promise<DictionaryEntry> {
   const generic = toGenericDictionaryEntry(entry);
   const sentence = context.sentence?.trim();
   if (!sentence) {
@@ -230,6 +240,7 @@ async function attachRequestScopedContext(entry: DictionaryEntry, context: Looku
     const aiResult = await invokeAi({
       purpose: 'assist',
       source: 'dictionary:context',
+      userId: userId ?? undefined,
       messages: [{ role: 'user', content: promptLines.join('\n') }],
       outputSchema: aiContextOnlyOutputSchema,
       timeoutMs: 15000,
@@ -279,7 +290,7 @@ export async function attachContextForResponse(
   };
 
   if (config.enableAiEnrichment) {
-    return attachRequestScopedContext(entry, context);
+    return attachRequestScopedContext(entry, context, actor.userId);
   }
 
   return withRequestContextExample(entry, buildRequestContextExample(context));

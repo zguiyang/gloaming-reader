@@ -1,25 +1,28 @@
-import { and, eq, isNull } from 'drizzle-orm';
-
-import { llmAppSetting as llmAppSettingTable } from '@gloaming/db';
-
 import { type AiPurpose, settingKeyForPurpose } from '@/domains/ai/purposes';
-import { db } from '@/infra/db';
+import {
+  assertModelAccessibleForActor,
+  resolveScopedAppSettingValue,
+  runtimeActorFromUserId,
+} from '@/domains/provider-scope';
 import { HTTP_STATUS } from '@/shared/constants';
 import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
-export async function resolveModelRowId(options: { modelRowId?: string; purpose?: AiPurpose }): Promise<string> {
+export async function resolveModelRowId(options: {
+  modelRowId?: string;
+  purpose?: AiPurpose;
+  userId?: string;
+}): Promise<string> {
+  const actor = runtimeActorFromUserId(options.userId);
+
   if (options.modelRowId) {
+    await assertModelAccessibleForActor(options.modelRowId, actor);
     return options.modelRowId;
   }
+
   const purpose = options.purpose ?? 'assist';
   const key = settingKeyForPurpose(purpose);
-  const rows = await db
-    .select()
-    .from(llmAppSettingTable)
-    .where(and(eq(llmAppSettingTable.key, key), isNull(llmAppSettingTable.ownerUserId)))
-    .limit(1);
-  const value = rows[0]?.value;
+  const value = await resolveScopedAppSettingValue(key, actor);
   if (!value) {
     const label =
       purpose === 'assist'
@@ -31,5 +34,6 @@ export async function resolveModelRowId(options: { modelRowId?: string; purpose?
             : 'AI';
     throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.MODEL_NOT_CONFIGURED, { label });
   }
+
   return value;
 }

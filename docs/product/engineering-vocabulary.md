@@ -95,21 +95,21 @@ Reader playback may degrade gracefully when audio is temporarily unavailable.
 **Phase 3A** retired `Article` and shipped ReadingWork + `admin_epub`. That remains true.
 **User-first** items below reflect the current repository unless marked **open**.
 
-| Layer / concern          | Current (repository reality)                                                         | Target (ADR-001 User-first)                          |
-| ------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| Content root             | **ReadingWork** / `reading_work` **done**                                            | same                                                 |
-| Work pipeline field      | `processing_status` (migration 0036) **done** on schema + contracts                  | no legacy `status` column                            |
-| Publication              | `published_at` + `publicationStatus` admin filter **done**                           | publication never in `processing_status`             |
-| Library membership table | `user_library_item` exists; migration 0036 backfilled prior state rows               | membership only in `user_library_item` + owned works |
-| Library API              | PR-05 implements `GET/POST/DELETE /api/library`; membership is union + explicit save | same; optional state decoration only                 |
-| `reading_state` role     | progress and activity; API response is separate from membership                      | position/status only; opening never saves            |
-| Provider scope           | `owner_user_id` on LLM/TTS tables **done** (schema + constraints)                    | instance vs user on same tables                      |
-| Discover API             | `GET /api/catalog/works` **done**                                                    | same                                                 |
-| Admin CMS API (path)     | `/api/admin/catalog/works` **done**; Catalog-only query/mutation boundary            | same                                                 |
-| Admin CMS UI (path)      | `/admin/catalog/works` **done**                                                      | same                                                 |
-| Conversation subject     | `subject_type = reading_work` **done**                                               | same                                                 |
-| Admin “busy” list + TTS  | server `workflowStep=tts` filter **done**                                            | UI and server share status/workflow-step query       |
-| Legacy Remaining audit   | not closed **open**                                                                  | **0** at epic closeout                               |
+| Layer / concern          | Current (repository reality)                                                                                | Target (ADR-001 User-first)                          |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Content root             | **ReadingWork** / `reading_work` **done**                                                                   | same                                                 |
+| Work pipeline field      | `processing_status` (migration 0036) **done** on schema + contracts                                         | no legacy `status` column                            |
+| Publication              | `published_at` + `publicationStatus` admin filter **done**                                                  | publication never in `processing_status`             |
+| Library membership table | `user_library_item` exists; migration 0036 backfilled prior state rows                                      | membership only in `user_library_item` + owned works |
+| Library API              | PR-05 implements `GET/POST/DELETE /api/library`; membership is union + explicit save                        | same; optional state decoration only                 |
+| `reading_state` role     | progress and activity; API response is separate from membership                                             | position/status only; opening never saves            |
+| Provider scope           | PR-06 工作树已实现解析器、Admin Instance 隔离及用户 `/api/settings/*` API；目标测试通过，全量测试环境待处理 | instance vs user on same tables                      |
+| Discover API             | `GET /api/catalog/works` **done**                                                                           | same                                                 |
+| Admin CMS API (path)     | `/api/admin/catalog/works` **done**; Catalog-only query/mutation boundary                                   | same                                                 |
+| Admin CMS UI (path)      | `/admin/catalog/works` **done**                                                                             | same                                                 |
+| Conversation subject     | `subject_type = reading_work` **done**                                                                      | same                                                 |
+| Admin “busy” list + TTS  | server `workflowStep=tts` filter **done**                                                                   | UI and server share status/workflow-step query       |
+| Legacy Remaining audit   | not closed **open**                                                                                         | **0** at epic closeout                               |
 
 Do **not** reintroduce Article names — see Retired names below.
 

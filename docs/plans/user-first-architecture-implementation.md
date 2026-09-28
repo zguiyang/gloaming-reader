@@ -347,7 +347,7 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 | **Done when**     | Instance admins manage `owner_user_id IS NULL`; users manage own rows only                            |
 | **Checks**        | `pnpm --filter @gloaming/backend test -- tests/functional/domains/llm/`                               |
 
-**Status:** **open** (PR-01 landed columns only; scope filters and runtime behavior **not** verified complete).
+**状态：** PR-06 工作树中的类型检查与目标测试已通过；全量后端测试受缺少 `RESEND_API_KEY` 阻断，人工评审待完成（见 `docs/reviews/user-first/pr-06-provider-resolver.md`）。
 
 ---
 
@@ -429,7 +429,7 @@ Follow locked phase order. **Do not** place Library (PR-05) before Catalog/Inges
 | **PR-03** | Publication                                                                | A3 (idempotent `publishWork` / `published_at` SSOT)                                            | **done** — evidence under **A3** (2026-09-28 closeout)                                                                   |
 | **PR-04** | Catalog/Ingest                                                             | C2 (TTS “busy” / list taxonomy), C3 (API routes), C4 (web routes), shared Personal EPUB ingest | **done** — see PR-04 closeout below                                                                                      |
 | **PR-05** | Library                                                                    | D1, D2, D3, D4                                                                                 | **open**                                                                                                                 |
-| **PR-06** | Provider                                                                   | E2 (backend scope behavior only)                                                               | **open**                                                                                                                 |
+| **PR-06** | Provider                                                                   | E2 (backend scope behavior only)                                                               | 目标测试在 `gloaming_test` 已通过；全量测试因缺少 `RESEND_API_KEY` 未通过，人工评审待完成                                |
 | **PR-07** | Settings                                                                   | E3 (web settings UI)                                                                           | **open**                                                                                                                 |
 | **PR-08** | closeout                                                                   | G1, G2, G3                                                                                     | **open**                                                                                                                 |
 

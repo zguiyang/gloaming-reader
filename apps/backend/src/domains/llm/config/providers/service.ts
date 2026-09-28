@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { llmModel as llmModelTable, llmProvider as llmProviderTable } from '@gloaming/db';
 import {
@@ -22,6 +22,7 @@ import { invokeAi } from '@/domains/ai';
 import { parseApiFamily } from '@/domains/llm/config/api-family';
 import { settingReferencesModel } from '@/domains/llm/config/settings/references';
 import { isModelRuntimeReady } from '@/domains/llm/runtime/readiness';
+import { requireInstanceProvider } from '@/domains/provider-scope';
 import { db } from '@/infra/db';
 import {
   assertSafeOutboundUrl,
@@ -71,7 +72,11 @@ function toProvider(row: ProviderRow): LlmProvider {
 }
 
 export async function listProviders(): Promise<LlmProvider[]> {
-  const rows = await db.select().from(llmProviderTable).orderBy(asc(llmProviderTable.createdAt));
+  const rows = await db
+    .select()
+    .from(llmProviderTable)
+    .where(isNull(llmProviderTable.ownerUserId))
+    .orderBy(asc(llmProviderTable.createdAt));
   return rows.map(toProvider);
 }
 
@@ -95,16 +100,15 @@ export async function createProvider(body: CreateLlmProviderBody): Promise<LlmPr
       balanceAmountPath: body.balanceAmountPath ?? null,
       balanceCurrencyPath: body.balanceCurrencyPath ?? null,
       isEnabled: body.isEnabled,
+      ownerUserId: null,
     })
     .returning();
   return toProvider(row!);
 }
 
 export async function updateProvider(id: string, body: UpdateLlmProviderBody): Promise<LlmProvider> {
-  const existing = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, id)).limit(1);
-  if (!existing[0]) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
-  }
+  const existingRow = await requireInstanceProvider(id);
+  const existing = [existingRow];
   const apiFamily = parseApiFamily(existing[0].apiFamily);
 
   const patch: Partial<typeof llmProviderTable.$inferInsert> = {};
@@ -152,10 +156,7 @@ export async function updateProvider(id: string, body: UpdateLlmProviderBody): P
 }
 
 export async function deleteProvider(id: string): Promise<void> {
-  const existing = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, id)).limit(1);
-  if (!existing[0]) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
-  }
+  await requireInstanceProvider(id);
 
   const models = await db.select({ id: llmModelTable.id }).from(llmModelTable).where(eq(llmModelTable.providerId, id));
   if (await settingReferencesModel(models.map((m) => m.id))) {
@@ -166,10 +167,8 @@ export async function deleteProvider(id: string): Promise<void> {
 }
 
 export async function testProvider(providerId: string, body: TestLlmProviderBody): Promise<TestLlmProviderResult> {
-  const provider = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, providerId)).limit(1);
-  if (!provider[0]) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
-  }
+  const providerRow = await requireInstanceProvider(providerId);
+  const provider = [providerRow];
   if (!provider[0].isEnabled) {
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.PROVIDER_DISABLED);
   }
@@ -221,11 +220,7 @@ export async function testProvider(providerId: string, body: TestLlmProviderBody
 }
 
 async function loadProviderWithKey(providerId: string): Promise<{ row: ProviderRow; apiKey: string }> {
-  const rows = await db.select().from(llmProviderTable).where(eq(llmProviderTable.id, providerId)).limit(1);
-  const row = rows[0];
-  if (!row) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
-  }
+  const row = await requireInstanceProvider(providerId);
   let apiKey: string;
   try {
     apiKey = decryptApiKey(row.apiKeyCiphertext);

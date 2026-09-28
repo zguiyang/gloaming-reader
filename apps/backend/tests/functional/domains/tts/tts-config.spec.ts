@@ -1,4 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ttsConfig as ttsConfigTable, user as userTable } from '@gloaming/db';
@@ -13,12 +15,19 @@ import { db } from '@/infra/db';
 import { encryptApiKey } from '@/infra/llm';
 import * as azureTts from '@/infra/tts/azure';
 
+vi.mock('@/infra/auth/mail', () => ({
+  buildVerificationUrl: (token: string) => `http://localhost:3000/verify-email?token=${encodeURIComponent(token)}`,
+  logDevAuthLink: vi.fn(),
+  sendAuthMail: vi.fn().mockResolvedValue(undefined),
+}));
+
 const password = 'password123';
 
 type TtsConfigRow = typeof ttsConfigTable.$inferSelect;
 
 /** Snapshot of local/dev `tts_config` before this suite mutates the singleton row. */
 let priorConfig: TtsConfigRow | null | undefined;
+const createdUserTtsIds: string[] = [];
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
@@ -106,6 +115,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (createdUserTtsIds.length) {
+    await db.delete(ttsConfigTable).where(inArray(ttsConfigTable.id, createdUserTtsIds));
+  }
   await restorePriorConfig();
 });
 
@@ -185,6 +197,25 @@ describe('admin TTS config', () => {
     expect(presets.status).toBe(200);
     const presetBody = (await presets.json()) as Array<{ voice: string }>;
     expect(presetBody.length).toBeGreaterThan(0);
+
+    const adminUserRow = await db
+      .select({ id: userTable.id })
+      .from(userTable)
+      .where(eq(userTable.email, admin.email))
+      .limit(1);
+    const adminTtsId = randomUUID();
+    createdUserTtsIds.push(adminTtsId);
+    await db.insert(ttsConfigTable).values({
+      id: adminTtsId,
+      ownerUserId: adminUserRow[0]!.id,
+      provider: 'azure',
+      region: 'user-region',
+      apiKeyCiphertext: encryptApiKey('user-only-tts-secret'),
+      isEnabled: true,
+      defaultVoice: 'en-US-JennyNeural',
+      usVoice: 'en-US-DavisNeural',
+      ukVoice: 'en-GB-SoniaNeural',
+    });
 
     const synthesizeSpy = vi.spyOn(azureTts, 'synthesizeAzureTts').mockResolvedValue({
       audio: Buffer.from('fake-mp3'),

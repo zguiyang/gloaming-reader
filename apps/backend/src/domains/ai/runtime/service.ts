@@ -47,7 +47,11 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
   const purpose = options.purpose ?? (options.modelRowId ? null : 'assist');
 
   try {
-    const modelRowId = await resolveModelRowId(options);
+    const modelRowId = await resolveModelRowId({
+      modelRowId: options.modelRowId,
+      purpose: options.purpose,
+      userId: options.userId,
+    });
     resolved = await resolveLlmByModelRowId(modelRowId);
     const chat = createLlmClient(resolved, {
       timeoutMs: options.timeoutMs,
@@ -199,7 +203,11 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
       return;
     }
 
-    const modelRowId = await resolveModelRowId(options);
+    const modelRowId = await resolveModelRowId({
+      modelRowId: options.modelRowId,
+      purpose: options.purpose,
+      userId: options.userId,
+    });
     resolved = await resolveLlmByModelRowId(modelRowId);
     const chat = createLlmClient(resolved, {
       timeoutMs: options.timeoutMs,

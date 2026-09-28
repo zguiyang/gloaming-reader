@@ -12,7 +12,6 @@ export async function testTts(body: TestTtsBody, options: { userId?: string } = 
       role: body.role,
       voice: body.voice,
       source: 'admin.tts_test',
-      userId: options.userId,
       bypassCache: true,
     });
     const latencyMs = Date.now() - started;
