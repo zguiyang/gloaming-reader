@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@gloaming/db';
 import type { AdminWork } from '@gloaming/shared/works';
@@ -32,13 +32,23 @@ export async function publishWork(id: string): Promise<AdminWork> {
     throw new ValidationFailedError(issues);
   }
 
+  if (existing.publishedAt) {
+    return loadAdminWorkAfterMutation(id);
+  }
+
+  const publishedAt = new Date();
   const [row] = await db
     .update(readingWorkTable)
-    .set({ publishedAt: new Date() })
-    .where(eq(readingWorkTable.id, id))
+    .set({ publishedAt })
+    .where(and(eq(readingWorkTable.id, id), isNull(readingWorkTable.publishedAt)))
     .returning();
 
-  if (!row) {
+  if (row) {
+    return loadAdminWorkAfterMutation(id);
+  }
+
+  const [afterRace] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  if (!afterRace) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   return loadAdminWorkAfterMutation(id);

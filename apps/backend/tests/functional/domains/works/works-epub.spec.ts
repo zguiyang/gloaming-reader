@@ -617,6 +617,12 @@ describe('publish / unpublish status guards', () => {
     expect(publishedBody.processingStatus).toBe('ready');
     expect(publishedBody.publishedAt).not.toBeNull();
 
+    const publishAgain = await publishRequest(created.id);
+    expect(publishAgain.status).toBe(200);
+    const republishedBody = (await publishAgain.json()) as { processingStatus: string; publishedAt: string | null };
+    expect(republishedBody.processingStatus).toBe('ready');
+    expect(republishedBody.publishedAt).toBe(publishedBody.publishedAt);
+
     const unpublish = await unpublishRequest(created.id);
     expect(unpublish.status).toBe(200);
     const unpublishedBody = (await unpublish.json()) as { processingStatus: string; publishedAt: string | null };

@@ -116,6 +116,52 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 
 **Status:** **done** on branch (**19/19** on `gloaming_test`, 2026-09-28).
 
+#### A3 — Idempotent admin publish (Publication phase — PR-03)
+
+|                   |                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Scope**         | `apps/backend/src/domains/works/admin/admin-lifecycle.ts` — `publishWork` only (no new publication fields/helpers/services)          |
+| **Prerequisites** | A2                                                                                                                                   |
+| **Done when**     | Repeat `POST …/publish` returns 200 without changing `published_at`; first publish uses conditional `published_at IS NULL` update    |
+| **Checks**        | `pnpm --filter @gloaming/backend test -- tests/functional/domains/works/works-epub.spec.ts` (publish/unpublish guards + idempotency) |
+
+**Status:** **done** (PR-03, worktree `codex/user-first-pr03-publication-ssot`; implementation and verification complete, documentation closeout included, 2026-09-28).
+
+**PR-03 accepted evidence (Publication SSOT — behavior unchanged from A2 except idempotent publish):**
+
+| Acceptance item          | Result                                                                                                                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `publishWork` idempotent | Repeat `POST …/publish` returns **200** without changing the first `publishedAt` / `published_at` (conditional update when `published_at IS NULL`; early return when already published) |
+| Publish guards           | Publish requires **`processingStatus = ready`** and reuses existing publish gate validation (no new publication fields/helpers/services in scope)                                       |
+| `unpublishWork`          | Sets `published_at` to **null**; **`processingStatus` unchanged**; unpublish **409** guards unchanged                                                                                   |
+| Contract / schema        | **No** migration; **no** API response-shape change in this PR                                                                                                                           |
+| Pipeline semantics       | Metadata workflow still terminal at **`ready`**; **TTS remains a workflow step** (not conflated with publication)                                                                       |
+
+**Non-goals (PR-03):** schema migration, frontend implementation, Lazy TTS, and **PR-04+** epic work.
+
+**Verification (2026-09-28 PR-03 closeout on `codex/user-first-pr03-publication-ssot`; `gloaming_test`):**
+
+| Check                                                        | Result                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Invocation method                                            | Existing locally installed Vitest, TypeScript (`tsc`), and ESLint binaries invoked **directly** — this environment's pnpm launcher rejected its registry signature (checks were **not** executed via `pnpm`; registry signature verification was **not** bypassed) |
+| Backend functional regression group (**8 files / 35 tests**) | **pass** — includes PR-01 schema constraints, `works-epub` publish/unpublish (idempotency), Catalog taxonomy, Work Access Policy, Reader, audio, shelf, recommendations                                                                                            |
+| `@gloaming/shared` `src/works/works.spec.ts` (Vitest)        | **14/14** pass                                                                                                                                                                                                                                                     |
+| `tsc --noEmit` (backend, web)                                | pass                                                                                                                                                                                                                                                               |
+| ESLint (backend, shared, web)                                | pass — **0** errors; **1** pre-existing `@next/next/no-img-element` **warning** in `apps/web/features/admin/works/works-preview-page.tsx`                                                                                                                          |
+| `git diff --check`                                           | pass                                                                                                                                                                                                                                                               |
+| Full monorepo typecheck / test / lint                        | **open** — not run as part of PR-03 closeout                                                                                                                                                                                                                       |
+
+**Legacy audit (publication / processing separation):**
+
+| Finding                                                          | Result                                                                                        |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Runtime `processingStatus='published'` (repository source audit) | **0** code references in active runtime source                                                |
+| Runtime `processingStatus='tts'` (repository source audit)       | **0** code references in active runtime source                                                |
+| Legacy `published` / `tts` as `processingStatus`                 | **Shared negative tests** only — sole matches in active source search                         |
+| Publication storage / dual paths                                 | **No** old publication-status fallback, dual read/write, or stored publication boolean        |
+| Publication consumers                                            | Use **`publishedAt`** / SQL **`published_at`** (and catalog/discover filters aligned with A2) |
+| `isWorkPublished`                                                | Pure computed helper (not a persisted publication flag)                                       |
+
 ---
 
 ### Access — read authorization boundaries (Access phase)
@@ -231,14 +277,14 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 
 ---
 
-### D. Library — Library phase (after Catalog/Ingest PR-03)
+### D. Library — Library phase (after Catalog/Ingest PR-04)
 
 #### D1 — Library membership service
 
 |                   |                                                                                 |
 | ----------------- | ------------------------------------------------------------------------------- |
 | **Scope**         | CRUD for `user_library_item`; idempotent add/remove                             |
-| **Prerequisites** | B1, AC1, AC2; after Catalog/Ingest PR-03 (C2–C4) for stable admin/user surfaces |
+| **Prerequisites** | B1, AC1, AC2; after Catalog/Ingest PR-04 (C2–C4) for stable admin/user surfaces |
 | **Done when**     | API can add/remove catalog work; unique violation surfaced as 409               |
 | **Checks**        | New functional spec under `tests/functional/domains/library/`                   |
 
@@ -380,19 +426,22 @@ Follow locked phase order. **Do not** place Library (PR-05) before Catalog/Inges
 | --------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | **PR-01** | Schema foundation (+ the linked processing/publication contract migration) | B1, B2, A1, A2, C1, E1, F1                                        | **done within PR-01 scope** on `codex/user-first-pr01-schema-foundation` — evidence above; later epic phases remain open |
 | **PR-02** | Access                                                                     | AC1, AC2                                                          | **done** in worktree (policy + regression tests above; acceptance by calling agent)                                      |
-| **PR-03** | Catalog/Ingest                                                             | C2 (TTS “busy” / list taxonomy), C3 (API routes), C4 (web routes) | **open** (C2 known gap)                                                                                                  |
-| **PR-04** | Library                                                                    | D1, D2, D3, D4                                                    | **open**                                                                                                                 |
-| **PR-05** | Provider                                                                   | E2 (backend scope behavior only)                                  | **open**                                                                                                                 |
-| **PR-06** | Settings                                                                   | E3 (web settings UI)                                              | **open**                                                                                                                 |
-| **PR-07** | closeout                                                                   | G1, G2, G3                                                        | **open**                                                                                                                 |
+| **PR-03** | Publication                                                                | A3 (idempotent `publishWork` / `published_at` SSOT)               | **done** — evidence under **A3** (2026-09-28 closeout)                                                                   |
+| **PR-04** | Catalog/Ingest                                                             | C2 (TTS “busy” / list taxonomy), C3 (API routes), C4 (web routes) | **open** (C2 known gap)                                                                                                  |
+| **PR-05** | Library                                                                    | D1, D2, D3, D4                                                    | **open**                                                                                                                 |
+| **PR-06** | Provider                                                                   | E2 (backend scope behavior only)                                  | **open**                                                                                                                 |
+| **PR-07** | Settings                                                                   | E3 (web settings UI)                                              | **open**                                                                                                                 |
+| **PR-08** | closeout                                                                   | G1, G2, G3                                                        | **open**                                                                                                                 |
 
-**Explicitly not done after PR-01:** Library APIs/shelf union (D1–D3), admin catalog routes (C3–C4), Provider runtime (E2), Settings UI (E3), Legacy Remaining audit (G1). Full monorepo `pnpm test` / root `pnpm lint` / root `pnpm typecheck` remain **open**. These are follow-on epic phases, not unfinished PR-01 acceptance items.
+**Explicitly not done after PR-03:** **PR-04** Catalog/Ingest (C2–C4), **PR-05** Library (D1–D4), **PR-06** Provider (E2), **PR-07** Settings (E3), **PR-08** closeout (G1–G3). Full monorepo `pnpm test` / root `pnpm lint` / root `pnpm typecheck` remain **open**. These are follow-on epic phases, not unfinished PR-03 acceptance items.
 
 ---
 
 ## Revision log
 
-| Date       | Change                                                                                            |
-| ---------- | ------------------------------------------------------------------------------------------------- |
-| 2026-09-28 | Initial plan; PR-01 done/open ledger                                                              |
-| 2026-09-28 | Locked phase order; Access tasks; PR order fix; verification evidence; filter-relative test paths |
+| Date       | Change                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| 2026-09-28 | Initial plan; PR-01 done/open ledger                                                                               |
+| 2026-09-28 | Locked phase order; Access tasks; PR order fix; verification evidence; filter-relative test paths                  |
+| 2026-09-28 | PR-03 Publication (A3 idempotent publish) **done**; roadmap renumbered PR-04 Catalog/Ingest through PR-08 closeout |
+| 2026-09-28 | PR-03 documentation verification closeout — A3 evidence, checks, legacy audit; “not done after PR-03” ledger       |
