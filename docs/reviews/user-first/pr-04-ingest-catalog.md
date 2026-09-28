@@ -1,67 +1,67 @@
-# PR-04 - Unified Ingest and Catalog
+# PR-04 — 统一摄取与 Catalog
 
-Status: Implemented
-Implementation Commit: d16ee9ce82e9e5a7015b30b7dee4435dd96b1a04
-Base Commit: dac344508f8f10faa38aed1721e8bab49a3572c3
-Branch: codex/user-first-pr04-ingest-catalog
-Primary Domain: EPUB ingest, Personal Work ownership, Catalog operations
-Implementation Scope: Share EPUB persistence/parser entry while separating Personal and Admin Catalog policies
-Review Type: Architecture Audit / Maintainer Handoff
-Human Review: Pending
+状态：已实现
+实现提交：d16ee9ce82e9e5a7015b30b7dee4435dd96b1a04
+基线提交：dac344508f8f10faa38aed1721e8bab49a3572c3
+分支：codex/user-first-pr04-ingest-catalog
+主要领域：EPUB 摄取、Personal Work 归属、Catalog 操作
+实现范围：共享 EPUB 持久化/解析入口，分离 Personal 与 Admin Catalog 策略
+评审类型：架构审计 / 维护者交接（Architecture Audit / Maintainer Handoff）
+人工评审：待完成
 
-## 1. Why This Stage Exists
+## 1. 本阶段为何存在
 
-The existing EPUB pipeline was Admin-oriented. Personal uploads need the same parsing/storage machinery but different ownership, visibility, authentication, lifecycle, and listing rules. Admin Work naming also hid that the Admin surface manages the official Catalog. PR-04 introduced the Personal upload boundary and made Admin Catalog operations explicit.
+既有 EPUB 流水线面向 Admin。Personal 上传需要相同解析/存储机制，但归属、可见性、认证、生命周期与列表规则不同。Admin Work 命名亦掩盖 Admin 表面管理的是官方 Catalog。PR-04 引入 Personal 上传边界并使 Admin Catalog 操作显式化。
 
-## 2. Before
+## 2. 之前
 
-- Admin EPUB ingest owned upload, persistence, and queue preparation.
-- No learner-authenticated upload route existed.
-- Admin work/API pages used /admin/works and /api/admin/works.
-- Work-audio Admin paths used /api/admin/works and /api/admin/parts.
-- Busy/TTS filtering was inferred or post-filtered in Web.
-- Personal Work ownership and Catalog-only query rules were not separate runtime capabilities.
+- Admin EPUB 摄取拥有上传、持久化与队列准备。
+- 不存在学习者认证上传路由。
+- Admin work/API 页面使用 `/admin/works` 与 `/api/admin/works`。
+- Work-audio Admin 路径使用 `/api/admin/works` 与 `/api/admin/parts`。
+- 忙碌/TTS 筛选在 Web 中推断或后过滤。
+- Personal Work 归属与仅 Catalog 查询规则非独立运行时能力。
 
-## 3. After
+## 3. 之后
 
-- ingest/epub/work-upload.ts owns shared EPUB spec, filename sanitization, source storage/reuse, Work/asset persistence, and parse enqueue fencing.
-- Personal wrapper creates origin_kind=user_epub, owner_user_id=current user, visibility=private and enqueues parse.
-- Catalog wrapper creates ownerless catalog Work and preserves existing Catalog workflow policy.
-- Authenticated POST /api/works creates a Personal Work.
-- Admin pages and APIs move to /admin/catalog/works and /api/admin/catalog/works, with no old Admin aliases.
-- Admin audio routes become Work/Part scoped under Catalog.
-- workflowStep=tts is filtered server-side. Default workflow auto-chain remains off.
+- `ingest/epub/work-upload.ts` 拥有共享 EPUB 上传规格、文件名清理、源存储/复用、Work/资源持久化与解析入队隔离。
+- Personal 包装创建 `origin_kind=user_epub`、所有者为当前用户、`visibility=private` 并入队解析。
+- Catalog 包装创建无所有者 Catalog Work 并保留既有 Catalog 工作流策略。
+- 经认证 `POST /api/works` 创建 Personal Work。
+- Admin 页面与 API 迁至 `/admin/catalog/works` 与 `/api/admin/catalog/works`，无旧 Admin 别名。
+- Admin 音频路由在 Catalog 下变为 Work/Part 作用域。
+- `workflowStep=tts` 在服务端筛选。默认工作流自动链仍关闭。
 
-## 4. Git Change Summary
+## 4. Git 变更摘要
 
-51 paths: 6 added, 39 modified, 1 deleted, 5 renamed. 34 production paths, 15 test paths and 4 documentation paths. No DB schema/migration or dependency change.
+51 条路径：6 新增、39 修改、1 删除、5 重命名。34 条生产路径、15 条测试路径与 4 条文档路径。无 DB schema/迁移或依赖变更。
 
-## 5. File-by-file Change Inventory
+## 5. 逐文件变更清单
 
-Shared ingest and policies:
-- apps/backend/src/domains/ingest/epub/work-upload.ts - common upload spec, sanitization, object acquisition, persistence and parse enqueue.
-- apps/backend/src/domains/ingest/parser/epub-parser.ts; registry.ts; service.ts - parser input/dispatch/service flow supports the shared Work ingest.
-- apps/backend/src/domains/works/personal/personal-epub-upload.ts - Personal ownership/visibility wrapper.
-- apps/backend/src/domains/works/catalog/policy.ts - ownerless Catalog predicate and row check.
-- apps/backend/src/domains/works/admin/catalog-epub-ingest.ts - Catalog upload/reuse wrapper.
-- apps/backend/src/domains/works/admin/admin-epub-ingest.ts - removed former combined/Admin-named ingest owner.
-- apps/backend/src/domains/works/routes/personal.ts - authenticated Personal upload transport.
-- apps/backend/src/domains/works/routes/admin.ts; index.ts - Admin Catalog route registration/name and endpoint migration.
-- apps/backend/src/domains/works/admin/admin-lifecycle.ts; admin-work-read.ts; admin-work-write.ts; admin/index.ts - Admin Catalog scoping and ingest exports.
-- apps/backend/src/domains/assets/routes/content-assets.ts - Admin audio reads/generation move under Catalog Work/Part paths.
-- apps/backend/src/application/commands/delete-work.ts; retry-workflow.ts; run-content-parse-workflow.ts; apps/backend/src/application/jobs/content-parse.ts - shared parser/workflow command integration and owner-safe lifecycle behavior.
+共享摄取与策略：
+- apps/backend/src/domains/ingest/epub/work-upload.ts - 通用上传规格、清理、对象获取、持久化与解析入队。
+- apps/backend/src/domains/ingest/parser/epub-parser.ts；registry.ts；service.ts - 解析器输入/分发/服务流支持共享 Work 摄取。
+- apps/backend/src/domains/works/personal/personal-epub-upload.ts - Personal 归属/可见性包装。
+- apps/backend/src/domains/works/catalog/policy.ts - 无所有者 Catalog 谓词与行检查。
+- apps/backend/src/domains/works/admin/catalog-epub-ingest.ts - Catalog 上传/复用包装。
+- apps/backend/src/domains/works/admin/admin-epub-ingest.ts - 移除原合并/Admin 命名的摄取所有者。
+- apps/backend/src/domains/works/routes/personal.ts - 认证 Personal 上传传输。
+- apps/backend/src/domains/works/routes/admin.ts；index.ts - Admin Catalog 路由注册/命名与端点迁移。
+- apps/backend/src/domains/works/admin/admin-lifecycle.ts；admin-work-read.ts；admin-work-write.ts；admin/index.ts - Admin Catalog 作用域与摄取导出。
+- apps/backend/src/domains/assets/routes/content-assets.ts - Admin 音频读/生成迁至 Catalog Work/Part 路径。
+- apps/backend/src/application/commands/delete-work.ts；retry-workflow.ts；run-content-parse-workflow.ts；apps/backend/src/application/jobs/content-parse.ts - 共享解析器/工作流命令集成与所有者安全生命周期行为。
 
-Web route and Admin consumer changes:
+Web 路由与 Admin 消费者变更：
 - apps/web/app/admin/works/[id]/page.tsx -> apps/web/app/admin/catalog/works/[id]/page.tsx
 - apps/web/app/admin/works/[id]/preview/page.tsx -> apps/web/app/admin/catalog/works/[id]/preview/page.tsx
 - apps/web/app/admin/works/[id]/preview/part/[partId]/page.tsx -> apps/web/app/admin/catalog/works/[id]/preview/part/[partId]/page.tsx
 - apps/web/app/admin/works/new/page.tsx -> apps/web/app/admin/catalog/works/new/page.tsx
 - apps/web/app/admin/works/page.tsx -> apps/web/app/admin/catalog/works/page.tsx
-- apps/web/constants/index.ts - route constant follows Catalog namespace.
-- apps/web/features/admin/works/work-audio-panel.tsx; works-api.ts; works-list-page.tsx; works-model.ts; works-model.spec.ts - Admin client, audio paths, and server workflowStep filter.
-- packages/shared/src/works/works.ts; works.spec.ts; index.ts - upload contract/workflow query changes.
+- apps/web/constants/index.ts - 路由常量跟随 Catalog 命名空间。
+- apps/web/features/admin/works/work-audio-panel.tsx；works-api.ts；works-list-page.tsx；works-model.ts；works-model.spec.ts - Admin 客户端、音频路径与服务端 `workflowStep` 筛选。
+- packages/shared/src/works/works.ts；works.spec.ts；index.ts - 上传契约/工作流查询变更。
 
-Tests (15):
+测试（15）：
 - apps/backend/tests/functional/domains/assets/reader-audio.spec.ts
 - apps/backend/tests/functional/domains/assist/assist.spec.ts
 - apps/backend/tests/functional/domains/ingest/epub-gutenberg.spec.ts
@@ -77,92 +77,92 @@ Tests (15):
 - apps/backend/tests/functional/domains/works/works-epub.spec.ts
 - apps/web/features/admin/works/works-model.spec.ts
 - packages/shared/src/works/works.spec.ts
-- The changed specs cover upload parsing, owner isolation, Admin Catalog isolation, audio, and workflow filtering.
+- 变更的测试覆盖上传解析、所有者隔离、Admin Catalog 隔离、音频与工作流筛选。
 
-Documentation:
-- docs/adr/001-reading-content-domain-model.md - records Personal upload and Catalog boundaries.
-- docs/plans/user-first-architecture-implementation.md - implementation status and checks.
-- docs/product/engineering-vocabulary.md - namespace/status vocabulary.
-- docs/testing/mvp-e2e-test-guide.md - Admin/Personal route evidence updates.
+文档：
+- docs/adr/001-reading-content-domain-model.md - 记录 Personal upload 与 Catalog 边界。
+- docs/plans/user-first-architecture-implementation.md - 实现状态与检查。
+- docs/product/engineering-vocabulary.md - 命名空间/status 词汇。
+- docs/testing/mvp-e2e-test-guide.md - Admin/Personal 路由证据更新。
 
-## 6. Symbol / Method Inventory
+## 6. 符号 / 方法清单
 
-Added: EPUB_UPLOAD_SPEC, sanitizeEpubFileName, storeEpubSource, reuseEpubSource, createEpubIngestWork, enqueueCoreEpubParse, createPersonalEpubWork, createCatalogEpubWork, reuseCatalogEpubWork, catalogWorkPredicate, isCatalogWork, personalWorkRoutes, catalogAdminRoutes.
-Refactored: parser dispatch and service, admin upload exports/routes, Work retry/delete/parse command paths, audio route paths, Admin list filtering.
+新增：`EPUB_UPLOAD_SPEC`、`sanitizeEpubFileName`、`storeEpubSource`、`reuseEpubSource`、`createEpubIngestWork`、`enqueueCoreEpubParse`、`createPersonalEpubWork`、`createCatalogEpubWork`、`reuseCatalogEpubWork`、`catalogWorkPredicate`、`isCatalogWork`、`personalWorkRoutes`、`catalogAdminRoutes`。
+重构：解析器分发与服务、Admin 上传导出/路由、Work 重试/删除/解析命令路径、音频路由路径、Admin 列表筛选。
 
-## 7. Deleted Code Inventory
+## 7. 已删除代码清单
 
-- Former admin-epub-ingest.ts implementation was deleted and responsibility split between shared work-upload.ts and catalog-epub-ingest.ts.
-- Old /admin/works pages were renamed to /admin/catalog/works.
-- No compatibility aliases for former Admin API paths were added.
-- No parser, asset, Work, or DB data was deleted by this stage.
+- 原 `admin-epub-ingest.ts` 实现已删除，职责在共享 `work-upload.ts` 与 `catalog-epub-ingest.ts` 间拆分。
+- 旧 `/admin/works` 页面重命名为 `/admin/catalog/works`。
+- 未为原 Admin API 路径添加兼容别名。
+- 本阶段未删除 parser、asset、Work 或 DB 数据。
 
-## 8. Database / Data Model
+## 8. 数据库 / 数据模型
 
-No migration/schema change. Personal upload writes a ReadingWork with user_epub, private visibility and current owner, plus origin_file ContentAsset. Catalog upload writes admin_epub, owner null and catalog visibility. Both use the same asset object acquisition and parser core. Shared contract adds/uses personal upload response/workflow fields.
+无迁移/schema 变更。Personal 上传写入 `user_epub`、`private` 可见性与当前所有者的 ReadingWork，及 `origin_file` ContentAsset。Catalog 上传写入 `admin_epub`、owner 为 null 与 Catalog 可见性。两者使用相同资源对象获取与解析核心。共享契约新增/使用 Personal 上传响应/工作流字段。
 
-## 9. API Change Inventory
+## 9. API 变更清单
 
-Added: POST /api/works (auth required; multipart field file).
-Renamed all Admin Work operations from /api/admin/works... to /api/admin/catalog/works... including create/list/read/update/publish/unpublish/retry/delete and EPUB upload/reuse.
-Moved Admin work audio read/generation to /api/admin/catalog/works/:workId/audio and /api/admin/catalog/works/:workId/parts/:partId/audio.
-No aliases remain for the old Admin routes. Query contract includes workflowStep=tts so server returns matching busy rows.
+新增：`POST /api/works`（需认证；多部分表单字段 `file`）。
+将所有 Admin Work 操作从 `/api/admin/works...` 重命名为 `/api/admin/catalog/works...`，含创建/列表/读取/更新/发布/取消发布/重试/删除与 EPUB 上传/复用。
+Admin work 音频读/生成迁至 `/api/admin/catalog/works/:workId/audio` 与 `/api/admin/catalog/works/:workId/parts/:partId/audio`。
+旧 Admin 路由无别名保留。查询契约含 `workflowStep=tts`，服务端返回匹配忙碌行。
 
-## 10. Runtime Call Flow
+## 10. 运行时调用流
 
-Personal: authenticated multipart route -> validate size/field -> createPersonalEpubWork -> shared source store/reuse -> createEpubIngestWork(owner/current user, private, user_epub) -> enqueueCoreEpubParse -> existing parse worker and pipeline -> PR-02 owner read policy permits Reader.
-Catalog: requireAdmin Catalog route -> createCatalogEpubWork/reuse -> same shared storage/persistence core -> Catalog-specific auto-chain policy -> existing Admin processing/review/publish.
-Admin list: Web workflowStep=tts query -> server list projection/filter. It does not rely on a browser-side second filter.
+Personal：认证多部分表单路由 -> 校验大小/字段 -> `createPersonalEpubWork` -> 共享源存储/复用 -> `createEpubIngestWork`（所有者/当前用户、`private`、`user_epub`）-> `enqueueCoreEpubParse` -> 既有解析 worker 与流水线 -> PR-02 所有者读取策略允许 Reader。
+Catalog：`requireAdmin` Catalog 路由 -> `createCatalogEpubWork`/复用 -> 同一共享存储/持久化核心 -> Catalog 特定自动链策略 -> 既有 Admin 处理/评审/发布。
+Admin 列表：Web `workflowStep=tts` 查询 -> 服务端列表投影/筛选。不依赖浏览器端二次筛选。
 
-## 11. Behavioral Changes
+## 11. 行为变更
 
-- Users can submit a private Personal EPUB through API without Admin role.
-- Admin still manages only Catalog Works.
-- Parser/persistence is shared; access and lifecycle policy are not.
-- Personal parsing is enqueued; Catalog follows the existing auto-chain flag, default false.
-- Work audio operations are Catalog-scoped.
-- This stage does not create Library membership for Personal Works; ownership membership projection arrives in PR-05.
+- 用户可无 Admin 角色经 API 提交私有 Personal EPUB。
+- Admin 仍仅管理 Catalog Work。
+- 解析/持久化共享；访问与生命周期策略不共享。
+- Personal 解析入队；Catalog 遵循既有自动链标志，默认为 false。
+- Work 音频操作 Catalog 作用域。
+- 本阶段不为 Personal Work 创建 Library 成员；归属成员投影在 PR-05 到达。
 
-## 12. AI-made / Implementation Decisions
+## 12. AI / 实现决策
 
-- A content hash may reuse stored object bytes, but every upload call creates a new ReadingWork. Object deduplication is not book/work deduplication; repeated-upload product semantics remain open.
-- Personal upload starts parse immediately while Catalog auto-chain remains policy-controlled.
-- Client file name is sanitized to a basename and used as display metadata, never object path.
-- The shared boundary is the ingest core; Personal and Catalog wrappers intentionally own different policy.
-- No API compatibility aliases were added, following the locked one-time migration direction.
+- 内容哈希可复用存储对象字节，但每次上传调用仍创建新 ReadingWork。对象去重非书/Work 去重；重复上传产品语义仍开放。
+- Personal 上传立即启动解析，Catalog 自动链仍由策略控制。
+- 客户端文件名清理为 basename 并用作展示元数据，永不作为对象路径。
+- 共享边界为摄取核心；Personal 与 Catalog 包装有意拥有不同策略。
+- 遵循锁定的一次性迁移方向，未添加 API 兼容别名。
 
-## 13. Tests & Verification Evidence
+## 13. 测试与验证证据
 
-Historical PR-04 report: Shared/Backend/Web typechecks passed; Backend targeted tests 25/25, Shared 15/15, Web 5/5; scoped ESLint, Prettier and git diff check passed. Personal upload tests verified successful private parse/read, other-user/anonymous denial, Admin Catalog isolation, no TTS requirement for Personal parsing, and malformed EPUB failure handling. Results not rerun in Review Gate 01; full repository test suite not reported.
+历史 PR-04 报告：共享包/后端/Web 类型检查通过；后端定向测试 25/25、共享包 15/15、Web 5/5；范围内 ESLint、Prettier 与 `git diff --check` 通过。Personal 上传测试验证成功私有解析/阅读、其他用户/匿名拒绝、Admin Catalog 隔离、Personal 解析无 TTS 要求及畸形 EPUB 失败处理。结果未在评审关卡 01 重跑；未报告完整仓库测试套件。
 
-## 14. Legacy Audit
+## 14. 遗留审计
 
-- Admin /works runtime paths were replaced with Catalog paths and no aliases.
-- Admin-only upload is no longer the only ingest entry; POST /api/works is Personal.
-- No personal upload UI is present.
-- TTS is a workflow step, not Work processingStatus. Catalog publish gate still requires ready default US audio.
-- Existing Shelf and reading_state membership semantics remain until PR-05.
+- Admin `/works` 运行时路径替换为 Catalog 路径且无别名。
+- 仅 Admin 上传不再是唯一摄取入口；`POST /api/works` 为 Personal。
+- 无 Personal 上传 UI。
+- TTS 为工作流步骤，非 Work `processingStatus`。Catalog 发布门控仍要求 `ready` 与默认 US 音频。
+- 既有书架与 `reading_state` 成员语义保留至 PR-05。
 
-## 15. Scope Audit
+## 15. 范围审计
 
-All changes support shared ingest, Personal backend upload, Catalog route ownership, workflow query behavior, and their consumers/tests/docs. No Library domain/UI, provider resolver, settings UI, or schema change. Admin Web page relocation is the necessary route consumer migration, not the later User-first learner frontend rewrite.
+所有变更支持共享摄取、Personal 后端上传、Catalog 路由归属、工作流查询行为及其消费者/测试/文档。无 Library 领域/UI、Provider 解析器、设置 UI 或 schema 变更。Admin Web 页面搬迁为必要的路由消费者迁移，非后续用户优先学习者前端重写。
 
-## 16. Frontend Impact
+## 16. 前端影响
 
-Admin pages were relocated and Admin clients updated to Catalog paths. Learner upload UI was not added. No Library UX or full user-first navigation redesign was implemented.
+Admin 页面搬迁且 Admin 客户端更新为 Catalog 路径。未新增学习者上传 UI。未实现 Library 体验或完整用户优先导航改版。
 
-## 17. Complexity Growth
+## 17. 复杂度增长
 
-Added one shared EPUB ingest core and two real policy wrappers with two real consumers. Catalog predicate has SQL and row forms for different execution boundaries. Route handlers retain separate multipart validation. Later review should check whether validation duplication can be reduced without merging Personal/Admin policy.
+新增一个共享 EPUB 摄取核心与两个真实策略包装、两个真实消费者。Catalog 谓词有 SQL 与行形式以适配不同执行边界。路由处理器保留独立多部分表单校验。后续评审应检查能否在不合并 Personal/Admin 策略的前提下减少校验重复。
 
-## Architecture Subtraction Candidates
+## 架构减法候选
 
-- isCatalogWork has a real caller in delete-work.ts. Review whether its row-only policy should remain separate from catalogWorkPredicate, which is used for SQL scoping.
-- Review overlap between Catalog predicate and published Catalog read predicate; their different publication requirements may justify both.
-- Review route-level multipart validation duplication against the shared upload spec.
+- `isCatalogWork` 在 `delete-work.ts` 有真实调用方。评审其仅行策略是否应与用于 SQL 作用域的 `catalogWorkPredicate` 分离保留。
+- 评审 Catalog 谓词与已发布 Catalog 读取谓词重叠；不同发布要求可能为两者并存提供依据。
+- 评审路由级多部分表单校验与共享上传规格的重复。
 
-## Hidden Product Decisions
+## 隐藏产品决策
 
-- Repeated same EPUB upload creates another Work while reusing bytes: PR04-PRODUCT-001.
-- Personal upload is private and parse starts immediately; surfaced upload location and processing/retry experience are not decided here.
-- Catalog unpublish and saved user membership lifetime is clarified by PR-05 source behavior but still needs product ownership.
+- 重复上传同一 EPUB 在复用字节时仍创建另一 Work：PR04-PRODUCT-001。
+- Personal 上传为私有且解析立即开始；可见上传位置与处理/重试体验此处未决。
+- Catalog 取消发布与保存用户成员生命周期由 PR-05 来源行为澄清，但仍需产品归属。
