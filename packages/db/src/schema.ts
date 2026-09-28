@@ -95,11 +95,6 @@ export const verification = pgTable(
   (table) => [index('verification_identifier_idx').on(table.identifier)],
 );
 
-export const userRelations = relations(user, ({ many }) => ({
-  sessions: many(session),
-  accounts: many(account),
-}));
-
 export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, {
     fields: [session.userId],
@@ -136,7 +131,7 @@ export const readingWork = pgTable(
     author: text('author').notNull().default(''),
     description: text('description').notNull().default(''),
     language: text('language').notNull().default('en'),
-    status: text('status').notNull().default('processing'),
+    processingStatus: text('processing_status').notNull().default('processing'),
     visibility: text('visibility').notNull().default('catalog'),
     ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'set null' }),
     originKind: text('origin_kind').notNull().default('admin_text'),
@@ -158,7 +153,7 @@ export const readingWork = pgTable(
       .notNull(),
   },
   (table) => [
-    index('reading_work_status_idx').on(table.status),
+    index('reading_work_processing_status_idx').on(table.processingStatus),
     index('reading_work_published_at_idx').on(table.publishedAt),
   ],
 );
@@ -301,7 +296,26 @@ export const readingPart = pgTable(
   ],
 );
 
-/** User × work shelf membership and reading position (ADR-001). */
+/** User shelf membership — distinct from reading position in reading_state (ADR-001). */
+export const userLibraryItem = pgTable(
+  'user_library_item',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    workId: text('work_id')
+      .notNull()
+      .references(() => readingWork.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('user_library_item_user_work_uidx').on(table.userId, table.workId),
+    index('user_library_item_user_idx').on(table.userId),
+    index('user_library_item_work_idx').on(table.workId),
+  ],
+);
+
 export const readingState = pgTable(
   'reading_state',
   {
@@ -340,6 +354,18 @@ export const readingState = pgTable(
 export const readingWorkRelations = relations(readingWork, ({ many }) => ({
   parts: many(readingPart),
   states: many(readingState),
+  libraryItems: many(userLibraryItem),
+}));
+
+export const userLibraryItemRelations = relations(userLibraryItem, ({ one }) => ({
+  user: one(user, {
+    fields: [userLibraryItem.userId],
+    references: [user.id],
+  }),
+  work: one(readingWork, {
+    fields: [userLibraryItem.workId],
+    references: [readingWork.id],
+  }),
 }));
 
 export const readingPartRelations = relations(readingPart, ({ one }) => ({
@@ -364,31 +390,41 @@ export const readingStateRelations = relations(readingState, ({ one }) => ({
   }),
 }));
 
-/** LLM gateway credentials (API key encrypted at rest); one row per API family instance. */
-export const llmProvider = pgTable('llm_provider', {
-  id: text('id').primaryKey(),
-  /** Wire API family for this provider; immutable after create. See `@gloaming/shared/llm`. */
-  apiFamily: text('api_family').notNull().default('openai'),
-  name: text('name').notNull(),
-  baseUrl: text('base_url').notNull(),
-  apiKeyCiphertext: text('api_key_ciphertext').notNull(),
-  /** Optional outbound proxy (http/https/socks5 URI) for reachability-gated gateways. */
-  proxyUrl: text('proxy_url'),
-  /** Provider-specific thinking-toggle parameter name (e.g. `enable_thinking`); empty = pass nothing. */
-  thinkingParam: text('thinking_param'),
-  /** Balance query endpoint (absolute URL or `/`-relative path). Empty = balance query disabled. */
-  balanceEndpoint: text('balance_endpoint'),
-  /** JSON path to the balance amount in the balance endpoint response (e.g. `data.available_balance`). */
-  balanceAmountPath: text('balance_amount_path'),
-  /** JSON path to the currency in the balance response; empty = `USD`. */
-  balanceCurrencyPath: text('balance_currency_path'),
-  isEnabled: boolean('is_enabled').default(true).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-});
+/** LLM gateway credentials (API key encrypted at rest); instance or per-user scope. */
+export const llmProvider = pgTable(
+  'llm_provider',
+  {
+    id: text('id').primaryKey(),
+    /** Wire API family for this provider; immutable after create. See `@gloaming/shared/llm`. */
+    apiFamily: text('api_family').notNull().default('openai'),
+    name: text('name').notNull(),
+    baseUrl: text('base_url').notNull(),
+    apiKeyCiphertext: text('api_key_ciphertext').notNull(),
+    /** Optional outbound proxy (http/https/socks5 URI) for reachability-gated gateways. */
+    proxyUrl: text('proxy_url'),
+    /** Provider-specific thinking-toggle parameter name (e.g. `enable_thinking`); empty = pass nothing. */
+    thinkingParam: text('thinking_param'),
+    /** Balance query endpoint (absolute URL or `/`-relative path). Empty = balance query disabled. */
+    balanceEndpoint: text('balance_endpoint'),
+    /** JSON path to the balance amount in the balance endpoint response (e.g. `data.available_balance`). */
+    balanceAmountPath: text('balance_amount_path'),
+    /** JSON path to the currency in the balance response; empty = `USD`. */
+    balanceCurrencyPath: text('balance_currency_path'),
+    /** Null = instance-wide provider; non-null = user-owned override. */
+    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'cascade' }),
+    isEnabled: boolean('is_enabled').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('llm_provider_user_name_uidx')
+      .on(table.ownerUserId, table.name)
+      .where(sql`${table.ownerUserId} is not null`),
+  ],
+);
 
 /** Callable model under a provider (upstream model id + tuning). */
 export const llmModel = pgTable(
@@ -420,31 +456,58 @@ export const llmModel = pgTable(
   ],
 );
 
-/** App-level purpose → default model binding (e.g. assist.default_model_id). */
-export const llmAppSetting = pgTable('llm_app_setting', {
-  key: text('key').primaryKey(),
-  value: text('value').notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-});
+/** App-level purpose → default model binding (instance or per-user scope). */
+export const llmAppSetting = pgTable(
+  'llm_app_setting',
+  {
+    id: text('id').primaryKey(),
+    /** Null = instance setting; non-null = user-owned override. */
+    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    value: text('value').notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('llm_app_setting_instance_key_uidx')
+      .on(table.key)
+      .where(sql`${table.ownerUserId} is null`),
+    uniqueIndex('llm_app_setting_user_key_uidx')
+      .on(table.ownerUserId, table.key)
+      .where(sql`${table.ownerUserId} is not null`),
+  ],
+);
 
-/** Singleton Azure TTS credentials + default / accent voice bindings. */
-export const ttsConfig = pgTable('tts_config', {
-  id: text('id').primaryKey(),
-  provider: text('provider').notNull().default('azure'),
-  region: text('region').notNull(),
-  apiKeyCiphertext: text('api_key_ciphertext').notNull(),
-  isEnabled: boolean('is_enabled').default(true).notNull(),
-  defaultVoice: text('default_voice').notNull(),
-  usVoice: text('us_voice').notNull(),
-  ukVoice: text('uk_voice').notNull(),
-  updatedAt: timestamp('updated_at')
-    .defaultNow()
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-});
+/** Azure TTS credentials + voice bindings (one instance row or one per user). */
+export const ttsConfig = pgTable(
+  'tts_config',
+  {
+    id: text('id').primaryKey(),
+    /** Null = instance config; non-null = user-owned override. */
+    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull().default('azure'),
+    region: text('region').notNull(),
+    apiKeyCiphertext: text('api_key_ciphertext').notNull(),
+    isEnabled: boolean('is_enabled').default(true).notNull(),
+    defaultVoice: text('default_voice').notNull(),
+    usVoice: text('us_voice').notNull(),
+    ukVoice: text('uk_voice').notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('tts_config_instance_uidx')
+      .on(sql`true`)
+      .where(sql`${table.ownerUserId} is null`),
+    uniqueIndex('tts_config_user_uidx')
+      .on(table.ownerUserId)
+      .where(sql`${table.ownerUserId} is not null`),
+  ],
+);
 
 /** Singleton Dictionary configuration + provider settings. */
 export const dictionaryConfig = pgTable('dictionary_config', {
@@ -699,8 +762,35 @@ export const aiInvocationLog = pgTable(
   ],
 );
 
-export const llmProviderRelations = relations(llmProvider, ({ many }) => ({
+export const llmProviderRelations = relations(llmProvider, ({ one, many }) => ({
+  owner: one(user, {
+    fields: [llmProvider.ownerUserId],
+    references: [user.id],
+  }),
   models: many(llmModel),
+}));
+
+export const llmAppSettingRelations = relations(llmAppSetting, ({ one }) => ({
+  owner: one(user, {
+    fields: [llmAppSetting.ownerUserId],
+    references: [user.id],
+  }),
+}));
+
+export const ttsConfigRelations = relations(ttsConfig, ({ one }) => ({
+  owner: one(user, {
+    fields: [ttsConfig.ownerUserId],
+    references: [user.id],
+  }),
+}));
+
+export const userRelations = relations(user, ({ many }) => ({
+  sessions: many(session),
+  accounts: many(account),
+  libraryItems: many(userLibraryItem),
+  ownedLlmProviders: many(llmProvider),
+  ownedLlmAppSettings: many(llmAppSetting),
+  ownedTtsConfigs: many(ttsConfig),
 }));
 
 export const llmModelRelations = relations(llmModel, ({ one }) => ({

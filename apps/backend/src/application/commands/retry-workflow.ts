@@ -70,7 +70,7 @@ function workflowRetryLeaseRecoveryWhere(step: WorkflowStep) {
 /**
  * Workflow retry / re-run / manual next-step. Without `step` it resumes from
  * the failed step (originMeta.failedStep); with `step` it re-runs that step.
- * Sets the running status and enqueues the job immediately — output reset runs
+ * Records the processing status and enqueues the job immediately — output reset runs
  * inside the job so the admin click returns quickly. Refused while a step is
  * actively running or while published.
  */
@@ -82,7 +82,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
   if (existing.originKind !== 'admin_epub') {
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.WORK.RETRY_EPUB_ONLY);
   }
-  if (existing.status === 'published') {
+  if (existing.publishedAt) {
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.UNPUBLISH_BEFORE_RETRY);
   }
   const step = input.step ?? failedStepOf(existing);
@@ -90,7 +90,9 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
   if (!step) {
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.WORK.NO_RETRYABLE_STEPS);
   }
-  const running = existing.status === 'processing' || existing.status === 'metadata' || existing.status === 'tts';
+  const activeStep = existing.originMeta.workflowClaimStep ?? existing.originMeta.workflowEnqueueStep;
+  const running =
+    existing.processingStatus === 'processing' || existing.processingStatus === 'metadata' || activeStep === 'tts';
   const expiredClaim = hasExpiredWorkflowClaim(existing, step);
   const expiredEnqueue = hasExpiredWorkflowEnqueue(existing, step);
   if (running && !expiredClaim && !expiredEnqueue) {
@@ -104,7 +106,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
     const [claimed] = await db
       .update(readingWorkTable)
       .set({
-        status: stepRunningStatus(step),
+        processingStatus: stepRunningStatus(step),
         originMeta: {
           ...existing.originMeta,
           failedStep: undefined,
@@ -122,7 +124,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
       .where(
         and(
           eq(readingWorkTable.id, id),
-          eq(readingWorkTable.status, existing.status),
+          eq(readingWorkTable.processingStatus, existing.processingStatus),
           running ? workflowRetryLeaseRecoveryWhere(step) : sql`true`,
         ),
       )
@@ -133,7 +135,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
     try {
       await enqueueWorkAudio(id, { force: false, roles: ['us', 'uk'] });
     } catch (error) {
-      await failWorkflowEnqueue(id, 'tts', retryJobToken, 'tts', retryAttemptToken, error);
+      await failWorkflowEnqueue(id, 'tts', retryJobToken, 'ready', retryAttemptToken, error);
       throw error;
     }
     return getAdminWork(id);
@@ -142,7 +144,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
   const [claimed] = await db
     .update(readingWorkTable)
     .set({
-      status: stepRunningStatus(step),
+      processingStatus: stepRunningStatus(step),
       originMeta: {
         ...existing.originMeta,
         failedStep: undefined,
@@ -164,7 +166,7 @@ export async function retryWorkflow(id: string, input: RetryWorkflowBody = {}): 
     .where(
       and(
         eq(readingWorkTable.id, id),
-        eq(readingWorkTable.status, existing.status),
+        eq(readingWorkTable.processingStatus, existing.processingStatus),
         running ? workflowRetryLeaseRecoveryWhere(step) : sql`true`,
       ),
     )

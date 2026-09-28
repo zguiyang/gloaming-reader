@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
-import { WORK_STATUSES, type WorkStatus } from '@gloaming/shared/works';
+import { WORK_PROCESSING_STATUSES } from '@gloaming/shared/works';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,14 +33,18 @@ import {
   useAdminWorksListQuery,
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
-import { formatWorkStatus, formatWorkUpdatedAt } from '@/features/admin/works/works-format';
-import { type AdminWorkSummaryView, canPreviewWork } from '@/features/admin/works/works-model';
+import { formatAdminWorkStatus, formatWorkUpdatedAt } from '@/features/admin/works/works-format';
+import {
+  type AdminListStatusFilter,
+  adminWorksListQueryForFilter,
+  type AdminWorkSummaryView,
+  canPreviewWork,
+  filterAdminWorksListItems,
+  isWorkPublished,
+} from '@/features/admin/works/works-model';
 import { useLocale } from '@/lib/locale-context';
 
-type StatusFilter = WorkStatus | 'all' | 'busy';
-
-/** Running + idle-wait statuses grouped as one list tab. */
-const BUSY_STATUSES = ['uploaded', 'processing', 'parsed', 'metadata', 'tts'] as const;
+type StatusFilter = AdminListStatusFilter;
 
 type WorkRowActionsProps = {
   work: AdminWorkSummaryView;
@@ -59,17 +63,17 @@ function WorkRowActions({ work, onPublish, onUnpublish, onRetry, onDelete }: Wor
 
   return (
     <div className="flex justify-end gap-2">
-      {work.status === 'ready' ? (
+      {work.processingStatus === 'ready' && !isWorkPublished(work) ? (
         <Button type="button" size="sm" variant="secondary" onClick={() => onPublish(work.id)}>
           {t(locale, 'admin.content.common.publish')}
         </Button>
       ) : null}
-      {work.status === 'published' ? (
+      {isWorkPublished(work) ? (
         <Button type="button" size="sm" variant="outline" onClick={() => onUnpublish(work.id)}>
           {t(locale, 'admin.content.common.unpublish')}
         </Button>
       ) : null}
-      {work.status === 'failed' ? (
+      {work.processingStatus === 'failed' ? (
         <Button type="button" size="sm" variant="secondary" onClick={() => onRetry(work.id)}>
           {t(locale, 'content.common.retry')}
         </Button>
@@ -105,7 +109,7 @@ function WorkRowActions({ work, onPublish, onUnpublish, onRetry, onDelete }: Wor
               {t(locale, 'admin.works.list.previewUnavailable')}
             </DropdownMenuItem>
           ) : null}
-          {work.status !== 'published' ? (
+          {!isWorkPublished(work) ? (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={() => onDelete(work.id)}>
@@ -179,13 +183,7 @@ export function WorksListPage() {
   const { locale } = useLocale();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const invalidate = useInvalidateAdminWorks();
-  const listQuery = useAdminWorksListQuery(
-    statusFilter === 'all'
-      ? {}
-      : statusFilter === 'busy'
-        ? { status: BUSY_STATUSES.join(',') }
-        : { status: statusFilter },
-  );
+  const listQuery = useAdminWorksListQuery(adminWorksListQueryForFilter(statusFilter));
 
   const statusFilters: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: t(locale, 'admin.works.filter.all') },
@@ -236,7 +234,7 @@ export function WorksListPage() {
     }
   }
 
-  const items = listQuery.data?.items ?? [];
+  const items = filterAdminWorksListItems(listQuery.data?.items ?? [], statusFilter);
 
   return (
     <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto w-full max-w-6xl">
@@ -258,7 +256,12 @@ export function WorksListPage() {
         <Tabs
           value={statusFilter}
           onValueChange={(value) => {
-            if (value === 'all' || value === 'busy' || (WORK_STATUSES as readonly string[]).includes(value)) {
+            if (
+              value === 'all' ||
+              value === 'busy' ||
+              value === 'published' ||
+              (WORK_PROCESSING_STATUSES as readonly string[]).includes(value)
+            ) {
               setStatusFilter(value as StatusFilter);
             }
           }}
@@ -340,10 +343,14 @@ export function WorksListPage() {
                   <TableCell className="px-5 py-4">
                     <Badge
                       variant={
-                        work.status === 'failed' ? 'destructive' : work.status === 'ready' ? 'secondary' : 'outline'
+                        work.processingStatus === 'failed'
+                          ? 'destructive'
+                          : isWorkPublished(work) || work.processingStatus === 'ready'
+                            ? 'secondary'
+                            : 'outline'
                       }
                     >
-                      {formatWorkStatus(work.status, locale)}
+                      {formatAdminWorkStatus(work, locale)}
                     </Badge>
                   </TableCell>
                   <TableCell className="px-5 py-4 text-muted-foreground">

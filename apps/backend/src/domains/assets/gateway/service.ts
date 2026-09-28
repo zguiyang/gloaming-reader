@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, isNotNull } from 'drizzle-orm';
 
 import { contentAsset as contentAssetTable, readingWork as readingWorkTable } from '@gloaming/db';
 import { isAdminRole } from '@gloaming/shared/auth';
@@ -22,8 +22,8 @@ function isPublicAssetKind(kind: string): boolean {
 }
 
 /** Only published learner-facing assets may use shared public caching. */
-export function isPublicAsset(asset: Pick<ResolvedAsset, 'kind' | 'workStatus'>): boolean {
-  return asset.workStatus === 'published' && isPublicAssetKind(asset.kind);
+export function isPublicAsset(asset: Pick<ResolvedAsset, 'kind' | 'isPublished'>): boolean {
+  return asset.isPublished && isPublicAssetKind(asset.kind);
 }
 
 export function resolveAssetViewer(user: AuthSessionUser | null): AssetViewer {
@@ -39,10 +39,10 @@ export type ResolvedAsset = {
   kind: string;
   storageKey: string;
   mimeType: string;
-  workStatus: string;
+  isPublished: boolean;
 };
 
-/** Look up an asset row + owning work status (assetId → storageKey, never key from caller). */
+/** Look up an asset row + owning work publication state (assetId → storageKey, never key from caller). */
 export async function resolveAsset(assetId: string): Promise<ResolvedAsset | null> {
   const [row] = await db
     .select({
@@ -51,7 +51,7 @@ export async function resolveAsset(assetId: string): Promise<ResolvedAsset | nul
       kind: contentAssetTable.kind,
       storageKey: contentAssetTable.storageKey,
       mimeType: contentAssetTable.mimeType,
-      workStatus: readingWorkTable.status,
+      isPublished: isNotNull(readingWorkTable.publishedAt),
     })
     .from(contentAssetTable)
     .leftJoin(readingWorkTable, eq(contentAssetTable.workId, readingWorkTable.id))
@@ -66,7 +66,7 @@ export async function resolveAsset(assetId: string): Promise<ResolvedAsset | nul
     kind: row.kind,
     storageKey: row.storageKey,
     mimeType: row.mimeType,
-    workStatus: row.workStatus ?? 'processing',
+    isPublished: Boolean(row.isPublished),
   };
 }
 

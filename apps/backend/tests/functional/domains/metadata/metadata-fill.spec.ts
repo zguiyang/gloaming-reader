@@ -419,7 +419,10 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     );
     await db
       .update(readingWorkTable)
-      .set({ status: 'failed', originMeta: { failedStep: 'metadata', lastError: 'boom' } })
+      .set({
+        processingStatus: 'failed',
+        originMeta: { failedStep: 'metadata', lastError: 'boom' },
+      })
       .where(eq(readingWorkTable.id, workId));
 
     const response = await app.request(`/api/admin/works/${workId}/workflow/retry`, {
@@ -427,12 +430,12 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       headers: { Cookie: adminCookie },
     });
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { status: string; failedStep: string | null };
-    expect(body.status).toBe('metadata');
+    const body = (await response.json()) as { processingStatus: string; failedStep: string | null };
+    expect(body.processingStatus).toBe('metadata');
     expect(body.failedStep).toBeNull();
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(work!.status).toBe('metadata');
+    expect(work!.processingStatus).toBe('metadata');
     expect(work!.originMeta.lastError).toBeUndefined();
   });
 
@@ -447,7 +450,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     await db
       .update(readingWorkTable)
       .set({
-        status: 'processing',
+        processingStatus: 'processing',
         originMeta: {
           retryJobToken,
           workflowClaimAttempt: 'attempt-a',

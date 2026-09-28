@@ -25,7 +25,7 @@ const workflowLogger = rootLogger.child({ module: 'ContentParseWorkflow' });
 
 async function ensureRetryJobToken(
   workId: string,
-  workStatus: string,
+  processingStatus: string,
   retryJobToken?: string,
 ): Promise<string | false> {
   const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId)).limit(1);
@@ -41,7 +41,7 @@ async function ensureRetryJobToken(
       .where(
         and(
           eq(readingWorkTable.id, workId),
-          eq(readingWorkTable.status, workStatus),
+          eq(readingWorkTable.processingStatus, processingStatus),
           sql`coalesce(${readingWorkTable.originMeta}->>'retryJobToken', '') = ''`,
         ),
       )
@@ -74,7 +74,7 @@ async function finalizeContentParseWorkflow(
               difficultyScore: workStats.difficultyScore,
               statsProvenance: workStats.statsProvenance,
             }),
-        status: 'metadata',
+        processingStatus: 'metadata',
         originMeta: sql`${readingWorkTable.originMeta} - 'workflowParseArtifacts'`,
       })
       .where(workflowClaimWhere(workId, 'parse', jobToken, attemptToken))
@@ -144,7 +144,7 @@ export async function runContentParseWorkflow(
     throw new Error(`Work ${workId} not found`);
   }
 
-  const jobToken = await ensureRetryJobToken(workId, work.status, retryJobToken);
+  const jobToken = await ensureRetryJobToken(workId, work.processingStatus, retryJobToken);
   if (jobToken === false) {
     return false;
   }

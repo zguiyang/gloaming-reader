@@ -192,7 +192,7 @@ describe('Translate HTTP', () => {
     await db.insert(readingWorkTable).values({
       id: workId,
       title,
-      status: 'published',
+      processingStatus: 'ready',
       publishedAt: new Date(),
     });
     await db.insert(readingPartTable).values({
@@ -286,7 +286,7 @@ describe('Translate HTTP', () => {
     await db.insert(readingWorkTable).values({
       id: workId,
       title,
-      status: 'published',
+      processingStatus: 'ready',
       publishedAt: new Date(),
     });
     await db.insert(readingPartTable).values({

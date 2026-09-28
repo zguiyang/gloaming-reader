@@ -58,7 +58,7 @@ export async function deleteWork(id: string): Promise<void> {
     if (!existing) {
       throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
     }
-    if (existing.status === 'published') {
+    if (existing.publishedAt) {
       throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.UNPUBLISH_FIRST);
     }
 

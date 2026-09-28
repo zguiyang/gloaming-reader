@@ -11,7 +11,7 @@ function toIso(value: Date): string {
 
 /** admin_epub re-parse: hide tags in API projection (junction rows are preserved). */
 export function shouldHideTagsDuringProcessing(row: WorkRow): boolean {
-  return row.originKind === 'admin_epub' && row.status === 'processing';
+  return row.originKind === 'admin_epub' && row.processingStatus === 'processing';
 }
 
 export function toWork(
@@ -26,7 +26,7 @@ export function toWork(
     author: row.author,
     description: row.description,
     language: row.language,
-    status: row.status as Work['status'],
+    processingStatus: row.processingStatus as Work['processingStatus'],
     visibility: row.visibility as Work['visibility'],
     originKind: row.originKind as Work['originKind'],
     tags: shouldHideTagsDuringProcessing(row) ? [] : tags,

@@ -47,7 +47,7 @@ export async function createAdminTextWork(input: CreateAdminTextWorkBody): Promi
       id: workId,
       title: input.title,
       description: '',
-      status: 'ready',
+      processingStatus: 'ready',
       originKind: 'admin_text',
       publishedAt: null,
     })

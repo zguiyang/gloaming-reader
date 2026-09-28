@@ -74,7 +74,7 @@ describe('taxonomy SSOT projection', () => {
     await db.insert(readingWorkTable).values({
       id: workId,
       title: 'Re-parse Book',
-      status: 'processing',
+      processingStatus: 'processing',
       originKind: 'admin_epub',
     });
     await db.insert(tagTable).values({ id: tagId, name: 'Kept Manual', normalized: normalizeTag('Kept Manual') });
@@ -102,7 +102,7 @@ describe('taxonomy SSOT projection', () => {
     await db.insert(readingWorkTable).values({
       id: workId,
       title: 'Catalog SSOT-Unique-Tag',
-      status: 'published',
+      processingStatus: 'ready',
       visibility: 'catalog',
       originKind: 'admin_text',
       publishedAt: new Date(),

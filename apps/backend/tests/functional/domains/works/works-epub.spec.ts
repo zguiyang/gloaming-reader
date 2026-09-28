@@ -157,7 +157,7 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
 
     const result = (await response.json()) as CreateEpubWorkResult;
     expect(result.title).toBe('The Great Book');
-    expect(result.status).toBe('uploaded');
+    expect(result.processingStatus).toBe('uploaded');
     expect(result.originKind).toBe('admin_epub');
     expect(result.asset.storageKey).toBe(`epub/${suiteZipHash}.epub`);
     expect(result.asset.contentHash).toBe(suiteZipHash);
@@ -438,6 +438,71 @@ describe('POST /api/admin/works/epub (dedupe-aware)', () => {
     expect(row).not.toHaveProperty('parts');
     expect(typeof row?.partCount).toBe('number');
   });
+
+  it('filters by publicationStatus and processingStatus with matching pagination total', async () => {
+    async function createReadyTextWork(title: string) {
+      const response = await app.request('/api/admin/works', {
+        method: 'POST',
+        headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body: 'Body for list filter test.' }),
+      });
+      expect(response.status).toBe(201);
+      const created = (await response.json()) as { id: string };
+      createdWorkIds.push(created.id);
+      await db.update(readingWorkTable).set({ processingStatus: 'ready' }).where(eq(readingWorkTable.id, created.id));
+      return created.id;
+    }
+
+    const unpublishedReadyId = await createReadyTextWork('List Filter Unpublished');
+    const publishedReadyId = await createReadyTextWork('List Filter Published');
+    const taxonomy = await ensureWorkTaxonomyFixture('works-epub-list-filter');
+    await app.request(`/api/admin/works/${publishedReadyId}`, {
+      method: 'PATCH',
+      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify(taxonomy),
+    });
+    await seedReadyDefaultAudioForWork(publishedReadyId);
+    const publish = await app.request(`/api/admin/works/${publishedReadyId}/publish`, {
+      method: 'POST',
+      headers: { Cookie: adminCookie },
+    });
+    expect(publish.status).toBe(200);
+
+    const readyUnpublished = await app.request(
+      '/api/admin/works?processingStatus=ready&publicationStatus=unpublished&pageSize=50',
+      { headers: { Cookie: adminCookie } },
+    );
+    expect(readyUnpublished.status).toBe(200);
+    const readyUnpublishedBody = (await readyUnpublished.json()) as {
+      items: Array<{ id: string }>;
+      pagination: { total: number };
+    };
+    expect(readyUnpublishedBody.pagination.total).toBeGreaterThanOrEqual(1);
+    expect(readyUnpublishedBody.items.some((item) => item.id === unpublishedReadyId)).toBe(true);
+    expect(readyUnpublishedBody.items.every((item) => item.id !== publishedReadyId)).toBe(true);
+
+    const publishedOnly = await app.request('/api/admin/works?publicationStatus=published&pageSize=50', {
+      headers: { Cookie: adminCookie },
+    });
+    expect(publishedOnly.status).toBe(200);
+    const publishedBody = (await publishedOnly.json()) as {
+      items: Array<{ id: string }>;
+      pagination: { total: number };
+    };
+    expect(publishedBody.items.some((item) => item.id === publishedReadyId)).toBe(true);
+    expect(publishedBody.items.every((item) => item.id !== unpublishedReadyId)).toBe(true);
+    expect(publishedBody.pagination.total).toBeGreaterThanOrEqual(1);
+
+    const paged = await app.request(
+      '/api/admin/works?processingStatus=ready&publicationStatus=unpublished&page=1&pageSize=1',
+      { headers: { Cookie: adminCookie } },
+    );
+    expect(paged.status).toBe(200);
+    const pagedBody = (await paged.json()) as { items: unknown[]; pagination: { total: number; pageSize: number } };
+    expect(pagedBody.items).toHaveLength(1);
+    expect(pagedBody.pagination.pageSize).toBe(1);
+    expect(pagedBody.pagination.total).toBe(readyUnpublishedBody.pagination.total);
+  });
 });
 
 describe('publish / unpublish status guards', () => {
@@ -503,7 +568,10 @@ describe('publish / unpublish status guards', () => {
     createdWorkIds.push(created.id);
     await db
       .update(readingWorkTable)
-      .set({ status: 'failed', originMeta: { lastError: 'boom' } })
+      .set({
+        processingStatus: 'failed',
+        originMeta: { lastError: 'boom' },
+      })
       .where(eq(readingWorkTable.id, created.id));
 
     const publish = await publishRequest(created.id);
@@ -545,10 +613,14 @@ describe('publish / unpublish status guards', () => {
 
     const publish = await publishRequest(created.id);
     expect(publish.status).toBe(200);
-    expect(((await publish.json()) as { status: string }).status).toBe('published');
+    const publishedBody = (await publish.json()) as { processingStatus: string; publishedAt: string | null };
+    expect(publishedBody.processingStatus).toBe('ready');
+    expect(publishedBody.publishedAt).not.toBeNull();
 
     const unpublish = await unpublishRequest(created.id);
     expect(unpublish.status).toBe(200);
-    expect(((await unpublish.json()) as { status: string }).status).toBe('ready');
+    const unpublishedBody = (await unpublish.json()) as { processingStatus: string; publishedAt: string | null };
+    expect(unpublishedBody.processingStatus).toBe('ready');
+    expect(unpublishedBody.publishedAt).toBeNull();
   });
 });

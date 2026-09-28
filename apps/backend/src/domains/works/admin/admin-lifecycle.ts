@@ -20,7 +20,7 @@ export async function publishWork(id: string): Promise<AdminWork> {
   if (!existing) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
-  if (existing.status !== 'ready') {
+  if (existing.processingStatus !== 'ready') {
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.PUBLISH_INCOMPLETE);
   }
 
@@ -34,7 +34,7 @@ export async function publishWork(id: string): Promise<AdminWork> {
 
   const [row] = await db
     .update(readingWorkTable)
-    .set({ status: 'published', publishedAt: new Date() })
+    .set({ publishedAt: new Date() })
     .where(eq(readingWorkTable.id, id))
     .returning();
 
@@ -49,13 +49,13 @@ export async function unpublishWork(id: string): Promise<AdminWork> {
   if (!existing) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
-  if (existing.status !== 'published') {
+  if (!existing.publishedAt) {
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.UNPUBLISH_NOT_PUBLISHED);
   }
 
   const [row] = await db
     .update(readingWorkTable)
-    .set({ status: 'ready', publishedAt: null })
+    .set({ publishedAt: null })
     .where(eq(readingWorkTable.id, id))
     .returning();
 

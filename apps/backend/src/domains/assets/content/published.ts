@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 
 import {
   contentAsset as contentAssetTable,
@@ -29,7 +29,7 @@ export async function getPublishedPartAudioTrack(partId: string, role: TtsVoiceR
     })
     .from(readingPartTable)
     .innerJoin(readingWorkTable, eq(readingPartTable.workId, readingWorkTable.id))
-    .where(and(eq(readingPartTable.id, partId), eq(readingWorkTable.status, 'published')))
+    .where(and(eq(readingPartTable.id, partId), isNotNull(readingWorkTable.publishedAt)))
     .limit(1);
 
   if (!part) {

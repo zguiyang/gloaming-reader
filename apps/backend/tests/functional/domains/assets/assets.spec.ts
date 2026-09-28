@@ -74,12 +74,13 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
   let adminCookie = '';
   let userCookie = '';
 
-  async function seedWork(status: string): Promise<string> {
+  async function seedWork(lifecycle: 'published' | 'draft'): Promise<string> {
     const id = `w-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     await db.insert(readingWorkTable).values({
       id,
       title: `Work ${id}`,
-      status,
+      processingStatus: 'ready',
+      publishedAt: lifecycle === 'published' ? new Date() : null,
       originKind: 'admin_epub',
     });
     workIds.push(id);

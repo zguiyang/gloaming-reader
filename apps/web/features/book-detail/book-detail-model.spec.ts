@@ -201,7 +201,7 @@ describe('toBookDetail', () => {
     author: 'Author',
     description: 'Desc',
     language: 'en',
-    status: 'published' as const,
+    processingStatus: 'ready' as const,
     visibility: 'catalog' as const,
     originKind: 'admin_epub' as const,
     tags: [taxonomyTag],

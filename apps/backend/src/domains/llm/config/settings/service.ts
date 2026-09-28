@@ -1,4 +1,6 @@
-import { eq, inArray } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+
+import { eq, inArray, isNull } from 'drizzle-orm';
 
 import {
   llmAppSetting as llmAppSettingTable,
@@ -22,7 +24,7 @@ import { AppError, NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 export async function listSettings(): Promise<LlmAppSettingView[]> {
-  const settings = await db.select().from(llmAppSettingTable);
+  const settings = await db.select().from(llmAppSettingTable).where(isNull(llmAppSettingTable.ownerUserId));
   const byKey = new Map(settings.map((s) => [s.key, s.value]));
   const modelIds = [...new Set([...byKey.values()].filter(Boolean))];
   const models =
@@ -89,9 +91,15 @@ export async function putSetting(key: string, body: PutLlmAppSettingBody): Promi
 
   await db
     .insert(llmAppSettingTable)
-    .values({ key: key as AiSettingKey, value: body.modelId })
+    .values({
+      id: randomUUID(),
+      ownerUserId: null,
+      key: key as AiSettingKey,
+      value: body.modelId,
+    })
     .onConflictDoUpdate({
       target: llmAppSettingTable.key,
+      targetWhere: isNull(llmAppSettingTable.ownerUserId),
       set: { value: body.modelId, updatedAt: new Date() },
     });
 

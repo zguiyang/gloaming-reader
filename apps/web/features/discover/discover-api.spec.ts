@@ -38,7 +38,7 @@ function sampleWork(overrides: Partial<CatalogWork> = {}): CatalogWork {
     author: '  Jane Austen  ',
     description: 'A published catalog work used in discover card mapping tests.',
     language: 'en',
-    status: 'published',
+    processingStatus: 'ready',
     visibility: 'catalog',
     originKind: 'admin_epub',
     tags: [taxonomyTag],

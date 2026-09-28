@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 
 import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
 
@@ -14,7 +14,7 @@ export async function requirePublishedWorkWithParts(workId: string): Promise<{ w
   const [work] = await db
     .select()
     .from(readingWorkTable)
-    .where(and(eq(readingWorkTable.id, workId), eq(readingWorkTable.status, 'published')))
+    .where(and(eq(readingWorkTable.id, workId), isNotNull(readingWorkTable.publishedAt)))
     .limit(1);
   if (!work) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
@@ -47,7 +47,7 @@ export async function requirePublishedPart(
   partId: string,
   options?: { workId?: string },
 ): Promise<PublishedPartAccess> {
-  const predicates = [eq(readingPartTable.id, partId), eq(readingWorkTable.status, 'published')];
+  const predicates = [eq(readingPartTable.id, partId), isNotNull(readingWorkTable.publishedAt)];
   if (options?.workId) {
     predicates.push(eq(readingPartTable.workId, options.workId));
   }

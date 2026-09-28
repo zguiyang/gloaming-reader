@@ -27,7 +27,7 @@ import {
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
 import { formatProvenance, formatWorkflowStep } from '@/features/admin/works/works-format';
-import type { AdminWorkView } from '@/features/admin/works/works-model';
+import { type AdminWorkView, isTtsWorkflowActive, isWorkPublished } from '@/features/admin/works/works-model';
 import {
   categoryReferenceId,
   categoryReviewItems,
@@ -294,13 +294,16 @@ function WorkBodySummary({ work }: { work: AdminWorkView }) {
   const { locale } = useLocale();
   const hasParts = work.parts.length > 0;
   const isProcessing =
-    work.status === 'processing' || work.status === 'metadata' || work.status === 'tts' || work.status === 'uploaded';
+    work.processingStatus === 'processing' ||
+    work.processingStatus === 'metadata' ||
+    work.processingStatus === 'uploaded' ||
+    isTtsWorkflowActive(work);
   const unknownError = t(locale, 'admin.works.edit.unknownError');
 
   if (isProcessing) {
     return <p className="text-sm text-muted-foreground">{t(locale, 'admin.works.metadata.processingBody')}</p>;
   }
-  if (work.status === 'failed') {
+  if (work.processingStatus === 'failed') {
     return (
       <p className="text-sm text-muted-foreground">
         {t(locale, 'admin.works.metadata.failedBody', {
@@ -334,21 +337,21 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
   const { locale } = useLocale();
   const invalidate = useInvalidateAdminWorks();
   const [isActing, setIsActing] = useState(false);
-  const { status, failedStep } = work;
+  const { processingStatus, failedStep } = work;
+  const isPublished = isWorkPublished(work);
+  const isTtsActive = isTtsWorkflowActive(work);
   const unknownError = t(locale, 'admin.works.edit.unknownError');
 
   const metadataAt = typeof work.originMeta.metadataAt === 'string' ? work.originMeta.metadataAt : null;
   const enrichGaps = Array.isArray(work.originMeta.metadataEnrichGaps)
     ? work.originMeta.metadataEnrichGaps.filter((item): item is string => typeof item === 'string')
     : [];
-  const isBusy = status === 'processing' || status === 'metadata' || isActing;
-  const isAwaitingStart = status === 'parsed';
-  const isFailedHere = status === 'failed' && failedStep === 'metadata';
-  const isPartial = (status === 'ready' || status === 'tts') && enrichGaps.length > 0;
+  const isBusy = processingStatus === 'processing' || processingStatus === 'metadata' || isActing;
+  const isAwaitingStart = processingStatus === 'parsed';
+  const isFailedHere = processingStatus === 'failed' && failedStep === 'metadata';
+  const isPartial = (processingStatus === 'ready' || isTtsActive) && enrichGaps.length > 0;
   const isDone =
-    (status === 'ready' || status === 'published' || status === 'tts') &&
-    enrichGaps.length === 0 &&
-    Boolean(metadataAt);
+    (processingStatus === 'ready' || isPublished || isTtsActive) && enrichGaps.length === 0 && Boolean(metadataAt);
 
   async function handleRetry(step: WorkflowStep, confirmText?: string) {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -357,7 +360,7 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
       await retryAdminWorkflow(work.id, step);
       await invalidate(work.id);
       toast.success(
-        status === 'parsed'
+        processingStatus === 'parsed'
           ? t(locale, 'admin.works.metadata.enrichStarted')
           : t(locale, 'admin.works.metadata.enrichRestarted'),
       );
@@ -369,9 +372,9 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
   }
 
   let hint = '';
-  if (isBusy && status === 'metadata') {
+  if (isBusy && processingStatus === 'metadata') {
     hint = t(locale, 'admin.works.metadata.hintEnriching');
-  } else if (isBusy && status === 'processing') {
+  } else if (isBusy && processingStatus === 'processing') {
     hint = work.workflowPolicy.autoChainEnabled
       ? t(locale, 'admin.works.metadata.hintWaitingParseAuto')
       : t(locale, 'admin.works.metadata.hintWaitingParseManual');
@@ -383,12 +386,12 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
     hint = t(locale, 'admin.works.metadata.hintFailedHere', {
       error: String(work.originMeta.lastError ?? unknownError),
     });
-  } else if (status === 'failed' && failedStep) {
+  } else if (processingStatus === 'failed' && failedStep) {
     hint = t(locale, 'admin.works.metadata.hintStepFailed', {
       step: formatWorkflowStep(failedStep, locale),
       error: String(work.originMeta.lastError ?? unknownError),
     });
-  } else if (status === 'failed') {
+  } else if (processingStatus === 'failed') {
     hint = t(locale, 'admin.works.metadata.hintFailedGeneric', {
       error: String(work.originMeta.lastError ?? unknownError),
     });
@@ -398,7 +401,7 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
     });
   } else if (isDone) {
     hint = t(locale, 'admin.works.metadata.hintDone');
-  } else if (status === 'ready' || status === 'published' || status === 'tts') {
+  } else if (processingStatus === 'ready' || isPublished || isTtsActive) {
     hint = t(locale, 'admin.works.metadata.hintRulesOnly');
   } else {
     hint = work.workflowPolicy.autoChainEnabled
@@ -409,29 +412,25 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
-        {status === 'metadata' || isActing ? <Spinner className="size-4 text-brand" /> : null}
+        {processingStatus === 'metadata' || isActing ? <Spinner className="size-4 text-brand" /> : null}
         <Badge
           variant={
-            status === 'failed' || isPartial
-              ? 'destructive'
-              : isDone || status === 'published'
-                ? 'secondary'
-                : 'outline'
+            processingStatus === 'failed' || isPartial ? 'destructive' : isDone || isPublished ? 'secondary' : 'outline'
           }
         >
-          {status === 'failed'
+          {processingStatus === 'failed'
             ? isFailedHere
               ? t(locale, 'admin.works.metadata.statusFailed')
               : t(locale, 'admin.works.metadata.statusFailedGeneric')
-            : status === 'processing' || status === 'uploaded'
+            : processingStatus === 'processing' || processingStatus === 'uploaded'
               ? t(locale, 'admin.works.metadata.statusPending')
-              : status === 'parsed'
+              : processingStatus === 'parsed'
                 ? t(locale, 'admin.works.metadata.statusAwaitingStart')
-                : status === 'metadata' || isActing
+                : processingStatus === 'metadata' || isActing
                   ? t(locale, 'admin.works.metadata.statusEnriching')
                   : isPartial
                     ? t(locale, 'admin.works.metadata.statusPartial')
-                    : status === 'published'
+                    : isPublished
                       ? t(locale, 'admin.works.metadata.statusDonePublished')
                       : isDone
                         ? t(locale, 'admin.works.metadata.statusDone')
@@ -462,7 +461,7 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
             {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'content.common.retry')}
           </Button>
         ) : null}
-        {status === 'ready' || isPartial ? (
+        {processingStatus === 'ready' || isPartial ? (
           <Button
             type="button"
             size="sm"
@@ -473,7 +472,7 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
             {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'admin.works.metadata.reRun')}
           </Button>
         ) : null}
-        {status === 'published' ? (
+        {isPublished ? (
           <span className="text-xs text-muted-foreground">{t(locale, 'admin.works.metadata.unpublishToReEnrich')}</span>
         ) : null}
       </div>
@@ -484,8 +483,7 @@ export function MetadataStatusCard({ work }: { work: AdminWorkView }) {
 export function MetadataReviewPanel({ workId, work }: MetadataReviewPanelProps) {
   const { locale } = useLocale();
   const invalidate = useInvalidateAdminWorks();
-  const status = work.status;
-  const isMetadataJobRunning = status === 'metadata';
+  const isMetadataJobRunning = work.processingStatus === 'metadata';
   const isEpub = work.originKind === 'admin_epub';
   const hasMetadataSkeleton = isMetadataJobRunning;
 

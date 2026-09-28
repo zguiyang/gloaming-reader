@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNotNull } from 'drizzle-orm';
 
 import { readingState as readingStateTable, readingWork as readingWorkTable } from '@gloaming/db';
 import type { RecommendationsData, RecommendationsQuery } from '@gloaming/shared/recommendations';
@@ -32,7 +32,7 @@ function toWork(
     author: row.author,
     description: row.description,
     language: row.language,
-    status: row.status as Work['status'],
+    processingStatus: row.processingStatus as Work['processingStatus'],
     visibility: row.visibility as Work['visibility'],
     originKind: row.originKind as Work['originKind'],
     tags,
@@ -89,7 +89,7 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
   const publishedRows = await db
     .select()
     .from(readingWorkTable)
-    .where(and(eq(readingWorkTable.status, 'published'), eq(readingWorkTable.visibility, 'catalog')))
+    .where(and(isNotNull(readingWorkTable.publishedAt), eq(readingWorkTable.visibility, 'catalog')))
     .orderBy(desc(readingWorkTable.publishedAt), desc(readingWorkTable.id));
 
   const allIds = publishedRows.map((row) => row.id);

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { llmAppSetting as llmAppSettingTable } from '@gloaming/db';
 
@@ -14,7 +14,11 @@ export async function resolveModelRowId(options: { modelRowId?: string; purpose?
   }
   const purpose = options.purpose ?? 'assist';
   const key = settingKeyForPurpose(purpose);
-  const rows = await db.select().from(llmAppSettingTable).where(eq(llmAppSettingTable.key, key)).limit(1);
+  const rows = await db
+    .select()
+    .from(llmAppSettingTable)
+    .where(and(eq(llmAppSettingTable.key, key), isNull(llmAppSettingTable.ownerUserId)))
+    .limit(1);
   const value = rows[0]?.value;
   if (!value) {
     const label =

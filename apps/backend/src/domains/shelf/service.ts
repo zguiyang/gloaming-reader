@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, ne } from 'drizzle-orm';
 
 import { readingState as readingStateTable, readingWork as readingWorkTable } from '@gloaming/db';
 import { SHELF_ITEMS_LIMIT, type ShelfData } from '@gloaming/shared/shelf';
@@ -38,7 +38,7 @@ export async function getShelf(userId: string): Promise<ShelfData> {
       and(
         eq(readingStateTable.userId, userId),
         eq(readingStateTable.status, 'in_progress'),
-        eq(readingWorkTable.status, 'published'),
+        isNotNull(readingWorkTable.publishedAt),
       ),
     )
     .orderBy(desc(readingStateTable.lastReadAt), desc(readingStateTable.id))
@@ -46,7 +46,7 @@ export async function getShelf(userId: string): Promise<ShelfData> {
 
   const itemConditions = [
     eq(readingStateTable.userId, userId),
-    eq(readingWorkTable.status, 'published'),
+    isNotNull(readingWorkTable.publishedAt),
     ...(currentRow ? [ne(readingStateTable.id, currentRow.state.id)] : []),
   ];
 

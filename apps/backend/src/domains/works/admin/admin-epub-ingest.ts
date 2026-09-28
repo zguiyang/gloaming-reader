@@ -88,7 +88,7 @@ export async function insertEpubWorkAndAsset(input: {
         id: workId,
         title,
         description: '',
-        status: WORKFLOW_AUTO_CHAIN ? 'processing' : 'uploaded',
+        processingStatus: WORKFLOW_AUTO_CHAIN ? 'processing' : 'uploaded',
         originKind: 'admin_epub',
         originMeta,
         publishedAt: null,
@@ -117,7 +117,7 @@ export async function insertEpubWorkAndAsset(input: {
   return {
     id: workId,
     title,
-    status: WORKFLOW_AUTO_CHAIN ? 'processing' : 'uploaded',
+    processingStatus: WORKFLOW_AUTO_CHAIN ? 'processing' : 'uploaded',
     originKind: 'admin_epub',
     originMeta,
     asset: {

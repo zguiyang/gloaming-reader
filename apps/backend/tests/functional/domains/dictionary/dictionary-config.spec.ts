@@ -214,9 +214,21 @@ describe('Dictionary config & lookup API', () => {
     createdVisibilityWorkIds.push(publishedId, draftId, privateId);
     createdLookupWords.push('visibility_probe');
     await db.insert(readingWorkTable).values([
-      { id: publishedId, title: 'Published Dictionary Work', status: 'published', visibility: 'catalog' },
-      { id: draftId, title: 'Draft Dictionary Work', status: 'ready', visibility: 'catalog' },
-      { id: privateId, title: 'Private Dictionary Work', status: 'published', visibility: 'private' },
+      {
+        id: publishedId,
+        title: 'Published Dictionary Work',
+        processingStatus: 'ready',
+        visibility: 'catalog',
+        publishedAt: new Date(),
+      },
+      { id: draftId, title: 'Draft Dictionary Work', processingStatus: 'ready', visibility: 'catalog' },
+      {
+        id: privateId,
+        title: 'Private Dictionary Work',
+        processingStatus: 'ready',
+        visibility: 'private',
+        publishedAt: new Date(),
+      },
     ]);
 
     const memory = createMemoryRedis();

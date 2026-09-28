@@ -94,7 +94,7 @@ describe('read-side taxonomy response contracts', () => {
       author: 'Author',
       description: 'Desc',
       language: 'en',
-      status: 'published',
+      processingStatus: 'ready',
       visibility: 'catalog',
       originKind: 'admin_epub',
       tags: [taxonomyTag],

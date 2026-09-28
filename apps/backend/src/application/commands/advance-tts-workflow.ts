@@ -13,12 +13,14 @@ const ALL_ROLES: TtsVoiceRole[] = ['us', 'uk'];
 
 export async function tryAdvanceTtsWorkflow(workId: string): Promise<void> {
   const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId)).limit(1);
-  if (!work || work.status !== 'tts') {
+  const ttsWorkflowActive =
+    work?.originMeta.workflowEnqueueStep === 'tts' || work?.originMeta.workflowClaimStep === 'tts';
+  if (!work || work.processingStatus !== 'ready' || !ttsWorkflowActive) {
     return;
   }
   // Auto-TTS pipeline off: never block publish on chapter audio.
   if (!TTS_STEP_ENABLED) {
-    await completeWorkflowStep(workId, 'ready', undefined, 'tts');
+    await completeWorkflowStep(workId, 'ready', undefined, 'ready');
     return;
   }
 
@@ -32,7 +34,7 @@ export async function tryAdvanceTtsWorkflow(workId: string): Promise<void> {
     .where(eq(readingPartTable.workId, workId));
 
   if (parts.length === 0) {
-    await completeWorkflowStep(workId, 'ready', undefined, 'tts');
+    await completeWorkflowStep(workId, 'ready', undefined, 'ready');
     return;
   }
 
@@ -49,5 +51,5 @@ export async function tryAdvanceTtsWorkflow(workId: string): Promise<void> {
     }
   }
 
-  await completeWorkflowStep(workId, 'ready', undefined, 'tts');
+  await completeWorkflowStep(workId, 'ready', undefined, 'ready');
 }

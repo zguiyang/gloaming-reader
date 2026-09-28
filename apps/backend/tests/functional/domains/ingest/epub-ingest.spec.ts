@@ -145,12 +145,17 @@ describe('EPUB ingest pipeline', () => {
 
     // Upload leaves the work in `uploaded`; run parse + fill synchronously.
     await runContentParseWorkflow(created.id);
-    await db.update(readingWorkTable).set({ status: 'metadata' }).where(eq(readingWorkTable.id, created.id));
+    await db
+      .update(readingWorkTable)
+      .set({
+        processingStatus: 'metadata',
+      })
+      .where(eq(readingWorkTable.id, created.id));
     await fillWorkMetadata(created.id);
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
     expect(work).toBeDefined();
-    expect(work!.status).toBe('metadata');
+    expect(work!.processingStatus).toBe('metadata');
     expect(work!.title).toBe('The Great Book');
     expect(work!.author).toBe('Jane Author');
     expect(work!.description).toBe('A sample story.');
@@ -326,7 +331,7 @@ describe('EPUB ingest pipeline', () => {
     await expect(runContentParseWorkflow(created.id)).rejects.toThrow();
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
-    expect(work!.status).toBe('failed');
+    expect(work!.processingStatus).toBe('failed');
     expect(String(work!.originMeta.lastError ?? '')).toContain('container.xml');
   });
 
@@ -382,7 +387,7 @@ describe('EPUB ingest pipeline', () => {
       const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
       const parts = await db.select().from(readingPartTable).where(eq(readingPartTable.workId, created.id));
       const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, created.id));
-      expect(work!.status).toBe('parsed');
+      expect(work!.processingStatus).toBe('parsed');
       expect(parts).toHaveLength(1);
       expect(parts[0]!.body).toContain('attempt-b');
       expect(assets.filter((asset) => asset.kind === 'image')).toHaveLength(1);
@@ -431,7 +436,12 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
     await runContentParseWorkflow(created.id);
-    await db.update(readingWorkTable).set({ status: 'metadata' }).where(eq(readingWorkTable.id, created.id));
+    await db
+      .update(readingWorkTable)
+      .set({
+        processingStatus: 'metadata',
+      })
+      .where(eq(readingWorkTable.id, created.id));
     await fillWorkMetadata(created.id);
     return created.id;
   }
@@ -441,23 +451,31 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
 
     await db
       .update(readingWorkTable)
-      .set({ status: 'failed', originMeta: { failedStep: 'metadata', lastError: 'simulated failure' } })
+      .set({
+        processingStatus: 'failed',
+        originMeta: { failedStep: 'metadata', lastError: 'simulated failure' },
+      })
       .where(eq(readingWorkTable.id, workId));
 
     const retry = await retryRequest(workId);
     expect(retry.status).toBe(200);
-    const body = (await retry.json()) as { status: string; failedStep: string | null };
-    expect(body.status).toBe('metadata');
+    const body = (await retry.json()) as { processingStatus: string; failedStep: string | null };
+    expect(body.processingStatus).toBe('metadata');
     expect(body.failedStep).toBeNull();
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(work!.status).toBe('metadata');
+    expect(work!.processingStatus).toBe('metadata');
     expect(work!.originMeta.lastError).toBeUndefined();
   });
 
   it('refuses to retry published works', async () => {
     const workId = await uploadAndRun();
-    await db.update(readingWorkTable).set({ status: 'ready' }).where(eq(readingWorkTable.id, workId));
+    await db
+      .update(readingWorkTable)
+      .set({
+        processingStatus: 'ready',
+      })
+      .where(eq(readingWorkTable.id, workId));
     const taxonomy = await ensureWorkTaxonomyFixture('epub-ingest');
     await app.request(`/api/admin/works/${workId}`, {
       method: 'PATCH',
@@ -480,7 +498,12 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     expect(response.status).toBe(201);
     const created = (await response.json()) as { id: string };
     createdWorkIds.push(created.id);
-    await db.update(readingWorkTable).set({ status: 'processing' }).where(eq(readingWorkTable.id, created.id));
+    await db
+      .update(readingWorkTable)
+      .set({
+        processingStatus: 'processing',
+      })
+      .where(eq(readingWorkTable.id, created.id));
 
     const retry = await retryRequest(created.id, { step: 'parse' });
     expect(retry.status).toBe(409);
@@ -495,7 +518,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     await db
       .update(readingWorkTable)
       .set({
-        status: 'processing',
+        processingStatus: 'processing',
         originMeta: {
           retryJobToken: 'expired-retry-token',
           workflowClaimStep: 'parse',
@@ -508,7 +531,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     const retry = await retryRequest(created.id, { step: 'parse' });
     expect(retry.status).toBe(200);
     const [recovered] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
-    expect(recovered!.status).toBe('processing');
+    expect(recovered!.processingStatus).toBe('processing');
     expect(recovered!.originMeta.workflowEnqueueStep).toBe('parse');
     expect(recovered!.originMeta.workflowEnqueueAttempt).not.toBe(oldAttempt);
   });
@@ -528,7 +551,10 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     };
     await db
       .update(readingWorkTable)
-      .set({ status: 'processing', originMeta })
+      .set({
+        processingStatus: 'processing',
+        originMeta,
+      })
       .where(eq(readingWorkTable.id, created.id));
     await expect(
       rotateWorkflowJobToken(
@@ -555,7 +581,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
       ),
     ).resolves.toBe(false);
     const [stillMetadata] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
-    expect(stillMetadata!.status).toBe('metadata');
+    expect(stillMetadata!.processingStatus).toBe('metadata');
 
     await expect(
       failWorkflowEnqueue(
@@ -568,13 +594,18 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
       ),
     ).resolves.toBe(true);
     const [failed] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
-    expect(failed!.status).toBe('failed');
+    expect(failed!.processingStatus).toBe('failed');
     expect(failed!.originMeta.failedStep).toBe('metadata');
   });
 
   it('re-running parse overwrites hand-edited fields with parsed values', async () => {
     const workId = await uploadAndRun();
-    await db.update(readingWorkTable).set({ status: 'ready' }).where(eq(readingWorkTable.id, workId));
+    await db
+      .update(readingWorkTable)
+      .set({
+        processingStatus: 'ready',
+      })
+      .where(eq(readingWorkTable.id, workId));
     await app.request(`/api/admin/works/${workId}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
@@ -583,7 +614,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
 
     const retry = await retryRequest(workId, { step: 'parse' });
     expect(retry.status).toBe(200);
-    expect(((await retry.json()) as { status: string }).status).toBe('processing');
+    expect(((await retry.json()) as { processingStatus: string }).processingStatus).toBe('processing');
 
     const beforeParts = await db
       .select({ id: readingPartTable.id })
@@ -630,10 +661,15 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     ]);
 
     const [mid] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(mid!.status).toBe('processing');
+    expect(mid!.processingStatus).toBe('processing');
 
     await runContentParseWorkflow(workId);
-    await db.update(readingWorkTable).set({ status: 'metadata' }).where(eq(readingWorkTable.id, workId));
+    await db
+      .update(readingWorkTable)
+      .set({
+        processingStatus: 'metadata',
+      })
+      .where(eq(readingWorkTable.id, workId));
     await fillWorkMetadata(workId);
 
     const afterAssets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, workId));
@@ -652,7 +688,7 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     expect(afterParts.map((part) => part.id)).not.toEqual(beforeParts.map((part) => part.id));
 
     const [after] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(after!.status).toBe('metadata');
+    expect(after!.processingStatus).toBe('metadata');
     expect(after!.title).toBe('The Great Book');
     expect(after!.author).toBe('Jane Author');
     expect(after!.description).toBe('A sample story.');
@@ -662,12 +698,16 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
     const workId = await uploadAndRun();
     await db
       .update(readingWorkTable)
-      .set({ status: 'ready', description: 'AI filled summary', descriptionProvenance: 'ai' })
+      .set({
+        processingStatus: 'ready',
+        description: 'AI filled summary',
+        descriptionProvenance: 'ai',
+      })
       .where(eq(readingWorkTable.id, workId));
 
     const retry = await retryRequest(workId, { step: 'metadata' });
     expect(retry.status).toBe(200);
-    expect(((await retry.json()) as { status: string }).status).toBe('metadata');
+    expect(((await retry.json()) as { processingStatus: string }).processingStatus).toBe('metadata');
 
     // HTTP only queues — AI field wipe runs inside the fill job.
     const [beforeReset] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
@@ -681,7 +721,12 @@ describe('POST /api/admin/works/:id/workflow/retry', () => {
 
   it('requires a failure or an explicit step, and refuses the tts step for now', async () => {
     const workId = await uploadAndRun();
-    await db.update(readingWorkTable).set({ status: 'ready' }).where(eq(readingWorkTable.id, workId));
+    await db
+      .update(readingWorkTable)
+      .set({
+        processingStatus: 'ready',
+      })
+      .where(eq(readingWorkTable.id, workId));
 
     const noStep = await retryRequest(workId);
     expect(noStep.status).toBe(400);

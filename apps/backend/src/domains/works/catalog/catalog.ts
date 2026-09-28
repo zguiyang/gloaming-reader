@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, exists, ilike, inArray, or, type SQL, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, exists, ilike, inArray, isNotNull, or, type SQL, sql } from 'drizzle-orm';
 
 import {
   category as categoryTable,
@@ -34,7 +34,7 @@ function escapeIlikePattern(value: string): string {
 function catalogPublishedWorkFilter(id?: string): SQL {
   return and(
     ...(id ? [eq(readingWorkTable.id, id)] : []),
-    eq(readingWorkTable.status, 'published'),
+    isNotNull(readingWorkTable.publishedAt),
     eq(readingWorkTable.visibility, 'catalog'),
   )!;
 }

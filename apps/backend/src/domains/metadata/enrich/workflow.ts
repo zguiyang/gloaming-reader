@@ -8,8 +8,8 @@ export type CompleteMetadataStepResult = {
 
 /**
  * Complete the `metadata` step. Default (`TTS_STEP_ENABLED=false`): → `ready`.
- * When the TTS pipeline flag is on: → `tts` with enqueue lease metadata (audio
- * enqueue is orchestrated by the application job).
+ * When the TTS pipeline flag is on: stays `ready` with enqueue lease metadata
+ * (audio enqueue is orchestrated by the application job).
  * `gaps` records AI targets that stayed empty/weak so the admin UI can show
  * partial completion instead of a false "done".
  */
@@ -28,7 +28,7 @@ export async function completeMetadataStep(
     retryJobToken && attemptToken
       ? await completeWorkflowStep(
           workId,
-          TTS_STEP_ENABLED ? 'tts' : 'ready',
+          'ready',
           TTS_STEP_ENABLED
             ? {
                 ...metaPatch,
@@ -42,7 +42,7 @@ export async function completeMetadataStep(
           'metadata',
           attemptToken,
         )
-      : await completeWorkflowStep(workId, TTS_STEP_ENABLED ? 'tts' : 'ready', metaPatch, 'metadata');
+      : await completeWorkflowStep(workId, 'ready', metaPatch, 'metadata');
   if (!completed) {
     return { completed: false, enqueueTts: false };
   }

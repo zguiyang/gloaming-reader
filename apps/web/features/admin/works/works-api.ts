@@ -34,7 +34,8 @@ export async function listAdminWorks(
   const search = new URLSearchParams();
   if (query.page) search.set('page', String(query.page));
   if (query.pageSize) search.set('pageSize', String(query.pageSize));
-  if (query.status) search.set('status', query.status);
+  if (query.processingStatus) search.set('processingStatus', query.processingStatus);
+  if (query.publicationStatus) search.set('publicationStatus', query.publicationStatus);
   const qs = search.toString();
   const data = await apiRequest(`/api/admin/works${qs ? `?${qs}` : ''}`, {
     schema: adminWorkListDataSchema,
