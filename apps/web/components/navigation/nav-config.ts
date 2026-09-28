@@ -5,8 +5,8 @@ import { AUTH_ROUTES } from '@/constants';
 export type NavCopy = {
   wordmark: string;
   discover: string;
-  shelf: string;
-  shelfShort: string;
+  library: string;
+  libraryShort: string;
   history: string;
   historyShort: string;
   more: string;
@@ -29,8 +29,8 @@ export function getNavCopy(locale: Locale): NavCopy {
   return {
     wordmark: t(locale, 'nav.wordmark'),
     discover: t(locale, 'nav.discover'),
-    shelf: t(locale, 'nav.shelf'),
-    shelfShort: t(locale, 'nav.shelfShort'),
+    library: t(locale, 'nav.library'),
+    libraryShort: t(locale, 'nav.libraryShort'),
     history: t(locale, 'nav.history'),
     historyShort: t(locale, 'nav.historyShort'),
     more: t(locale, 'nav.more'),
@@ -52,7 +52,7 @@ export function getNavCopy(locale: Locale): NavCopy {
 /** Chinese default compatibility export. */
 export const NAV_COPY = getNavCopy(DEFAULT_LOCALE);
 
-export type PrimaryNavId = 'shelf' | 'discover' | 'history';
+export type PrimaryNavId = 'library' | 'discover' | 'history';
 
 export type PrimaryNavLink = {
   id: PrimaryNavId;
@@ -63,12 +63,12 @@ export type PrimaryNavLink = {
   shortLabel: string;
 };
 
-/** Desktop top-nav order (unchanged): 发现 → 书架 → 历史. */
+/** Desktop top-nav order: 发现 → 书库 → 历史. */
 export function getPrimaryNavLinks(locale: Locale): readonly PrimaryNavLink[] {
   const copy = getNavCopy(locale);
   return [
     { id: 'discover', href: AUTH_ROUTES.discover, label: copy.discover, shortLabel: copy.discover },
-    { id: 'shelf', href: AUTH_ROUTES.shelf, label: copy.shelf, shortLabel: copy.shelfShort },
+    { id: 'library', href: AUTH_ROUTES.library, label: copy.library, shortLabel: copy.libraryShort },
     { id: 'history', href: AUTH_ROUTES.history, label: copy.history, shortLabel: copy.historyShort },
   ] as const;
 }
@@ -76,8 +76,8 @@ export function getPrimaryNavLinks(locale: Locale): readonly PrimaryNavLink[] {
 /** Chinese default compatibility export. */
 export const PRIMARY_NAV_LINKS = getPrimaryNavLinks(DEFAULT_LOCALE);
 
-/** Mobile bottom-nav order: 书架 → 发现 → 历史 (+ 更多 handled separately). */
-export const MOBILE_PRIMARY_TAB_IDS: readonly PrimaryNavId[] = ['shelf', 'discover', 'history'] as const;
+/** Mobile bottom-nav order: 书库 → 发现 → 历史 (+ 更多 handled separately). */
+export const MOBILE_PRIMARY_TAB_IDS: readonly PrimaryNavId[] = ['library', 'discover', 'history'] as const;
 
 export function getPrimaryNavLink(id: PrimaryNavId, locale: Locale = DEFAULT_LOCALE): PrimaryNavLink {
   const link = getPrimaryNavLinks(locale).find((item) => item.id === id);

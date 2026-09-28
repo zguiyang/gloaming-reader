@@ -143,6 +143,10 @@ describe('Library HTTP', () => {
     const savedData = (await saved.json()) as LibraryData;
     expect(savedData.items.map((item) => item.work.id)).toContain(work.id);
     expect(savedData.items.find((item) => item.work.id === work.id)?.state?.status).toBe('in_progress');
+    expect(savedData.items.find((item) => item.work.id === work.id)).toMatchObject({
+      availability: 'ready',
+      canRemoveFromLibrary: true,
+    });
     expect(
       await db
         .select()
@@ -216,7 +220,9 @@ describe('Library HTTP', () => {
     const other = await createSession();
     createdEmails.push(owner.email, other.email);
     const workId = randomUUID();
-    createdWorkIds.push(workId);
+    const processingWorkId = randomUUID();
+    const failedWorkId = randomUUID();
+    createdWorkIds.push(workId, processingWorkId, failedWorkId);
     await db.insert(readingWorkTable).values({
       id: workId,
       title: 'Private Personal Work',
@@ -228,11 +234,35 @@ describe('Library HTTP', () => {
     await db
       .insert(readingPartTable)
       .values({ id: randomUUID(), workId, sortOrder: 0, title: 'Opening', body: 'Text' });
+    await db.insert(readingWorkTable).values([
+      {
+        id: processingWorkId,
+        title: 'Personal Work Processing',
+        ownerUserId: owner.userId,
+        visibility: 'private',
+        originKind: 'user_epub',
+        processingStatus: 'metadata',
+      },
+      {
+        id: failedWorkId,
+        title: 'Personal Work Failed',
+        ownerUserId: owner.userId,
+        visibility: 'private',
+        originKind: 'user_epub',
+        processingStatus: 'failed',
+      },
+    ]);
 
     const ownerLibrary = await app.request('/api/library', { headers: { cookie: owner.cookie } });
     const ownerData = (await ownerLibrary.json()) as LibraryData;
     expect(ownerData.items.map((item) => item.work.id)).toContain(workId);
-    expect(ownerData.items.find((item) => item.work.id === workId)?.state).toBeNull();
+    expect(ownerData.items.find((item) => item.work.id === workId)).toMatchObject({
+      state: null,
+      availability: 'ready',
+      canRemoveFromLibrary: false,
+    });
+    expect(ownerData.items.find((item) => item.work.id === processingWorkId)?.availability).toBe('processing');
+    expect(ownerData.items.find((item) => item.work.id === failedWorkId)?.availability).toBe('failed');
     expect(
       (await app.request(`/api/library/${workId}`, { method: 'POST', headers: { cookie: owner.cookie } })).status,
     ).toBe(404);

@@ -21,8 +21,8 @@
     "wordmark": "Gloaming",
     "brandHomeAria": "Gloaming home",
     "discover": "Discover",
-    "shelf": "My Library",
-    "shelfShort": "Library",
+    "library": "Library",
+    "libraryShort": "Library",
     "history": "Reading history",
     "historyShort": "History",
     "more": "More",
@@ -129,7 +129,7 @@
       "failed": "Verification failed. Please request a new email.",
       "failedToast": "Verification failed",
       "successToast": "Email confirmed",
-      "goToShelf": "Go to My Library",
+      "goToLibrary": "Go to Library",
       "backToSignIn": "Back to sign in",
       "backToHome": "Back to home"
     },
@@ -218,7 +218,7 @@
     },
     "cta": {
       "signInToRead": "Sign in to read",
-      "goToShelf": "Go to My Library"
+      "goToLibrary": "Go to Library"
     },
     "hero": {
       "title": "Read. Look up, translate, or ask when you need help.",
@@ -236,9 +236,9 @@
       "companionBody": "Select text to look up a word, translate a passage, or request a sentence explanation. Results appear beside the text.",
       "companionCardTitle": "Sentence explanation",
       "companionCardBody": "Explains the selected sentence in context, including word meaning and how the clause fits the surrounding text.",
-      "shelfTitle": "My Library",
-      "shelfBody": "Keep the works you own or choose to save together in your Library.",
-      "shelfImageAlt": "Gloaming Library interface"
+      "libraryTitle": "Library",
+      "libraryBody": "Keep the works you own or choose to save together in your Library.",
+      "libraryImageAlt": "Gloaming Library interface"
     },
     "invite": {
       "title": "Pick up where you left off.",
@@ -1057,9 +1057,10 @@
     "common": {
       "retry": "Retry",
       "viewBookDetailAria": "View details for {title}",
+      "openReaderAria": "Open {title} in the reader",
       "findBookCta": "Discover a book to read",
       "backToDiscover": "Back to Discover",
-      "backToShelf": "Back to My Library"
+      "backToLibrary": "Back to Library"
     },
     "discover": {
       "title": "Discover",
@@ -1085,13 +1086,25 @@
       "prevPage": "Previous",
       "nextPage": "Next"
     },
-    "shelf": {
-      "title": "My Library",
-      "metaTitle": "My Library · Gloaming Reader",
+    "library": {
+      "title": "Library",
+      "metaTitle": "Library · Gloaming Reader",
       "loadFailed": "Could not load your library",
       "emptyTitle": "Your library is empty",
+      "uploadEpub": "Upload EPUB",
+      "uploading": "Uploading…",
+      "uploadStarted": "Added to Library. Processing has started.",
+      "invalidEpub": "Choose an EPUB file.",
+      "epubTooLarge": "The EPUB must be 50 MB or smaller.",
+      "processing": "Processing",
+      "processingFailed": "This book could not be processed",
+      "manageBookAria": "Manage {title}",
+      "removeFromLibrary": "Remove from Library",
+      "removeConfirmTitle": "Remove from Library?",
+      "removeConfirmDescription": "This book will leave your Library. Reading progress and history will be kept.",
+      "removedFromLibrary": "Removed from Library",
       "continueReading": "Continue reading",
-      "myCollection": "My collection",
+      "myBooks": "My books",
       "readingInProgress": "Reading",
       "progressRead": "{ratio}% read",
       "statusCompleted": "Finished",
@@ -1145,10 +1158,10 @@
       "progressRead": "{ratio}% read",
       "lastReadPrefix": "Last read: {time}",
       "readingProgress": "Reading progress",
-      "addToShelf": "Add to Library",
-      "addToShelfAria": "Add to Library",
-      "onShelf": "In Library",
-      "addedToShelfToast": "Added to Library",
+      "addToLibrary": "Add to Library",
+      "addToLibraryAria": "Add to Library",
+      "inLibrary": "In Library",
+      "addedToLibraryToast": "Added to Library",
       "readInfo": "Reading info",
       "difficulty": "Difficulty",
       "difficultyAria": "Difficulty {label}, {filled} of {total} stars",

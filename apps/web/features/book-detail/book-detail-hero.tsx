@@ -219,7 +219,7 @@ export function BookDetailStickyCta({
             onClick={() => {
               onAddToLibrary();
             }}
-            aria-label={t(locale, 'content.bookDetail.addToShelfAria')}
+            aria-label={t(locale, 'content.bookDetail.addToLibraryAria')}
           >
             {isAddingToLibrary ? (
               <Loader2Icon className="size-4 animate-spin" aria-hidden />
@@ -275,7 +275,7 @@ function LibraryButton({
     >
       {isAdding ? <Loader2Icon className="size-4 animate-spin" aria-hidden /> : null}
       <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
-      {t(locale, 'content.bookDetail.addToShelf')}
+      {t(locale, 'content.bookDetail.addToLibrary')}
     </Button>
   );
 }

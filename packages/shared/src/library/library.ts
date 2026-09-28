@@ -6,9 +6,15 @@ import { readerWorkSummarySchema, readingStateSchema } from '../reader/index.ts'
 export const LIBRARY_ITEMS_LIMIT = 48 as const;
 
 /** A Library member may have no reading progress yet. */
+export const libraryAvailabilitySchema = z.enum(['processing', 'ready', 'failed']);
+
 export const libraryItemSchema = z.object({
   work: readerWorkSummarySchema,
   state: readingStateSchema.nullable(),
+  /** User-facing readiness bucket derived from the Work pipeline state. */
+  availability: libraryAvailabilitySchema,
+  /** True only for explicitly saved Catalog works; owned books are not removable from Library. */
+  canRemoveFromLibrary: z.boolean(),
 });
 
 export type LibraryItem = z.infer<typeof libraryItemSchema>;

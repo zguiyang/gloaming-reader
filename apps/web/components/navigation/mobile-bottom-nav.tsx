@@ -17,7 +17,7 @@ import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 const TAB_ICONS: Record<PrimaryNavId, ReactNode> = {
-  shelf: <BookMarkedIcon className="size-5" strokeWidth={1.5} aria-hidden />,
+  library: <BookMarkedIcon className="size-5" strokeWidth={1.5} aria-hidden />,
   discover: <CompassIcon className="size-5" strokeWidth={1.5} aria-hidden />,
   history: <HistoryIcon className="size-5" strokeWidth={1.5} aria-hidden />,
 };

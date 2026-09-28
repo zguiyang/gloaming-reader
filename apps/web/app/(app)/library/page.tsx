@@ -15,10 +15,10 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 
   return {
-    title: t(locale, 'content.shelf.metaTitle'),
+    title: t(locale, 'content.library.metaTitle'),
   };
 }
 
-export default function MyLibraryPage() {
+export default function LibraryRoute() {
   return <LibraryPage />;
 }

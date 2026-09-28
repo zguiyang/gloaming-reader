@@ -15,7 +15,7 @@ const enOnlyTag = {
   origin: 'extracted' as const,
 };
 
-describe('shelf taxonomy display', () => {
+describe('Library taxonomy display', () => {
   it('resolves bilingual tag labels per locale', () => {
     expect(resolveLocalizedText(bilingualTag.names, 'zh-CN')).toBe('科学');
     expect(resolveLocalizedText(bilingualTag.names, 'en-US')).toBe('Science');
@@ -25,7 +25,7 @@ describe('shelf taxonomy display', () => {
     expect(resolveLocalizedText(enOnlyTag.names, 'zh-CN')).toBe('Classic');
   });
 
-  it('rejects legacy string tags on shelf work summaries', () => {
+  it('rejects legacy string tags on Library work summaries', () => {
     expect(() =>
       readerWorkSummarySchema.parse({
         id: 'work-1',

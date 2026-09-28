@@ -49,7 +49,7 @@ export function LibraryEmptyState() {
     <div className="mx-auto flex w-full max-w-md flex-col items-center px-2 py-16 text-center md:py-24">
       <EmptyLibraryIllustration />
       <h2 className="font-heading mt-10 text-2xl font-semibold tracking-tight text-foreground md:text-[2rem] md:leading-10">
-        {t(locale, 'content.shelf.emptyTitle')}
+        {t(locale, 'content.library.emptyTitle')}
       </h2>
       <Button
         nativeButton={false}

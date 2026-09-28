@@ -65,9 +65,9 @@ export function DiscoverEmptyState({ onResetFilters }: DiscoverEmptyStateProps) 
           nativeButton={false}
           variant="outline"
           className="h-12 rounded-full px-8 text-base"
-          render={<Link href={AUTH_ROUTES.shelf} />}
+          render={<Link href={AUTH_ROUTES.library} />}
         >
-          {t(locale, 'content.common.backToShelf')}
+          {t(locale, 'content.common.backToLibrary')}
         </Button>
       </div>
     </div>

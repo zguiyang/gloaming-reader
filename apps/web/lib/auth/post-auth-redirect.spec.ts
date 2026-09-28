@@ -32,33 +32,33 @@ describe('post-auth redirect', () => {
   });
 
   it('stores the current path but skips landing and auth routes', () => {
-    rememberAuthReturnPath('/my-shelf');
-    expect(peekAuthReturnPath()).toBe('/my-shelf');
+    rememberAuthReturnPath('/library');
+    expect(peekAuthReturnPath()).toBe('/library');
 
     clearAuthReturnPath();
     rememberAuthReturnPath('/');
     expect(peekAuthReturnPath()).toBeNull();
   });
 
-  it('resolves to shelf by default and consumes stored paths once', () => {
+  it('resolves to Library by default and consumes stored paths once', () => {
     rememberAuthReturnPath('/reading-history');
     expect(resolvePostAuthPath()).toBe('/reading-history');
     expect(consumePostAuthPath()).toBe('/reading-history');
     expect(peekAuthReturnPath()).toBeNull();
-    expect(resolvePostAuthPath()).toBe(AUTH_ROUTES.shelf);
+    expect(resolvePostAuthPath()).toBe(AUTH_ROUTES.library);
   });
 
   it('prefers explicit query params over stored paths', () => {
-    rememberAuthReturnPath('/my-shelf');
+    rememberAuthReturnPath('/library');
     const params = new URLSearchParams('returnTo=/discover/book-1');
     expect(consumePostAuthPath(params)).toBe('/discover/book-1');
     expect(peekAuthReturnPath()).toBeNull();
   });
 
   it('builds a same-origin social auth error path with a safe return target', () => {
-    rememberAuthReturnPath('/discover/book-1?from=shelf');
+    rememberAuthReturnPath('/discover/book-1?from=library');
     expect(resolveSocialAuthErrorPath()).toBe(
-      `${AUTH_ROUTES.socialAuthError}?returnTo=${encodeURIComponent('/discover/book-1?from=shelf')}`,
+      `${AUTH_ROUTES.socialAuthError}?returnTo=${encodeURIComponent('/discover/book-1?from=library')}`,
     );
   });
 });

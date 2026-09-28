@@ -5,10 +5,10 @@ export const AUTH_ROUTES = {
   resetPassword: '/reset-password',
   verifyEmail: '/verify-email',
   socialAuthError: '/auth-error',
-  shelf: '/my-shelf',
+  library: '/library',
   /** Discover catalog. */
   discover: '/discover',
-  /** Discover book detail (catalog + shelf hybrid). */
+  /** Discover catalog detail. */
   bookDetail: (id: string) => `/discover/${id}` as const,
   history: '/reading-history',
   more: '/more',

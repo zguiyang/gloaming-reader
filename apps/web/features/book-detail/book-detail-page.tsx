@@ -56,7 +56,7 @@ function BookDetailView({ book }: { book: BookDetail }) {
 
     addToLibrary.mutate(book.id, {
       onSuccess: async () => {
-        toast.success(t(locale, 'content.bookDetail.addedToShelfToast'));
+        toast.success(t(locale, 'content.bookDetail.addedToLibraryToast'));
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: bookDetailQueryKey.detail(book.id) }),
           queryClient.invalidateQueries({ queryKey: recommendationsQueryKey.all }),

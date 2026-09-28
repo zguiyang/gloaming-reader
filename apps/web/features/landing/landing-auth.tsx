@@ -29,7 +29,7 @@ export function LandingPrimaryCta({ className }: LandingPrimaryCtaProps) {
   const { openLogin } = useAuthDialog();
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
-  const label = user ? t(locale, 'landing.cta.goToShelf') : t(locale, 'landing.cta.signInToRead');
+  const label = user ? t(locale, 'landing.cta.goToLibrary') : t(locale, 'landing.cta.signInToRead');
 
   if (isPending) {
     return <Skeleton className={cn('h-14 w-40 rounded-xl', className)} />;
@@ -46,7 +46,7 @@ export function LandingPrimaryCta({ className }: LandingPrimaryCtaProps) {
       )}
       onClick={() => {
         if (user) {
-          router.push(AUTH_ROUTES.shelf);
+          router.push(AUTH_ROUTES.library);
         } else {
           openLogin();
         }

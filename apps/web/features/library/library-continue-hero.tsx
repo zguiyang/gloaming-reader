@@ -27,13 +27,12 @@ function metaLine(entry: ContinueReadingItem, locale: Locale): string {
 }
 
 function progressLabel(ratio: number, locale: Locale): string {
-  return t(locale, 'content.shelf.progressRead', { ratio });
+  return t(locale, 'content.library.progressRead', { ratio });
 }
 
 export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
   const { locale } = useLocale();
   const ratio = entry.state.progressRatio;
-  const detailHref = AUTH_ROUTES.bookDetail(entry.work.id);
   const readHref = AUTH_ROUTES.readBook(entry.work.id, entry.state.currentPartId ?? undefined);
   const coverImageUrl = coverUrlFromAssetId(entry.work.coverAssetId);
 
@@ -41,7 +40,7 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
     <section className="mb-10 w-full md:mb-14">
       <div className="mb-4 flex items-center border-b border-border/40 pb-4">
         <h3 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground uppercase">
-          {t(locale, 'content.shelf.continueReading')}
+          {t(locale, 'content.library.continueReading')}
         </h3>
       </div>
       <div
@@ -50,9 +49,9 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
         )}
       >
         <Link
-          href={detailHref}
+          href={readHref}
           className="mx-auto shrink-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:mx-0"
-          aria-label={t(locale, 'content.common.viewBookDetailAria', { title: entry.work.title })}
+          aria-label={t(locale, 'content.common.openReaderAria', { title: entry.work.title })}
         >
           <WorkCover
             title={entry.work.title}
@@ -64,9 +63,9 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
 
         <div className="min-w-0 flex-1 text-center md:text-left">
           <p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
-            {metaLine(entry, locale) || t(locale, 'content.shelf.readingInProgress')}
+            {metaLine(entry, locale) || t(locale, 'content.library.readingInProgress')}
           </p>
-          <Link href={detailHref} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          <Link href={readHref} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <h2 className="font-heading mb-4 text-2xl leading-tight font-semibold text-foreground transition-colors duration-300 ease-out-soft hover:text-primary md:text-3xl">
               {entry.work.title}
             </h2>
@@ -88,7 +87,7 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
             render={<Link href={readHref} />}
           >
             <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
-            {t(locale, 'content.shelf.continueReading')}
+            {t(locale, 'content.library.continueReading')}
           </Button>
         </div>
       </div>

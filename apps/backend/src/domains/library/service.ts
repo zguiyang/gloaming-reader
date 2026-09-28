@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 import {
   readingState as readingStateTable,
@@ -52,7 +52,12 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
 
   const [ownedRows, savedRows] = await Promise.all([
     db
-      .select({ work: readingWorkTable, state: readingStateTable, sortAt: readingWorkTable.createdAt })
+      .select({
+        work: readingWorkTable,
+        state: readingStateTable,
+        sortAt: readingWorkTable.createdAt,
+        canRemoveFromLibrary: sql<boolean>`false`,
+      })
       .from(readingWorkTable)
       .leftJoin(
         readingStateTable,
@@ -66,6 +71,7 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
         work: readingWorkTable,
         state: readingStateTable,
         sortAt: userLibraryItemTable.createdAt,
+        canRemoveFromLibrary: sql<boolean>`true`,
       })
       .from(userLibraryItemTable)
       .innerJoin(readingWorkTable, eq(userLibraryItemTable.workId, readingWorkTable.id))
@@ -86,9 +92,20 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
     loadTagsByWorkIds(workIds),
     loadPartSortOrdersByWorkIds(workIds),
   ]);
-  const toItem = (row: { work: WorkRow; state: typeof readingStateTable.$inferSelect | null }): LibraryItem => ({
+  const toItem = (row: {
+    work: WorkRow;
+    state: typeof readingStateTable.$inferSelect | null;
+    canRemoveFromLibrary: boolean;
+  }): LibraryItem => ({
     work: toWorkSummary(row.work, tagsByWork.get(row.work.id) ?? []),
     state: row.state ? toReadingState(row.state, partsByWork.get(row.work.id) ?? []) : null,
+    availability:
+      row.work.processingStatus === 'ready'
+        ? 'ready'
+        : row.work.processingStatus === 'failed'
+          ? 'failed'
+          : 'processing',
+    canRemoveFromLibrary: row.canRemoveFromLibrary,
   });
 
   return {
