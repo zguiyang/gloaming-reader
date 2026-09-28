@@ -1,12 +1,7 @@
 import { Hono } from 'hono';
 
-import {
-  isAssetAuthorized,
-  isPublicAsset,
-  resolveAsset,
-  resolveAssetViewer,
-  streamAsset,
-} from '@/domains/assets/gateway/service';
+import { isAssetAuthorized, isPublicAsset, resolveAsset, streamAsset } from '@/domains/assets/gateway/service';
+import { workReadActorFromIdentity } from '@/domains/works/access';
 import type { AuthVariables } from '@/infra/http/middleware/auth';
 import type { ObjectRange } from '@/infra/storage';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -32,8 +27,8 @@ function parseRangeHeader(header: string | undefined): ObjectRange | undefined {
 
 /**
  * Unified resource gateway — the only entry for object-storage reads.
- * Authorization: admin may read anything; published work assets (image /
- * cover / audio) are public; draft/processing/failed + origin_file are admin-only.
+ * Authorization: owners may read their own Work assets; anonymous and other
+ * users may read public Catalog assets; admin may read any asset.
  */
 assetsRoutes.get('/api/assets/:assetId', async (c) => {
   const assetId = c.req.param('assetId');
@@ -42,8 +37,8 @@ assetsRoutes.get('/api/assets/:assetId', async (c) => {
     return c.body(null, HTTP_STATUS.NOT_FOUND);
   }
 
-  const viewer = resolveAssetViewer(c.get('user'));
-  if (!isAssetAuthorized(viewer, asset)) {
+  const actor = workReadActorFromIdentity(c.get('user'));
+  if (!isAssetAuthorized(actor, asset)) {
     return c.body(null, HTTP_STATUS.FORBIDDEN);
   }
 

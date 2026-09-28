@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 
 import { readingState as readingStateTable, readingWork as readingWorkTable } from '@gloaming/db';
 import type { RecommendationsData, RecommendationsQuery } from '@gloaming/shared/recommendations';
@@ -11,6 +11,7 @@ import {
   type RecommendationFeatures,
   resolveRecommendationOrder,
 } from '@/domains/recommendations/score';
+import { publicCatalogWorkSql } from '@/domains/works/access';
 import { loadCategoriesByWorkIds, loadSourcesByWorkIds, loadTagsByWorkIds } from '@/domains/works/read-model';
 import { db } from '@/infra/db';
 
@@ -89,7 +90,7 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
   const publishedRows = await db
     .select()
     .from(readingWorkTable)
-    .where(and(isNotNull(readingWorkTable.publishedAt), eq(readingWorkTable.visibility, 'catalog')))
+    .where(publicCatalogWorkSql())
     .orderBy(desc(readingWorkTable.publishedAt), desc(readingWorkTable.id));
 
   const allIds = publishedRows.map((row) => row.id);

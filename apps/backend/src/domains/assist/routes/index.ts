@@ -5,6 +5,7 @@ import { ASSIST_SSE_EVENT } from '@gloaming/shared/assist';
 
 import * as assistService from '@/domains/assist/service';
 import { validateAssistAsk } from '@/domains/assist/validator';
+import { workReadActorFromIdentity } from '@/domains/works/access';
 import { type AuthVariables, requireAuth } from '@/infra/http/middleware/auth';
 import { aiRateLimit } from '@/infra/http/middleware/rate-limit';
 import { formatThrownError } from '@/infra/http/response';
@@ -25,7 +26,8 @@ assistRoutes.post('/api/assist/ask', requireAuth, validateAssistAsk, aiRateLimit
     });
 
     try {
-      for await (const event of assistService.streamAssistAsk(user!.id, body, { signal: abort.signal })) {
+      const actor = workReadActorFromIdentity(user);
+      for await (const event of assistService.streamAssistAsk(actor, user!.id, body, { signal: abort.signal })) {
         if (abort.signal.aborted) {
           return;
         }

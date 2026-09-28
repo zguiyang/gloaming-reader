@@ -11,8 +11,9 @@ import {
   splitPartSentences,
   type SplitSentence,
 } from '@/domains/translate/split';
+import type { WorkReadActor } from '@/domains/works/access';
+import { requireReadablePart } from '@/domains/works/access';
 import { hashPartContent, reindexLeafParagraphOrdinals } from '@/domains/works/content';
-import { requirePublishedPart } from '@/domains/works/read-model';
 import { getRedis } from '@/infra/cache';
 import { rootLogger } from '@/infra/logging/logger';
 
@@ -118,11 +119,12 @@ function* emitCachedPayload(contentHash: string, payload: BilingualCachePayload)
 }
 
 export async function* streamTranslatePart(
+  actor: WorkReadActor,
   _userId: string,
   body: TranslatePartBody,
   options: StreamTranslatePartOptions = {},
 ): AsyncGenerator<TranslateStreamEvent> {
-  const part = await requirePublishedPart(body.partId);
+  const part = await requireReadablePart(actor, body.partId);
   const readingBody = reindexLeafParagraphOrdinals(part.body);
   const contentHash = hashPartContent(part.partTitle, part.body);
   const sentences = splitPartSentences(readingBody);

@@ -1,6 +1,5 @@
 export {
-  getPublishedWork,
-  getPublishedWorkTitle,
+  getCatalogWork,
   listCatalogCategories,
   listCatalogTags,
   listCatalogWorks,

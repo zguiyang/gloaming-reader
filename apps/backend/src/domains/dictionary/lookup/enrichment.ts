@@ -10,7 +10,8 @@ import type {
 
 import { invokeAi } from '@/domains/ai';
 import { toGenericDictionaryEntry } from '@/domains/dictionary/lookup/generic-entry';
-import { getPublishedWorkTitle } from '@/domains/works/catalog';
+import type { WorkReadActor } from '@/domains/works/access';
+import { resolveReadableWorkIdForPart, resolveReadableWorkTitle } from '@/domains/works/access';
 import { rootLogger } from '@/infra/logging/logger';
 
 const logger = rootLogger.child({ module: 'DictionaryService' });
@@ -247,18 +248,15 @@ async function attachRequestScopedContext(entry: DictionaryEntry, context: Looku
   }
 }
 
-export async function resolveWorkTitle(workId?: string): Promise<string | undefined> {
+export async function resolveWorkTitle(actor: WorkReadActor, workId?: string): Promise<string | undefined> {
   if (!workId) {
     return undefined;
   }
-  try {
-    return await getPublishedWorkTitle(workId);
-  } catch {
-    return undefined;
-  }
+  return resolveReadableWorkTitle(actor, workId);
 }
 
 export async function attachContextForResponse(
+  actor: WorkReadActor,
   entry: DictionaryEntry,
   options: { contextSentence?: string; workId?: string; partId?: string },
   config: DictionaryConfigView,
@@ -268,11 +266,15 @@ export async function attachContextForResponse(
     return toGenericDictionaryEntry(entry);
   }
 
-  const workTitle = await resolveWorkTitle(options.workId);
+  let workId = options.workId;
+  if (!workId && options.partId) {
+    workId = await resolveReadableWorkIdForPart(actor, options.partId);
+  }
+  const workTitle = await resolveWorkTitle(actor, workId);
   const context: LookupContext = {
     sentence,
-    workId: options.workId,
-    partId: options.partId,
+    workId: workTitle ? workId : undefined,
+    partId: workTitle ? options.partId : undefined,
     workTitle,
   };
 

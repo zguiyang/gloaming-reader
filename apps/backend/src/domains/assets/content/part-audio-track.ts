@@ -1,40 +1,28 @@
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
-import {
-  contentAsset as contentAssetTable,
-  readingPart as readingPartTable,
-  readingWork as readingWorkTable,
-} from '@gloaming/db';
+import { contentAsset as contentAssetTable } from '@gloaming/db';
 import { audioKindForRole, roleForAudioKind } from '@gloaming/shared/content-assets';
 import { type ReaderAudioTrack } from '@gloaming/shared/reader';
 import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { assetUrl, intMs, wordTimingsFromTimeline } from '@/domains/assets/content/track-view';
+import type { WorkReadActor } from '@/domains/works/access';
+import { requireReadablePart } from '@/domains/works/access';
 import { hashPartAudioContent } from '@/domains/works/content';
 import { db } from '@/infra/db';
 import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 /**
- * Learner: published work only; refuses stale (contentHash mismatch).
+ * Reader audio for a part the actor may read; refuses stale (contentHash mismatch).
  * Missing storage objects are not preflighted — `/api/assets/:id` GetObject returns 404.
  */
-export async function getPublishedPartAudioTrack(partId: string, role: TtsVoiceRole): Promise<ReaderAudioTrack> {
-  const [part] = await db
-    .select({
-      id: readingPartTable.id,
-      title: readingPartTable.title,
-      body: readingPartTable.body,
-      workId: readingPartTable.workId,
-    })
-    .from(readingPartTable)
-    .innerJoin(readingWorkTable, eq(readingPartTable.workId, readingWorkTable.id))
-    .where(and(eq(readingPartTable.id, partId), isNotNull(readingWorkTable.publishedAt)))
-    .limit(1);
-
-  if (!part) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
-  }
+export async function getPartAudioTrackForActor(
+  actor: WorkReadActor,
+  partId: string,
+  role: TtsVoiceRole,
+): Promise<ReaderAudioTrack> {
+  const part = await requireReadablePart(actor, partId);
 
   const sourceHash = hashPartAudioContent(part.body);
   const kind = audioKindForRole(role);

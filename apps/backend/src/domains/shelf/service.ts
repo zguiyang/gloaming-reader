@@ -1,10 +1,11 @@
-import { and, desc, eq, isNotNull, ne } from 'drizzle-orm';
+import { and, desc, eq, ne } from 'drizzle-orm';
 
 import { readingState as readingStateTable, readingWork as readingWorkTable } from '@gloaming/db';
 import { SHELF_ITEMS_LIMIT, type ShelfData } from '@gloaming/shared/shelf';
 import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { toReadingState } from '@/domains/reading';
+import { publicCatalogWorkSql } from '@/domains/works/access';
 import { loadPartSortOrdersByWorkIds, loadTagsByWorkIds } from '@/domains/works/read-model';
 import { db } from '@/infra/db';
 
@@ -35,18 +36,14 @@ export async function getShelf(userId: string): Promise<ShelfData> {
     .from(readingStateTable)
     .innerJoin(readingWorkTable, eq(readingStateTable.workId, readingWorkTable.id))
     .where(
-      and(
-        eq(readingStateTable.userId, userId),
-        eq(readingStateTable.status, 'in_progress'),
-        isNotNull(readingWorkTable.publishedAt),
-      ),
+      and(eq(readingStateTable.userId, userId), eq(readingStateTable.status, 'in_progress'), publicCatalogWorkSql()),
     )
     .orderBy(desc(readingStateTable.lastReadAt), desc(readingStateTable.id))
     .limit(1);
 
   const itemConditions = [
     eq(readingStateTable.userId, userId),
-    isNotNull(readingWorkTable.publishedAt),
+    publicCatalogWorkSql(),
     ...(currentRow ? [ne(readingStateTable.id, currentRow.state.id)] : []),
   ];
 

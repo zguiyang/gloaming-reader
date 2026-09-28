@@ -263,7 +263,7 @@ describe('Dictionary config & lookup API', () => {
     expect(await lookup(draftId)).toBeUndefined();
     expect(await lookup(privateId)).toBeUndefined();
     expect(await lookup('unknown-work-id')).toBeUndefined();
-    expect(await lookup(draftId, admin.cookie)).toBeUndefined();
+    expect(await lookup(draftId, admin.cookie)).toBe('Draft Dictionary Work');
   });
 
   it('protects admin routes from anonymous and normal users', async () => {

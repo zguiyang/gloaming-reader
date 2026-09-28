@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, count, desc, eq, exists, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, exists, isNull, ne, or, sql } from 'drizzle-orm';
 
 import {
   conversation as conversationTable,
   conversationMessage as conversationMessageTable,
   type ConversationMessageMetadata,
+  readingWork as readingWorkTable,
 } from '@gloaming/db';
 import {
   CONVERSATION_CONTENT_MAX,
@@ -23,6 +24,8 @@ import {
 } from '@gloaming/shared/conversations';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
+import type { WorkReadActor } from '@/domains/works/access';
+import { assertCanReadWork, workReadAccessSql } from '@/domains/works/access';
 import { db } from '@/infra/db';
 import { HTTP_STATUS } from '@/shared/constants';
 import { AppError, NotFoundError } from '@/shared/errors/app-error';
@@ -70,6 +73,31 @@ function clampContent(text: string): string {
   return text.slice(0, CONVERSATION_CONTENT_MAX);
 }
 
+async function assertReadableConversationSubject(
+  actor: WorkReadActor,
+  subjectType: string,
+  subjectId: string,
+): Promise<void> {
+  if (subjectType === 'reading_work') {
+    await assertCanReadWork(actor, subjectId);
+  }
+}
+
+function conversationSubjectReadableSql(actor: WorkReadActor) {
+  const access = workReadAccessSql(actor);
+  const workPredicates = [eq(readingWorkTable.id, conversationTable.subjectId)];
+  if (access) {
+    workPredicates.push(access);
+  }
+  const readableWorkSubject = exists(
+    db
+      .select({ one: sql`1` })
+      .from(readingWorkTable)
+      .where(and(...workPredicates)),
+  );
+  return or(ne(conversationTable.subjectType, 'reading_work'), readableWorkSubject)!;
+}
+
 async function endOpenInScope(
   tx: typeof db,
   input: {
@@ -96,7 +124,13 @@ async function endOpenInScope(
     .where(and(...conditions));
 }
 
-export async function createConversation(userId: string, body: CreateConversationBody): Promise<ConversationSummary> {
+export async function createConversation(
+  actor: WorkReadActor,
+  userId: string,
+  body: CreateConversationBody,
+): Promise<ConversationSummary> {
+  await assertReadableConversationSubject(actor, body.subjectType, body.subjectId);
+
   const id = randomUUID();
   const now = new Date();
 
@@ -128,7 +162,11 @@ export async function createConversation(userId: string, body: CreateConversatio
   return toSummary(row);
 }
 
-export async function listConversations(userId: string, query: ConversationListQuery): Promise<ConversationListData> {
+export async function listConversations(
+  actor: WorkReadActor,
+  userId: string,
+  query: ConversationListQuery,
+): Promise<ConversationListData> {
   const hasMessage = exists(
     db
       .select({ one: sql`1` })
@@ -136,7 +174,7 @@ export async function listConversations(userId: string, query: ConversationListQ
       .where(eq(conversationMessageTable.conversationId, conversationTable.id)),
   );
 
-  const filters = [eq(conversationTable.userId, userId), hasMessage];
+  const filters = [eq(conversationTable.userId, userId), hasMessage, conversationSubjectReadableSql(actor)];
   if (query.surface) {
     filters.push(eq(conversationTable.surface, query.surface));
   }
@@ -171,7 +209,11 @@ export async function listConversations(userId: string, query: ConversationListQ
   };
 }
 
-export async function getConversation(userId: string, conversationId: string): Promise<ConversationDetail> {
+export async function getConversation(
+  actor: WorkReadActor,
+  userId: string,
+  conversationId: string,
+): Promise<ConversationDetail> {
   const rows = await db
     .select()
     .from(conversationTable)
@@ -181,6 +223,8 @@ export async function getConversation(userId: string, conversationId: string): P
   if (!row) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.CONVERSATION);
   }
+
+  await assertReadableConversationSubject(actor, row.subjectType, row.subjectId);
 
   const messageRows = await db
     .select()

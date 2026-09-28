@@ -131,7 +131,7 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 | **Done when**     | Functional tests prove cross-user read denied for private owned works; owner read allowed                                      |
 | **Checks**        | New/extended functional specs under `tests/functional/domains/works/` (or access-specific folder)                              |
 
-**Status:** **open**.
+**Status:** **done** (PR-02, `apps/backend/src/domains/works/access/` — `WorkReadActor`, `workReadAccessSql`, `requireReadableWorkWithParts` / `requireReadablePart`; 2026-09-28).
 
 #### AC2 — Catalog Work read boundary
 
@@ -142,7 +142,18 @@ Each task lists **scope**, **prerequisites**, **done when**, and **checks**.
 | **Done when**     | Unpublished or non-visible catalog works not exposed on user surfaces; admin bypass documented |
 | **Checks**        | `tests/functional/domains/works/works-epub.spec.ts` + discover/catalog specs                   |
 
-**Status:** **open**.
+**Status:** **done** (PR-02; catalog list/detail and reader part load use `publicCatalogWorkSql` / `workReadAccessSql` with route actor; 2026-09-28).
+
+**PR-02 evidence (worktree `codex/user-first-pr02-work-access-policy`, baseline PR-01 `a7804424`):**
+
+| Area                                   | Change                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Policy owner                           | `apps/backend/src/domains/works/access/` (`actor`, `predicate`, `policy`, `index`) — `publicCatalogWorkSql`, `workReadAccessSql`, `requireReadablePart` / `requireReadableWorkWithParts`                                                                                                                                                                  |
+| Migrated consumers                     | Reader (`reader/service` authorized part join), assets gateway (orphan admin read), translate, assist (+ dictionary lookup), conversations (DB-filtered list totals), reading history query, shelf (`getShelf` joins `publicCatalogWorkSql`), `GET /api/recommendations` (`publicCatalogWorkSql`); `GET /api/catalog/works/:id` → `getCatalogWork(actor)` |
+| Removed                                | `getPublishedWork` / `getPublishedWorkTitle`; unguarded `getPartById`; `assets/content/published.ts` (`requirePublished*`, `getPublishedPartAudioTrack`, `resolveAssetViewer`)                                                                                                                                                                            |
+| Privileged paths (unchanged direct DB) | Admin works pipeline, ingest/workers, `assets/content/read-model` admin audio                                                                                                                                                                                                                                                                             |
+| Functional tests                       | `work-access-policy.spec.ts` matrix (owner/admin vs other/anonymous on reader, assets, audio, catalog detail, reading state, translate/assist IDOR + owner mocks); `recommendations-catalog-policy.spec.ts`; `shelf.spec.ts`; plus reader/audio/assets/conversations/dictionary/translate/assist/history specs                                            |
+| Checks                                 | `pnpm --filter @gloaming/backend exec tsc --noEmit`; `pnpm --filter @gloaming/backend lint`; targeted vitest on `gloaming_test` (see follow-up verification in branch)                                                                                                                                                                                    |
 
 ---
 
@@ -368,14 +379,14 @@ Follow locked phase order. **Do not** place Library (PR-05) before Catalog/Inges
 | PR        | Phase                                                                      | Tasks                                                             | Status                                                                                                                   |
 | --------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | **PR-01** | Schema foundation (+ the linked processing/publication contract migration) | B1, B2, A1, A2, C1, E1, F1                                        | **done within PR-01 scope** on `codex/user-first-pr01-schema-foundation` — evidence above; later epic phases remain open |
-| **PR-02** | Access                                                                     | AC1, AC2                                                          | **open**                                                                                                                 |
+| **PR-02** | Access                                                                     | AC1, AC2                                                          | **done** in worktree (policy + regression tests above; acceptance by calling agent)                                      |
 | **PR-03** | Catalog/Ingest                                                             | C2 (TTS “busy” / list taxonomy), C3 (API routes), C4 (web routes) | **open** (C2 known gap)                                                                                                  |
 | **PR-04** | Library                                                                    | D1, D2, D3, D4                                                    | **open**                                                                                                                 |
 | **PR-05** | Provider                                                                   | E2 (backend scope behavior only)                                  | **open**                                                                                                                 |
 | **PR-06** | Settings                                                                   | E3 (web settings UI)                                              | **open**                                                                                                                 |
 | **PR-07** | closeout                                                                   | G1, G2, G3                                                        | **open**                                                                                                                 |
 
-**Explicitly not done after PR-01:** User Access (AC1–AC2), Library APIs/shelf union (D1–D3), admin catalog routes (C3–C4), Provider runtime (E2), Settings UI (E3), Legacy Remaining audit (G1). Full monorepo `pnpm test` / root `pnpm lint` / root `pnpm typecheck` remain **open**. These are follow-on epic phases, not unfinished PR-01 acceptance items.
+**Explicitly not done after PR-01:** Library APIs/shelf union (D1–D3), admin catalog routes (C3–C4), Provider runtime (E2), Settings UI (E3), Legacy Remaining audit (G1). Full monorepo `pnpm test` / root `pnpm lint` / root `pnpm typecheck` remain **open**. These are follow-on epic phases, not unfinished PR-01 acceptance items.
 
 ---
 

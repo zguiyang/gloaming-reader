@@ -176,4 +176,91 @@ describe('Shelf HTTP', () => {
     expect(shelfData.current?.state).toEqual(readerCurrentData.state);
     expect(shelfData.items[0]?.state).toEqual(readerCompletedData.state);
   });
+
+  it('omits works that no longer satisfy public catalog access', async () => {
+    const admin = await createSession('admin');
+    const learner = await createSession('user');
+    createdEmails.push(admin.email, learner.email);
+
+    async function createAndPublish(title: string): Promise<AdminWork> {
+      const create = await app.request('/api/admin/works', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
+        body: JSON.stringify({
+          title,
+          body: `${title} body for shelf policy.`,
+        }),
+      });
+      expect(create.status).toBe(201);
+      const work = (await create.json()) as AdminWork;
+      const taxonomy = await ensureWorkTaxonomyFixture('shelf-policy');
+      const taxonomyUpdate = await app.request(`/api/admin/works/${work.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
+        body: JSON.stringify(taxonomy),
+      });
+      expect(taxonomyUpdate.status).toBe(200);
+      await seedReadyDefaultAudioForWork(work.id);
+      expect(
+        (
+          await app.request(`/api/admin/works/${work.id}/publish`, {
+            method: 'POST',
+            headers: { cookie: admin.cookie },
+          })
+        ).status,
+      ).toBe(200);
+      return work;
+    }
+
+    const completedWork = await createAndPublish('Shelf Policy Completed');
+    const inProgressWork = await createAndPublish('Shelf Policy Current');
+    createdWorkIds.push(completedWork.id, inProgressWork.id);
+
+    expect(
+      (
+        await app.request(`/api/reader/works/${completedWork.id}/state`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+          body: JSON.stringify({ action: 'open' }),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await app.request(`/api/reader/works/${completedWork.id}/state`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+          body: JSON.stringify({ action: 'finish' }),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await app.request(`/api/reader/works/${inProgressWork.id}/state`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+          body: JSON.stringify({ action: 'open' }),
+        })
+      ).status,
+    ).toBe(200);
+
+    const beforePolicy = await app.request('/api/shelf', { headers: { cookie: learner.cookie } });
+    expect(beforePolicy.status).toBe(200);
+    const beforeData = (await beforePolicy.json()) as ShelfData;
+    expect(beforeData.current?.work.id).toBe(inProgressWork.id);
+    expect(beforeData.items.map((item) => item.work.id)).toContain(completedWork.id);
+
+    await db.update(readingWorkTable).set({ visibility: 'private' }).where(eq(readingWorkTable.id, completedWork.id));
+
+    const afterPolicy = await app.request('/api/shelf', { headers: { cookie: learner.cookie } });
+    expect(afterPolicy.status).toBe(200);
+    const afterData = (await afterPolicy.json()) as ShelfData;
+    const returnedWorkIds = [
+      ...(afterData.current ? [afterData.current.work.id] : []),
+      ...afterData.items.map((item) => item.work.id),
+    ];
+    expect(returnedWorkIds).not.toContain(completedWork.id);
+    expect(afterData.current?.work.id).toBe(inProgressWork.id);
+    expect(afterData.items).toHaveLength(0);
+  });
 });

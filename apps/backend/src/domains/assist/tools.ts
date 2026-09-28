@@ -5,16 +5,18 @@ import { z } from 'zod';
 import { type AssistAskBody } from '@gloaming/shared/assist';
 
 import { lookupWord } from '@/domains/dictionary';
+import { anonymousWorkReadActor, type WorkReadActor } from '@/domains/works/access';
 
 const SLICE_MAX = 2000;
 
 type PartRef = { title: string; body: string; workId?: string; partId?: string };
 
-function createDictionaryLookupTool(part?: PartRef) {
+function createDictionaryLookupTool(actor: WorkReadActor, part?: PartRef) {
   return tool(
     async ({ word, contextSentence }: { word: string; contextSentence?: string }) => {
       try {
         const entry = await lookupWord({
+          actor,
           word,
           contextSentence,
           workId: part?.workId,
@@ -95,13 +97,14 @@ function createSearchPartTool(part: PartRef) {
   );
 }
 
-export function createPartAssistTools(part: PartRef): StructuredToolInterface[] {
-  return [createGetPartSliceTool(part), createSearchPartTool(part), createDictionaryLookupTool(part)];
+export function createPartAssistTools(actor: WorkReadActor, part: PartRef): StructuredToolInterface[] {
+  return [createGetPartSliceTool(part), createSearchPartTool(part), createDictionaryLookupTool(actor, part)];
 }
 
 export function resolveAssistToolsForAction(
   actionId: AssistAskBody['actionId'],
   part: PartRef,
+  _actor: WorkReadActor = anonymousWorkReadActor(),
 ): StructuredToolInterface[] {
   const search = createSearchPartTool(part);
   if (actionId === 'lookup') {

@@ -11,6 +11,8 @@ import type { ReadingStateStatus } from '@gloaming/shared/reader';
 import type { ReadingHistoryData, ReadingHistorySummary, ReadingHistoryWork } from '@gloaming/shared/reading-history';
 import { calendarDateInTimeZone } from '@gloaming/shared/reading-history';
 
+import type { WorkReadActor } from '@/domains/works/access';
+import { canReadWorkRow } from '@/domains/works/access';
 import { db } from '@/infra/db';
 
 function addCalendarDays(date: string, days: number): string {
@@ -77,7 +79,7 @@ async function listEngagedActivity(userId: string): Promise<ReadingHistoryData['
   }));
 }
 
-async function listWorks(userId: string): Promise<ReadingHistoryWork[]> {
+async function listWorks(actor: WorkReadActor, userId: string): Promise<ReadingHistoryWork[]> {
   const rows = await db
     .select({
       status: readingStateTable.status,
@@ -87,6 +89,9 @@ async function listWorks(userId: string): Promise<ReadingHistoryWork[]> {
       author: readingWorkTable.author,
       coverAssetId: readingWorkTable.coverAssetId,
       workId: readingWorkTable.id,
+      ownerUserId: readingWorkTable.ownerUserId,
+      visibility: readingWorkTable.visibility,
+      publishedAt: readingWorkTable.publishedAt,
     })
     .from(readingStateTable)
     .innerJoin(readingWorkTable, eq(readingWorkTable.id, readingStateTable.workId))
@@ -94,6 +99,9 @@ async function listWorks(userId: string): Promise<ReadingHistoryWork[]> {
     .orderBy(desc(readingStateTable.lastReadAt), asc(readingWorkTable.title));
 
   const works = rows.flatMap((row): ReadingHistoryWork[] => {
+    if (!canReadWorkRow(actor, row)) {
+      return [];
+    }
     const status = row.status as ReadingStateStatus;
     if (status !== 'in_progress' && status !== 'completed') {
       return [];
@@ -114,7 +122,7 @@ async function listWorks(userId: string): Promise<ReadingHistoryWork[]> {
   return works.sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title));
 }
 
-export async function getReadingHistory(userId: string): Promise<ReadingHistoryData> {
+export async function getReadingHistory(actor: WorkReadActor, userId: string): Promise<ReadingHistoryData> {
   const today = calendarDateInTimeZone();
 
   const activity = await listEngagedActivity(userId);
@@ -130,7 +138,7 @@ export async function getReadingHistory(userId: string): Promise<ReadingHistoryD
   return {
     today,
     activity,
-    works: await listWorks(userId),
+    works: await listWorks(actor, userId),
     portrait,
   };
 }

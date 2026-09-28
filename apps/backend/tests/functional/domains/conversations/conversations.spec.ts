@@ -1,9 +1,13 @@
+import { randomUUID } from 'node:crypto';
+
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
   conversation as conversationTable,
   conversationMessage as conversationMessageTable,
+  readingPart as readingPartTable,
+  readingWork as readingWorkTable,
   user as userTable,
 } from '@gloaming/db';
 import type { ConversationDetail, ConversationListData, ConversationSummary } from '@gloaming/shared/conversations';
@@ -69,10 +73,14 @@ async function createSession(prefix: string) {
 describe('Conversations HTTP', () => {
   const createdEmails: string[] = [];
   const createdConversationIds: string[] = [];
+  const createdWorkIds: string[] = [];
 
   afterAll(async () => {
     if (createdConversationIds.length > 0) {
       await db.delete(conversationTable).where(inArray(conversationTable.id, createdConversationIds));
+    }
+    if (createdWorkIds.length > 0) {
+      await db.delete(readingWorkTable).where(inArray(readingWorkTable.id, createdWorkIds));
     }
     for (const email of createdEmails) {
       await db.delete(userTable).where(eq(userTable.email, email));
@@ -84,7 +92,23 @@ describe('Conversations HTTP', () => {
     const bob = await createSession('conv_bob');
     createdEmails.push(alice.email, bob.email);
 
-    const workId = `work_conv_${Date.now().toString(36)}`;
+    const workId = randomUUID();
+    createdWorkIds.push(workId);
+    await db.insert(readingWorkTable).values({
+      id: workId,
+      title: 'Conversation fixture work',
+      processingStatus: 'ready',
+      visibility: 'catalog',
+      publishedAt: new Date(),
+    });
+    await db.insert(readingPartTable).values({
+      id: randomUUID(),
+      workId,
+      sortOrder: 0,
+      kind: 'body',
+      title: 'Body',
+      body: '<p>Conversation access fixture.</p>',
+    });
 
     const first = await app.request('/api/conversations', {
       method: 'POST',
@@ -154,6 +178,22 @@ describe('Conversations HTTP', () => {
     expect(detailBody.messages).toHaveLength(2);
     expect(detailBody.messages[0]!.role).toBe('user');
     expect(detailBody.messages[1]!.role).toBe('assistant');
+
+    await db.update(readingWorkTable).set({ publishedAt: null }).where(eq(readingWorkTable.id, workId));
+
+    const hiddenList = await app.request(
+      `/api/conversations?surface=assist-read&subjectType=reading_work&subjectId=${workId}`,
+      { headers: { cookie: alice.cookie } },
+    );
+    expect(hiddenList.status).toBe(200);
+    const hiddenListData = (await hiddenList.json()) as ConversationListData;
+    expect(hiddenListData.items).toHaveLength(0);
+    expect(hiddenListData.pagination.total).toBe(0);
+
+    const hiddenDetail = await app.request(`/api/conversations/${secondBody.id}`, {
+      headers: { cookie: alice.cookie },
+    });
+    expect(hiddenDetail.status).toBe(HTTP_STATUS.NOT_FOUND);
 
     const bobDetail = await app.request(`/api/conversations/${secondBody.id}`, {
       headers: { cookie: bob.cookie },

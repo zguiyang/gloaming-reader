@@ -4,6 +4,7 @@ import { readingHeartbeatBodySchema } from '@gloaming/shared/reading-history';
 
 import { recordReadingHeartbeat } from '@/domains/reading/history/heartbeat';
 import { getReadingHistory } from '@/domains/reading/history/query';
+import { workReadActorFromIdentity } from '@/domains/works/access';
 import { type AuthVariables, requireAuth } from '@/infra/http/middleware/auth';
 import { sendValidationError } from '@/infra/http/response';
 
@@ -11,7 +12,7 @@ export const readingHistoryUserRoutes = new Hono<{ Variables: AuthVariables }>()
 
 readingHistoryUserRoutes.get('/api/reading-history', requireAuth, async (c) => {
   const user = c.get('user')!;
-  const data = await getReadingHistory(user.id);
+  const data = await getReadingHistory(workReadActorFromIdentity(user), user.id);
   return c.json(data);
 });
 
