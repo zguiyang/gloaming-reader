@@ -68,6 +68,12 @@
 | PR05-PRODUCT-010 | PR-05    | 排序/容量     | 确认按最新创建/保存排序及固定 50 条结果上限                               | 拥有行按 Work 创建排序；保存行按成员创建排序；结果有上限                              | 大型 Library 可能遗漏条目；排序对用户可见            | 需产品决策          |
 | PR05-PRODUCT-011 | PR-04/05 | Admin 体验    | 命名空间迁移后复审 Catalog Admin 文案与工作流呈现                         | Admin 路径已 Catalog 限定；本审计未包含视觉改版                                       | 运营用语及与 Personal Work 的区分                    | 需产品决策          |
 
+## Integration Acceptance Watchlist
+
+| ID                  | 验收项                                  | 状态    | 触发条件                                                                                                                    |
+| ------------------- | --------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| FRONTEND-VISUAL-001 | PR-07 Library runtime visual acceptance | Pending | After User-first branches are merged into the unified integration branch and the full app runtime environment is available. |
+
 ## 最终验收清单
 
 - [ ] PR-01 Schema 已由维护者评审
@@ -76,6 +82,14 @@
 - [ ] PR-04 摄取与 Catalog 已由维护者评审
 - [ ] PR-05 Library 已由维护者评审
 - [ ] 用户优先前端已评审
+- [ ] Run integrated web application
+- [ ] PR-07 Library desktop visual acceptance
+- [ ] PR-07 Library mobile visual acceptance
+- [ ] PR-07 Light/Dark theme visual acceptance
+- [ ] Upload / Processing / Failed state visual acceptance
+- [ ] Catalog Remove interaction visual acceptance
+- [ ] Personal Work → Reader flow visual acceptance
+- [ ] Anti-AI UI runtime audit
 - [ ] Provider 解析器已评审
 - [ ] 设置已评审
 - [ ] 历史迁移 0036 决策已解决

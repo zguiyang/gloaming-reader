@@ -162,8 +162,130 @@ Settings、BYOK/Provider UI、Reader redesign、Discover redesign 与 Lazy TTS �
 ## 24. Remaining Gaps
 
 - Personal Work 删除需要先确定 owner 校验、对象存储清理、级联与 progress/history 保留策略，并实现真实后端能力后再考虑 UI。
-- Full test suites、E2E 和人工视觉审查尚未运行。
+- Full Web / Backend / Repository suites 与 E2E 尚未运行。
+- 真实运行界面的视觉验收延期；人工视觉验收仍 Pending，见下方 Deferred Visual Acceptance。
+
+## Deferred Visual Acceptance
+
+### 当前状态
+
+| 验收层级                        | 状态      |
+| ------------------------------- | --------- |
+| Implementation                  | Completed |
+| Static Design Review            | Completed |
+| Automated Targeted Verification | Completed |
+| Runtime Visual Verification     | Deferred  |
+| Human Visual Acceptance         | Pending   |
+
+当前状态不代表 UI Approved、Visual QA Passed 或 Design Accepted。源码设计审查和自动化定向验证不能替代真实运行界面的验收。
+
+### 延期原因
+
+PR-07 当前位于独立 worktree / feature branch 中。该环境主要用于代码实施和定向验证，完整运行所需配置、服务、数据和统一开发环境并不完整。为了仅做视觉检查而补建一套临时运行环境会增加无意义的配置工作和环境漂移风险，因此将真实运行视觉验收延期到 User-first 各阶段合并后的统一 Integration Branch。
+
+这项延期不是由页面问题或测试失败导致。
+
+### 后续 Visual Acceptance Gate
+
+在 User-first 各阶段完成并合并到统一 Integration Branch，且完整应用运行环境可用后，必须执行 **PR-07 Visual Acceptance Gate**。该门禁属于 **Final Frontend Acceptance**；unit/component tests、typecheck、lint、source review 和 AI design audit 均不能替代它。
+
+### Visual Acceptance Checklist
+
+#### Desktop — Library Normal State
+
+- [ ] 页面第一眼是否仍然是「书」
+- [ ] Upload EPUB 是否抢夺过多视觉注意力
+- [ ] Continue Reading 与书籍网格层级是否自然
+- [ ] Header 节奏是否符合现有 Gloaming
+- [ ] 书籍网格密度是否合理
+- [ ] 是否出现 Dashboard 感
+
+#### Mobile — Library Normal State
+
+- [ ] 是否真正适配小屏，而非仅把 Desktop 改为纵向堆叠
+- [ ] Upload 入口是否自然
+- [ ] Continue Reading 是否过重
+- [ ] Grid 是否合理
+- [ ] MobileBottomNav 是否正常
+- [ ] Safe Area 是否正常
+
+#### Empty Library
+
+- [ ] 是否保持安静、简洁
+- [ ] 是否出现 AI Landing Page 感
+- [ ] 上传 EPUB 与发现书籍两个入口的层级是否合理
+- [ ] 是否存在多余说明文案
+
+#### Upload Pending / Processing
+
+- [ ] 处理中状态是否自然存在于 Library
+- [ ] 是否过于像后台任务管理
+- [ ] 状态文案是否简洁
+- [ ] 是否出现不必要 Card / Badge / Panel
+- [ ] 是否影响正常阅读内容浏览
+
+#### Upload Failed
+
+- [ ] 失败状态是否明确
+- [ ] 失败状态是否过重
+- [ ] 是否误导用户认为存在不可用的 Retry
+- [ ] 恢复动作是否真实
+
+#### Saved Catalog Management
+
+- [ ] Overflow menu 是否低干扰
+- [ ] 「移出书库」是否容易理解
+- [ ] 管理入口是否与普通阅读点击冲突
+- [ ] 确认交互是否过度
+
+#### Personal Work
+
+- [ ] 个人上传作品与 Catalog 在正常浏览时是否自然统一
+- [ ] 是否没有多余来源 Badge
+- [ ] 点击是否自然进入 Reader
+- [ ] 缺少 Delete 操作是否不会形成错误暗示
+
+#### Dark Mode
+
+- [ ] Upload、Processing、Failed、Dropdown、Dialog 是否沿用现有暖夜主题
+- [ ] Library grid 与 Continue Reading 是否沿用现有暖夜主题
+- [ ] 是否存在 hardcoded light background
+- [ ] 是否存在错误对比度、意外边框或新视觉风格
+
+#### Reader Entry
+
+- [ ] 从 Personal Work 进入 Reader 是否自然
+- [ ] 从 Saved Catalog Work 进入 Reader 是否自然
+- [ ] 从 Continue Reading 进入 Reader 是否自然
+- [ ] Reader 本身视觉是否未被 PR-07 破坏
+- [ ] 返回路径是否合理
+
+#### Anti-AI UI Runtime Audit
+
+必须基于真实运行界面重新检查：
+
+- [ ] Dashboard-like layout
+- [ ] Bento layout
+- [ ] Card stacking
+- [ ] Nested cards
+- [ ] Icon-list overuse
+- [ ] Badge overuse
+- [ ] Helper-copy overuse
+- [ ] Decorative UI overuse
+- [ ] Spacing inconsistency
+- [ ] Visual hierarchy problems
+- [ ] Desktop-to-mobile stacking
+
+### 验收原则
+
+> PR-07 的源码设计审查已经完成，但源码符合规范不等于真实运行界面已经达到最终设计质量。
+
+真实视觉验收必须确认：
+
+> 页面像原 Gloaming 的设计者自然继续完成，而不是像 AI 后补的一块新功能。
+
+> 第一眼看到书，第二眼看到继续阅读，需要时才看到上传和管理。
 
 ## 25. Final State
 
-PR-07 在 `/library` 提供合并书库、EPUB 上传、处理状态、Continue Reading 和直接 Reader 入口；Catalog membership 可安全移除。Library membership、reading progress、reading history 继续分离。实现提交与本审查文档提交均为本地提交，Human Review 保持 Pending。
+PR-07 在 `/library` 提供合并书库、EPUB 上传、处理状态、Continue Reading 和直接 Reader 入口；Catalog membership 可安全移除。Library membership、reading progress、reading history 继续分离。Code implementation、static design audit 和 automated targeted verification 已完成；runtime visual verification 延期，human visual acceptance Pending。实现提交与审查文档提交均为本地提交，未推送或合并。
