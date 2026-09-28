@@ -14,14 +14,15 @@
 
 ## 阶段索引
 
-| 阶段  | 提交                                       | 基线                                       | 主要领域                     | 实现状态                                 | 人工评审状态 | 文档                                 |
-| ----- | ------------------------------------------ | ------------------------------------------ | ---------------------------- | ---------------------------------------- | ------------ | ------------------------------------ |
-| PR-01 | `a7804424d18d122bc1e1c8ecc1a7cab8eb5729f4` | `4efa89a9944561ad4f57b37d57f115fd78f7f43f` | Schema 基础                  | 已实现                                   | 待完成       | [PR-01](pr-01-schema-foundation.md)  |
-| PR-02 | `a3f2a69dfd0d945aa1d6fce43089f9ae96e5d4b6` | `a7804424d18d122bc1e1c8ecc1a7cab8eb5729f4` | Work 读取访问策略            | 已实现                                   | 待完成       | [PR-02](pr-02-work-access-policy.md) |
-| PR-03 | `dac344508f8f10faa38aed1721e8bab49a3572c3` | `a3f2a69dfd0d945aa1d6fce43089f9ae96e5d4b6` | 发布 SSOT                    | 已实现                                   | 待完成       | [PR-03](pr-03-publication-ssot.md)   |
-| PR-04 | `d16ee9ce82e9e5a7015b30b7dee4435dd96b1a04` | `dac344508f8f10faa38aed1721e8bab49a3572c3` | 摄取与 Catalog               | 已实现                                   | 待完成       | [PR-04](pr-04-ingest-catalog.md)     |
-| PR-05 | `dd60b348a482268f126a2de936941a120225f005` | `d16ee9ce82e9e5a7015b30b7dee4435dd96b1a04` | Library 领域                 | 已实现                                   | 待完成       | [PR-05](pr-05-library-domain.md)     |
-| PR-06 | `b481a2fad4480f8d084d6e1a7fa7f6e96633db53`                                  | PR-05 检查点                               | Provider 解析器 / 配置作用域 | 已实现；目标测试通过，全量测试环境未通过 | 待完成       | [PR-06](pr-06-provider-resolver.md)  |
+| 阶段  | 提交                                       | 基线                                       | 主要领域                                                  | 实现状态                                 | 人工评审状态 | 文档                                 |
+| ----- | ------------------------------------------ | ------------------------------------------ | --------------------------------------------------------- | ---------------------------------------- | ------------ | ------------------------------------ |
+| PR-01 | `a7804424d18d122bc1e1c8ecc1a7cab8eb5729f4` | `4efa89a9944561ad4f57b37d57f115fd78f7f43f` | Schema 基础                                               | 已实现                                   | 待完成       | [PR-01](pr-01-schema-foundation.md)  |
+| PR-02 | `a3f2a69dfd0d945aa1d6fce43089f9ae96e5d4b6` | `a7804424d18d122bc1e1c8ecc1a7cab8eb5729f4` | Work 读取访问策略                                         | 已实现                                   | 待完成       | [PR-02](pr-02-work-access-policy.md) |
+| PR-03 | `dac344508f8f10faa38aed1721e8bab49a3572c3` | `a3f2a69dfd0d945aa1d6fce43089f9ae96e5d4b6` | 发布 SSOT                                                 | 已实现                                   | 待完成       | [PR-03](pr-03-publication-ssot.md)   |
+| PR-04 | `d16ee9ce82e9e5a7015b30b7dee4435dd96b1a04` | `dac344508f8f10faa38aed1721e8bab49a3572c3` | 摄取与 Catalog                                            | 已实现                                   | 待完成       | [PR-04](pr-04-ingest-catalog.md)     |
+| PR-05 | `dd60b348a482268f126a2de936941a120225f005` | `d16ee9ce82e9e5a7015b30b7dee4435dd96b1a04` | Library 领域                                              | 已实现                                   | 待完成       | [PR-05](pr-05-library-domain.md)     |
+| PR-06 | `b481a2fad4480f8d084d6e1a7fa7f6e96633db53` | PR-05 检查点                               | Provider 解析器 / 配置作用域                              | 已实现；目标测试通过，全量测试环境未通过 | 待完成       | [PR-06](pr-06-provider-resolver.md)  |
+| PR-07 | `af20840164a1f6ed315f1ea017375d36e19ff2d3` | `bd0878ecdad664e406d7dd623915b9d7e44166cf` | User-first Library Frontend / Personal Upload / Read Flow | 已实现                                   | 待完成       | [PR-07](pr-07-library-frontend.md)   |
 
 「已实现」描述检查点范围内的代码。并不表示已获人工批准、已合并、已发布或已完成全量回归测试。
 
@@ -34,6 +35,7 @@
 | PR-03 | 发布是与处理状态无关的幂等 `published_at` 转换。                                             |
 | PR-04 | 个人与 Catalog 的 EPUB 摄取共用摄取核心，但归属、可见性、认证与 Admin 策略彼此独立。         |
 | PR-05 | Library 成员、阅读进度、阅读历史与继续阅读为彼此独立的运行时投影。                           |
+| PR-07 | `/library` 汇集个人上传与已保存 Catalog Work；继续阅读、进度与历史仍保持独立语义。           |
 
 ## 遗留演进
 
@@ -44,9 +46,9 @@
 | 仅已发布内容的 Reader 访问             | 公共内容辅助逻辑仅放行已发布 Work                                           | PR-02                          | `WorkReadActor`、`workReadAccessSql` 与 `requireReadable*`                               | 所有者可读其私有 Work；Admin 可读全部；非所有者可读已发布 Catalog Work。                          |
 | `requirePublished*` 访问辅助           | 发布曾是通用读取门控                                                        | PR-02                          | `requireReadableWorkWithParts` / `requireReadablePart`                                   | 活跃后端源码中不再存在 `requirePublished*` 辅助。Catalog 列表/发布仍检查 `published_at`。         |
 | Admin `/works` 命名空间                | Admin Work 端点/页面未显式限定为 Catalog                                    | PR-04                          | `/admin/catalog/works`、`/api/admin/catalog/works`                                       | 旧 Admin 路由无别名。内部 `domains/works` 与 `features/admin/works` 命名保留。                    |
-| 仅 Admin 的 EPUB 上传                  | EPUB 摄取经 Admin 入口                                                      | PR-04                          | 经认证 `POST /api/works` 创建私有 Personal Work；Admin Catalog 上传仍独立                | 后端 Personal 上传存在；学习者上传 UI 缺失。                                                      |
+| 仅 Admin 的 EPUB 上传                  | EPUB 摄取经 Admin 入口                                                      | PR-04                          | 经认证 `POST /api/works` 创建私有 Personal Work；Admin Catalog 上传仍独立                | PR-04 检查点缺少学习者上传 UI；PR-07 在 `/library` 接入现有 Personal 上传 API。                   |
 | `reading_state` 作为 Library 成员      | 打开/阅读可意味着「已保存」                                                 | PR-05 运行时；PR-01 回填仍存在 | `user_library_item` 表示显式 Catalog 保存；Personal 以归属为准；`reading_state` 表示进度 | 未来阅读不会创建成员关系。迁移 0036 复制了每条历史 state 行；人工决策仍开放。                     |
-| Shelf API/领域                         | `/api/shelf`、共享 Shelf 数据传输对象与 `features/shelf` 表示基于进度的成员 | PR-05                          | `/api/library`、`@gloaming/shared/library`、`features/library`                           | 旧 Shelf 服务/模块已移除。`/my-shelf` 仍为 Web 路由与重定向目标。                                 |
+| Shelf API/领域                         | `/api/shelf`、共享 Shelf 数据传输对象与 `features/shelf` 表示基于进度的成员 | PR-05                          | `/api/library`、`@gloaming/shared/library`、`features/library`                           | PR-05 检查点仍有 `/my-shelf` 页面与重定向；PR-07 已删除旧页面并迁移到 `/library`，无兼容路由。    |
 | TTS 阻塞就绪                           | TTS 曾嵌在 Work status 内                                                   | PR-01                          | 独立的 Work 处理状态与 TTS 工作流步骤                                                    | 状态耦合已移除；既有发布门控仍要求默认 US 音频就绪。                                              |
 
 ## 决策关注清单
