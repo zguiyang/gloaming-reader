@@ -12,27 +12,22 @@ V1 feature specification: [`mvp-scope.md`](./mvp-scope.md). Domain model: ADR-00
 
 **Module roadmap (anti-drift):** [`mvp-1-modules.md`](./mvp-1-modules.md).
 
-| Slice          | Outcome                                                                                                                                                                  |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **1a (MVP 1)** | **Admin EPUB catalog pipeline:** upload → process chapters → publish **ReadingWork** → **发现** → **我的书架** → Reader with help / translate / TTS. **No user upload.** |
-| **1b**         | **User import** (EPUB/PDF/web, etc.); `用户` source on shelf; same Work/Part model                                                                                       |
+| Slice          | Outcome                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1a (MVP 1)** | Existing published **ReadingWork** → **发现** → **我的书架** → Reader with help / translate / TTS. New Catalog intake awaits a Source policy decision. |
+| **1b**         | Personal Upload uses the ordinary User flow and the same Work/Part model; broader import formats remain separately scoped.                             |
 
 ```text
-Admin EPUB upload
-  → Processing
-  → ReadingWork + ReadingPart[]
-  → Publish
-  → Discover
-  → Shelf
-  → Reader
-  → AI Assist
+Existing published Catalog Work ─┐
+                                  ├→ Discover / Personal Library → Reader → AI Assist
+Personal Upload → private Work ──┘
 ```
 
 Exit Phase 1 when 1a is real for users and 1b is either shipped or explicitly deferred without blocking daily reading. Do not ask users to practice, review, or chat.
 
 Capability must / must-not: [`mvp-scope.md`](./mvp-scope.md).
 
-**Wording:** say **no user upload in MVP 1** — not “no EPUB in MVP” (admin EPUB is in MVP).
+**Current supply boundary (AS-02, 2026-09-30):** Admin does not manage Catalog Works. Admin accounts upload through the same private Personal Upload flow as other users. Existing published Catalog Works remain readable; new Catalog intake requires a separate Source policy decision.
 
 ---
 
@@ -62,6 +57,7 @@ Do not spec SRS, speaking, or dashboards here. If anything appears later, it mus
 
 ## Revision log
 
-| Date       | Change                                                                    |
-| ---------- | ------------------------------------------------------------------------- |
-| 2026-08-24 | Phase 1a = admin EPUB pipeline; 1b = user import only; ADR-001 alignment. |
+| Date       | Change                                                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-24 | Phase 1a = admin EPUB pipeline; 1b = user import only; ADR-001 alignment.                                                       |
+| 2026-09-30 | AS-02 removed Admin Works management; retained existing Catalog reads and User Personal Upload; new Catalog intake is deferred. |

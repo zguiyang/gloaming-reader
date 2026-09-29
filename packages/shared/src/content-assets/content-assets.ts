@@ -50,7 +50,7 @@ export function buildPartAudioText(bodyPlain: string): string {
   return normalizePartAudioWhitespace(bodyPlain);
 }
 
-/** True when TTS would synthesize non-empty text for this part (body plain, post-normalization). */
+/** True when TTS would synthesize non-empty text for this part body. */
 export function partHasSynthAudioText(bodyPlain: string): boolean {
   return buildPartAudioText(bodyPlain).length > 0;
 }
@@ -60,7 +60,7 @@ type AudioTrackAssetFacts = {
   contentHash: string;
 };
 
-/** Map DB asset facts to admin/reader track status (includes derived `stale`). */
+/** Map DB asset facts to Reader track status (includes derived `stale`). */
 export function deriveAudioTrackStatus(
   asset: AudioTrackAssetFacts | null,
   currentContentHash: string,
@@ -83,20 +83,6 @@ export function deriveAudioTrackStatus(
   }
   return 'failed';
 }
-
-export const generatePartAudioBodySchema = z.object({
-  roles: z.array(z.enum(ttsVoiceRoleValues)).min(1).max(2).optional(),
-  force: z.boolean().optional(),
-});
-
-export type GeneratePartAudioBody = z.infer<typeof generatePartAudioBodySchema>;
-
-export const generateWorkAudioBodySchema = z.object({
-  roles: z.array(z.enum(ttsVoiceRoleValues)).min(1).max(2).optional(),
-  force: z.boolean().optional(),
-});
-
-export type GenerateWorkAudioBody = z.infer<typeof generateWorkAudioBodySchema>;
 
 /**
  * One timeline segment for part audio.
@@ -164,72 +150,3 @@ export const contentAssetTrackSchema = z.object({
 });
 
 export type ContentAssetTrack = z.infer<typeof contentAssetTrackSchema>;
-
-export const partAudioViewSchema = z.object({
-  partId: z.string(),
-  workId: z.string(),
-  title: z.string(),
-  currentContentHash: z.string(),
-  tracks: z.object({
-    us: contentAssetTrackSchema,
-    uk: contentAssetTrackSchema,
-  }),
-});
-
-export type PartAudioView = z.infer<typeof partAudioViewSchema>;
-
-export const workAudioPartRowSchema = z.object({
-  partId: z.string(),
-  sortOrder: z.number().int(),
-  title: z.string(),
-  currentContentHash: z.string(),
-  track: contentAssetTrackSchema,
-});
-
-export type WorkAudioPartRow = z.infer<typeof workAudioPartRowSchema>;
-
-export const workAudioSummarySchema = z.object({
-  total: z.number().int().nonnegative(),
-  none: z.number().int().nonnegative(),
-  generating: z.number().int().nonnegative(),
-  ready: z.number().int().nonnegative(),
-  stale: z.number().int().nonnegative(),
-  failed: z.number().int().nonnegative(),
-});
-
-export type WorkAudioSummary = z.infer<typeof workAudioSummarySchema>;
-
-export const workAudioViewSchema = z.object({
-  workId: z.string(),
-  role: z.enum(ttsVoiceRoleValues),
-  summary: workAudioSummarySchema,
-  parts: z.array(workAudioPartRowSchema),
-});
-
-export type WorkAudioView = z.infer<typeof workAudioViewSchema>;
-
-export const workAudioQuerySchema = z.object({
-  role: z.enum(ttsVoiceRoleValues),
-});
-
-export type WorkAudioQuery = z.infer<typeof workAudioQuerySchema>;
-
-export const enqueueAudioItemSchema = z.object({
-  partId: z.string(),
-  role: z.enum(ttsVoiceRoleValues),
-  jobId: z.string(),
-});
-
-export const skipAudioItemSchema = z.object({
-  partId: z.string(),
-  role: z.enum(ttsVoiceRoleValues),
-  reason: z.enum(['fresh']),
-});
-
-export const enqueueAudioResultSchema = z.object({
-  workId: z.string(),
-  enqueued: z.array(enqueueAudioItemSchema),
-  skipped: z.array(skipAudioItemSchema),
-});
-
-export type EnqueueAudioResult = z.infer<typeof enqueueAudioResultSchema>;

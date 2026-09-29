@@ -4,9 +4,9 @@ Code vs the **AI Native Language Reading Environment** bet and **ReadingWork** d
 
 Related: [`mvp-scope.md`](./mvp-scope.md) · [`roadmap.md`](./roadmap.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md) · ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
 
-Audit date: **2026-08-24** (domain docs aligned; **Phase 3A complete** — ReadingWork SSOT in code).
+Audit date: **2026-09-30** (Phase 3A complete; AS-02 removed Admin Works management while preserving Catalog reads and User Personal Upload).
 
-**MVP 1 module SSOT:** [`mvp-1-modules.md`](./mvp-1-modules.md) — Phase **1a** = admin EPUB catalog → Library; **1b** = user import (deferred).
+**MVP 1 module SSOT:** [`mvp-1-modules.md`](./mvp-1-modules.md) — existing published Catalog → Discover/Library; Personal EPUB Upload uses the ordinary User flow; new Catalog intake is deferred.
 
 ---
 
@@ -26,37 +26,37 @@ Audit date: **2026-08-24** (domain docs aligned; **Phase 3A complete** — Readi
 
 ### 2.1 KEEP (ReadingWork-bound)
 
-| Area                    | Where it lives                                      | Binding                                                              |
-| ----------------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
-| Auth                    | Better Auth; `features/auth/**`; Hono `/api/auth/*` | Unchanged                                                            |
-| Reader (immersive)      | `features/reader/**`; route `/read/[workId]`        | Session over **ReadingWork** + current **ReadingPart**               |
-| Book detail             | `features/book-detail/**`; `/discover/[workId]`     | **ReadingWork** metadata                                             |
-| Discover                | `features/discover/**`                              | Published **ReadingWork** list                                       |
-| My Library              | `features/library/**`                               | Owned works + explicit Catalog saves; progress is optional           |
-| Reading history         | `features/history/**`                               | Activity + completions by **workId**                                 |
-| Shared content chrome   | `features/content/content-model.ts`                 | Cover tints, paragraph split — no **ArticleLevel**                   |
-| App shell               | `features/app-shell/**`                             | Unchanged                                                            |
-| AI assist (in-text)     | `modules/assist/**`, `reader-ai-*`                  | **workId** + **partId** + selection                                  |
-| Assist transcripts      | `conversation` / `conversation_message`             | `subject_type = reading_work`                                        |
-| Translation / bilingual | `modules/translate/**`                              | **partId**-scoped cache                                              |
-| TTS + word timings      | `modules/tts/**` / `content-assets`                 | **ContentAsset** on **ReadingPart**                                  |
-| Reading position        | **`reading_state`**                                 | part + anchor; does not imply Library membership                     |
-| Reading history API     | `modules/reading-history/**`                        | Join **reading_work**                                                |
-| LLM / TTS admin + logs  | `features/admin/ai-*`, `tts-*`                      | Ops — not learner                                                    |
-| Admin catalog ops       | `features/admin/works-*`                            | Admin EPUB upload → parse → publish; `admin_text` internal seed only |
+| Area                    | Where it lives                                      | Binding                                                                             |
+| ----------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Auth                    | Better Auth; `features/auth/**`; Hono `/api/auth/*` | Unchanged                                                                           |
+| Reader (immersive)      | `features/reader/**`; route `/read/[workId]`        | Session over **ReadingWork** + current **ReadingPart**                              |
+| Book detail             | `features/book-detail/**`; `/discover/[workId]`     | **ReadingWork** metadata                                                            |
+| Discover                | `features/discover/**`                              | Published **ReadingWork** list                                                      |
+| My Library              | `features/library/**`                               | Owned works + explicit Catalog saves; progress is optional                          |
+| Reading history         | `features/history/**`                               | Activity + completions by **workId**                                                |
+| Shared content chrome   | `features/content/content-model.ts`                 | Cover tints, paragraph split — no **ArticleLevel**                                  |
+| App shell               | `features/app-shell/**`                             | Unchanged                                                                           |
+| AI assist (in-text)     | `modules/assist/**`, `reader-ai-*`                  | **workId** + **partId** + selection                                                 |
+| Assist transcripts      | `conversation` / `conversation_message`             | `subject_type = reading_work`                                                       |
+| Translation / bilingual | `modules/translate/**`                              | **partId**-scoped cache                                                             |
+| TTS + word timings      | `modules/tts/**` / `content-assets`                 | **ContentAsset** on **ReadingPart**                                                 |
+| Reading position        | **`reading_state`**                                 | part + anchor; does not imply Library membership                                    |
+| Reading history API     | `modules/reading-history/**`                        | Join **reading_work**                                                               |
+| LLM / TTS admin + logs  | `features/admin/ai-*`, `tts-*`                      | Ops — not learner                                                                   |
+| Catalog supply          | `features/discover/**`; `/api/catalog/works`        | Existing published Catalog Works remain readable; no Admin management or new intake |
 
 ### 2.2 Phase 3A migration — **done**
 
-| Area              | Was (legacy)                                                                                         | Now (ADR-001)                             |
-| ----------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Content root      | `article` table, single `body`                                                                       | `reading_work` + `reading_part`           |
-| Derived audio     | `article_audio`                                                                                      | `content_asset` (`audio_us` / `audio_uk`) |
-| Reading progress  | `reading_progress`                                                                                   | `reading_state` (progress only)           |
-| Discover API      | `GET /api/articles`                                                                                  | `GET /api/catalog/works`                  |
-| Reader API        | `/api/reader/articles/:articleId`                                                                    | `/api/reader/works/:workId`               |
-| Admin API         | `/api/admin/articles`                                                                                | `/api/admin/works`                        |
-| Shared types      | Legacy Article contracts retired; Shared exposes domain module subpaths                              | `@gloaming/shared/<module>` (ADR-003)     |
-| Short-article era | [`docs/archive/feature-short-article-library-v1.md`](../archive/feature-short-article-library-v1.md) | **Archived** — not product                |
+| Area              | Was (legacy)                                                                                         | Now (ADR-001)                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Content root      | `article` table, single `body`                                                                       | `reading_work` + `reading_part`                   |
+| Derived audio     | `article_audio`                                                                                      | `content_asset` (`audio_us` / `audio_uk`)         |
+| Reading progress  | `reading_progress`                                                                                   | `reading_state` (progress only)                   |
+| Discover API      | `GET /api/articles`                                                                                  | `GET /api/catalog/works`                          |
+| Reader API        | `/api/reader/articles/:articleId`                                                                    | `/api/reader/works/:workId`                       |
+| Admin API         | `/api/admin/articles`                                                                                | `/api/admin/works` (historical; removed in AS-02) |
+| Shared types      | Legacy Article contracts retired; Shared exposes domain module subpaths                              | `@gloaming/shared/<module>` (ADR-003)             |
+| Short-article era | [`docs/archive/feature-short-article-library-v1.md`](../archive/feature-short-article-library-v1.md) | **Archived** — not product                        |
 
 ### 2.3 DELETE / REMOVED (do not reintroduce)
 
@@ -84,20 +84,20 @@ No separate vocabulary/SRS product. Lookup “vocabulary card” is assist **for
 
 ### 2.5 Missing vs V1 target
 
-| V1 must                          | Current state                                                             |
-| -------------------------------- | ------------------------------------------------------------------------- |
-| Admin EPUB upload + processing   | **Done** — `admin_epub` pipeline shipped; `admin_text` internal seed only |
-| ReadingWork + ReadingPart schema | **Done**                                                                  |
-| Chapter / part reader            | **Done** — multi-part ready; admin_text = 1 body part                     |
-| ContentAsset (origin + TTS)      | **Done** — origin EPUB + part `audio_us` / `audio_uk` rows                |
-| User import                      | **Absent** (Phase 1b — correct to defer)                                  |
-| Learner UI wired to Work APIs    | **Done**                                                                  |
+| V1 must                          | Current state                                                                                      |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Admin Works CMS                  | **Removed (AS-02)** — no Admin creation, intake, editing, publication, preview, deletion, or retry |
+| ReadingWork + ReadingPart schema | **Done**                                                                                           |
+| Chapter / part reader            | **Done** — multi-part ready; admin_text = 1 body part                                              |
+| ContentAsset (origin + TTS)      | **Done** — origin EPUB + part `audio_us` / `audio_uk` rows                                         |
+| Personal EPUB Upload             | **Available** — ordinary User-owned private Work and Library flow                                  |
+| Learner UI wired to Work APIs    | **Done**                                                                                           |
 
 ---
 
 ## 3. Migration plan
 
-Practice/Review **removal is done**. **Phase 3A** (Article → ReadingWork code migration) **is done**. **Admin EPUB pipeline** (upload → parse → metadata → publish) **is shipped**; user import remains Phase **1b**.
+Practice/Review **removal is done**. **Phase 3A** (Article → ReadingWork code migration) **is done**. **AS-02** removed Admin Works management; existing published Catalog Works and the User Personal EPUB Upload flow remain. New Catalog intake awaits a separate Source policy decision.
 
 ### 3.1 Domain decision — closed
 
@@ -106,6 +106,8 @@ Practice/Review **removal is done**. **Phase 3A** (Article → ReadingWork code 
 **Decision:** ADR-001 accepted — **ReadingWork + ReadingPart + ReadingState + ContentAsset**. No Article extension. No compatibility layer.
 
 ### 3.2 Phase 3A execution order — complete
+
+The table below records the Phase 3A migration at that time. Its Admin Works code references describe the historical implementation; AS-02 removed that module on 2026-09-30.
 
 | Step | Layer             | Intent                                                          | Status |
 | ---- | ----------------- | --------------------------------------------------------------- | ------ |
@@ -137,7 +139,7 @@ See [`engineering-vocabulary.md`](./engineering-vocabulary.md) for product ↔ e
 | Keep investing                                 | Deferred               | Gone forever     |
 | ---------------------------------------------- | ---------------------- | ---------------- |
 | `features/reader/**`, assist, translate, tts   | User import (Phase 1b) | practice, review |
-| Auth, admin LLM/TTS config, admin EPUB ops     | —                      | Learn* modules   |
+| Auth, instance LLM/TTS config, system ops      | —                      | Learn* modules   |
 | `conversation` (`subject_type = reading_work`) | —                      | Article as SSOT  |
 
 ### 4.3 Shared package and workflow policy
@@ -149,19 +151,12 @@ import from the owning module; implementation deep imports such as
 Zod schemas, controlled values, types, and pure functions; application workflow
 flags and queue/retry/lease behavior remain owned by the backend layer.
 
-The backend owns runtime workflow policy and keeps the current defaults as a
-manual pipeline with auto-chaining and auto-TTS **disabled**
-(`WORKFLOW_AUTO_CHAIN = false`, `TTS_STEP_ENABLED = false`). Admin work and
-work-summary responses expose the backend policy as a read-only projection so
-the management UI displays the actual mode instead of inferring it from
-compile-time constants.
-
-**Publish gate (shipped):** `publishWork` rejects publish when any part with
-synthesizable text lacks **ready default US** (`audio_us`) whose `content_hash`
-matches the current part body. UK (`audio_uk`) remains optional. Operators
-generate default US audio through admin TTS actions and the worker queue; the
-auto-TTS workflow step does not run while `TTS_STEP_ENABLED` is false. Reader
-runtime may still degrade gracefully when playback is temporarily unavailable.
+The backend owns generic workflow lease and worker behavior. Auto-chaining and
+the automatic TTS step remain disabled by default
+(`WORKFLOW_AUTO_CHAIN = false`, `TTS_STEP_ENABLED = false`). Admin Work status
+projections, manual publication gates, and per-Work audio actions were removed
+with the CMS. `published_at` remains the Catalog visibility fact; existing
+Reader audio continues to use the shared ContentAsset runtime.
 
 This boundary does not change the ADR-001 `ReadingWork` / `ReadingPart` /
 `ReadingState` / `ContentAsset` model or the `admin_epub` / `admin_text` origin
@@ -171,10 +166,11 @@ boundary.
 
 ## 5. Revision log
 
-| Date       | Change                                                                                                      |
-| ---------- | ----------------------------------------------------------------------------------------------------------- |
-| 2026-08-24 | Phase 3A marked complete; KEEP/REFACTOR tables use current Work paths.                                      |
-| 2026-08-24 | ADR-001 alignment; Open Question closed; Phase 3 order; DELETE list.                                        |
-| 2026-08-23 | Frontend learner cleanup; library/progress removed.                                                         |
-| 2026-08-20 | Practice/Review removed; initial reading-environment audit.                                                 |
-| (revision) | Admin EPUB pipeline marked shipped; publish default-US gate documented; auto workflow/TTS flags remain off. |
+| Date                  | Change                                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------------------------- |
+| 2026-08-24            | Phase 3A marked complete; KEEP/REFACTOR tables use current Work paths.                                   |
+| 2026-08-24            | ADR-001 alignment; Open Question closed; Phase 3 order; DELETE list.                                     |
+| 2026-08-23            | Frontend learner cleanup; library/progress removed.                                                      |
+| 2026-08-20            | Practice/Review removed; initial reading-environment audit.                                              |
+| (historical revision) | Admin EPUB pipeline and default-US publication gate documented before AS-02; no longer current behavior. |
+| 2026-09-30            | AS-02 removed Admin Works management and preserved Catalog reads and User Personal Upload.               |

@@ -2,20 +2,14 @@ import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
-  category as categoryTable,
   readingWork as readingWorkTable,
-  readingWorkCategory as readingWorkCategoryTable,
   readingWorkSource as readingWorkSourceTable,
   readingWorkTag as readingWorkTagTable,
   source as sourceTable,
   tag as tagTable,
   uploadedObject as uploadedObjectTable,
-  user as userTable,
 } from '@gloaming/db';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
-import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 
-import app from '@/app';
 import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
 import { hashFileContent } from '@/domains/assets/uploads';
 import { fillWorkMetadata } from '@/domains/metadata';
@@ -24,70 +18,28 @@ import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
 import { buildEpubBytes } from '../../../helpers/epub-builder';
+import { createHistoricalCatalogEpubFixture } from '../../../helpers/historical-catalog-epub-fixture';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
-const password = 'password123';
-
-function uniqueEmail(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-
-function cookieHeader(response: Response): string {
-  const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.();
-  if (getSetCookie?.length) {
-    return getSetCookie.map((entry) => entry.split(';')[0]).join('; ');
-  }
-  const single = response.headers.get('set-cookie');
-  return single ? single.split(';')[0]! : '';
-}
-
-describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
+describe('metadata-fill for historical Catalog Works', () => {
   const memory = createMemoryObjectStore();
   const createdWorkIds: string[] = [];
   const createdContentHashes: string[] = [];
   const createdTagIds: string[] = [];
-  const createdCategoryIds: string[] = [];
-  let adminCookie = '';
-  const testSourceId = 'src-standard-ebooks';
-  let manualSourceId = 'src-test-publisher';
+  const testSourceId = `src-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const sourceHost = `standardebooks-${Date.now()}.example`;
 
   beforeAll(async () => {
     memory.store.clear();
     setObjectStoreForTests(memory);
-    const email = uniqueEmail('admin');
-    const username = `admin_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-    await app.request('/api/auth/sign-up/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-      body: JSON.stringify({ email, password, name: 'admin', username }),
-    });
-    await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.email, email));
-    await db.update(userTable).set({ role: AUTH_ADMIN_ROLE }).where(eq(userTable.email, email));
-    const login = await app.request('/api/auth/sign-in/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-      body: JSON.stringify({ email, password }),
-    });
-    adminCookie = cookieHeader(login);
-
     await db
       .insert(sourceTable)
       .values({
         id: testSourceId,
-        name: 'Standard Ebooks',
-        matchRule: 'standardebooks.org',
+        name: `Test Source ${testSourceId}`,
+        matchRule: sourceHost,
       })
       .onConflictDoNothing();
-    await db
-      .insert(sourceTable)
-      .values({ id: manualSourceId, name: 'Test Publisher', matchRule: 'test-publisher.example' })
-      .onConflictDoNothing();
-    const [manualSource] = await db
-      .select({ id: sourceTable.id })
-      .from(sourceTable)
-      .where(eq(sourceTable.name, 'Test Publisher'))
-      .limit(1);
-    if (manualSource) manualSourceId = manualSource.id;
   });
 
   afterAll(async () => {
@@ -95,10 +47,6 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       await db.delete(readingWorkTable).where(eq(readingWorkTable.id, workId));
     }
     await db.delete(sourceTable).where(eq(sourceTable.id, testSourceId));
-    await db.delete(sourceTable).where(eq(sourceTable.id, manualSourceId));
-    if (createdCategoryIds.length > 0) {
-      await db.delete(categoryTable).where(inArray(categoryTable.id, createdCategoryIds));
-    }
     if (createdContentHashes.length > 0) {
       await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdContentHashes));
     }
@@ -110,27 +58,11 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
 
   async function uploadAndFill(bytes: Buffer): Promise<string> {
     createdContentHashes.push(hashFileContent(bytes));
-    const form = new FormData();
-    form.append('file', new File([new Blob([bytes])], 'book.epub', { type: 'application/epub+zip' }));
-    const response = await app.request('/api/admin/catalog/works/epub', {
-      method: 'POST',
-      headers: { Cookie: adminCookie },
-      body: form,
-    });
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createHistoricalCatalogEpubFixture({ fileName: 'book.epub', bytes });
     createdWorkIds.push(created.id);
     await runContentParseWorkflow(created.id);
     await fillWorkMetadata(created.id);
     return created.id;
-  }
-
-  async function patchWork(id: string, body: Record<string, unknown>): Promise<Response> {
-    return app.request(`/api/admin/catalog/works/${id}`, {
-      method: 'PATCH',
-      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
   }
 
   it('keeps rule subjects as AI-only candidates and writes source associations', async () => {
@@ -138,7 +70,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       await buildEpubBytes({
         title: 'Subject Book',
         subjects: ['Zeta Alpha', 'Zeta Beta'],
-        sourceRaw: 'https://standardebooks.org/ebooks/some-book',
+        sourceRaw: `https://${sourceHost}/ebooks/some-book`,
         chapters: [
           { href: 'chapter-1.xhtml', tocLabel: 'Chapter 1', content: '<html><body><p>Body.</p></body></html>' },
         ],
@@ -147,15 +79,6 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
     expect(work!.title).toBe('Subject Book');
-
-    const detail = await app.request(`/api/admin/catalog/works/${workId}`, { headers: { Cookie: adminCookie } });
-    expect(detail.status).toBe(200);
-    const apiWork = (await detail.json()) as {
-      tags: TaxonomyReference[];
-      metadataProvenance: Record<string, string | undefined>;
-    };
-    expect(apiWork.tags).toEqual([]);
-    expect(apiWork.metadataProvenance).toEqual({});
 
     const tagRows = await db
       .select({ name: tagTable.name, provenance: readingWorkTagTable.provenance })
@@ -218,80 +141,6 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     expect(tagRows).toHaveLength(0);
   });
 
-  it('manual tags/sources from updateWork survive re-fill (junction SSOT)', async () => {
-    const workId = await uploadAndFill(
-      await buildEpubBytes({
-        title: 'Manual Book',
-        subjects: ['Science'],
-        sourceRaw: 'https://standardebooks.org/ebooks/manual-book',
-        chapters: [{ href: 'chapter-1.xhtml', content: '<html><body><p>Body.</p></body></html>' }],
-      }),
-    );
-
-    const [scienceTag, manualTag] = await db
-      .insert(tagTable)
-      .values([
-        {
-          id: `tag-science-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          name: 'Science',
-          normalized: `science-${Date.now()}`,
-          localizedNames: { 'zh-CN': '科学', 'en-US': 'Science' },
-          origin: 'manual',
-        },
-        {
-          id: `tag-manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          name: 'Manual Tag',
-          normalized: `manual-tag-${Date.now()}`,
-          localizedNames: { 'zh-CN': '手动标签', 'en-US': 'Manual Tag' },
-          origin: 'manual',
-        },
-      ])
-      .returning({ id: tagTable.id });
-    createdTagIds.push(scienceTag!.id, manualTag!.id);
-    const patched = await patchWork(workId, {
-      tags: [{ id: scienceTag!.id }, { id: manualTag!.id }],
-      sources: [{ id: manualSourceId }],
-      description: 'A hand-written description that is long enough to count.',
-    });
-    expect(patched.status, await patched.clone().text()).toBe(200);
-    const body = (await patched.json()) as {
-      tags: TaxonomyReference[];
-      sources: SourceReference[];
-      metadataProvenance: Record<string, string | undefined>;
-    };
-    expect(body.tags.map((tag) => tag.names['en-US']).sort()).toEqual(['Manual Tag', 'Science'].sort());
-    expect(body.sources.map((source) => source.name).sort()).toEqual(['Standard Ebooks', 'Test Publisher'].sort());
-
-    await fillWorkMetadata(workId);
-
-    const tagNames = await db
-      .select({ name: tagTable.name })
-      .from(readingWorkTagTable)
-      .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
-      .where(eq(readingWorkTagTable.workId, workId))
-      .orderBy(tagTable.name);
-    expect(tagNames.map((row) => row.name).sort()).toEqual(['Manual Tag', 'Science'].sort());
-
-    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(work!.description).toBe('A hand-written description that is long enough to count.');
-    expect(work!.descriptionProvenance).toBe('manual');
-
-    const detail = await app.request(`/api/admin/catalog/works/${workId}`, { headers: { Cookie: adminCookie } });
-    const apiWork = (await detail.json()) as { metadataProvenance: Record<string, string | undefined> };
-    expect(apiWork.metadataProvenance.description).toBe('manual');
-    expect(apiWork.metadataProvenance.tags).toBe('manual');
-
-    const manualRows = await db.select().from(readingWorkTagTable).where(eq(readingWorkTagTable.workId, workId));
-    expect(manualRows).toHaveLength(2);
-
-    const sourceRows = await db
-      .select({ provenance: readingWorkSourceTable.provenance })
-      .from(readingWorkSourceTable)
-      .where(eq(readingWorkSourceTable.workId, workId))
-      .orderBy(readingWorkSourceTable.sourceId);
-    expect(sourceRows.map((r) => r.provenance).sort()).toEqual(['extracted', 'manual']);
-  });
-
   it('re-fill preserves ai provenance for AI-filled description/tags (P1 regression)', async () => {
     const workId = await uploadAndFill(
       await buildEpubBytes({
@@ -310,12 +159,13 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
         descriptionProvenance: 'ai',
       })
       .where(eq(readingWorkTable.id, workId));
-    await db
+    const tagId = `tag-ai-provenance-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const tagName = `AI Tag ${tagId}`;
+    const [aiRow] = await db
       .insert(tagTable)
-      .values({ id: 'tag-ai-provenance', name: 'AI Tag', normalized: 'aitag' })
-      .onConflictDoNothing();
-    createdTagIds.push('tag-ai-provenance');
-    const [aiRow] = await db.select({ id: tagTable.id }).from(tagTable).where(eq(tagTable.name, 'AI Tag'));
+      .values({ id: tagId, name: tagName, normalized: tagId.toLowerCase() })
+      .returning({ id: tagTable.id });
+    createdTagIds.push(aiRow!.id);
     await db.insert(readingWorkTagTable).values({ workId, tagId: aiRow!.id, provenance: 'ai' }).onConflictDoNothing();
 
     await fillWorkMetadata(workId);
@@ -331,112 +181,6 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
       .from(readingWorkTagTable)
       .where(eq(readingWorkTagTable.workId, workId));
     expect(aiTagRows.some((row) => row.provenance === 'ai')).toBe(true);
-  });
-
-  it('updateWork sets/clears category with manual provenance', async () => {
-    const workId = await uploadAndFill(
-      await buildEpubBytes({
-        title: 'Category Book',
-        chapters: [{ href: 'chapter-1.xhtml', content: '<html><body><p>Body.</p></body></html>' }],
-      }),
-    );
-
-    const [category] = await db
-      .insert(categoryTable)
-      .values({
-        id: `category-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: 'Science Fiction',
-        normalized: `science-fiction-${Date.now()}`,
-        localizedNames: { 'zh-CN': '科幻', 'en-US': 'Science Fiction' },
-        origin: 'manual',
-      })
-      .returning({ id: categoryTable.id });
-    createdCategoryIds.push(category!.id);
-    const setResponse = await patchWork(workId, { category: { id: category!.id } });
-    expect(setResponse.status).toBe(200);
-    const setBody = (await setResponse.json()) as {
-      category: TaxonomyReference | null;
-      metadataProvenance: Record<string, string | undefined>;
-    };
-    expect(setBody.category?.names['en-US']).toBe('Science Fiction');
-    expect(setBody.metadataProvenance.category).toBe('manual');
-
-    const clearResponse = await patchWork(workId, { category: null });
-    expect(clearResponse.status).toBe(200);
-    const clearBody = (await clearResponse.json()) as {
-      category: TaxonomyReference | null;
-      metadataProvenance: Record<string, string | undefined>;
-    };
-    expect(clearBody.category).toBeNull();
-    expect(clearBody.metadataProvenance.category).toBeUndefined();
-
-    const rows = await db.select().from(readingWorkCategoryTable).where(eq(readingWorkCategoryTable.workId, workId));
-    expect(rows).toHaveLength(0);
-  });
-
-  it('clears manual associations when the patch omits them (manual-only scope)', async () => {
-    const workId = await uploadAndFill(
-      await buildEpubBytes({
-        title: 'Clear Book',
-        subjects: ['Science'],
-        chapters: [{ href: 'chapter-1.xhtml', content: '<html><body><p>Body.</p></body></html>' }],
-      }),
-    );
-    const [temporaryTag] = await db
-      .insert(tagTable)
-      .values({
-        id: `tag-temporary-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: 'Temporary',
-        normalized: `temporary-${Date.now()}`,
-        localizedNames: { 'zh-CN': '临时', 'en-US': 'Temporary' },
-        origin: 'manual',
-      })
-      .returning({ id: tagTable.id });
-    createdTagIds.push(temporaryTag!.id);
-    await patchWork(workId, { tags: [{ id: temporaryTag!.id }], sources: [{ id: manualSourceId }] });
-
-    const cleared = await patchWork(workId, { tags: [], sources: [] });
-    expect(cleared.status).toBe(200);
-    const body = (await cleared.json()) as { tags: TaxonomyReference[]; sources: TaxonomyReference[] };
-    expect(body.tags).toEqual([]);
-    expect(body.sources).toEqual([]);
-
-    const tagNames = await db
-      .select({ name: tagTable.name })
-      .from(readingWorkTagTable)
-      .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
-      .where(eq(readingWorkTagTable.workId, workId))
-      .orderBy(tagTable.name);
-    expect(tagNames.map((row) => row.name)).toEqual([]);
-  });
-
-  it('retry resumes a failed metadata step (no body → failedStep)', async () => {
-    const workId = await uploadAndFill(
-      await buildEpubBytes({
-        title: 'Retry Fill Book',
-        chapters: [{ href: 'chapter-1.xhtml', content: '<html><body><p>Body.</p></body></html>' }],
-      }),
-    );
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'failed',
-        originMeta: { failedStep: 'metadata', lastError: 'boom' },
-      })
-      .where(eq(readingWorkTable.id, workId));
-
-    const response = await app.request(`/api/admin/catalog/works/${workId}/workflow/retry`, {
-      method: 'POST',
-      headers: { Cookie: adminCookie },
-    });
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as { processingStatus: string; failedStep: string | null };
-    expect(body.processingStatus).toBe('metadata');
-    expect(body.failedStep).toBeNull();
-
-    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(work!.processingStatus).toBe('metadata');
-    expect(work!.originMeta.lastError).toBeUndefined();
   });
 
   it('keeps an active claim exclusive and lets a new attempt recover an expired lease', async () => {
@@ -481,22 +225,5 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     expect(
       await completeWorkflowStep(workId, 'ready', undefined, 'processing', retryJobToken, 'parse', 'attempt-b'),
     ).toBe(true);
-  });
-
-  it('refuses workflow retry for non-EPUB works', async () => {
-    const created = await app.request('/api/admin/catalog/works', {
-      method: 'POST',
-      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Text Retry Book', body: '<p>Body.</p>' }),
-    });
-    expect(created.status).toBe(201);
-    const work = (await created.json()) as { id: string };
-    createdWorkIds.push(work.id);
-
-    const response = await app.request(`/api/admin/catalog/works/${work.id}/workflow/retry`, {
-      method: 'POST',
-      headers: { Cookie: adminCookie },
-    });
-    expect(response.status).toBe(400);
   });
 });

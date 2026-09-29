@@ -11,15 +11,12 @@ import {
   user as userTable,
   userLibraryItem as userLibraryItemTable,
 } from '@gloaming/db';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import type { LibraryData } from '@gloaming/shared/library';
-import type { AdminWork } from '@gloaming/shared/works';
 
 import app from '@/app';
 import { db } from '@/infra/db';
 
-import { seedReadyDefaultAudioForWork } from '../../../helpers/publish-audio-fixture';
-import { ensureWorkTaxonomyFixture } from '../../../helpers/taxonomy-fixture';
+import { createCatalogWorkFixture } from '../../../helpers/catalog-work-fixture';
 
 const password = 'password123';
 const { sendAuthMailMock } = vi.hoisted(() => ({ sendAuthMailMock: vi.fn().mockResolvedValue(undefined) }));
@@ -40,17 +37,16 @@ function cookieHeader(response: Response): string {
   return single ? single.split(';')[0]! : '';
 }
 
-async function createSession(role: 'user' | 'admin' = 'user') {
-  const email = uniqueEmail(role);
-  const username = `${role}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+async function createSession() {
+  const email = uniqueEmail('user');
+  const username = `user_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
   const signup = await app.request('/api/auth/sign-up/email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-    body: JSON.stringify({ email, password, name: role, username }),
+    body: JSON.stringify({ email, password, name: 'user', username }),
   });
   expect(signup.status).toBe(200);
   await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.email, email));
-  if (role === 'admin') await db.update(userTable).set({ role: AUTH_ADMIN_ROLE }).where(eq(userTable.email, email));
   const login = await app.request('/api/auth/sign-in/email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
@@ -71,33 +67,11 @@ describe('Library HTTP', () => {
   });
 
   it('keeps reading progress separate from Catalog membership until explicitly saved', async () => {
-    const admin = await createSession('admin');
-    const learner = await createSession('user');
-    createdEmails.push(admin.email, learner.email);
+    const learner = await createSession();
+    createdEmails.push(learner.email);
 
-    const create = await app.request('/api/admin/catalog/works', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
-      body: JSON.stringify({ title: 'Library Ocean', body: 'The sea is wide.' }),
-    });
-    expect(create.status).toBe(201);
-    const work = (await create.json()) as AdminWork;
+    const work = await createCatalogWorkFixture({ title: 'Library Ocean', body: 'The sea is wide.' });
     createdWorkIds.push(work.id);
-    const taxonomyUpdate = await app.request(`/api/admin/catalog/works/${work.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
-      body: JSON.stringify(await ensureWorkTaxonomyFixture('library')),
-    });
-    expect(taxonomyUpdate.status).toBe(200);
-    await seedReadyDefaultAudioForWork(work.id);
-    expect(
-      (
-        await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
-          method: 'POST',
-          headers: { cookie: admin.cookie },
-        })
-      ).status,
-    ).toBe(200);
 
     const opened = await app.request(`/api/reader/works/${work.id}/state`, {
       method: 'PATCH',
@@ -180,39 +154,6 @@ describe('Library HTTP', () => {
       .where(and(eq(readingStateTable.userId, learner.userId), eq(readingStateTable.workId, work.id)));
     expect(progressAfterRemoval).toEqual(progressBeforeMembership);
     expect(await db.select().from(readingDayTable).where(eq(readingDayTable.userId, learner.userId))).toHaveLength(1);
-
-    expect(
-      (
-        await app.request(`/api/library/${work.id}`, {
-          method: 'POST',
-          headers: { cookie: learner.cookie },
-        })
-      ).status,
-    ).toBe(204);
-    expect(
-      (
-        await app.request(`/api/admin/catalog/works/${work.id}/unpublish`, {
-          method: 'POST',
-          headers: { cookie: admin.cookie },
-        })
-      ).status,
-    ).toBe(200);
-    const hiddenAfterUnpublish = await app.request('/api/library', { headers: { cookie: learner.cookie } });
-    expect(((await hiddenAfterUnpublish.json()) as LibraryData).items).toEqual([]);
-    expect(
-      (
-        await app.request(`/api/library/${work.id}`, {
-          method: 'POST',
-          headers: { cookie: learner.cookie },
-        })
-      ).status,
-    ).toBe(404);
-    expect(
-      await db
-        .select()
-        .from(readingStateTable)
-        .where(and(eq(readingStateTable.userId, learner.userId), eq(readingStateTable.workId, work.id))),
-    ).toEqual(progressBeforeMembership);
   });
 
   it('includes Personal ownership and never creates a saved Catalog row for Personal Works', async () => {
@@ -275,16 +216,13 @@ describe('Library HTTP', () => {
   });
 
   it('requires authentication and rejects unpublished Catalog Works', async () => {
-    const admin = await createSession('admin');
     const learner = await createSession();
-    createdEmails.push(admin.email, learner.email);
-    const create = await app.request('/api/admin/catalog/works', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
-      body: JSON.stringify({ title: 'Unpublished Library Work', body: 'Not published.' }),
+    createdEmails.push(learner.email);
+    const work = await createCatalogWorkFixture({
+      title: 'Unpublished Library Work',
+      body: 'Not published.',
+      publishedAt: null,
     });
-    expect(create.status).toBe(201);
-    const work = (await create.json()) as AdminWork;
     createdWorkIds.push(work.id);
     expect((await app.request('/api/library')).status).toBe(401);
     expect((await app.request('/api/shelf', { headers: { cookie: learner.cookie } })).status).toBe(404);

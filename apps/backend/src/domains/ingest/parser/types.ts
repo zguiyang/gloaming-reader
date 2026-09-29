@@ -1,4 +1,4 @@
-import type { WorkOriginKind } from '@gloaming/shared/works';
+import type { WorkOriginKind } from '@/domains/works/work-origin';
 
 /** One resolved image referenced by a parsed chapter (deduped by token). */
 export type ParsedImage = {

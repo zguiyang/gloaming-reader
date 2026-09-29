@@ -34,19 +34,9 @@ export const ERROR_CODES = {
   },
 
   WORK: {
-    CREATE_FAILED: 'api.errors.work.createFailed',
-    CREATE_PART_FAILED: 'api.errors.work.createPartFailed',
     UPLOAD_EPUB_FAILED: 'api.errors.work.uploadEpubFailed',
     RESERVE_PARSE_FAILED: 'api.errors.work.reserveParseFailed',
-    PUBLISH_INCOMPLETE: 'api.errors.work.publishIncomplete',
-    UNPUBLISH_NOT_PUBLISHED: 'api.errors.work.unpublishNotPublished',
-    RETRY_EPUB_ONLY: 'api.errors.work.retryEpubOnly',
-    UNPUBLISH_BEFORE_RETRY: 'api.errors.work.unpublishBeforeRetry',
-    NO_RETRYABLE_STEPS: 'api.errors.work.noRetryableSteps',
-    PROCESSING_IN_PROGRESS: 'api.errors.work.processingInProgress',
-    MANUAL_AUDIO_REQUIRED: 'api.errors.work.manualAudioRequired',
     STATE_CHANGED: 'api.errors.work.stateChanged',
-    UNPUBLISH_FIRST: 'api.errors.work.unpublishFirst',
   },
 
   TAXONOMY: {

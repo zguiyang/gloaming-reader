@@ -8,7 +8,6 @@ import {
 } from '@gloaming/db';
 import { ASSIST_SSE_EVENT, type AssistSseDone, type AssistSseError } from '@gloaming/shared/assist';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
-import type { AdminWork } from '@gloaming/shared/works';
 
 import app from '@/app';
 import * as aiService from '@/domains/ai';
@@ -18,8 +17,7 @@ import { HTTP_STATUS } from '@/shared/constants';
 import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
-import { seedReadyDefaultAudioForWork } from '../../../helpers/publish-audio-fixture';
-import { ensureWorkTaxonomyFixture } from '../../../helpers/taxonomy-fixture';
+import { createCatalogWorkFixture } from '../../../helpers/catalog-work-fixture';
 
 const password = 'password123';
 
@@ -78,31 +76,8 @@ async function createSession(role: 'user' | 'admin' = 'user') {
   return { email, cookie: cookieHeader(login) };
 }
 
-async function createPublishedWork(adminCookie: string, title: string, body: string): Promise<AdminWork> {
-  const create = await app.request('/api/admin/catalog/works', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', cookie: adminCookie },
-    body: JSON.stringify({ title, body }),
-  });
-  expect(create.status).toBe(201);
-  const work = (await create.json()) as AdminWork;
-  const taxonomy = await ensureWorkTaxonomyFixture('assist');
-  const taxonomyUpdate = await app.request(`/api/admin/catalog/works/${work.id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', cookie: adminCookie },
-    body: JSON.stringify(taxonomy),
-  });
-  expect(taxonomyUpdate.status).toBe(200);
-  await seedReadyDefaultAudioForWork(work.id);
-  expect(
-    (
-      await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
-        method: 'POST',
-        headers: { cookie: adminCookie },
-      })
-    ).status,
-  ).toBe(200);
-  return work;
+async function createPublishedWork(title: string, body: string) {
+  return createCatalogWorkFixture({ title, body });
 }
 
 type ParsedSse = { event?: string; data: string };
@@ -151,15 +126,10 @@ describe('Assist HTTP', () => {
   });
 
   it('streams assist reply via ai.stream and surfaces AI errors as SSE error events', async () => {
-    const admin = await createSession('admin');
     const user = await createSession();
-    createdEmails.push(admin.email, user.email);
+    createdEmails.push(user.email);
 
-    const work = await createPublishedWork(
-      admin.cookie,
-      'Assist Test',
-      'The fox jumped over the lazy dog near the river.',
-    );
+    const work = await createPublishedWork('Assist Test', 'The fox jumped over the lazy dog near the river.');
     createdWorkIds.push(work.id);
     const partId = work.parts[0]!.id;
 
@@ -231,15 +201,10 @@ describe('Assist HTTP', () => {
   });
 
   it('accepts gist without selection and omits suggestions when follow-ups fail', async () => {
-    const admin = await createSession('admin');
     const user = await createSession();
-    createdEmails.push(admin.email, user.email);
+    createdEmails.push(user.email);
 
-    const work = await createPublishedWork(
-      admin.cookie,
-      'Gist Test',
-      'The ocean covers more than seventy percent of Earth.',
-    );
+    const work = await createPublishedWork('Gist Test', 'The ocean covers more than seventy percent of Earth.');
     createdWorkIds.push(work.id);
     const partId = work.parts[0]!.id;
 
@@ -272,11 +237,10 @@ describe('Assist HTTP', () => {
   });
 
   it('rejects meaning without selection and qa without question', async () => {
-    const admin = await createSession('admin');
     const user = await createSession();
-    createdEmails.push(admin.email, user.email);
+    createdEmails.push(user.email);
 
-    const work = await createPublishedWork(admin.cookie, 'Validation Test', 'Hello world.');
+    const work = await createPublishedWork('Validation Test', 'Hello world.');
     createdWorkIds.push(work.id);
     const partId = work.parts[0]!.id;
 
@@ -304,11 +268,10 @@ describe('Assist HTTP', () => {
   });
 
   it('accepts qa without selection when question is present', async () => {
-    const admin = await createSession('admin');
     const user = await createSession();
-    createdEmails.push(admin.email, user.email);
+    createdEmails.push(user.email);
 
-    const work = await createPublishedWork(admin.cookie, 'QA Test', 'Birds fly south in winter.');
+    const work = await createPublishedWork('QA Test', 'Birds fly south in winter.');
     createdWorkIds.push(work.id);
     const partId = work.parts[0]!.id;
 
@@ -338,16 +301,11 @@ describe('Assist HTTP', () => {
   });
 
   it('appends a second ask to the same conversation and rejects wrong work id', async () => {
-    const admin = await createSession('admin');
     const user = await createSession();
-    createdEmails.push(admin.email, user.email);
+    createdEmails.push(user.email);
 
-    const work = await createPublishedWork(
-      admin.cookie,
-      'Resume Test',
-      'The fox jumped over the lazy dog near the river.',
-    );
-    const other = await createPublishedWork(admin.cookie, 'Other', 'Another published work body.');
+    const work = await createPublishedWork('Resume Test', 'The fox jumped over the lazy dog near the river.');
+    const other = await createPublishedWork('Other', 'Another published work body.');
     createdWorkIds.push(work.id, other.id);
     const partId = work.parts[0]!.id;
     const otherPartId = other.parts[0]!.id;
@@ -423,15 +381,10 @@ describe('Assist HTTP', () => {
   });
 
   it('still returns reply when transcript persist fails', async () => {
-    const admin = await createSession('admin');
     const user = await createSession();
-    createdEmails.push(admin.email, user.email);
+    createdEmails.push(user.email);
 
-    const work = await createPublishedWork(
-      admin.cookie,
-      'Persist Fail',
-      'The fox jumped over the lazy dog near the river.',
-    );
+    const work = await createPublishedWork('Persist Fail', 'The fox jumped over the lazy dog near the river.');
     createdWorkIds.push(work.id);
     const partId = work.parts[0]!.id;
 

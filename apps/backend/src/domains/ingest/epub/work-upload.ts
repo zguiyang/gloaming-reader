@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { contentAsset as contentAssetTable, readingWork as readingWorkTable } from '@gloaming/db';
-import type {
-  CreateEpubWorkResult,
-  WorkOriginKind,
-  WorkProcessingStatus,
-  WorkVisibility,
-} from '@gloaming/shared/works';
+import type { WorkProcessingStatus, WorkVisibility } from '@gloaming/shared/works';
 import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
 
 import { JOB_CONTENT_PARSE } from '@/application/jobs/content-parse';
@@ -52,23 +47,19 @@ export async function storeEpubSource(input: { fileName: string; body: Buffer; c
   return acquireUploadedObject({ kind: 'file', ...input, spec: EPUB_UPLOAD_SPEC });
 }
 
-export async function reuseEpubSource(input: { fileName: string; contentHash: string }) {
-  return acquireUploadedObject({ kind: 'hash', ...input, spec: EPUB_UPLOAD_SPEC });
-}
-
 /** Shared persistence core; each entry point supplies its own ownership and visibility policy. */
 export async function createEpubIngestWork(input: {
   fileName: string;
   meta: UploadedFileMeta;
   reused: boolean;
-  originKind: Extract<WorkOriginKind, 'admin_epub' | 'user_epub'>;
+  originKind: 'user_epub';
   ownerUserId: string | null;
   visibility: WorkVisibility;
   processingStatus?: WorkProcessingStatus;
   retryJobToken?: string;
   workId?: string;
   assetId?: string;
-}): Promise<CreateEpubWorkResult> {
+}): Promise<{ id: string; title: string; processingStatus: WorkProcessingStatus }> {
   const workId = input.workId ?? randomUUID();
   const fileName = sanitizeEpubFileName(input.fileName) || 'upload.epub';
   const title = fileName.replace(/\.epub$/i, '').slice(0, 200) || 'Untitled';
@@ -116,14 +107,6 @@ export async function createEpubIngestWork(input: {
     id: workId,
     title,
     processingStatus,
-    originKind: input.originKind,
-    originMeta,
-    asset: {
-      storageKey: input.meta.storageKey,
-      mimeType: input.meta.mimeType,
-      contentHash: input.meta.contentHash,
-      size: input.meta.size,
-    },
   };
 }
 

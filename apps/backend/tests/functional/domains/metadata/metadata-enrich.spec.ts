@@ -10,11 +10,7 @@ import {
   readingWorkTag as readingWorkTagTable,
   tag as tagTable,
   uploadedObject as uploadedObjectTable,
-  user as userTable,
-  verification as verificationTable,
 } from '@gloaming/db';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
-import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
 import { processMetadataEnrich } from '@/application/jobs/metadata-enrich';
@@ -35,26 +31,17 @@ import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 import { buildEpubBytes } from '../../../helpers/epub-builder';
+import { createHistoricalCatalogEpubFixture } from '../../../helpers/historical-catalog-epub-fixture';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
-const { invokeAiMock, sendAuthMailMock } = vi.hoisted(() => ({
+const { invokeAiMock } = vi.hoisted(() => ({
   invokeAiMock: vi.fn(),
-  sendAuthMailMock: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/domains/ai', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return { ...actual, invokeAi: invokeAiMock };
 });
-
-vi.mock('@/infra/auth/mail', async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
-  return { ...actual, sendAuthMail: sendAuthMailMock };
-});
-
-import app from '@/app';
-
-const password = 'password123';
 
 describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   const suiteRunId = randomUUID();
@@ -63,8 +50,6 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   const createdCategoryIds: string[] = [];
   const createdContentHashes: string[] = [];
   const createdTagIds: string[] = [];
-  let adminCookie = '';
-  let adminEmail = '';
 
   function suiteLabel(fragment: string): string {
     return `metadata-enrich-${fragment}-${suiteRunId}`;
@@ -185,21 +170,6 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   beforeAll(async () => {
     memory.store.clear();
     setObjectStoreForTests(memory);
-    adminEmail = `admin-${suiteRunId}@example.com`;
-    const username = `admin_${suiteRunId.replace(/-/g, '').slice(0, 12)}`;
-    await app.request('/api/auth/sign-up/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-      body: JSON.stringify({ email: adminEmail, password, name: 'admin', username }),
-    });
-    await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.email, adminEmail));
-    await db.update(userTable).set({ role: AUTH_ADMIN_ROLE }).where(eq(userTable.email, adminEmail));
-    const login = await app.request('/api/auth/sign-in/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-      body: JSON.stringify({ email: adminEmail, password }),
-    });
-    adminCookie = cookieHeader(login);
   });
 
   afterAll(async () => {
@@ -215,17 +185,6 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     if (createdTagIds.length > 0) {
       await db.delete(tagTable).where(inArray(tagTable.id, createdTagIds));
     }
-    if (adminEmail) {
-      const [adminUser] = await db
-        .select({ id: userTable.id })
-        .from(userTable)
-        .where(eq(userTable.email, adminEmail))
-        .limit(1);
-      if (adminUser) {
-        await db.delete(verificationTable).where(eq(verificationTable.value, adminUser.id));
-      }
-      await db.delete(userTable).where(eq(userTable.email, adminEmail));
-    }
     resetObjectStoreCache();
   });
 
@@ -236,15 +195,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   }): Promise<string> {
     const bytes = await buildEpubBytes({ title: input.title, chapters: [chapter], ...input });
     createdContentHashes.push(hashFileContent(bytes));
-    const form = new FormData();
-    form.append('file', new File([new Blob([bytes])], 'book.epub', { type: 'application/epub+zip' }));
-    const response = await app.request('/api/admin/catalog/works/epub', {
-      method: 'POST',
-      headers: { Cookie: adminCookie },
-      body: form,
-    });
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createHistoricalCatalogEpubFixture({ fileName: 'book.epub', bytes });
     createdWorkIds.push(created.id);
     await runContentParseWorkflow(created.id);
     const [parsed] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
@@ -270,17 +221,25 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     return created.id;
   }
 
-  async function fetchAdminWork(workId: string) {
-    const response = await app.request(`/api/admin/catalog/works/${workId}`, { headers: { Cookie: adminCookie } });
-    expect(response.status).toBe(200);
-    return (await response.json()) as {
-      tags: TaxonomyReference[];
-      metadataProvenance: Record<string, string | undefined>;
+  async function fetchWorkMetadata(workId: string) {
+    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    const tags = await db
+      .select({ name: tagTable.name, provenance: readingWorkTagTable.provenance })
+      .from(readingWorkTagTable)
+      .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
+      .where(eq(readingWorkTagTable.workId, workId));
+    const categories = await db
+      .select({ provenance: readingWorkCategoryTable.provenance })
+      .from(readingWorkCategoryTable)
+      .where(eq(readingWorkCategoryTable.workId, workId));
+    return {
+      tags: tags.map((tag) => tag.name),
+      metadataProvenance: {
+        description: work?.descriptionProvenance ?? undefined,
+        tags: tags[0]?.provenance,
+        category: categories[0]?.provenance,
+      },
     };
-  }
-
-  function tagLabels(tags: TaxonomyReference[]): string[] {
-    return tags.map((tag) => tag.names['en-US'] ?? tag.names['zh-CN'] ?? '');
   }
 
   beforeEach(() => {
@@ -377,10 +336,10 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       expect.arrayContaining(['tags', 'category']),
     );
 
-    const apiWork = await fetchAdminWork(workId);
-    expect(tagLabels(apiWork.tags).sort()).toEqual([fablesName, moralityName].sort());
+    const apiWork = await fetchWorkMetadata(workId);
+    expect(apiWork.tags.sort()).toEqual([fablesName, moralityName].sort());
     expect(apiWork.metadataProvenance.tags).toBe('ai');
-    expect(tagLabels(apiWork.tags)).not.toContain(lcshName);
+    expect(apiWork.tags).not.toContain(lcshName);
 
     const provenances = await db
       .select({ provenance: readingWorkTagTable.provenance })
@@ -426,9 +385,9 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       .where(eq(readingWorkTagTable.workId, workId));
     expect(tagRows.map((r) => r.provenance)).toEqual(['ai', 'ai']);
 
-    const apiWork = await fetchAdminWork(workId);
+    const apiWork = await fetchWorkMetadata(workId);
     expect(apiWork.metadataProvenance).toMatchObject({ description: 'ai', tags: 'ai', category: 'ai' });
-    expect(tagLabels(apiWork.tags).sort()).toEqual([adventureName, spaceName].sort());
+    expect(apiWork.tags.sort()).toEqual([adventureName, spaceName].sort());
 
     const [spaceTag] = await db
       .select({ origin: tagTable.origin })
@@ -479,8 +438,8 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
     expect(work!.processingStatus).toBe('ready');
 
-    const apiWork = await fetchAdminWork(workId);
-    expect(tagLabels(apiWork.tags)).toEqual([reuseTagName]);
+    const apiWork = await fetchWorkMetadata(workId);
+    expect(apiWork.tags).toEqual([reuseTagName]);
     expect(apiWork.metadataProvenance.tags).toBe('ai');
 
     const [tag] = await db.select({ origin: tagTable.origin }).from(tagTable).where(eq(tagTable.id, reuseTagId));
@@ -539,14 +498,14 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       origin: 'manual',
     });
 
-    await app.request(`/api/admin/catalog/works/${workId}`, {
-      method: 'PATCH',
-      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    await db
+      .update(readingWorkTable)
+      .set({
         description: 'A solid hand-written description that is long enough for the manual requirement.',
-        tags: [{ id: manualTagId }],
-      }),
-    });
+        descriptionProvenance: 'manual',
+      })
+      .where(eq(readingWorkTable.id, workId));
+    await db.insert(readingWorkTagTable).values({ workId, tagId: manualTagId, provenance: 'manual' });
 
     invokeAiMock.mockResolvedValueOnce({
       content: { category: { id: null, name: schemaCategoryName } },
@@ -566,7 +525,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       .where(eq(readingWorkCategoryTable.workId, workId));
     expect(categoryRows[0]!.provenance).toBe('ai');
 
-    const apiWork = await fetchAdminWork(workId);
+    const apiWork = await fetchWorkMetadata(workId);
     expect(apiWork.metadataProvenance.category).toBe('ai');
   });
 
@@ -584,14 +543,14 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
       origin: 'manual',
     });
 
-    await app.request(`/api/admin/catalog/works/${workId}`, {
-      method: 'PATCH',
-      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tags: [{ id: manualTagId }],
+    await db
+      .update(readingWorkTable)
+      .set({
         description: 'A solid hand-written description that is long enough.',
-      }),
-    });
+        descriptionProvenance: 'manual',
+      })
+      .where(eq(readingWorkTable.id, workId));
+    await db.insert(readingWorkTagTable).values({ workId, tagId: manualTagId, provenance: 'manual' });
 
     await enrichWorkMetadata(workId);
 
@@ -599,9 +558,9 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     expect(work!.description).toBe('A solid hand-written description that is long enough.');
     expect(work!.descriptionProvenance).toBe('manual');
 
-    const apiWork = await fetchAdminWork(workId);
+    const apiWork = await fetchWorkMetadata(workId);
     expect(apiWork.metadataProvenance.description).toBe('manual');
-    expect(tagLabels(apiWork.tags)).toContain(manualTagName);
+    expect(apiWork.tags).toContain(manualTagName);
 
     const callsAfterFirst = invokeAiMock.mock.calls.length;
     await enrichWorkMetadata(workId);
@@ -729,12 +688,3 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
     expect(parsed.categories.every((c) => Boolean(c.id))).toBe(true);
   });
 });
-
-function cookieHeader(response: Response): string {
-  const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.();
-  if (getSetCookie?.length) {
-    return getSetCookie.map((entry) => entry.split(';')[0]).join('; ');
-  }
-  const single = response.headers.get('set-cookie');
-  return single ? single.split(';')[0]! : '';
-}

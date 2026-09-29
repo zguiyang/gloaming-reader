@@ -11,7 +11,6 @@ import {
   uploadedObject as uploadedObjectTable,
   user as userTable,
 } from '@gloaming/db';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
@@ -21,6 +20,7 @@ import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
 import { buildEpubBytes } from '../../../helpers/epub-builder';
+import { createEpubWorkFixture } from '../../../helpers/epub-work-fixture';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
 const FIXTURE_PATH = fileURLToPath(new URL('./fixtures/pg11339.epub', import.meta.url));
@@ -30,15 +30,6 @@ const password = 'password123';
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
-}
-
-function cookieHeader(response: Response): string {
-  const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.();
-  if (getSetCookie?.length) {
-    return getSetCookie.map((entry) => entry.split(';')[0]).join('; ');
-  }
-  const single = response.headers.get('set-cookie');
-  return single ? single.split(';')[0]! : '';
 }
 
 async function signUp(input: { email: string; username: string; name: string }) {
@@ -53,38 +44,19 @@ async function markEmailVerified(email: string) {
   await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.email, email));
 }
 
-async function setUserRole(email: string, role: string) {
-  await db.update(userTable).set({ role }).where(eq(userTable.email, email));
-}
-
-async function signInEmail(email: string) {
-  return app.request('/api/auth/sign-in/email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-    body: JSON.stringify({ email, password }),
-  });
-}
-
-async function createAdminSession() {
-  const email = uniqueEmail('admin');
-  const username = `admin_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-  expect((await signUp({ email, username, name: 'admin' })).status).toBe(200);
+async function createUser() {
+  const email = uniqueEmail('user');
+  const username = `user_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  expect((await signUp({ email, username, name: 'user' })).status).toBe(200);
   await markEmailVerified(email);
-  await setUserRole(email, AUTH_ADMIN_ROLE);
-  const login = await signInEmail(email);
-  expect(login.status).toBe(200);
-  return cookieHeader(login);
+  const [user] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, email)).limit(1);
+  if (!user) throw new Error('Test user was not created');
+  return { email, id: user.id };
 }
 
-async function uploadEpub(cookie: string, bytes: Buffer, contentHashes: string[], fileName = 'book.epub') {
+async function createEpubWork(userId: string, bytes: Buffer, contentHashes: string[], fileName = 'book.epub') {
   contentHashes.push(hashFileContent(bytes));
-  const form = new FormData();
-  form.append('file', new File([new Blob([bytes])], fileName, { type: 'application/epub+zip' }));
-  return app.request('/api/admin/catalog/works/epub', {
-    method: 'POST',
-    headers: { Cookie: cookie },
-    body: form,
-  });
+  return createEpubWorkFixture({ userId, bytes, fileName });
 }
 
 /** Plan chapters exactly as the ingest service does (no DB side effects). */
@@ -158,12 +130,15 @@ describe('EPUB ingest pipeline with real Gutenberg book (integration)', () => {
   const memory = createMemoryObjectStore();
   const createdWorkIds: string[] = [];
   const createdContentHashes: string[] = [];
-  let adminCookie = '';
+  const createdEmails: string[] = [];
+  let userId = '';
 
   beforeAll(async () => {
     memory.store.clear();
     setObjectStoreForTests(memory);
-    adminCookie = await createAdminSession();
+    const user = await createUser();
+    createdEmails.push(user.email);
+    userId = user.id;
   });
 
   afterAll(async () => {
@@ -173,19 +148,18 @@ describe('EPUB ingest pipeline with real Gutenberg book (integration)', () => {
     if (createdContentHashes.length > 0) {
       await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdContentHashes));
     }
+    for (const email of createdEmails) await db.delete(userTable).where(eq(userTable.email, email));
     resetObjectStoreCache();
   });
 
   it('stores clean parts, nav metadata and no cover chapter', async () => {
-    const response = await uploadEpub(adminCookie, FIXTURE_BYTES, createdContentHashes, 'Aesop Fables.epub');
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createEpubWork(userId, FIXTURE_BYTES, createdContentHashes, 'Aesop Fables.epub');
     createdWorkIds.push(created.id);
 
     await runContentParseWorkflow(created.id);
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
-    expect(work!.processingStatus).toBe('parsed');
+    expect(work!.processingStatus).toBe('ready');
     const parsed = work!.originMeta.parsed as { chapterCount: number; navCount: number; imageCount: number };
     expect(parsed.navCount).toBeGreaterThan(0);
     expect(parsed.chapterCount).toBe(10);
@@ -218,12 +192,15 @@ describe('EPUB cleaning & chaptering fixes (builder fixtures)', () => {
   const memory = createMemoryObjectStore();
   const createdWorkIds: string[] = [];
   const createdContentHashes: string[] = [];
-  let adminCookie = '';
+  const createdEmails: string[] = [];
+  let userId = '';
 
   beforeAll(async () => {
     memory.store.clear();
     setObjectStoreForTests(memory);
-    adminCookie = await createAdminSession();
+    const user = await createUser();
+    createdEmails.push(user.email);
+    userId = user.id;
   });
 
   afterAll(async () => {
@@ -233,13 +210,12 @@ describe('EPUB cleaning & chaptering fixes (builder fixtures)', () => {
     if (createdContentHashes.length > 0) {
       await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdContentHashes));
     }
+    for (const email of createdEmails) await db.delete(userTable).where(eq(userTable.email, email));
     resetObjectStoreCache();
   });
 
   async function runEpub(bytes: Buffer): Promise<string> {
-    const response = await uploadEpub(adminCookie, bytes, createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createEpubWork(userId, bytes, createdContentHashes);
     createdWorkIds.push(created.id);
     await runContentParseWorkflow(created.id);
     return created.id;

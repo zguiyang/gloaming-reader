@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, FileText, HardDrive, Menu, ScrollText, Settings, Tags } from 'lucide-react';
+import { ArrowLeft, HardDrive, Menu, ScrollText, Settings, Tags } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useState } from 'react';
@@ -25,18 +25,12 @@ type AdminShellProps = {
 type AdminNavItem = {
   href: string;
   label: string;
-  icon: typeof FileText;
+  icon: typeof HardDrive;
   isActive: boolean;
 };
 
 function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
   return [
-    {
-      href: ADMIN_ROUTES.works,
-      label: t(locale, 'admin.shell.navWorks'),
-      icon: FileText,
-      isActive: pathname.startsWith(ADMIN_ROUTES.works),
-    },
     {
       href: ADMIN_ROUTES.assets,
       label: t(locale, 'admin.shell.navAssets'),
@@ -163,7 +157,7 @@ export function AdminShell({ children }: AdminShellProps) {
               </SheetHeader>
               <div className="flex min-h-0 flex-1 flex-col px-6 pt-6 pb-3">
                 <BrandMark
-                  href={ADMIN_ROUTES.works}
+                  href={ADMIN_ROUTES.assets}
                   size="md"
                   subtitle={t(locale, 'admin.shell.contentSubtitle')}
                   ariaLabel={t(locale, 'nav.brandHomeAria')}
@@ -191,7 +185,7 @@ export function AdminShell({ children }: AdminShellProps) {
             </SheetContent>
           </Sheet>
           <BrandMark
-            href={ADMIN_ROUTES.works}
+            href={ADMIN_ROUTES.assets}
             subtitle={t(locale, 'admin.shell.contentSubtitle')}
             ariaLabel={t(locale, 'nav.brandHomeAria')}
             className="min-w-0"
@@ -212,7 +206,7 @@ export function AdminShell({ children }: AdminShellProps) {
       <aside className="hidden h-full w-72 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-7 pt-7 pb-3 md:flex">
         <div className="min-h-0 flex-1">
           <BrandMark
-            href={ADMIN_ROUTES.works}
+            href={ADMIN_ROUTES.assets}
             size="md"
             subtitle={t(locale, 'admin.shell.contentSubtitle')}
             ariaLabel={t(locale, 'nav.brandHomeAria')}

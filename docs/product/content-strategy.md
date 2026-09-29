@@ -14,32 +14,33 @@ Content exists so someone can **read real English**.
 
 Gloaming is not a corpus-building project, not a course publisher, and not an AI writing mill.
 
-**MVP supply (Phase 1a):** official **ReadingWork** catalog via admin EPUB upload → **发现** → **我的书架**.  
-**Later (Phase 1b):** users bring their own files (import).  
+**Personal supply:** users bring their own files through Personal Upload → **我的书架**.
+
+**Catalog supply:** existing published Catalog Works continue through **发现** → **我的书架**. New Catalog intake is deferred to a separately decided Source ingestion policy; Admin is not a content-management surface.
 **Never:** generated “learning English” articles as the product. Gloaming does not manufacture learning materials.
 
 ---
 
 ## 2. Scope decisions (locked)
 
-| Decision                       | Stance                                                                                                      |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| MVP 1 primary supply           | **Admin EPUB upload** → processing → **ReadingWork** + **ReadingPart[]** → publish → Discover               |
-| User import                    | **Phase 1b** — deferred; not required for MVP 1                                                             |
-| Real content pipeline (EPUB)   | **In MVP 1a (admin)** — clean EPUB, organize chapters, present like a book; do **not** rewrite into lessons |
-| Official catalog               | Team-owned or licensed EPUBs; feed **发现**                                                                 |
-| `admin_text` fallback          | **Internal only** — dev/test/seed; see §2.1; **not** Short Article Library                                  |
-| Scraping / crawl               | **Out**                                                                                                     |
-| AI rewrite into graded lessons | **Out** — content generator                                                                                 |
-| AI at read time                | Explain / translate / TTS on **this part** of **this work**                                                 |
-| Memes / syllabus trees         | **Out** of identity                                                                                         |
-| User-generated marketplace     | **Out** of MVP 1                                                                                            |
+| Decision                       | Stance                                                                                                     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Personal supply                | User EPUB upload → private owned `ReadingWork` + `ReadingPart[]` → User Library                            |
+| Catalog supply                 | Existing published Catalog Works remain available in **发现**; new intake awaits Source ingestion policy   |
+| Real content pipeline (EPUB)   | Shared User upload and EPUB parsing; organize chapters and present like a book; do **not** rewrite lessons |
+| Official catalog               | Existing team-owned or licensed works continue to feed **发现**                                            |
+| `admin_text` fallback          | **Internal only** — dev/test/seed; see §2.1; **not** Short Article Library                                 |
+| Scraping / crawl               | **Out**                                                                                                    |
+| AI rewrite into graded lessons | **Out** — content generator                                                                                |
+| AI at read time                | Explain / translate / TTS on **this part** of **this work**                                                |
+| Memes / syllabus trees         | **Out** of identity                                                                                        |
+| User-generated marketplace     | **Out** of MVP 1                                                                                           |
 
 Module SSOT: [`mvp-1-modules.md`](./mvp-1-modules.md).
 
 ### 2.1 `admin_text` (internal fallback — not product)
 
-`admin_text` creates **ReadingWork + one ReadingPart (`kind=body`)** from a title + body paste. Use for:
+`admin_text` is retained as historical provenance and may be used by development/test fixtures to create **ReadingWork + one ReadingPart (`kind=body`)**. There is no Admin runtime or operator paste flow. Use only for:
 
 - Development and migration testing
 - Automated test fixtures
@@ -113,17 +114,18 @@ No 300-word cap on EPUB works. Part bodies are bounded by engineering limits onl
 
 ## 5. End-to-end flows
 
-### 5.1 Primary — Admin EPUB (MVP)
+### 5.1 Personal upload
 
 ```text
-Admin upload EPUB
-  → ReadingWork (draft → processing)
+User uploads EPUB
+  → private ReadingWork (processing)
   → Parse → ReadingPart[] (chapters)
   → ContentAsset (origin_file)
-  → Publish
-  → 发现 → 加入书架 → Reader
+  → User Library → Reader
   → Resume via ReadingState
 ```
+
+Catalog Works already published remain discoverable through `published_at`. This task does not add a replacement Catalog intake; future Source ingestion policy requires a separate decision.
 
 ### 5.2 Learner (MVP)
 
@@ -136,7 +138,7 @@ Admin upload EPUB
 
 No practice or review step.
 
-### 5.3 User import (Phase 1b — not MVP)
+### 5.3 User import
 
 ```text
 User chooses EPUB/PDF/…
@@ -147,15 +149,14 @@ User chooses EPUB/PDF/…
 
 Parse failures must be explicit. Do not LLM-“simplify” the book.
 
-### 5.4 Internal — admin_text (dev only)
+### 5.4 Internal fixture — admin_text (dev/test only)
 
 ```text
-Operator paste title + body (admin_text)
+Development/test fixture (admin_text)
   → 1 ReadingWork + 1 ReadingPart (kind=body)
-  → Publish (optional, for test catalog)
 ```
 
-Not the product supply story. Not Short Article Library.
+This is not an Admin product capability or a Catalog intake path. It is not the Short Article Library.
 
 ### 5.5 What we do not run
 
@@ -169,7 +170,7 @@ AI-generated article library as main shelf filler
 
 ## 6. Quality bar
 
-A catalog work is publishable only if:
+Future Source ingestion should add Catalog Works only when:
 
 1. A reader might **want to keep reading it**
 2. Source/rights are clear (structured `sources` channel, licensed EPUB)
@@ -179,11 +180,10 @@ A catalog work is publishable only if:
 
 ## 7. Phase note
 
-| When           | Content work                                                  |
-| -------------- | ------------------------------------------------------------- |
-| MVP (Phase 1a) | Admin EPUB pipeline + ReadingWork reader + companion on parts |
-| Phase 1b       | User import; `用户` source label in My Library                |
-| Phase 2+       | More sources via `origin_kind` — same Work/Part model         |
+| When    | Content work                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------- |
+| Current | User Personal Upload + ReadingWork reader + companion on parts; existing Catalog remains readable |
+| Future  | Catalog Source ingestion policy and additional sources via `origin_kind` — same Work/Part model   |
 
 Empty reader is a failure mode. Filling it with generated articles is a worse failure mode.
 
@@ -191,8 +191,9 @@ Empty reader is a failure mode. Filling it with generated articles is a worse fa
 
 ## 8. Revision log
 
-| Date       | Change                                                                          |
-| ---------- | ------------------------------------------------------------------------------- |
-| 2026-08-24 | ReadingWork domain; admin EPUB primary; admin_text internal; ADR-001 alignment. |
-| 2026-08-20 | Real content pipeline wording; 1a/1b split.                                     |
-| 2026-08-05 | Initial curated lean library SSOT (superseded).                                 |
+| Date       | Change                                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-24 | Historical baseline: ReadingWork domain; admin EPUB primary; admin_text internal; ADR-001 alignment.                               |
+| 2026-09-30 | AS-02 removed Admin Works CMS; preserved existing Catalog Works and Personal Upload; deferred new Catalog intake to Source policy. |
+| 2026-08-20 | Real content pipeline wording; 1a/1b split.                                                                                        |
+| 2026-08-05 | Initial curated lean library SSOT (superseded).                                                                                    |

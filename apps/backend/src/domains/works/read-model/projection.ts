@@ -9,11 +9,6 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
-/** admin_epub re-parse: hide tags in API projection (junction rows are preserved). */
-export function shouldHideTagsDuringProcessing(row: WorkRow): boolean {
-  return row.originKind === 'admin_epub' && row.processingStatus === 'processing';
-}
-
 export function toWork(
   row: WorkRow,
   tags: TaxonomyReference[],
@@ -28,8 +23,7 @@ export function toWork(
     language: row.language,
     processingStatus: row.processingStatus as Work['processingStatus'],
     visibility: row.visibility as Work['visibility'],
-    originKind: row.originKind as Work['originKind'],
-    tags: shouldHideTagsDuringProcessing(row) ? [] : tags,
+    tags,
     category,
     sources,
     coverAssetId: row.coverAssetId,

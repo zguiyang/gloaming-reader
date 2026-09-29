@@ -73,27 +73,27 @@ already present on module entrypoints (no unique root surface).
 The following semantic modules are accepted for the first migration baseline
 and remain the current public module map after root removal:
 
-| Module          | Public subpath                     | Scope                                                 |
-| --------------- | ---------------------------------- | ----------------------------------------------------- |
-| auth            | `@gloaming/shared/auth`            | auth policy and role policy                           |
-| pagination      | `@gloaming/shared/pagination`      | pagination and sorting contract                       |
-| works           | `@gloaming/shared/works`           | Work, Part, catalog, and admin-work contracts         |
-| reader          | `@gloaming/shared/reader`          | reading state and reader session contracts            |
-| reading-history | `@gloaming/shared/reading-history` | reading activity and history contracts                |
-| reading-stats   | `@gloaming/shared/reading-stats`   | work-stat derivation policy                           |
-| library         | `@gloaming/shared/library`         | Library membership and optional progress projections  |
-| recommendations | `@gloaming/shared/recommendations` | recommendation query and result contracts             |
-| dictionary      | `@gloaming/shared/dictionary`      | dictionary configuration and lookup contracts         |
-| translate       | `@gloaming/shared/translate`       | translation and bilingual-cache contracts             |
-| assist          | `@gloaming/shared/assist`          | assist request and stream contracts                   |
-| conversations   | `@gloaming/shared/conversations`   | conversation and message contracts                    |
-| taxonomy        | `@gloaming/shared/taxonomy`        | taxonomy contracts                                    |
-| tts             | `@gloaming/shared/tts`             | TTS configuration, voices, and timing contracts       |
-| tts-invocations | `@gloaming/shared/tts-invocations` | TTS invocation log contracts                          |
-| content-assets  | `@gloaming/shared/content-assets`  | ContentAsset and audio-asset contracts                |
-| assets          | `@gloaming/shared/assets`          | object-store health scan and orphan cleanup contracts |
-| llm             | `@gloaming/shared/llm`             | LLM configuration, keys, and wire registry            |
-| ai-invocations  | `@gloaming/shared/ai-invocations`  | AI invocation log contracts                           |
+| Module          | Public subpath                     | Scope                                                   |
+| --------------- | ---------------------------------- | ------------------------------------------------------- |
+| auth            | `@gloaming/shared/auth`            | auth policy and role policy                             |
+| pagination      | `@gloaming/shared/pagination`      | pagination and sorting contract                         |
+| works           | `@gloaming/shared/works`           | Work, Part, Catalog read, and Personal Upload contracts |
+| reader          | `@gloaming/shared/reader`          | reading state and reader session contracts              |
+| reading-history | `@gloaming/shared/reading-history` | reading activity and history contracts                  |
+| reading-stats   | `@gloaming/shared/reading-stats`   | work-stat derivation policy                             |
+| library         | `@gloaming/shared/library`         | Library membership and optional progress projections    |
+| recommendations | `@gloaming/shared/recommendations` | recommendation query and result contracts               |
+| dictionary      | `@gloaming/shared/dictionary`      | dictionary configuration and lookup contracts           |
+| translate       | `@gloaming/shared/translate`       | translation and bilingual-cache contracts               |
+| assist          | `@gloaming/shared/assist`          | assist request and stream contracts                     |
+| conversations   | `@gloaming/shared/conversations`   | conversation and message contracts                      |
+| taxonomy        | `@gloaming/shared/taxonomy`        | taxonomy contracts                                      |
+| tts             | `@gloaming/shared/tts`             | TTS configuration, voices, and timing contracts         |
+| tts-invocations | `@gloaming/shared/tts-invocations` | TTS invocation log contracts                            |
+| content-assets  | `@gloaming/shared/content-assets`  | ContentAsset and audio-asset contracts                  |
+| assets          | `@gloaming/shared/assets`          | object-store health scan and orphan cleanup contracts   |
+| llm             | `@gloaming/shared/llm`             | LLM configuration, keys, and wire registry              |
+| ai-invocations  | `@gloaming/shared/ai-invocations`  | AI invocation log contracts                             |
 
 This map is a public-boundary baseline, not a mandate that every module keep
 one source file. Internal files may be split or reorganized while the public

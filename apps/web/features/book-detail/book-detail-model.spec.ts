@@ -203,7 +203,6 @@ describe('toBookDetail', () => {
     language: 'en',
     processingStatus: 'ready' as const,
     visibility: 'catalog' as const,
-    originKind: 'admin_epub' as const,
     tags: [taxonomyTag],
     category: taxonomyCategory,
     sources: [taxonomySource],

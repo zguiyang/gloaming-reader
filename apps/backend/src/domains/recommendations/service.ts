@@ -35,7 +35,6 @@ function toWork(
     language: row.language,
     processingStatus: row.processingStatus as Work['processingStatus'],
     visibility: row.visibility as Work['visibility'],
-    originKind: row.originKind as Work['originKind'],
     tags,
     category,
     sources,

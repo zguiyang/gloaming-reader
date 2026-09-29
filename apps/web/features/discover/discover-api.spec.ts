@@ -40,7 +40,6 @@ function sampleWork(overrides: Partial<CatalogWork> = {}): CatalogWork {
     language: 'en',
     processingStatus: 'ready',
     visibility: 'catalog',
-    originKind: 'admin_epub',
     tags: [taxonomyTag],
     category: taxonomyCategory,
     sources: [taxonomySource],

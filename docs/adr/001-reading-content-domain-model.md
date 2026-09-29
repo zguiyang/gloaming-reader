@@ -1,6 +1,6 @@
 # ADR-001: Reading Content Domain Model
 
-**Status:** Accepted / Frozen (amended 2026-09-28 — User-first)
+**Status:** Accepted / Frozen (amended 2026-09-30 — User-first; Admin Works removal)
 **Date:** 2026-08-24  
 **Scope:** Core content domain — replaces the legacy `Article` model
 
@@ -27,9 +27,10 @@ There are **no production users** and **no historical data compatibility** requi
 5. Adopt **`ContentAsset`** for source files and derived resources (replaces `article_audio`).
 6. Keep **`Conversation`**; `subject_type = reading_work`, `subject_id = work.id`.
 7. Treat **`My Library`** as a **read-model aggregate**: works the user **owns** (`reading_work.owner_user_id = user`) **UNION** works explicitly saved via **`user_library_item`** (typically catalog works). **Continue Reading** is a separate projection of accessible in-progress `reading_state` and may contain an unsaved work.
-8. **MVP primary supply:** `admin_epub` (Admin EPUB upload → processing → publish).
-9. **`admin_text`:** internal fallback only (dev/test/seed) — **not** a product capability.
-10. **Provider settings (User-first):** `llm_provider`, `llm_app_setting`, and `tts_config` are scoped by **`owner_user_id`**: `NULL` = instance (platform) scope; non-`NULL` = that user’s scope. **Do not** introduce parallel `user_llm_*` tables.
+8. **Catalog supply:** Catalog Works remain shared `ReadingWork` records, but Admin is not a content-management or upload surface. Historical `admin_epub` / `admin_text` provenance remains intact; new Catalog intake awaits a separately decided Source ingestion policy.
+9. **Personal supply:** users upload through `POST /api/works`, creating a private owned Work in their Library. An Admin account uses this same User flow for a personal upload.
+10. **`admin_text`:** internal fallback only (dev/test/seed) — **not** a product capability or Catalog management path.
+11. **Provider settings (User-first):** `llm_provider`, `llm_app_setting`, and `tts_config` are scoped by **`owner_user_id`**: `NULL` = instance (platform) scope; non-`NULL` = that user’s scope. **Do not** introduce parallel `user_llm_*` tables.
 
 ---
 
@@ -44,7 +45,7 @@ There are **no production users** and **no historical data compatibility** requi
 
 Nominal happy path: `uploaded` → `processing` → `parsed` → `metadata` → `ready`.
 
-`failed` may be set when **any** pipeline/worker step errors — it is **not** a stage that follows only `ready` on a single linear timeline. A work may remain in `failed` until retry or admin intervention.
+`failed` may be set when **any** pipeline/worker step errors — it is **not** a stage that follows only `ready` on a single linear timeline. A work may remain in `failed` until an authorized workflow action recovers it.
 
 Allowed values **only:** `uploaded`, `processing`, `parsed`, `metadata`, `ready`, `failed`.
 TTS is a **workflow step** (`origin_meta` / worker), not a `processing_status` value.
@@ -56,7 +57,7 @@ TTS is a **workflow step** (`origin_meta` / worker), not a `processing_status` v
 
 **Forbidden on Work:** `level`, `seriesId`, `body` (legacy Article concepts); a single column mixing pipeline and publication (legacy `status` with `published` / `tts`).
 
-**Derived stats (allowed):** `wordCount`, `estimatedMinutes`, `suggestedVocabSize`, `difficultyScore`, `statsProvenance` — computed at parse time or set manually by admin.
+**Derived stats (allowed):** `wordCount`, `estimatedMinutes`, `suggestedVocabSize`, `difficultyScore`, `statsProvenance` — computed by the content pipeline and its owning ingestion policy.
 
 ### ReadingPart (`reading_part`)
 
@@ -122,15 +123,17 @@ LibraryWorks(user) =
 
 ---
 
-## Admin catalog routing (target)
+## Catalog supply boundary (current after AS-02)
 
-**Target (User-first):** Admin catalog management lives at **`/admin/catalog/works`** (web) and **`/api/admin/catalog/works`** (API). Legacy **`/admin/works`** and **`/api/admin/works`** are removed after migration.
+Admin has no Catalog Work creation, upload, editing, publication, deletion, preview, retry, or per-work asset-management surface. User EPUB upload uses **`POST /api/works`** and creates a private owned Work. Existing published Catalog Works remain readable through Catalog and Reader, and `published_at` continues to control Catalog visibility.
 
-**Current reality (PR-04):** Admin catalog pages are mounted under **`/admin/catalog/works`** and APIs under **`/api/admin/catalog/works`**, including Work- and Part-scoped audio operations. The former `/admin/works`, `/api/admin/works`, and `/api/admin/parts/:partId/audio*` routes have no aliases. Catalog reads and mutations require `owner_user_id IS NULL AND visibility = 'catalog'`.
+Historical `admin_epub` and `admin_text` provenance is retained without rewriting existing data. New Catalog intake awaits a separately decided Source ingestion policy; AS-02 does not add that policy or a replacement intake route.
 
 ---
 
 ## Migration boundary
+
+The PR-01 rows below record the implementation checkpoint as it stood at that time. The accepted 2026-09-30 AS-02 amendment above supersedes any historical Admin Works target or status in those rows.
 
 ### User-first schema foundation (PR-01 — landed on branch; follow-on epic open)
 
@@ -205,4 +208,5 @@ LibraryWorks(user) =
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-09-28 | **PR-04 implementation** — shared EPUB ingest core; Personal `user_epub` upload/read boundary; Catalog-only Admin namespace; server TTS workflow filter                                                                                              |
 | 2026-09-28 | **User-first amendment** — `processing_status` + `published_at`; `user_library_item`; `reading_state` = position only; provider `owner_user_id`; target admin catalog paths; supersede shelf-on-state clauses; clarify `failed` at any pipeline step |
+| 2026-09-30 | **AS-02 amendment** — Admin no longer manages Catalog Works; preserve historical provenance and Catalog visibility; defer new Catalog supply to a future Source ingestion policy.                                                                    |
 | 2026-08-24 | Initial ADR — frozen at Phase 1 domain alignment                                                                                                                                                                                                     |

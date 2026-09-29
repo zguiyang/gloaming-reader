@@ -9,7 +9,6 @@ import {
   uploadedObject as uploadedObjectTable,
   user as userTable,
 } from '@gloaming/db';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { runContentParseWorkflow } from '@/application/commands/run-content-parse-workflow';
@@ -19,16 +18,13 @@ import { IMAGE_OPTIMIZER_TRANSFORM_VERSION } from '@/domains/ingest/parser/image
 import { coverKey, imageKey, sha256 } from '@/domains/ingest/parser/parse-artifacts';
 import { registerParser } from '@/domains/ingest/parser/registry';
 import type { ParsedContent } from '@/domains/ingest/parser/types';
-import { resetMetadataAiOutputs } from '@/domains/ingest/reset';
 import { fillWorkMetadata } from '@/domains/metadata';
-import { failWorkflowEnqueue, rotateWorkflowJobToken } from '@/domains/works/lifecycle';
 import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
 import { buildEpubBytes, buildSampleEpubBytes } from '../../../helpers/epub-builder';
+import { createEpubWorkFixture } from '../../../helpers/epub-work-fixture';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
-import { seedReadyDefaultAudioForWork } from '../../../helpers/publish-audio-fixture';
-import { ensureWorkTaxonomyFixture } from '../../../helpers/taxonomy-fixture';
 
 const password = 'password123';
 
@@ -54,15 +50,6 @@ function parsedAttemptContent(label: string, imageByte: number): ParsedContent {
   };
 }
 
-function cookieHeader(response: Response): string {
-  const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.();
-  if (getSetCookie?.length) {
-    return getSetCookie.map((entry) => entry.split(';')[0]).join('; ');
-  }
-  const single = response.headers.get('set-cookie');
-  return single ? single.split(';')[0]! : '';
-}
-
 async function signUp(input: { email: string; username: string; name: string }) {
   return app.request('/api/auth/sign-up/email', {
     method: 'POST',
@@ -80,50 +67,34 @@ async function markEmailVerified(email: string) {
   await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.email, email));
 }
 
-async function setUserRole(email: string, role: string) {
-  await db.update(userTable).set({ role }).where(eq(userTable.email, email));
-}
-
-async function signInEmail(email: string) {
-  return app.request('/api/auth/sign-in/email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-    body: JSON.stringify({ email, password }),
-  });
-}
-
-async function createAdminSession() {
-  const email = uniqueEmail('admin');
-  const username = `admin_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-  expect((await signUp({ email, username, name: 'admin' })).status).toBe(200);
+async function createUser() {
+  const email = uniqueEmail('user');
+  const username = `user_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  expect((await signUp({ email, username, name: 'user' })).status).toBe(200);
   await markEmailVerified(email);
-  await setUserRole(email, AUTH_ADMIN_ROLE);
-  const login = await signInEmail(email);
-  expect(login.status).toBe(200);
-  return cookieHeader(login);
+  const [user] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, email)).limit(1);
+  if (!user) throw new Error('Test user was not created');
+  return { email, id: user.id };
 }
 
-async function uploadEpub(cookie: string, bytes: Buffer, contentHashes: string[]) {
+async function createEpubWork(userId: string, bytes: Buffer, contentHashes: string[]) {
   contentHashes.push(hashFileContent(bytes));
-  const form = new FormData();
-  form.append('file', new File([new Blob([bytes])], 'book.epub', { type: 'application/epub+zip' }));
-  return app.request('/api/admin/catalog/works/epub', {
-    method: 'POST',
-    headers: { Cookie: cookie },
-    body: form,
-  });
+  return createEpubWorkFixture({ userId, bytes, fileName: 'book.epub' });
 }
 
 describe('EPUB ingest pipeline', () => {
   const memory = createMemoryObjectStore();
   const createdWorkIds: string[] = [];
   const createdContentHashes: string[] = [];
-  let adminCookie = '';
+  const createdEmails: string[] = [];
+  let userId = '';
 
   beforeAll(async () => {
     memory.store.clear();
     setObjectStoreForTests(memory);
-    adminCookie = await createAdminSession();
+    const user = await createUser();
+    createdEmails.push(user.email);
+    userId = user.id;
   });
 
   afterAll(async () => {
@@ -133,14 +104,13 @@ describe('EPUB ingest pipeline', () => {
     if (createdContentHashes.length > 0) {
       await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdContentHashes));
     }
+    for (const email of createdEmails) await db.delete(userTable).where(eq(userTable.email, email));
     resetObjectStoreCache();
   });
 
   it('parses a sample EPUB into chapters, metadata, cover and images', async () => {
     const bytes = await buildSampleEpubBytes();
-    const response = await uploadEpub(adminCookie, bytes, createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createEpubWork(userId, bytes, createdContentHashes);
     createdWorkIds.push(created.id);
 
     // Upload leaves the work in `uploaded`; run parse + fill synchronously.
@@ -211,9 +181,7 @@ describe('EPUB ingest pipeline', () => {
       ],
       extraEntries: { 'images/fig1.png': pngBytes },
     });
-    const response = await uploadEpub(adminCookie, bytes, createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createEpubWork(userId, bytes, createdContentHashes);
     createdWorkIds.push(created.id);
 
     await runContentParseWorkflow(created.id);
@@ -270,9 +238,7 @@ describe('EPUB ingest pipeline', () => {
       ],
       extraEntries: { 'images/broken.png': corruptPng },
     });
-    const response = await uploadEpub(adminCookie, bytes, createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createEpubWork(userId, bytes, createdContentHashes);
     createdWorkIds.push(created.id);
 
     await expect(runContentParseWorkflow(created.id)).resolves.toBe(true);
@@ -303,9 +269,7 @@ describe('EPUB ingest pipeline', () => {
         },
       ],
     });
-    const response = await uploadEpub(adminCookie, bytes, createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createEpubWork(userId, bytes, createdContentHashes);
     createdWorkIds.push(created.id);
 
     await runContentParseWorkflow(created.id);
@@ -323,9 +287,7 @@ describe('EPUB ingest pipeline', () => {
     const zip = new (await import('jszip')).default();
     zip.file('random.txt', 'not an epub');
     const badBytes = await zip.generateAsync({ type: 'nodebuffer' });
-    const response = await uploadEpub(adminCookie, badBytes, createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createEpubWork(userId, badBytes, createdContentHashes);
     createdWorkIds.push(created.id);
 
     await expect(runContentParseWorkflow(created.id)).rejects.toThrow();
@@ -336,9 +298,7 @@ describe('EPUB ingest pipeline', () => {
   });
 
   it('fences a stale parse attempt after a new owner commits parts and objects', async () => {
-    const response = await uploadEpub(adminCookie, await buildSampleEpubBytes(), createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
+    const created = await createEpubWork(userId, await buildSampleEpubBytes(), createdContentHashes);
     createdWorkIds.push(created.id);
 
     const attemptA = parsedAttemptContent('attempt-a', 11);
@@ -353,7 +313,7 @@ describe('EPUB ingest pipeline', () => {
       attemptAStarted = resolve;
     });
     registerParser({
-      kind: 'admin_epub',
+      kind: 'user_epub',
       parse: async () => {
         parseCalls += 1;
         if (parseCalls === 1) {
@@ -387,7 +347,7 @@ describe('EPUB ingest pipeline', () => {
       const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
       const parts = await db.select().from(readingPartTable).where(eq(readingPartTable.workId, created.id));
       const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, created.id));
-      expect(work!.processingStatus).toBe('parsed');
+      expect(work!.processingStatus).toBe('ready');
       expect(parts).toHaveLength(1);
       expect(parts[0]!.body).toContain('attempt-b');
       expect(assets.filter((asset) => asset.kind === 'image')).toHaveLength(1);
@@ -397,351 +357,5 @@ describe('EPUB ingest pipeline', () => {
     } finally {
       registerParser(epubContentParser);
     }
-  });
-});
-
-describe('POST /api/admin/catalog/works/:id/workflow/retry', () => {
-  const memory = createMemoryObjectStore();
-  const createdWorkIds: string[] = [];
-  const createdContentHashes: string[] = [];
-  let adminCookie = '';
-
-  beforeAll(async () => {
-    memory.store.clear();
-    setObjectStoreForTests(memory);
-    adminCookie = await createAdminSession();
-  });
-
-  afterAll(async () => {
-    for (const workId of createdWorkIds) {
-      await db.delete(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    }
-    if (createdContentHashes.length > 0) {
-      await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdContentHashes));
-    }
-    resetObjectStoreCache();
-  });
-
-  async function retryRequest(id: string, body?: Record<string, unknown>) {
-    return app.request(`/api/admin/catalog/works/${id}/workflow/retry`, {
-      method: 'POST',
-      headers: { Cookie: adminCookie, ...(body ? { 'Content-Type': 'application/json' } : {}) },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    });
-  }
-
-  async function uploadAndRun(): Promise<string> {
-    const response = await uploadEpub(adminCookie, await buildSampleEpubBytes(), createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
-    createdWorkIds.push(created.id);
-    await runContentParseWorkflow(created.id);
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'metadata',
-      })
-      .where(eq(readingWorkTable.id, created.id));
-    await fillWorkMetadata(created.id);
-    return created.id;
-  }
-
-  it('resumes a failed work from its failed step (no body)', async () => {
-    const workId = await uploadAndRun();
-
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'failed',
-        originMeta: { failedStep: 'metadata', lastError: 'simulated failure' },
-      })
-      .where(eq(readingWorkTable.id, workId));
-
-    const retry = await retryRequest(workId);
-    expect(retry.status).toBe(200);
-    const body = (await retry.json()) as { processingStatus: string; failedStep: string | null };
-    expect(body.processingStatus).toBe('metadata');
-    expect(body.failedStep).toBeNull();
-
-    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(work!.processingStatus).toBe('metadata');
-    expect(work!.originMeta.lastError).toBeUndefined();
-  });
-
-  it('refuses to retry published works', async () => {
-    const workId = await uploadAndRun();
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'ready',
-      })
-      .where(eq(readingWorkTable.id, workId));
-    const taxonomy = await ensureWorkTaxonomyFixture('epub-ingest');
-    await app.request(`/api/admin/catalog/works/${workId}`, {
-      method: 'PATCH',
-      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify(taxonomy),
-    });
-    await seedReadyDefaultAudioForWork(workId);
-    const publish = await app.request(`/api/admin/catalog/works/${workId}/publish`, {
-      method: 'POST',
-      headers: { Cookie: adminCookie },
-    });
-    expect(publish.status).toBe(200);
-
-    const retry = await retryRequest(workId, { step: 'parse' });
-    expect(retry.status).toBe(409);
-  });
-
-  it('refuses to retry while processing', async () => {
-    const response = await uploadEpub(adminCookie, await buildSampleEpubBytes(), createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
-    createdWorkIds.push(created.id);
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'processing',
-      })
-      .where(eq(readingWorkTable.id, created.id));
-
-    const retry = await retryRequest(created.id, { step: 'parse' });
-    expect(retry.status).toBe(409);
-  });
-
-  it('allows the admin to recover an expired parse lease, but not an active one', async () => {
-    const response = await uploadEpub(adminCookie, await buildSampleEpubBytes(), createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
-    createdWorkIds.push(created.id);
-    const oldAttempt = 'expired-parse-attempt';
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'processing',
-        originMeta: {
-          retryJobToken: 'expired-retry-token',
-          workflowClaimStep: 'parse',
-          workflowClaimAttempt: oldAttempt,
-          workflowClaimLeaseExpiresAt: new Date(0).toISOString(),
-        },
-      })
-      .where(eq(readingWorkTable.id, created.id));
-
-    const retry = await retryRequest(created.id, { step: 'parse' });
-    expect(retry.status).toBe(200);
-    const [recovered] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
-    expect(recovered!.processingStatus).toBe('processing');
-    expect(recovered!.originMeta.workflowEnqueueStep).toBe('parse');
-    expect(recovered!.originMeta.workflowEnqueueAttempt).not.toBe(oldAttempt);
-  });
-
-  it('compensates parse-to-metadata enqueue failure only for the persisted enqueue attempt', async () => {
-    const response = await uploadEpub(adminCookie, await buildSampleEpubBytes(), createdContentHashes);
-    expect(response.status).toBe(201);
-    const created = (await response.json()) as { id: string };
-    createdWorkIds.push(created.id);
-    const parseAttempt = 'parse-attempt';
-    const enqueueAttempt = 'metadata-enqueue-attempt';
-    const originMeta = {
-      retryJobToken: 'parse-retry-token',
-      workflowClaimStep: 'parse',
-      workflowClaimAttempt: parseAttempt,
-      workflowClaimLeaseExpiresAt: new Date(Date.now() + 60_000).toISOString(),
-    };
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'processing',
-        originMeta,
-      })
-      .where(eq(readingWorkTable.id, created.id));
-    await expect(
-      rotateWorkflowJobToken(
-        created.id,
-        'parse',
-        'processing',
-        'parse-retry-token',
-        parseAttempt,
-        'metadata-retry-token',
-        enqueueAttempt,
-        'metadata',
-        'metadata',
-      ),
-    ).resolves.toBe(true);
-
-    await expect(
-      failWorkflowEnqueue(
-        created.id,
-        'metadata',
-        'metadata-retry-token',
-        'metadata',
-        'stale-attempt',
-        new Error('queue down'),
-      ),
-    ).resolves.toBe(false);
-    const [stillMetadata] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
-    expect(stillMetadata!.processingStatus).toBe('metadata');
-
-    await expect(
-      failWorkflowEnqueue(
-        created.id,
-        'metadata',
-        'metadata-retry-token',
-        'metadata',
-        enqueueAttempt,
-        new Error('queue down'),
-      ),
-    ).resolves.toBe(true);
-    const [failed] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
-    expect(failed!.processingStatus).toBe('failed');
-    expect(failed!.originMeta.failedStep).toBe('metadata');
-  });
-
-  it('re-running parse overwrites hand-edited fields with parsed values', async () => {
-    const workId = await uploadAndRun();
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'ready',
-      })
-      .where(eq(readingWorkTable.id, workId));
-    await app.request(`/api/admin/catalog/works/${workId}`, {
-      method: 'PATCH',
-      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Edited Title', author: 'Edited Author', description: 'Edited description' }),
-    });
-
-    const retry = await retryRequest(workId, { step: 'parse' });
-    expect(retry.status).toBe(200);
-    expect(((await retry.json()) as { processingStatus: string }).processingStatus).toBe('processing');
-
-    const beforeParts = await db
-      .select({ id: readingPartTable.id })
-      .from(readingPartTable)
-      .where(eq(readingPartTable.workId, workId));
-    const staleImageKey = `stale/${workId}/image.png`;
-    const staleCoverKey = `stale/${workId}/cover.png`;
-    const staleAudioSegmentKey = `stale/${workId}/audio-us/segment.mp3`;
-    const staleAudioChapterKey = `stale/${workId}/audio-us/chapter.mp3`;
-    memory.store.set(staleImageKey, { body: Buffer.from('stale image'), contentType: 'image/png' });
-    memory.store.set(staleCoverKey, { body: Buffer.from('stale cover'), contentType: 'image/png' });
-    memory.store.set(staleAudioSegmentKey, { body: Buffer.from('stale audio segment'), contentType: 'audio/mpeg' });
-    memory.store.set(staleAudioChapterKey, { body: Buffer.from('stale audio chapter'), contentType: 'audio/mpeg' });
-    await db.insert(contentAssetTable).values([
-      {
-        id: `stale-image-${workId}`,
-        workId,
-        kind: 'image',
-        storageKey: staleImageKey,
-        mimeType: 'image/png',
-        contentHash: 'stale-image-hash',
-        status: 'ready',
-      },
-      {
-        id: `stale-cover-${workId}`,
-        workId,
-        kind: 'cover',
-        storageKey: staleCoverKey,
-        mimeType: 'image/png',
-        contentHash: 'stale-cover-hash',
-        status: 'ready',
-      },
-      {
-        id: `stale-audio-${workId}`,
-        workId,
-        partId: null,
-        kind: 'audio_us',
-        storageKey: staleAudioChapterKey,
-        mimeType: 'audio/mpeg',
-        contentHash: 'stale-audio-hash',
-        status: 'ready',
-        meta: { objectKeys: [staleAudioSegmentKey, staleAudioChapterKey], timeline: [] },
-      },
-    ]);
-
-    const [mid] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(mid!.processingStatus).toBe('processing');
-
-    await runContentParseWorkflow(workId);
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'metadata',
-      })
-      .where(eq(readingWorkTable.id, workId));
-    await fillWorkMetadata(workId);
-
-    const afterAssets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, workId));
-    expect(afterAssets.filter((asset) => asset.kind === 'image')).toHaveLength(0);
-    expect(afterAssets.filter((asset) => asset.kind === 'cover')).toHaveLength(1);
-    expect(afterAssets.filter((asset) => asset.kind.startsWith('audio_'))).toHaveLength(0);
-    expect(memory.store.has(staleImageKey)).toBe(false);
-    expect(memory.store.has(staleCoverKey)).toBe(false);
-    expect(memory.store.has(staleAudioSegmentKey)).toBe(false);
-    expect(memory.store.has(staleAudioChapterKey)).toBe(false);
-
-    const afterParts = await db
-      .select({ id: readingPartTable.id })
-      .from(readingPartTable)
-      .where(eq(readingPartTable.workId, workId));
-    expect(afterParts.map((part) => part.id)).not.toEqual(beforeParts.map((part) => part.id));
-
-    const [after] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(after!.processingStatus).toBe('metadata');
-    expect(after!.title).toBe('The Great Book');
-    expect(after!.author).toBe('Jane Author');
-    expect(after!.description).toBe('A sample story.');
-  });
-
-  it('re-running the metadata step clears AI outputs before the next run', async () => {
-    const workId = await uploadAndRun();
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'ready',
-        description: 'AI filled summary',
-        descriptionProvenance: 'ai',
-      })
-      .where(eq(readingWorkTable.id, workId));
-
-    const retry = await retryRequest(workId, { step: 'metadata' });
-    expect(retry.status).toBe(200);
-    expect(((await retry.json()) as { processingStatus: string }).processingStatus).toBe('metadata');
-
-    // HTTP only queues — AI field wipe runs inside the fill job.
-    const [beforeReset] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(beforeReset!.description).toBe('AI filled summary');
-    await resetMetadataAiOutputs(beforeReset!);
-
-    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(work!.description).toBe('');
-    expect(work!.descriptionProvenance).toBeNull();
-  });
-
-  it('requires a failure or an explicit step, and refuses the tts step for now', async () => {
-    const workId = await uploadAndRun();
-    await db
-      .update(readingWorkTable)
-      .set({
-        processingStatus: 'ready',
-      })
-      .where(eq(readingWorkTable.id, workId));
-
-    const noStep = await retryRequest(workId);
-    expect(noStep.status).toBe(400);
-
-    const tts = await retryRequest(workId, { step: 'tts' });
-    expect(tts.status).toBe(400);
-
-    const text = await app.request('/api/admin/catalog/works', {
-      method: 'POST',
-      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'Text Guard', body: '<p>Body.</p>' }),
-    });
-    const textWork = (await text.json()) as { id: string };
-    createdWorkIds.push(textWork.id);
-    const nonEpub = await retryRequest(textWork.id, { step: 'parse' });
-    expect(nonEpub.status).toBe(400);
   });
 });

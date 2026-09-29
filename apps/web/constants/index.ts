@@ -22,11 +22,6 @@ export const AUTH_ROUTES = {
 
 export const ADMIN_ROUTES = {
   root: '/admin',
-  works: '/admin/catalog/works',
-  workNew: '/admin/catalog/works/new',
-  workDetail: (id: string) => `/admin/catalog/works/${id}` as const,
-  workPreview: (id: string) => `/admin/catalog/works/${id}/preview` as const,
-  workPreviewPart: (id: string, partId: string) => `/admin/catalog/works/${id}/preview/part/${partId}` as const,
   assets: '/admin/assets',
   config: '/admin/config',
   configTab: (tab: 'ai' | 'tts' | 'dictionary') => `/admin/config?tab=${tab}` as const,

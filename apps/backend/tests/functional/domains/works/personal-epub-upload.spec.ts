@@ -172,42 +172,10 @@ describe('POST /api/works (Personal EPUB)', () => {
       404,
     );
     expect((await app.request(`/api/reader/works/${workId}/parts`)).status).toBe(404);
-    expect(
-      (await app.request(`/api/admin/catalog/works/${workId}`, { headers: { Cookie: admin.cookie } })).status,
-    ).toBe(404);
-    const catalogList = await app.request('/api/admin/catalog/works?processingStatus=ready', {
-      headers: { Cookie: admin.cookie },
-    });
-    expect(catalogList.status).toBe(200);
-    expect((await catalogList.json()).items.some((item: { id: string }) => item.id === workId)).toBe(false);
-    expect(
-      (
-        await app.request(`/api/admin/catalog/works/${workId}/publish`, {
-          method: 'POST',
-          headers: { Cookie: admin.cookie },
-        })
-      ).status,
-    ).toBe(404);
-    expect(
-      (
-        await app.request(`/api/admin/catalog/works/${workId}/parts/${parts[0]!.id}/audio`, {
-          headers: { Cookie: admin.cookie },
-        })
-      ).status,
-    ).toBe(404);
-    expect(
-      (
-        await app.request(`/api/admin/parts/${parts[0]!.id}/audio/generate`, {
-          method: 'POST',
-          headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        })
-      ).status,
-    ).toBe(404);
-    expect((await app.request('/api/admin/works', { headers: { Cookie: admin.cookie } })).status).toBe(404);
-    expect(
-      (await app.request('/api/admin/works/epub', { method: 'POST', headers: { Cookie: admin.cookie } })).status,
-    ).toBe(404);
+    expect((await app.request(`/api/catalog/works/${workId}`, { headers: { Cookie: other.cookie } })).status).toBe(404);
+    expect(await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId))).toMatchObject([
+      expect.objectContaining({ ownerUserId: owner.userId, visibility: 'private', publishedAt: null }),
+    ]);
 
     const originAsset = assets.find((asset) => asset.kind === 'origin_file')!;
     expect((await app.request(`/api/assets/${originAsset.id}`, { headers: { Cookie: owner.cookie } })).status).toBe(
@@ -238,5 +206,32 @@ describe('POST /api/works (Personal EPUB)', () => {
     expect((await db.select().from(readingPartTable).where(eq(readingPartTable.workId, result.id))).length).toBe(0);
     const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, result.id));
     expect(assets.map((asset) => asset.kind)).toEqual(['origin_file']);
+  });
+
+  it('lets an Admin account upload a private Work through the ordinary User API', async () => {
+    const bytes = await buildSampleEpubBytes();
+    createdHashes.push(hashFileContent(bytes));
+    enqueueSpy.mockClear();
+    const response = await app.request('/api/works', {
+      method: 'POST',
+      headers: { Cookie: admin.cookie },
+      body: uploadForm('Admin Personal Book.epub', bytes),
+    });
+
+    expect(response.status).toBe(201);
+    const result = (await response.json()) as Record<string, unknown>;
+    expect(result).toEqual({ id: expect.any(String), title: 'Admin Personal Book', processingStatus: 'uploaded' });
+    const workId = result.id as string;
+    createdWorkIds.push(workId);
+    expect(enqueueSpy.mock.calls.map(([name]) => name)).toEqual(['content-parse']);
+
+    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    expect(work).toMatchObject({
+      originKind: 'user_epub',
+      ownerUserId: admin.userId,
+      visibility: 'private',
+      publishedAt: null,
+      processingStatus: 'uploaded',
+    });
   });
 });

@@ -1,9 +1,11 @@
 import { and, eq, or, sql } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@gloaming/db';
-import type { WorkflowStep, WorkProcessingStatus } from '@gloaming/shared/works';
+import type { WorkProcessingStatus } from '@gloaming/shared/works';
 
 import { db } from '@/infra/db';
+
+type WorkflowStep = 'parse' | 'metadata' | 'tts';
 
 const STEP_RUNNING_STATUS: Record<WorkflowStep, WorkProcessingStatus> = {
   parse: 'processing',

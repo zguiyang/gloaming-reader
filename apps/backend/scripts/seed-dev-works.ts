@@ -1,12 +1,13 @@
 /**
- * Idempotent dev seed: ensures at least one published work for Discover → Reader.
+ * Idempotent development fixture: ensures one published Catalog Work for Discover → Reader.
  * Run: pnpm --filter @gloaming/backend seed:dev
  */
+import { randomUUID } from 'node:crypto';
+
 import { eq } from 'drizzle-orm';
 
-import { readingWork as readingWorkTable } from '@gloaming/db';
+import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
 
-import { createAdminTextWork, publishWork, updateWork } from '../src/domains/works/admin/index.ts';
 import { db } from '../src/infra/db/index.ts';
 
 const SEED_TITLE = '[dev-seed] Morning Light';
@@ -25,7 +26,6 @@ async function main() {
   const [existing] = await db
     .select({
       id: readingWorkTable.id,
-      processingStatus: readingWorkTable.processingStatus,
       publishedAt: readingWorkTable.publishedAt,
     })
     .from(readingWorkTable)
@@ -37,23 +37,33 @@ async function main() {
     process.exit(0);
   }
 
-  let workId = existing?.id;
-  if (!workId) {
-    const created = await createAdminTextWork({
+  const workId = existing?.id ?? randomUUID();
+  if (!existing) {
+    await db.insert(readingWorkTable).values({
+      id: workId,
+      title: SEED_TITLE,
+      processingStatus: 'ready',
+      originKind: 'admin_text',
+      visibility: 'catalog',
+      ownerUserId: null,
+      publishedAt: new Date(),
+    });
+    await db.insert(readingPartTable).values({
+      id: randomUUID(),
+      workId,
+      sortOrder: 0,
+      kind: 'body',
       title: SEED_TITLE,
       body: SEED_BODY,
     });
-    workId = created.id;
-    console.log(`Created draft work: ${workId}`);
+    console.log(`Created development fixture: ${workId}`);
+  } else {
+    await db
+      .update(readingWorkTable)
+      .set({ processingStatus: 'ready', visibility: 'catalog', ownerUserId: null, publishedAt: new Date() })
+      .where(eq(readingWorkTable.id, workId));
   }
-
-  await updateWork(workId, {
-    sources: ['Dev Seed'],
-    tags: ['story', 'daily-life'],
-  });
-
-  const published = await publishWork(workId);
-  console.log(`Published dev seed work: ${published.id} — "${published.title}"`);
+  console.log(`Development fixture is available in Discover: ${workId} — "${SEED_TITLE}"`);
   process.exit(0);
 }
 

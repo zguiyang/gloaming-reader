@@ -27,39 +27,39 @@ If they only sign in and see a learning-platform home, V1 has failed.
 
 ## 2. Must include
 
-| Capability               | Notes                                                                              |
-| ------------------------ | ---------------------------------------------------------------------------------- |
-| Auth session             | Better Auth cookie session; first-party session via Next `/api` proxy              |
-| Official catalog → shelf | Browse **发现**, add to **我的书架** (creates **ReadingState**)                    |
-| **Admin EPUB upload**    | Ops uploads EPUB → processing → **ReadingWork** + **ReadingPart[]** → publish      |
-| **EPUB processing**      | Clean EPUB, chapter structure — admin pipeline in MVP 1a                           |
-| Reading experience       | Typography; chapter/part navigation; resume part + anchor                          |
-| AI companion             | Selection → explain in **this passage**; thread on **reading_work**; not chat home |
-| Translation              | Sentence or passage; bilingual view must not replace English as default            |
-| TTS                      | Listen to **current part**; degrade if audio unavailable                           |
-| User import              | Phase **1b** — not required to ship MVP 1                                          |
+| Capability               | Notes                                                                                   |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| Auth session             | Better Auth cookie session; first-party session via Next `/api` proxy                   |
+| Official catalog → shelf | Browse **发现**, add to **我的书架** (creates **ReadingState**)                         |
+| **Catalog Works**        | Existing published Works remain discoverable; new intake awaits Source ingestion policy |
+| **EPUB processing**      | User Personal Upload → shared parser → private Work; Catalog source intake is deferred  |
+| Reading experience       | Typography; chapter/part navigation; resume part + anchor                               |
+| AI companion             | Selection → explain in **this passage**; thread on **reading_work**; not chat home      |
+| Translation              | Sentence or passage; bilingual view must not replace English as default                 |
+| TTS                      | Listen to **current part**; degrade if audio unavailable                                |
+| User import              | Personal EPUB Upload through `/api/works`; remains separate from Catalog supply         |
 
-Official catalog = admin-published **ReadingWorks**. Do not block MVP on **user** upload.
+Discover continues to show existing published **ReadingWorks** according to `published_at`. Admin accounts use the same Personal Upload flow as every other user; Catalog intake awaits Source ingestion policy.
 
 ---
 
 ## 3. Must not include (V1)
 
-| Out of V1                                   | Why                                 |
-| ------------------------------------------- | ----------------------------------- |
-| Gamification / XP / shame streaks           | Duolingo                            |
-| Word-count / vocab-collecting as the center | LingQ                               |
-| SRS / daily cards / forced review           | Anki                                |
-| Complex review / practice / quiz            | Second loop                         |
-| **Lesson system / course progression**      | Course app identity                 |
-| **Practice loop**                           | Removed from codebase               |
-| Chat as home / chatting as the core         | ChatGPT reading plugin              |
-| **AI-generated article library**            | Content factory                     |
-| **Short Article Library** as product        | Superseded by ReadingWork (ADR-001) |
-| Speaking training / AI avatar / video chat  | Not a reading environment           |
-| Public social feed                          | Distraction from the page           |
-| Kitchen-sink control panels                 | Study chrome we do not copy         |
-| **User upload** in learner UI               | Phase 1b                            |
+| Out of V1                                           | Why                                                        |
+| --------------------------------------------------- | ---------------------------------------------------------- |
+| Gamification / XP / shame streaks                   | Duolingo                                                   |
+| Word-count / vocab-collecting as the center         | LingQ                                                      |
+| SRS / daily cards / forced review                   | Anki                                                       |
+| Complex review / practice / quiz                    | Second loop                                                |
+| **Lesson system / course progression**              | Course app identity                                        |
+| **Practice loop**                                   | Removed from codebase                                      |
+| Chat as home / chatting as the core                 | ChatGPT reading plugin                                     |
+| **AI-generated article library**                    | Content factory                                            |
+| **Short Article Library** as product                | Superseded by ReadingWork (ADR-001)                        |
+| Speaking training / AI avatar / video chat          | Not a reading environment                                  |
+| Public social feed                                  | Distraction from the page                                  |
+| Kitchen-sink control panels                         | Study chrome we do not copy                                |
+| **User upload** as a primary navigation destination | Upload remains available through the Personal Library flow |
 
 Do not “fill V1” with Phase 2 ideas. See [`roadmap.md`](./roadmap.md).
 
@@ -93,7 +93,7 @@ Sign in
   → Keep reading
 ```
 
-(No **user** upload in MVP 1 — admin supplies catalog via EPUB.)
+(Personal Upload is available through the User-owned Library flow; it is not a primary navigation destination. Existing Catalog Works remain available, and new intake awaits Source policy.)
 
 ### 4.3 Daily
 
@@ -114,13 +114,13 @@ There is no required Practice or Review step.
 
 **Full SSOT:** [`content-strategy.md`](./content-strategy.md).
 
-| Topic        | Stance                                                          |
-| ------------ | --------------------------------------------------------------- |
-| MVP 1 supply | **Admin EPUB** → published **ReadingWork** catalog via **发现** |
-| User import  | Phase **1b**                                                    |
-| Unit         | **ReadingWork** (+ **ReadingPart** for text) — not a lesson     |
-| `admin_text` | Internal dev/test fallback only                                 |
-| Scraping     | Out                                                             |
+| Topic           | Stance                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| Catalog supply  | Existing published **ReadingWork** via **发现**; new intake awaits Source ingestion policy |
+| Personal Upload | User EPUB → private owned Work in Library                                                  |
+| Unit            | **ReadingWork** (+ **ReadingPart** for text) — not a lesson                                |
+| `admin_text`    | Internal dev/test fallback only                                                            |
+| Scraping        | Out                                                                                        |
 
 ---
 

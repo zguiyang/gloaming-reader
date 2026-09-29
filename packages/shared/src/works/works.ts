@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-import { type ContentAssetTrack } from '../content-assets/content-assets.ts';
-import { partHasSynthAudioText } from '../content-assets/content-assets.ts';
 import {
   buildPaginationMeta,
   createSortByQuerySchema,
@@ -10,16 +8,7 @@ import {
   paginationQuerySchema,
 } from '../pagination/index.ts';
 import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, WORK_STATS_PROVENANCES } from '../reading-stats/index.ts';
-import {
-  type SourceReference,
-  sourceReferenceSchema,
-  TAXONOMY_ORIGINS,
-  type TaxonomyOrigin,
-  type TaxonomyReference,
-  taxonomyReferenceSchema,
-  taxonomySelectionSchema,
-} from '../taxonomy/taxonomy.ts';
-import { type TtsVoiceRole } from '../tts/tts.ts';
+import { sourceReferenceSchema, taxonomyReferenceSchema } from '../taxonomy/taxonomy.ts';
 import { catalogCategoryIdQuerySchema, catalogTagIdsQuerySchema } from './catalog-query.ts';
 
 /** ReadingWork pipeline processing statuses (publication is `publishedAt`, not a processing value). */
@@ -35,10 +24,6 @@ export const WORK_PROCESSING_STATUS_LABELS = {
   failed: 'Failed',
 } as const satisfies Record<WorkProcessingStatus, string>;
 
-/** Linear generation steps of the EPUB work pipeline (retry/re-run target). */
-export const WORKFLOW_STEPS = ['parse', 'metadata', 'tts'] as const;
-export type WorkflowStep = (typeof WORKFLOW_STEPS)[number];
-
 export const WORK_VISIBILITIES = ['catalog', 'private'] as const;
 export type WorkVisibility = (typeof WORK_VISIBILITIES)[number];
 export const workVisibilitySchema = z.enum(WORK_VISIBILITIES);
@@ -46,15 +31,6 @@ export const WORK_VISIBILITY_LABELS = {
   catalog: 'Catalog',
   private: 'Private',
 } as const satisfies Record<WorkVisibility, string>;
-
-export const WORK_ORIGIN_KINDS = ['admin_text', 'admin_epub', 'user_epub'] as const;
-export type WorkOriginKind = (typeof WORK_ORIGIN_KINDS)[number];
-export const workOriginKindSchema = z.enum(WORK_ORIGIN_KINDS);
-export const WORK_ORIGIN_KIND_LABELS = {
-  admin_text: 'Admin text',
-  admin_epub: 'Admin EPUB',
-  user_epub: 'Personal EPUB',
-} as const satisfies Record<WorkOriginKind, string>;
 
 export const PART_KINDS = ['chapter', 'body', 'section', 'segment'] as const;
 export type PartKind = (typeof PART_KINDS)[number];
@@ -67,25 +43,11 @@ export const PART_KIND_LABELS = {
 } as const satisfies Record<PartKind, string>;
 
 export const WORK_TITLE_MAX = 200 as const;
-export const WORK_AUTHOR_MAX = 200 as const;
-export const WORK_DESCRIPTION_MAX = 2000 as const;
-export const WORK_TAG_MAX_ITEMS = 10 as const;
-export const WORK_TAG_MAX_LEN = 40 as const;
-/** Max structured source names on a work (manual fill). */
-export const WORK_SOURCE_MAX_ITEMS = 10 as const;
-/** Max category name on a work (AI / manual fill). */
-export const WORK_CATEGORY_MAX = 100 as const;
 /** Max HTML body chars per part — markup inflates plain text ~1.5-2x. */
 export const PART_BODY_MAX_CHARS = 1_500_000 as const;
 
 /** Max EPUB upload size (bytes) — enforced by frontend and backend. */
 export const EPUB_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
-
-export const WORK_METADATA_PROVENANCES = TAXONOMY_ORIGINS;
-export type WorkMetadataProvenance = TaxonomyOrigin;
-
-const updateTagsSchema = z.array(taxonomySelectionSchema).max(WORK_TAG_MAX_ITEMS);
-const updateSourcesSchema = z.array(taxonomySelectionSchema).max(WORK_SOURCE_MAX_ITEMS);
 
 /** Public work JSON (catalog / discover — no parts body). */
 export const workSchema = z.object({
@@ -96,7 +58,6 @@ export const workSchema = z.object({
   language: z.string(),
   processingStatus: workProcessingStatusSchema,
   visibility: workVisibilitySchema,
-  originKind: workOriginKindSchema,
   tags: z.array(taxonomyReferenceSchema),
   category: taxonomyReferenceSchema.nullable(),
   /** Channel providers (e.g. Project Gutenberg) — auto-filled from EPUB / taxonomy. */
@@ -135,104 +96,6 @@ export const partSummarySchema = partSchema.omit({ body: true }).extend({
 
 export type PartSummary = z.infer<typeof partSummarySchema>;
 
-export const DERIVED_KINDS = ['audio'] as const;
-export type DerivedKind = (typeof DERIVED_KINDS)[number];
-
-export const DERIVED_STATES = ['missing', 'fresh', 'stale'] as const;
-export type DerivedState = (typeof DERIVED_STATES)[number];
-
-export const derivedFreshnessSchema = z.object({
-  audio: z.enum(DERIVED_STATES),
-});
-
-export type DerivedFreshness = z.infer<typeof derivedFreshnessSchema>;
-
-/** Origin file asset summary (EPUB upload) — surfaced in the admin workflow. */
-export const adminOriginAssetSchema = z.object({
-  fileName: z.string(),
-  size: z.number().int().nonnegative(),
-  mimeType: z.string(),
-  contentHash: z.string(),
-  reused: z.boolean(),
-});
-
-export type AdminOriginAsset = z.infer<typeof adminOriginAssetSchema>;
-
-/** Read-only backend-owned workflow policy shown by admin work projections. */
-export const adminWorkflowPolicySchema = z.object({
-  autoChainEnabled: z.boolean(),
-  ttsStepEnabled: z.boolean(),
-});
-
-export type AdminWorkflowPolicy = z.infer<typeof adminWorkflowPolicySchema>;
-
-/** Reader default accent when both tracks exist — matches resolveAudioRole fallback (`us` → `uk`). */
-export const PUBLISH_DEFAULT_AUDIO_ROLE = 'us' as const satisfies TtsVoiceRole;
-
-export const publishWorkIssueSchema = z.object({
-  path: z.string(),
-  code: z.string(),
-  params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
-});
-
-/** Admin work JSON includes derived projection freshness for ops reminders. */
-export const adminWorkSchema = workSchema.extend({
-  workflowPolicy: adminWorkflowPolicySchema,
-  derivedFreshness: derivedFreshnessSchema,
-  publishIssues: z.array(publishWorkIssueSchema),
-  originMeta: z.record(z.string(), z.unknown()).default({}),
-  originAsset: adminOriginAssetSchema.nullable(),
-  parts: z.array(partSchema),
-  /** Step that failed when processingStatus is `failed` (from originMeta.failedStep). */
-  failedStep: z.enum(WORKFLOW_STEPS).nullable(),
-  /** Per-field provenance for admin review UI — runtime projection from junction + description_provenance. */
-  metadataProvenance: z.record(z.string(), z.enum(WORK_METADATA_PROVENANCES)).default({}),
-});
-
-export type AdminWork = z.infer<typeof adminWorkSchema>;
-
-/**
- * Compact admin list row — no part bodies. `partCount` lets the list show
- * chapter counts without shipping HTML for every part.
- */
-export const adminWorkSummarySchema = workSchema.extend({
-  workflowPolicy: adminWorkflowPolicySchema,
-  derivedFreshness: derivedFreshnessSchema,
-  originMeta: z.record(z.string(), z.unknown()).default({}),
-  originAsset: adminOriginAssetSchema.nullable(),
-  partCount: z.number().int().nonnegative(),
-  failedStep: z.enum(WORKFLOW_STEPS).nullable(),
-  /** Per-field provenance for admin review UI — runtime projection from junction + description_provenance. */
-  metadataProvenance: z.record(z.string(), z.enum(WORK_METADATA_PROVENANCES)).default({}),
-});
-
-export type AdminWorkSummary = z.infer<typeof adminWorkSummarySchema>;
-
-/** Internal admin_text seed — title + body only. */
-export const createAdminTextWorkBodySchema = z.object({
-  title: z.string().trim().min(1).max(WORK_TITLE_MAX),
-  body: z.string().min(1).max(PART_BODY_MAX_CHARS),
-});
-
-export type CreateAdminTextWorkBody = z.infer<typeof createAdminTextWorkBodySchema>;
-
-/** Catalog upload response — the admin source asset is exposed only on the protected Catalog API. */
-export const createEpubWorkResultSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  processingStatus: workProcessingStatusSchema,
-  originKind: workOriginKindSchema,
-  originMeta: z.record(z.string(), z.unknown()).default({}),
-  asset: z.object({
-    storageKey: z.string(),
-    mimeType: z.string(),
-    contentHash: z.string(),
-    size: z.number().int().nonnegative(),
-  }),
-});
-
-export type CreateEpubWorkResult = z.infer<typeof createEpubWorkResultSchema>;
-
 /** Safe Personal API response; source storage keys and workflow tokens are intentionally omitted. */
 export const personalWorkUploadResultSchema = z.object({
   id: z.string(),
@@ -240,81 +103,6 @@ export const personalWorkUploadResultSchema = z.object({
   processingStatus: workProcessingStatusSchema,
 });
 export type PersonalWorkUploadResult = z.infer<typeof personalWorkUploadResultSchema>;
-
-/** Body of the Catalog EPUB reuse endpoint — instant-upload dedupe lookup. */
-export const checkEpubWorkReuseBodySchema = z.object({
-  fileName: z.string().trim().min(1).max(255),
-  contentHash: z.string().regex(/^[a-f0-9]{64}$/, '文件哈希无效'),
-});
-
-export type CheckEpubWorkReuseBody = z.infer<typeof checkEpubWorkReuseBodySchema>;
-
-/** Response of the reuse endpoint — either an instant-created work or a miss. */
-export const epubReuseResultSchema = z.discriminatedUnion('duplicated', [
-  createEpubWorkResultSchema.extend({ duplicated: z.literal(true) }),
-  z.object({ duplicated: z.literal(false) }),
-]);
-
-export type EpubReuseResult = z.infer<typeof epubReuseResultSchema>;
-
-export const updateWorkBodySchema = z.object({
-  title: z.string().trim().min(1).max(WORK_TITLE_MAX).optional(),
-  author: z.string().max(WORK_AUTHOR_MAX).optional(),
-  description: z.string().max(WORK_DESCRIPTION_MAX).optional(),
-  tags: updateTagsSchema.optional(),
-  sources: updateSourcesSchema.optional(),
-  category: taxonomySelectionSchema.nullable().optional(),
-  suggestedVocabSize: z.number().int().positive().nullable().optional(),
-  difficultyScore: z.number().int().min(DIFFICULTY_SCORE_MIN).max(DIFFICULTY_SCORE_MAX).nullable().optional(),
-});
-
-export type UpdateWorkBody = z.infer<typeof updateWorkBodySchema>;
-
-export const ADMIN_WORK_SORT_FIELDS = ['updatedAt'] as const;
-export type AdminWorkSortField = (typeof ADMIN_WORK_SORT_FIELDS)[number];
-export const DEFAULT_ADMIN_WORK_SORT_BY = 'updatedAt' as const satisfies AdminWorkSortField;
-
-/** Admin list filter for catalog publication (`reading_work.published_at`), not processing pipeline state. */
-export const ADMIN_WORK_PUBLICATION_STATUSES = ['published', 'unpublished'] as const;
-export type AdminWorkPublicationStatus = (typeof ADMIN_WORK_PUBLICATION_STATUSES)[number];
-const adminWorkPublicationStatusSchema = z.enum(ADMIN_WORK_PUBLICATION_STATUSES);
-
-/** Comma-separated processingStatus filter (e.g. `processing,metadata` for in-flight works). */
-const workProcessingStatusFilterSchema = z.preprocess(
-  emptyToUndefined,
-  z
-    .string()
-    .optional()
-    .refine(
-      (value) =>
-        !value || value.split(',').every((item) => (WORK_PROCESSING_STATUSES as readonly string[]).includes(item)),
-      { message: '无效的状态筛选' },
-    ),
-);
-
-export const adminWorkListQuerySchema = paginationQuerySchema.extend({
-  /** Restrict to works with an active workflow step; used to classify TTS work server-side. */
-  workflowStep: z.enum(WORKFLOW_STEPS).optional(),
-  sortBy: createSortByQuerySchema(ADMIN_WORK_SORT_FIELDS, DEFAULT_ADMIN_WORK_SORT_BY),
-  processingStatus: workProcessingStatusFilterSchema,
-  publicationStatus: z.preprocess(emptyToUndefined, adminWorkPublicationStatusSchema.optional()),
-});
-
-export type AdminWorkListQuery = z.infer<typeof adminWorkListQuerySchema>;
-
-/** Body of `POST /api/admin/catalog/works/:id/workflow/retry` — resume or re-run one step. */
-export const retryWorkflowBodySchema = z.object({
-  step: z.enum(WORKFLOW_STEPS).optional(),
-});
-
-export type RetryWorkflowBody = z.infer<typeof retryWorkflowBodySchema>;
-
-export const adminWorkListDataSchema = z.object({
-  items: z.array(adminWorkSummarySchema),
-  pagination: paginationMetaSchema,
-});
-
-export type AdminWorkListData = z.infer<typeof adminWorkListDataSchema>;
 
 export const CATALOG_SORT_FIELDS = ['publishedAt', 'updatedAt', 'createdAt'] as const;
 export type CatalogSortField = (typeof CATALOG_SORT_FIELDS)[number];
@@ -353,92 +141,3 @@ export const catalogListDataSchema = z.object({
 export type CatalogListData = z.infer<typeof catalogListDataSchema>;
 
 export { buildPaginationMeta };
-
-export type PublishWorkIssue = z.infer<typeof publishWorkIssueSchema>;
-
-const PUBLISH_WORK_ISSUE_CODES = {
-  TITLE_REQUIRED: 'api.errors.work.publish.titleRequired',
-  SOURCES_REQUIRED: 'api.errors.work.publish.sourcesRequired',
-  TAGS_REQUIRED: 'api.errors.work.publish.tagsRequired',
-  BODY_REQUIRED: 'api.errors.work.publish.bodyRequired',
-  AUDIO_MISSING: 'api.errors.work.publish.audioMissing',
-  AUDIO_GENERATING: 'api.errors.work.publish.audioGenerating',
-  AUDIO_STALE: 'api.errors.work.publish.audioStale',
-  AUDIO_FAILED: 'api.errors.work.publish.audioFailed',
-  AUDIO_NOT_READY: 'api.errors.work.publish.audioNotReady',
-} as const;
-
-export type PublishPartAudioGateInput = {
-  partId: string;
-  partTitle: string;
-  /** Plain text extracted from HTML — same input as buildPartAudioText. */
-  bodyPlain: string;
-  defaultTrackStatus: ContentAssetTrack['status'];
-};
-
-export function getPublishWorkIssues(work: {
-  title: string;
-  sources: SourceReference[];
-  tags: TaxonomyReference[];
-  parts: Array<{ body: string }>;
-}): PublishWorkIssue[] {
-  const issues: PublishWorkIssue[] = [];
-
-  if (!work.title.trim()) {
-    issues.push({ path: 'title', code: PUBLISH_WORK_ISSUE_CODES.TITLE_REQUIRED });
-  }
-  if (work.sources.length < 1) {
-    issues.push({ path: 'sources', code: PUBLISH_WORK_ISSUE_CODES.SOURCES_REQUIRED });
-  }
-  if (work.tags.length < 1) {
-    issues.push({ path: 'tags', code: PUBLISH_WORK_ISSUE_CODES.TAGS_REQUIRED });
-  }
-  if (work.parts.length < 1 || !work.parts.some((part) => part.body.trim())) {
-    issues.push({ path: 'body', code: PUBLISH_WORK_ISSUE_CODES.BODY_REQUIRED });
-  }
-
-  return issues;
-}
-
-function publishPartAudioIssueCode(status: ContentAssetTrack['status']): string {
-  switch (status) {
-    case 'none':
-      return PUBLISH_WORK_ISSUE_CODES.AUDIO_MISSING;
-    case 'generating':
-      return PUBLISH_WORK_ISSUE_CODES.AUDIO_GENERATING;
-    case 'stale':
-      return PUBLISH_WORK_ISSUE_CODES.AUDIO_STALE;
-    case 'failed':
-      return PUBLISH_WORK_ISSUE_CODES.AUDIO_FAILED;
-    default:
-      return PUBLISH_WORK_ISSUE_CODES.AUDIO_NOT_READY;
-  }
-}
-
-/** Publish gate for default-role audio on parts that require TTS synth text. */
-export function getPublishPartAudioIssues(input: PublishPartAudioGateInput): PublishWorkIssue[] {
-  if (!partHasSynthAudioText(input.bodyPlain)) {
-    return [];
-  }
-  if (input.defaultTrackStatus === 'ready') {
-    return [];
-  }
-  return [
-    {
-      path: `parts.${input.partId}.audio.${PUBLISH_DEFAULT_AUDIO_ROLE}`,
-      code: publishPartAudioIssueCode(input.defaultTrackStatus),
-      params: { partTitle: input.partTitle.trim() || '—' },
-    },
-  ];
-}
-
-export function getPublishAudioIssues(parts: PublishPartAudioGateInput[]): PublishWorkIssue[] {
-  return parts.flatMap((part) => getPublishPartAudioIssues(part));
-}
-
-export function mergePublishWorkIssues(
-  metadata: Parameters<typeof getPublishWorkIssues>[0],
-  audioParts: PublishPartAudioGateInput[],
-): PublishWorkIssue[] {
-  return [...getPublishWorkIssues(metadata), ...getPublishAudioIssues(audioParts)];
-}

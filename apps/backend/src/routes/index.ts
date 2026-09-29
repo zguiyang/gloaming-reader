@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 
 import { aiRoutes } from '@/domains/ai';
-import { assetManagementRoutes, assetsRoutes, contentAssetsRoutes } from '@/domains/assets';
+import { assetManagementRoutes, assetsRoutes } from '@/domains/assets';
 import { assistRoutes } from '@/domains/assist';
 import { conversationsRoutes } from '@/domains/conversations';
 import { dictionaryRoutes } from '@/domains/dictionary';
@@ -46,7 +46,6 @@ routes.post('/api/admin/jobs/ping', requireAdmin, async (c) => {
 });
 
 routes.route('/', worksRoutes);
-routes.route('/', contentAssetsRoutes);
 routes.route('/', assetManagementRoutes);
 routes.route('/', assetsRoutes);
 routes.route('/', libraryRoutes);

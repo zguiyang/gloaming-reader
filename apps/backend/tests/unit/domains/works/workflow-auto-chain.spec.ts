@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EpubResourceLimitError } from '@/domains/ingest/epub';
-import { getWorkflowPolicyProjection, WORKFLOW_AUTO_CHAIN } from '@/domains/works/lifecycle';
+import { WORKFLOW_AUTO_CHAIN } from '@/domains/works/lifecycle';
 
 const runContentParseWorkflow = vi.fn();
 const enqueue = vi.fn();
@@ -24,7 +24,6 @@ describe('WORKFLOW_AUTO_CHAIN gates', () => {
 
   it('is off by default so parse does not auto-enqueue metadata-fill', async () => {
     expect(WORKFLOW_AUTO_CHAIN).toBe(false);
-    expect(getWorkflowPolicyProjection()).toEqual({ autoChainEnabled: false, ttsStepEnabled: false });
     const { processContentParse } = await import('@/application/jobs/content-parse');
     await processContentParse({ workId: 'work-1', retryJobToken: 'retry-a' }, 'parse-attempt-a');
     expect(runContentParseWorkflow).toHaveBeenCalledWith('work-1', 'retry-a', 'parse-attempt-a');

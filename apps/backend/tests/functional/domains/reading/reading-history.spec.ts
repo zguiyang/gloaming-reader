@@ -16,7 +16,6 @@ import {
   READING_HEARTBEAT_MAX_CREDIT_SECONDS,
   type ReadingHistoryData,
 } from '@gloaming/shared/reading-history';
-import type { AdminWork } from '@gloaming/shared/works';
 
 import app from '@/app';
 import * as conversationsService from '@/domains/conversations';
@@ -24,8 +23,7 @@ import { recordReadingHeartbeat } from '@/domains/reading/history';
 import { db } from '@/infra/db';
 import { HTTP_STATUS } from '@/shared/constants';
 
-import { seedReadyDefaultAudioForWork } from '../../../helpers/publish-audio-fixture';
-import { ensureWorkTaxonomyFixture } from '../../../helpers/taxonomy-fixture';
+import { createCatalogWorkFixture } from '../../../helpers/catalog-work-fixture';
 
 const password = 'password123';
 
@@ -88,37 +86,11 @@ async function createSession(role: 'user' | 'admin' = 'user') {
   return { email, cookie, userId: user.id };
 }
 
-async function createPublishedWork(adminCookie: string, title: string): Promise<AdminWork> {
-  const create = await app.request('/api/admin/catalog/works', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', cookie: adminCookie },
-    body: JSON.stringify({
-      title,
-      body: 'The ocean is full of mysteries.\n\nA warm current carries nutrients.',
-    }),
+async function createPublishedWork(title: string) {
+  return createCatalogWorkFixture({
+    title,
+    body: 'The ocean is full of mysteries.\n\nA warm current carries nutrients.',
   });
-  expect(create.status).toBe(201);
-  const work = (await create.json()) as AdminWork;
-  const taxonomy = await ensureWorkTaxonomyFixture('reading-history');
-
-  expect(
-    (
-      await app.request(`/api/admin/catalog/works/${work.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', cookie: adminCookie },
-        body: JSON.stringify(taxonomy),
-      })
-    ).status,
-  ).toBe(200);
-
-  await seedReadyDefaultAudioForWork(work.id);
-
-  const publish = await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
-    method: 'POST',
-    headers: { cookie: adminCookie },
-  });
-  expect(publish.status).toBe(200);
-  return work;
 }
 
 async function getReadingHistory(cookie: string): Promise<ReadingHistoryData> {
@@ -172,7 +144,7 @@ describe('Reading history HTTP', () => {
     const admin = await createSession('admin');
     const learner = await createSession('user');
     createdEmails.push(admin.email, learner.email);
-    const work = await createPublishedWork(admin.cookie, 'History Sea');
+    const work = await createPublishedWork('History Sea');
     createdWorkIds.push(work.id);
     const partId = work.parts[0]!.id;
 

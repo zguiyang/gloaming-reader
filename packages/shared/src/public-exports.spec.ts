@@ -62,9 +62,14 @@ describe('shared module entrypoints', () => {
 });
 
 describe('works public entrypoint boundary', () => {
-  it('exposes work contracts but not backend workflow switches', () => {
+  it('exposes the Personal and Catalog read contracts', () => {
     expect(works.workSchema).toBeDefined();
-    expect(works.adminWorkflowPolicySchema).toBeDefined();
+    expect(works.catalogListQuerySchema).toBeDefined();
+    expect(works.personalWorkUploadResultSchema).toBeDefined();
+    const adminOrLifecycleExports = Object.keys(works).filter((name) =>
+      /^(admin|create|update|publish|unpublish|delete|retry)/i.test(name),
+    );
+    expect(adminOrLifecycleExports).toEqual([]);
     expect(works).not.toHaveProperty('WORKFLOW_AUTO_CHAIN');
     expect(works).not.toHaveProperty('TTS_STEP_ENABLED');
   });

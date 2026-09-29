@@ -27,7 +27,7 @@ UI copy may still say **书 / Book / 封面 / 章节** — intentional user meta
 | Concept              | Field / API         | Values / rule                                                                |
 | -------------------- | ------------------- | ---------------------------------------------------------------------------- |
 | Pipeline progress    | `processing_status` | `uploaded`, `processing`, `parsed`, `metadata`, `ready`, `failed` only       |
-| Published to catalog | `published_at`      | non-null timestamp = published; filter as `publicationStatus` on admin lists |
+| Published to catalog | `published_at`      | non-null timestamp = Catalog eligible; Discover filters this field           |
 | TTS in flight        | workflow metadata   | `origin_meta` workflow step `tts` while `processing_status` may stay `ready` |
 
 Do **not** use `published` or `tts` as `processing_status` values.
@@ -54,16 +54,13 @@ Part-scoped APIs: TTS / translate / assist use `partId` (+ `workId` for thread s
 
 ---
 
-## Admin catalog (target and current)
+## Catalog supply boundary (AS-02)
 
-| Concern        | Current code (PR-04)                 | Boundary                                                     |
-| -------------- | ------------------------------------ | ------------------------------------------------------------ |
-| Web routes     | `/admin/catalog/works`, …            | Legacy `/admin/works` has no alias                           |
-| Admin API      | `/api/admin/catalog/works`, …        | Catalog Works only; ownerless and `visibility=catalog`       |
-| Audio API      | Work- and Part-scoped Catalog routes | Personal Works return not found                              |
-| Feature folder | `features/admin/works/…`             | Internal module name; route path defines the product surface |
-
-Treat **target** paths as the epic end state. PR-01 does **not** complete admin route renaming.
+Admin has no Work-management UI, API, service, preview, manual publication, or
+per-Work audio operation. Users, including an Admin account holder, use
+`POST /api/works` for private Personal EPUB Upload. Catalog and Reader read
+surfaces continue to serve existing published Works. Future Catalog intake
+requires a separately decided Source ingestion policy.
 
 ---
 
@@ -76,40 +73,34 @@ import from the owning module; implementation deep imports such as
 Zod schemas, controlled values, types, and pure functions. It does not own
 backend queue, retry, lease, or workflow runtime policy.
 
-`apps/backend` owns workflow policy and preserves the current manual pipeline
-and auto-chaining / auto-TTS **off** defaults (`WORKFLOW_AUTO_CHAIN = false`,
-`TTS_STEP_ENABLED = false`). Admin work responses expose a read-only policy
-projection for the management UI; Web code must render that projection rather
-than infer runtime behavior from shared compile-time flags.
-
-**Publish gate:** Before `publishWork`, every part with synthesizable text must
-have **ready default US** (`audio_us`, `PUBLISH_DEFAULT_AUDIO_ROLE = us`) whose
-`content_hash` matches the current part body. UK (`audio_uk`) is optional.
-Operators generate default US through admin TTS actions and the worker queue.
-Reader playback may degrade gracefully when audio is temporarily unavailable.
+`apps/backend` owns workflow policy and preserves the current auto-chaining /
+auto-TTS **off** defaults (`WORKFLOW_AUTO_CHAIN = false`,
+`TTS_STEP_ENABLED = false`). Reader audio playback may degrade gracefully when
+an existing audio asset is temporarily unavailable. Instance TTS provider
+configuration remains an Admin system surface; per-Work generation controls
+were removed with the Admin Works module.
 
 ---
 
 ## Current code vs target (honest matrix)
 
-**Phase 3A** retired `Article` and shipped ReadingWork + `admin_epub`. That remains true.
+**Historical Phase 3A** retired `Article` and introduced ReadingWork + `admin_epub` catalog intake. AS-02 removed that Admin intake path while preserving existing Catalog data and parser provenance.
 **User-first** items below reflect the current repository unless marked **open**.
 
-| Layer / concern          | Current (repository reality)                                                                                | Target (ADR-001 User-first)                          |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Content root             | **ReadingWork** / `reading_work` **done**                                                                   | same                                                 |
-| Work pipeline field      | `processing_status` (migration 0036) **done** on schema + contracts                                         | no legacy `status` column                            |
-| Publication              | `published_at` + `publicationStatus` admin filter **done**                                                  | publication never in `processing_status`             |
-| Library membership table | `user_library_item` exists; migration 0036 backfilled prior state rows                                      | membership only in `user_library_item` + owned works |
-| Library API              | PR-05 implements `GET/POST/DELETE /api/library`; membership is union + explicit save                        | same; optional state decoration only                 |
-| `reading_state` role     | progress and activity; API response is separate from membership                                             | position/status only; opening never saves            |
-| Provider scope           | PR-06 工作树已实现解析器、Admin Instance 隔离及用户 `/api/settings/*` API；目标测试通过，全量测试环境待处理 | instance vs user on same tables                      |
-| Discover API             | `GET /api/catalog/works` **done**                                                                           | same                                                 |
-| Admin CMS API (path)     | `/api/admin/catalog/works` **done**; Catalog-only query/mutation boundary                                   | same                                                 |
-| Admin CMS UI (path)      | `/admin/catalog/works` **done**                                                                             | same                                                 |
-| Conversation subject     | `subject_type = reading_work` **done**                                                                      | same                                                 |
-| Admin “busy” list + TTS  | server `workflowStep=tts` filter **done**                                                                   | UI and server share status/workflow-step query       |
-| Legacy Remaining audit   | not closed **open**                                                                                         | **0** at epic closeout                               |
+| Layer / concern          | Current (repository reality)                                                                                | Target (ADR-001 User-first)                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Content root             | **ReadingWork** / `reading_work` **done**                                                                   | same                                                  |
+| Work pipeline field      | `processing_status` (migration 0036) **done** on schema + contracts                                         | no legacy `status` column                             |
+| Publication              | `published_at` drives Catalog visibility **done**                                                           | publication never in `processing_status`              |
+| Library membership table | `user_library_item` exists; migration 0036 backfilled prior state rows                                      | membership only in `user_library_item` + owned works  |
+| Library API              | PR-05 implements `GET/POST/DELETE /api/library`; membership is union + explicit save                        | same; optional state decoration only                  |
+| `reading_state` role     | progress and activity; API response is separate from membership                                             | position/status only; opening never saves             |
+| Provider scope           | PR-06 工作树已实现解析器、Admin Instance 隔离及用户 `/api/settings/*` API；目标测试通过，全量测试环境待处理 | instance vs user on same tables                       |
+| Discover API             | `GET /api/catalog/works` **done**                                                                           | same                                                  |
+| Catalog supply           | Existing published Catalog Works remain readable; no new intake route after AS-02                           | future Source ingestion policy is a separate decision |
+| Conversation subject     | `subject_type = reading_work` **done**                                                                      | same                                                  |
+| Admin Works CMS          | removed in AS-02; historical Catalog data and provenance retained                                           | no Admin content-management surface                   |
+| Legacy Remaining audit   | AS-02 runtime removal is scoped to Admin Works; other audit scope tracked separately                        | **0** for Admin Works Runtime                         |
 
 Do **not** reintroduce Article names — see Retired names below.
 
@@ -117,24 +108,24 @@ Do **not** reintroduce Article names — see Retired names below.
 
 ## Shared API contracts
 
-| Module                | Key types                                                          |
-| --------------------- | ------------------------------------------------------------------ |
-| `api/works` / catalog | `WorkSummary`, `DiscoverListData`, `AdminWork`, `processingStatus` |
-| `api/library`         | `LibraryData`, `LibraryItem` (`work` + optional `state`)           |
-| `api/reader`          | `ReaderSessionData`, `UpdateReadingStateBody`, `ReaderAudioTrack`  |
-| `api/reading-history` | `ReadingHistoryData`, completions with `workId`                    |
-| `api/content-assets`  | Part/work asset views (TTS admin)                                  |
+| Module                | Key types                                                         |
+| --------------------- | ----------------------------------------------------------------- |
+| `api/works` / catalog | `WorkSummary`, `DiscoverListData`, `Work`, `processingStatus`     |
+| `api/library`         | `LibraryData`, `LibraryItem` (`work` + optional `state`)          |
+| `api/reader`          | `ReaderSessionData`, `UpdateReadingStateBody`, `ReaderAudioTrack` |
+| `api/reading-history` | `ReadingHistoryData`, completions with `workId`                   |
+| `api/content-assets`  | Reader audio tracks and stable asset contracts                    |
 
 ---
 
 ## Content origins (MVP)
 
-| `origin_kind`        | MVP                | Role                                                                          |
-| -------------------- | ------------------ | ----------------------------------------------------------------------------- |
-| `admin_epub`         | **Yes — primary**  | Official catalog supply: upload → process → publish                           |
-| `admin_text`         | Internal only      | Dev/test seed: 1 work + 1 part (`kind=body`); **not** product identity        |
-| `user_epub`          | **Yes — Personal** | `/api/works` → shared parser → private owner Work; no publish or Library step |
-| `user_pdf`, `web`, … | No (follow-on)     | Future source kinds; not implemented                                          |
+| `origin_kind`       | MVP              | Role                                                                         |
+| ------------------- | ---------------- | ---------------------------------------------------------------------------- |
+| `admin_epub`        | Historical only  | Provenance and parser support for existing Catalog records; no Admin intake  |
+| `admin_text`        | Internal only    | Development/test fixture: 1 Work + 1 Part (`kind=body`); no runtime CMS path |
+| `user_epub`         | Current Personal | `/api/works` → shared parser → private owner Work                            |
+| Future source kinds | Deferred         | New Catalog intake awaits a separately decided Source policy                 |
 
 ---
 
@@ -170,6 +161,7 @@ Do **not** reintroduce Article names — see Retired names below.
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-09-28 | User-first vocabulary — Library vs State, `processing_status` / `published_at`, provider scope, honest current vs target matrix, admin catalog path target |
 | 2026-09-28 | PR-04 — Personal EPUB ingestion and Catalog-only Admin route/API boundary; server workflow-step list filter                                                |
+| 2026-09-30 | AS-02 — removed Admin Works CMS; preserved historical Catalog Works, `published_at`, and User Personal Upload                                              |
 | 2026-08-24 | Phase 3A complete — ReadingWork domain; Article retired                                                                                                    |
 | 2026-08-24 | Rewritten for ReadingWork domain (ADR-001); Article retired                                                                                                |
 | 2026-08-24 | Prior version listed Article as MVP 1a entity.                                                                                                             |

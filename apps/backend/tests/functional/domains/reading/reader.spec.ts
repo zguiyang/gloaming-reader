@@ -9,14 +9,12 @@ import {
   readingWork as readingWorkTable,
   user as userTable,
 } from '@gloaming/db';
-import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import { type ReaderPartsData, type ReadingState } from '@gloaming/shared/reader';
 
 import app from '@/app';
 import { db } from '@/infra/db';
 
-import { seedReadyDefaultAudioForWork } from '../../../helpers/publish-audio-fixture';
-import { ensureWorkTaxonomyFixture } from '../../../helpers/taxonomy-fixture';
+import { createCatalogWorkFixture } from '../../../helpers/catalog-work-fixture';
 
 const password = 'password123';
 
@@ -50,10 +48,6 @@ async function markEmailVerified(email: string) {
   await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.email, email));
 }
 
-async function setUserRole(email: string, role: string) {
-  await db.update(userTable).set({ role }).where(eq(userTable.email, email));
-}
-
 async function signInEmail(email: string) {
   return app.request('/api/auth/sign-in/email', {
     method: 'POST',
@@ -62,14 +56,11 @@ async function signInEmail(email: string) {
   });
 }
 
-async function createSession(role: 'user' | 'admin' = 'user') {
-  const email = uniqueEmail(role);
-  const username = `${role}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-  expect((await signUp({ email, username, name: role })).status).toBe(200);
+async function createSession() {
+  const email = uniqueEmail('user');
+  const username = `user_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  expect((await signUp({ email, username, name: 'user' })).status).toBe(200);
   await markEmailVerified(email);
-  if (role === 'admin') {
-    await setUserRole(email, AUTH_ADMIN_ROLE);
-  }
   const login = await signInEmail(email);
   expect(login.status).toBe(200);
   return { email, cookie: cookieHeader(login) };
@@ -89,20 +80,13 @@ describe('Reader HTTP', () => {
   });
 
   it('supports parts list, chapter progress, and finish/restart', async () => {
-    const admin = await createSession('admin');
-    const learner = await createSession('user');
-    createdEmails.push(admin.email, learner.email);
+    const learner = await createSession();
+    createdEmails.push(learner.email);
 
-    const create = await app.request('/api/admin/catalog/works', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
-      body: JSON.stringify({
-        title: 'Ocean Quiet',
-        body: 'The sea is wide.\n\nLife hides below.',
-      }),
+    const work = await createCatalogWorkFixture({
+      title: 'Ocean Quiet',
+      body: 'The sea is wide.\n\nLife hides below.',
     });
-    expect(create.status).toBe(201);
-    const work = (await create.json()) as { id: string };
     createdWorkIds.push(work.id);
 
     await db.insert(readingPartTable).values({
@@ -121,21 +105,6 @@ describe('Reader HTTP', () => {
       title: 'The Third Chapter',
       body: 'The third chapter begins.',
     });
-
-    const taxonomy = await ensureWorkTaxonomyFixture('reader');
-    await app.request(`/api/admin/catalog/works/${work.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
-      body: JSON.stringify(taxonomy),
-    });
-
-    await seedReadyDefaultAudioForWork(work.id);
-
-    const publish = await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
-      method: 'POST',
-      headers: { cookie: admin.cookie },
-    });
-    expect(publish.status).toBe(200);
 
     const partsRes = await app.request(`/api/reader/works/${work.id}/parts`);
     expect(partsRes.status).toBe(200);

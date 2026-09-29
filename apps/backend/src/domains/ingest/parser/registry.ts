@@ -1,4 +1,4 @@
-import type { WorkOriginKind } from '@gloaming/shared/works';
+import type { WorkOriginKind } from '@/domains/works/work-origin';
 
 import type { ContentParser } from './types';
 

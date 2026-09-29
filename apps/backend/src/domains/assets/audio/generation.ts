@@ -1,20 +1,14 @@
 import { asc, eq } from 'drizzle-orm';
 
 import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
-import {
-  buildPartAudioText,
-  type EnqueueAudioResult,
-  type GeneratePartAudioBody,
-  type GenerateWorkAudioBody,
-} from '@gloaming/shared/content-assets';
+import { buildPartAudioText } from '@gloaming/shared/content-assets';
 import { type TtsVoiceRole } from '@gloaming/shared/tts';
 
 import { needsRegen } from '@/domains/assets/content/availability';
 import { hashPartAudioContent, htmlToPlainText } from '@/domains/works/content';
 import { db } from '@/infra/db';
 import { enqueue } from '@/infra/queue';
-import { HTTP_STATUS } from '@/shared/constants';
-import { AppError, NotFoundError } from '@/shared/errors/app-error';
+import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 import { claimPartAudioGeneration, releasePartAudioGenerationClaim } from './generation-claim';
@@ -28,6 +22,7 @@ function partAudioQueueJobId(generationToken: string): string {
 }
 
 const ALL_ROLES: TtsVoiceRole[] = ['us', 'uk'];
+type WorkAudioGenerationOptions = { roles?: TtsVoiceRole[]; force?: boolean };
 
 function resolveRoles(roles: TtsVoiceRole[] | undefined): TtsVoiceRole[] {
   if (!roles?.length) {
@@ -36,91 +31,7 @@ function resolveRoles(roles: TtsVoiceRole[] | undefined): TtsVoiceRole[] {
   return [...new Set(roles)];
 }
 
-async function loadPart(partId: string): Promise<{
-  id: string;
-  workId: string;
-  title: string;
-  body: string;
-  sortOrder: number;
-}> {
-  const rows = await db
-    .select({
-      id: readingPartTable.id,
-      workId: readingPartTable.workId,
-      title: readingPartTable.title,
-      body: readingPartTable.body,
-      sortOrder: readingPartTable.sortOrder,
-    })
-    .from(readingPartTable)
-    .where(eq(readingPartTable.id, partId))
-    .limit(1);
-  const row = rows[0];
-  if (!row) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
-  }
-  return row;
-}
-
-export async function enqueuePartAudio(partId: string, body: GeneratePartAudioBody): Promise<EnqueueAudioResult> {
-  const part = await loadPart(partId);
-  const text = buildPartAudioText(htmlToPlainText(part.body));
-  if (!text.trim()) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.CONTENT_ASSET.NO_TEXT_TO_SYNTHESIZE);
-  }
-
-  const contentHash = hashPartAudioContent(part.body);
-  const force = body.force === true;
-  const roles = resolveRoles(body.roles);
-  const enqueued: EnqueueAudioResult['enqueued'] = [];
-  const skipped: EnqueueAudioResult['skipped'] = [];
-
-  for (const role of roles) {
-    if (!force && !(await needsRegen(partId, role, contentHash))) {
-      skipped.push({ partId, role, reason: 'fresh' });
-      continue;
-    }
-    const claim = await claimPartAudioGeneration({
-      partId,
-      workId: part.workId,
-      role,
-      contentHash,
-      force,
-      allowReady: true,
-    });
-    if (!claim) {
-      skipped.push({ partId, role, reason: 'fresh' });
-      continue;
-    }
-    let jobId: string;
-    try {
-      jobId = await enqueue(
-        PART_AUDIO_JOB,
-        {
-          workId: part.workId,
-          partId,
-          role,
-          force,
-          generationKey: claim.generationKey,
-          generationToken: claim.generationToken,
-          previousKeys: claim.previousKeys,
-        },
-        {
-          attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 },
-          jobId: partAudioQueueJobId(claim.generationToken),
-        },
-      );
-    } catch (error) {
-      await releasePartAudioGenerationClaim(claim, error);
-      throw error;
-    }
-    enqueued.push({ partId, role, jobId });
-  }
-
-  return { workId: part.workId, enqueued, skipped };
-}
-
-export async function enqueueWorkAudio(workId: string, body: GenerateWorkAudioBody): Promise<EnqueueAudioResult> {
+export async function enqueueWorkAudio(workId: string, body: WorkAudioGenerationOptions): Promise<void> {
   const [work] = await db
     .select({ id: readingWorkTable.id })
     .from(readingWorkTable)
@@ -142,9 +53,6 @@ export async function enqueueWorkAudio(workId: string, body: GenerateWorkAudioBo
 
   const force = body.force === true;
   const roles = resolveRoles(body.roles);
-  const enqueued: EnqueueAudioResult['enqueued'] = [];
-  const skipped: EnqueueAudioResult['skipped'] = [];
-
   for (const part of parts) {
     const text = buildPartAudioText(htmlToPlainText(part.body));
     if (!text.trim()) {
@@ -153,7 +61,6 @@ export async function enqueueWorkAudio(workId: string, body: GenerateWorkAudioBo
     const contentHash = hashPartAudioContent(part.body);
     for (const role of roles) {
       if (!force && !(await needsRegen(part.id, role, contentHash))) {
-        skipped.push({ partId: part.id, role, reason: 'fresh' });
         continue;
       }
       const claim = await claimPartAudioGeneration({
@@ -165,12 +72,10 @@ export async function enqueueWorkAudio(workId: string, body: GenerateWorkAudioBo
         allowReady: true,
       });
       if (!claim) {
-        skipped.push({ partId: part.id, role, reason: 'fresh' });
         continue;
       }
-      let jobId: string;
       try {
-        jobId = await enqueue(
+        await enqueue(
           PART_AUDIO_JOB,
           {
             workId,
@@ -191,9 +96,6 @@ export async function enqueueWorkAudio(workId: string, body: GenerateWorkAudioBo
         await releasePartAudioGenerationClaim(claim, error);
         throw error;
       }
-      enqueued.push({ partId: part.id, role, jobId });
     }
   }
-
-  return { workId, enqueued, skipped };
 }
