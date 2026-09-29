@@ -97,7 +97,12 @@ describe('LibraryPage', () => {
     const empty = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [] } });
     expect(empty.container.textContent).toContain('你的书库还是空的');
     expect(empty.container.textContent).toContain('发现一本书开始阅读');
-    expect(empty.container.textContent).toContain('上传 EPUB');
+    expect(empty.container.querySelector('button')).toBeTruthy();
+    expect(empty.container.textContent).not.toContain('上传 EPUB');
+    expect(empty.container.querySelector('header button')).toBeNull();
+    await act(async () => (empty.container.querySelector('button') as HTMLButtonElement)?.click());
+    expect(document.body.textContent).toContain('将 EPUB 拖到这里');
+    expect(document.body.textContent).toContain('支持 EPUB · 最大 50 MB');
     empty.cleanup();
 
     const error = await renderLibrary({ isPending: false, isError: true, error: new Error('network') });
@@ -129,8 +134,10 @@ describe('LibraryPage', () => {
     } as LibraryData;
     const view = await renderLibrary({ isPending: false, isError: false, data });
 
-    expect(view.container.textContent).toContain('正在处理');
-    expect(view.container.textContent).toContain('这本书处理失败');
+    expect(view.container.textContent).toContain('正在整理书籍…');
+    expect(view.container.textContent).toContain('导入失败');
+    expect(view.container.textContent).toContain('暂时无法读取这本书。');
+    expect(view.container.querySelector('[role="progressbar"]')?.hasAttribute('aria-valuenow')).toBe(false);
     expect(view.container.querySelector('a[href="/read/processing"]')).toBeNull();
     expect(view.container.querySelector('a[href="/read/failed"]')).toBeNull();
     expect(view.container.textContent).not.toContain('重试');
@@ -147,12 +154,12 @@ describe('LibraryPage', () => {
     );
     const view = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [] } });
     const invalidateLibrary = vi.spyOn(view.client, 'invalidateQueries');
-    const input = view.container.querySelector('input[type="file"]') as HTMLInputElement;
+    await act(async () => (view.container.querySelector('button') as HTMLButtonElement)?.click());
+    const input = document.body.querySelector('input[type="file"]') as HTMLInputElement;
     const pickerClick = vi.spyOn(input, 'click');
-    const uploadButton = Array.from(view.container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('上传 EPUB'),
+    await act(async () =>
+      (document.body.querySelector('button[aria-label="选择或拖入 EPUB 文件"]') as HTMLButtonElement)?.click(),
     );
-    await act(async () => uploadButton?.click());
     expect(pickerClick).toHaveBeenCalledOnce();
     const file = new File(['epub'], 'book.epub', { type: 'application/epub+zip' });
     Object.defineProperty(input, 'files', { configurable: true, value: [file] });
@@ -161,11 +168,19 @@ describe('LibraryPage', () => {
       input.dispatchEvent(new Event('change', { bubbles: true }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(mocks.uploadPersonalEpub.mock.calls[0]?.[0]).toBe(file);
-    const pendingButton = Array.from(view.container.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('上传中'),
+    expect(mocks.uploadPersonalEpub).not.toHaveBeenCalled();
+    const submitButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('上传 EPUB'),
     );
-    expect(pendingButton?.disabled).toBe(true);
+    await act(async () => submitButton?.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(mocks.uploadPersonalEpub.mock.calls[0]?.[0]).toBe(file);
+    expect(document.body.textContent).toContain('上传中…');
+    expect(
+      Array.from(document.body.querySelectorAll('button')).some(
+        (button) => button.disabled && button.textContent?.includes('上传'),
+      ),
+    ).toBe(true);
 
     await act(async () => {
       finishUpload?.({ id: 'work-new', title: 'New book', processingStatus: 'uploaded' });
@@ -177,12 +192,13 @@ describe('LibraryPage', () => {
 
   it('rejects unsupported files and announces upload failures', async () => {
     const view = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [] } });
-    const input = view.container.querySelector('input[type="file"]') as HTMLInputElement;
+    await act(async () => (view.container.querySelector('button') as HTMLButtonElement)?.click());
+    const input = document.body.querySelector('input[type="file"]') as HTMLInputElement;
     const invalid = new File(['pdf'], 'book.pdf', { type: 'application/pdf' });
     mocks.personalEpubValidationError.mockReturnValueOnce('format');
     Object.defineProperty(input, 'files', { configurable: true, value: [invalid] });
     await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
-    expect(mocks.toastError).toHaveBeenCalledWith('请选择 EPUB 文件');
+    expect(document.body.textContent).toContain('请选择 EPUB 文件');
     expect(mocks.uploadPersonalEpub).not.toHaveBeenCalled();
 
     mocks.uploadPersonalEpub.mockRejectedValue(new Error('Upload failed'));
@@ -191,7 +207,13 @@ describe('LibraryPage', () => {
       value: [new File(['epub'], 'book.epub', { type: 'application/epub+zip' })],
     });
     await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
-    await act(async () => Promise.resolve());
+    const submitButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('上传 EPUB'),
+    );
+    await act(async () => submitButton?.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(mocks.uploadPersonalEpub).toHaveBeenCalledOnce();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(mocks.toastError).toHaveBeenCalledWith('Error: Upload failed');
     view.cleanup();
   });

@@ -1,21 +1,13 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { type ChangeEvent, useEffect, useRef } from 'react';
-import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import { useAuthDialog } from '@/features/auth';
-import {
-  formatLibraryApiError,
-  libraryQueryKey,
-  personalEpubValidationError,
-  uploadPersonalEpub,
-  useLibraryQuery,
-} from '@/features/library/library-api';
+import { formatLibraryApiError, libraryQueryKey, useLibraryQuery } from '@/features/library/library-api';
 import { LibraryContinueHero } from '@/features/library/library-continue-hero';
 import { LibraryEmptyState } from '@/features/library/library-empty-state';
 import { LibraryGrid } from '@/features/library/library-grid';
@@ -25,56 +17,13 @@ import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 function LibraryHeader() {
-  const queryClient = useQueryClient();
   const { locale } = useLocale();
-  const fileInput = useRef<HTMLInputElement>(null);
-  const uploadMutation = useMutation({
-    mutationFn: uploadPersonalEpub,
-    onSuccess: async () => {
-      toast.success(t(locale, 'content.library.uploadStarted'));
-      await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
-    },
-    onError: (error) => toast.error(formatLibraryApiError(error)),
-  });
-
-  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = '';
-    if (!file) return;
-
-    const validationError = personalEpubValidationError(file);
-    if (validationError) {
-      toast.error(
-        t(locale, validationError === 'format' ? 'content.library.invalidEpub' : 'content.library.epubTooLarge'),
-      );
-      return;
-    }
-    uploadMutation.mutate(file);
-  }
 
   return (
-    <header className="mb-10 flex w-full items-center justify-between gap-4 md:mb-14">
-      <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground md:text-5xl md:leading-[1.15]">
+    <header className="mb-8 w-full md:mb-11">
+      <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground md:text-4xl md:leading-tight">
         {t(locale, 'content.library.title')}
       </h1>
-      <input
-        ref={fileInput}
-        className="sr-only"
-        type="file"
-        accept=".epub,application/epub+zip"
-        tabIndex={-1}
-        aria-hidden="true"
-        onChange={onFileChange}
-      />
-      <Button
-        type="button"
-        className="h-11 shrink-0 rounded-xl px-4 sm:px-5"
-        disabled={uploadMutation.isPending}
-        onClick={() => fileInput.current?.click()}
-      >
-        {uploadMutation.isPending ? <Spinner aria-hidden /> : null}
-        {t(locale, uploadMutation.isPending ? 'content.library.uploading' : 'content.library.uploadEpub')}
-      </Button>
     </header>
   );
 }
@@ -161,7 +110,7 @@ export function LibraryPage() {
       className={cn(
         'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700',
         'flex w-full flex-col',
-        isEmpty ? 'min-h-[70dvh] justify-center' : '',
+        isEmpty ? 'min-h-[70dvh]' : '',
       )}
     >
       {isEmpty ? (
@@ -172,7 +121,7 @@ export function LibraryPage() {
       ) : (
         <>
           <LibraryHeader />
-          <div className="flex flex-col gap-14 md:gap-20">
+          <div className="flex flex-col gap-10 md:gap-14">
             {current ? <LibraryContinueHero entry={current} /> : null}
             <LibraryGrid items={items} />
           </div>

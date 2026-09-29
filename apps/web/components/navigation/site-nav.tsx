@@ -1,5 +1,6 @@
 'use client';
 
+import { BookUpIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { t } from '@gloaming/i18n';
@@ -11,18 +12,20 @@ import { getNavCopy } from '@/components/navigation/nav-config';
 import { ThemeModeNavButton } from '@/components/navigation/theme-mode-control';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthDialog } from '@/features/auth';
+import { LibraryUploadDialog } from '@/features/library';
 import { useLocale } from '@/lib/locale-context';
 
 /**
  * Top site chrome for Landing + AppShell.
- * Desktop: primary links in-header. Mobile (App): Brand + Avatar only — tabs live in MobileBottomNav.
+ * Desktop: primary links in-header. Mobile App: brand, upload, and account actions above the bottom tabs.
  */
-export function SiteNav() {
+export function SiteNav({ showUpload = false }: { showUpload?: boolean }) {
   const { locale } = useLocale();
   const navCopy = useMemo(() => getNavCopy(locale), [locale]);
   const { user, isPending, username, email, initial, image, isAdmin, signOut } = useNavAccount();
   const { openLogin } = useAuthDialog();
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur-sm">
@@ -46,6 +49,19 @@ export function SiteNav() {
             <Skeleton className="size-9 rounded-full" />
           ) : user ? (
             <>
+              {showUpload ? (
+                <button
+                  type="button"
+                  aria-label={t(locale, 'content.library.uploadEpub')}
+                  className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none md:h-9 md:w-auto md:gap-2 md:px-2.5"
+                  onClick={() => setIsUploadOpen(true)}
+                >
+                  <BookUpIcon className="size-4" strokeWidth={1.7} aria-hidden />
+                  <span className="hidden text-sm font-medium md:inline">
+                    {t(locale, 'content.library.uploadEpub')}
+                  </span>
+                </button>
+              ) : null}
               <ThemeModeNavButton />
               <AccountMenu
                 username={username}
@@ -69,6 +85,13 @@ export function SiteNav() {
           )}
         </div>
       </nav>
+      {showUpload && user ? (
+        <LibraryUploadDialog
+          key={isUploadOpen ? 'open' : 'closed'}
+          open={isUploadOpen}
+          onOpenChange={setIsUploadOpen}
+        />
+      ) : null}
     </header>
   );
 }

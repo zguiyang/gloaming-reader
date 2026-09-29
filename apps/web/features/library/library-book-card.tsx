@@ -39,7 +39,7 @@ function statusLabel(entry: LibraryItem, locale: Locale): string {
     return t(locale, 'content.library.processing');
   }
   if (entry.availability === 'failed') {
-    return t(locale, 'content.library.processingFailed');
+    return t(locale, 'content.library.importFailed');
   }
   if (!entry.state) {
     return t(locale, 'content.library.statusNotStarted');
@@ -96,7 +96,14 @@ export function LibraryBookCard({ entry }: { entry: LibraryItem }) {
           {cover}
         </Link>
       ) : (
-        <div aria-hidden="true">{cover}</div>
+        <div className="relative" aria-hidden="true">
+          {cover}
+          {entry.availability === 'processing' && !coverImageUrl ? (
+            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-sm" aria-hidden>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/25 to-transparent motion-safe:animate-[library-cover-sheen_4.5s_ease-in-out_infinite]" />
+            </div>
+          ) : null}
+        </div>
       )}
 
       <div className="min-w-0">
@@ -134,8 +141,33 @@ export function LibraryBookCard({ entry }: { entry: LibraryItem }) {
             </DropdownMenu>
           ) : null}
         </div>
-        {tagLine ? <p className="mt-1.5 line-clamp-1 text-xs text-muted-foreground">{tagLine}</p> : null}
-        <p className="mt-1 text-xs text-muted-foreground/90">{statusLabel(entry, locale)}</p>
+        {tagLine && entry.availability === 'ready' ? (
+          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{tagLine}</p>
+        ) : null}
+        <p
+          className={cn(
+            'mt-1.5 text-xs',
+            entry.availability === 'failed' ? 'text-destructive' : 'text-muted-foreground/90',
+          )}
+          role={entry.availability === 'processing' ? 'status' : undefined}
+        >
+          {statusLabel(entry, locale)}
+        </p>
+        {entry.availability === 'processing' ? (
+          <div
+            className="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-muted/80"
+            role="progressbar"
+            aria-label={t(locale, 'content.library.processing')}
+            aria-valuetext={t(locale, 'content.library.indeterminateProgress')}
+          >
+            <div className="h-full w-1/3 rounded-full bg-primary/70 motion-safe:animate-[library-indeterminate_2.4s_ease-in-out_infinite]" />
+          </div>
+        ) : null}
+        {entry.availability === 'failed' ? (
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            {t(locale, 'content.library.failedHint')}
+          </p>
+        ) : null}
         {hasProgressBar ? (
           <div
             className="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-muted/80"
