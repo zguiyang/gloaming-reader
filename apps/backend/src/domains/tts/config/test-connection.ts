@@ -1,13 +1,13 @@
 import type { TestTtsBody, TestTtsResult } from '@gloaming/shared/tts';
 
 import { recordTtsInvocation } from '@/domains/tts/log';
-import { synthesizeTts } from '@/domains/tts/synthesis/service';
+import { synthesizeInstanceTts } from '@/domains/tts/synthesis/service';
 import { AppError } from '@/shared/errors/app-error';
 
-export async function testTts(body: TestTtsBody, options: { userId?: string } = {}): Promise<TestTtsResult> {
+export async function testTts(body: TestTtsBody, options: { auditActorUserId?: string } = {}): Promise<TestTtsResult> {
   const started = Date.now();
   try {
-    const result = await synthesizeTts({
+    const result = await synthesizeInstanceTts({
       text: body.text,
       role: body.role,
       voice: body.voice,
@@ -19,7 +19,7 @@ export async function testTts(body: TestTtsBody, options: { userId?: string } = 
     await recordTtsInvocation({
       status: 'success',
       source: 'admin.tts_test',
-      userId: options.userId,
+      userId: options.auditActorUserId,
       voice: result.voice,
       role: body.role ?? null,
       textPreview: body.text,
@@ -46,7 +46,7 @@ export async function testTts(body: TestTtsBody, options: { userId?: string } = 
       errorCode,
       errorMessage: message,
       source: 'admin.tts_test',
-      userId: options.userId,
+      userId: options.auditActorUserId,
       voice: body.voice ?? null,
       role: body.role ?? null,
       textPreview: body.text,

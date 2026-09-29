@@ -102,6 +102,12 @@ export async function resolveScopedTtsConfigRow(actor: ProviderRuntimeActor): Pr
   return selectUsableTtsConfig(userRows[0] ?? null, instanceRows[0] ?? null);
 }
 
+/** Resolve only the Instance TTS configuration, independent of any authenticated actor. */
+export async function resolveInstanceTtsConfigRow(): Promise<TtsConfigRow | null> {
+  const instanceRows = await db.select().from(ttsConfigTable).where(isNull(ttsConfigTable.ownerUserId)).limit(1);
+  return selectUsableTtsConfig(null, instanceRows[0] ?? null);
+}
+
 export function selectUsableTtsConfig(
   userRow: TtsConfigRow | null,
   instanceRow: TtsConfigRow | null,

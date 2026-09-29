@@ -198,6 +198,23 @@ describe('admin TTS config', () => {
     const presetBody = (await presets.json()) as Array<{ voice: string }>;
     expect(presetBody.length).toBeGreaterThan(0);
 
+    const synthesizeSpy = vi.spyOn(azureTts, 'synthesizeAzureTts').mockResolvedValue({
+      audio: Buffer.from('fake-mp3'),
+      mimeType: 'audio/mpeg',
+      wordTimings: [{ text: 'hello', audioOffsetMs: 0, durationMs: 200, textOffset: 0 }],
+    });
+
+    const withoutPersonalConfig = await app.request('/api/admin/tts/test', {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'hello', role: 'us' }),
+    });
+    expect(withoutPersonalConfig.status).toBe(200);
+    expect(synthesizeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ subscriptionKey: 'test-azure-speech-key', region: 'eastus' }),
+    );
+    synthesizeSpy.mockClear();
+
     const adminUserRow = await db
       .select({ id: userTable.id })
       .from(userTable)
@@ -215,12 +232,6 @@ describe('admin TTS config', () => {
       defaultVoice: 'en-US-JennyNeural',
       usVoice: 'en-US-DavisNeural',
       ukVoice: 'en-GB-SoniaNeural',
-    });
-
-    const synthesizeSpy = vi.spyOn(azureTts, 'synthesizeAzureTts').mockResolvedValue({
-      audio: Buffer.from('fake-mp3'),
-      mimeType: 'audio/mpeg',
-      wordTimings: [{ text: 'hello', audioOffsetMs: 0, durationMs: 200, textOffset: 0 }],
     });
 
     const tested = await app.request('/api/admin/tts/test', {
@@ -243,6 +254,16 @@ describe('admin TTS config', () => {
         subscriptionKey: 'test-azure-speech-key',
       }),
     );
+
+    synthesizeSpy.mockClear();
+    await db.delete(ttsConfigTable).where(eq(ttsConfigTable.id, TTS_CONFIG_ID));
+    const unavailable = await app.request('/api/admin/tts/test', {
+      method: 'POST',
+      headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'hello', role: 'us' }),
+    });
+    expect(unavailable.status).toBe(503);
+    expect(synthesizeSpy).not.toHaveBeenCalled();
 
     synthesizeSpy.mockRestore();
   });

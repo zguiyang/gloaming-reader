@@ -8,6 +8,7 @@ export {
 export type { TtsConfigRow } from '@/domains/provider-scope/resolution';
 export {
   loadInstanceTtsConfigRow,
+  resolveInstanceTtsConfigRow,
   resolveScopedAppSettingValue,
   resolveScopedTtsConfigRow,
   selectUsableTtsConfig,

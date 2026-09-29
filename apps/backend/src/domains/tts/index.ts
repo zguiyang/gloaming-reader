@@ -10,5 +10,6 @@ export {
   buildTtsCacheKeyV2,
   normalizeTtsText,
   shouldWriteTtsCache,
+  synthesizeInstanceTts,
   synthesizeTts,
 } from '@/domains/tts/synthesis/service';
