@@ -37,44 +37,40 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
   const coverImageUrl = coverUrlFromAssetId(entry.work.coverAssetId);
 
   return (
-    <section className="mb-10 w-full md:mb-14">
-      <div className="mb-4 flex items-center border-b border-border/40 pb-4">
-        <h3 className="text-xs font-semibold tracking-[0.15em] text-muted-foreground uppercase">
+    <section className="w-full">
+      <div className="mb-4 flex items-center border-b border-border/40 pb-3">
+        <h3 className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
           {t(locale, 'content.library.continueReading')}
         </h3>
       </div>
-      <div
-        className={cn(
-          'group relative flex flex-col gap-6 overflow-hidden rounded-2xl bg-paper p-6 md:flex-row md:items-center md:gap-10 md:p-8',
-        )}
-      >
+      <div className={cn('group relative flex flex-row items-center gap-4 rounded-xl bg-paper/65 p-4 md:gap-6 md:p-5')}>
         <Link
           href={readHref}
-          className="mx-auto shrink-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:mx-0"
+          className="shrink-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           aria-label={t(locale, 'content.common.openReaderAria', { title: entry.work.title })}
         >
           <WorkCover
             title={entry.work.title}
             tags={entry.work.tags.map((tag) => tag.id)}
             coverImageUrl={coverImageUrl}
-            className="aspect-[2/3] w-32 md:w-36"
+            className="aspect-[2/3] w-20 md:w-24"
           />
         </Link>
 
-        <div className="min-w-0 flex-1 text-center md:text-left">
-          <p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+        <div className="min-w-0 flex-1 text-left">
+          <p className="mb-1.5 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             {metaLine(entry, locale) || t(locale, 'content.library.readingInProgress')}
           </p>
           <Link href={readHref} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <h2 className="font-heading mb-4 text-2xl leading-tight font-semibold text-foreground transition-colors duration-300 ease-out-soft hover:text-primary md:text-3xl">
+            <h2 className="font-heading mb-3 line-clamp-2 text-lg leading-snug font-semibold text-foreground transition-colors duration-300 ease-out-soft hover:text-primary md:text-xl">
               {entry.work.title}
             </h2>
           </Link>
-          <div className="mx-auto mb-5 max-w-md md:mx-0">
-            <div className="mb-2 flex justify-between text-sm text-muted-foreground">
+          <div className="mb-3 max-w-md">
+            <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
               <span className="font-medium text-primary">{progressLabel(ratio, locale)}</span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/80">
+            <div className="h-1 w-full overflow-hidden rounded-full bg-muted/80">
               <div
                 className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out-soft"
                 style={{ width: `${Math.min(100, ratio)}%` }}
@@ -83,7 +79,8 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
           </div>
           <Button
             nativeButton={false}
-            className="h-11 rounded-xl px-8 shadow-sm hover:bg-brand-deep active:scale-[0.98]"
+            variant="ghost"
+            className="-ml-2 h-9 rounded-lg px-2 text-sm font-medium text-primary hover:bg-background/70 active:scale-[0.98]"
             render={<Link href={readHref} />}
           >
             <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
