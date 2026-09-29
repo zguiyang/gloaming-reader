@@ -23,6 +23,7 @@
 | PR-05 | `dd60b348a482268f126a2de936941a120225f005` | `d16ee9ce82e9e5a7015b30b7dee4435dd96b1a04` | Library 领域                                              | 已实现                                   | 待完成       | [PR-05](pr-05-library-domain.md)     |
 | PR-06 | `b481a2fad4480f8d084d6e1a7fa7f6e96633db53` | PR-05 检查点                               | Provider 解析器 / 配置作用域                              | 已实现；目标测试通过，全量测试环境未通过 | 待完成       | [PR-06](pr-06-provider-resolver.md)  |
 | PR-07 | `af20840164a1f6ed315f1ea017375d36e19ff2d3` | `bd0878ecdad664e406d7dd623915b9d7e44166cf` | User-first Library Frontend / Personal Upload / Read Flow | 已实现                                   | 待完成       | [PR-07](pr-07-library-frontend.md)   |
+| PR-08 | `4f240d25fd0c7008c19e3e6f31cb88cba66ba803` | `7cef05b59c814a14e48821cec69ae060457dd9eb` | 用户设置 / 自带 API 前端                                  | 已实现                                   | 待完成       | [PR-08](pr-08-settings-byok.md)      |
 
 「已实现」描述检查点范围内的代码。并不表示已获人工批准、已合并、已发布或已完成全量回归测试。
 
@@ -36,6 +37,7 @@
 | PR-04 | 个人与 Catalog 的 EPUB 摄取共用摄取核心，但归属、可见性、认证与 Admin 策略彼此独立。         |
 | PR-05 | Library 成员、阅读进度、阅读历史与继续阅读为彼此独立的运行时投影。                           |
 | PR-07 | `/library` 汇集个人上传与已保存 Catalog Work；继续阅读、进度与历史仍保持独立语义。           |
+| PR-08 | `/settings` 消费 PR-06 用户级 LLM / TTS API；账户资料仍由 `/account` 管理。                  |
 
 ## 遗留演进
 
@@ -70,9 +72,10 @@
 
 ## Integration Acceptance Watchlist
 
-| ID                  | 验收项                                  | 状态    | 触发条件                                                                                                                    |
-| ------------------- | --------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
-| FRONTEND-VISUAL-001 | PR-07 Library runtime visual acceptance | Pending | After User-first branches are merged into the unified integration branch and the full app runtime environment is available. |
+| ID                  | 验收项                                          | 状态    | 触发条件                                                                                                                    |
+| ------------------- | ----------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| FRONTEND-VISUAL-001 | PR-07 Library runtime visual acceptance         | Pending | After User-first branches are merged into the unified integration branch and the full app runtime environment is available. |
+| FRONTEND-VISUAL-002 | PR-08 Settings / BYOK runtime visual acceptance | Pending | After User-first branches are merged into the unified integration branch and the full app runtime environment is available. |
 
 ## 最终验收清单
 
@@ -86,6 +89,10 @@
 - [ ] PR-07 Library desktop visual acceptance
 - [ ] PR-07 Library mobile visual acceptance
 - [ ] PR-07 Light/Dark theme visual acceptance
+- [ ] PR-08 Settings implementation review
+- [ ] PR-08 Settings desktop visual acceptance
+- [ ] PR-08 Settings mobile visual acceptance
+- [ ] PR-08 Light/Dark theme visual acceptance
 - [ ] Upload / Processing / Failed state visual acceptance
 - [ ] Catalog Remove interaction visual acceptance
 - [ ] Personal Work → Reader flow visual acceptance
