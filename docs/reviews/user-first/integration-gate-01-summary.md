@@ -145,3 +145,64 @@ Do not start post-integration refactoring yet. First resolve the Discover render
 - `dev` branch modified: **No**.
 - PR-10/11 merged: **No**.
 - Cursor used: **No**.
+
+## Closure Run — 2026-09-29
+
+This run preserves the original failed result above. It is a verification follow-up, not a new integration or architecture phase.
+
+### Git and runtime changes
+
+- Starting HEAD: 682de15376d498be804de54a15873954aa43e218 on dev-02.
+- The primary dev checkout remained at a177dc2040738d0f9a3a49e7f2b047d946513c1c and was unchanged.
+- PR-10 candidate aa938659 and PR-11 candidate 1faa4218 are not ancestors of dev-02.
+- No runtime fix or regression test was added: this run did not reproduce a JavaScript exception or establish a deterministic code defect.
+
+### Discover reproduction
+
+- A fresh browser context opened /discover directly. The route returned 200 and initially showed the full-page loading view; the catalog appeared after roughly 20 seconds. The longer-than-expected cold-start wait was not explained.
+- On the warmed page, hard reload rendered the Discover heading, tag filter, and Catalog item within about 2.5 seconds. Navigation from the home page also rendered the same content.
+- Selecting the available tag and opening the mobile filter dialog both worked.
+- Browser console observations contained the unauthenticated GET /api/library 401; the page still rendered. No React exception or hydration error was observed. Backend logs showed Catalog list/taxonomy responses succeeding. This confirms the 401 is handled in the observed session, but does not identify the original blank-page cause.
+- Source review confirms AppShell returns GlobalLoading while authClient.useSession().isPending. That explains the loading view, but the unusually long first wait and the earlier Gate screenshot remain unexplained. The original finding is therefore **not resolved**.
+- No standalone Network-panel capture of every RSC/chunk request was available in this run; no claim is made that every requested network diagnostic was independently inspected.
+
+### Environment and authenticated journeys
+
+- Web and Backend were running locally; Backend was connected to gloaming_test. PostgreSQL and Redis were reachable. The test Redis DB was isolated from the running app's Redis DB.
+- No Worker was started for this closure run. The configured object-storage destination is a non-local, test-named bucket and has no production marker, but connectivity and upload were not exercised.
+- No browser test users were established. The configured test mail key is a placeholder and the auth mail provider rejected delivery in the full test suite. The app has no verified local mail catcher available in this checkout. No auth bypass was introduced.
+- Personal EPUB Upload → Library → Reader: **Blocked** — no browser session; Worker/storage upload not exercised.
+- Continue Reading and Reading History: **Blocked** — no authenticated browser session.
+- Discover → Add and Remove from Library: **Blocked** — no authenticated browser session.
+- User A / User B work-access isolation: **Blocked** — no authenticated browser sessions.
+- Settings and secret masking: **Blocked** — no authenticated browser session.
+- Admin Catalog routes and publish/unpublish: **Blocked** — no admin browser session.
+
+### Visual review
+
+- FRONTEND-VISUAL-001: **Pending**. Library authenticated, upload, removal, empty, and dark states were not reviewed.
+- FRONTEND-VISUAL-002: **Pending**. Settings and its AI/TTS states, key masking, mobile, and dark mode were not reviewed.
+- Discover: desktop and 390×844 mobile views rendered; the tag filter and mobile filter dialog worked. Dark mode was not verified. The available test Catalog item's cover area was blank; no design change was made based on that fixture.
+- Anti-AI runtime audit is limited to the public Discover view: its restrained book-oriented layout did not show a dashboard or nested-card pattern. This is not an acceptance of the unobserved authenticated UI.
+
+### Regression
+
+- Backend: 88 files, 592 passed, 1 skipped.
+- Web: 48 files, 245 passed.
+- Shared: 20 files, 155 passed.
+- i18n: 2 files, 10 passed.
+- Workspace typecheck: passed.
+- Backend build: passed. Web build: passed with local API_INTERNAL_URL=http://localhost:3333.
+- ESLint: 0 errors; 1 existing <img> performance warning in apps/web/features/admin/works/works-preview-page.tsx:21.
+- The first Backend test invocation lacked the required placeholder env and failed during configuration. The rerun with RESEND_API_KEY=re_test_placeholder passed; test-only verification-email submissions were rejected by the provider and did not establish delivery.
+
+### Deferred scope and gate result
+
+- R2-001 Lazy User TTS Runtime remains deferred; no Lazy TTS work was continued.
+- PR05-HISTORY-001 remains an open product/data decision; no non-empty migration backfill was constructed.
+- Personal Work Delete remains unimplemented and outside this Gate repair.
+- Architecture Subtraction was not started.
+- Integration Gate #1 remains **Failed** because the initial Discover blank/loading finding is unexplained and authenticated Library, Reader, Settings, Admin, storage, and visual acceptance remain incomplete.
+- Can post-integration refactoring continue: **No**.
+- Can dev-02 merge to dev: **No**.
+- Push / merge / PR creation: **None**. Production DB touched: **No**. Cursor used: **No**.
