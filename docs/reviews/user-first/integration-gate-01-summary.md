@@ -273,3 +273,47 @@ This run follows the prior Initial Run and Closure Run without replacing either 
 - Can `dev-02` merge to `dev`: **No**.
 - Production DB touched: **No**. Production storage touched: **No**. `dev` modified: **No**.
 - PR-10/11 merged: **No**. Lazy TTS continued: **No**. Architecture Subtraction started: **No**. Cursor used: **No**.
+
+## Real Auth Acceptance Run — 2026-09-29 (In Progress)
+
+This is the latest continuation of Gate #1. It preserves the Initial Run, Closure Run, and Environment Closure Run above. No application source or package configuration was changed.
+
+### Baseline and local runtime
+
+- Branch: `dev-02`; starting HEAD: `fdc489b249eaee86835c80b1e40556f7686daaad`; worktree was clean.
+- Web and Backend listeners were present on ports 3000 and 3333. PostgreSQL and Redis container ports were present on 5433 and 6380. The browser completed authenticated requests through the Web application. Worker readiness and backend health endpoints were not independently verified in this run.
+- The active Backend `.env` targets local `127.0.0.1:5433/gloaming_backend` and bucket `gloaming-development`. `.env.test` targets `gloaming_test` and bucket `gloaming-test`. The upload Gate requires the isolated test bucket; no object-storage write was attempted while the running Backend pointed at the development bucket.
+- Production database and production storage were not accessed.
+
+### User and Auth audit
+
+- The development database had been reset and migrated in the prior authorized environment run. Before the user completed registration, the Auth tables were empty; no account data was cleared in this continuation.
+- Current Auth schema in `packages/db/src/schema.ts` is `user`, `account`, `session`, and `verification`. The live database contains 1 user, 1 credential account, 3 session rows, and 0 verification rows. The account and session foreign-key checks found no orphan rows.
+- The real registered user has `email_verified=true`, role `user`, one credential account, and no owned works, Library memberships, or reading states. Identity is omitted from this report. Current required fields and relations resolve through the live application.
+- Login succeeded through the normal Web form. Refresh retained the authenticated session. Logout returned the browser to the public page; signing in again succeeded, and refresh retained the new session. No password, session token, or verification code is recorded.
+- The supported `create:admin` command exists. Its implementation uses Better Auth signup, assigns the first Admin role only within the trusted transactional bootstrap, and creates an ordinary User identity with the `admin` role; this matches the current User-first model. It was not run because no separate Admin email/password was supplied. The real acceptance account remains a normal User.
+
+### User A browser journeys
+
+- `/library`: authenticated empty state rendered and the Upload EPUB entry was present. Upload, processing, failure, and Reader states were not exercised because the active Backend bucket did not meet the test-bucket precondition.
+- `/discover`: the authenticated empty state rendered; the database has 0 `reading_work` rows. Three reload-to-accessibility snapshots completed in 305 ms, 215 ms, and 203 ms. Those snapshots initially exposed only the page heading; a subsequent screenshot showed the designed empty state. These were warm reload timings, not cold-start or first-content measurements. Catalog API response time and auth-pending duration were not measured. The earlier blank-page observation was not reproduced as a confirmed runtime defect.
+- `/reading-history`: the designed empty state rendered; the account has no reading state or history.
+- `/settings`: Default AI service and Default TTS source were visible. Own API mode showed no saved configuration and a disabled Save button. No provider, model, credential, or secret existed to test masking or Network response redaction; no settings were saved.
+- `/admin/catalog/works`: the normal User received the explicit “no permission” page. Admin catalog, configuration, assets, logs, taxonomy, publish/unpublish, and Admin TTS flows remain unverified because no Admin account was created.
+- Catalog Add/Remove, Continue Reading, Personal EPUB → Reader, progress/history preservation, and User A/User B isolation remain blocked by absent catalog/content data, the storage-target mismatch, and no User B account.
+
+### Visual acceptance
+
+- `FRONTEND-VISUAL-001` (Library): **Partial** — authenticated desktop empty state was viewed in light and dark modes; Upload control was present. Empty/normal distinctions beyond the empty state, processing, failed upload, Catalog removal, Personal Work, Continue Reading, and mobile remain unverified.
+- `FRONTEND-VISUAL-002` (Settings): **Partial** — desktop Default AI and Default TTS states were viewed. Own API empty state was observed. Light/dark Settings comparison, mobile, saved provider/model forms, masked secret, and unavailable-provider states remain unverified.
+- The original follow-system appearance preference was restored after light/dark inspection. Anti-AI review is limited to the observed empty states; it is not a complete authenticated UI audit.
+
+### Remaining requirements and latest gate status
+
+- User B registration and access isolation: **Blocked** — no second mailbox/verification was provided.
+- Admin browser journeys: **Blocked** — the official compatible creation command requires a separate email and password.
+- Test-bucket upload: **Blocked** — the running Backend uses `gloaming-development`; the Gate requires `gloaming-test`. No storage object was written.
+- Mobile and authenticated visual states, valid/invalid EPUB flows, Catalog workflows, Reader progress, and full Settings/Admin acceptance: **Pending/Blocked**.
+- `gate-test-users.spec.ts` disposition remains deferred until Gate closure.
+- Integration Gate #1: **Failed / Incomplete**. Can post-integration refactoring continue: **No**. Can `dev-02` merge to `dev`: **No**.
+- Production DB touched: **No**. Production storage touched: **No**. `dev` modified: **No**. PR-10/11 merged: **No**. Lazy TTS started: **No**. Architecture Subtraction started: **No**. Cursor used: **No**.
