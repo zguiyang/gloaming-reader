@@ -1,7 +1,7 @@
 'use client';
 
 import { Menu } from '@base-ui/react/menu';
-import { CheckIcon, LogOutIcon, Settings2, UserCircleIcon } from 'lucide-react';
+import { CheckIcon, LogOutIcon, Settings, Settings2, UserCircleIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
@@ -155,6 +155,20 @@ export function AccountMenu({
             >
               <UserCircleIcon className="size-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
               {t(locale, 'nav.accountCenter')}
+            </Menu.Item>
+            <Menu.Item
+              className={cn(
+                'flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm',
+                'text-foreground outline-none select-none',
+                'data-highlighted:bg-muted',
+              )}
+              onClick={() => {
+                onOpenChange(false);
+                window.location.assign(AUTH_ROUTES.settings);
+              }}
+            >
+              <Settings className="size-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+              {t(locale, 'nav.settings')}
             </Menu.Item>
             {isAdmin ? (
               <Menu.Item

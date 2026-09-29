@@ -13,6 +13,7 @@ export const AUTH_ROUTES = {
   history: '/reading-history',
   more: '/more',
   account: '/account',
+  settings: '/settings',
   /** Immersive reader. */
   read: '/read',
   readBook: (id: string, partId?: string) =>

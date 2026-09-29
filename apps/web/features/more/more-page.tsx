@@ -1,6 +1,6 @@
 'use client';
 
-import { UserCircleIcon } from 'lucide-react';
+import { Settings, UserCircleIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
@@ -60,6 +60,11 @@ export function MorePage() {
 
       <nav aria-label={t(locale, 'more.menuAria')}>
         <ul>
+          <MoreMenuRow
+            href={AUTH_ROUTES.settings}
+            icon={<Settings className="size-5" strokeWidth={1.5} aria-hidden />}
+            label={t(locale, 'nav.settings')}
+          />
           <MoreMenuRow
             href={AUTH_ROUTES.account}
             icon={<UserCircleIcon className="size-5" strokeWidth={1.5} aria-hidden />}
