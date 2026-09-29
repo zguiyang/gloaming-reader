@@ -206,3 +206,70 @@ This run preserves the original failed result above. It is a verification follow
 - Can post-integration refactoring continue: **No**.
 - Can dev-02 merge to dev: **No**.
 - Push / merge / PR creation: **None**. Production DB touched: **No**. Cursor used: **No**.
+
+## Environment Closure Run — 2026-09-29
+
+This run follows the prior Initial Run and Closure Run without replacing either record. It closes the local auth-account and test-storage setup where possible; it does not start a new feature phase.
+
+### Git and tooling
+
+- Branch: `dev-02`.
+- Starting HEAD: `c63ac025e1910758fc638f2c815a9b94f0a26885`.
+- Primary `dev` remained at `a177dc2040738d0f9a3a49e7f2b047d946513c1c` and was not modified.
+- PR-10 (`aa938659`) and PR-11 (`1faa4218`) are not ancestors of `dev-02`.
+- Added and committed the local-only account bootstrap as `1f574196` (`test(auth): add local integration gate user bootstrap`). No runtime code or package configuration changed.
+- GitNexus reported its index stale at `81d92f1`; its uncommitted-change scan returned no symbols for the untracked file. The graph result is not treated as an all-clear. Manual source review found the addition is isolated to a Vitest spec and uses existing Better Auth test conventions; Backend Full, typecheck, lint, and build passed.
+- No PR was created, and no push or merge was performed.
+
+### Auth environment
+
+- No existing local mailbox, fake mail provider, or persistent browser-user tool was found. Existing functional tests provide the safe pattern: mock auth mail, register through the normal Better Auth endpoint, mark only the test-database user verified, then use normal sign-in.
+- Added `apps/backend/tests/functional/tools/gate-test-users.spec.ts`. It is skipped unless `GLOAMING_GATE_BOOTSTRAP_USERS=1`; when enabled it hard-fails for `NODE_ENV=production`, requires `DATABASE_URL` to equal `TEST_DATABASE_URL`, and permits only database `gloaming_test`. It uses normal sign-up/sign-in, mocks auth mail, assigns the admin role only in the test database, and writes random credentials to a new file under `/private/tmp` with mode `0600`.
+- The explicit bootstrap run created two verified user accounts and one role-backed admin account. Each account obtained a Better Auth session cookie and returned HTTP 200 from `/api/auth/get-session`. No password or token is recorded here. Credentials are retained locally at `/private/tmp/gloaming-gate-users-1790673352388.json` for the user-directed browser follow-up.
+- This verifies the test harness session endpoint, not browser reload persistence, browser logout, or browser re-login. Those remain unverified.
+- The bootstrap mock prevented mail-provider calls. Backend regression used an invalid Resend test placeholder; the provider returned validation errors, and no mail delivery was established.
+
+### Storage environment
+
+- The configured provider is Cloudflare R2-compatible. The `.env.test` bucket is test-named, differs from the development bucket, and has no production marker. The endpoint matched the configured R2-compatible service.
+- A random object under an `integration-gate-01/` run prefix passed `put`, HEAD, read-back, and delete checks using the repository object-store interface. A final HEAD confirmed that the object was absent.
+- Production storage was not used.
+
+### Browser journeys and visual acceptance
+
+- No Web/API/Worker listener was running at the start of this run. The repository `AGENTS.md` prohibits starting `dev:*`, `start`, or `preview` services. The browser runtime therefore was not started through an equivalent command.
+- Personal Upload → Processing → Ready → Library → Reader: **Blocked** — real browser journey not run.
+- Invalid EPUB failure state and Library usability after failure: **Blocked** — real browser journey not run.
+- User A / User B personal-work access isolation: **Blocked** — real browser sessions not run.
+- Discover → Book Detail → Add to Library; Remove with preserved progress/history; Continue Reading; Reading History: **Blocked** — real browser journeys not run.
+- Settings CRUD, secret masking in Network responses, and AI/TTS states: **Blocked** — real browser journey not run. Existing automated suites remain supporting evidence only.
+- Admin routes and publish/unpublish UI: **Blocked** — real browser journey not run. Existing automated admin coverage remains supporting evidence only.
+- `FRONTEND-VISUAL-001` (Library): **Pending**.
+- `FRONTEND-VISUAL-002` (Settings): **Pending**.
+- Desktop/mobile/dark-mode authenticated states and the anti-AI runtime audit were not observed in this run.
+
+### Discover loading observation
+
+- Three cold direct `/discover` measurements were not performed because the local application runtime was not started. Session-pending duration, catalog request duration, and first visible content time: **NOT MEASURED**.
+- The earlier one-off loading and blank-screen observations remain historical. This run did not reproduce a persistent blank page or establish a runtime exception. The blank-screen symptom is **not reproducibly confirmed as a runtime defect**; no loading change was made.
+
+### Regression
+
+- Backend Full: 88 files passed, 1 skipped (89 total); 592 passed, 2 skipped. The additional skipped test is the opt-in local account bootstrap.
+- Web Full: 48 files, 245 passed.
+- Shared Full: 20 files, 155 passed.
+- i18n Full: 2 files, 10 passed.
+- Workspace typecheck: passed.
+- Backend build: passed. Web build: passed with `API_INTERNAL_URL=http://localhost:3333`.
+- ESLint: 0 errors; 1 existing `<img>` warning at `apps/web/features/admin/works/works-preview-page.tsx:21`.
+- Prettier check for the new tooling and `git diff --check`: passed.
+
+### Closure result and remaining blockers
+
+- Auth and storage environment setup: **Closed** for test-only account creation and isolated object-store connectivity.
+- Authenticated browser journeys, user isolation, Settings/Admin visual checks, three cold Discover timings, and FRONTEND-VISUAL-001/002 remain **Blocked/Pending**.
+- Integration Gate #1: **Failed**. The required browser acceptance has not been performed.
+- Can post-integration refactoring continue: **No**.
+- Can `dev-02` merge to `dev`: **No**.
+- Production DB touched: **No**. Production storage touched: **No**. `dev` modified: **No**.
+- PR-10/11 merged: **No**. Lazy TTS continued: **No**. Architecture Subtraction started: **No**. Cursor used: **No**.
