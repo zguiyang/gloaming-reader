@@ -110,26 +110,6 @@ export function AiLogDetailSheet({ log, sourceLabel, purposeLabel, onOpenChange 
                   </dl>
                 </>
               ) : null}
-
-              {log.requestSummary?.selectionPreview || log.responseSummary?.replyPreview ? (
-                <>
-                  <Separator />
-                  <div className="flex flex-col gap-4">
-                    {log.requestSummary?.selectionPreview ? (
-                      <div>
-                        <p className="text-sm text-muted-foreground">{t(locale, 'admin.logs.ai.requestSummary')}</p>
-                        <p className="mt-2 text-sm leading-6 text-foreground">{log.requestSummary.selectionPreview}</p>
-                      </div>
-                    ) : null}
-                    {log.responseSummary?.replyPreview ? (
-                      <div>
-                        <p className="text-sm text-muted-foreground">{t(locale, 'admin.logs.ai.replySummary')}</p>
-                        <p className="mt-2 text-sm leading-6 text-foreground">{log.responseSummary.replyPreview}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
             </div>
           </>
         ) : null}

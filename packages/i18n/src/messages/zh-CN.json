@@ -638,8 +638,6 @@
         "refId": "关联 ID",
         "errorCode": "错误码",
         "errorMessage": "错误信息",
-        "requestSummary": "请求摘要",
-        "replySummary": "回复摘要",
         "providerBalancesTitle": "服务商余额",
         "providerAvailable": "可调用",
         "providerInsufficient": "余额不足",

@@ -13,6 +13,13 @@ export type AiInvokeRef = {
   id: string;
 };
 
+export type AiInvocationSummaryExtra = {
+  actionId?: string;
+  phase?: string;
+  workId?: string;
+  neededFields?: string;
+};
+
 export type AiInvokeOptions<TSchema extends ZodTypeAny | undefined = undefined> = {
   purpose?: AiPurpose;
   /** Explicit model row (admin test / future pin). Overrides purpose when set. */
@@ -27,7 +34,7 @@ export type AiInvokeOptions<TSchema extends ZodTypeAny | undefined = undefined> 
   timeoutMs?: number;
   /** Thinking mode toggle; off by default. Only forwarded when the provider declares a thinking param. */
   enableThinking?: boolean;
-  requestSummaryExtra?: Record<string, unknown>;
+  requestSummaryExtra?: AiInvocationSummaryExtra;
 };
 
 export type AiInvokeResult<T = string> = {
@@ -48,7 +55,7 @@ export type AiStreamOptions = {
   timeoutMs?: number;
   /** Thinking mode toggle; off by default. Only forwarded when the provider declares a thinking param. */
   enableThinking?: boolean;
-  requestSummaryExtra?: Record<string, unknown>;
+  requestSummaryExtra?: AiInvocationSummaryExtra;
   signal?: AbortSignal;
 };
 

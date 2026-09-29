@@ -140,7 +140,7 @@ describe('Admin AI invocation logs HTTP', () => {
         totalTokens: 15,
         costAmount: null,
         requestSummary: { actionId: 'gist', phase: 'followups' },
-        responseSummary: { replyPreview: 'next questions', replyLength: 14 },
+        responseSummary: { replyLength: 14, privateBody: 'next questions' } as never,
       },
     ]);
 
@@ -162,7 +162,8 @@ describe('Admin AI invocation logs HTTP', () => {
     expect(body.items[0]?.inputTokens).toBe(10);
     expect(body.items[0]?.outputTokens).toBe(5);
     expect(body.items[0]?.totalTokens).toBe(15);
-    expect(body.items[0]?.responseSummary?.replyPreview).toBe('next questions');
+    expect(body.items[0]?.responseSummary).toEqual({ replyLength: 14 });
+    expect(body.items[1]?.errorMessage).toBe('AI invocation failed');
 
     const page = await app.request(
       `/api/admin/ai/invocations?page=1&pageSize=1&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,

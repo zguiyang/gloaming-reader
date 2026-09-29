@@ -1,24 +1,22 @@
 import type { StructuredToolInterface } from '@langchain/core/tools';
 
-import { truncatePreview } from '@/domains/ai/preview-text';
-import type { AiMessageInput } from '@/domains/ai/runtime/types';
+import type { AiInvocationRequestSummary } from '@gloaming/db';
+
+import type { AiInvocationSummaryExtra, AiMessageInput } from '@/domains/ai/runtime/types';
 
 export function buildRequestSummary(
   options: {
     messages: AiMessageInput[];
     tools?: StructuredToolInterface[];
-    requestSummaryExtra?: Record<string, unknown>;
+    requestSummaryExtra?: AiInvocationSummaryExtra;
   },
   toolRoundCount: number,
-) {
-  const userText = options.messages
-    .filter((m) => m.role === 'user')
-    .map((m) => m.content)
-    .join('\n');
+): AiInvocationRequestSummary {
+  const userMessages = options.messages.filter((message) => message.role === 'user');
+  const selectionLength = userMessages.reduce((length, message, index) => length + message.content.length + index, 0);
   return {
     messageCount: options.messages.length,
-    selectionPreview: userText ? truncatePreview(userText) : undefined,
-    selectionLength: userText.length || undefined,
+    selectionLength: selectionLength || undefined,
     toolNames: options.tools?.map((t) => t.name),
     toolRoundCount,
     ...options.requestSummaryExtra,

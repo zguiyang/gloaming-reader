@@ -22,7 +22,6 @@ export async function testTts(body: TestTtsBody, options: { auditActorUserId?: s
       userId: options.auditActorUserId,
       voice: result.voice,
       role: body.role ?? null,
-      textPreview: body.text,
       textLength: body.text.length,
       latencyMs,
       // Admin connectivity probe always bypasses cache.
@@ -39,17 +38,14 @@ export async function testTts(body: TestTtsBody, options: { auditActorUserId?: s
     };
   } catch (error) {
     const latencyMs = Date.now() - started;
-    const message = error instanceof Error ? error.message : String(error);
     const errorCode = error instanceof AppError ? String(error.statusCode) : '500';
     await recordTtsInvocation({
       status: 'failure',
       errorCode,
-      errorMessage: message,
       source: 'admin.tts_test',
       userId: options.auditActorUserId,
       voice: body.voice ?? null,
       role: body.role ?? null,
-      textPreview: body.text,
       textLength: body.text.length,
       latencyMs,
       cached: null,

@@ -17,49 +17,34 @@ import {
 
 import { db } from '@/infra/db';
 
-const PREVIEW_MAX = 200;
-const ERROR_MESSAGE_MAX = 500;
+const SAFE_ERROR_MESSAGE = 'TTS invocation failed';
 
 export type TtsInvocationLogInput = {
   status: 'success' | 'failure';
   errorCode?: string | null;
-  errorMessage?: string | null;
   source: string;
   userId?: string | null;
   workId?: string | null;
   partId?: string | null;
   voice?: string | null;
   role?: TtsVoiceRole | null;
-  textPreview?: string | null;
   textLength?: number | null;
   latencyMs?: number | null;
   cached?: boolean | null;
 };
-
-function truncatePreview(text: string, max = PREVIEW_MAX): string {
-  if (text.length <= max) {
-    return text;
-  }
-  return `${text.slice(0, max - 1)}…`;
-}
-
-function truncateErrorMessage(message: string): string {
-  return truncatePreview(message, ERROR_MESSAGE_MAX);
-}
 
 export async function recordTtsInvocation(input: TtsInvocationLogInput): Promise<void> {
   await db.insert(ttsInvocationLogTable).values({
     id: randomUUID(),
     status: input.status,
     errorCode: input.errorCode ?? null,
-    errorMessage: input.errorMessage ? truncateErrorMessage(input.errorMessage) : null,
+    errorMessage: input.status === 'failure' ? SAFE_ERROR_MESSAGE : null,
     source: input.source,
     userId: input.userId ?? null,
     workId: input.workId ?? null,
     partId: input.partId ?? null,
     voice: input.voice ?? null,
     role: input.role ?? null,
-    textPreview: input.textPreview ? truncatePreview(input.textPreview) : null,
     textLength: input.textLength ?? null,
     latencyMs: input.latencyMs ?? null,
     cached: input.cached ?? null,
@@ -82,7 +67,7 @@ function toLog(row: InvocationLogRow, partTitle: string | null): TtsInvocationLo
     createdAt: row.createdAt.toISOString(),
     status: toStatus(row.status),
     errorCode: row.errorCode,
-    errorMessage: row.errorMessage,
+    errorMessage: row.status === 'failure' && row.errorMessage ? SAFE_ERROR_MESSAGE : null,
     source: row.source,
     userId: row.userId,
     workId: row.workId,
@@ -90,7 +75,6 @@ function toLog(row: InvocationLogRow, partTitle: string | null): TtsInvocationLo
     partTitle,
     voice: row.voice,
     role: toRole(row.role),
-    textPreview: row.textPreview,
     textLength: row.textLength,
     latencyMs: row.latencyMs,
     cached: row.cached,

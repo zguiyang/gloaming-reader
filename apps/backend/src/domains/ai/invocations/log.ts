@@ -11,6 +11,8 @@ import {
   type AiInvocationListData,
   type AiInvocationListQuery,
   type AiInvocationLog,
+  aiInvocationRequestSummarySchema,
+  aiInvocationResponseSummarySchema,
   type AiInvocationStats,
   type AiInvocationStatsQuery,
   type AiInvocationStatus,
@@ -18,15 +20,13 @@ import {
 } from '@gloaming/shared/ai-invocations';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
-import { truncatePreview } from '@/domains/ai/preview-text';
 import { db } from '@/infra/db';
 
-const ERROR_MESSAGE_MAX = 500;
+const SAFE_ERROR_MESSAGE = 'AI invocation failed';
 
 export type InvocationLogInput = {
   status: 'success' | 'failure';
   errorCode?: string;
-  errorMessage?: string;
   purpose?: string | null;
   source: string;
   userId?: string | null;
@@ -44,8 +44,20 @@ export type InvocationLogInput = {
   responseSummary?: AiInvocationResponseSummary | null;
 };
 
-export function truncateErrorMessage(message: string): string {
-  return truncatePreview(message, ERROR_MESSAGE_MAX);
+function sanitizeRequestSummary(
+  value: AiInvocationRequestSummary | null | undefined,
+): AiInvocationRequestSummary | null {
+  if (!value) return null;
+  const parsed = aiInvocationRequestSummarySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function sanitizeResponseSummary(
+  value: AiInvocationResponseSummary | null | undefined,
+): AiInvocationResponseSummary | null {
+  if (!value) return null;
+  const parsed = aiInvocationResponseSummarySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 /** Persist one business-level AI invocation (summary A — no full prompts). */
@@ -54,7 +66,7 @@ export async function recordInvocation(input: InvocationLogInput): Promise<void>
     id: randomUUID(),
     status: input.status,
     errorCode: input.errorCode ?? null,
-    errorMessage: input.errorMessage ? truncateErrorMessage(input.errorMessage) : null,
+    errorMessage: input.status === 'failure' ? SAFE_ERROR_MESSAGE : null,
     purpose: input.purpose ?? null,
     source: input.source,
     userId: input.userId ?? null,
@@ -70,8 +82,8 @@ export async function recordInvocation(input: InvocationLogInput): Promise<void>
     totalTokens: input.totalTokens ?? null,
     costAmount: null,
     costCurrency: null,
-    requestSummary: input.requestSummary ?? null,
-    responseSummary: input.responseSummary ?? null,
+    requestSummary: sanitizeRequestSummary(input.requestSummary),
+    responseSummary: sanitizeResponseSummary(input.responseSummary),
   });
 }
 
@@ -95,7 +107,7 @@ function toLog(row: InvocationLogRow): AiInvocationLog {
     createdAt: row.createdAt.toISOString(),
     status: toStatus(row.status),
     errorCode: row.errorCode,
-    errorMessage: row.errorMessage,
+    errorMessage: row.status === 'failure' && row.errorMessage ? SAFE_ERROR_MESSAGE : null,
     purpose: row.purpose,
     source: row.source,
     userId: row.userId,
@@ -111,8 +123,8 @@ function toLog(row: InvocationLogRow): AiInvocationLog {
     totalTokens: row.totalTokens,
     costAmount: toNullableNumber(row.costAmount),
     costCurrency: row.costCurrency,
-    requestSummary: row.requestSummary ?? null,
-    responseSummary: row.responseSummary ?? null,
+    requestSummary: sanitizeRequestSummary(row.requestSummary),
+    responseSummary: sanitizeResponseSummary(row.responseSummary),
   };
 }
 

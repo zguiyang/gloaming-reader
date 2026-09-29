@@ -2,7 +2,6 @@ import { AIMessage, type AIMessageChunk, HumanMessage, ToolMessage } from '@lang
 import type { z, ZodTypeAny } from 'zod';
 
 import { recordInvocation } from '@/domains/ai/invocations/log';
-import { truncatePreview } from '@/domains/ai/preview-text';
 import {
   addUsage,
   emptyTokens,
@@ -136,10 +135,7 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
       outputTokens: tokens.outputTokens,
       totalTokens: tokens.totalTokens,
       requestSummary: buildRequestSummary(options, toolRoundCount),
-      responseSummary: {
-        replyPreview: truncatePreview(replyText),
-        replyLength: replyText.length,
-      },
+      responseSummary: { replyLength: replyText.length },
     });
 
     return {
@@ -148,17 +144,18 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
       usage: tokens,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'AI invoke failed';
     const statusCode = error instanceof AppError ? error.statusCode : HTTP_STATUS.SERVICE_UNAVAILABLE;
 
     if (!(error instanceof AppError)) {
-      aiLogger.error({ err: error, source: options.source, purpose }, 'AI invoke failed');
+      aiLogger.error(
+        { errorName: error instanceof Error ? error.name : 'UnknownError', source: options.source, purpose },
+        'AI invoke failed',
+      );
     }
 
     await recordInvocation({
       status: 'failure',
       errorCode: String(statusCode),
-      errorMessage: message,
       purpose,
       source: options.source,
       userId: options.userId,
@@ -338,10 +335,7 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
       outputTokens: tokens.outputTokens,
       totalTokens: tokens.totalTokens,
       requestSummary: buildRequestSummary(options, toolRoundCount),
-      responseSummary: {
-        replyPreview: truncatePreview(replyText),
-        replyLength: replyText.length,
-      },
+      responseSummary: { replyLength: replyText.length },
     });
 
     yield {
@@ -355,13 +349,11 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
       return;
     }
 
-    const message = error instanceof Error ? error.message : 'AI stream failed';
     const statusCode = error instanceof AppError ? error.statusCode : HTTP_STATUS.SERVICE_UNAVAILABLE;
 
     await recordInvocation({
       status: 'failure',
       errorCode: String(statusCode),
-      errorMessage: message,
       purpose,
       source: options.source,
       userId: options.userId,

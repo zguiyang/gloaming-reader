@@ -638,8 +638,6 @@
         "refId": "Reference ID",
         "errorCode": "Error code",
         "errorMessage": "Error message",
-        "requestSummary": "Request summary",
-        "replySummary": "Reply summary",
         "providerBalancesTitle": "Provider balances",
         "providerAvailable": "Available",
         "providerInsufficient": "Insufficient balance",

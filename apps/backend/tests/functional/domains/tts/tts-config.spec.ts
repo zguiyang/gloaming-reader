@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { ttsConfig as ttsConfigTable, user as userTable } from '@gloaming/db';
+import {
+  ttsConfig as ttsConfigTable,
+  ttsInvocationLog as ttsInvocationLogTable,
+  user as userTable,
+} from '@gloaming/db';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import type { TestTtsResult, TtsConfigView } from '@gloaming/shared/tts';
 
@@ -28,6 +32,7 @@ type TtsConfigRow = typeof ttsConfigTable.$inferSelect;
 /** Snapshot of local/dev `tts_config` before this suite mutates the singleton row. */
 let priorConfig: TtsConfigRow | null | undefined;
 const createdUserTtsIds: string[] = [];
+const createdTtsInvocationIds: string[] = [];
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
@@ -115,6 +120,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (createdTtsInvocationIds.length) {
+    await db.delete(ttsInvocationLogTable).where(inArray(ttsInvocationLogTable.id, createdTtsInvocationIds));
+  }
   if (createdUserTtsIds.length) {
     await db.delete(ttsConfigTable).where(inArray(ttsConfigTable.id, createdUserTtsIds));
   }
@@ -234,10 +242,11 @@ describe('admin TTS config', () => {
       ukVoice: 'en-GB-SoniaNeural',
     });
 
+    const privateTtsText = 'private sentence used only for the invocation privacy check';
     const tested = await app.request('/api/admin/tts/test', {
       method: 'POST',
       headers: { Cookie: admin.cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: 'hello', role: 'us' }),
+      body: JSON.stringify({ text: privateTtsText, role: 'us' }),
     });
     expect(tested.status).toBe(200);
     const testBody = (await tested.json()) as TestTtsResult;
@@ -250,10 +259,38 @@ describe('admin TTS config', () => {
       expect.objectContaining({
         region: 'eastus',
         voice: 'en-US-GuyNeural',
-        text: 'hello',
+        text: privateTtsText,
         subscriptionKey: 'test-azure-speech-key',
       }),
     );
+
+    const ttsAdminId = adminUserRow[0]!.id;
+    const ownInvocationRows = await db
+      .select({ id: ttsInvocationLogTable.id })
+      .from(ttsInvocationLogTable)
+      .where(eq(ttsInvocationLogTable.userId, ttsAdminId));
+    createdTtsInvocationIds.push(...ownInvocationRows.map((row) => row.id));
+
+    const logs = await app.request('/api/admin/tts/invocations?pageSize=50', {
+      headers: { Cookie: admin.cookie },
+    });
+    expect(logs.status).toBe(200);
+    const logBody = (await logs.json()) as {
+      items: Array<{
+        id: string;
+        userId: string | null;
+        source: string;
+        status: string;
+        errorMessage: string | null;
+        textLength: number | null;
+      }>;
+    };
+    const successLog = logBody.items.find((item) => item.userId === ttsAdminId && item.status === 'success');
+    expect(successLog).toMatchObject({
+      source: 'admin.tts_test',
+      textLength: privateTtsText.length,
+    });
+    expect(JSON.stringify(successLog)).not.toContain(privateTtsText);
 
     synthesizeSpy.mockClear();
     await db.delete(ttsConfigTable).where(eq(ttsConfigTable.id, TTS_CONFIG_ID));
@@ -264,6 +301,19 @@ describe('admin TTS config', () => {
     });
     expect(unavailable.status).toBe(503);
     expect(synthesizeSpy).not.toHaveBeenCalled();
+
+    const failedLogs = await app.request('/api/admin/tts/invocations?pageSize=50', {
+      headers: { Cookie: admin.cookie },
+    });
+    expect(failedLogs.status).toBe(200);
+    const failedLogBody = (await failedLogs.json()) as typeof logBody;
+    const failureLog = failedLogBody.items.find((item) => item.userId === ttsAdminId && item.status === 'failure');
+    expect(failureLog?.errorMessage).toBe('TTS invocation failed');
+    const ownRowsAfterFailure = await db
+      .select({ id: ttsInvocationLogTable.id })
+      .from(ttsInvocationLogTable)
+      .where(eq(ttsInvocationLogTable.userId, ttsAdminId));
+    createdTtsInvocationIds.push(...ownRowsAfterFailure.map((row) => row.id));
 
     synthesizeSpy.mockRestore();
   });

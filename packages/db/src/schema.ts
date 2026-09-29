@@ -701,7 +701,6 @@ export const ttsInvocationLog = pgTable(
     partId: text('part_id'),
     voice: text('voice'),
     role: text('role'),
-    textPreview: text('text_preview'),
     textLength: integer('text_length'),
     latencyMs: integer('latency_ms'),
     cached: boolean('cached'),
@@ -715,15 +714,16 @@ export const ttsInvocationLog = pgTable(
 
 export type AiInvocationRequestSummary = {
   messageCount?: number;
-  selectionPreview?: string;
   selectionLength?: number;
   toolNames?: string[];
   toolRoundCount?: number;
   actionId?: string;
+  phase?: string;
+  workId?: string;
+  neededFields?: string;
 };
 
 export type AiInvocationResponseSummary = {
-  replyPreview?: string;
   replyLength?: number;
 };
 

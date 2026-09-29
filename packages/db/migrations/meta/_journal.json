@@ -260,6 +260,13 @@
       "when": 1788760800000,
       "tag": "0036_user_first_pr01_schema_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790697078410,
+      "tag": "0037_admin_invocation_log_privacy",
+      "breakpoints": true
     }
   ]
 }

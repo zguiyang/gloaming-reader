@@ -110,7 +110,6 @@ export const ttsInvocationLogSchema = z.object({
   partTitle: z.string().nullable(),
   voice: z.string().nullable(),
   role: z.enum(ttsVoiceRoleValues).nullable(),
-  textPreview: z.string().nullable(),
   textLength: z.number().int().nullable(),
   latencyMs: z.number().int().nullable(),
   cached: z.boolean().nullable(),
