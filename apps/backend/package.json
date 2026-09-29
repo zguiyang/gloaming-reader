@@ -16,7 +16,7 @@
     "test:integration:worker": "tsx tests/integration/asset-cleanup-real-worker/main.ts",
     "seed:dev": "tsx scripts/seed-dev-works.ts",
     "reset:content": "tsx scripts/reset-content.ts",
-    "create:admin": "node dist/application/commands/create-admin.js"
+    "create:admin": "tsx dist/application/commands/create-admin.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1112.0",
