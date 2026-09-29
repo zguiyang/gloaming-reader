@@ -8,6 +8,18 @@
 
 本目录是用户优先架构史诗的持久化证据链。它将已实现代码与设计意图、测试证据及未决的产品/数据决策分开记录。计划与 ADR 描述意图；Git 历史、源码、schema、路由与测试确立运行时事实。
 
+## Integration Gate #1
+
+| 项目      | 结果                                                                                            |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| 集成分支  | `dev-02`，从本地 `dev` 基线 `a177dc2040738d0f9a3a49e7f2b047d946513c1c` 创建                     |
+| 集成提交  | `f83c8f3d`，合入 PR-01～PR-09 的 18 个连续提交                                                  |
+| 明确排除  | PR-10 / PR-11；未开始 Lazy TTS 或 Architecture Subtraction                                      |
+| Gate 状态 | **Failed**：本地 `/discover` 路由返回 200，但浏览器呈现空白页；登录态关键流程与视觉验收尚未完成 |
+| 报告      | [Integration Gate #1 summary](integration-gate-01-summary.md)                                   |
+
+`dev-02` 尚未获准继续后续重构或合并回 `dev`。
+
 ## 架构基线
 
 史诗前基线为 `origin/dev` 位于 `4efa89a9944561ad4f57b37d57f115fd78f7f43f`（`4efa89a9`）。下表各阶段均与其实际父提交对比。
@@ -60,21 +72,21 @@
 
 ## 决策关注清单
 
-「需人工评审 = 是」的条目不是实现指令。当前表中有 **15 项记录**：13 项仍待决定、2 项已由 PR-07 落实但仍待人工评审；其中 `R2-001` 继续阻塞 User TTS runtime。
+「需人工评审 = 是」的条目不是实现指令。当前表中有 **15 项记录**：13 项仍待决定、2 项已由 PR-07 落实但仍待人工评审；其中 `R2-001` 已重新分类为 Deferred to post-Integration Lazy TTS Epic，不再阻塞 Integration Gate 本身。
 
-| ID               | PR       | 领域          | 决策                                                                      | 当前行为                                                                              | 产品/数据影响                                        | 状态                         |
-| ---------------- | -------- | ------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------- |
-| R2-001           | PR-09    | User TTS      | 决定用户 TTS 与共享预生成音轨的隔离及 cache-hit / 成本语义                | Reader 按 Part + role 读取共享 ContentAsset；配置/用户不在身份键中                    | 用户配置可能影响共享音轨或不能实际生效               | **Still Blocking**           |
-| PR05-HISTORY-001 | PR-01/05 | 历史数据      | 决定是否保留、删除或选择性恢复迁移 0036 产生的成员行                      | 每条旧 `reading_state` 行均成为 `user_library_item`；无来源字段区分显式保存与阅读打开 | Library 可能夸大历史用户意图；可靠的选择性标记未确认 | 需人工产品/数据决策          |
-| PR04-PRODUCT-001 | PR-04    | 重复上传      | 定义同一 EPUB 上传两次是创建两个 Work 还是一个                            | 对象字节可按哈希复用，但每次摄取仍创建新 Work                                         | 重复条目与独立进度                                   | 需产品决策                   |
-| PR03-PRODUCT-002 | PR-03/05 | 取消发布      | 决定 Catalog Work 未发布期间「已保存」成员的含义                          | 成员行保留；Library 在无发布时隐藏；重新发布后再次可见                                | 保存意图以不可见方式持久                             | 需产品决策                   |
-| PR05-PRODUCT-003 | PR-05    | Library 身份  | 确认 Library 路由与导航名称                                               | PR-07 已迁移到 `/library`，无旧路由兼容                                               | 命名/导航已落实，人工接受仍 Pending                  | PR-07 已落实；人工评审待完成 |
-| PR05-PRODUCT-004 | PR-05    | Library 分组  | 决定拥有的 Personal Work 与保存的 Catalog Work 是否分组或统一并附来源标签 | 单一合并 API 列表；数据传输对象无显式成员/来源类型                                    | 用户可能不理解「拥有」与「保存的 Catalog」条目       | 需产品决策                   |
-| PR05-PRODUCT-005 | PR-04/05 | Personal 上传 | 确认上传入口及处理/失败呈现                                               | PR-07 在 `/library` 提供 EPUB 上传、处理中轮询及失败状态                              | 实现已存在；运行时视觉/人工接受仍 Pending            | PR-07 已落实；人工评审待完成 |
-| PR05-PRODUCT-006 | PR-05    | Personal 删除 | 定义用户如何删除拥有的 Work                                               | 无学习者删除端点；Catalog 移除仅删除成员关系                                          | 「删除 Work」与「从 Library 移除」语义未决           | 需产品决策                   |
-| PR05-PRODUCT-009 | PR-05    | 历史可见性    | 决定是否告知用户部分 Library 条目为启发式迁移                             | 迁移行与显式保存行成员形态相同                                                        | 信任与清理预期                                       | 需产品决策                   |
-| PR05-PRODUCT-010 | PR-05    | 排序/容量     | 确认按最新创建/保存排序及固定容量                                         | 拥有行按 Work 创建排序；保存行按成员创建排序；当前上限为 48                           | 大型 Library 可能遗漏条目；排序对用户可见            | 需产品决策                   |
-| PR05-PRODUCT-011 | PR-04/05 | Admin 体验    | 命名空间迁移后复审 Catalog Admin 文案与工作流呈现                         | Admin 路径已 Catalog 限定；本审计未包含视觉改版                                       | 运营用语及与 Personal Work 的区分                    | 需产品决策                   |
+| ID               | PR       | 领域          | 决策                                                                      | 当前行为                                                                              | 产品/数据影响                                        | 状态                                           |
+| ---------------- | -------- | ------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------- |
+| R2-001           | PR-09    | User TTS      | 决定用户 TTS 与共享预生成音轨的隔离及 cache-hit / 成本语义                | Reader 按 Part + role 读取共享 ContentAsset；配置/用户不在身份键中                    | 用户配置可能影响共享音轨或不能实际生效               | **Deferred to post-Integration Lazy TTS Epic** |
+| PR05-HISTORY-001 | PR-01/05 | 历史数据      | 决定是否保留、删除或选择性恢复迁移 0036 产生的成员行                      | 每条旧 `reading_state` 行均成为 `user_library_item`；无来源字段区分显式保存与阅读打开 | Library 可能夸大历史用户意图；可靠的选择性标记未确认 | 需人工产品/数据决策                            |
+| PR04-PRODUCT-001 | PR-04    | 重复上传      | 定义同一 EPUB 上传两次是创建两个 Work 还是一个                            | 对象字节可按哈希复用，但每次摄取仍创建新 Work                                         | 重复条目与独立进度                                   | 需产品决策                                     |
+| PR03-PRODUCT-002 | PR-03/05 | 取消发布      | 决定 Catalog Work 未发布期间「已保存」成员的含义                          | 成员行保留；Library 在无发布时隐藏；重新发布后再次可见                                | 保存意图以不可见方式持久                             | 需产品决策                                     |
+| PR05-PRODUCT-003 | PR-05    | Library 身份  | 确认 Library 路由与导航名称                                               | PR-07 已迁移到 `/library`，无旧路由兼容                                               | 命名/导航已落实，人工接受仍 Pending                  | PR-07 已落实；人工评审待完成                   |
+| PR05-PRODUCT-004 | PR-05    | Library 分组  | 决定拥有的 Personal Work 与保存的 Catalog Work 是否分组或统一并附来源标签 | 单一合并 API 列表；数据传输对象无显式成员/来源类型                                    | 用户可能不理解「拥有」与「保存的 Catalog」条目       | 需产品决策                                     |
+| PR05-PRODUCT-005 | PR-04/05 | Personal 上传 | 确认上传入口及处理/失败呈现                                               | PR-07 在 `/library` 提供 EPUB 上传、处理中轮询及失败状态                              | 实现已存在；运行时视觉/人工接受仍 Pending            | PR-07 已落实；人工评审待完成                   |
+| PR05-PRODUCT-006 | PR-05    | Personal 删除 | 定义用户如何删除拥有的 Work                                               | 无学习者删除端点；Catalog 移除仅删除成员关系                                          | 「删除 Work」与「从 Library 移除」语义未决           | 需产品决策                                     |
+| PR05-PRODUCT-009 | PR-05    | 历史可见性    | 决定是否告知用户部分 Library 条目为启发式迁移                             | 迁移行与显式保存行成员形态相同                                                        | 信任与清理预期                                       | 需产品决策                                     |
+| PR05-PRODUCT-010 | PR-05    | 排序/容量     | 确认按最新创建/保存排序及固定容量                                         | 拥有行按 Work 创建排序；保存行按成员创建排序；当前上限为 48                           | 大型 Library 可能遗漏条目；排序对用户可见            | 需产品决策                                     |
+| PR05-PRODUCT-011 | PR-04/05 | Admin 体验    | 命名空间迁移后复审 Catalog Admin 文案与工作流呈现                         | Admin 路径已 Catalog 限定；本审计未包含视觉改版                                       | 运营用语及与 Personal Work 的区分                    | 需产品决策                                     |
 
 ## Review Gate #2
 
@@ -82,12 +94,12 @@
 
 ## PR-09 TTS 阻塞项
 
-| ID       | 项目                    | 状态               | 证据 / 处理                                                                                                                                                                    |
-| -------- | ----------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `R2-001` | User TTS Runtime scope  | **Still Blocking** | Reader 消费共享 Part 音轨；资产唯一键、对象键和 Redis cache key 都不能隔离用户/配置，User TTS 的 cache-hit、声音和 BYOK 成本语义未决。见 [PR-09](pr-09-tts-scope-closure.md)。 |
-| `R2-002` | Admin Instance TTS test | **Resolved**       | Admin probe 使用显式 Instance-only synthesis；个人配置不会成为探测目标，缺少 Instance 配置时返回 unavailable。                                                                 |
+| ID       | 项目                    | 状态                                           | 证据 / 处理                                                                                                                                                                    |
+| -------- | ----------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `R2-001` | User TTS Runtime scope  | **Deferred to post-Integration Lazy TTS Epic** | Reader 消费共享 Part 音轨；资产唯一键、对象键和 Redis cache key 都不能隔离用户/配置，User TTS 的 cache-hit、声音和 BYOK 成本语义未决。见 [PR-09](pr-09-tts-scope-closure.md)。 |
+| `R2-002` | Admin Instance TTS test | **Resolved**                                   | Admin probe 使用显式 Instance-only synthesis；个人配置不会成为探测目标，缺少 Instance 配置时返回 unavailable。                                                                 |
 
-PR-09 只部分完成，**不能**据此开始 PR-10 Architecture Subtraction。Review Gate #2 对 `R2-002` 的原始 actor 假设已在 PR-09 基线检查中校正：Admin ID 在原合成调用中只用于审计日志，未进入 synthesis resolver；本阶段增加明确 Instance-only API 与缺失配置回归覆盖。历史 Review Gate 文档保留其检查点结论。
+PR-09 只部分完成；`R2-001` 是延后的 User TTS runtime 能力，不代表已解决。Integration Gate #1 未通过，也未开始 Architecture Subtraction。Review Gate #2 对 `R2-002` 的原始 actor 假设已在 PR-09 基线检查中校正：Admin ID 在原合成调用中只用于审计日志，未进入 synthesis resolver；本阶段增加明确 Instance-only API 与缺失配置回归覆盖。历史 Review Gate 文档保留其检查点结论。
 
 ## Architecture Subtraction Candidates
 
@@ -123,7 +135,7 @@ PR-09 只部分完成，**不能**据此开始 PR-10 Architecture Subtraction。
 - [ ] User TTS 的 Reader runtime 范围已确认且有实际消费者
 - [x] Admin TTS 连通性测试解析预期的 Instance 配置（PR-09）
 - [ ] 已审查 PR-08 AI 单项用途重置与 Metadata purpose 运行时范围
-- [ ] Review Gate #2 blockers 均已解决或经批准重新分类（`R2-001` 仍阻塞）
+- [ ] Review Gate #2 blockers 均已解决或经批准重新分类（`R2-001` 延后至 post-Integration Lazy TTS Epic）
 - [ ] 上传、处理中、失败状态视觉验收
 - [ ] Catalog 移除交互视觉验收
 - [ ] Personal Work → Reader 流程验收
