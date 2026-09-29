@@ -21,6 +21,8 @@ import { persistGenericDictionaryEntry, toGenericDictionaryEntry } from '@/domai
 import { isTransientDictionaryProviderFailure } from '@/domains/dictionary/providers/errors';
 import { getDictionaryProvider, youdaoDictionaryProvider } from '@/domains/dictionary/providers/registry';
 import type { RawProviderResult } from '@/domains/dictionary/providers/types';
+import type { WorkReadActor } from '@/domains/works/access';
+import { resolveReadableWorkIdForPart } from '@/domains/works/access';
 import { getRedis } from '@/infra/cache';
 import { db } from '@/infra/db';
 import { decryptApiKey } from '@/infra/llm';
@@ -36,12 +38,28 @@ function wordCacheKey(word: string): string {
 }
 
 export type LookupWordOptions = {
+  actor: WorkReadActor;
   word: string;
   contextSentence?: string;
   workId?: string;
   partId?: string;
   bypassCache?: boolean;
 };
+
+async function resolveLookupWorkContext(
+  actor: WorkReadActor,
+  options: Pick<LookupWordOptions, 'workId' | 'partId'>,
+): Promise<{ workId?: string; workTitle?: string }> {
+  let workId = options.workId;
+  if (!workId && options.partId) {
+    workId = await resolveReadableWorkIdForPart(actor, options.partId);
+  }
+  const workTitle = await resolveWorkTitle(actor, workId);
+  if (!workTitle) {
+    return {};
+  }
+  return { workId, workTitle };
+}
 
 export async function lookupWord(options: LookupWordOptions): Promise<DictionaryEntry | null> {
   const cleanWord = options.word.trim().toLowerCase();
@@ -112,7 +130,7 @@ export async function lookupWord(options: LookupWordOptions): Promise<Dictionary
       return cachedGeneric;
     }
     // Context is request-scoped: build on top of the shared generic entry without writing back.
-    const withContext = await attachContextForResponse(cachedGeneric, options, config);
+    const withContext = await attachContextForResponse(options.actor, cachedGeneric, options, config);
     return { ...withContext, fromCache: true };
   }
 
@@ -169,24 +187,24 @@ export async function lookupWord(options: LookupWordOptions): Promise<Dictionary
   let genericToPersist = baseGeneric;
   let responseEntry = baseGeneric;
 
-  const workTitle = await resolveWorkTitle(options.workId);
+  const workContext = hasContext ? await resolveLookupWorkContext(options.actor, options) : {};
   const lookupContext: LookupContext | undefined = hasContext
     ? {
         sentence: options.contextSentence,
-        workId: options.workId,
-        partId: options.partId,
-        workTitle,
+        workId: workContext.workId,
+        partId: workContext.workTitle ? options.partId : undefined,
+        workTitle: workContext.workTitle,
       }
     : undefined;
 
   // L4: AI Enrichment (if enabled). Context examples stay on the response only.
   if (config.enableAiEnrichment) {
     if (hasContext) {
-      const enriched = await enrichFreshEntryWithAi(baseGeneric, lookupContext);
+      const enriched = await enrichFreshEntryWithAi(baseGeneric, lookupContext, options.actor.userId);
       genericToPersist = enriched.generic;
       responseEntry = enriched.response;
     } else {
-      genericToPersist = await enrichGenericMeaningsWithAi(baseGeneric);
+      genericToPersist = await enrichGenericMeaningsWithAi(baseGeneric, options.actor.userId);
       responseEntry = genericToPersist;
     }
   } else if (hasContext && lookupContext) {
@@ -205,11 +223,12 @@ export async function lookupWord(options: LookupWordOptions): Promise<Dictionary
   return responseEntry;
 }
 
-export async function testDictionary(body: TestDictionaryBody): Promise<TestDictionaryResult> {
+export async function testDictionary(actor: WorkReadActor, body: TestDictionaryBody): Promise<TestDictionaryResult> {
   const started = Date.now();
   const config = await getDictionaryConfig();
 
   const entry = await lookupWord({
+    actor,
     word: body.word,
     contextSentence: body.contextSentence,
     workId: body.workId,

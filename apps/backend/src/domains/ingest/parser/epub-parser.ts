@@ -91,4 +91,4 @@ export const epubContentParser: ContentParser = {
   },
 };
 
-registerParser(epubContentParser);
+registerParser(epubContentParser, ['admin_epub', 'user_epub']);

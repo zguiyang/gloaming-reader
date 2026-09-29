@@ -52,7 +52,7 @@ describe('public catalog taxonomy APIs', () => {
     await db.insert(readingWorkTable).values({
       id: workId,
       title: input.title,
-      status: 'published',
+      processingStatus: 'ready',
       visibility: input.visibility,
       originKind: 'admin_text',
       publishedAt: new Date(),
@@ -224,7 +224,7 @@ describe('public catalog taxonomy APIs', () => {
       await db.insert(readingWorkTable).values({
         id: workId,
         title: 'Work With Source',
-        status: 'published',
+        processingStatus: 'ready',
         visibility: 'catalog',
         originKind: 'admin_text',
         publishedAt: new Date(),

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ShelfItem } from '@gloaming/shared/shelf';
+import type { ContinueReadingItem, LibraryItem } from '@gloaming/shared/library';
 import { catalogTaxonomyListDataSchema } from '@gloaming/shared/taxonomy';
 import type { CatalogWork } from '@gloaming/shared/works';
 
 import {
   buildDiscoverListQuery,
   discoverQueryKey,
-  resolveShelfStatus,
+  resolveLibraryStatus,
   toDiscoverItem,
 } from '@/features/discover/discover-api';
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/discover-model';
@@ -38,7 +38,7 @@ function sampleWork(overrides: Partial<CatalogWork> = {}): CatalogWork {
     author: '  Jane Austen  ',
     description: 'A published catalog work used in discover card mapping tests.',
     language: 'en',
-    status: 'published',
+    processingStatus: 'ready',
     visibility: 'catalog',
     originKind: 'admin_epub',
     tags: [taxonomyTag],
@@ -114,7 +114,7 @@ describe('toDiscoverItem', () => {
     expect(item.partCount).toBe(21);
     expect(item.tags[0]?.id).toBe('tag-classic');
     expect(item.category?.id).toBe('cat-essays');
-    expect(item.shelfStatus).toBe('available');
+    expect(item.libraryStatus).toBe('available');
   });
 
   it('omits cover URL and trims empty author', () => {
@@ -126,11 +126,25 @@ describe('toDiscoverItem', () => {
   });
 });
 
-describe('resolveShelfStatus', () => {
-  it('marks in-progress when shelf progress is positive', () => {
-    const shelfItem = {
+describe('resolveLibraryStatus', () => {
+  it('reports only explicit Library membership', () => {
+    const libraryItem = {
       state: { status: 'in_progress', progressRatio: 12 },
-    } as ShelfItem;
-    expect(resolveShelfStatus(shelfItem)).toBe('in_progress');
+    } as LibraryItem;
+    expect(resolveLibraryStatus(libraryItem)).toBe('in_library');
+  });
+
+  it('keeps membership when a Library item has no progress', () => {
+    expect(resolveLibraryStatus({ state: null } as LibraryItem)).toBe('in_library');
+  });
+
+  it('shows unsaved Continue Reading progress without marking the work as a Library member', () => {
+    const current = {
+      work: { id: 'work-1' },
+      state: { status: 'in_progress', progressRatio: 12 },
+    } as ContinueReadingItem;
+    const item = toDiscoverItem(sampleWork(), undefined, current);
+    expect(item.libraryStatus).toBe('available');
+    expect(item.progressRatio).toBe(12);
   });
 });

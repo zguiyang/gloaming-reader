@@ -10,7 +10,8 @@ import type {
 
 import { invokeAi } from '@/domains/ai';
 import { toGenericDictionaryEntry } from '@/domains/dictionary/lookup/generic-entry';
-import { getPublishedWorkTitle } from '@/domains/works/catalog';
+import type { WorkReadActor } from '@/domains/works/access';
+import { resolveReadableWorkIdForPart, resolveReadableWorkTitle } from '@/domains/works/access';
 import { rootLogger } from '@/infra/logging/logger';
 
 const logger = rootLogger.child({ module: 'DictionaryService' });
@@ -87,7 +88,10 @@ function withRequestContextExample(
 }
 
 /** Generic meaning enrichment only — safe to persist. */
-export async function enrichGenericMeaningsWithAi(entry: DictionaryEntry): Promise<DictionaryEntry> {
+export async function enrichGenericMeaningsWithAi(
+  entry: DictionaryEntry,
+  userId?: string | null,
+): Promise<DictionaryEntry> {
   try {
     const promptLines: string[] = [
       `You are an expert English-to-Chinese lexicographer and reading companion.`,
@@ -107,6 +111,7 @@ export async function enrichGenericMeaningsWithAi(entry: DictionaryEntry): Promi
     const aiResult = await invokeAi({
       purpose: 'assist',
       source: 'dictionary:enrichment',
+      userId: userId ?? undefined,
       messages: [{ role: 'user', content: promptLines.join('\n') }],
       outputSchema: aiEnrichmentOutputSchema,
       timeoutMs: 15000,
@@ -130,6 +135,7 @@ export async function enrichGenericMeaningsWithAi(entry: DictionaryEntry): Promi
 export async function enrichFreshEntryWithAi(
   entry: DictionaryEntry,
   context?: LookupContext,
+  userId?: string | null,
 ): Promise<{ generic: DictionaryEntry; response: DictionaryEntry }> {
   const hasContext = Boolean(context?.sentence?.trim());
   try {
@@ -161,6 +167,7 @@ export async function enrichFreshEntryWithAi(
     const aiResult = await invokeAi({
       purpose: 'assist',
       source: 'dictionary:enrichment',
+      userId: userId ?? undefined,
       messages: [{ role: 'user', content: promptLines.join('\n') }],
       outputSchema: aiEnrichmentOutputSchema,
       timeoutMs: 15000,
@@ -195,7 +202,11 @@ export async function enrichFreshEntryWithAi(
 }
 
 /** Request-scoped context only — must never be written to shared Redis/DB. */
-async function attachRequestScopedContext(entry: DictionaryEntry, context: LookupContext): Promise<DictionaryEntry> {
+async function attachRequestScopedContext(
+  entry: DictionaryEntry,
+  context: LookupContext,
+  userId?: string | null,
+): Promise<DictionaryEntry> {
   const generic = toGenericDictionaryEntry(entry);
   const sentence = context.sentence?.trim();
   if (!sentence) {
@@ -229,6 +240,7 @@ async function attachRequestScopedContext(entry: DictionaryEntry, context: Looku
     const aiResult = await invokeAi({
       purpose: 'assist',
       source: 'dictionary:context',
+      userId: userId ?? undefined,
       messages: [{ role: 'user', content: promptLines.join('\n') }],
       outputSchema: aiContextOnlyOutputSchema,
       timeoutMs: 15000,
@@ -247,18 +259,15 @@ async function attachRequestScopedContext(entry: DictionaryEntry, context: Looku
   }
 }
 
-export async function resolveWorkTitle(workId?: string): Promise<string | undefined> {
+export async function resolveWorkTitle(actor: WorkReadActor, workId?: string): Promise<string | undefined> {
   if (!workId) {
     return undefined;
   }
-  try {
-    return await getPublishedWorkTitle(workId);
-  } catch {
-    return undefined;
-  }
+  return resolveReadableWorkTitle(actor, workId);
 }
 
 export async function attachContextForResponse(
+  actor: WorkReadActor,
   entry: DictionaryEntry,
   options: { contextSentence?: string; workId?: string; partId?: string },
   config: DictionaryConfigView,
@@ -268,16 +277,20 @@ export async function attachContextForResponse(
     return toGenericDictionaryEntry(entry);
   }
 
-  const workTitle = await resolveWorkTitle(options.workId);
+  let workId = options.workId;
+  if (!workId && options.partId) {
+    workId = await resolveReadableWorkIdForPart(actor, options.partId);
+  }
+  const workTitle = await resolveWorkTitle(actor, workId);
   const context: LookupContext = {
     sentence,
-    workId: options.workId,
-    partId: options.partId,
+    workId: workTitle ? workId : undefined,
+    partId: workTitle ? options.partId : undefined,
     workTitle,
   };
 
   if (config.enableAiEnrichment) {
-    return attachRequestScopedContext(entry, context);
+    return attachRequestScopedContext(entry, context, actor.userId);
   }
 
   return withRequestContextExample(entry, buildRequestContextExample(context));

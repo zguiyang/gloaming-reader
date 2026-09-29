@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 
-import { getPublishedWork, listCatalogCategories, listCatalogTags, listCatalogWorks } from '@/domains/works/catalog';
+import { workReadActorFromIdentity } from '@/domains/works/access';
+import { getCatalogWork, listCatalogCategories, listCatalogTags, listCatalogWorks } from '@/domains/works/catalog';
 import { validateCatalogListQuery } from '@/domains/works/routes/validator';
 import type { AuthVariables } from '@/infra/http/middleware/auth';
 
@@ -22,6 +23,7 @@ worksCatalogRoutes.get('/api/catalog/works', validateCatalogListQuery, async (c)
 });
 
 worksCatalogRoutes.get('/api/catalog/works/:id', async (c) => {
-  const work = await getPublishedWork(c.req.param('id'));
+  const actor = workReadActorFromIdentity(c.get('user'));
+  const work = await getCatalogWork(actor, c.req.param('id'));
   return c.json(work);
 });

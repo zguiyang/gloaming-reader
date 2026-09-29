@@ -2,13 +2,14 @@ import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxono
 import {
   type AdminOriginAsset,
   type AdminWork,
+  type AdminWorkListQuery,
   type AdminWorkSummary,
   type Work,
-  type WorkStatus,
+  type WorkProcessingStatus,
 } from '@gloaming/shared/works';
 
 type WorkPreviewInput = {
-  status: WorkStatus;
+  processingStatus: WorkProcessingStatus;
   partCount?: number;
   parts?: readonly unknown[];
 };
@@ -18,11 +19,48 @@ export function canPreviewWork(work: WorkPreviewInput): boolean {
   const partCount = work.partCount ?? work.parts?.length ?? 0;
   return (
     partCount > 0 &&
-    work.status !== 'processing' &&
-    work.status !== 'metadata' &&
-    work.status !== 'uploaded' &&
-    work.status !== 'failed'
+    work.processingStatus !== 'processing' &&
+    work.processingStatus !== 'metadata' &&
+    work.processingStatus !== 'uploaded' &&
+    work.processingStatus !== 'failed'
   );
+}
+
+export function isWorkPublished(work: { publishedAt: string | null }): boolean {
+  return work.publishedAt != null;
+}
+
+/** TTS is a workflow step; while it runs the work processingStatus stays `ready`. */
+export function isTtsWorkflowActive(work: { originMeta: Record<string, unknown> }): boolean {
+  const enqueueStep = work.originMeta.workflowEnqueueStep;
+  const claimStep = work.originMeta.workflowClaimStep;
+  return enqueueStep === 'tts' || claimStep === 'tts';
+}
+
+export function isProcessingPipelineRunning(work: {
+  processingStatus: WorkProcessingStatus;
+  originMeta: Record<string, unknown>;
+}): boolean {
+  return work.processingStatus === 'processing' || work.processingStatus === 'metadata' || isTtsWorkflowActive(work);
+}
+
+export type AdminListStatusFilter = WorkProcessingStatus | 'all' | 'busy' | 'published';
+
+export function adminWorksListQueryForFilter(filter: AdminListStatusFilter): Partial<AdminWorkListQuery> {
+  switch (filter) {
+    case 'all':
+      return {};
+    case 'busy':
+      return { processingStatus: 'uploaded,processing,parsed,metadata', workflowStep: 'tts' };
+    case 'published':
+      return { publicationStatus: 'published' };
+    case 'ready':
+      return { processingStatus: 'ready', publicationStatus: 'unpublished' };
+    case 'failed':
+      return { processingStatus: 'failed' };
+    default:
+      return { processingStatus: filter };
+  }
 }
 
 /** Work view model: dates as ISO strings. */
@@ -32,7 +70,7 @@ export type WorkView = {
   author: string;
   description: string;
   language: string;
-  status: Work['status'];
+  processingStatus: Work['processingStatus'];
   visibility: Work['visibility'];
   originKind: Work['originKind'];
   tags: TaxonomyReference[];
@@ -82,7 +120,7 @@ export function normalizeWork(raw: Work): WorkView {
     author: raw.author,
     description: raw.description,
     language: raw.language,
-    status: raw.status,
+    processingStatus: raw.processingStatus,
     visibility: raw.visibility,
     originKind: raw.originKind,
     tags: raw.tags,

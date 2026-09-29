@@ -11,6 +11,8 @@ import { buildPaginationMeta } from '@gloaming/shared/pagination';
 import type { CatalogTaxonomyListData } from '@gloaming/shared/taxonomy';
 import { type CatalogListData, type CatalogListQuery, type Work } from '@gloaming/shared/works';
 
+import type { WorkReadActor } from '@/domains/works/access';
+import { publicCatalogWorkSql, workReadAccessSql } from '@/domains/works/access';
 import { toWork } from '@/domains/works/read-model/projection';
 import {
   loadCategoriesByWorkIds,
@@ -32,11 +34,7 @@ function escapeIlikePattern(value: string): string {
 }
 
 function catalogPublishedWorkFilter(id?: string): SQL {
-  return and(
-    ...(id ? [eq(readingWorkTable.id, id)] : []),
-    eq(readingWorkTable.status, 'published'),
-    eq(readingWorkTable.visibility, 'catalog'),
-  )!;
+  return and(...(id ? [eq(readingWorkTable.id, id)] : []), publicCatalogWorkSql())!;
 }
 
 function publishedListWhere(query: Pick<CatalogListQuery, 'tag' | 'category' | 'q'>): SQL {
@@ -176,8 +174,10 @@ export async function listCatalogWorks(query: CatalogListQuery): Promise<Catalog
   };
 }
 
-export async function getPublishedWork(id: string): Promise<Work> {
-  const [row] = await db.select().from(readingWorkTable).where(catalogPublishedWorkFilter(id)).limit(1);
+export async function getCatalogWork(actor: WorkReadActor, id: string): Promise<Work> {
+  const access = workReadAccessSql(actor);
+  const where = access ? and(eq(readingWorkTable.id, id), access) : eq(readingWorkTable.id, id);
+  const [row] = await db.select().from(readingWorkTable).where(where).limit(1);
 
   if (!row) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
@@ -189,14 +189,4 @@ export async function getPublishedWork(id: string): Promise<Work> {
     loadSourcesForWork(id),
   ]);
   return toWork(hydrated, tags, sources, category);
-}
-
-/** Resolve only catalog-visible metadata for request-scoped public context. */
-export async function getPublishedWorkTitle(id: string): Promise<string | undefined> {
-  const [row] = await db
-    .select({ title: readingWorkTable.title })
-    .from(readingWorkTable)
-    .where(catalogPublishedWorkFilter(id))
-    .limit(1);
-  return row?.title;
 }

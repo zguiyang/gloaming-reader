@@ -4,6 +4,7 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
 
+import { cleanBookTitle, cleanDescription, joinAuthors } from '@/domains/ingest/epub';
 import {
   type ContentParsePersisted,
   ParseWorkflowLeaseLostError,
@@ -25,7 +26,7 @@ const workflowLogger = rootLogger.child({ module: 'ContentParseWorkflow' });
 
 async function ensureRetryJobToken(
   workId: string,
-  workStatus: string,
+  processingStatus: string,
   retryJobToken?: string,
 ): Promise<string | false> {
   const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId)).limit(1);
@@ -41,7 +42,7 @@ async function ensureRetryJobToken(
       .where(
         and(
           eq(readingWorkTable.id, workId),
-          eq(readingWorkTable.status, workStatus),
+          eq(readingWorkTable.processingStatus, processingStatus),
           sql`coalesce(${readingWorkTable.originMeta}->>'retryJobToken', '') = ''`,
         ),
       )
@@ -60,11 +61,27 @@ async function finalizeContentParseWorkflow(
 ): Promise<boolean> {
   const workStats = computeWorkReadingStats(persisted.partBodies, persisted.parsedLanguage);
   const { workId } = persisted;
+  const parsedTitle = cleanBookTitle(String(persisted.parsedMeta.opfTitle ?? ''));
+  const parsedAuthors = Array.isArray(persisted.parsedMeta.authors)
+    ? persisted.parsedMeta.authors.filter((author): author is string => typeof author === 'string')
+    : [];
+  const parsedDescription = cleanDescription(String(persisted.parsedMeta.description ?? ''));
+  const coreMetadata = {
+    title: persisted.hasParsedBefore ? persisted.placeholderTitle : parsedTitle || persisted.placeholderTitle,
+    author: persisted.hasParsedBefore
+      ? persisted.placeholderAuthor
+      : joinAuthors(parsedAuthors) || persisted.placeholderAuthor,
+    description: persisted.hasParsedBefore
+      ? persisted.placeholderDescription
+      : parsedDescription || persisted.placeholderDescription,
+    language: persisted.parsedLanguage,
+  };
 
-  if (WORKFLOW_AUTO_CHAIN) {
+  if (WORKFLOW_AUTO_CHAIN && persisted.originKind !== 'user_epub') {
     const [updated] = await db
       .update(readingWorkTable)
       .set({
+        ...coreMetadata,
         wordCount: workStats.wordCount,
         estimatedMinutes: workStats.estimatedMinutes,
         ...(persisted.preserveManualStats
@@ -74,7 +91,7 @@ async function finalizeContentParseWorkflow(
               difficultyScore: workStats.difficultyScore,
               statsProvenance: workStats.statsProvenance,
             }),
-        status: 'metadata',
+        processingStatus: 'metadata',
         originMeta: sql`${readingWorkTable.originMeta} - 'workflowParseArtifacts'`,
       })
       .where(workflowClaimWhere(workId, 'parse', jobToken, attemptToken))
@@ -84,6 +101,7 @@ async function finalizeContentParseWorkflow(
     }
   } else {
     const statsPatch = {
+      ...coreMetadata,
       wordCount: workStats.wordCount,
       estimatedMinutes: workStats.estimatedMinutes,
       ...(persisted.preserveManualStats
@@ -102,7 +120,8 @@ async function finalizeContentParseWorkflow(
     if (!statsUpdated) {
       return false;
     }
-    if (!(await completeWorkflowStep(workId, 'parsed', undefined, 'processing', jobToken, 'parse', attemptToken))) {
+    const nextStatus = persisted.originKind === 'user_epub' ? 'ready' : 'parsed';
+    if (!(await completeWorkflowStep(workId, nextStatus, undefined, 'processing', jobToken, 'parse', attemptToken))) {
       return false;
     }
     await db
@@ -144,7 +163,7 @@ export async function runContentParseWorkflow(
     throw new Error(`Work ${workId} not found`);
   }
 
-  const jobToken = await ensureRetryJobToken(workId, work.status, retryJobToken);
+  const jobToken = await ensureRetryJobToken(workId, work.processingStatus, retryJobToken);
   if (jobToken === false) {
     return false;
   }

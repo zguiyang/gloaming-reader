@@ -353,13 +353,13 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     try {
       const updated = await stateMutation.mutateAsync({ action: 'finish' });
       setLocalProgressRatio(updated.progressRatio);
-      router.push('/my-shelf');
+      router.push('/library');
     } catch (error) {
       if (isReadingStateRevisionConflict(error)) {
         const refreshed = await refetchState();
         const recovered = refreshed.data;
         if (recovered?.status === 'completed') {
-          router.push('/my-shelf');
+          router.push('/library');
         } else if (recovered) {
           setLocalProgressRatio(recovered.progressRatio);
           const recoveredPartId = recovered.currentPartId ?? activePartId;

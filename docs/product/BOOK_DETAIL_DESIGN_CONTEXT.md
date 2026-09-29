@@ -5,7 +5,9 @@
 **Document status:** **Historical design context — not a maintained current-fact source.** Book Detail UI facts, route notes, and admin EPUB workflow snapshots are **implementation evidence** for this design record (dated calibration below), not a code SSOT or operational runbook. **Domain model** authority: ADR-001 and `engineering-vocabulary.md`. **Product locks:** `docs/product/`. The source index lists helpful repo pointers only; live behavior follows the codebase.
 **Date:** 2026-09-05 (routes updated **2026-08-24**; EPUB workflow calibrated **2026-09-05**).
 
-> **Superseded sections:** Any journey referencing `/dashboard`, `/library`, `/learn/:id`, or `features/library/**` / `features/learn/**` describes **archived** code (removed). Current learner routes are in **Current shipped routes** below.
+> **User-first amendment (2026-09-28):** `/my-shelf` is retained as the existing route, while its domain/API are My Library (`features/library/**`, `/api/library`). Library means owned Personal Works plus explicitly saved published Catalog Works. `ReadingState` is progress only; Continue Reading is queried independently and may include an unsaved work. This supersedes Shelf membership statements and Shared/API paths in this dated design context; current contracts live in ADR-001 and engineering vocabulary.
+>
+> **Superseded sections:** Any journey referencing `/dashboard`, `/library`, `/learn/:id`, or the old `features/shelf/**` / `features/learn/**` describes **archived** code (removed).
 
 **Legend (status tags used below):**
 
@@ -75,7 +77,7 @@ Sources: `mvp-1-modules.md` §3–6, `prototype-flows.md` §3–4.
 Reader (/read/[workId])           → renders current ReadingPart body
 ```
 
-Implementation: `features/shelf/**`, `features/discover/**`, `features/book-detail/**`, `features/history/**`, `features/reader/**`.
+Implementation: `features/library/**`, `features/discover/**`, `features/book-detail/**`, `features/history/**`, `features/reader/**`.
 
 ### Archived journey (**superseded** — do not wire against)
 
@@ -138,7 +140,7 @@ Do **not** use legacy **Article** fields as design authority.
 ### Target domain model (**Accepted — ADR-001**)
 
 ```text
-ReadingWork {                     # reading_work — catalog / shelf / AI thread root
+ReadingWork {                     # reading_work — catalog / Library / AI thread root
   id, title, description, language,
   status:           uploaded | processing | parsed | metadata | tts | ready | failed | published
   visibility:       catalog | private
@@ -155,7 +157,7 @@ ReadingPart {                     # reading_part — Reader / TTS / Assist text 
   title, body, meta
 }
 
-ReadingState {                    # reading_state — shelf + position (replaces reading_progress)
+ReadingState {                    # reading_state — progress and position only
   id, user_id, work_id,
   current_part_id, anchor_kind, anchor_value,
   status, added_at, last_read_at, completed_at
@@ -173,7 +175,8 @@ Conversation {
   # Assist calls also pass partId + selection
 }
 
-Shelf = read model: reading_state JOIN reading_work (no shelf_entry table in MVP)
+Library = owned ReadingWorks UNION explicitly saved published Catalog Works (`user_library_item`)
+Continue Reading = independent accessible in-progress ReadingState projection
 ```
 
 **Reader session:** work metadata + parts[] + current part body + ReadingState + part-level `audioAvailable`.
@@ -219,18 +222,18 @@ Short-article era (`ARTICLE_BODY_MAX_WORDS`, level bands) is **archived product*
 
 ### Routes & features
 
-**Current learner routes (Phase 3A):** `features/shelf/**`, `discover/**`, `book-detail/**`, `reader/**`, `history/**`; admin **`works-*`** also contains the implemented EPUB workflow.
+**Current learner routes (Phase 3A):** `features/library/**`, `discover/**`, `book-detail/**`, `reader/**`, `history/**`; admin **`works-*`** also contains the implemented EPUB workflow.
 
 | Area          | Path                                                                       |
 | ------------- | -------------------------------------------------------------------------- |
-| Shelf         | `features/shelf/**` → `/my-shelf`                                          |
+| My Library    | `features/library/**` → `/my-shelf`                                        |
 | Discover      | `features/discover/**` → `/discover` (lists **ReadingWork**)               |
 | Book detail   | `features/book-detail/**` → `/discover/[workId]`                           |
 | Reader        | `features/reader/**` → `/read/[workId]` (renders **ReadingPart**)          |
 | History       | `features/history/**` → `/reading-history` (completions by **workId**)     |
 | Admin catalog | `features/admin/works-*`; EPUB upload + processing workflow is implemented |
 
-**Removed (do not reference):** `features/dashboard/**`, `features/library/**`, `features/learn/**`, `/progress`, `/dashboard`.
+**Removed (do not reference):** `features/dashboard/**`, `features/learn/**`, `/progress`, `/dashboard`.
 
 ### Book Detail page
 
@@ -311,7 +314,7 @@ Keep:
 
 - Calm **hero of the work**: cover (or placeholder) + title + short description before reading.
 - Clear **primary reading CTA** that switches Start → Continue when progress exists.
-- **“Add to shelf”** as a first-class action (aligns with Locked Discover primary story).
+- **“Add to Library”** as a first-class explicit Catalog membership action.
 - **TOC / chapter list** as a pattern when the current `ReadingWork` has chapter parts; do not force it where the content has no usable chapters.
 - Enough metadata to **choose** a text without opening the full body.
 
@@ -336,7 +339,7 @@ Suggestions grounded in Locked roles + Existing progress model. **Not** a shippe
 
 1. **New Book (never opened)**
    - **Why:** Discover choice + entry; user has no progress.
-   - **Show:** Enough metadata to decide; primary CTA open / start; add-to-shelf (**Locked** primary Discover story).
+   - **Show:** Enough metadata to decide; primary CTA open / start; Add to Library (explicit Catalog membership).
    - **Data today:** `ReadingWork` metadata plus `ReadingPart` content; reading progress belongs to `ReadingState` and is computed for UI, not persisted as `progressRatio`.
 
 2. **Returning Reader (in_progress)**
@@ -349,9 +352,9 @@ Suggestions grounded in Locked roles + Existing progress model. **Not** a shippe
    - **Show:** Completed affordance; reopen / read again without quiz gate.
    - **Avoid:** “finish lesson → practice” patterns (**REMOVED**).
 
-4. **On shelf vs not on shelf** (**ReadingState-backed**)
-   - **Why:** Add-to-shelf is the Locked Discover story; current shelf membership is represented by `ReadingState` joined with published `ReadingWork`, not a separate `shelf_entry` table.
-   - **Show:** Add vs Already on shelf from the available `ReadingState`; source label `官方` (and later `用户`) remains a product decision.
+4. **In Library vs not in Library** (membership-backed)
+   - **Why:** Library membership comes from ownership or explicit Catalog save; `ReadingState` is progress only.
+   - **Show:** Add vs Already in Library from membership data; source label `官方` (and later `用户`) remains a product decision.
 
 5. **Mobile layout**
    - **Why:** DESIGN.md collapses multi-column &lt;768px; cards already 2-col on small screens.
@@ -372,13 +375,12 @@ Suggestions grounded in Locked roles + Existing progress model. **Not** a shippe
 1. **Is Book Detail a new MVP 1 module?**  
    Locked IA has no Detail destination. Inserting Discover → Detail → Reader needs an explicit product lock (update `mvp-1-modules.md` / `prototype-flows.md`) vs keeping metadata on Discover cards only.
 
-2. **From Shelf, does open go Detail or straight to Reader?**  
-   Locked flows say Shelf → Reader. Detail-from-shelf is undecided.
+2. **From My Library, does open go Detail or straight to Reader?** Locked flows say My Library → Reader. Detail-from-Library is undecided.
 
 3. **Content atom for Detail design mock:** a `ReadingWork` with one or more `ReadingPart` rows; the presence and number of chapter parts may vary by source.
    Do not require a TOC or other fields that are absent from the loaded work.
 
-4. **Shelf membership data model** — when / how before Detail CTAs can show “已在书架”?
+4. **Library membership** — resolved by User-first: owned works are members; Catalog works need an explicit `user_library_item`; reading progress alone is not membership.
 
 5. **Learner cover presentation** — the EPUB pipeline can provide a `cover` asset, while the current learner surface also has a tinted-title fallback; rendering policy remains a design choice.
 
@@ -427,23 +429,23 @@ Constraints for any Stitch / prototype pass (facts + Locked rules — still **no
 
 ## Source index
 
-| Kind                         | Path                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Vision / principles          | `docs/product/product-vision.md`, `product-principles.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| MVP capabilities             | `docs/product/mvp-scope.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| Module IA (Locked)           | `docs/product/mvp-1-modules.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Nav journeys (Locked)        | `docs/product/prototype-flows.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Content / fields intent      | `docs/product/content-strategy.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Code vs product              | `docs/product/feature-audit.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Guardrails                   | `docs/product/design-guardrails.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| Roadmap                      | `docs/product/roadmap.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Visual SSOT                  | `DESIGN.md`, `apps/web/app/globals.css`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Domain SSOT                  | `docs/adr/001-reading-content-domain-model.md`, `docs/product/engineering-vocabulary.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Schema / domain              | `packages/db/src/schema.ts`; `docs/adr/001-reading-content-domain-model.md` — `ReadingWork`, `ReadingPart`, `ReadingState`, `ContentAsset`                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Shared DTOs                  | `packages/shared/src/works/works.ts`, reader, shelf, content-assets — current Work/Part/State/asset contracts                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Shelf / Discover / Reader UI | `apps/web/features/shelf/**`, `discover/**`, `book-detail/**`, `reader/**`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Admin EPUB workflow          | `apps/backend/src/domains/works/routes/admin.ts`, `apps/web/features/admin/works/works-api.ts`; `apps/backend/src/domains/ingest/epub/` (`metadata.ts`, `chapters.ts`, `opf/parse.ts`, `archive/limits.ts`, `normalization/*`); `apps/backend/src/domains/ingest/parser/service.ts`; `apps/backend/src/domains/metadata/fill/service.ts`; `apps/backend/src/domains/metadata/enrich/index.ts`; `apps/backend/src/application/jobs/metadata-enrich.ts`; `apps/backend/src/domains/assets/audio/generation.ts`, `apps/backend/src/domains/assets/routes/content-assets.ts` |
-| Workflow status / jobs       | `apps/backend/src/domains/works/lifecycle/workflow.ts`, `apps/backend/src/domains/works/lifecycle/policy.ts`; `apps/backend/src/application/jobs/content-parse.ts`, `apps/backend/src/application/jobs/work-metadata-fill.ts`, `apps/backend/src/application/jobs/metadata-enrich.ts` (step/status contracts: Shared DTOs → `works.ts`)                                                                                                                                                                                                                                  |
-| TextStack reference          | https://github.com/mrviduus/textstack (`BookDetailPage`, `BookDetailHero`, `BookDetail` type)                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Kind                           | Path                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Vision / principles            | `docs/product/product-vision.md`, `product-principles.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| MVP capabilities               | `docs/product/mvp-scope.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Module IA (Locked)             | `docs/product/mvp-1-modules.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Nav journeys (Locked)          | `docs/product/prototype-flows.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Content / fields intent        | `docs/product/content-strategy.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Code vs product                | `docs/product/feature-audit.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Guardrails                     | `docs/product/design-guardrails.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Roadmap                        | `docs/product/roadmap.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Visual SSOT                    | `DESIGN.md`, `apps/web/app/globals.css`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Domain SSOT                    | `docs/adr/001-reading-content-domain-model.md`, `docs/product/engineering-vocabulary.md`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Schema / domain                | `packages/db/src/schema.ts`; `docs/adr/001-reading-content-domain-model.md` — `ReadingWork`, `ReadingPart`, `ReadingState`, `ContentAsset`                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Shared DTOs                    | `packages/shared/src/works/works.ts`, reader, library, content-assets — current Work/Part/State/asset contracts                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Library / Discover / Reader UI | `apps/web/features/library/**`, `discover/**`, `book-detail/**`, `reader/**`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Admin EPUB workflow            | `apps/backend/src/domains/works/routes/admin.ts`, `apps/web/features/admin/works/works-api.ts`; `apps/backend/src/domains/ingest/epub/` (`metadata.ts`, `chapters.ts`, `opf/parse.ts`, `archive/limits.ts`, `normalization/*`); `apps/backend/src/domains/ingest/parser/service.ts`; `apps/backend/src/domains/metadata/fill/service.ts`; `apps/backend/src/domains/metadata/enrich/index.ts`; `apps/backend/src/application/jobs/metadata-enrich.ts`; `apps/backend/src/domains/assets/audio/generation.ts`, `apps/backend/src/domains/assets/routes/content-assets.ts` |
+| Workflow status / jobs         | `apps/backend/src/domains/works/lifecycle/workflow.ts`, `apps/backend/src/domains/works/lifecycle/policy.ts`; `apps/backend/src/application/jobs/content-parse.ts`, `apps/backend/src/application/jobs/work-metadata-fill.ts`, `apps/backend/src/application/jobs/metadata-enrich.ts` (step/status contracts: Shared DTOs → `works.ts`)                                                                                                                                                                                                                                  |
+| TextStack reference            | https://github.com/mrviduus/textstack (`BookDetailPage`, `BookDetailHero`, `BookDetail` type)                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 **Revision (post baseline `d870d4f`):** Admin EPUB workflow snapshot updated — publish requires ready default US for synth parts; auto workflow/TTS flags remain off (`domains/works/lifecycle/policy.ts`). Source index aligned to current ingest/epub, metadata, assets, and application job paths (evidence only).

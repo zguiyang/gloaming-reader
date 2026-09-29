@@ -15,7 +15,12 @@ import {
   validateAzureWordTimings,
 } from '@gloaming/shared/tts';
 
-import { loadConfigRow, type TtsConfigRow } from '@/domains/tts/config/store';
+import {
+  resolveInstanceTtsConfigRow,
+  resolveScopedTtsConfigRow,
+  runtimeActorFromUserId,
+} from '@/domains/provider-scope';
+import type { TtsConfigRow } from '@/domains/tts/config/store';
 import { getRedis } from '@/infra/cache';
 import { decryptApiKey } from '@/infra/llm';
 import { rootLogger } from '@/infra/logging/logger';
@@ -201,12 +206,12 @@ async function writeTtsCache(
   }
 }
 
-/**
- * Global TTS entry for admin and future learner flows.
- * Loads dynamic config, resolves voice, then calls the Azure adapter (or Redis cache).
- */
-export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<SynthesizeTtsResult> {
-  const row = await loadConfigRow();
+/** Shared synthesis implementation after the caller selects its configuration scope. */
+async function synthesizeTtsWithConfig(
+  options: SynthesizeTtsOptions,
+  resolveConfig: () => Promise<TtsConfigRow | null>,
+): Promise<SynthesizeTtsResult> {
+  const row = await resolveConfig();
   if (!row) {
     throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.NOT_CONFIGURED);
   }
@@ -328,4 +333,13 @@ export async function synthesizeTts(options: SynthesizeTtsOptions): Promise<Synt
   }
 
   return result;
+}
+
+export function synthesizeTts(options: SynthesizeTtsOptions): Promise<SynthesizeTtsResult> {
+  return synthesizeTtsWithConfig(options, () => resolveScopedTtsConfigRow(runtimeActorFromUserId(options.userId)));
+}
+
+/** Admin diagnostics must validate the Instance configuration, never an Admin's personal row. */
+export function synthesizeInstanceTts(options: Omit<SynthesizeTtsOptions, 'userId'>): Promise<SynthesizeTtsResult> {
+  return synthesizeTtsWithConfig(options, resolveInstanceTtsConfigRow);
 }

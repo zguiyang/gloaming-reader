@@ -93,7 +93,7 @@ describe('Reader HTTP', () => {
     const learner = await createSession('user');
     createdEmails.push(admin.email, learner.email);
 
-    const create = await app.request('/api/admin/works', {
+    const create = await app.request('/api/admin/catalog/works', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
       body: JSON.stringify({
@@ -123,7 +123,7 @@ describe('Reader HTTP', () => {
     });
 
     const taxonomy = await ensureWorkTaxonomyFixture('reader');
-    await app.request(`/api/admin/works/${work.id}`, {
+    await app.request(`/api/admin/catalog/works/${work.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', cookie: admin.cookie },
       body: JSON.stringify(taxonomy),
@@ -131,7 +131,7 @@ describe('Reader HTTP', () => {
 
     await seedReadyDefaultAudioForWork(work.id);
 
-    const publish = await app.request(`/api/admin/works/${work.id}/publish`, {
+    const publish = await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
       method: 'POST',
       headers: { cookie: admin.cookie },
     });
@@ -148,20 +148,12 @@ describe('Reader HTTP', () => {
     const partRes = await app.request(`/api/reader/parts/${partId}`);
     expect(partRes.status).toBe(200);
 
-    const [open, addToShelf] = await Promise.all([
-      app.request(`/api/reader/works/${work.id}/state`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
-        body: JSON.stringify({ action: 'open' }),
-      }),
-      app.request(`/api/reader/works/${work.id}/state`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
-        body: JSON.stringify({ action: 'add_to_shelf' }),
-      }),
-    ]);
+    const open = await app.request(`/api/reader/works/${work.id}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ action: 'open' }),
+    });
     expect(open.status).toBe(200);
-    expect(addToShelf.status).toBe(200);
     const opened = (await open.json()) as ReadingState;
     const [learnerRow] = await db
       .select({ id: userTable.id })

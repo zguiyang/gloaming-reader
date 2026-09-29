@@ -37,6 +37,7 @@ type WorkRow = typeof readingWorkTable.$inferSelect;
 
 export type ContentParsePersisted = {
   workId: string;
+  originKind: WorkRow['originKind'];
   hasParsedBefore: boolean;
   parsedLanguage: string;
   preserveManualStats: boolean;
@@ -272,6 +273,7 @@ export async function runContentParse(
     );
     return {
       workId,
+      originKind: work.originKind,
       hasParsedBefore,
       parsedLanguage,
       preserveManualStats: work.statsProvenance === 'manual',

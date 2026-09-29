@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { libraryDataSchema } from '@gloaming/shared/library';
 import { readerPartDataSchema, readerPartsDataSchema } from '@gloaming/shared/reader';
-import { shelfDataSchema } from '@gloaming/shared/shelf';
 import { workSchema } from '@gloaming/shared/works';
 
 const taxonomyTag = {
@@ -62,7 +62,7 @@ describe('read-side taxonomy response contracts', () => {
   });
 
   it('accepts shelf payloads with taxonomy tag references', () => {
-    const payload = shelfDataSchema.parse({
+    const payload = libraryDataSchema.parse({
       current: {
         work: {
           id: 'work-1',
@@ -94,7 +94,7 @@ describe('read-side taxonomy response contracts', () => {
       author: 'Author',
       description: 'Desc',
       language: 'en',
-      status: 'published',
+      processingStatus: 'ready',
       visibility: 'catalog',
       originKind: 'admin_epub',
       tags: [taxonomyTag],

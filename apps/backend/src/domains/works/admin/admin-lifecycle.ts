@@ -1,10 +1,11 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@gloaming/db';
 import type { AdminWork } from '@gloaming/shared/works';
 
 import { buildPublishIssuesForWork } from '@/domains/works/admin/admin-publish-gate';
 import { getAdminWork } from '@/domains/works/admin/admin-work-read';
+import { catalogWorkPredicate } from '@/domains/works/catalog/policy';
 import { loadPartsForWork, loadSourcesForWork, loadTagsForWork } from '@/domains/works/read-model/relations';
 import { db } from '@/infra/db';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -16,11 +17,15 @@ async function loadAdminWorkAfterMutation(id: string): Promise<AdminWork> {
 }
 
 export async function publishWork(id: string): Promise<AdminWork> {
-  const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
   if (!existing) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
-  if (existing.status !== 'ready') {
+  if (existing.processingStatus !== 'ready') {
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.PUBLISH_INCOMPLETE);
   }
 
@@ -32,31 +37,49 @@ export async function publishWork(id: string): Promise<AdminWork> {
     throw new ValidationFailedError(issues);
   }
 
+  if (existing.publishedAt) {
+    return loadAdminWorkAfterMutation(id);
+  }
+
+  const publishedAt = new Date();
   const [row] = await db
     .update(readingWorkTable)
-    .set({ status: 'published', publishedAt: new Date() })
-    .where(eq(readingWorkTable.id, id))
+    .set({ publishedAt })
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate(), isNull(readingWorkTable.publishedAt)))
     .returning();
 
-  if (!row) {
+  if (row) {
+    return loadAdminWorkAfterMutation(id);
+  }
+
+  const [afterRace] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
+  if (!afterRace) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   return loadAdminWorkAfterMutation(id);
 }
 
 export async function unpublishWork(id: string): Promise<AdminWork> {
-  const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
   if (!existing) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
-  if (existing.status !== 'published') {
+  if (!existing.publishedAt) {
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.WORK.UNPUBLISH_NOT_PUBLISHED);
   }
 
   const [row] = await db
     .update(readingWorkTable)
-    .set({ status: 'ready', publishedAt: null })
-    .where(eq(readingWorkTable.id, id))
+    .set({ publishedAt: null })
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
     .returning();
 
   if (!row) {

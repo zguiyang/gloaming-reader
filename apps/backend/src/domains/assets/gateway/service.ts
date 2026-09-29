@@ -1,14 +1,12 @@
 import { eq } from 'drizzle-orm';
 
 import { contentAsset as contentAssetTable, readingWork as readingWorkTable } from '@gloaming/db';
-import { isAdminRole } from '@gloaming/shared/auth';
 
-import type { AuthSessionUser } from '@/infra/auth/auth';
+import type { WorkReadActor } from '@/domains/works/access';
+import { canReadWorkRow, isPublicCatalogWork, isWorkReadAdmin } from '@/domains/works/access';
 import { db } from '@/infra/db';
 import type { ObjectGetStreamResult, ObjectRange } from '@/infra/storage';
 import { getObjectStream } from '@/infra/storage';
-
-export type AssetViewer = 'admin' | 'user' | 'anonymous';
 
 /**
  * Unified asset gateway — the single entry for every object-storage read
@@ -16,33 +14,28 @@ export type AssetViewer = 'admin' | 'user' | 'anonymous';
  * kinds only register here; never open another proxy route.
  */
 
-/** Asset kinds served to the public once the owning work is published. */
+/** Asset kinds served to learners once the owning work is readable. */
 function isPublicAssetKind(kind: string): boolean {
   return kind === 'image' || kind === 'cover' || kind.startsWith('audio_');
 }
 
-/** Only published learner-facing assets may use shared public caching. */
-export function isPublicAsset(asset: Pick<ResolvedAsset, 'kind' | 'workStatus'>): boolean {
-  return asset.workStatus === 'published' && isPublicAssetKind(asset.kind);
-}
-
-export function resolveAssetViewer(user: AuthSessionUser | null): AssetViewer {
-  if (!user) {
-    return 'anonymous';
-  }
-  return isAdminRole(user.role) ? 'admin' : 'user';
-}
-
 export type ResolvedAsset = {
   assetId: string;
-  workId: string;
+  workId: string | null;
   kind: string;
   storageKey: string;
   mimeType: string;
-  workStatus: string;
+  ownerUserId: string | null;
+  visibility: string;
+  publishedAt: Date | null;
 };
 
-/** Look up an asset row + owning work status (assetId → storageKey, never key from caller). */
+/** Only anonymous-readable catalog work assets may use shared public caching. */
+export function isPublicAsset(asset: ResolvedAsset): boolean {
+  return isPublicAssetKind(asset.kind) && isPublicCatalogWork(asset);
+}
+
+/** Look up an asset row + owning work fields (assetId → storageKey, never key from caller). */
 export async function resolveAsset(assetId: string): Promise<ResolvedAsset | null> {
   const [row] = await db
     .select({
@@ -51,7 +44,9 @@ export async function resolveAsset(assetId: string): Promise<ResolvedAsset | nul
       kind: contentAssetTable.kind,
       storageKey: contentAssetTable.storageKey,
       mimeType: contentAssetTable.mimeType,
-      workStatus: readingWorkTable.status,
+      ownerUserId: readingWorkTable.ownerUserId,
+      visibility: readingWorkTable.visibility,
+      publishedAt: readingWorkTable.publishedAt,
     })
     .from(contentAssetTable)
     .leftJoin(readingWorkTable, eq(contentAssetTable.workId, readingWorkTable.id))
@@ -62,20 +57,31 @@ export async function resolveAsset(assetId: string): Promise<ResolvedAsset | nul
   }
   return {
     assetId: row.id,
-    workId: row.workId ?? '',
+    workId: row.workId ?? null,
     kind: row.kind,
     storageKey: row.storageKey,
     mimeType: row.mimeType,
-    workStatus: row.workStatus ?? 'processing',
+    ownerUserId: row.ownerUserId,
+    visibility: row.visibility ?? 'catalog',
+    publishedAt: row.publishedAt,
   };
 }
 
-/** Authorization matrix — admin may read anything; others only published public kinds. */
-export function isAssetAuthorized(viewer: AssetViewer, asset: ResolvedAsset): boolean {
-  if (viewer === 'admin') {
+/** Authorization matrix — admin any asset; work owners all kinds; others public catalog kinds only. */
+export function isAssetAuthorized(actor: WorkReadActor, asset: ResolvedAsset): boolean {
+  if (isWorkReadAdmin(actor)) {
     return true;
   }
-  return isPublicAsset(asset);
+  if (asset.workId == null) {
+    return false;
+  }
+  if (!canReadWorkRow(actor, asset)) {
+    return false;
+  }
+  if (actor.userId != null && asset.ownerUserId === actor.userId) {
+    return true;
+  }
+  return isPublicAssetKind(asset.kind);
 }
 
 export async function streamAsset(asset: ResolvedAsset, range?: ObjectRange): Promise<ObjectGetStreamResult | null> {

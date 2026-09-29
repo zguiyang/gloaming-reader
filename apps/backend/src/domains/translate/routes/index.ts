@@ -5,6 +5,7 @@ import { TRANSLATE_SSE_EVENT } from '@gloaming/shared/translate';
 
 import * as translateService from '@/domains/translate/service';
 import { validateTranslatePart } from '@/domains/translate/validator';
+import { workReadActorFromIdentity } from '@/domains/works/access';
 import { type AuthVariables, requireAuth } from '@/infra/http/middleware/auth';
 import { aiRateLimit } from '@/infra/http/middleware/rate-limit';
 import { formatThrownError } from '@/infra/http/response';
@@ -25,7 +26,8 @@ translateRoutes.post('/api/translate/part', requireAuth, validateTranslatePart, 
     });
 
     try {
-      for await (const event of translateService.streamTranslatePart(user!.id, body, { signal: abort.signal })) {
+      const actor = workReadActorFromIdentity(user);
+      for await (const event of translateService.streamTranslatePart(actor, user!.id, body, { signal: abort.signal })) {
         if (abort.signal.aborted) {
           return;
         }

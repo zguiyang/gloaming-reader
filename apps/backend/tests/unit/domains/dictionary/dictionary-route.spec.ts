@@ -5,6 +5,7 @@ import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { dictionaryRoutes } from '@/domains/dictionary';
 import * as dictionaryLookup from '@/domains/dictionary/lookup/service';
+import { anonymousWorkReadActor } from '@/domains/works/access';
 import { HTTP_STATUS } from '@/shared/constants';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
@@ -72,6 +73,7 @@ describe('dictionaryRoutes /api/dictionary/lookup', () => {
     expect(response.status).toBe(HTTP_STATUS.OK);
     await expect(response.json()).resolves.toEqual({ ok: true, entry: sampleEntry });
     expect(dictionaryLookup.lookupWord).toHaveBeenCalledWith({
+      actor: anonymousWorkReadActor(),
       word: 'hello',
       contextSentence: undefined,
       workId: undefined,

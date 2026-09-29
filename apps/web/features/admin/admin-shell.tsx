@@ -116,7 +116,7 @@ export function AdminShell({ children }: AdminShellProps) {
         <section className="w-full max-w-md rounded-2xl border border-border bg-card px-8 py-10 text-center">
           <div className="mb-8 flex justify-center">
             <BrandMark
-              href={AUTH_ROUTES.shelf}
+              href={AUTH_ROUTES.library}
               subtitle={t(locale, 'admin.shell.subtitle')}
               ariaLabel={t(locale, 'nav.brandHomeAria')}
             />
@@ -130,7 +130,7 @@ export function AdminShell({ children }: AdminShellProps) {
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
             {t(locale, 'admin.shell.forbiddenDescription')}
           </p>
-          <Button nativeButton={false} className="mt-8 rounded-xl px-5" render={<Link href={AUTH_ROUTES.shelf} />}>
+          <Button nativeButton={false} className="mt-8 rounded-xl px-5" render={<Link href={AUTH_ROUTES.library} />}>
             {t(locale, 'admin.shell.backHome')}
           </Button>
         </section>
@@ -179,7 +179,7 @@ export function AdminShell({ children }: AdminShellProps) {
                   nativeButton={false}
                   className="mt-4 h-auto justify-start gap-2 rounded-xl px-4 py-3 font-normal text-muted-foreground transition-colors duration-300 ease-out-soft hover:bg-surface-container-high hover:text-foreground"
                   render={
-                    <Link href={AUTH_ROUTES.shelf} onClick={() => setIsNavOpen(false)}>
+                    <Link href={AUTH_ROUTES.library} onClick={() => setIsNavOpen(false)}>
                       <ArrowLeft data-icon="inline-start" />
                       {t(locale, 'admin.shell.backHome')}
                     </Link>
@@ -202,7 +202,7 @@ export function AdminShell({ children }: AdminShellProps) {
           size="sm"
           nativeButton={false}
           className="gap-1.5 text-muted-foreground transition-colors duration-300 ease-out-soft hover:text-foreground"
-          render={<Link href={AUTH_ROUTES.shelf} />}
+          render={<Link href={AUTH_ROUTES.library} />}
         >
           <ArrowLeft data-icon="inline-start" />
           {t(locale, 'admin.shell.home')}
@@ -230,7 +230,7 @@ export function AdminShell({ children }: AdminShellProps) {
           variant="ghost"
           nativeButton={false}
           className="mt-4 h-auto justify-start gap-2 rounded-xl px-4 py-3 font-normal text-muted-foreground transition-colors duration-300 ease-out-soft hover:bg-surface-container-high hover:text-foreground"
-          render={<Link href={AUTH_ROUTES.shelf} />}
+          render={<Link href={AUTH_ROUTES.library} />}
         >
           <ArrowLeft data-icon="inline-start" />
           {t(locale, 'admin.shell.backHome')}

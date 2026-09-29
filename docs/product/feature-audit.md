@@ -6,7 +6,7 @@ Related: [`mvp-scope.md`](./mvp-scope.md) · [`roadmap.md`](./roadmap.md) · [`e
 
 Audit date: **2026-08-24** (domain docs aligned; **Phase 3A complete** — ReadingWork SSOT in code).
 
-**MVP 1 module SSOT:** [`mvp-1-modules.md`](./mvp-1-modules.md) — Phase **1a** = admin EPUB catalog → shelf; **1b** = user import (deferred).
+**MVP 1 module SSOT:** [`mvp-1-modules.md`](./mvp-1-modules.md) — Phase **1a** = admin EPUB catalog → Library; **1b** = user import (deferred).
 
 ---
 
@@ -32,7 +32,7 @@ Audit date: **2026-08-24** (domain docs aligned; **Phase 3A complete** — Readi
 | Reader (immersive)      | `features/reader/**`; route `/read/[workId]`        | Session over **ReadingWork** + current **ReadingPart**               |
 | Book detail             | `features/book-detail/**`; `/discover/[workId]`     | **ReadingWork** metadata                                             |
 | Discover                | `features/discover/**`                              | Published **ReadingWork** list                                       |
-| My shelf                | `features/shelf/**`                                 | **ReadingState** read model                                          |
+| My Library              | `features/library/**`                               | Owned works + explicit Catalog saves; progress is optional           |
 | Reading history         | `features/history/**`                               | Activity + completions by **workId**                                 |
 | Shared content chrome   | `features/content/content-model.ts`                 | Cover tints, paragraph split — no **ArticleLevel**                   |
 | App shell               | `features/app-shell/**`                             | Unchanged                                                            |
@@ -40,7 +40,7 @@ Audit date: **2026-08-24** (domain docs aligned; **Phase 3A complete** — Readi
 | Assist transcripts      | `conversation` / `conversation_message`             | `subject_type = reading_work`                                        |
 | Translation / bilingual | `modules/translate/**`                              | **partId**-scoped cache                                              |
 | TTS + word timings      | `modules/tts/**` / `content-assets`                 | **ContentAsset** on **ReadingPart**                                  |
-| Reading position        | **`reading_state`**                                 | part + anchor; shelf membership                                      |
+| Reading position        | **`reading_state`**                                 | part + anchor; does not imply Library membership                     |
 | Reading history API     | `modules/reading-history/**`                        | Join **reading_work**                                                |
 | LLM / TTS admin + logs  | `features/admin/ai-*`, `tts-*`                      | Ops — not learner                                                    |
 | Admin catalog ops       | `features/admin/works-*`                            | Admin EPUB upload → parse → publish; `admin_text` internal seed only |
@@ -51,7 +51,7 @@ Audit date: **2026-08-24** (domain docs aligned; **Phase 3A complete** — Readi
 | ----------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | Content root      | `article` table, single `body`                                                                       | `reading_work` + `reading_part`           |
 | Derived audio     | `article_audio`                                                                                      | `content_asset` (`audio_us` / `audio_uk`) |
-| Progress / shelf  | `reading_progress`                                                                                   | `reading_state`                           |
+| Reading progress  | `reading_progress`                                                                                   | `reading_state` (progress only)           |
 | Discover API      | `GET /api/articles`                                                                                  | `GET /api/catalog/works`                  |
 | Reader API        | `/api/reader/articles/:articleId`                                                                    | `/api/reader/works/:workId`               |
 | Admin API         | `/api/admin/articles`                                                                                | `/api/admin/works`                        |

@@ -24,12 +24,12 @@ import { cn } from '@/lib/utils';
 
 type BookDetailHeroProps = {
   book: BookDetail;
-  onShelf: boolean;
-  onAddToShelf: () => void;
-  isAddingToShelf?: boolean;
+  inLibrary: boolean;
+  onAddToLibrary: () => void;
+  isAddingToLibrary?: boolean;
 };
 
-export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }: BookDetailHeroProps) {
+export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibrary }: BookDetailHeroProps) {
   const { locale } = useLocale();
   const readHref = AUTH_ROUTES.readBook(book.id);
   const readLabel = primaryReadLabel(book.readingStatus, locale);
@@ -112,10 +112,10 @@ export function BookDetailHero({ book, onShelf, onAddToShelf, isAddingToShelf }:
               <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
               {readLabel}
             </Button>
-            <ShelfButton
-              onShelf={onShelf}
-              onAdd={onAddToShelf}
-              isAdding={isAddingToShelf}
+            <LibraryButton
+              inLibrary={inLibrary}
+              onAdd={onAddToLibrary}
+              isAdding={isAddingToLibrary}
               className="h-11 flex-1 rounded-xl px-8 text-base"
             />
           </div>
@@ -186,14 +186,14 @@ export function BookDetailMobileProgress({ book }: { book: BookDetail }) {
 
 export function BookDetailStickyCta({
   book,
-  onShelf,
-  onAddToShelf,
-  isAddingToShelf,
+  inLibrary,
+  onAddToLibrary,
+  isAddingToLibrary,
 }: {
   book: BookDetail;
-  onShelf: boolean;
-  onAddToShelf: () => void;
-  isAddingToShelf?: boolean;
+  inLibrary: boolean;
+  onAddToLibrary: () => void;
+  isAddingToLibrary?: boolean;
 }) {
   const { locale } = useLocale();
   const readHref = AUTH_ROUTES.readBook(book.id);
@@ -210,18 +210,18 @@ export function BookDetailStickyCta({
           <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
           {readLabel}
         </Button>
-        {!onShelf ? (
+        {!inLibrary ? (
           <Button
             type="button"
             variant="outline"
             className="h-12 shrink-0 rounded-xl px-4"
-            disabled={isAddingToShelf}
+            disabled={isAddingToLibrary}
             onClick={() => {
-              onAddToShelf();
+              onAddToLibrary();
             }}
-            aria-label={t(locale, 'content.bookDetail.addToShelfAria')}
+            aria-label={t(locale, 'content.bookDetail.addToLibraryAria')}
           >
-            {isAddingToShelf ? (
+            {isAddingToLibrary ? (
               <Loader2Icon className="size-4 animate-spin" aria-hidden />
             ) : (
               <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
@@ -233,20 +233,20 @@ export function BookDetailStickyCta({
   );
 }
 
-function ShelfButton({
-  onShelf,
+function LibraryButton({
+  inLibrary,
   onAdd,
   isAdding,
   className,
 }: {
-  onShelf: boolean;
+  inLibrary: boolean;
   onAdd: () => void;
   isAdding?: boolean;
   className?: string;
 }) {
   const { locale } = useLocale();
 
-  if (onShelf) {
+  if (inLibrary) {
     return (
       <Button
         type="button"
@@ -258,7 +258,7 @@ function ShelfButton({
         )}
       >
         <CheckIcon className="size-4" strokeWidth={1.5} aria-hidden />
-        {t(locale, 'content.bookDetail.onShelf')}
+        {t(locale, 'content.bookDetail.inLibrary')}
       </Button>
     );
   }
@@ -275,7 +275,7 @@ function ShelfButton({
     >
       {isAdding ? <Loader2Icon className="size-4 animate-spin" aria-hidden /> : null}
       <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
-      {t(locale, 'content.bookDetail.addToShelf')}
+      {t(locale, 'content.bookDetail.addToLibrary')}
     </Button>
   );
 }

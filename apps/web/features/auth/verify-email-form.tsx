@@ -71,7 +71,7 @@ export function VerifyEmailForm() {
                 router.replace(consumePostAuthPath(searchParams));
               }}
             >
-              {t(locale, 'auth.verifyEmail.goToShelf')}
+              {t(locale, 'auth.verifyEmail.goToLibrary')}
             </Button>
           ) : null}
           {status === 'error' ? (

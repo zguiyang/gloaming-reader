@@ -81,7 +81,7 @@ and remain the current public module map after root removal:
 | reader          | `@gloaming/shared/reader`          | reading state and reader session contracts            |
 | reading-history | `@gloaming/shared/reading-history` | reading activity and history contracts                |
 | reading-stats   | `@gloaming/shared/reading-stats`   | work-stat derivation policy                           |
-| shelf           | `@gloaming/shared/shelf`           | shelf projection contracts                            |
+| library         | `@gloaming/shared/library`         | Library membership and optional progress projections  |
 | recommendations | `@gloaming/shared/recommendations` | recommendation query and result contracts             |
 | dictionary      | `@gloaming/shared/dictionary`      | dictionary configuration and lookup contracts         |
 | translate       | `@gloaming/shared/translate`       | translation and bilingual-cache contracts             |

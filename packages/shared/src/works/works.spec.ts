@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  adminWorkListQuerySchema,
   getPublishAudioIssues,
   getPublishPartAudioIssues,
   mergePublishWorkIssues,
+  personalWorkUploadResultSchema,
   PUBLISH_DEFAULT_AUDIO_ROLE,
   updateWorkBodySchema,
+  WORK_PROCESSING_STATUSES,
+  workOriginKindSchema,
+  workProcessingStatusSchema,
+  workSchema,
 } from './works.ts';
 
 function taxonomyRef(id: string, zh: string, en: string) {
@@ -19,6 +25,88 @@ function taxonomyRef(id: string, zh: string, en: string) {
 function sourceRef(id: string, name: string) {
   return { id, name, origin: 'manual' as const };
 }
+
+describe('work processing status contracts', () => {
+  it('allows only the decided processing values', () => {
+    expect(WORK_PROCESSING_STATUSES).toEqual(['uploaded', 'processing', 'parsed', 'metadata', 'ready', 'failed']);
+    for (const value of WORK_PROCESSING_STATUSES) {
+      expect(workProcessingStatusSchema.parse(value)).toBe(value);
+    }
+    expect(workProcessingStatusSchema.safeParse('published').success).toBe(false);
+    expect(workProcessingStatusSchema.safeParse('tts').success).toBe(false);
+  });
+
+  it('uses processingStatus on work DTOs and list filters', () => {
+    const work = workSchema.parse({
+      id: 'work-1',
+      title: 'Title',
+      author: 'Author',
+      description: '',
+      language: 'en',
+      processingStatus: 'ready',
+      visibility: 'catalog',
+      originKind: 'admin_epub',
+      tags: [],
+      category: null,
+      sources: [],
+      coverAssetId: null,
+      wordCount: null,
+      estimatedMinutes: null,
+      suggestedVocabSize: null,
+      difficultyScore: null,
+      statsProvenance: null,
+      publishedAt: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    expect(work.processingStatus).toBe('ready');
+    const { processingStatus: _processingStatus, ...withoutProcessingStatus } = work;
+    expect(workSchema.safeParse({ ...withoutProcessingStatus, status: 'ready' }).success).toBe(false);
+
+    const query = adminWorkListQuerySchema.parse({ processingStatus: 'processing,metadata' });
+    expect(query.processingStatus).toBe('processing,metadata');
+    expect(adminWorkListQuerySchema.safeParse({ processingStatus: 'published' }).success).toBe(false);
+  });
+
+  it('accepts optional publicationStatus on admin list queries', () => {
+    expect(adminWorkListQuerySchema.parse({ publicationStatus: 'published' }).publicationStatus).toBe('published');
+    expect(adminWorkListQuerySchema.parse({ publicationStatus: 'unpublished' }).publicationStatus).toBe('unpublished');
+    expect(
+      adminWorkListQuerySchema.parse({
+        processingStatus: 'ready',
+        publicationStatus: 'unpublished',
+      }),
+    ).toEqual({
+      page: 1,
+      pageSize: 10,
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+      processingStatus: 'ready',
+      publicationStatus: 'unpublished',
+    });
+    expect(adminWorkListQuerySchema.safeParse({ publicationStatus: 'draft' }).success).toBe(false);
+    expect(adminWorkListQuerySchema.parse({ status: 'published' }).publicationStatus).toBeUndefined();
+  });
+
+  it('supports server-side TTS workflow filtering and safe Personal upload results', () => {
+    expect(
+      adminWorkListQuerySchema.parse({ processingStatus: 'uploaded,processing,parsed,metadata', workflowStep: 'tts' }),
+    ).toMatchObject({ processingStatus: 'uploaded,processing,parsed,metadata', workflowStep: 'tts' });
+    expect(adminWorkListQuerySchema.safeParse({ workflowStep: 'unknown' }).success).toBe(false);
+    expect(workOriginKindSchema.parse('user_epub')).toBe('user_epub');
+    expect(personalWorkUploadResultSchema.parse({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' })).toEqual(
+      { id: 'work-1', title: 'Book', processingStatus: 'uploaded' },
+    );
+    expect(
+      personalWorkUploadResultSchema.parse({
+        id: 'work-1',
+        title: 'Book',
+        processingStatus: 'uploaded',
+        storageKey: 'epub/private.epub',
+      }),
+    ).toEqual({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' });
+  });
+});
 
 describe('update work body contracts', () => {
   it('accepts taxonomy selections with id only', () => {

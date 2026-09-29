@@ -1,5 +1,3 @@
-export type { PublishedPartAccess } from '@/domains/works/read-model/access';
-export { getPartById, requirePublishedPart, requirePublishedWorkWithParts } from '@/domains/works/read-model/access';
 export type { WorkPartSourceInput } from '@/domains/works/read-model/derived-freshness';
 export { getWorkDerivedFreshness, getWorksDerivedFreshness } from '@/domains/works/read-model/derived-freshness';
 export {

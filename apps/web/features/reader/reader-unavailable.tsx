@@ -59,9 +59,9 @@ export function ReaderUnavailable({ onRetry, message }: ReaderUnavailableProps) 
             nativeButton={false}
             variant="ghost"
             className="h-11 rounded-xl px-6 text-muted-foreground"
-            render={<Link href={AUTH_ROUTES.shelf} />}
+            render={<Link href={AUTH_ROUTES.library} />}
           >
-            {t(locale, 'content.common.backToShelf')}
+            {t(locale, 'content.common.backToLibrary')}
           </Button>
         </div>
       </main>

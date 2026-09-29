@@ -8,11 +8,11 @@ import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { getPartAudioAvailability } from '@/domains/assets';
 import { toReadingState } from '@/domains/reading/reader/reading-state';
+import type { WorkReadActor } from '@/domains/works/access';
+import { requireReadablePart, requireReadableWorkWithParts } from '@/domains/works/access';
 import { reindexLeafParagraphOrdinals } from '@/domains/works/content';
-import { getPartById, loadTagsForWork, requirePublishedWorkWithParts } from '@/domains/works/read-model';
+import { loadTagsForWork } from '@/domains/works/read-model';
 import { db } from '@/infra/db';
-import { NotFoundError } from '@/shared/errors/app-error';
-import { ERROR_CODES } from '@/shared/errors/codes';
 
 type PartRow = typeof readingPartTable.$inferSelect;
 
@@ -41,7 +41,7 @@ function toPartSummary(part: PartRow) {
 }
 
 function toWorkSummary(
-  work: Awaited<ReturnType<typeof requirePublishedWorkWithParts>>['work'],
+  work: Awaited<ReturnType<typeof requireReadableWorkWithParts>>['work'],
   tags: TaxonomyReference[],
 ): ReaderPartsData['work'] {
   return {
@@ -54,8 +54,8 @@ function toWorkSummary(
   };
 }
 
-export async function getReaderParts(workId: string): Promise<ReaderPartsData> {
-  const { work, parts } = await requirePublishedWorkWithParts(workId);
+export async function getReaderParts(actor: WorkReadActor, workId: string): Promise<ReaderPartsData> {
+  const { work, parts } = await requireReadableWorkWithParts(actor, workId);
   const tags = await loadTagsForWork(workId);
   return {
     work: toWorkSummary(work, tags),
@@ -63,35 +63,35 @@ export async function getReaderParts(workId: string): Promise<ReaderPartsData> {
   };
 }
 
-export async function getReaderPart(partId: string): Promise<ReaderPartData> {
-  const part = await getPartById(partId);
-  const { work, parts } = await requirePublishedWorkWithParts(part.workId);
-  if (!parts.some((row) => row.id === partId)) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART);
-  }
-  const tags = await loadTagsForWork(work.id);
-  const audioAvailable = await getPartAudioAvailability(part.id, part.title, part.body);
+export async function getReaderPart(actor: WorkReadActor, partId: string): Promise<ReaderPartData> {
+  const access = await requireReadablePart(actor, partId);
+  const tags = await loadTagsForWork(access.workId);
+  const audioAvailable = await getPartAudioAvailability(access.partId, access.partTitle, access.body);
   return {
     work: {
-      id: work.id,
-      title: work.title,
-      coverAssetId: work.coverAssetId,
+      id: access.workId,
+      title: access.workTitle,
+      coverAssetId: access.coverAssetId,
       tags,
     },
     part: {
-      id: part.id,
-      workId: part.workId,
-      sortOrder: part.sortOrder,
-      kind: part.kind as ReaderPartData['part']['kind'],
-      title: part.title,
-      body: reindexLeafParagraphOrdinals(part.body),
+      id: access.partId,
+      workId: access.workId,
+      sortOrder: access.sortOrder,
+      kind: access.kind as ReaderPartData['part']['kind'],
+      title: access.partTitle,
+      body: reindexLeafParagraphOrdinals(access.body),
     },
     audioAvailable,
   };
 }
 
-export async function getReadingState(userId: string, workId: string): Promise<ReadingState | null> {
-  const { parts } = await requirePublishedWorkWithParts(workId);
+export async function getReadingState(
+  actor: WorkReadActor,
+  userId: string,
+  workId: string,
+): Promise<ReadingState | null> {
+  const { parts } = await requireReadableWorkWithParts(actor, workId);
   const [row] = await db
     .select()
     .from(readingStateTable)

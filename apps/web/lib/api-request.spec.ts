@@ -114,7 +114,7 @@ describe('apiRequest', () => {
       ),
     );
 
-    await expect(apiRequest('/api/shelf', { schema: pingSchema })).rejects.toMatchObject({
+    await expect(apiRequest('/api/library', { schema: pingSchema })).rejects.toMatchObject({
       message: 'Unauthorized',
       status: 401,
     });

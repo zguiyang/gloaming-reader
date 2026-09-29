@@ -74,12 +74,13 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
   let adminCookie = '';
   let userCookie = '';
 
-  async function seedWork(status: string): Promise<string> {
+  async function seedWork(lifecycle: 'published' | 'draft'): Promise<string> {
     const id = `w-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     await db.insert(readingWorkTable).values({
       id,
       title: `Work ${id}`,
-      status,
+      processingStatus: 'ready',
+      publishedAt: lifecycle === 'published' ? new Date() : null,
       originKind: 'admin_epub',
     });
     workIds.push(id);
@@ -184,6 +185,29 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
 
   it('returns 404 for unknown assets', async () => {
     expect((await app.request('/api/assets/does-not-exist')).status).toBe(404);
+  });
+
+  it('allows admin to read orphan stored assets while denying anonymous and ordinary users', async () => {
+    const id = `a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const key = `assets-test/orphan-${id}.png`;
+    memory.store.set(key, { body: Buffer.from('orphan-png'), contentType: 'image/png' });
+    await db.insert(contentAssetTable).values({
+      id,
+      workId: null,
+      kind: 'image',
+      storageKey: key,
+      mimeType: 'image/png',
+      contentHash: 'content-hash',
+      status: 'ready',
+    });
+    assetIds.push(id);
+
+    expect((await app.request(`/api/assets/${id}`)).status).toBe(403);
+    expect((await app.request(`/api/assets/${id}`, { headers: { Cookie: userCookie } })).status).toBe(403);
+    const adminResponse = await app.request(`/api/assets/${id}`, { headers: { Cookie: adminCookie } });
+    expect(adminResponse.status).toBe(200);
+    expect(await adminResponse.text()).toBe('orphan-png');
+    expect(adminResponse.headers.get('Cache-Control')).toBe('private, no-store');
   });
 
   it('honors byte ranges with a 206 partial response', async () => {

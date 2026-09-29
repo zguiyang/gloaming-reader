@@ -1,16 +1,16 @@
 import { type Locale, t } from '@gloaming/i18n';
 import type { ContentAssetTrack } from '@gloaming/shared/content-assets';
-import type { WorkflowStep, WorkMetadataProvenance, WorkStatus } from '@gloaming/shared/works';
+import type { WorkflowStep, WorkMetadataProvenance, WorkProcessingStatus } from '@gloaming/shared/works';
 
-const WORK_STATUS_KEYS: Record<WorkStatus, string> = {
+import { isTtsWorkflowActive, isWorkPublished } from '@/features/admin/works/works-model';
+
+const WORK_PROCESSING_STATUS_KEYS: Record<WorkProcessingStatus, string> = {
   uploaded: 'uploaded',
   processing: 'processing',
   parsed: 'parsed',
   metadata: 'metadata',
-  tts: 'tts',
   ready: 'ready',
   failed: 'failed',
-  published: 'published',
 };
 
 const WORKFLOW_STEP_KEYS: Record<WorkflowStep, string> = {
@@ -33,15 +33,33 @@ const AUDIO_TRACK_STATUS_KEYS: Record<ContentAssetTrack['status'], string> = {
   failed: 'failed',
 };
 
-export function formatWorkStatus(
-  status: WorkStatus,
+export function formatWorkProcessingStatus(
+  status: WorkProcessingStatus,
   locale: Locale,
   variant: 'default' | 'ellipsis' = 'default',
 ): string {
-  const key = WORK_STATUS_KEYS[status];
-  const suffix =
-    variant === 'ellipsis' && (status === 'processing' || status === 'metadata' || status === 'tts') ? 'Ellipsis' : '';
+  const key = WORK_PROCESSING_STATUS_KEYS[status];
+  const suffix = variant === 'ellipsis' && (status === 'processing' || status === 'metadata') ? 'Ellipsis' : '';
   return t(locale, `admin.works.status.${key}${suffix}`);
+}
+
+export function formatAdminWorkStatus(
+  work: {
+    processingStatus: WorkProcessingStatus;
+    publishedAt: string | null;
+    originMeta: Record<string, unknown>;
+  },
+  locale: Locale,
+  variant: 'default' | 'ellipsis' = 'default',
+): string {
+  if (isWorkPublished(work)) {
+    return t(locale, 'admin.works.status.published');
+  }
+  if (isTtsWorkflowActive(work)) {
+    const suffix = variant === 'ellipsis' ? 'Ellipsis' : '';
+    return t(locale, `admin.works.status.tts${suffix}`);
+  }
+  return formatWorkProcessingStatus(work.processingStatus, locale, variant);
 }
 
 export function formatWorkflowStep(step: WorkflowStep, locale: Locale): string {

@@ -16,8 +16,9 @@ import {
 } from '@/domains/ai';
 import { resolveAssistToolsForAction } from '@/domains/assist/tools';
 import { appendAssistTurn, assertAssistConversation } from '@/domains/conversations';
+import type { WorkReadActor } from '@/domains/works/access';
+import { requireReadablePart } from '@/domains/works/access';
 import { htmlToPlainText } from '@/domains/works/content';
-import { requirePublishedPart } from '@/domains/works/read-model';
 import { rootLogger } from '@/infra/logging/logger';
 
 const assistLogger = rootLogger.child({ module: 'Assist' });
@@ -132,11 +133,12 @@ async function buildFollowUpMessages(input: {
 }
 
 export async function* streamAssistAsk(
+  actor: WorkReadActor,
   userId: string,
   body: AssistAskBody,
   options?: StreamAssistAskOptions,
 ): AsyncGenerator<AssistStreamEvent> {
-  const part = await requirePublishedPart(body.partId, { workId: body.workId });
+  const part = await requireReadablePart(actor, body.partId, { workId: body.workId });
 
   if (body.conversationId) {
     await assertAssistConversation({
@@ -150,10 +152,16 @@ export async function* streamAssistAsk(
   const question = body.question?.trim() || undefined;
   const partText = htmlToPlainText(part.body);
   const neighbor = selection ? neighborWindow(partText, selection) : '';
-  const tools = resolveAssistToolsForAction(body.actionId, {
-    title: part.partTitle,
-    body: partText,
-  });
+  const tools = resolveAssistToolsForAction(
+    body.actionId,
+    {
+      title: part.partTitle,
+      body: partText,
+      workId: part.workId,
+      partId: part.partId,
+    },
+    actor,
+  );
 
   const memory = await loadLearnerMemory({
     userId,

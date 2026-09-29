@@ -16,6 +16,7 @@ import type { AdminWork, CreateAdminTextWorkBody, UpdateWorkBody } from '@gloami
 
 import { computePartReadingStats, computeWorkReadingStats } from '@/domains/reading';
 import { getAdminWork, toAdminWork } from '@/domains/works/admin/admin-work-read';
+import { catalogWorkPredicate } from '@/domains/works/catalog/policy';
 import { db } from '@/infra/db';
 import { AppError, NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
@@ -47,8 +48,10 @@ export async function createAdminTextWork(input: CreateAdminTextWorkBody): Promi
       id: workId,
       title: input.title,
       description: '',
-      status: 'ready',
+      processingStatus: 'ready',
       originKind: 'admin_text',
+      ownerUserId: null,
+      visibility: 'catalog',
       publishedAt: null,
     })
     .returning();
@@ -94,7 +97,11 @@ export async function createAdminTextWork(input: CreateAdminTextWorkBody): Promi
 }
 
 export async function updateWork(id: string, input: UpdateWorkBody): Promise<AdminWork> {
-  const [existing] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  const [existing] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
   if (!existing) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }

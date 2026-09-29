@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DICTIONARY_PROVIDER_FREE, type DictionaryConfigView, type DictionaryEntry } from '@gloaming/shared/dictionary';
 
+import { anonymousWorkReadActor } from '@/domains/works/access';
+
 const mocks = vi.hoisted(() => {
   const redisStore = new Map<string, string>();
   return {
@@ -69,6 +71,20 @@ vi.mock('@/domains/dictionary/providers/youdao-dictionary', () => ({
     lookup = vi.fn();
   },
 }));
+
+vi.mock('@/domains/works/access', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>('@/domains/works/access');
+  return {
+    ...actual,
+    resolveReadableWorkTitle: vi.fn(async (_actor: unknown, workId?: string) => {
+      if (!workId || workId === 'unknown-work-id') {
+        return undefined;
+      }
+      return `Title-${workId}`;
+    }),
+    resolveReadableWorkIdForPart: vi.fn(async () => undefined),
+  };
+});
 
 import { toGenericDictionaryEntry } from '@/domains/dictionary';
 import { lookupWord } from '@/domains/dictionary';
@@ -150,7 +166,7 @@ describe('dictionary context isolation', () => {
       },
     });
 
-    const first = await lookupWord({ word });
+    const first = await lookupWord({ actor: anonymousWorkReadActor(), word });
     expect(first?.meanings[0]?.definitions[0]?.definitionZh).toBe('测试释义');
     expect(first?.contextExamples).toBeUndefined();
 
@@ -169,7 +185,7 @@ describe('dictionary context isolation', () => {
     mocks.invokeAi.mockClear();
     mocks.dbInsertValues.mockClear();
 
-    const second = await lookupWord({ word });
+    const second = await lookupWord({ actor: anonymousWorkReadActor(), word });
     expect(second?.fromCache).toBe(true);
     expect(second?.contextExamples).toBeUndefined();
     expect(mocks.providerLookup).not.toHaveBeenCalled();
@@ -191,6 +207,7 @@ describe('dictionary context isolation', () => {
     });
 
     const result = await lookupWord({
+      actor: anonymousWorkReadActor(),
       word,
       contextSentence: 'User A used isolation_ctx in a novel.',
       workId: 'work-a',
@@ -246,11 +263,13 @@ describe('dictionary context isolation', () => {
       });
 
     const userA = await lookupWord({
+      actor: anonymousWorkReadActor(),
       word,
       contextSentence: 'Context belonging to user A.',
       workId: 'work-a',
     });
     const userB = await lookupWord({
+      actor: anonymousWorkReadActor(),
       word,
       contextSentence: 'Context belonging to user B.',
       workId: 'work-b',
@@ -283,7 +302,7 @@ describe('dictionary context isolation', () => {
       }),
     );
 
-    const fromRedis = await lookupWord({ word });
+    const fromRedis = await lookupWord({ actor: anonymousWorkReadActor(), word });
     expect(fromRedis?.fromCache).toBe(true);
     expect(fromRedis?.contextExamples).toBeUndefined();
 
@@ -308,7 +327,7 @@ describe('dictionary context isolation', () => {
       },
     ]);
 
-    const fromDb = await lookupWord({ word });
+    const fromDb = await lookupWord({ actor: anonymousWorkReadActor(), word });
     expect(fromDb?.fromCache).toBe(true);
     expect(fromDb?.contextExamples).toBeUndefined();
 
@@ -331,6 +350,7 @@ describe('dictionary context isolation', () => {
     });
 
     const result = await lookupWord({
+      actor: anonymousWorkReadActor(),
       word,
       contextSentence: 'Bypass still must not persist context.',
       bypassCache: true,

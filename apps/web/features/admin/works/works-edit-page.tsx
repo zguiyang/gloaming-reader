@@ -31,8 +31,14 @@ import {
   useAdminWorkQuery,
   useInvalidateAdminWorks,
 } from '@/features/admin/works/works-api';
-import { formatWorkflowStep, formatWorkStatus, workflowModeLabels } from '@/features/admin/works/works-format';
-import { type AdminWorkView, canPreviewWork } from '@/features/admin/works/works-model';
+import { formatAdminWorkStatus, formatWorkflowStep, workflowModeLabels } from '@/features/admin/works/works-format';
+import {
+  type AdminWorkView,
+  canPreviewWork,
+  isProcessingPipelineRunning,
+  isTtsWorkflowActive,
+  isWorkPublished,
+} from '@/features/admin/works/works-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -74,52 +80,52 @@ function stepStates(work: AdminWorkView | null): Record<WorkflowStepId, StepStat
   if (!work) {
     return { upload: 'active', parse: 'todo', metadata: 'todo', audio: 'todo', publish: 'todo' };
   }
+  const isPublished = isWorkPublished(work);
+  const isTtsActive = isTtsWorkflowActive(work);
+  const { processingStatus } = work;
+
   if (work.originKind === 'admin_text') {
     return {
       upload: 'na',
       parse: 'na',
-      metadata: work.status === 'published' ? 'done' : 'active',
+      metadata: isPublished ? 'done' : 'active',
       audio: 'na',
-      publish: work.status === 'published' ? 'done' : 'active',
+      publish: isPublished ? 'done' : 'active',
     };
   }
   // Parse — active while running, or waiting for the admin to start (manual mode).
   const parseState =
-    work.status === 'processing'
+    processingStatus === 'processing'
       ? 'active'
-      : work.status === 'uploaded'
+      : processingStatus === 'uploaded'
         ? 'active'
-        : work.status === 'failed' && work.failedStep === 'parse'
+        : processingStatus === 'failed' && work.failedStep === 'parse'
           ? 'failed'
           : work.originMeta.parsed
             ? 'done'
             : 'todo';
   // Metadata — active while jobs run, or waiting after parse in manual mode.
   const metadataState =
-    work.status === 'metadata'
+    processingStatus === 'metadata'
       ? 'active'
-      : work.status === 'parsed'
+      : processingStatus === 'parsed'
         ? 'active'
-        : work.status === 'failed' && work.failedStep === 'metadata'
+        : processingStatus === 'failed' && work.failedStep === 'metadata'
           ? 'failed'
-          : work.status === 'tts' ||
-              work.status === 'ready' ||
-              work.status === 'published' ||
-              Boolean(work.originMeta.metadataAt)
+          : isTtsActive || processingStatus === 'ready' || isPublished || Boolean(work.originMeta.metadataAt)
             ? 'done'
             : 'todo';
   // Audio — manual generation via WorkAudioPanel; done when server publish gate passes for default US audio.
   const audioGateIssues = work.publishIssues.filter((issue) => issue.path.includes('.audio.'));
-  const audioState =
-    work.status === 'tts'
-      ? 'active'
-      : work.originKind === 'admin_epub' && work.parts.length > 0
-        ? audioGateIssues.length === 0
-          ? 'done'
-          : 'active'
-        : 'todo';
+  const audioState = isTtsActive
+    ? 'active'
+    : work.originKind === 'admin_epub' && work.parts.length > 0
+      ? audioGateIssues.length === 0
+        ? 'done'
+        : 'active'
+      : 'todo';
   // Publish — the human step; highlighted while the work is ready.
-  const publishState = work.status === 'published' ? 'done' : work.status === 'ready' ? 'active' : 'todo';
+  const publishState = isPublished ? 'done' : processingStatus === 'ready' && !isTtsActive ? 'active' : 'todo';
   return {
     upload: 'done',
     parse: parseState,
@@ -337,21 +343,22 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
   const isEpub = work.originKind === 'admin_epub';
   const states = stepStates(work);
   const [actingStep, setActingStep] = useState<WorkflowStep | 'retry' | null>(null);
+  const isPipelineRunning = isProcessingPipelineRunning(work);
 
   // Poll while any pipeline step is running.
   useEffect(() => {
-    if (work.status !== 'processing' && work.status !== 'metadata' && work.status !== 'tts') {
+    if (!isPipelineRunning) {
       return;
     }
     const timer = window.setInterval(() => {
       void invalidate(workId);
     }, 3000);
     return () => window.clearInterval(timer);
-  }, [work.status, workId, invalidate]);
+  }, [isPipelineRunning, workId, invalidate]);
 
   async function handleRetry(step?: WorkflowStep, confirmText?: string) {
     if (confirmText && !window.confirm(confirmText)) return;
-    const isStartingIdle = work.status === 'uploaded' || work.status === 'parsed';
+    const isStartingIdle = work.processingStatus === 'uploaded' || work.processingStatus === 'parsed';
     setActingStep(step ?? 'retry');
     try {
       await retryAdminWorkflow(workId, step);
@@ -410,9 +417,10 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
     { path: 'body', label: t(locale, 'admin.works.edit.checklistBody') },
   ] as const;
   const audioGateIssues = publishIssues.filter((issue) => issue.path.includes('.audio.'));
-  const isRunning = work.status === 'processing' || work.status === 'metadata' || work.status === 'tts';
+  const isRunning = isProcessingPipelineRunning(work);
   const isActing = actingStep !== null;
-  const canRerun = isEpub && work.status !== 'published' && !isRunning && !isActing;
+  const isPublished = isWorkPublished(work);
+  const canRerun = isEpub && !isPublished && !isRunning && !isActing;
   const hasParts = work.parts.length > 0;
   const canPreview = canPreviewWork(work);
   const workflowLabels = workflowModeLabels(work.workflowPolicy, locale);
@@ -424,16 +432,8 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
         <div className="min-w-0">
           <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.works.edit.title')}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge
-              variant={work.status === 'published' ? 'secondary' : work.status === 'failed' ? 'destructive' : 'outline'}
-            >
-              {formatWorkStatus(
-                work.status,
-                locale,
-                work.status === 'processing' || work.status === 'metadata' || work.status === 'tts'
-                  ? 'ellipsis'
-                  : 'default',
-              )}
+            <Badge variant={isPublished ? 'secondary' : work.processingStatus === 'failed' ? 'destructive' : 'outline'}>
+              {formatAdminWorkStatus(work, locale, isRunning ? 'ellipsis' : 'default')}
             </Badge>
             <Badge variant="outline">{workflowLabels.chain}</Badge>
             <Badge variant="outline">{workflowLabels.audio}</Badge>
@@ -456,7 +456,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
               {t(locale, 'admin.works.list.previewUnavailable')}
             </span>
           ) : null}
-          {work.status !== 'published' ? (
+          {!isPublished ? (
             <Button type="button" variant="destructive" size="sm" onClick={() => void handleDelete()}>
               {t(locale, 'admin.content.common.delete')}
             </Button>
@@ -522,20 +522,20 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
 
           {!isEpub ? (
             <p className="mt-4 text-sm text-muted-foreground">{t(locale, 'admin.works.edit.textWorkNoParse')}</p>
-          ) : work.status === 'uploaded' ? (
+          ) : work.processingStatus === 'uploaded' ? (
             <div className="mt-4">
               <Button type="button" size="sm" onClick={() => void handleRetry('parse')} disabled={!canRerun}>
                 {isActing ? t(locale, 'admin.content.common.queuing') : t(locale, 'admin.works.edit.startParse')}
               </Button>
             </div>
-          ) : work.status === 'processing' || actingStep === 'parse' ? (
+          ) : work.processingStatus === 'processing' || actingStep === 'parse' ? (
             <div className="mt-4 flex items-center gap-3 text-sm text-muted-foreground">
               <Spinner className="size-4 text-brand" />
-              {work.status === 'processing'
+              {work.processingStatus === 'processing'
                 ? t(locale, 'admin.works.edit.parsingChapters')
                 : t(locale, 'admin.works.edit.parseTaskSubmitted')}
             </div>
-          ) : work.status === 'failed' ? (
+          ) : work.processingStatus === 'failed' ? (
             <div className="mt-4 space-y-4">
               <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" />
@@ -606,7 +606,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                   </dd>
                 </div>
               </dl>
-              {work.status === 'published' ? (
+              {isPublished ? (
                 <p className="mt-4 text-xs text-muted-foreground">
                   {t(locale, 'admin.works.edit.publishedReparseHint')}
                 </p>
@@ -725,11 +725,11 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
               ))}
             </ul>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              {work.status === 'published' ? (
+              {isPublished ? (
                 <Button type="button" variant="secondary" size="sm" onClick={() => void handleUnpublish()}>
                   {t(locale, 'admin.content.common.unpublish')}
                 </Button>
-              ) : work.status === 'ready' ? (
+              ) : work.processingStatus === 'ready' && !isTtsWorkflowActive(work) ? (
                 <Button
                   type="button"
                   size="sm"
@@ -740,7 +740,7 @@ function WorkEditMode({ workId, work }: WorkflowModeProps) {
                 </Button>
               ) : (
                 <span className="text-xs text-muted-foreground">
-                  {work.status === 'failed'
+                  {work.processingStatus === 'failed'
                     ? t(locale, 'admin.works.edit.publishBlockedFailed')
                     : t(locale, 'admin.works.edit.publishBlockedIncomplete')}
                 </span>

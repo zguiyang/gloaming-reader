@@ -21,14 +21,15 @@
     "wordmark": "Gloaming",
     "brandHomeAria": "Gloaming home",
     "discover": "Discover",
-    "shelf": "My shelf",
-    "shelfShort": "Shelf",
+    "library": "Library",
+    "libraryShort": "Library",
     "history": "Reading history",
     "historyShort": "History",
     "more": "More",
     "signIn": "Sign in",
     "account": "Account menu",
     "accountCenter": "Account",
+    "settings": "Settings",
     "signOut": "Sign out",
     "admin": "Admin",
     "themeAppearance": "Appearance",
@@ -47,6 +48,74 @@
     "accountSettings": "Account settings",
     "menuAria": "More menu",
     "metaTitle": "More · Gloaming Reader"
+  },
+  "settings": {
+    "title": "Settings",
+    "metaTitle": "Settings · Gloaming Reader",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "loading": "Loading settings…",
+    "signInRequired": "Sign in to manage personal settings.",
+    "tabsAria": "Settings categories",
+    "serviceMode": "Service source",
+    "defaultService": "Default service",
+    "ownApi": "Use my own API",
+    "validation": {
+      "required": "This field is required.",
+      "url": "Enter a valid URL."
+    },
+    "secret": {
+      "saved": "Configured",
+      "leaveBlank": "Leave blank to keep the saved key"
+    },
+    "ai": {
+      "title": "AI",
+      "service": "AI service",
+      "serviceType": "Service type",
+      "notAvailableYet": "Not available yet",
+      "providerName": "Service name",
+      "baseUrl": "API URL",
+      "apiKey": "API key",
+      "advanced": "Advanced settings",
+      "proxyUrl": "Proxy URL",
+      "thinkingParam": "Thinking parameter name",
+      "noProviders": "No personal API is configured yet.",
+      "confirmDefault": "Save to disable personal AI configurations. Future requests will use the default service.",
+      "confirmOwn": "Save to enable personal AI configurations.",
+      "providers": "Service configuration",
+      "addProvider": "Add service",
+      "models": "Models",
+      "provider": "Service",
+      "providerRequired": "Add a service first.",
+      "noModels": "This service has no models yet.",
+      "addModel": "Add model",
+      "modelName": "Display name",
+      "modelId": "Model identifier",
+      "connectionType": "API type",
+      "capabilities": "Reading capabilities",
+      "purpose": {
+        "assist": "Reading assistance",
+        "translate": "Translation",
+        "metadata": "Work details"
+      },
+      "notSet": "Choose a model",
+      "unavailableModel": "This model is unavailable. Choose another one.",
+      "defaultOnUnset": "Capabilities without a personal model use the default service."
+    },
+    "tts": {
+      "title": "Read aloud",
+      "defaultDescription": "Future read-aloud requests will use the default service.",
+      "region": "Region",
+      "voice": {
+        "default": "Default voice",
+        "us": "US English",
+        "uk": "UK English"
+      }
+    }
   },
   "auth": {
     "signOutFailed": "Sign out failed. Please try again.",
@@ -129,7 +198,7 @@
       "failed": "Verification failed. Please request a new email.",
       "failedToast": "Verification failed",
       "successToast": "Email confirmed",
-      "goToShelf": "Go to shelf",
+      "goToLibrary": "Go to Library",
       "backToSignIn": "Back to sign in",
       "backToHome": "Back to home"
     },
@@ -140,7 +209,7 @@
       "signUpTab": "Sign up",
       "forgotPasswordTitle": "Reset password",
       "reasonSave": "Sign in to save what you're reading.",
-      "reasonBookmark": "Sign in to add content to your shelf.",
+      "reasonBookmark": "Sign in to add content to your Library.",
       "reasonSync": "Sign in to sync your reading progress.",
       "reasonAi": "Sign in to use lookup, translation, and explanation in the reader.",
       "reasonBilingual": "Sign in to use bilingual view.",
@@ -218,7 +287,7 @@
     },
     "cta": {
       "signInToRead": "Sign in to read",
-      "goToShelf": "Go to shelf"
+      "goToLibrary": "Go to Library"
     },
     "hero": {
       "title": "Read. Look up, translate, or ask when you need help.",
@@ -236,13 +305,13 @@
       "companionBody": "Select text to look up a word, translate a passage, or request a sentence explanation. Results appear beside the text.",
       "companionCardTitle": "Sentence explanation",
       "companionCardBody": "Explains the selected sentence in context, including word meaning and how the clause fits the surrounding text.",
-      "shelfTitle": "Shelf",
-      "shelfBody": "Keep the works you are reading together on your shelf.",
-      "shelfImageAlt": "Gloaming Shelf interface"
+      "libraryTitle": "Library",
+      "libraryBody": "Keep the works you own or choose to save together in your Library.",
+      "libraryImageAlt": "Gloaming Library interface"
     },
     "invite": {
       "title": "Pick up where you left off.",
-      "body": "Sign in to save progress, manage your shelf, and use the reader tools."
+      "body": "Sign in to save progress, manage your Library, and use the reader tools."
     }
   },
   "admin": {
@@ -1057,9 +1126,10 @@
     "common": {
       "retry": "Retry",
       "viewBookDetailAria": "View details for {title}",
+      "openReaderAria": "Open {title} in the reader",
       "findBookCta": "Discover a book to read",
       "backToDiscover": "Back to Discover",
-      "backToShelf": "Back to My shelf"
+      "backToLibrary": "Back to Library"
     },
     "discover": {
       "title": "Discover",
@@ -1085,13 +1155,25 @@
       "prevPage": "Previous",
       "nextPage": "Next"
     },
-    "shelf": {
-      "title": "My shelf",
-      "metaTitle": "My shelf · Gloaming Reader",
-      "loadFailed": "Could not load shelf",
-      "emptyTitle": "Your shelf is empty",
+    "library": {
+      "title": "Library",
+      "metaTitle": "Library · Gloaming Reader",
+      "loadFailed": "Could not load your library",
+      "emptyTitle": "Your library is empty",
+      "uploadEpub": "Upload EPUB",
+      "uploading": "Uploading…",
+      "uploadStarted": "Added to Library. Processing has started.",
+      "invalidEpub": "Choose an EPUB file.",
+      "epubTooLarge": "The EPUB must be 50 MB or smaller.",
+      "processing": "Processing",
+      "processingFailed": "This book could not be processed",
+      "manageBookAria": "Manage {title}",
+      "removeFromLibrary": "Remove from Library",
+      "removeConfirmTitle": "Remove from Library?",
+      "removeConfirmDescription": "This book will leave your Library. Reading progress and history will be kept.",
+      "removedFromLibrary": "Removed from Library",
       "continueReading": "Continue reading",
-      "myCollection": "My collection",
+      "myBooks": "My books",
       "readingInProgress": "Reading",
       "progressRead": "{ratio}% read",
       "statusCompleted": "Finished",
@@ -1145,10 +1227,10 @@
       "progressRead": "{ratio}% read",
       "lastReadPrefix": "Last read: {time}",
       "readingProgress": "Reading progress",
-      "addToShelf": "Add to shelf",
-      "addToShelfAria": "Add to shelf",
-      "onShelf": "On shelf",
-      "addedToShelfToast": "Added to shelf",
+      "addToLibrary": "Add to Library",
+      "addToLibraryAria": "Add to Library",
+      "inLibrary": "In Library",
+      "addedToLibraryToast": "Added to Library",
       "readInfo": "Reading info",
       "difficulty": "Difficulty",
       "difficultyAria": "Difficulty {label}, {filled} of {total} stars",
@@ -1190,7 +1272,7 @@
         "lastChapter": "Last chapter",
         "previousChapter": "Previous chapter",
         "nextChapter": "Next chapter",
-        "finishAndReturn": "Finish book, return to shelf"
+        "finishAndReturn": "Finish book, return to My Library"
       },
       "selection": {
         "toolbarAria": "Selection tools",

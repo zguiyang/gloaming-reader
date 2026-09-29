@@ -7,6 +7,7 @@ import {
   validatePutDictionaryConfig,
   validateTestDictionary,
 } from '@/domains/dictionary/validator';
+import { workReadActorFromIdentity } from '@/domains/works/access';
 import { type AuthVariables, requireAdmin } from '@/infra/http/middleware/auth';
 import { rateLimit } from '@/infra/http/middleware/rate-limit';
 import { sendError } from '@/infra/http/response';
@@ -25,7 +26,7 @@ dictionaryRoutes.put('/api/admin/dictionary/config', requireAdmin, validatePutDi
 });
 
 dictionaryRoutes.post('/api/admin/dictionary/test', requireAdmin, validateTestDictionary, async (c) => {
-  return c.json(await testDictionary(c.req.valid('json')));
+  return c.json(await testDictionary(workReadActorFromIdentity(c.get('user')), c.req.valid('json')));
 });
 
 // Public / Reader Lookup (open to guests and authenticated users)
@@ -36,6 +37,7 @@ dictionaryRoutes.get(
   async (c) => {
     const query = c.req.valid('query');
     const entry = await lookupWord({
+      actor: workReadActorFromIdentity(c.get('user')),
       word: query.word,
       contextSentence: query.contextSentence,
       workId: query.workId,

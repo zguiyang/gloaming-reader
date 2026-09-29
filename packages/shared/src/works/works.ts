@@ -22,29 +22,18 @@ import {
 import { type TtsVoiceRole } from '../tts/tts.ts';
 import { catalogCategoryIdQuerySchema, catalogTagIdsQuerySchema } from './catalog-query.ts';
 
-/** Work lifecycle statuses. */
-export const WORK_STATUSES = [
-  'uploaded',
-  'processing',
-  'parsed',
-  'metadata',
-  'tts',
-  'ready',
-  'failed',
-  'published',
-] as const;
-export type WorkStatus = (typeof WORK_STATUSES)[number];
-export const workStatusSchema = z.enum(WORK_STATUSES);
-export const WORK_STATUS_LABELS = {
+/** ReadingWork pipeline processing statuses (publication is `publishedAt`, not a processing value). */
+export const WORK_PROCESSING_STATUSES = ['uploaded', 'processing', 'parsed', 'metadata', 'ready', 'failed'] as const;
+export type WorkProcessingStatus = (typeof WORK_PROCESSING_STATUSES)[number];
+export const workProcessingStatusSchema = z.enum(WORK_PROCESSING_STATUSES);
+export const WORK_PROCESSING_STATUS_LABELS = {
   uploaded: 'Uploaded',
   processing: 'Processing',
   parsed: 'Parsed',
   metadata: 'Metadata',
-  tts: 'Audio',
   ready: 'Ready',
   failed: 'Failed',
-  published: 'Published',
-} as const satisfies Record<WorkStatus, string>;
+} as const satisfies Record<WorkProcessingStatus, string>;
 
 /** Linear generation steps of the EPUB work pipeline (retry/re-run target). */
 export const WORKFLOW_STEPS = ['parse', 'metadata', 'tts'] as const;
@@ -58,12 +47,13 @@ export const WORK_VISIBILITY_LABELS = {
   private: 'Private',
 } as const satisfies Record<WorkVisibility, string>;
 
-export const WORK_ORIGIN_KINDS = ['admin_text', 'admin_epub'] as const;
+export const WORK_ORIGIN_KINDS = ['admin_text', 'admin_epub', 'user_epub'] as const;
 export type WorkOriginKind = (typeof WORK_ORIGIN_KINDS)[number];
 export const workOriginKindSchema = z.enum(WORK_ORIGIN_KINDS);
 export const WORK_ORIGIN_KIND_LABELS = {
   admin_text: 'Admin text',
   admin_epub: 'Admin EPUB',
+  user_epub: 'Personal EPUB',
 } as const satisfies Record<WorkOriginKind, string>;
 
 export const PART_KINDS = ['chapter', 'body', 'section', 'segment'] as const;
@@ -104,7 +94,7 @@ export const workSchema = z.object({
   author: z.string(),
   description: z.string(),
   language: z.string(),
-  status: workStatusSchema,
+  processingStatus: workProcessingStatusSchema,
   visibility: workVisibilitySchema,
   originKind: workOriginKindSchema,
   tags: z.array(taxonomyReferenceSchema),
@@ -193,7 +183,7 @@ export const adminWorkSchema = workSchema.extend({
   originMeta: z.record(z.string(), z.unknown()).default({}),
   originAsset: adminOriginAssetSchema.nullable(),
   parts: z.array(partSchema),
-  /** Step that failed when status is `failed` (from originMeta.failedStep). */
+  /** Step that failed when processingStatus is `failed` (from originMeta.failedStep). */
   failedStep: z.enum(WORKFLOW_STEPS).nullable(),
   /** Per-field provenance for admin review UI — runtime projection from junction + description_provenance. */
   metadataProvenance: z.record(z.string(), z.enum(WORK_METADATA_PROVENANCES)).default({}),
@@ -226,11 +216,11 @@ export const createAdminTextWorkBodySchema = z.object({
 
 export type CreateAdminTextWorkBody = z.infer<typeof createAdminTextWorkBodySchema>;
 
-/** Response of `POST /api/admin/works/epub` — upload creates work + origin_file asset. */
+/** Catalog upload response — the admin source asset is exposed only on the protected Catalog API. */
 export const createEpubWorkResultSchema = z.object({
   id: z.string(),
   title: z.string(),
-  status: workStatusSchema,
+  processingStatus: workProcessingStatusSchema,
   originKind: workOriginKindSchema,
   originMeta: z.record(z.string(), z.unknown()).default({}),
   asset: z.object({
@@ -243,7 +233,15 @@ export const createEpubWorkResultSchema = z.object({
 
 export type CreateEpubWorkResult = z.infer<typeof createEpubWorkResultSchema>;
 
-/** Body of `POST /api/admin/works/epub/reuse` — instant-upload dedupe lookup. */
+/** Safe Personal API response; source storage keys and workflow tokens are intentionally omitted. */
+export const personalWorkUploadResultSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  processingStatus: workProcessingStatusSchema,
+});
+export type PersonalWorkUploadResult = z.infer<typeof personalWorkUploadResultSchema>;
+
+/** Body of the Catalog EPUB reuse endpoint — instant-upload dedupe lookup. */
 export const checkEpubWorkReuseBodySchema = z.object({
   fileName: z.string().trim().min(1).max(255),
   contentHash: z.string().regex(/^[a-f0-9]{64}$/, '文件哈希无效'),
@@ -276,26 +274,35 @@ export const ADMIN_WORK_SORT_FIELDS = ['updatedAt'] as const;
 export type AdminWorkSortField = (typeof ADMIN_WORK_SORT_FIELDS)[number];
 export const DEFAULT_ADMIN_WORK_SORT_BY = 'updatedAt' as const satisfies AdminWorkSortField;
 
-/** Comma-separated status filter (e.g. `processing,metadata,tts` for "processing"). */
-const workStatusFilterSchema = z.preprocess(
+/** Admin list filter for catalog publication (`reading_work.published_at`), not processing pipeline state. */
+export const ADMIN_WORK_PUBLICATION_STATUSES = ['published', 'unpublished'] as const;
+export type AdminWorkPublicationStatus = (typeof ADMIN_WORK_PUBLICATION_STATUSES)[number];
+const adminWorkPublicationStatusSchema = z.enum(ADMIN_WORK_PUBLICATION_STATUSES);
+
+/** Comma-separated processingStatus filter (e.g. `processing,metadata` for in-flight works). */
+const workProcessingStatusFilterSchema = z.preprocess(
   emptyToUndefined,
   z
     .string()
     .optional()
     .refine(
-      (value) => !value || value.split(',').every((item) => (WORK_STATUSES as readonly string[]).includes(item)),
+      (value) =>
+        !value || value.split(',').every((item) => (WORK_PROCESSING_STATUSES as readonly string[]).includes(item)),
       { message: '无效的状态筛选' },
     ),
 );
 
 export const adminWorkListQuerySchema = paginationQuerySchema.extend({
+  /** Restrict to works with an active workflow step; used to classify TTS work server-side. */
+  workflowStep: z.enum(WORKFLOW_STEPS).optional(),
   sortBy: createSortByQuerySchema(ADMIN_WORK_SORT_FIELDS, DEFAULT_ADMIN_WORK_SORT_BY),
-  status: workStatusFilterSchema,
+  processingStatus: workProcessingStatusFilterSchema,
+  publicationStatus: z.preprocess(emptyToUndefined, adminWorkPublicationStatusSchema.optional()),
 });
 
 export type AdminWorkListQuery = z.infer<typeof adminWorkListQuerySchema>;
 
-/** Body of `POST /api/admin/works/:id/workflow/retry` — resume the failed step or re-run one step. */
+/** Body of `POST /api/admin/catalog/works/:id/workflow/retry` — resume or re-run one step. */
 export const retryWorkflowBodySchema = z.object({
   step: z.enum(WORKFLOW_STEPS).optional(),
 });

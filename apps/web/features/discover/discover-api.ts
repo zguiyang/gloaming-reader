@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
+import type { ContinueReadingItem, LibraryItem } from '@gloaming/shared/library';
 import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
-import type { ShelfItem } from '@gloaming/shared/shelf';
 import { type CatalogTaxonomyListData, catalogTaxonomyListDataSchema } from '@gloaming/shared/taxonomy';
 import {
   type CatalogListData,
@@ -11,8 +11,8 @@ import {
   DEFAULT_CATALOG_SORT_BY,
 } from '@gloaming/shared/works';
 
-import { DISCOVER_PAGE_SIZE, type DiscoverItem, type DiscoverShelfStatus } from '@/features/discover/discover-model';
-import { buildShelfItemMap, getShelf } from '@/features/shelf/shelf-public';
+import { DISCOVER_PAGE_SIZE, type DiscoverItem, type DiscoverLibraryStatus } from '@/features/discover/discover-model';
+import { buildLibraryItemMap, getLibrary } from '@/features/library/library-public';
 import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 
@@ -83,18 +83,17 @@ export async function fetchDiscoverCategories(init?: { signal?: AbortSignal }): 
   });
 }
 
-export function resolveShelfStatus(item?: ShelfItem): DiscoverShelfStatus {
-  if (!item) {
-    return 'available';
-  }
-  if (item.state.status === 'in_progress' && item.state.progressRatio > 0) {
-    return 'in_progress';
-  }
-  return 'on_shelf';
+export function resolveLibraryStatus(item?: LibraryItem): DiscoverLibraryStatus {
+  return item ? 'in_library' : 'available';
 }
 
-export function toDiscoverItem(work: CatalogWork, shelfItem?: ShelfItem): DiscoverItem {
-  const shelfStatus = resolveShelfStatus(shelfItem);
+export function toDiscoverItem(
+  work: CatalogWork,
+  libraryItem?: LibraryItem,
+  current?: ContinueReadingItem | null,
+): DiscoverItem {
+  const libraryStatus = resolveLibraryStatus(libraryItem);
+  const state = libraryItem?.state ?? (current?.work.id === work.id ? current.state : null);
   return {
     id: work.id,
     title: work.title,
@@ -104,8 +103,8 @@ export function toDiscoverItem(work: CatalogWork, shelfItem?: ShelfItem): Discov
     category: work.category,
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
     publishedAt: toIsoString(work.publishedAt) || toIsoString(work.createdAt),
-    shelfStatus,
-    progressRatio: shelfItem?.state.progressRatio ?? null,
+    libraryStatus,
+    progressRatio: state?.status === 'in_progress' ? state.progressRatio : null,
   };
 }
 
@@ -113,18 +112,18 @@ export async function fetchDiscoverCatalog(
   params: DiscoverListParams,
   init?: { signal?: AbortSignal },
 ): Promise<DiscoverCatalogResult> {
-  const [listData, shelfData] = await Promise.all([
+  const [listData, libraryData] = await Promise.all([
     listCatalogWorks(params, init),
-    getShelf(init).catch((error: unknown) => {
+    getLibrary(init).catch((error: unknown) => {
       if (error instanceof ApiRequestError && error.status === 401) {
         return null;
       }
       throw error;
     }),
   ]);
-  const shelfMap = shelfData ? buildShelfItemMap(shelfData) : new Map<string, ShelfItem>();
+  const libraryMap = libraryData ? buildLibraryItemMap(libraryData) : new Map<string, LibraryItem>();
   return {
-    items: listData.items.map((work) => toDiscoverItem(work, shelfMap.get(work.id))),
+    items: listData.items.map((work) => toDiscoverItem(work, libraryMap.get(work.id), libraryData?.current)),
     pagination: listData.pagination,
   };
 }

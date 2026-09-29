@@ -35,7 +35,7 @@ const audioQueryKey = {
 
 async function fetchWorkAudio(workId: string, role: TtsVoiceRole, signal?: AbortSignal): Promise<WorkAudioView> {
   const qs = new URLSearchParams({ role });
-  return apiRequest(`/api/admin/works/${encodeURIComponent(workId)}/audio?${qs}`, {
+  return apiRequest(`/api/admin/catalog/works/${encodeURIComponent(workId)}/audio?${qs}`, {
     schema: workAudioViewSchema,
     signal,
   });
@@ -45,7 +45,7 @@ async function enqueueWorkAudio(
   workId: string,
   body: { roles: TtsVoiceRole[]; force?: boolean },
 ): Promise<{ enqueued: number; skipped: number }> {
-  const result = await apiRequest(`/api/admin/works/${encodeURIComponent(workId)}/audio/generate`, {
+  const result = await apiRequest(`/api/admin/catalog/works/${encodeURIComponent(workId)}/audio/generate`, {
     method: 'POST',
     schema: enqueueAudioResultSchema,
     json: body,
@@ -53,12 +53,19 @@ async function enqueueWorkAudio(
   return { enqueued: result.enqueued.length, skipped: result.skipped.length };
 }
 
-async function enqueuePartAudio(partId: string, body: { roles: TtsVoiceRole[]; force?: boolean }): Promise<void> {
-  await apiRequest(`/api/admin/parts/${encodeURIComponent(partId)}/audio/generate`, {
-    method: 'POST',
-    schema: enqueueAudioResultSchema,
-    json: body,
-  });
+async function enqueuePartAudio(
+  workId: string,
+  partId: string,
+  body: { roles: TtsVoiceRole[]; force?: boolean },
+): Promise<void> {
+  await apiRequest(
+    `/api/admin/catalog/works/${encodeURIComponent(workId)}/parts/${encodeURIComponent(partId)}/audio/generate`,
+    {
+      method: 'POST',
+      schema: enqueueAudioResultSchema,
+      json: body,
+    },
+  );
 }
 
 /** React list key: voice role and part id must not be reused across US/UK rows. */
@@ -111,7 +118,7 @@ export function WorkAudioPanel({ workId }: WorkAudioPanelProps) {
   });
 
   const retryMutation = useMutation({
-    mutationFn: (partId: string) => enqueuePartAudio(partId, { roles: [role], force: true }),
+    mutationFn: (partId: string) => enqueuePartAudio(workId, partId, { roles: [role], force: true }),
     onSuccess: () => {
       toast.success(t(locale, 'admin.works.audio.retryQueuedToast'));
       invalidate();

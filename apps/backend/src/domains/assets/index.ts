@@ -24,21 +24,15 @@ export {
 export { deleteAudioAssetObjects } from '@/domains/assets/content/audio/object-lifecycle';
 export type { PartAudioAvailability } from '@/domains/assets/content/availability';
 export { getPartAudioAvailability, needsRegen } from '@/domains/assets/content/availability';
-export { getPublishedPartAudioTrack } from '@/domains/assets/content/published';
+export { getPartAudioTrackForActor } from '@/domains/assets/content/part-audio-track';
 export { getPartAudio, getWorkAudio } from '@/domains/assets/content/read-model';
 export {
   validateGeneratePartAudio,
   validateGenerateWorkAudio,
   validateWorkAudioQuery,
 } from '@/domains/assets/content/validator';
-export type { AssetViewer, ResolvedAsset } from '@/domains/assets/gateway/service';
-export {
-  isAssetAuthorized,
-  isPublicAsset,
-  resolveAsset,
-  resolveAssetViewer,
-  streamAsset,
-} from '@/domains/assets/gateway/service';
+export type { ResolvedAsset } from '@/domains/assets/gateway/service';
+export { isAssetAuthorized, isPublicAsset, resolveAsset, streamAsset } from '@/domains/assets/gateway/service';
 export type { LockRenewalHandle } from '@/domains/assets/management/lock-store';
 export { acquireLock, releaseLock, renewLock, startLockRenewal } from '@/domains/assets/management/lock-store';
 export type { ReferencedKeyIndex } from '@/domains/assets/management/referenced-keys';

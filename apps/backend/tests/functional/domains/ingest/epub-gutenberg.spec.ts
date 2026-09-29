@@ -80,7 +80,7 @@ async function uploadEpub(cookie: string, bytes: Buffer, contentHashes: string[]
   contentHashes.push(hashFileContent(bytes));
   const form = new FormData();
   form.append('file', new File([new Blob([bytes])], fileName, { type: 'application/epub+zip' }));
-  return app.request('/api/admin/works/epub', {
+  return app.request('/api/admin/catalog/works/epub', {
     method: 'POST',
     headers: { Cookie: cookie },
     body: form,
@@ -185,7 +185,7 @@ describe('EPUB ingest pipeline with real Gutenberg book (integration)', () => {
     await runContentParseWorkflow(created.id);
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));
-    expect(work!.status).toBe('parsed');
+    expect(work!.processingStatus).toBe('parsed');
     const parsed = work!.originMeta.parsed as { chapterCount: number; navCount: number; imageCount: number };
     expect(parsed.navCount).toBeGreaterThan(0);
     expect(parsed.chapterCount).toBe(10);

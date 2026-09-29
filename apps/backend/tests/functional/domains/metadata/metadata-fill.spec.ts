@@ -112,7 +112,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     createdContentHashes.push(hashFileContent(bytes));
     const form = new FormData();
     form.append('file', new File([new Blob([bytes])], 'book.epub', { type: 'application/epub+zip' }));
-    const response = await app.request('/api/admin/works/epub', {
+    const response = await app.request('/api/admin/catalog/works/epub', {
       method: 'POST',
       headers: { Cookie: adminCookie },
       body: form,
@@ -126,7 +126,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
   }
 
   async function patchWork(id: string, body: Record<string, unknown>): Promise<Response> {
-    return app.request(`/api/admin/works/${id}`, {
+    return app.request(`/api/admin/catalog/works/${id}`, {
       method: 'PATCH',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -148,7 +148,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
     expect(work!.title).toBe('Subject Book');
 
-    const detail = await app.request(`/api/admin/works/${workId}`, { headers: { Cookie: adminCookie } });
+    const detail = await app.request(`/api/admin/catalog/works/${workId}`, { headers: { Cookie: adminCookie } });
     expect(detail.status).toBe(200);
     const apiWork = (await detail.json()) as {
       tags: TaxonomyReference[];
@@ -276,7 +276,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     expect(work!.description).toBe('A hand-written description that is long enough to count.');
     expect(work!.descriptionProvenance).toBe('manual');
 
-    const detail = await app.request(`/api/admin/works/${workId}`, { headers: { Cookie: adminCookie } });
+    const detail = await app.request(`/api/admin/catalog/works/${workId}`, { headers: { Cookie: adminCookie } });
     const apiWork = (await detail.json()) as { metadataProvenance: Record<string, string | undefined> };
     expect(apiWork.metadataProvenance.description).toBe('manual');
     expect(apiWork.metadataProvenance.tags).toBe('manual');
@@ -419,20 +419,23 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     );
     await db
       .update(readingWorkTable)
-      .set({ status: 'failed', originMeta: { failedStep: 'metadata', lastError: 'boom' } })
+      .set({
+        processingStatus: 'failed',
+        originMeta: { failedStep: 'metadata', lastError: 'boom' },
+      })
       .where(eq(readingWorkTable.id, workId));
 
-    const response = await app.request(`/api/admin/works/${workId}/workflow/retry`, {
+    const response = await app.request(`/api/admin/catalog/works/${workId}/workflow/retry`, {
       method: 'POST',
       headers: { Cookie: adminCookie },
     });
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { status: string; failedStep: string | null };
-    expect(body.status).toBe('metadata');
+    const body = (await response.json()) as { processingStatus: string; failedStep: string | null };
+    expect(body.processingStatus).toBe('metadata');
     expect(body.failedStep).toBeNull();
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
-    expect(work!.status).toBe('metadata');
+    expect(work!.processingStatus).toBe('metadata');
     expect(work!.originMeta.lastError).toBeUndefined();
   });
 
@@ -447,7 +450,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     await db
       .update(readingWorkTable)
       .set({
-        status: 'processing',
+        processingStatus: 'processing',
         originMeta: {
           retryJobToken,
           workflowClaimAttempt: 'attempt-a',
@@ -481,7 +484,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
   });
 
   it('refuses workflow retry for non-EPUB works', async () => {
-    const created = await app.request('/api/admin/works', {
+    const created = await app.request('/api/admin/catalog/works', {
       method: 'POST',
       headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ title: 'Text Retry Book', body: '<p>Body.</p>' }),
@@ -490,7 +493,7 @@ describe('metadata-fill rule layer (extracted) + updateWork (manual)', () => {
     const work = (await created.json()) as { id: string };
     createdWorkIds.push(work.id);
 
-    const response = await app.request(`/api/admin/works/${work.id}/workflow/retry`, {
+    const response = await app.request(`/api/admin/catalog/works/${work.id}/workflow/retry`, {
       method: 'POST',
       headers: { Cookie: adminCookie },
     });

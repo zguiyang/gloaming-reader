@@ -79,7 +79,7 @@ async function createSession(role: 'user' | 'admin' = 'user') {
 }
 
 async function createPublishedWork(adminCookie: string, title: string, body: string): Promise<AdminWork> {
-  const create = await app.request('/api/admin/works', {
+  const create = await app.request('/api/admin/catalog/works', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', cookie: adminCookie },
     body: JSON.stringify({ title, body }),
@@ -87,7 +87,7 @@ async function createPublishedWork(adminCookie: string, title: string, body: str
   expect(create.status).toBe(201);
   const work = (await create.json()) as AdminWork;
   const taxonomy = await ensureWorkTaxonomyFixture('assist');
-  const taxonomyUpdate = await app.request(`/api/admin/works/${work.id}`, {
+  const taxonomyUpdate = await app.request(`/api/admin/catalog/works/${work.id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', cookie: adminCookie },
     body: JSON.stringify(taxonomy),
@@ -96,7 +96,7 @@ async function createPublishedWork(adminCookie: string, title: string, body: str
   await seedReadyDefaultAudioForWork(work.id);
   expect(
     (
-      await app.request(`/api/admin/works/${work.id}/publish`, {
+      await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
         method: 'POST',
         headers: { cookie: adminCookie },
       })

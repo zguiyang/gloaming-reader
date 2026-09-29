@@ -23,12 +23,16 @@ The sea did not hurry. Neither would he.`;
 
 async function main() {
   const [existing] = await db
-    .select({ id: readingWorkTable.id, status: readingWorkTable.status })
+    .select({
+      id: readingWorkTable.id,
+      processingStatus: readingWorkTable.processingStatus,
+      publishedAt: readingWorkTable.publishedAt,
+    })
     .from(readingWorkTable)
     .where(eq(readingWorkTable.title, SEED_TITLE))
     .limit(1);
 
-  if (existing?.status === 'published') {
+  if (existing?.publishedAt) {
     console.log(`Dev seed work already published: ${existing.id}`);
     process.exit(0);
   }

@@ -74,13 +74,13 @@ describe('taxonomy SSOT projection', () => {
     await db.insert(readingWorkTable).values({
       id: workId,
       title: 'Re-parse Book',
-      status: 'processing',
+      processingStatus: 'processing',
       originKind: 'admin_epub',
     });
     await db.insert(tagTable).values({ id: tagId, name: 'Kept Manual', normalized: normalizeTag('Kept Manual') });
     await db.insert(readingWorkTagTable).values({ workId, tagId, provenance: 'manual' });
 
-    const response = await app.request(`/api/admin/works/${workId}`, { headers: { Cookie: adminCookie } });
+    const response = await app.request(`/api/admin/catalog/works/${workId}`, { headers: { Cookie: adminCookie } });
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       tags: string[];
@@ -102,7 +102,7 @@ describe('taxonomy SSOT projection', () => {
     await db.insert(readingWorkTable).values({
       id: workId,
       title: 'Catalog SSOT-Unique-Tag',
-      status: 'published',
+      processingStatus: 'ready',
       visibility: 'catalog',
       originKind: 'admin_text',
       publishedAt: new Date(),

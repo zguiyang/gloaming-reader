@@ -18,10 +18,7 @@ type DiscoverBookCardProps = {
 export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
   const { locale } = useLocale();
   const detailHref = AUTH_ROUTES.bookDetail(item.id);
-  const progress =
-    item.shelfStatus === 'in_progress' && item.progressRatio != null && item.progressRatio > 0
-      ? item.progressRatio
-      : null;
+  const progress = item.progressRatio != null && item.progressRatio > 0 ? item.progressRatio : null;
 
   return (
     <article className="group flex flex-col gap-3">

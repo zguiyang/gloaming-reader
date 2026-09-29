@@ -21,7 +21,7 @@ import { recommendationsQueryKey } from '@/features/book-detail/book-detail-reco
 import { BookDetailStats } from '@/features/book-detail/book-detail-stats';
 import { BookDetailToc } from '@/features/book-detail/book-detail-toc';
 import { BookDetailUnavailable } from '@/features/book-detail/book-detail-unavailable';
-import { useAddToShelfMutation } from '@/features/reading-state/reading-state-client';
+import { useAddToLibraryMutation } from '@/features/library/library-client';
 import { formatApiError, isUnauthorizedError } from '@/lib/api-request';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -46,17 +46,17 @@ function BookDetailView({ book }: { book: BookDetail }) {
   const queryClient = useQueryClient();
   const { openLogin } = useAuthDialog();
   const requireAuth = useRequireAuth();
-  const addToShelf = useAddToShelfMutation();
-  const isOnShelf = book.shelfStatus === 'on_shelf';
+  const addToLibrary = useAddToLibraryMutation();
+  const isInLibrary = book.libraryStatus === 'in_library';
 
-  function handleAddToShelf() {
+  function handleAddToLibrary() {
     if (!requireAuth({ reason: 'bookmark' })) {
       return;
     }
 
-    addToShelf.mutate(book.id, {
+    addToLibrary.mutate(book.id, {
       onSuccess: async () => {
-        toast.success(t(locale, 'content.bookDetail.addedToShelfToast'));
+        toast.success(t(locale, 'content.bookDetail.addedToLibraryToast'));
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: bookDetailQueryKey.detail(book.id) }),
           queryClient.invalidateQueries({ queryKey: recommendationsQueryKey.all }),
@@ -91,9 +91,9 @@ function BookDetailView({ book }: { book: BookDetail }) {
 
       <BookDetailHero
         book={book}
-        onShelf={isOnShelf}
-        onAddToShelf={handleAddToShelf}
-        isAddingToShelf={addToShelf.isPending}
+        inLibrary={isInLibrary}
+        onAddToLibrary={handleAddToLibrary}
+        isAddingToLibrary={addToLibrary.isPending}
       />
       <BookDetailMobileProgress book={book} />
 
@@ -105,16 +105,16 @@ function BookDetailView({ book }: { book: BookDetail }) {
 
       <BookDetailStickyCta
         book={book}
-        onShelf={isOnShelf}
-        onAddToShelf={handleAddToShelf}
-        isAddingToShelf={addToShelf.isPending}
+        inLibrary={isInLibrary}
+        onAddToLibrary={handleAddToLibrary}
+        isAddingToLibrary={addToLibrary.isPending}
       />
     </div>
   );
 }
 
 /**
- * Book detail for published work UUIDs — catalog / shelf / parts hybrid.
+ * Book detail for published work UUIDs — catalog, Library membership, and parts.
  */
 export function BookDetailPage({ workId }: { workId: string }) {
   const detailQuery = useBookDetailQuery(workId);

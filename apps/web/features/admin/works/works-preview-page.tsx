@@ -127,15 +127,15 @@ export function WorksPreviewPage({ workId }: { workId: string }) {
         <p className="mt-10 text-center text-sm text-muted-foreground">
           {t(locale, 'admin.works.preview.textWorkNoEpub')}
         </p>
-      ) : work.status === 'uploaded' || work.status === 'processing' ? (
+      ) : work.processingStatus === 'uploaded' || work.processingStatus === 'processing' ? (
         <div className="mt-10 rounded-2xl border border-border bg-card px-6 py-12 text-center">
           <p className="text-sm text-muted-foreground">
-            {work.status === 'uploaded'
+            {work.processingStatus === 'uploaded'
               ? t(locale, 'admin.works.preview.uploadedHint')
               : t(locale, 'admin.works.preview.processingHint')}
           </p>
         </div>
-      ) : work.status === 'failed' ? (
+      ) : work.processingStatus === 'failed' ? (
         <div className="mt-10 rounded-2xl border border-destructive/30 bg-destructive/5 px-6 py-10 text-center">
           <TriangleAlert className="mx-auto size-8 text-destructive" />
           <p className="mt-3 font-heading text-base font-semibold text-destructive">

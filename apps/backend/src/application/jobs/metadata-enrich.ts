@@ -33,7 +33,7 @@ export async function processMetadataEnrich(
       try {
         await enqueueWorkAudio(data.workId, { force: false, roles: ['us', 'uk'] });
       } catch (error) {
-        await failWorkflowEnqueue(data.workId, 'tts', data.retryJobToken, 'tts', attemptToken, error);
+        await failWorkflowEnqueue(data.workId, 'tts', data.retryJobToken, 'ready', attemptToken, error);
         throw error;
       }
     }

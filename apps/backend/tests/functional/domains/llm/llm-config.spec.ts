@@ -1,4 +1,6 @@
-import { eq, inArray } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { llmAppSetting as llmAppSettingTable, llmProvider as llmProviderTable, user as userTable } from '@gloaming/db';
@@ -9,6 +11,12 @@ import { AI_PURPOSE_TO_SETTING_KEY } from '@gloaming/shared/llm';
 import app from '@/app';
 import * as aiService from '@/domains/ai';
 import { db } from '@/infra/db';
+
+vi.mock('@/infra/auth/mail', () => ({
+  buildVerificationUrl: (token: string) => `http://localhost:3000/verify-email?token=${encodeURIComponent(token)}`,
+  logDevAuthLink: vi.fn(),
+  sendAuthMail: vi.fn().mockResolvedValue(undefined),
+}));
 
 const password = 'password123';
 const ASSIST_SETTING_KEY = AI_PURPOSE_TO_SETTING_KEY.assist;
@@ -72,7 +80,7 @@ async function readAssistDefaultModelId(): Promise<string | null> {
   const rows = await db
     .select({ value: llmAppSettingTable.value })
     .from(llmAppSettingTable)
-    .where(eq(llmAppSettingTable.key, ASSIST_SETTING_KEY))
+    .where(and(eq(llmAppSettingTable.key, ASSIST_SETTING_KEY), isNull(llmAppSettingTable.ownerUserId)))
     .limit(1);
   return rows[0]?.value ?? null;
 }
@@ -82,14 +90,22 @@ async function restoreAssistDefaultModelId(priorModelRowId: string | null): Prom
   if (priorModelRowId) {
     await db
       .insert(llmAppSettingTable)
-      .values({ key: ASSIST_SETTING_KEY, value: priorModelRowId })
+      .values({
+        id: randomUUID(),
+        ownerUserId: null,
+        key: ASSIST_SETTING_KEY,
+        value: priorModelRowId,
+      })
       .onConflictDoUpdate({
         target: llmAppSettingTable.key,
+        targetWhere: isNull(llmAppSettingTable.ownerUserId),
         set: { value: priorModelRowId },
       });
     return;
   }
-  await db.delete(llmAppSettingTable).where(eq(llmAppSettingTable.key, ASSIST_SETTING_KEY));
+  await db
+    .delete(llmAppSettingTable)
+    .where(and(eq(llmAppSettingTable.key, ASSIST_SETTING_KEY), isNull(llmAppSettingTable.ownerUserId)));
 }
 
 describe('LLM config HTTP', () => {

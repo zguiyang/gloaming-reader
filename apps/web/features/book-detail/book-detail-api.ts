@@ -1,14 +1,14 @@
 /**
- * Book detail data layer — catalog/shelf/parts + derived reading stats from API.
+ * Book detail data layer — catalog/Library/parts + independently derived reading progress.
  * Reader parts fetch uses credentials: 'omit' so viewing detail does not create reading_state.
  */
 
 import { useQuery } from '@tanstack/react-query';
 
 import { DEFAULT_LOCALE } from '@gloaming/i18n';
+import type { LibraryItem } from '@gloaming/shared/library';
 import type { ReadingState } from '@gloaming/shared/reader';
 import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
-import type { ShelfItem } from '@gloaming/shared/shelf';
 import { type PartSummary, type Work, workSchema } from '@gloaming/shared/works';
 
 import {
@@ -19,8 +19,9 @@ import {
   readingStatusFromProgress,
   teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
+import { buildLibraryItemMap, getLibrary } from '@/features/library/library-public';
+import { getReadingState } from '@/features/reader/reader-api';
 import { getWorkParts } from '@/features/reader/reader-parts-public';
-import { buildShelfItemMap, getShelf } from '@/features/shelf/shelf-public';
 import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 
@@ -117,8 +118,12 @@ export function chaptersFromParts(parts: PartSummary[], state: ReadingState | nu
   });
 }
 
-export function toBookDetail(work: Work, parts: PartSummary[], shelfItem: ShelfItem | undefined): BookDetail {
-  const state = shelfItem?.state ?? null;
+export function toBookDetail(
+  work: Work,
+  parts: PartSummary[],
+  isLibraryMember: boolean,
+  state: ReadingState | null,
+): BookDetail {
   const progressRatio = state?.progressRatio ?? null;
   const readingStatus = state ? readingStatusFromProgress(state.status, progressRatio) : 'unread';
   const teaser = teaserFromDescription(work.description);
@@ -139,7 +144,7 @@ export function toBookDetail(work: Work, parts: PartSummary[], shelfItem: ShelfI
     language: work.language,
     languageLabel: languageLabelFromCode(work.language, DEFAULT_LOCALE),
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
-    shelfStatus: shelfItem ? 'on_shelf' : 'available',
+    libraryStatus: isLibraryMember ? 'in_library' : 'available',
     readingStatus,
     progressRatio: readingStatus === 'unread' ? null : progressRatio,
     lastReadAt: toIsoString(state?.lastReadAt),
@@ -155,18 +160,24 @@ export type BookDetailQueryResult = {
 
 export async function fetchBookDetail(workId: string, init?: { signal?: AbortSignal }): Promise<BookDetailQueryResult> {
   const work = await getPublishedWork(workId, init);
-  const [shelfData, partsData] = await Promise.all([
-    getShelf(init).catch((error: unknown) => {
+  const [libraryData, partsData, state] = await Promise.all([
+    getLibrary(init).catch((error: unknown) => {
       if (error instanceof ApiRequestError && error.status === 401) {
         return null;
       }
       throw error;
     }),
     getWorkParts(workId, init),
+    getReadingState(workId, init).catch((error: unknown) => {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        return null;
+      }
+      throw error;
+    }),
   ]);
 
-  const shelfMap = shelfData ? buildShelfItemMap(shelfData) : new Map<string, ShelfItem>();
-  const book = toBookDetail(work, partsData.parts, shelfMap.get(workId));
+  const libraryMap = libraryData ? buildLibraryItemMap(libraryData) : new Map<string, LibraryItem>();
+  const book = toBookDetail(work, partsData.parts, libraryMap.has(workId), state);
   return { book };
 }
 

@@ -43,7 +43,7 @@ export async function enrichWorkMetadata(
   if (work.originKind !== 'admin_epub') {
     return { ok: true, enqueueTts: false };
   }
-  if (work.status !== 'metadata') {
+  if (work.processingStatus !== 'metadata') {
     return { ok: true, enqueueTts: false };
   }
 

@@ -52,12 +52,12 @@ export function LandingProduct() {
           </LandingReveal>
         </div>
 
-        <div id="shelf" className="scroll-mt-20">
+        <div id="library" className="scroll-mt-20">
           <LandingReveal className="grid items-center gap-12 md:grid-cols-2 md:gap-16">
-            <LandingFrameImage src="/landing/shelf.jpg" alt={t(locale, 'landing.product.shelfImageAlt')} float />
+            <LandingFrameImage src="/landing/library.jpg" alt={t(locale, 'landing.product.libraryImageAlt')} float />
             <FeatureCopy
-              title={t(locale, 'landing.product.shelfTitle')}
-              body={t(locale, 'landing.product.shelfBody')}
+              title={t(locale, 'landing.product.libraryTitle')}
+              body={t(locale, 'landing.product.libraryBody')}
             />
           </LandingReveal>
         </div>

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull, or, type SQL, sql } from 'drizzle-orm';
 
 import {
   contentAsset as contentAssetTable,
@@ -20,8 +20,8 @@ import {
 
 import { buildPublishIssuesForWork } from '@/domains/works/admin/admin-publish-gate';
 import { failedStepOf } from '@/domains/works/admin/workflow-meta';
-import { getWorkflowPolicyProjection, TTS_STEP_ENABLED } from '@/domains/works/lifecycle/policy';
-import { completeWorkflowStep } from '@/domains/works/lifecycle/workflow';
+import { catalogWorkPredicate } from '@/domains/works/catalog/policy';
+import { getWorkflowPolicyProjection } from '@/domains/works/lifecycle/policy';
 import { getWorksDerivedFreshness } from '@/domains/works/read-model/derived-freshness';
 import { shouldHideTagsDuringProcessing, toPart, toWork } from '@/domains/works/read-model/projection';
 import {
@@ -179,9 +179,30 @@ async function toAdminWorkSummary(row: WorkRow): Promise<AdminWorkSummary> {
   };
 }
 
+function buildAdminWorkListWhere(query: AdminWorkListQuery): SQL | undefined {
+  const clauses: SQL[] = [catalogWorkPredicate()];
+  const activityFilters: SQL[] = [];
+  const statuses = query.processingStatus ? query.processingStatus.split(',') : undefined;
+  if (statuses) activityFilters.push(inArray(readingWorkTable.processingStatus, statuses));
+  if (query.workflowStep) {
+    activityFilters.push(
+      or(
+        sql`${readingWorkTable.originMeta}->>'workflowEnqueueStep' = ${query.workflowStep}`,
+        sql`${readingWorkTable.originMeta}->>'workflowClaimStep' = ${query.workflowStep}`,
+      )!,
+    );
+  }
+  if (activityFilters.length > 0) clauses.push(or(...activityFilters)!);
+  if (query.publicationStatus === 'published') {
+    clauses.push(isNotNull(readingWorkTable.publishedAt));
+  } else if (query.publicationStatus === 'unpublished') {
+    clauses.push(isNull(readingWorkTable.publishedAt));
+  }
+  return clauses.length > 0 ? and(...clauses) : undefined;
+}
+
 export async function listAdminWorks(query: AdminWorkListQuery): Promise<AdminWorkListData> {
-  const statuses = query.status ? query.status.split(',') : undefined;
-  const where = statuses ? inArray(readingWorkTable.status, statuses) : undefined;
+  const where = buildAdminWorkListWhere(query);
   const primary = query.sortOrder === 'asc' ? asc(readingWorkTable.updatedAt) : desc(readingWorkTable.updatedAt);
   const offset = (query.page - 1) * query.pageSize;
 
@@ -220,17 +241,13 @@ export async function listAdminWorks(query: AdminWorkListQuery): Promise<AdminWo
 }
 
 export async function getAdminWork(id: string): Promise<AdminWork> {
-  let [row] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(readingWorkTable)
+    .where(and(eq(readingWorkTable.id, id), catalogWorkPredicate()))
+    .limit(1);
   if (!row) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
-  }
-  // Heal works left in `tts` after the auto-TTS pipeline was turned off.
-  if (!TTS_STEP_ENABLED && row.status === 'tts') {
-    await completeWorkflowStep(id, 'ready');
-    [row] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, id)).limit(1);
-    if (!row) {
-      throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
-    }
   }
   return toAdminWork(row);
 }

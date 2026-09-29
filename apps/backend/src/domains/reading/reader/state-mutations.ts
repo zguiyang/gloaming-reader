@@ -14,7 +14,8 @@ import {
 
 import { touchReadingDay } from '@/domains/reading/history';
 import { toReadingState } from '@/domains/reading/reader/reading-state';
-import { requirePublishedWorkWithParts } from '@/domains/works/read-model';
+import type { WorkReadActor } from '@/domains/works/access';
+import { requireReadableWorkWithParts } from '@/domains/works/access';
 import { db } from '@/infra/db';
 import { AppError, NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
@@ -44,11 +45,12 @@ function nextPartAfter(parts: PartRow[], current: PartRow): PartRow | null {
 }
 
 export async function updateReadingState(
+  actor: WorkReadActor,
   userId: string,
   workId: string,
   input: UpdateReadingStateBody,
 ): Promise<ReadingState> {
-  const { parts } = await requirePublishedWorkWithParts(workId);
+  const { parts } = await requireReadableWorkWithParts(actor, workId);
   const ordered = sortedParts(parts);
   const firstPart = ordered[0]!;
   const now = new Date();
@@ -60,7 +62,7 @@ export async function updateReadingState(
       .for('update')
       .limit(1);
 
-    if (!existing && (input.action === 'add_to_shelf' || input.action === 'open' || input.action === 'restart')) {
+    if (!existing && (input.action === 'open' || input.action === 'restart')) {
       const [created] = await tx
         .insert(readingStateTable)
         .values({
@@ -108,10 +110,6 @@ export async function updateReadingState(
       }
       return updated;
     };
-
-    if (input.action === 'add_to_shelf') {
-      return existing;
-    }
 
     const currentPart = existing.currentPartId ? parts.find((part) => part.id === existing.currentPartId) : undefined;
     const currentPartId = currentPart?.id ?? null;

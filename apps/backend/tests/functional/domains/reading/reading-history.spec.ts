@@ -89,7 +89,7 @@ async function createSession(role: 'user' | 'admin' = 'user') {
 }
 
 async function createPublishedWork(adminCookie: string, title: string): Promise<AdminWork> {
-  const create = await app.request('/api/admin/works', {
+  const create = await app.request('/api/admin/catalog/works', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', cookie: adminCookie },
     body: JSON.stringify({
@@ -103,7 +103,7 @@ async function createPublishedWork(adminCookie: string, title: string): Promise<
 
   expect(
     (
-      await app.request(`/api/admin/works/${work.id}`, {
+      await app.request(`/api/admin/catalog/works/${work.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', cookie: adminCookie },
         body: JSON.stringify(taxonomy),
@@ -113,7 +113,7 @@ async function createPublishedWork(adminCookie: string, title: string): Promise<
 
   await seedReadyDefaultAudioForWork(work.id);
 
-  const publish = await app.request(`/api/admin/works/${work.id}/publish`, {
+  const publish = await app.request(`/api/admin/catalog/works/${work.id}/publish`, {
     method: 'POST',
     headers: { cookie: adminCookie },
   });
@@ -147,14 +147,14 @@ describe('Reading history HTTP', () => {
     }
   });
 
-  it('requires a session and does not treat shelf as a reading-activity day', async () => {
+  it('requires a session and keeps Library separate from reading activity', async () => {
     const anonymous = await app.request('/api/reading-history');
     expect(anonymous.status).toBe(HTTP_STATUS.UNAUTHORIZED);
 
     const learner = await createSession('user');
     createdEmails.push(learner.email);
 
-    expect((await app.request('/api/shelf', { headers: { cookie: learner.cookie } })).status).toBe(200);
+    expect((await app.request('/api/library', { headers: { cookie: learner.cookie } })).status).toBe(200);
 
     const empty = await getReadingHistory(learner.cookie);
     expect(empty.today).toBe(calendarDateInTimeZone());

@@ -21,14 +21,15 @@
     "wordmark": "Gloaming",
     "brandHomeAria": "返回 Gloaming 首页",
     "discover": "发现",
-    "shelf": "我的书架",
-    "shelfShort": "书架",
+    "library": "书库",
+    "libraryShort": "书库",
     "history": "阅读历史",
     "historyShort": "历史",
     "more": "更多",
     "signIn": "登录",
     "account": "账户菜单",
     "accountCenter": "账户",
+    "settings": "设置",
     "signOut": "退出登录",
     "admin": "管理后台",
     "themeAppearance": "外观",
@@ -47,6 +48,74 @@
     "accountSettings": "账户设置",
     "menuAria": "更多菜单",
     "metaTitle": "更多 · Gloaming Reader"
+  },
+  "settings": {
+    "title": "设置",
+    "metaTitle": "设置 · Gloaming Reader",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "已保存",
+    "cancel": "取消",
+    "edit": "编辑",
+    "delete": "删除",
+    "loading": "正在加载设置…",
+    "signInRequired": "请先登录后管理个人设置。",
+    "tabsAria": "设置类别",
+    "serviceMode": "服务来源",
+    "defaultService": "默认服务",
+    "ownApi": "使用自己的 API",
+    "validation": {
+      "required": "请填写此项。",
+      "url": "请输入有效的网址。"
+    },
+    "secret": {
+      "saved": "已配置",
+      "leaveBlank": "留空以保留已保存的密钥"
+    },
+    "ai": {
+      "title": "AI",
+      "service": "AI 服务",
+      "serviceType": "服务类型",
+      "notAvailableYet": "暂未接入",
+      "providerName": "服务名称",
+      "baseUrl": "API 地址",
+      "apiKey": "API 密钥",
+      "advanced": "高级配置",
+      "proxyUrl": "代理地址",
+      "thinkingParam": "思考参数名",
+      "noProviders": "还没有自己的 API 配置。",
+      "confirmDefault": "保存后将停用个人 AI 配置，后续请求使用默认服务。",
+      "confirmOwn": "保存后启用个人 AI 配置。",
+      "providers": "服务配置",
+      "addProvider": "添加服务",
+      "models": "模型",
+      "provider": "服务",
+      "providerRequired": "请先添加服务。",
+      "noModels": "此服务还没有模型。",
+      "addModel": "添加模型",
+      "modelName": "显示名称",
+      "modelId": "模型标识",
+      "connectionType": "接口类型",
+      "capabilities": "阅读能力",
+      "purpose": {
+        "assist": "阅读辅助",
+        "translate": "翻译",
+        "metadata": "作品信息整理"
+      },
+      "notSet": "选择模型",
+      "unavailableModel": "当前模型不可用，请重新选择。",
+      "defaultOnUnset": "未设置个人模型的能力会使用默认服务。"
+    },
+    "tts": {
+      "title": "朗读",
+      "defaultDescription": "后续朗读请求使用默认服务。",
+      "region": "区域",
+      "voice": {
+        "default": "默认声音",
+        "us": "美式英语",
+        "uk": "英式英语"
+      }
+    }
   },
   "auth": {
     "signOutFailed": "退出登录失败，请稍后重试",
@@ -129,7 +198,7 @@
       "failed": "验证失败，请重新申请邮件",
       "failedToast": "验证失败",
       "successToast": "邮箱已确认",
-      "goToShelf": "进入书架",
+      "goToLibrary": "进入书库",
       "backToSignIn": "返回登录",
       "backToHome": "返回首页"
     },
@@ -140,7 +209,7 @@
       "signUpTab": "注册",
       "forgotPasswordTitle": "找回密码",
       "reasonSave": "登录后保存你正在阅读的内容。",
-      "reasonBookmark": "登录后把内容加入你的书架。",
+      "reasonBookmark": "登录后将内容加入你的书库。",
       "reasonSync": "登录后同步你的阅读进度。",
       "reasonAi": "登录后可在阅读器内使用查词、翻译和解释。",
       "reasonBilingual": "登录后使用双语对照。",
@@ -218,7 +287,7 @@
     },
     "cta": {
       "signInToRead": "登录后开始阅读",
-      "goToShelf": "进入书架"
+      "goToLibrary": "进入书库"
     },
     "hero": {
       "title": "阅读作品，遇到问题时再查词、翻译或提问。",
@@ -236,13 +305,13 @@
       "companionBody": "选中文字后可查词、翻译段落或请求句子解释，结果在正文旁显示。",
       "companionCardTitle": "句子解释",
       "companionCardBody": "结合上下文解释所选句子，包括词义以及该句与前后文的关系。",
-      "shelfTitle": "书架",
-      "shelfBody": "把正在阅读的作品集中在书架中。",
-      "shelfImageAlt": "Gloaming Shelf 书架界面"
+      "libraryTitle": "书库",
+      "libraryBody": "把自己拥有或主动收藏的作品收在书库中。",
+      "libraryImageAlt": "Gloaming 书库界面"
     },
     "invite": {
       "title": "从上次停留的位置继续阅读。",
-      "body": "登录后保存阅读进度、管理书架，并使用阅读器工具。"
+      "body": "登录后保存阅读进度、管理书库，并使用阅读器工具。"
     }
   },
   "admin": {
@@ -1057,9 +1126,10 @@
     "common": {
       "retry": "重试",
       "viewBookDetailAria": "查看《{title}》详情",
+      "openReaderAria": "在阅读器中打开《{title}》",
       "findBookCta": "发现一本书开始阅读",
       "backToDiscover": "返回发现",
-      "backToShelf": "回到我的书架"
+      "backToLibrary": "回到书库"
     },
     "discover": {
       "title": "发现",
@@ -1085,13 +1155,25 @@
       "prevPage": "上一页",
       "nextPage": "下一页"
     },
-    "shelf": {
-      "title": "我的书架",
-      "metaTitle": "我的书架 · Gloaming Reader",
-      "loadFailed": "无法加载书架",
-      "emptyTitle": "你的书架还是空的",
+    "library": {
+      "title": "书库",
+      "metaTitle": "书库 · Gloaming Reader",
+      "loadFailed": "无法加载书库",
+      "emptyTitle": "你的书库还是空的",
+      "uploadEpub": "上传 EPUB",
+      "uploading": "上传中…",
+      "uploadStarted": "已加入书库，正在处理",
+      "invalidEpub": "请选择 EPUB 文件",
+      "epubTooLarge": "EPUB 文件不能超过 50 MB",
+      "processing": "正在处理",
+      "processingFailed": "这本书处理失败",
+      "manageBookAria": "管理《{title}》",
+      "removeFromLibrary": "移出书库",
+      "removeConfirmTitle": "移出书库？",
+      "removeConfirmDescription": "此书将从书库移除，阅读进度和历史记录会保留。",
+      "removedFromLibrary": "已移出书库",
       "continueReading": "继续阅读",
-      "myCollection": "我的藏书",
+      "myBooks": "我的书",
       "readingInProgress": "阅读中",
       "progressRead": "已读 {ratio}%",
       "statusCompleted": "已读完",
@@ -1145,10 +1227,10 @@
       "progressRead": "已阅读 {ratio}%",
       "lastReadPrefix": "上次阅读：{time}",
       "readingProgress": "阅读进度",
-      "addToShelf": "加入书架",
-      "addToShelfAria": "加入书架",
-      "onShelf": "已在书架",
-      "addedToShelfToast": "已加入书架",
+      "addToLibrary": "加入书库",
+      "addToLibraryAria": "加入书库",
+      "inLibrary": "已在书库",
+      "addedToLibraryToast": "已加入书库",
       "readInfo": "阅读信息",
       "difficulty": "难度",
       "difficultyAria": "难度 {label}，{filled} 星（共 {total} 星）",
@@ -1190,7 +1272,7 @@
         "lastChapter": "已是最后一章",
         "previousChapter": "上一章",
         "nextChapter": "下一章",
-        "finishAndReturn": "读完本书，返回书架"
+        "finishAndReturn": "读完本书，返回我的书库"
       },
       "selection": {
         "toolbarAria": "划词工具",
