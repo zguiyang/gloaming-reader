@@ -25,6 +25,7 @@
 | PR-07          | `af20840164a1f6ed315f1ea017375d36e19ff2d3` | `bd0878ecdad664e406d7dd623915b9d7e44166cf` | User-first Library Frontend / Personal Upload / Read Flow | 已实现                                   | 待完成       | [PR-07](pr-07-library-frontend.md)          |
 | PR-08          | `4f240d25fd0c7008c19e3e6f31cb88cba66ba803` | `7cef05b59c814a14e48821cec69ae060457dd9eb` | 用户设置 / 自带 API 前端                                  | 已实现                                   | 待完成       | [PR-08](pr-08-settings-byok.md)             |
 | Review Gate #2 | `6f68abeb6e10f4553583e7729f2dbbaac984fb6f` | PR-06～PR-08 集成审查                      | 两条主链、域边界、复杂度与减法候选                        | 审查记录已完成；TTS 作用域问题阻塞 PR-09 | 待人工评审   | [Review Gate #2](review-gate-02-summary.md) |
+| PR-09          | `d49aa72024253de2fc21a4d48b26e7374c965f7d` | `f1cb8de487a0d819904e33ac3692b75718275077` | TTS User Scope / Admin Instance 隔离                      | **Partial / Blocked**                    | 待完成       | [PR-09](pr-09-tts-scope-closure.md)         |
 
 「已实现」描述检查点范围内的代码。并不表示已获人工批准、已合并、已发布或已完成全量回归测试。
 
@@ -41,6 +42,7 @@
 | PR-07          | `/library` 汇集个人上传与已保存 Catalog Work；继续阅读、进度与历史仍保持独立语义。                              |
 | PR-08          | `/settings` 消费 PR-06 用户级 LLM / TTS API；Reader TTS runtime 消费仍待闭环。账户资料由 `/account` 管理。      |
 | Review Gate #2 | PR-06～PR-08 主链与结构已审查；两个 TTS 作用域问题须先处理，PR-09 全范围减法暂不可开始。                        |
+| PR-09          | Admin TTS diagnostic 明确使用 Instance scope；User TTS 因共享音轨与缓存身份不能隔离而继续阻塞。                 |
 
 ## 遗留演进
 
@@ -58,10 +60,11 @@
 
 ## 决策关注清单
 
-「需人工评审 = 是」的条目不是实现指令。当前表中有 **14 项记录**：12 项仍待决定、2 项已由 PR-07 落实但仍待人工评审；其中两项 TTS 作用域问题阻塞 PR-09。
+「需人工评审 = 是」的条目不是实现指令。当前表中有 **15 项记录**：13 项仍待决定、2 项已由 PR-07 落实但仍待人工评审；其中 `R2-001` 继续阻塞 User TTS runtime。
 
 | ID               | PR       | 领域          | 决策                                                                      | 当前行为                                                                              | 产品/数据影响                                        | 状态                         |
 | ---------------- | -------- | ------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------- |
+| R2-001           | PR-09    | User TTS      | 决定用户 TTS 与共享预生成音轨的隔离及 cache-hit / 成本语义                | Reader 按 Part + role 读取共享 ContentAsset；配置/用户不在身份键中                    | 用户配置可能影响共享音轨或不能实际生效               | **Still Blocking**           |
 | PR05-HISTORY-001 | PR-01/05 | 历史数据      | 决定是否保留、删除或选择性恢复迁移 0036 产生的成员行                      | 每条旧 `reading_state` 行均成为 `user_library_item`；无来源字段区分显式保存与阅读打开 | Library 可能夸大历史用户意图；可靠的选择性标记未确认 | 需人工产品/数据决策          |
 | PR04-PRODUCT-001 | PR-04    | 重复上传      | 定义同一 EPUB 上传两次是创建两个 Work 还是一个                            | 对象字节可按哈希复用，但每次摄取仍创建新 Work                                         | 重复条目与独立进度                                   | 需产品决策                   |
 | PR03-PRODUCT-002 | PR-03/05 | 取消发布      | 决定 Catalog Work 未发布期间「已保存」成员的含义                          | 成员行保留；Library 在无发布时隐藏；重新发布后再次可见                                | 保存意图以不可见方式持久                             | 需产品决策                   |
@@ -76,6 +79,15 @@
 ## Review Gate #2
 
 [PR-06～PR-08 集成架构审查](review-gate-02-summary.md) 已记录当前双主链、域 SSOT、历史/删除依赖、测试事实和结构候选。结论：LLM、Library、Upload/Reader 核心边界稳定；`FRONTEND-VISUAL-001/002` 继续 Pending；User TTS 未接入 Reader runtime，且 Admin TTS probe 的 actor scope 与 Instance-only 记录不符。两项 TTS 问题解决或产品范围明确前，不开始 PR-09 全范围 Architecture Subtraction。审查不等于 Human Review Approved。较早的视觉基线仍作为视觉规范，但其中业务路由/API 表格是 PR-07 前的快照；当前事实以 Review Gate #2 为准，本轮未重写历史基线。
+
+## PR-09 TTS 阻塞项
+
+| ID       | 项目                    | 状态               | 证据 / 处理                                                                                                                                                                    |
+| -------- | ----------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `R2-001` | User TTS Runtime scope  | **Still Blocking** | Reader 消费共享 Part 音轨；资产唯一键、对象键和 Redis cache key 都不能隔离用户/配置，User TTS 的 cache-hit、声音和 BYOK 成本语义未决。见 [PR-09](pr-09-tts-scope-closure.md)。 |
+| `R2-002` | Admin Instance TTS test | **Resolved**       | Admin probe 使用显式 Instance-only synthesis；个人配置不会成为探测目标，缺少 Instance 配置时返回 unavailable。                                                                 |
+
+PR-09 只部分完成，**不能**据此开始 PR-10 Architecture Subtraction。Review Gate #2 对 `R2-002` 的原始 actor 假设已在 PR-09 基线检查中校正：Admin ID 在原合成调用中只用于审计日志，未进入 synthesis resolver；本阶段增加明确 Instance-only API 与缺失配置回归覆盖。历史 Review Gate 文档保留其检查点结论。
 
 ## Architecture Subtraction Candidates
 
@@ -109,9 +121,9 @@
 - [ ] PR-08 Settings 移动端视觉验收
 - [ ] PR-08 明暗主题视觉验收
 - [ ] User TTS 的 Reader runtime 范围已确认且有实际消费者
-- [ ] Admin TTS 连通性测试解析预期的 Instance 配置
+- [x] Admin TTS 连通性测试解析预期的 Instance 配置（PR-09）
 - [ ] 已审查 PR-08 AI 单项用途重置与 Metadata purpose 运行时范围
-- [ ] PR-09 开始前已解决 Review Gate #2 blockers
+- [ ] Review Gate #2 blockers 均已解决或经批准重新分类（`R2-001` 仍阻塞）
 - [ ] 上传、处理中、失败状态视觉验收
 - [ ] Catalog 移除交互视觉验收
 - [ ] Personal Work → Reader 流程验收
