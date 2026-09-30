@@ -1,10 +1,5 @@
 import { type Locale, t } from '@gloaming/i18n';
-import type {
-  AssetCategory,
-  AssetCategorySummary,
-  AssetCleanupJobStatus,
-  AssetObjectStatus,
-} from '@gloaming/shared/assets';
+import type { AssetCategory, AssetCategorySummary, AssetCleanupJobStatus } from '@gloaming/shared/assets';
 
 const CATEGORY_KEYS: Record<AssetCategory, string> = {
   audio: 'audio',
@@ -12,13 +7,6 @@ const CATEGORY_KEYS: Record<AssetCategory, string> = {
   image: 'image',
   origin: 'origin',
   other: 'other',
-};
-
-const STATUS_KEYS: Record<AssetObjectStatus, string> = {
-  referenced: 'referenced',
-  orphan: 'orphan',
-  missing: 'missing',
-  legacy_duplicate_audio: 'legacyDuplicateAudio',
 };
 
 const CLEANUP_JOB_STATUS_KEYS: Record<AssetCleanupJobStatus, string> = {
@@ -39,10 +27,6 @@ const CHART_COLORS = [
 
 export function assetCategoryLabel(category: AssetCategory, locale: Locale): string {
   return t(locale, `admin.assets.enum.category.${CATEGORY_KEYS[category]}`);
-}
-
-export function assetStatusLabel(status: AssetObjectStatus, locale: Locale): string {
-  return t(locale, `admin.assets.enum.status.${STATUS_KEYS[status]}`);
 }
 
 export function assetCleanupJobStatusLabel(status: AssetCleanupJobStatus, locale: Locale): string {
@@ -73,12 +57,6 @@ export function formatStorageBytes(bytes: number): string {
   }
   const digits = value >= 1000 ? 0 : value >= 10 ? 1 : 2;
   return `${value.toFixed(digits)} ${units[unitIndex]}`;
-}
-
-export function shortObjectKey(key: string): string {
-  const parts = key.split('/');
-  if (parts.length <= 2) return key;
-  return `…/${parts.slice(-2).join('/')}`;
 }
 
 export function formatMeasuredAt(value: string | Date, locale: Locale): string {

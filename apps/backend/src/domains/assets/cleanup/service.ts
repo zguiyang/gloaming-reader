@@ -28,7 +28,7 @@ export async function enqueueOrphanCleanup(scanId: string): Promise<AssetCleanup
   if (!snapshot.report.scanComplete) {
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.SCAN_INCOMPLETE);
   }
-  if (snapshot.orphanKeys.length === 0) {
+  if (snapshot.orphanCandidates.length === 0) {
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.NO_ORPHANS);
   }
 
@@ -46,16 +46,11 @@ export async function enqueueOrphanCleanup(scanId: string): Promise<AssetCleanup
     }
   }
 
-  const sizeByKey: Record<string, number> = {};
-  for (const item of snapshot.objects) {
-    if (item.status === 'orphan') {
-      sizeByKey[item.key] = item.size;
-    }
-  }
+  const sizeByKey = Object.fromEntries(snapshot.orphanCandidates.map(({ key, size }) => [key, size]));
 
   const record = createQueuedCleanupJob({
     scanId,
-    pendingKeys: snapshot.orphanKeys,
+    pendingKeys: snapshot.orphanCandidates.map(({ key }) => key),
     sizeByKey,
   });
   await saveCleanupJob(record);

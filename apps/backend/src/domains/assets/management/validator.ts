@@ -2,7 +2,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Context, ValidationTargets } from 'hono';
 import type { ZodType } from 'zod';
 
-import { assetCleanupRequestSchema, assetObjectListQuerySchema } from '@gloaming/shared/assets';
+import { assetCleanupRequestSchema } from '@gloaming/shared/assets';
 
 import { sendValidationError } from '@/infra/http/response';
 
@@ -20,5 +20,4 @@ function validated<T extends ZodType, Target extends keyof ValidationTargets>(ta
   });
 }
 
-export const validateAssetObjectListQuery = validated('query', assetObjectListQuerySchema);
 export const validateAssetCleanupBody = validated('json', assetCleanupRequestSchema);

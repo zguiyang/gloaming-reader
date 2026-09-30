@@ -9,7 +9,6 @@ export async function runScenarioA(harness: RealWorkerHarness, adminCookie: stri
     app,
     HTTP_STATUS,
     assetScanReportSchema,
-    assetObjectListDataSchema,
     assetCleanupJobAcceptedSchema,
     CLEANUP_LOCK_KEY,
     SCAN_LOCK_KEY,
@@ -81,30 +80,6 @@ export async function runScenarioA(harness: RealWorkerHarness, adminCookie: stri
     }
     if (reportScan.orphanCount < 1) {
       throw new Error('expected at least one orphan');
-    }
-
-    const orphanList = assetObjectListDataSchema.parse(
-      await (
-        await app.request(`/api/admin/assets/scans/${reportScan.scanId}/objects?status=orphan`, {
-          headers: { Cookie: adminCookie },
-        })
-      ).json(),
-    );
-    if (!orphanList.items.some((item) => item.key === orphan)) {
-      throw new Error('scan report missing expected orphan key');
-    }
-
-    const referencedList = assetObjectListDataSchema.parse(
-      await (
-        await app.request(`/api/admin/assets/scans/${reportScan.scanId}/objects?status=referenced`, {
-          headers: { Cookie: adminCookie },
-        })
-      ).json(),
-    );
-    for (const key of [chapter, segment, cover, uploadedKey]) {
-      if (!referencedList.items.some((item) => item.key === key)) {
-        throw new Error(`expected referenced key missing: ${key}`);
-      }
     }
 
     const holdToken = `it-hold-a-${randomUUID()}`;

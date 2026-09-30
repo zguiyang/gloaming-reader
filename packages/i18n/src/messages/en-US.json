@@ -740,7 +740,6 @@
         "orphanShare": "Orphan share {percent}",
         "releasable": "Releasable {bytes}",
         "orphanFound": "Found {count} orphan objects",
-        "viewOrphans": "View orphan objects",
         "cleanupOrphans": "Clean up orphan objects"
       },
       "summary": {
@@ -758,30 +757,6 @@
         "empty": "No category data",
         "legend": "{bytes} · {count}"
       },
-      "largest": {
-        "title": "Largest objects",
-        "empty": "No objects"
-      },
-      "table": {
-        "title": "Object details",
-        "filterAll": "All",
-        "filterReferenced": "Referenced",
-        "filterOrphan": "Orphan",
-        "filterLegacyDuplicate": "Legacy duplicate audio",
-        "filterMissing": "Missing",
-        "filterAllCategories": "All categories",
-        "sortSize": "Size",
-        "sortLastModified": "Last modified",
-        "sortKey": "Key",
-        "sortPrefix": "Sort: {label} {direction}",
-        "loadFailed": "Load failed",
-        "empty": "No matching objects",
-        "colKey": "Object key",
-        "colType": "Type",
-        "colSize": "Size",
-        "colStatus": "Status",
-        "colLastModified": "Last modified"
-      },
       "cleanup": {
         "title": "Orphan cleanup",
         "progress": "{processed} / {requested} · released {bytes}",
@@ -789,8 +764,7 @@
         "stats": "Deleted {deleted} · skipped {skipped} · failed {failed}",
         "leftoverUncleaned": "Job finished but some objects were not cleaned up",
         "afterCleanup": "Orphans remaining {orphan} · missing {missing}",
-        "leftoverFailures": "{count} more failed objects not shown",
-        "retryFailed": "Retry failed objects",
+        "retryFailed": "Retry cleanup job",
         "retrySubmitting": "Retry submitting…",
         "inFlightHint": "Job runs in the background; you can keep browsing this page.",
         "confirmTitle": "Clean up orphan objects?",
@@ -810,12 +784,6 @@
           "image": "Illustration",
           "origin": "Original file",
           "other": "Other"
-        },
-        "status": {
-          "referenced": "Referenced",
-          "orphan": "Orphan",
-          "missing": "Missing",
-          "legacyDuplicateAudio": "Legacy duplicate audio"
         },
         "cleanupJobStatus": {
           "queued": "Queued",

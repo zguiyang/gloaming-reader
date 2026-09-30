@@ -1,9 +1,4 @@
-import {
-  type AssetCleanupFailure,
-  type AssetCleanupJob,
-  type AssetCleanupJobStatus,
-  publicFailedSample,
-} from '@gloaming/shared/assets';
+import { type AssetCleanupJob, type AssetCleanupJobStatus } from '@gloaming/shared/assets';
 
 import { snapshotTtlSeconds } from '@/domains/assets/scan/config';
 import { getRedis } from '@/infra/cache';
@@ -15,8 +10,11 @@ export const CLEANUP_LOCK_KEY = 'asset-management:cleanup:lock';
 export const CLEANUP_BATCH_SIZE = 100;
 export const CLEANUP_LOCK_TTL_SECONDS = 120;
 
-/** Internal Redis record keeps the full failure list; public jobs expose a sample. */
-export type CleanupJobRecord = Omit<AssetCleanupJob, 'failedSample'> & {
+export type AssetCleanupFailure = { key: string; error: string };
+
+/** Internal Redis record keeps failed keys so an audited retry can target the same safe candidates. */
+export type CleanupJobRecord = Omit<AssetCleanupJob, 'error'> & {
+  error?: string;
   pendingKeys: string[];
   sizeByKey: Record<string, number>;
   attempt: number;
@@ -105,9 +103,7 @@ export function toPublicCleanupJob(record: CleanupJobRecord): AssetCleanupJob {
     skippedReferencedCount: record.skippedReferencedCount,
     failedCount: record.failed.length,
     deletedBytes: record.deletedBytes,
-    failedSample: publicFailedSample(record.failed),
     verification: record.verification,
-    error: record.error,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };

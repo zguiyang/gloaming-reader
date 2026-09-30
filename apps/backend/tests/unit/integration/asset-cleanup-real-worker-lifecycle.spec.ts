@@ -95,7 +95,6 @@ function makeMinimalAppDeps(redis: { keys: ReturnType<typeof vi.fn> }): AppDeps 
     userTable: {} as AppDeps['userTable'],
     assetCleanupJobAcceptedSchema: {} as AppDeps['assetCleanupJobAcceptedSchema'],
     assetCleanupJobSchema: {} as AppDeps['assetCleanupJobSchema'],
-    assetObjectListDataSchema: {} as AppDeps['assetObjectListDataSchema'],
     assetScanReportSchema: {} as AppDeps['assetScanReportSchema'],
     AUTH_ADMIN_ROLE: 'admin' as AppDeps['AUTH_ADMIN_ROLE'],
     app: {} as AppDeps['app'],

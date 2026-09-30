@@ -740,7 +740,6 @@
         "orphanShare": "孤儿占比 {percent}",
         "releasable": "可释放 {bytes}",
         "orphanFound": "发现 {count} 个孤儿对象",
-        "viewOrphans": "查看孤儿对象",
         "cleanupOrphans": "清理孤儿对象"
       },
       "summary": {
@@ -758,30 +757,6 @@
         "empty": "暂无分类数据",
         "legend": "{bytes} · {count} 个"
       },
-      "largest": {
-        "title": "最大对象排行",
-        "empty": "暂无对象"
-      },
-      "table": {
-        "title": "对象明细",
-        "filterAll": "全部",
-        "filterReferenced": "正常",
-        "filterOrphan": "孤儿",
-        "filterLegacyDuplicate": "历史重复音频",
-        "filterMissing": "缺失",
-        "filterAllCategories": "全部分类",
-        "sortSize": "大小",
-        "sortLastModified": "修改时间",
-        "sortKey": "Key",
-        "sortPrefix": "排序：{label} {direction}",
-        "loadFailed": "加载失败",
-        "empty": "没有匹配的对象",
-        "colKey": "对象 Key",
-        "colType": "类型",
-        "colSize": "大小",
-        "colStatus": "状态",
-        "colLastModified": "最后修改"
-      },
       "cleanup": {
         "title": "孤儿对象清理",
         "progress": "{processed} / {requested} · 已释放 {bytes}",
@@ -789,8 +764,7 @@
         "stats": "删除 {deleted} · 跳过 {skipped} · 失败 {failed}",
         "leftoverUncleaned": "任务执行结束，但仍有未清理对象",
         "afterCleanup": "清理后仍有孤儿 {orphan} · 缺失 {missing}",
-        "leftoverFailures": "还有 {count} 个失败对象未展开",
-        "retryFailed": "重试失败对象",
+        "retryFailed": "重试清理任务",
         "retrySubmitting": "重试提交中…",
         "inFlightHint": "任务在后台执行，可继续浏览本页。",
         "confirmTitle": "确认清理孤儿对象？",
@@ -810,12 +784,6 @@
           "image": "插图",
           "origin": "原始文件",
           "other": "其他"
-        },
-        "status": {
-          "referenced": "正常",
-          "orphan": "孤儿",
-          "missing": "缺失",
-          "legacyDuplicateAudio": "历史重复音频"
         },
         "cleanupJobStatus": {
           "queued": "排队中",

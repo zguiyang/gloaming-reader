@@ -1,19 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
-import {
-  ASSET_SCAN_OBJECT_LIMIT,
-  type AssetObjectItem,
-  type AssetObjectListData,
-  type AssetObjectListQuery,
-  type AssetScanReport,
-  buildPaginationMeta,
-} from '@gloaming/shared/assets';
+import { ASSET_SCAN_OBJECT_LIMIT, type AssetScanReport } from '@gloaming/shared/assets';
 
 import { acquireLock, releaseLock, startLockRenewal } from '@/domains/assets/management/lock-store';
 import { collectReferencedStorageKeys } from '@/domains/assets/management/referenced-keys';
 import { SCAN_LOCK_KEY, SCAN_LOCK_TTL_SECONDS } from '@/domains/assets/scan/config';
 import { reconcileObjects } from '@/domains/assets/scan/reconcile';
-import { loadScanSnapshot, saveScanSnapshot } from '@/domains/assets/scan/snapshot';
+import { saveScanSnapshot } from '@/domains/assets/scan/snapshot';
 import { listBucketObjects } from '@/domains/assets/storage/list-bucket-objects';
 import { rootLogger } from '@/infra/logging/logger';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -38,7 +31,7 @@ export async function scanAssets(): Promise<AssetScanReport> {
       collectReferencedStorageKeys(),
     ]);
     const durationMs = Date.now() - startedAt;
-    const { report, objects, orphanKeys, legacyDuplicateKeys } = reconcileObjects({
+    const { report, orphanCandidates } = reconcileObjects({
       listed: listed.objects,
       referenced,
       scanId,
@@ -46,7 +39,7 @@ export async function scanAssets(): Promise<AssetScanReport> {
       scanComplete: listed.complete,
       durationMs,
     });
-    await saveScanSnapshot({ report, objects, orphanKeys, legacyDuplicateKeys });
+    await saveScanSnapshot({ report, orphanCandidates });
     logger.info(
       {
         scanId,
@@ -67,51 +60,4 @@ export async function scanAssets(): Promise<AssetScanReport> {
       logger.warn({ err: error }, 'Failed to release scan lock');
     }
   }
-}
-
-function compareObjects(
-  a: AssetObjectItem,
-  b: AssetObjectItem,
-  sortBy: AssetObjectListQuery['sortBy'],
-  sortOrder: AssetObjectListQuery['sortOrder'],
-): number {
-  const direction = sortOrder === 'asc' ? 1 : -1;
-  if (sortBy === 'size') {
-    if (a.size !== b.size) return (a.size - b.size) * direction;
-    return a.key.localeCompare(b.key);
-  }
-  if (sortBy === 'lastModified') {
-    const aTime = a.lastModified ? new Date(a.lastModified).getTime() : 0;
-    const bTime = b.lastModified ? new Date(b.lastModified).getTime() : 0;
-    if (aTime !== bTime) return (aTime - bTime) * direction;
-    return a.key.localeCompare(b.key);
-  }
-  return a.key.localeCompare(b.key) * direction;
-}
-
-export async function listScanObjects(scanId: string, query: AssetObjectListQuery): Promise<AssetObjectListData> {
-  const snapshot = await loadScanSnapshot(scanId);
-  let filtered = snapshot.objects;
-  if (query.status !== 'all') {
-    filtered = filtered.filter((item) => item.status === query.status);
-  }
-  if (query.category !== 'all') {
-    filtered = filtered.filter((item) => item.category === query.category);
-  }
-
-  const sorted = filtered.toSorted((a, b) => compareObjects(a, b, query.sortBy, query.sortOrder));
-  const total = sorted.length;
-  const start = (query.page - 1) * query.pageSize;
-  const items = sorted.slice(start, start + query.pageSize);
-
-  return {
-    items,
-    pagination: buildPaginationMeta({
-      page: query.page,
-      pageSize: query.pageSize,
-      total,
-      sortBy: query.sortBy,
-      sortOrder: query.sortOrder,
-    }),
-  };
 }

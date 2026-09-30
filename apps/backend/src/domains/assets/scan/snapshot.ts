@@ -1,4 +1,4 @@
-import { type AssetObjectItem, type AssetScanReport } from '@gloaming/shared/assets';
+import { type AssetScanReport, assetScanReportSchema } from '@gloaming/shared/assets';
 
 import { snapshotTtlSeconds } from '@/domains/assets/scan/config';
 import { getRedis } from '@/infra/cache';
@@ -13,9 +13,7 @@ const SCAN_KEY_PREFIX = 'asset-management:scan:';
 
 export type ScanSnapshot = {
   report: AssetScanReport;
-  objects: AssetObjectItem[];
-  orphanKeys: string[];
-  legacyDuplicateKeys: string[];
+  orphanCandidates: Array<{ key: string; size: number }>;
 };
 
 export function scanRedisKey(scanId: string): string {
@@ -34,18 +32,22 @@ export async function loadScanSnapshot(scanId: string): Promise<ScanSnapshot> {
   try {
     const parsed = JSON.parse(raw) as Partial<ScanSnapshot> & {
       report: AssetScanReport;
-      objects: AssetObjectItem[];
+      objects?: Array<{ key: string; size: number; status: string }>;
+      orphanKeys?: string[];
     };
-    const legacyDuplicateKeys =
-      parsed.legacyDuplicateKeys ??
-      parsed.objects.filter((item) => item.status === 'legacy_duplicate_audio').map((item) => item.key);
-    const orphanKeys =
-      parsed.orphanKeys ?? parsed.objects.filter((item) => item.status === 'orphan').map((item) => item.key);
+    const orphanCandidates =
+      parsed.orphanCandidates ??
+      (parsed.orphanKeys
+        ? parsed.orphanKeys.map((key) => ({
+            key,
+            size: parsed.objects?.find((item) => item.key === key)?.size ?? 0,
+          }))
+        : (parsed.objects ?? []).filter((item) => item.status === 'orphan').map(({ key, size }) => ({ key, size })));
+    const reportData: Record<string, unknown> = { ...parsed.report };
+    delete reportData.largestObjects;
     return {
-      report: parsed.report,
-      objects: parsed.objects,
-      orphanKeys,
-      legacyDuplicateKeys,
+      report: assetScanReportSchema.parse(reportData),
+      orphanCandidates,
     };
   } catch (error) {
     logger.warn({ err: error, scanId }, 'Failed to parse scan snapshot');

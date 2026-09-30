@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { canRetryCleanupJob } from '@/features/admin/assets/assets-cleanup-state';
-import { assetCleanupJobStatusLabel, formatStorageBytes, shortObjectKey } from '@/features/admin/assets/assets-format';
+import { assetCleanupJobStatusLabel, formatStorageBytes } from '@/features/admin/assets/assets-format';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -23,10 +23,6 @@ export function cleanupProgressPercent(job: Pick<AssetCleanupJob, 'processedCoun
   return Math.min(100, Math.round((job.processedCount / job.requestedCount) * 100));
 }
 
-function leftoverFailureCount(job: Pick<AssetCleanupJob, 'failedCount' | 'failedSample'>): number {
-  return Math.max(0, job.failedCount - job.failedSample.length);
-}
-
 function hasLeftoverUncleanedObjects(job: AssetCleanupJob): boolean {
   const verification = job.verification;
   if (!verification) return false;
@@ -36,7 +32,6 @@ function hasLeftoverUncleanedObjects(job: AssetCleanupJob): boolean {
 export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsCleanupCardProps) {
   const { locale } = useLocale();
   const percent = cleanupProgressPercent(job);
-  const leftoverFailures = leftoverFailureCount(job);
   const canRetry = canRetryCleanupJob(job) && Boolean(onRetry);
   const isInFlight = job.status === 'queued' || job.status === 'running';
 
@@ -86,7 +81,6 @@ export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsClea
             failed: job.failedCount,
           })}
         </p>
-        {job.error ? <p className="text-destructive text-sm">{job.error}</p> : null}
         {job.status === 'partial' && hasLeftoverUncleanedObjects(job) ? (
           <p className="text-destructive text-sm">{t(locale, 'admin.assets.cleanup.leftoverUncleaned')}</p>
         ) : null}
@@ -96,20 +90,6 @@ export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsClea
               orphan: job.verification.orphanCount ?? 0,
               missing: job.verification.missingCount ?? 0,
             })}
-          </p>
-        ) : null}
-        {job.failedSample.length > 0 ? (
-          <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto text-sm">
-            {job.failedSample.map((entry) => (
-              <li key={entry.key} className="text-destructive truncate" title={`${entry.key}: ${entry.error}`}>
-                {shortObjectKey(entry.key)} · {entry.error}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {leftoverFailures > 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {t(locale, 'admin.assets.cleanup.leftoverFailures', { count: leftoverFailures })}
           </p>
         ) : null}
         {canRetry ? (

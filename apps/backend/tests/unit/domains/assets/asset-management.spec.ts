@@ -122,10 +122,10 @@ describe('collectKeysFromOriginMeta', () => {
 });
 
 describe('reconcileObjects', () => {
-  it('classifies referenced, orphan, and missing objects', () => {
+  it('classifies referenced, orphan, and missing objects into safe aggregates', () => {
     const chapter = 'part-audio/p1/audio_us/h/chapter.mp3';
     const seg = 'part-audio/p1/audio_us/h/seg/0000.mp3';
-    const { report, objects, orphanKeys, legacyDuplicateKeys } = reconcileObjects({
+    const { report, orphanCandidates } = reconcileObjects({
       scanId: 'scan_test',
       measuredAt: new Date('2026-09-09T00:00:00.000Z'),
       listed: [
@@ -149,20 +149,15 @@ describe('reconcileObjects', () => {
     expect(report.missingCount).toBe(1);
     expect(report.durationMs).toBe(0);
     expect(report.scanComplete).toBe(true);
-    expect(orphanKeys).toEqual(['orphan/old.mp3']);
-    expect(legacyDuplicateKeys).toEqual([seg]);
-
-    expect(objects.filter((item) => item.status === 'orphan')).toHaveLength(1);
-    expect(objects.find((item) => item.key === seg)?.status).toBe('legacy_duplicate_audio');
-    expect(objects.filter((item) => item.status === 'missing')).toEqual([
-      expect.objectContaining({ key: 'covers/missing.jpg', category: 'cover', size: 0 }),
-    ]);
+    expect(orphanCandidates).toEqual([{ key: 'orphan/old.mp3', size: 60 }]);
+    expect(orphanCandidates.some(({ key }) => key === seg)).toBe(false);
+    expect(JSON.stringify(report)).not.toContain('orphan/old.mp3');
   });
 
   it('classifies unreferenced historical segments as legacy_duplicate_audio, not orphan', () => {
     const chapter = 'part-audio/p1/audio_us/new/chapter.mp3';
     const staleSeg = 'part-audio/p1/audio_us/old/seg/0000.mp3';
-    const { report, orphanKeys, legacyDuplicateKeys, objects } = reconcileObjects({
+    const { report, orphanCandidates } = reconcileObjects({
       listed: [
         { key: chapter, size: 100, lastModified: null, etag: null },
         { key: staleSeg, size: 40, lastModified: null, etag: null },
@@ -174,12 +169,11 @@ describe('reconcileObjects', () => {
     expect(report.orphanCount).toBe(1);
     expect(report.legacyDuplicateCount).toBe(1);
     expect(report.legacyDuplicateBytes).toBe(40);
-    expect(orphanKeys).toEqual(['orphan/noise.bin']);
-    expect(legacyDuplicateKeys).toEqual([staleSeg]);
-    expect(objects.find((item) => item.key === staleSeg)?.status).toBe('legacy_duplicate_audio');
+    expect(orphanCandidates.map(({ key }) => key)).toEqual(['orphan/noise.bin']);
+    expect(orphanCandidates.some(({ key }) => key === staleSeg)).toBe(false);
   });
 
-  it('aggregates category bytes and ranks largest objects', () => {
+  it('aggregates category bytes without returning per-object details', () => {
     const { report } = reconcileObjects({
       listed: [
         { key: 'epub/a.epub', size: 50, lastModified: null, etag: null },
@@ -187,7 +181,6 @@ describe('reconcileObjects', () => {
         { key: 'part-audio/big.mp3', size: 90, lastModified: null, etag: null },
       ],
       referenced: referencedKeyIndexFromKeys(['epub/a.epub', 'covers/a.jpg']),
-      largestLimit: 2,
     });
 
     expect(report.categories).toEqual(
@@ -197,13 +190,13 @@ describe('reconcileObjects', () => {
         { category: 'origin', objectCount: 1, bytes: 50 },
       ]),
     );
-    expect(report.largestObjects.map((item) => item.key)).toEqual(['part-audio/big.mp3', 'epub/a.epub']);
+    expect(report).not.toHaveProperty('largestObjects');
   });
 
   it('classifies legacy-metadata segments as legacy_duplicate_audio, not referenced', () => {
     const chapter = 'part-audio/p1/audio_us/h/chapter.mp3';
     const seg = 'part-audio/p1/audio_us/h/seg/0000.mp3';
-    const { report, objects } = reconcileObjects({
+    const { report, orphanCandidates } = reconcileObjects({
       listed: [
         { key: chapter, size: 100, lastModified: null, etag: null },
         { key: seg, size: 40, lastModified: null, etag: null },
@@ -215,18 +208,18 @@ describe('reconcileObjects', () => {
     expect(report.orphanCount).toBe(0);
     expect(report.legacyDuplicateCount).toBe(1);
     expect(report.referencedObjectCount).toBe(1);
-    expect(objects.find((item) => item.key === seg)?.status).toBe('legacy_duplicate_audio');
+    expect(orphanCandidates).toEqual([]);
   });
 
   it('keeps externally referenced segments as referenced', () => {
     const seg = 'part-audio/p1/audio_us/h/seg/0000.mp3';
-    const { report, objects } = reconcileObjects({
+    const { report, orphanCandidates } = reconcileObjects({
       listed: [{ key: seg, size: 40, lastModified: null, etag: null }],
       referenced: referencedKeyIndexFromKeys([seg], { external: [seg] }),
     });
     expect(report.referencedObjectCount).toBe(1);
     expect(report.legacyDuplicateCount).toBe(0);
-    expect(objects[0]?.status).toBe('referenced');
+    expect(orphanCandidates).toEqual([]);
   });
 
   it('records incomplete scans and duration without treating missing as listed objects', () => {
@@ -236,18 +229,17 @@ describe('reconcileObjects', () => {
       lastModified: null,
       etag: null,
     }));
-    const { report, orphanKeys } = reconcileObjects({
+    const { report, orphanCandidates } = reconcileObjects({
       listed,
       referenced: referencedKeyIndexFromKeys([]),
       scanComplete: false,
       durationMs: 42,
-      largestLimit: 3,
     });
     expect(report.scanComplete).toBe(false);
     expect(report.durationMs).toBe(42);
     expect(report.objectCount).toBe(1_000);
-    expect(orphanKeys).toHaveLength(1_000);
-    expect(report.largestObjects).toHaveLength(3);
-    expect(report.largestObjects[0]?.key).toBe('orphan/999.bin');
+    expect(orphanCandidates).toHaveLength(1_000);
+    expect(report).not.toHaveProperty('largestObjects');
+    expect(orphanCandidates).toContainEqual({ key: 'orphan/999.bin', size: 1_000 });
   });
 });

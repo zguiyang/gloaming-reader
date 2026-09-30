@@ -1,26 +1,8 @@
 import { z } from 'zod';
 
-import {
-  buildPaginationMeta,
-  createSortByQuerySchema,
-  emptyToUndefined,
-  paginationMetaSchema,
-  paginationQuerySchema,
-} from '../pagination/index.ts';
-
 /** Storage health categories derived from ContentAsset kind and/or object key prefix. */
 export const ASSET_CATEGORIES = ['audio', 'cover', 'image', 'origin', 'other'] as const;
 export type AssetCategory = (typeof ASSET_CATEGORIES)[number];
-
-/**
- * Reconciliation status of a storage object relative to database references.
- * `legacy_duplicate_audio` covers historical segments under
- * `part-audio/.../seg/*.mp3` that are not formally referenced (chapter/cover/etc.)
- * — including segments still listed only in legacy audio metadata fields.
- * Must not be mixed into ordinary orphan cleanup.
- */
-export const ASSET_OBJECT_STATUSES = ['referenced', 'orphan', 'missing', 'legacy_duplicate_audio'] as const;
-export type AssetObjectStatus = (typeof ASSET_OBJECT_STATUSES)[number];
 
 /** `part-audio/{partId}/{kind}/{contentHash}/seg/{file}.mp3` */
 const LEGACY_AUDIO_SEGMENT_KEY_RE = /^part-audio\/([^/]+)\/([^/]+)\/([^/]+)\/seg\/([^/]+\.mp3)$/i;
@@ -56,41 +38,13 @@ export function siblingChapterKeyForSegment(key: string): string | null {
   return `part-audio/${parts.partId}/${parts.kind}/${parts.contentHash}/chapter.mp3`;
 }
 
-export const ASSET_OBJECT_SORT_FIELDS = ['size', 'lastModified', 'key'] as const;
-export type AssetObjectSortField = (typeof ASSET_OBJECT_SORT_FIELDS)[number];
-export const DEFAULT_ASSET_OBJECT_SORT_BY = 'size' as const satisfies AssetObjectSortField;
-
-export const ASSET_OBJECT_DEFAULT_PAGE_SIZE = 20 as const;
-export const ASSET_LARGEST_OBJECTS_DEFAULT = 10 as const;
-export const ASSET_LARGEST_OBJECTS_MAX = 20 as const;
 /** Hard cap for a single health scan. Incomplete scans must not be cleaned up. */
 export const ASSET_SCAN_OBJECT_LIMIT = 20_000 as const;
 
 export const ASSET_CLEANUP_JOB_STATUSES = ['queued', 'running', 'completed', 'partial', 'failed'] as const;
 export type AssetCleanupJobStatus = (typeof ASSET_CLEANUP_JOB_STATUSES)[number];
-/** Max failure entries returned on the public cleanup-job projection. */
-export const ASSET_CLEANUP_FAILED_SAMPLE_LIMIT = 50 as const;
-
-/** Filter query values that include an "all" sentinel for UI tabs. */
-export const ASSET_STATUS_FILTERS = ['all', ...ASSET_OBJECT_STATUSES] as const;
-export type AssetStatusFilter = (typeof ASSET_STATUS_FILTERS)[number];
-
-export const ASSET_CATEGORY_FILTERS = ['all', ...ASSET_CATEGORIES] as const;
-export type AssetCategoryFilter = (typeof ASSET_CATEGORY_FILTERS)[number];
 
 const assetCategorySchema = z.enum(ASSET_CATEGORIES);
-const assetObjectStatusSchema = z.enum(ASSET_OBJECT_STATUSES);
-
-export const assetObjectItemSchema = z.object({
-  key: z.string().min(1),
-  category: assetCategorySchema,
-  status: assetObjectStatusSchema,
-  size: z.number().int().nonnegative(),
-  lastModified: z.union([z.string(), z.date(), z.null()]),
-  etag: z.string().nullable(),
-});
-
-export type AssetObjectItem = z.infer<typeof assetObjectItemSchema>;
 
 export const assetCategorySummarySchema = z.object({
   category: assetCategorySchema,
@@ -115,29 +69,9 @@ export const assetScanReportSchema = z.object({
   missingCount: z.number().int().nonnegative(),
   durationMs: z.number().int().nonnegative(),
   categories: z.array(assetCategorySummarySchema),
-  largestObjects: z.array(assetObjectItemSchema).max(ASSET_LARGEST_OBJECTS_MAX),
 });
 
 export type AssetScanReport = z.infer<typeof assetScanReportSchema>;
-
-export const assetObjectListQuerySchema = paginationQuerySchema.extend({
-  pageSize: z.preprocess(
-    emptyToUndefined,
-    z.coerce.number().int().min(1).max(100).default(ASSET_OBJECT_DEFAULT_PAGE_SIZE),
-  ),
-  sortBy: createSortByQuerySchema(ASSET_OBJECT_SORT_FIELDS, DEFAULT_ASSET_OBJECT_SORT_BY),
-  status: z.preprocess(emptyToUndefined, z.enum(ASSET_STATUS_FILTERS).default('all')),
-  category: z.preprocess(emptyToUndefined, z.enum(ASSET_CATEGORY_FILTERS).default('all')),
-});
-
-export type AssetObjectListQuery = z.infer<typeof assetObjectListQuerySchema>;
-
-export const assetObjectListDataSchema = z.object({
-  items: z.array(assetObjectItemSchema),
-  pagination: paginationMetaSchema,
-});
-
-export type AssetObjectListData = z.infer<typeof assetObjectListDataSchema>;
 
 export const assetCleanupRequestSchema = z.object({
   confirmed: z.literal(true),
@@ -147,30 +81,6 @@ export type AssetCleanupRequest = z.infer<typeof assetCleanupRequestSchema>;
 
 export const assetCleanupRetryRequestSchema = assetCleanupRequestSchema;
 export type AssetCleanupRetryRequest = AssetCleanupRequest;
-
-export const assetCleanupFailureSchema = z.object({
-  key: z.string().min(1),
-  error: z.string().min(1),
-});
-
-export type AssetCleanupFailure = z.infer<typeof assetCleanupFailureSchema>;
-
-/** Public job payloads expose only a bounded sample of failures. */
-export function publicFailedSample(failed: AssetCleanupFailure[]): AssetCleanupFailure[] {
-  return failed.slice(0, ASSET_CLEANUP_FAILED_SAMPLE_LIMIT);
-}
-
-export const assetCleanupResultSchema = z.object({
-  scanId: z.string().min(1),
-  requestedCount: z.number().int().nonnegative(),
-  deletedCount: z.number().int().nonnegative(),
-  skippedReferencedCount: z.number().int().nonnegative(),
-  failedCount: z.number().int().nonnegative(),
-  deletedBytes: z.number().int().nonnegative(),
-  failed: z.array(assetCleanupFailureSchema),
-});
-
-export type AssetCleanupResult = z.infer<typeof assetCleanupResultSchema>;
 
 const assetCleanupJobStatusSchema = z.enum(ASSET_CLEANUP_JOB_STATUSES);
 
@@ -193,7 +103,7 @@ export const assetCleanupJobVerificationSchema = z.object({
 
 export type AssetCleanupJobVerification = z.infer<typeof assetCleanupJobVerificationSchema>;
 
-/** Redis-backed cleanup job projection. Keys only — never object payloads. */
+/** Redis-backed cleanup job projection with aggregate progress, never object identities. */
 export const assetCleanupJobSchema = z.object({
   jobId: z.string().min(1),
   scanId: z.string().min(1),
@@ -204,9 +114,7 @@ export const assetCleanupJobSchema = z.object({
   skippedReferencedCount: z.number().int().nonnegative(),
   failedCount: z.number().int().nonnegative(),
   deletedBytes: z.number().int().nonnegative(),
-  failedSample: z.array(assetCleanupFailureSchema).max(ASSET_CLEANUP_FAILED_SAMPLE_LIMIT),
   verification: assetCleanupJobVerificationSchema.optional(),
-  error: z.string().min(1).optional(),
   createdAt: z.union([z.string(), z.date()]),
   updatedAt: z.union([z.string(), z.date()]),
 });
@@ -230,5 +138,3 @@ export function classifyAssetKey(key: string, kind?: string | null): AssetCatego
   if (key.startsWith('epub/')) return 'origin';
   return 'other';
 }
-
-export { buildPaginationMeta };

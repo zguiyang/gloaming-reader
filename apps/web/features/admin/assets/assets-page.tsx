@@ -5,9 +5,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { t } from '@gloaming/i18n';
-import type { AssetCleanupJobStatus, AssetObjectListQuery, AssetScanReport } from '@gloaming/shared/assets';
-import { ASSET_OBJECT_DEFAULT_PAGE_SIZE, DEFAULT_ASSET_OBJECT_SORT_BY } from '@gloaming/shared/assets';
-import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
+import type { AssetCleanupJobStatus, AssetScanReport } from '@gloaming/shared/assets';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -33,8 +31,6 @@ import {
   writeStoredCleanupJob,
 } from '@/features/admin/assets/assets-cleanup-state';
 import { formatDurationMs, formatMeasuredAt, formatStorageBytes } from '@/features/admin/assets/assets-format';
-import { AssetsLargestList } from '@/features/admin/assets/assets-largest-list';
-import { AssetsObjectTable } from '@/features/admin/assets/assets-object-table';
 import { AssetsSummary } from '@/features/admin/assets/assets-summary';
 import { useLocale } from '@/lib/locale-context';
 
@@ -53,15 +49,6 @@ const AssetsChart = dynamic(() => import('@/features/admin/assets/assets-chart')
   ),
 });
 
-const INITIAL_OBJECT_QUERY: AssetObjectListQuery = {
-  page: DEFAULT_PAGE,
-  pageSize: ASSET_OBJECT_DEFAULT_PAGE_SIZE,
-  sortBy: DEFAULT_ASSET_OBJECT_SORT_BY,
-  sortOrder: DEFAULT_SORT_ORDER,
-  status: 'all',
-  category: 'all',
-};
-
 export function AssetsPage() {
   const { locale } = useLocale();
   const scanMutation = useScanAssetsMutation();
@@ -70,7 +57,6 @@ export function AssetsPage() {
   const [report, setReport] = useState<AssetScanReport | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [isCleanupOpen, setIsCleanupOpen] = useState(false);
-  const [objectQuery, setObjectQuery] = useState<AssetObjectListQuery>(INITIAL_OBJECT_QUERY);
   const jobId = useSyncExternalStore(subscribeStoredCleanupJob, getStoredCleanupJobId, () => null);
   const previousJobStatusRef = useRef<AssetCleanupJobStatus | undefined>(undefined);
 
@@ -96,7 +82,6 @@ export function AssetsPage() {
     try {
       const next = await scanMutation.mutateAsync();
       setReport(next);
-      setObjectQuery(INITIAL_OBJECT_QUERY);
     } catch (error) {
       setScanError(formatAssetsApiError(error) || t(locale, 'admin.assets.page.scanStorageFailed'));
     }
@@ -214,23 +199,12 @@ export function AssetsPage() {
                 <p className="text-muted-foreground text-sm">
                   {t(locale, 'admin.assets.page.orphanFound', { count: report.orphanCount })}
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setObjectQuery({ ...INITIAL_OBJECT_QUERY, status: 'orphan' })}
-                  >
-                    {t(locale, 'admin.assets.page.viewOrphans')}
-                  </Button>
-                  <Button variant="destructive" disabled={!canOpenCleanup} onClick={() => setIsCleanupOpen(true)}>
-                    {t(locale, 'admin.assets.page.cleanupOrphans')}
-                  </Button>
-                </div>
+                <Button variant="destructive" disabled={!canOpenCleanup} onClick={() => setIsCleanupOpen(true)}>
+                  {t(locale, 'admin.assets.page.cleanupOrphans')}
+                </Button>
               </CardContent>
             </Card>
           </div>
-
-          <AssetsLargestList objects={report.largestObjects} />
-          <AssetsObjectTable scanId={report.scanId} query={objectQuery} onQueryChange={setObjectQuery} />
 
           <AssetsCleanupDialog
             open={isCleanupOpen}

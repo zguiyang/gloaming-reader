@@ -15,4 +15,10 @@ describe('removed Catalog management route registration', () => {
 
     expect(registeredPaths.filter((path) => path.startsWith('/api/admin/taxonomy'))).toEqual([]);
   });
+
+  it('does not register the Admin asset object browser route', () => {
+    const registeredPaths = routes.routes.map((route) => route.path);
+
+    expect(registeredPaths).not.toContain('/api/admin/assets/scans/:scanId/objects');
+  });
 });

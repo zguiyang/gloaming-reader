@@ -1,30 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  ASSET_CLEANUP_FAILED_SAMPLE_LIMIT,
   ASSET_CLEANUP_JOB_STATUSES,
   ASSET_SCAN_OBJECT_LIMIT,
   assetCleanupJobAcceptedSchema,
   assetCleanupJobSchema,
   assetCleanupRequestSchema,
-  assetCleanupResultSchema,
   assetCleanupRetryRequestSchema,
-  assetObjectItemSchema,
-  assetObjectListQuerySchema,
   assetScanReportSchema,
   classifyAssetKey,
   isLegacyAudioSegmentKey,
   parseLegacyAudioSegmentKey,
-  publicFailedSample,
   siblingChapterKeyForSegment,
 } from './assets.ts';
-
-function sampleFailures(count: number) {
-  return Array.from({ length: count }, (_, index) => ({
-    key: `orphan/${index}.bin`,
-    error: 'AccessDenied',
-  }));
-}
 
 function sampleCleanupJob(overrides: Record<string, unknown> = {}) {
   return {
@@ -37,7 +25,6 @@ function sampleCleanupJob(overrides: Record<string, unknown> = {}) {
     skippedReferencedCount: 1,
     failedCount: 0,
     deletedBytes: 90,
-    failedSample: [],
     createdAt: '2026-09-10T01:00:00.000Z',
     updatedAt: '2026-09-10T01:00:05.000Z',
     ...overrides,
@@ -93,66 +80,9 @@ describe('assetScanReportSchema', () => {
       missingCount: 0,
       durationMs: 12,
       categories: [{ category: 'audio', objectCount: 2, bytes: 100 }],
-      largestObjects: [
-        {
-          key: 'part-audio/x/chapter.mp3',
-          category: 'audio',
-          status: 'orphan',
-          size: 60,
-          lastModified: '2026-08-21T10:30:00.000Z',
-          etag: '"abc"',
-        },
-      ],
     });
     expect(report.orphanCount).toBe(1);
-  });
-});
-
-describe('assetObjectListQuerySchema', () => {
-  it('defaults status, category, sort, and page size', () => {
-    expect(assetObjectListQuerySchema.parse({})).toMatchObject({
-      page: 1,
-      pageSize: 20,
-      sortBy: 'size',
-      sortOrder: 'desc',
-      status: 'all',
-      category: 'all',
-    });
-  });
-
-  it('accepts filter and sort overrides', () => {
-    expect(
-      assetObjectListQuerySchema.parse({
-        status: 'legacy_duplicate_audio',
-        category: 'audio',
-        sortBy: 'key',
-        sortOrder: 'asc',
-        page: '2',
-        pageSize: '10',
-      }),
-    ).toMatchObject({
-      status: 'legacy_duplicate_audio',
-      category: 'audio',
-      sortBy: 'key',
-      sortOrder: 'asc',
-      page: 2,
-      pageSize: 10,
-    });
-  });
-});
-
-describe('assetObjectItemSchema', () => {
-  it('requires status and category enums', () => {
-    expect(() =>
-      assetObjectItemSchema.parse({
-        key: 'k',
-        category: 'nope',
-        status: 'orphan',
-        size: 1,
-        lastModified: null,
-        etag: null,
-      }),
-    ).toThrow();
+    expect(report).not.toHaveProperty('largestObjects');
   });
 });
 
@@ -163,25 +93,9 @@ describe('assetCleanupRequestSchema', () => {
   });
 });
 
-describe('assetCleanupResultSchema', () => {
-  it('accepts cleanup stats with failure list', () => {
-    const result = assetCleanupResultSchema.parse({
-      scanId: 'scan_1',
-      requestedCount: 2,
-      deletedCount: 1,
-      skippedReferencedCount: 1,
-      failedCount: 0,
-      deletedBytes: 100,
-      failed: [],
-    });
-    expect(result.deletedCount).toBe(1);
-  });
-});
-
 describe('asset cleanup job contract', () => {
   it('exposes the scan object cap and job statuses', () => {
     expect(ASSET_SCAN_OBJECT_LIMIT).toBe(20_000);
-    expect(ASSET_CLEANUP_FAILED_SAMPLE_LIMIT).toBe(50);
     expect(ASSET_CLEANUP_JOB_STATUSES).toEqual(['queued', 'running', 'completed', 'partial', 'failed']);
   });
 
@@ -218,13 +132,18 @@ describe('asset cleanup job contract', () => {
     expect(() => assetCleanupRetryRequestSchema.parse({ confirmed: false })).toThrow();
   });
 
-  it('accepts a running job with a bounded failure sample', () => {
-    const job = assetCleanupJobSchema.parse(sampleCleanupJob());
+  it('projects only aggregate job status even if a legacy payload has object details', () => {
+    const job = assetCleanupJobSchema.parse({
+      ...sampleCleanupJob(),
+      failedSample: [{ key: 'private/user/file.epub', error: 'AccessDenied' }],
+      error: 'provider failed for private/user/file.epub',
+    });
     expect(job.status).toBe('running');
-    expect(job.failedSample).toEqual([]);
+    expect(job).not.toHaveProperty('failedSample');
+    expect(job).not.toHaveProperty('error');
   });
 
-  it('accepts a partial job with verification and failure keys', () => {
+  it('accepts a partial job with aggregate verification', () => {
     const job = assetCleanupJobSchema.parse(
       sampleCleanupJob({
         status: 'partial',
@@ -234,12 +153,10 @@ describe('asset cleanup job contract', () => {
         skippedReferencedCount: 0,
         failedCount: 1,
         deletedBytes: 40,
-        failedSample: [{ key: 'orphan/a.mp3', error: 'AccessDenied' }],
         verification: { ran: true, orphanCount: 1, missingCount: 0, scanComplete: true, scanId: 'scan_2' },
         updatedAt: '2026-09-10T01:01:00.000Z',
       }),
     );
-    expect(job.failedSample[0]?.key).toBe('orphan/a.mp3');
     expect(job.verification?.ran).toBe(true);
     expect(job.verification?.scanComplete).toBe(true);
   });
@@ -254,33 +171,15 @@ describe('asset cleanup job contract', () => {
     expect(job.verification?.scanComplete).toBe(false);
   });
 
-  it('rejects a failure sample longer than the public cap', () => {
-    expect(() =>
-      assetCleanupJobSchema.parse(
-        sampleCleanupJob({
-          failedCount: 51,
-          failedSample: sampleFailures(ASSET_CLEANUP_FAILED_SAMPLE_LIMIT + 1),
-        }),
-      ),
-    ).toThrow();
-  });
-
-  it('accepts a large failedCount with a capped sample', () => {
+  it('accepts a large aggregate failedCount', () => {
     const job = assetCleanupJobSchema.parse(
       sampleCleanupJob({
         status: 'partial',
         requestedCount: 20_000,
         processedCount: 20_000,
         failedCount: 20_000,
-        failedSample: sampleFailures(ASSET_CLEANUP_FAILED_SAMPLE_LIMIT),
       }),
     );
     expect(job.failedCount).toBe(20_000);
-    expect(job.failedSample).toHaveLength(ASSET_CLEANUP_FAILED_SAMPLE_LIMIT);
-  });
-
-  it('slices internal failure lists to the public sample cap', () => {
-    expect(publicFailedSample(sampleFailures(60))).toHaveLength(ASSET_CLEANUP_FAILED_SAMPLE_LIMIT);
-    expect(publicFailedSample(sampleFailures(10))).toHaveLength(10);
   });
 });

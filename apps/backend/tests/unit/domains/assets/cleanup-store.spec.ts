@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ASSET_CLEANUP_FAILED_SAMPLE_LIMIT, type AssetCleanupFailure } from '@gloaming/shared/assets';
-
 const redisState = vi.hoisted(() => {
   const values = new Map<string, string>();
   return {
@@ -52,6 +50,7 @@ vi.mock('@/infra/cache', () => ({
 
 import {
   applyCleanupRetryState,
+  type AssetCleanupFailure,
   CLEANUP_LOCK_KEY,
   type CleanupJobRecord,
   collectCleanupRetryKeys,
@@ -249,7 +248,7 @@ describe('cleanup retry state', () => {
 });
 
 describe('toPublicCleanupJob', () => {
-  it('projects a bounded failedSample and keeps the full internal list', () => {
+  it('projects aggregate failure counts and keeps object identities internal', () => {
     const failed: AssetCleanupFailure[] = Array.from({ length: 60 }, (_, index) => ({
       key: `orphan/${index}.bin`,
       error: 'fail',
@@ -264,8 +263,9 @@ describe('toPublicCleanupJob', () => {
     const publicJob = toPublicCleanupJob(record);
     expect(record.failed).toHaveLength(60);
     expect(publicJob.failedCount).toBe(60);
-    expect(publicJob.failedSample).toHaveLength(ASSET_CLEANUP_FAILED_SAMPLE_LIMIT);
-    expect(publicJob.failedSample[0]?.key).toBe('orphan/0.bin');
+    expect(JSON.stringify(publicJob)).not.toContain('orphan/0.bin');
+    expect(publicJob).not.toHaveProperty('failedSample');
+    expect(publicJob).not.toHaveProperty('error');
     expect('failed' in publicJob).toBe(false);
   });
 
@@ -278,7 +278,6 @@ describe('toPublicCleanupJob', () => {
     const publicJob = toPublicCleanupJob(record);
     expect(publicJob.status).toBe('queued');
     expect(publicJob.requestedCount).toBe(2);
-    expect(publicJob.failedSample).toEqual([]);
     expect(publicJob.failedCount).toBe(0);
   });
 });

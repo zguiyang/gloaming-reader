@@ -9,7 +9,6 @@ import type { contentAsset, readingWork, uploadedObject, user } from '@gloaming/
 import type {
   assetCleanupJobAcceptedSchema,
   assetCleanupJobSchema,
-  assetObjectListDataSchema,
   assetScanReportSchema,
 } from '@gloaming/shared/assets';
 import type { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
@@ -37,7 +36,6 @@ export type AppDeps = {
   userTable: typeof user;
   assetCleanupJobAcceptedSchema: typeof assetCleanupJobAcceptedSchema;
   assetCleanupJobSchema: typeof assetCleanupJobSchema;
-  assetObjectListDataSchema: typeof assetObjectListDataSchema;
   assetScanReportSchema: typeof assetScanReportSchema;
   AUTH_ADMIN_ROLE: typeof AUTH_ADMIN_ROLE;
   app: typeof appDefault;
@@ -69,7 +67,7 @@ export async function loadAppDeps(): Promise<AppDeps> {
       uploadedObject: uploadedObjectTable,
       user: userTable,
     },
-    { assetCleanupJobAcceptedSchema, assetCleanupJobSchema, assetObjectListDataSchema, assetScanReportSchema },
+    { assetCleanupJobAcceptedSchema, assetCleanupJobSchema, assetScanReportSchema },
     { AUTH_ADMIN_ROLE },
   ] = await Promise.all([
     import('drizzle-orm'),
@@ -99,7 +97,6 @@ export async function loadAppDeps(): Promise<AppDeps> {
     userTable,
     assetCleanupJobAcceptedSchema,
     assetCleanupJobSchema,
-    assetObjectListDataSchema,
     assetScanReportSchema,
     AUTH_ADMIN_ROLE,
     app,

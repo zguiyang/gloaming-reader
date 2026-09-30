@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCategoryChartData, formatDurationMs, formatStorageBytes, shortObjectKey } from './assets-format.ts';
+import { buildCategoryChartData, formatDurationMs, formatStorageBytes } from './assets-format.ts';
 
 describe('formatStorageBytes', () => {
   it('formats common sizes', () => {
@@ -15,13 +15,6 @@ describe('formatDurationMs', () => {
   it('formats milliseconds and seconds', () => {
     expect(formatDurationMs(12, 'zh-CN')).toBe('12 ms');
     expect(formatDurationMs(1500, 'zh-CN')).toBe('1.5 s');
-  });
-});
-
-describe('shortObjectKey', () => {
-  it('keeps short keys and truncates long paths', () => {
-    expect(shortObjectKey('epub/a.epub')).toBe('epub/a.epub');
-    expect(shortObjectKey('part-audio/p1/audio_us/h/chapter.mp3')).toBe('…/h/chapter.mp3');
   });
 });
 

@@ -19,13 +19,6 @@ beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-function sampleFailures(count: number) {
-  return Array.from({ length: count }, (_, index) => ({
-    key: `orphan/${index}.bin`,
-    error: `error-${index}`,
-  }));
-}
-
 function sampleJob(overrides: Partial<AssetCleanupJob> = {}): AssetCleanupJob {
   return {
     jobId: 'asset-cleanup:scan_1',
@@ -37,7 +30,6 @@ function sampleJob(overrides: Partial<AssetCleanupJob> = {}): AssetCleanupJob {
     skippedReferencedCount: 1,
     failedCount: 0,
     deletedBytes: 1024,
-    failedSample: [],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:01.000Z',
     ...overrides,
@@ -81,7 +73,7 @@ describe('AssetsCleanupCard', () => {
     const view = await renderCard(sampleJob({ status: 'queued', processedCount: 0 }));
     expect(view.container.textContent).toContain('排队中');
     expect(view.container.textContent).toContain('任务在后台执行，可继续浏览本页。');
-    expect(view.container.textContent).not.toContain('重试失败对象');
+    expect(view.container.textContent).not.toContain('重试清理任务');
 
     await view.rerender(sampleJob({ status: 'running', processedCount: 4 }));
     expect(view.container.textContent).toContain('清理中');
@@ -90,7 +82,7 @@ describe('AssetsCleanupCard', () => {
     await view.rerender(sampleJob({ status: 'completed', processedCount: 10, requestedCount: 10 }));
     expect(view.container.textContent).toContain('已完成');
     expect(view.container.textContent).not.toContain('任务在后台执行，可继续浏览本页。');
-    expect(view.container.textContent).not.toContain('重试失败对象');
+    expect(view.container.textContent).not.toContain('重试清理任务');
     view.cleanup();
   });
 
@@ -132,7 +124,6 @@ describe('AssetsCleanupCard', () => {
       sampleJob({
         status: 'failed',
         failedCount: 1,
-        failedSample: [{ key: 'orphan/a.mp3', error: 'AccessDenied' }],
       }),
       {
         onRetry: () => {
@@ -141,8 +132,8 @@ describe('AssetsCleanupCard', () => {
       },
     );
     expect(view.container.textContent).toContain('失败');
-    expect(view.container.textContent).toContain('重试失败对象');
-    expect(view.container.textContent).toContain('AccessDenied');
+    expect(view.container.textContent).toContain('重试清理任务');
+    expect(view.container.textContent).toContain('失败 1');
     const button = view.container.querySelector('button');
     expect(button).not.toBeNull();
     await act(async () => {
@@ -152,20 +143,18 @@ describe('AssetsCleanupCard', () => {
     view.cleanup();
   });
 
-  it('renders only the failure sample plus leftover count for a large list', async () => {
+  it('shows aggregate failures without exposing object keys or provider errors', async () => {
     const view = await renderCard(
       sampleJob({
         status: 'partial',
         failedCount: 500,
-        failedSample: sampleFailures(50),
       }),
       { onRetry: () => undefined },
     );
-    expect(view.container.querySelectorAll('li')).toHaveLength(50);
-    expect(view.container.textContent).toContain('error-0');
-    expect(view.container.textContent).toContain('error-49');
-    expect(view.container.textContent).not.toContain('error-50');
-    expect(view.container.textContent).toContain('还有 450 个失败对象未展开');
+    expect(view.container.querySelectorAll('li')).toHaveLength(0);
+    expect(view.container.textContent).toContain('失败 500');
+    expect(view.container.textContent).not.toContain('orphan/0.bin');
+    expect(view.container.textContent).not.toContain('error-0');
     view.cleanup();
   });
 
@@ -180,13 +169,11 @@ describe('AssetsCleanupCard', () => {
       sampleJob({
         status: 'partial',
         failedCount: 1,
-        failedSample: [{ key: 'orphan/a.mp3', error: 'AccessDenied' }],
       }),
       { onRetry: () => undefined },
     );
     expect(view.container.textContent).toContain('部分失败');
-    expect(view.container.textContent).toContain('重试失败对象');
-    expect(view.container.textContent).toContain('AccessDenied');
+    expect(view.container.textContent).toContain('重试清理任务');
     view.cleanup();
   });
 

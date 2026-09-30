@@ -9,12 +9,7 @@ import {
   uploadedObject as uploadedObjectTable,
   user as userTable,
 } from '@gloaming/db';
-import {
-  assetCleanupJobAcceptedSchema,
-  assetCleanupJobSchema,
-  assetObjectListDataSchema,
-  assetScanReportSchema,
-} from '@gloaming/shared/assets';
+import { assetCleanupJobAcceptedSchema, assetCleanupJobSchema, assetScanReportSchema } from '@gloaming/shared/assets';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
@@ -190,6 +185,14 @@ describe('asset management admin APIs', () => {
     ).toBe(HTTP_STATUS.FORBIDDEN);
   });
 
+  it('does not expose scan object detail or register the legacy browser endpoint', async () => {
+    const response = await app.request('/api/admin/assets/scans/scan_private/objects', {
+      headers: { Cookie: adminCookie },
+    });
+
+    expect(response.status).toBe(HTTP_STATUS.NOT_FOUND);
+  });
+
   it('scans referenced, orphan, and missing objects including audio segments', async () => {
     const workId = await insertWork();
     const chapter = `part-audio/${workId}/audio_us/h/chapter.mp3`;
@@ -235,21 +238,9 @@ describe('asset management admin APIs', () => {
     expect(report.legacyDuplicateCount).toBeGreaterThanOrEqual(1);
     expect(report.durationMs).toBeGreaterThanOrEqual(0);
     expect(report.scanComplete).toBe(true);
-
-    const orphans = await app.request(
-      `/api/admin/assets/scans/${report.scanId}/objects?status=orphan&sortBy=size&sortOrder=desc`,
-      { headers: { Cookie: adminCookie } },
-    );
-    expect(orphans.status).toBe(200);
-    const orphanList = assetObjectListDataSchema.parse(await orphans.json());
-    expect(orphanList.items.some((item) => item.key === orphan)).toBe(true);
-    expect(orphanList.items.some((item) => item.key === segment)).toBe(false);
-
-    const missingListResponse = await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=missing`, {
-      headers: { Cookie: adminCookie },
-    });
-    const missingList = assetObjectListDataSchema.parse(await missingListResponse.json());
-    expect(missingList.items.some((item) => item.key === missing)).toBe(true);
+    expect(report).not.toHaveProperty('largestObjects');
+    expect(JSON.stringify(report)).not.toContain(orphan);
+    expect(JSON.stringify(report)).not.toContain(missing);
   });
 
   it('classifies timeline-only legacy audio segments as legacy_duplicate_audio', async () => {
@@ -282,22 +273,9 @@ describe('asset management admin APIs', () => {
       headers: { Cookie: adminCookie },
     });
     const report = assetScanReportSchema.parse(await scan.json());
-    const orphans = assetObjectListDataSchema.parse(
-      await (
-        await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=orphan`, {
-          headers: { Cookie: adminCookie },
-        })
-      ).json(),
-    );
-    const legacyDuplicates = assetObjectListDataSchema.parse(
-      await (
-        await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=legacy_duplicate_audio`, {
-          headers: { Cookie: adminCookie },
-        })
-      ).json(),
-    );
-    expect(orphans.items.some((item) => item.key === timelineOnly)).toBe(false);
-    expect(legacyDuplicates.items.some((item) => item.key === timelineOnly)).toBe(true);
+    expect(report.orphanCount).toBe(0);
+    expect(report.legacyDuplicateCount).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(report)).not.toContain(timelineOnly);
   });
 
   it('classifies unreferenced historical segments as legacy_duplicate_audio and excludes them from orphan cleanup', async () => {
@@ -322,24 +300,11 @@ describe('asset management admin APIs', () => {
     });
     const report = assetScanReportSchema.parse(await scan.json());
     expect(report.legacyDuplicateCount).toBeGreaterThanOrEqual(1);
-
-    const legacyList = assetObjectListDataSchema.parse(
-      await (
-        await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=legacy_duplicate_audio`, {
-          headers: { Cookie: adminCookie },
-        })
-      ).json(),
-    );
-    const orphanList = assetObjectListDataSchema.parse(
-      await (
-        await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=orphan`, {
-          headers: { Cookie: adminCookie },
-        })
-      ).json(),
-    );
-    expect(legacyList.items.some((item) => item.key === staleSeg)).toBe(true);
-    expect(orphanList.items.some((item) => item.key === staleSeg)).toBe(false);
-    expect(orphanList.items.some((item) => item.key === plainOrphan)).toBe(true);
+    expect(report.orphanCount).toBeGreaterThanOrEqual(1);
+    const accepted = await enqueueCleanup(report.scanId);
+    await processAssetCleanup({ jobId: accepted.jobId, scanId: accepted.scanId });
+    expect(memory.store.has(staleSeg)).toBe(true);
+    expect(memory.store.has(plainOrphan)).toBe(false);
   });
 
   it('cleans only still-orphan objects and skips keys that become referenced', async () => {
@@ -420,24 +385,25 @@ describe('asset management admin APIs', () => {
 
     await putObject(epubKey, 12);
     await putObject(parseKey, 8);
+    const orphanKey = `orphan/${workId}/delete.bin`;
+    await putObject(orphanKey, 7);
 
     const scan = await app.request('/api/admin/assets/scan', {
       method: 'POST',
       headers: { Cookie: adminCookie },
     });
     const report = assetScanReportSchema.parse(await scan.json());
-    const list = assetObjectListDataSchema.parse(
-      await (
-        await app.request(`/api/admin/assets/scans/${report.scanId}/objects?status=referenced`, {
-          headers: { Cookie: adminCookie },
-        })
-      ).json(),
-    );
-    expect(list.items.some((item) => item.key === epubKey)).toBe(true);
-    expect(list.items.some((item) => item.key === parseKey)).toBe(true);
+    expect(report.orphanCount).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(report)).not.toContain(epubKey);
+    expect(JSON.stringify(report)).not.toContain(parseKey);
+    const accepted = await enqueueCleanup(report.scanId);
+    await processAssetCleanup({ jobId: accepted.jobId, scanId: accepted.scanId });
+    expect(memory.store.has(epubKey)).toBe(true);
+    expect(memory.store.has(parseKey)).toBe(true);
+    expect(memory.store.has(orphanKey)).toBe(false);
   });
 
-  it('returns failed keys when delete throws and retries only those keys', async () => {
+  it('keeps failure identities internal and retries only failed objects', async () => {
     const workId = await insertWork();
     const failKey = `orphan/${workId}/fail.mp3`;
     const okKey = `orphan/${workId}/ok.mp3`;
@@ -474,7 +440,9 @@ describe('asset management admin APIs', () => {
     const partial = assetCleanupJobSchema.parse(await partialResponse.json());
     expect(partial.status).toBe('partial');
     expect(partial.failedCount).toBeGreaterThanOrEqual(1);
-    expect(partial.failedSample.some((entry) => entry.key === failKey)).toBe(true);
+    expect(partial).not.toHaveProperty('failedSample');
+    expect(partial).not.toHaveProperty('error');
+    expect(JSON.stringify(partial)).not.toContain(failKey);
     expect(base.store.has(okKey)).toBe(false);
     expect(base.store.has(failKey)).toBe(true);
 
@@ -500,14 +468,6 @@ describe('asset management admin APIs', () => {
     expect(base.store.has(failKey)).toBe(false);
   });
 
-  it('returns conflict when scan snapshot is missing', async () => {
-    await getRedis().del('asset-management:scan:scan_missing');
-    const response = await app.request('/api/admin/assets/scans/scan_missing/objects', {
-      headers: { Cookie: adminCookie },
-    });
-    expect(response.status).toBe(HTTP_STATUS.CONFLICT);
-  });
-
   it('rejects cleanup for an incomplete scan snapshot', async () => {
     const scanId = `scan_incomplete_${randomUUID()}`;
     await getRedis().set(
@@ -526,7 +486,6 @@ describe('asset management admin APIs', () => {
           missingCount: 0,
           durationMs: 8,
           categories: [],
-          largestObjects: [],
         },
         objects: [],
         orphanKeys: ['orphan/incomplete.bin'],
