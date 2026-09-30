@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, HardDrive, Menu, ScrollText, Settings, Tags } from 'lucide-react';
+import { ArrowLeft, HardDrive, Menu, ScrollText, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useState } from 'react';
@@ -42,12 +42,6 @@ function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
       label: t(locale, 'admin.shell.navConfig'),
       icon: Settings,
       isActive: pathname === ADMIN_ROUTES.config || pathname.startsWith(`${ADMIN_ROUTES.config}/`),
-    },
-    {
-      href: ADMIN_ROUTES.taxonomy,
-      label: t(locale, 'admin.shell.navTaxonomy'),
-      icon: Tags,
-      isActive: pathname === ADMIN_ROUTES.taxonomy || pathname.startsWith(`${ADMIN_ROUTES.taxonomy}/`),
     },
     {
       href: ADMIN_ROUTES.logs,

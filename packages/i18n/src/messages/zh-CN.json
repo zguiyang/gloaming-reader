@@ -320,7 +320,6 @@
       "contentSubtitle": "内容管理",
       "navAssets": "对象存储占用",
       "navConfig": "配置",
-      "navTaxonomy": "标签、分类与来源",
       "navLogs": "日志",
       "signInPrompt": "请先登录后再进入管理后台。",
       "signIn": "登录",
@@ -826,74 +825,6 @@
           "failed": "失败"
         }
       }
-    },
-    "taxonomy": {
-      "page": {
-        "title": "标签、分类与来源",
-        "subtitle": "作品编辑和元数据完善会使用这里的内容。",
-        "kindAria": "维度类型"
-      },
-      "kind": {
-        "tag": "标签",
-        "category": "分类",
-        "source": "来源"
-      },
-      "panel": {
-        "searchPlaceholder": "搜索名称…",
-        "cleanupUnused": "清理未使用",
-        "createTag": "新建标签",
-        "createCategory": "新建分类",
-        "createSource": "新建来源",
-        "emptyNoMatch": "暂无{kind}",
-        "emptyNoMatchSearch": "没有匹配项",
-        "emptySearchHint": "换个关键词试试。",
-        "emptySourceHint": "上传作品后来源会自动创建，也可手动新建。",
-        "tableName": "名称",
-        "tableOrigin": "写入方式",
-        "tableUsage": "关联作品",
-        "tableMatchRule": "匹配规则",
-        "usageCount": "{count} 部",
-        "deleteSourceReserved": "来源为系统保留，不可删除",
-        "deleteInUse": "已被作品使用，不可删除",
-        "confirmDelete": "确定删除「{name}」？",
-        "confirmCleanupTag": "将删除所有未被任何作品使用的标签。这些记录不可恢复，确定继续？",
-        "confirmCleanupCategory": "将删除所有未被任何作品使用的分类。这些记录不可恢复，确定继续？",
-        "cleanupResult": "已清理 {count} 个未使用项",
-        "cleanupNone": "没有未使用的项",
-        "missingChinese": "缺失中文",
-        "missingEnglish": "缺失英文",
-        "tableChinese": "中文",
-        "tableEnglish": "英文",
-        "tableIndex": "序号",
-        "tableTranslationStatus": "翻译状态",
-        "tableUpdatedAt": "更新时间",
-        "translationComplete": "完整",
-        "translationFilterAll": "全部",
-        "translationFilterComplete": "完整翻译",
-        "translationFilterPartial": "部分翻译",
-        "translationPartial": "部分"
-      },
-      "sheet": {
-        "edit": "编辑",
-        "create": "新建",
-        "sourceDescription": "来源为系统保留数据，创建后不可删除。",
-        "otherDescription": "创建后即可在作品编辑与元数据完善中使用。",
-        "nameLabel": "名称",
-        "nameZhLabel": "中文名称",
-        "nameEnLabel": "英文名称",
-        "matchRuleLabel": "匹配规则",
-        "matchRulePlaceholder": "域名或关键词，如 gutenberg.org",
-        "matchRuleHint": "EPUB 的 dc:source 包含该规则时自动关联此来源；留空表示不自动匹配。",
-        "sourceNamePlaceholder": "如 Project Gutenberg",
-        "genericNamePlaceholder": "如 Fantasy"
-      },
-      "picker": {
-        "removeAria": "移除 {name}",
-        "usageWorks": "{count} 部作品",
-        "searchCategory": "搜索分类…",
-        "noCategory": "不分类",
-        "noCategories": "暂无分类"
-      }
     }
   },
   "content": {
@@ -1169,9 +1100,6 @@
         "llmModel": "未找到 LLM 模型",
         "partAudio": "未找到章节音频",
         "cleanupJob": "未找到清理任务",
-        "taxonomyTag": "未找到标签",
-        "taxonomyCategory": "未找到分类",
-        "taxonomySource": "未找到来源",
         "wordDefinition": "未找到单词「{word}」的词典释义"
       },
       "upload": {
@@ -1188,26 +1116,6 @@
         "uploadEpubFailed": "上传 EPUB 失败",
         "reserveParseFailed": "预留 EPUB 解析任务失败",
         "stateChanged": "作品状态已变化，请刷新后再试"
-      },
-      "taxonomy": {
-        "invalidKind": "kind 必须是 tag / category / source",
-        "cleanupKindOnly": "cleanup 仅支持 tag / category",
-        "sourceDeleteForbidden": "来源为系统保留数据，不可删除；未命中来源可留空表示「未知」",
-        "tag": {
-          "nameExists": "标签「{name}」已存在",
-          "nameConflict": "标签名称已存在",
-          "inUse": "该标签已被 {usage} 个作品使用，不可删除；可修改名称"
-        },
-        "category": {
-          "nameExists": "分类「{name}」已存在",
-          "nameConflict": "分类名称已存在",
-          "inUse": "该分类已被 {usage} 个作品使用，不可删除；可修改名称"
-        },
-        "source": {
-          "nameExists": "来源「{name}」已存在",
-          "nameConflict": "来源名称已存在",
-          "inUse": "该来源已被 {usage} 个作品使用，不可删除；可修改名称"
-        }
       },
       "tts": {
         "apiKeyRequired": "首次配置 TTS 需要提供 API Key",

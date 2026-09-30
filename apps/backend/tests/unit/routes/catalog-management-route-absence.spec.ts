@@ -9,4 +9,10 @@ describe('removed Catalog management route registration', () => {
 
     expect(registeredPaths.filter((path) => path === legacyPrefix || path.startsWith(`${legacyPrefix}/`))).toEqual([]);
   });
+
+  it('does not register Admin taxonomy management routes', () => {
+    const registeredPaths = routes.routes.map((route) => route.path);
+
+    expect(registeredPaths.filter((path) => path.startsWith('/api/admin/taxonomy'))).toEqual([]);
+  });
 });

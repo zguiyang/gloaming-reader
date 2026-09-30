@@ -16,9 +16,6 @@ export const ERROR_CODES = {
     LLM_MODEL: 'api.errors.notFound.llmModel',
     PART_AUDIO: 'api.errors.notFound.partAudio',
     CLEANUP_JOB: 'api.errors.notFound.cleanupJob',
-    TAXONOMY_TAG: 'api.errors.notFound.taxonomyTag',
-    TAXONOMY_CATEGORY: 'api.errors.notFound.taxonomyCategory',
-    TAXONOMY_SOURCE: 'api.errors.notFound.taxonomySource',
     WORD_DEFINITION: 'api.errors.notFound.wordDefinition',
   },
 
@@ -37,21 +34,6 @@ export const ERROR_CODES = {
     UPLOAD_EPUB_FAILED: 'api.errors.work.uploadEpubFailed',
     RESERVE_PARSE_FAILED: 'api.errors.work.reserveParseFailed',
     STATE_CHANGED: 'api.errors.work.stateChanged',
-  },
-
-  TAXONOMY: {
-    INVALID_KIND: 'api.errors.taxonomy.invalidKind',
-    CLEANUP_KIND_ONLY: 'api.errors.taxonomy.cleanupKindOnly',
-    SOURCE_DELETE_FORBIDDEN: 'api.errors.taxonomy.sourceDeleteForbidden',
-    TAG_NAME_EXISTS: 'api.errors.taxonomy.tag.nameExists',
-    CATEGORY_NAME_EXISTS: 'api.errors.taxonomy.category.nameExists',
-    SOURCE_NAME_EXISTS: 'api.errors.taxonomy.source.nameExists',
-    TAG_NAME_CONFLICT: 'api.errors.taxonomy.tag.nameConflict',
-    CATEGORY_NAME_CONFLICT: 'api.errors.taxonomy.category.nameConflict',
-    SOURCE_NAME_CONFLICT: 'api.errors.taxonomy.source.nameConflict',
-    TAG_IN_USE: 'api.errors.taxonomy.tag.inUse',
-    CATEGORY_IN_USE: 'api.errors.taxonomy.category.inUse',
-    SOURCE_IN_USE: 'api.errors.taxonomy.source.inUse',
   },
 
   TTS: {

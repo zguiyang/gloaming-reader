@@ -5,17 +5,7 @@ export const LANGUAGE_CODES = ['zh-CN', 'en-US'] as const;
 export type LanguageCode = (typeof LANGUAGE_CODES)[number];
 export const languageCodeSchema = z.enum(LANGUAGE_CODES);
 
-/** Shared dimension kinds — system-level concepts usable beyond works. */
-export const TAXONOMY_KINDS = ['tag', 'category', 'source'] as const;
-export type TaxonomyKind = (typeof TAXONOMY_KINDS)[number];
-
-/** Kinds eligible for the unused-cleanup action (sources are never deleted). */
-export const TAXONOMY_CLEANABLE_KINDS = ['tag', 'category'] as const;
-export type TaxonomyCleanableKind = (typeof TAXONOMY_CLEANABLE_KINDS)[number];
-
 export const TAXONOMY_NAME_MAX = 100 as const;
-export const TAXONOMY_MATCH_RULE_MAX = 200 as const;
-
 export const TAXONOMY_ORIGINS = ['extracted', 'ai', 'manual'] as const;
 export type TaxonomyOrigin = (typeof TAXONOMY_ORIGINS)[number];
 
@@ -71,7 +61,7 @@ export function optionalLocalizedText(names: LocalizedTextMap | null | undefined
   return Object.keys(map).length > 0 ? map : undefined;
 }
 
-/** Stable taxonomy reference embedded on works and returned by admin APIs. */
+/** Stable taxonomy reference embedded on works and returned by Catalog reads. */
 export const taxonomyReferenceSchema = z.object({
   id: z.string(),
   names: localizedTextSchema,
@@ -90,77 +80,6 @@ export const sourceReferenceSchema = z.object({
 
 export type SourceReference = z.infer<typeof sourceReferenceSchema>;
 
-/** Stable taxonomy id submitted on work mutations — display fields are server-owned. */
-export const taxonomySelectionSchema = z
-  .object({
-    id: z.string(),
-  })
-  .strict();
-
-export type TaxonomySelection = z.infer<typeof taxonomySelectionSchema>;
-
-/** One dimension row — `usage` = number of works linked to it. */
-export const taxonomyItemSchema = taxonomyReferenceSchema.extend({
-  usage: z.number().int().nonnegative(),
-  createdAt: z.union([z.string(), z.date()]),
-  updatedAt: z.union([z.string(), z.date()]),
-});
-
-export type TaxonomyItem = z.infer<typeof taxonomyItemSchema>;
-
-/** One source/channel row returned by the admin dimension API. */
-export const sourceItemSchema = sourceReferenceSchema.extend({
-  usage: z.number().int().nonnegative(),
-  matchRule: z.string().nullable(),
-  createdAt: z.union([z.string(), z.date()]),
-  updatedAt: z.union([z.string(), z.date()]),
-});
-
-export type SourceItem = z.infer<typeof sourceItemSchema>;
-
-export const taxonomyItemResultSchema = z.union([taxonomyItemSchema, sourceItemSchema]);
-export type TaxonomyItemResult = z.infer<typeof taxonomyItemResultSchema>;
-
-const createLocalizedTaxonomyBodySchema = z.object({
-  names: localizedTextSchema,
-  matchRule: z.string().trim().max(TAXONOMY_MATCH_RULE_MAX).optional(),
-});
-
-const createSourceBodySchema = z.object({
-  name: localizedNameValueSchema,
-  matchRule: z.string().trim().max(TAXONOMY_MATCH_RULE_MAX).optional(),
-});
-
-export const createTaxonomyBodySchema = z.union([createLocalizedTaxonomyBodySchema, createSourceBodySchema]);
-
-export type CreateTaxonomyBody = z.infer<typeof createTaxonomyBodySchema>;
-
-const updateLocalizedTaxonomyBodySchema = z.object({
-  names: localizedTextSchema.optional(),
-  matchRule: z.string().trim().max(TAXONOMY_MATCH_RULE_MAX).optional(),
-});
-
-const updateSourceBodySchema = z.object({
-  name: localizedNameValueSchema.optional(),
-  matchRule: z.string().trim().max(TAXONOMY_MATCH_RULE_MAX).optional(),
-});
-
-export const updateTaxonomyBodySchema = z.union([updateLocalizedTaxonomyBodySchema, updateSourceBodySchema]);
-
-export type UpdateTaxonomyBody = z.infer<typeof updateTaxonomyBodySchema>;
-
-export const taxonomyListQuerySchema = z.object({
-  search: z.string().trim().max(TAXONOMY_NAME_MAX).optional(),
-});
-
-export type TaxonomyListQuery = z.infer<typeof taxonomyListQuerySchema>;
-
-export const taxonomyListDataSchema = z.object({
-  items: z.array(taxonomyItemResultSchema),
-});
-
-export type TaxonomyListData = z.infer<typeof taxonomyListDataSchema>;
-
 /** Public catalog facet — stable id and localized names only (no admin metadata). */
 export const catalogTaxonomyFacetSchema = z
   .object({
@@ -176,9 +95,3 @@ export const catalogTaxonomyListDataSchema = z.object({
 });
 
 export type CatalogTaxonomyListData = z.infer<typeof catalogTaxonomyListDataSchema>;
-
-export const taxonomyCleanupResultSchema = z.object({
-  deleted: z.number().int().nonnegative(),
-});
-
-export type TaxonomyCleanupResult = z.infer<typeof taxonomyCleanupResultSchema>;

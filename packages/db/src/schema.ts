@@ -172,16 +172,11 @@ export const tag = pgTable(
     normalized: text('normalized').notNull().unique(),
     /** Who first created this row — never rewritten on reuse/rename. */
     origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
   },
   (table) => [index('tag_normalized_idx').on(table.normalized)],
 );
 
-/** Shared dimension: category (predefined enumeration, admin-extendable). */
+/** Shared dimension: category used by catalog metadata and Discover filtering. */
 export const category = pgTable(
   'category',
   {
@@ -191,11 +186,6 @@ export const category = pgTable(
     normalized: text('normalized').notNull().unique(),
     /** Who first created this row — never rewritten on reuse/rename. */
     origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
   },
   (table) => [index('category_normalized_idx').on(table.normalized)],
 );
@@ -209,11 +199,6 @@ export const source = pgTable(
     matchRule: text('match_rule').notNull().default(''),
     /** Who first created this row — never rewritten on reuse/rename. */
     origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
   },
   (table) => [index('source_match_rule_idx').on(table.matchRule)],
 );

@@ -32,5 +32,4 @@ export const ADMIN_ROUTES = {
   tts: '/admin/tts',
   ttsLogs: '/admin/tts-logs',
   dictionary: '/admin/dictionary',
-  taxonomy: '/admin/taxonomy',
 } as const;

@@ -8,10 +8,7 @@ import {
   optionalLocalizedText,
   resolveLocalizedText,
   sourceReferenceSchema,
-  taxonomyItemSchema,
-  taxonomyListDataSchema,
   taxonomyReferenceSchema,
-  taxonomySelectionSchema,
 } from './taxonomy.ts';
 
 const sampleNames = { 'zh-CN': '科学', 'en-US': 'Science' };
@@ -51,20 +48,6 @@ describe('taxonomy i18n contracts', () => {
       }).success,
     ).toBe(false);
   });
-
-  it('accepts taxonomy selections with id only', () => {
-    expect(taxonomySelectionSchema.parse({ id: 'tag-1' })).toEqual({ id: 'tag-1' });
-  });
-
-  it('rejects taxonomy selections that include display fields', () => {
-    expect(
-      taxonomySelectionSchema.safeParse({
-        id: 'tag-1',
-        names: sampleNames,
-        origin: 'manual',
-      }).success,
-    ).toBe(false);
-  });
 });
 
 describe('catalog taxonomy facet contracts', () => {
@@ -83,51 +66,6 @@ describe('catalog taxonomy facet contracts', () => {
         origin: 'manual',
       }).success,
     ).toBe(false);
-  });
-});
-
-describe('taxonomy api contracts', () => {
-  it('accepts taxonomy items with localized names', () => {
-    const item = taxonomyItemSchema.parse({
-      id: 't1',
-      names: sampleNames,
-      usage: 2,
-      origin: 'manual',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    });
-    expect(item.names).toEqual(sampleNames);
-  });
-
-  it('rejects legacy single-string taxonomy return fields', () => {
-    expect(
-      taxonomyItemSchema.safeParse({
-        id: 't1',
-        name: 'Science',
-        usage: 2,
-        origin: 'manual',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      }).success,
-    ).toBe(false);
-  });
-
-  it('accepts taxonomy list payloads with localized items', () => {
-    const payload = taxonomyListDataSchema.parse({
-      items: [
-        {
-          id: 's1',
-          name: 'New York Times',
-          usage: 0,
-          origin: 'manual',
-          matchRule: 'nytimes.com',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-        },
-      ],
-    });
-    expect(payload.items).toHaveLength(1);
-    expect(payload.items[0]?.name).toBe('New York Times');
   });
 });
 
