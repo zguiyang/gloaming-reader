@@ -1,13 +1,19 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
 import { useAuthDialog } from '@/features/auth';
-import { formatLibraryApiError, libraryQueryKey, useLibraryQuery } from '@/features/library/library-api';
+import {
+  formatLibraryApiError,
+  libraryQueryKey,
+  useLibraryQuery,
+  useUserTagsQuery,
+} from '@/features/library/library-api';
 import { LibraryContinueHero } from '@/features/library/library-continue-hero';
 import { LibraryEmptyState } from '@/features/library/library-empty-state';
 import { LibraryGrid } from '@/features/library/library-grid';
@@ -20,10 +26,16 @@ function LibraryHeader() {
   const { locale } = useLocale();
 
   return (
-    <header className="mb-8 w-full md:mb-11">
+    <header className="mb-8 flex w-full items-center justify-between gap-4 md:mb-11">
       <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground md:text-4xl md:leading-tight">
         {t(locale, 'content.library.title')}
       </h1>
+      <Link
+        href="/library/tags"
+        className="inline-flex min-h-11 shrink-0 items-center rounded-xl border border-border px-3.5 text-sm text-foreground transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {t(locale, 'content.library.manageTags')}
+      </Link>
     </header>
   );
 }
@@ -48,6 +60,8 @@ export function LibraryPage() {
   const queryClient = useQueryClient();
   const { openLogin } = useAuthDialog();
   const libraryQuery = useLibraryQuery();
+  const tagsQuery = useUserTagsQuery();
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
 
   useEffect(() => {
     if (libraryQuery.isError && isUnauthorizedError(libraryQuery.error)) {
@@ -103,6 +117,11 @@ export function LibraryPage() {
   const data = libraryQuery.data;
   const current = data.current;
   const items = current ? data.items.filter((item) => item.work.id !== current.work.id) : data.items;
+  const tags = tagsQuery.data ?? [];
+  const activeTagId = tags.some((tag) => tag.id === selectedTagId) ? selectedTagId : null;
+  const filteredItems = activeTagId
+    ? items.filter((item) => item.userTags.some((tag) => tag.id === activeTagId))
+    : items;
   const isEmpty = !current && items.length === 0;
 
   return (
@@ -123,7 +142,7 @@ export function LibraryPage() {
           <LibraryHeader />
           <div className="flex flex-col gap-10 md:gap-14">
             {current ? <LibraryContinueHero entry={current} /> : null}
-            <LibraryGrid items={items} />
+            <LibraryGrid items={filteredItems} tags={tags} selectedTagId={activeTagId} onSelectTag={setSelectedTagId} />
           </div>
         </>
       )}

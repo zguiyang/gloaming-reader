@@ -26,8 +26,14 @@ describe('Library contracts', () => {
     const parsed = libraryDataSchema.parse({
       current: { work, state },
       items: [
-        { work, state: null, availability: 'ready', canRemoveFromLibrary: false },
-        { work, state, availability: 'ready', canRemoveFromLibrary: true },
+        { work, state: null, availability: 'ready', canRemoveFromLibrary: false, userTags: [] },
+        {
+          work,
+          state,
+          availability: 'ready',
+          canRemoveFromLibrary: true,
+          userTags: [{ id: 'tag-1', name: 'Favorite' }],
+        },
       ],
     });
 
@@ -35,12 +41,13 @@ describe('Library contracts', () => {
     expect(parsed.items[1]?.state?.progressRatio).toBe(40);
     expect(parsed.items[0]?.canRemoveFromLibrary).toBe(false);
     expect(parsed.items[1]?.canRemoveFromLibrary).toBe(true);
+    expect(parsed.items[1]?.userTags).toEqual([{ id: 'tag-1', name: 'Favorite' }]);
     expect(parsed.current?.state).toEqual(state);
     expect(LIBRARY_ITEMS_LIMIT).toBe(48);
   });
 
   it('limits item readiness to processing, readable, or failed', () => {
-    const base = { work, state: null, canRemoveFromLibrary: false };
+    const base = { work, state: null, canRemoveFromLibrary: false, userTags: [] };
     expect(() => libraryDataSchema.parse({ current: null, items: [{ ...base, availability: 'metadata' }] })).toThrow();
     expect(
       libraryDataSchema.parse({ current: null, items: [{ ...base, availability: 'processing' }] }).items[0]

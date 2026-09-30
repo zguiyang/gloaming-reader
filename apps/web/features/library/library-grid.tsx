@@ -1,17 +1,25 @@
 'use client';
 
 import { t } from '@gloaming/i18n';
-import type { LibraryItem } from '@gloaming/shared/library';
+import type { LibraryItem, UserTagManagementItem } from '@gloaming/shared/library';
 
 import { LibraryBookCard } from '@/features/library/library-book-card';
+import { LibraryTagFilter } from '@/features/library/library-tag-filter';
 import { useLocale } from '@/lib/locale-context';
 
-export function LibraryGrid({ items }: { items: LibraryItem[] }) {
+export function LibraryGrid({
+  items,
+  tags,
+  selectedTagId,
+  onSelectTag,
+}: {
+  items: LibraryItem[];
+  tags: UserTagManagementItem[];
+  selectedTagId: string | null;
+  onSelectTag: (tagId: string | null) => void;
+}) {
   const { locale } = useLocale();
-
-  if (items.length === 0) {
-    return null;
-  }
+  if (items.length === 0 && selectedTagId === null) return null;
 
   return (
     <section className="w-full">
@@ -20,11 +28,18 @@ export function LibraryGrid({ items }: { items: LibraryItem[] }) {
           {t(locale, 'content.library.allBooks')}
         </h3>
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 md:gap-x-7 md:gap-y-10 lg:grid-cols-5 xl:grid-cols-6">
-        {items.map((entry) => (
-          <LibraryBookCard key={entry.work.id} entry={entry} />
-        ))}
-      </div>
+      <LibraryTagFilter tags={tags} selectedTagId={selectedTagId} onSelect={onSelectTag} />
+      {items.length === 0 ? (
+        <p className="py-10 text-center text-sm text-muted-foreground">
+          {t(locale, 'content.library.filterNoMatches')}
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 md:gap-x-7 md:gap-y-10 lg:grid-cols-5 xl:grid-cols-6">
+          {items.map((entry) => (
+            <LibraryBookCard key={entry.work.id} entry={entry} tags={tags} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

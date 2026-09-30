@@ -50,5 +50,7 @@ export {
   userLibraryItem,
   userLibraryItemRelations,
   userRelations,
+  userTag,
+  userWorkTag,
   verification,
 } from './schema';

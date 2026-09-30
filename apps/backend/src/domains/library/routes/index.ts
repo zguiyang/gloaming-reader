@@ -1,9 +1,12 @@
 import { Hono } from 'hono';
 
 import * as libraryService from '@/domains/library/service';
+import { libraryTagRoutes } from '@/domains/library/tags/routes';
 import { type AuthVariables, requireAuth } from '@/infra/http/middleware/auth';
 
 export const libraryRoutes = new Hono<{ Variables: AuthVariables }>();
+
+libraryRoutes.route('/', libraryTagRoutes);
 
 libraryRoutes.get('/api/library', requireAuth, async (c) => {
   const user = c.get('user')!;

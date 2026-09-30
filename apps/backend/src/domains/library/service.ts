@@ -6,10 +6,12 @@ import {
   readingState as readingStateTable,
   readingWork as readingWorkTable,
   userLibraryItem as userLibraryItemTable,
+  userWorkTag as userWorkTagTable,
 } from '@gloaming/db';
 import { LIBRARY_ITEMS_LIMIT, type LibraryData, type LibraryItem } from '@gloaming/shared/library';
 import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
+import { loadUserTagsByWorkIds } from '@/domains/library/tags/service';
 import { toReadingState } from '@/domains/reading';
 import { publicCatalogWorkSql, workReadAccessSql, workReadActorFromIdentity } from '@/domains/works/access';
 import { loadPartSortOrdersByWorkIds, loadTagsByWorkIds } from '@/domains/works/read-model';
@@ -88,9 +90,10 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
     .sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime() || b.work.id.localeCompare(a.work.id))
     .slice(0, LIBRARY_ITEMS_LIMIT);
   const workIds = [...(currentRow ? [currentRow.work.id] : []), ...orderedRows.map((row) => row.work.id)];
-  const [tagsByWork, partsByWork] = await Promise.all([
+  const [tagsByWork, partsByWork, userTagsByWork] = await Promise.all([
     loadTagsByWorkIds(workIds),
     loadPartSortOrdersByWorkIds(workIds),
+    loadUserTagsByWorkIds(userId, workIds),
   ]);
   const toItem = (row: {
     work: WorkRow;
@@ -106,6 +109,7 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
           ? 'failed'
           : 'processing',
     canRemoveFromLibrary: row.canRemoveFromLibrary,
+    userTags: userTagsByWork.get(row.work.id) ?? [],
   });
 
   return {
@@ -139,9 +143,16 @@ export async function addToLibrary(userId: string, workId: string): Promise<void
   });
 }
 
-/** Remove only the explicit Catalog membership row; absence is already the desired state. */
+/** Remove Catalog membership and its private organization labels, preserving reading facts. */
 export async function removeFromLibrary(userId: string, workId: string): Promise<void> {
-  await db
-    .delete(userLibraryItemTable)
-    .where(and(eq(userLibraryItemTable.userId, userId), eq(userLibraryItemTable.workId, workId)));
+  await db.transaction(async (tx) => {
+    const removed = await tx
+      .delete(userLibraryItemTable)
+      .where(and(eq(userLibraryItemTable.userId, userId), eq(userLibraryItemTable.workId, workId)))
+      .returning({ workId: userLibraryItemTable.workId });
+    if (removed.length === 0) return;
+    await tx
+      .delete(userWorkTagTable)
+      .where(and(eq(userWorkTagTable.userId, userId), eq(userWorkTagTable.workId, workId)));
+  });
 }

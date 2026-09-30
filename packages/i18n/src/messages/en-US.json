@@ -851,6 +851,33 @@
       "failedHint": "This book could not be read just now.",
       "processingFailed": "This book could not be processed",
       "manageBookAria": "Manage {title}",
+      "manageTags": "Manage tags",
+      "manageTagsForBook": "Manage tags",
+      "newTag": "New tag",
+      "renameTag": "Rename",
+      "deleteTag": "Delete tag",
+      "tagName": "Tag name",
+      "saveTags": "Save tags",
+      "tagsSaved": "Tags updated",
+      "tagCreated": "Tag created",
+      "tagRenamed": "Tag renamed",
+      "tagDeleted": "Tag deleted",
+      "noTags": "No tags yet",
+      "noTagsInLibrary": "No tags yet",
+      "tagFilterAll": "All",
+      "tagFilterAria": "Filter books by tag",
+      "tagManagementTitle": "Manage tags",
+      "tagManagementDescription": "Use tags to organize the books in your Library.",
+      "usedInBooks": "Used by {count} books",
+      "tagDeleteConfirmTitle": "Delete this tag?",
+      "tagDeleteConfirmDescription": "This tag is used by {count} books. Deleting it will not delete any books.",
+      "tagDeleteConfirmDescriptionEmpty": "Deleting this tag will not delete any books.",
+      "tagNameRequired": "Enter a tag name",
+      "tagNameTooLong": "Tag names must be 80 characters or fewer",
+      "createTag": "Create tag",
+      "cancel": "Cancel",
+      "save": "Save",
+      "filterNoMatches": "No books use this tag",
       "removeFromLibrary": "Remove from Library",
       "removeConfirmTitle": "Remove from Library?",
       "removeConfirmDescription": "This book will leave your Library. Reading progress and history will be kept.",
@@ -1065,7 +1092,8 @@
         "llmModel": "LLM model not found",
         "partAudio": "Part audio not found",
         "cleanupJob": "Cleanup job not found",
-        "wordDefinition": "No dictionary definition found for \"{word}\""
+        "wordDefinition": "No dictionary definition found for \"{word}\"",
+        "userTag": "Tag not found"
       },
       "upload": {
         "fileTooLarge": "File size exceeds the limit ({maxMb}MB)",
@@ -1155,6 +1183,9 @@
         "revisionConflict": "Reading state revision conflict",
         "noNextChapter": "No next chapter — use finish to complete the book",
         "unsupportedAction": "Unsupported action"
+      },
+      "library": {
+        "userTagNameExists": "You already have a tag with that name"
       }
     }
   }

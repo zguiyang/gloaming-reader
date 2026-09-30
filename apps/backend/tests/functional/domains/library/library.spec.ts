@@ -10,6 +10,8 @@ import {
   readingWork as readingWorkTable,
   user as userTable,
   userLibraryItem as userLibraryItemTable,
+  userTag as userTagTable,
+  userWorkTag as userWorkTagTable,
 } from '@gloaming/db';
 import type { LibraryData } from '@gloaming/shared/library';
 
@@ -128,6 +130,27 @@ describe('Library HTTP', () => {
         .where(and(eq(userLibraryItemTable.userId, learner.userId), eq(userLibraryItemTable.workId, work.id))),
     ).toHaveLength(1);
 
+    const tagResponse = await app.request('/api/library/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ name: ' Favorite ' }),
+    });
+    expect(tagResponse.status).toBe(201);
+    const tag = (await tagResponse.json()) as { id: string; name: string };
+    expect(tag.name).toBe('Favorite');
+    expect(
+      (
+        await app.request(`/api/library/${work.id}/tags/${tag.id}`, {
+          method: 'PUT',
+          headers: { cookie: learner.cookie },
+        })
+      ).status,
+    ).toBe(204);
+    const tagged = await (await app.request('/api/library', { headers: { cookie: learner.cookie } })).json();
+    expect(((tagged as LibraryData).items.find((item) => item.work.id === work.id)?.userTags ?? [])[0]?.id).toBe(
+      tag.id,
+    );
+
     expect(
       (
         await app.request(`/api/library/${work.id}`, {
@@ -153,6 +176,18 @@ describe('Library HTTP', () => {
       .from(readingStateTable)
       .where(and(eq(readingStateTable.userId, learner.userId), eq(readingStateTable.workId, work.id)));
     expect(progressAfterRemoval).toEqual(progressBeforeMembership);
+    expect(
+      await db
+        .select()
+        .from(userWorkTagTable)
+        .where(and(eq(userWorkTagTable.userId, learner.userId), eq(userWorkTagTable.workId, work.id))),
+    ).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(userTagTable)
+        .where(and(eq(userTagTable.userId, learner.userId), eq(userTagTable.id, tag.id))),
+    ).toHaveLength(1);
     expect(await db.select().from(readingDayTable).where(eq(readingDayTable.userId, learner.userId))).toHaveLength(1);
   });
 

@@ -4,6 +4,7 @@ import {
   check,
   date,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -299,6 +300,49 @@ export const userLibraryItem = pgTable(
     unique('user_library_item_user_work_uidx').on(table.userId, table.workId),
     index('user_library_item_user_idx').on(table.userId),
     index('user_library_item_work_idx').on(table.workId),
+  ],
+);
+
+/** Private, user-managed Library labels. Distinct from Catalog taxonomy tags. */
+export const userTag = pgTable(
+  'user_tag',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    normalizedName: text('normalized_name').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('user_tag_user_normalized_name_uidx').on(table.userId, table.normalizedName),
+    unique('user_tag_user_id_id_uidx').on(table.userId, table.id),
+    index('user_tag_user_idx').on(table.userId),
+  ],
+);
+
+/** A user's organization label on a Work they own or explicitly saved. */
+export const userWorkTag = pgTable(
+  'user_work_tag',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    workId: text('work_id')
+      .notNull()
+      .references(() => readingWork.id, { onDelete: 'cascade' }),
+    tagId: text('tag_id').notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userId, table.tagId],
+      foreignColumns: [userTag.userId, userTag.id],
+      name: 'user_work_tag_user_tag_fk',
+    }).onDelete('cascade'),
+    unique('user_work_tag_user_work_tag_uidx').on(table.userId, table.workId, table.tagId),
+    index('user_work_tag_user_work_idx').on(table.userId, table.workId),
+    index('user_work_tag_user_tag_idx').on(table.userId, table.tagId),
   ],
 );
 

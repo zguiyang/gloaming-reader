@@ -17,6 +17,7 @@ export const ERROR_CODES = {
     PART_AUDIO: 'api.errors.notFound.partAudio',
     CLEANUP_JOB: 'api.errors.notFound.cleanupJob',
     WORD_DEFINITION: 'api.errors.notFound.wordDefinition',
+    USER_TAG: 'api.errors.notFound.userTag',
   },
 
   UPLOAD: {
@@ -118,6 +119,10 @@ export const ERROR_CODES = {
     REVISION_CONFLICT: 'api.errors.reader.revisionConflict',
     NO_NEXT_CHAPTER: 'api.errors.reader.noNextChapter',
     UNSUPPORTED_ACTION: 'api.errors.reader.unsupportedAction',
+  },
+
+  LIBRARY: {
+    USER_TAG_NAME_EXISTS: 'api.errors.library.userTagNameExists',
   },
 } as const;
 

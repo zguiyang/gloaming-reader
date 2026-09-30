@@ -8,6 +8,25 @@ export const LIBRARY_ITEMS_LIMIT = 48 as const;
 /** A Library member may have no reading progress yet. */
 export const libraryAvailabilitySchema = z.enum(['processing', 'ready', 'failed']);
 
+/** Private Library organization label, separate from Catalog taxonomy. */
+export const userTagSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+export const userTagManagementItemSchema = userTagSchema.extend({
+  bookCount: z.number().int().nonnegative(),
+});
+
+export const userTagListSchema = z.array(userTagManagementItemSchema);
+
+export const userTagWriteSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+
+export type UserTag = z.infer<typeof userTagSchema>;
+export type UserTagManagementItem = z.infer<typeof userTagManagementItemSchema>;
+
 export const libraryItemSchema = z.object({
   work: readerWorkSummarySchema,
   state: readingStateSchema.nullable(),
@@ -15,6 +34,8 @@ export const libraryItemSchema = z.object({
   availability: libraryAvailabilitySchema,
   /** True only for explicitly saved Catalog works; owned books are not removable from Library. */
   canRemoveFromLibrary: z.boolean(),
+  /** Private organization labels owned by the current user. */
+  userTags: z.array(userTagSchema),
 });
 
 export type LibraryItem = z.infer<typeof libraryItemSchema>;

@@ -851,6 +851,33 @@
       "failedHint": "暂时无法读取这本书。",
       "processingFailed": "这本书处理失败",
       "manageBookAria": "管理《{title}》",
+      "manageTags": "管理标签",
+      "manageTagsForBook": "管理标签",
+      "newTag": "新建标签",
+      "renameTag": "重命名",
+      "deleteTag": "删除标签",
+      "tagName": "标签名称",
+      "saveTags": "保存标签",
+      "tagsSaved": "标签已更新",
+      "tagCreated": "标签已创建",
+      "tagRenamed": "标签已重命名",
+      "tagDeleted": "标签已删除",
+      "noTags": "暂无标签",
+      "noTagsInLibrary": "还没有标签",
+      "tagFilterAll": "全部",
+      "tagFilterAria": "按标签筛选书籍",
+      "tagManagementTitle": "管理标签",
+      "tagManagementDescription": "用标签整理书库中的书籍。",
+      "usedInBooks": "用于 {count} 本书",
+      "tagDeleteConfirmTitle": "删除这个标签？",
+      "tagDeleteConfirmDescription": "此标签用于 {count} 本书。删除标签不会删除书籍。",
+      "tagDeleteConfirmDescriptionEmpty": "删除标签不会删除书籍。",
+      "tagNameRequired": "请输入标签名称",
+      "tagNameTooLong": "标签名称不能超过 80 个字符",
+      "createTag": "创建标签",
+      "cancel": "取消",
+      "save": "保存",
+      "filterNoMatches": "没有使用此标签的书籍",
       "removeFromLibrary": "移出书库",
       "removeConfirmTitle": "移出书库？",
       "removeConfirmDescription": "此书将从书库移除，阅读进度和历史记录会保留。",
@@ -1068,7 +1095,8 @@
         "llmModel": "未找到 LLM 模型",
         "partAudio": "未找到章节音频",
         "cleanupJob": "未找到清理任务",
-        "wordDefinition": "未找到单词「{word}」的词典释义"
+        "wordDefinition": "未找到单词「{word}」的词典释义",
+        "userTag": "未找到标签"
       },
       "upload": {
         "fileTooLarge": "文件大小超过上限（{maxMb}MB）",
@@ -1158,6 +1186,9 @@
         "revisionConflict": "阅读状态版本冲突",
         "noNextChapter": "没有下一章 — 请使用完成操作结束本书",
         "unsupportedAction": "不支持的操作"
+      },
+      "library": {
+        "userTagNameExists": "你已经有一个同名标签"
       }
     }
   }

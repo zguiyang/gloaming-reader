@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { type Locale, t } from '@gloaming/i18n';
-import type { LibraryItem } from '@gloaming/shared/library';
+import type { LibraryItem, UserTagManagementItem } from '@gloaming/shared/library';
 import { resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import {
@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AUTH_ROUTES } from '@/constants';
 import { formatLibraryApiError, libraryQueryKey, removeFromLibrary } from '@/features/library/library-api';
+import { LibraryTagAssignmentDialog } from '@/features/library/library-tag-assignment-dialog';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
@@ -53,10 +54,11 @@ function statusLabel(entry: LibraryItem, locale: Locale): string {
   return t(locale, 'content.library.statusReadProgress', { ratio: entry.state.progressRatio });
 }
 
-export function LibraryBookCard({ entry }: { entry: LibraryItem }) {
+export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: UserTagManagementItem[] }) {
   const { locale } = useLocale();
   const queryClient = useQueryClient();
   const [isRemoveConfirmationOpen, setIsRemoveConfirmationOpen] = useState(false);
+  const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
   const { work, state } = entry;
   const readHref = AUTH_ROUTES.readBook(work.id, state?.currentPartId ?? undefined);
   const tagLine = work.tags
@@ -125,7 +127,7 @@ export function LibraryBookCard({ entry }: { entry: LibraryItem }) {
               {work.title}
             </h3>
           )}
-          {entry.canRemoveFromLibrary ? (
+          {entry.canRemoveFromLibrary || entry.availability === 'ready' ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon" className="-mr-2 -mt-2 size-11 shrink-0" />}
@@ -134,9 +136,16 @@ export function LibraryBookCard({ entry }: { entry: LibraryItem }) {
                 <MoreHorizontalIcon className="size-5" aria-hidden />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-auto min-w-40">
-                <DropdownMenuItem onClick={() => setIsRemoveConfirmationOpen(true)}>
-                  {t(locale, 'content.library.removeFromLibrary')}
-                </DropdownMenuItem>
+                {entry.availability === 'ready' ? (
+                  <DropdownMenuItem onClick={() => setIsTagDialogOpen(true)}>
+                    {t(locale, 'content.library.manageTagsForBook')}
+                  </DropdownMenuItem>
+                ) : null}
+                {entry.canRemoveFromLibrary ? (
+                  <DropdownMenuItem onClick={() => setIsRemoveConfirmationOpen(true)}>
+                    {t(locale, 'content.library.removeFromLibrary')}
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
@@ -199,6 +208,7 @@ export function LibraryBookCard({ entry }: { entry: LibraryItem }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <LibraryTagAssignmentDialog entry={entry} tags={tags} open={isTagDialogOpen} onOpenChange={setIsTagDialogOpen} />
     </article>
   );
 }
