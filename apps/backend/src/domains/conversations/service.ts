@@ -290,6 +290,15 @@ export async function appendAssistTurn(input: AppendTurnInput): Promise<{ conver
   const now = new Date();
 
   return db.transaction(async (tx) => {
+    if (input.subjectType === 'reading_work') {
+      const [work] = await tx
+        .select({ id: readingWorkTable.id })
+        .from(readingWorkTable)
+        .where(eq(readingWorkTable.id, input.subjectId))
+        .for('share')
+        .limit(1);
+      if (!work) throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
+    }
     let conversationId = input.conversationId;
 
     if (conversationId) {

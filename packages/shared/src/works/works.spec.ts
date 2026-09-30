@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   catalogListQuerySchema,
+  personalWorkUpdateSchema,
   personalWorkUploadResultSchema,
   WORK_PROCESSING_STATUSES,
   workProcessingStatusSchema,
@@ -61,5 +62,15 @@ describe('work contracts', () => {
         storageKey: 'epub/private.epub',
       }),
     ).toEqual({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' });
+  });
+
+  it('accepts only owner-editable Personal Work metadata', () => {
+    expect(personalWorkUpdateSchema.parse({ title: '  Title  ', author: 'Author' })).toEqual({
+      title: 'Title',
+      author: 'Author',
+    });
+    expect(personalWorkUpdateSchema.safeParse({ visibility: 'catalog' }).success).toBe(false);
+    expect(personalWorkUpdateSchema.safeParse({ ownerUserId: 'other-user', title: 'Title' }).success).toBe(false);
+    expect(personalWorkUpdateSchema.safeParse({}).success).toBe(false);
   });
 });

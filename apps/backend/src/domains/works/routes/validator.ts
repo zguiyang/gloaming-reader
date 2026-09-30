@@ -2,7 +2,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Context, ValidationTargets } from 'hono';
 import type { ZodType } from 'zod';
 
-import { catalogListQuerySchema } from '@gloaming/shared/works';
+import { catalogListQuerySchema, personalWorkUpdateSchema } from '@gloaming/shared/works';
 
 import { sendValidationError } from '@/infra/http/response';
 
@@ -21,3 +21,4 @@ function validated<T extends ZodType, Target extends keyof ValidationTargets>(ta
 }
 
 export const validateCatalogListQuery = validated('query', catalogListQuerySchema);
+export const validatePersonalWorkUpdate = validated('json', personalWorkUpdateSchema);

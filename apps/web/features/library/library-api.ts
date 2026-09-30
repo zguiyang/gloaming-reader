@@ -4,6 +4,10 @@ import { z } from 'zod';
 import { type LibraryData, type UserTag, userTagListSchema, userTagSchema } from '@gloaming/shared/library';
 import {
   EPUB_UPLOAD_MAX_BYTES,
+  personalWorkDeleteResultSchema,
+  type PersonalWorkUpdate,
+  type PersonalWorkUpdateResult,
+  personalWorkUpdateResultSchema,
   type PersonalWorkUploadResult,
   personalWorkUploadResultSchema,
 } from '@gloaming/shared/works';
@@ -45,6 +49,21 @@ export async function addToLibrary(workId: string): Promise<void> {
 
 export async function removeFromLibrary(workId: string): Promise<void> {
   await apiRequest(`/api/library/${encodeURIComponent(workId)}`, { method: 'DELETE', schema: z.undefined() });
+}
+
+export async function updatePersonalWork(workId: string, patch: PersonalWorkUpdate): Promise<PersonalWorkUpdateResult> {
+  return apiRequest(`/api/works/${encodeURIComponent(workId)}`, {
+    method: 'PATCH',
+    json: patch,
+    schema: personalWorkUpdateResultSchema,
+  });
+}
+
+export async function deletePersonalWork(workId: string): Promise<void> {
+  await apiRequest(`/api/works/${encodeURIComponent(workId)}`, {
+    method: 'DELETE',
+    schema: personalWorkDeleteResultSchema,
+  });
 }
 
 export async function createUserTag(name: string): Promise<UserTag> {

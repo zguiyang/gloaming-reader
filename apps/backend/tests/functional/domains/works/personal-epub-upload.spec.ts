@@ -1,23 +1,32 @@
+import { randomUUID } from 'node:crypto';
+
 import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   contentAsset as contentAssetTable,
+  conversation as conversationTable,
+  conversationMessage as conversationMessageTable,
   readingPart as readingPartTable,
+  readingState as readingStateTable,
   readingWork as readingWorkTable,
   uploadedObject as uploadedObjectTable,
   user as userTable,
   userLibraryItem as userLibraryItemTable,
+  userTag as userTagTable,
+  userWorkTag as userWorkTagTable,
 } from '@gloaming/db';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 
 import app from '@/app';
 import { processContentParse } from '@/application/jobs/content-parse';
 import { hashFileContent } from '@/domains/assets/uploads';
+import { processPersonalWorkCleanup } from '@/domains/works/personal/management';
 import { db } from '@/infra/db';
 import * as queueLib from '@/infra/queue';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
+import { createCatalogWorkFixture } from '../../../helpers/catalog-work-fixture';
 import { buildSampleEpubBytes } from '../../../helpers/epub-builder';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
@@ -80,6 +89,7 @@ describe('POST /api/works (Personal EPUB)', () => {
   let other: Awaited<ReturnType<typeof createSession>>;
   let admin: Awaited<ReturnType<typeof createSession>>;
   let enqueueSpy: ReturnType<typeof vi.spyOn<typeof queueLib, 'enqueue'>>;
+  let enqueueCleanupSpy: ReturnType<typeof vi.spyOn<typeof queueLib, 'enqueueCleanup'>>;
 
   beforeAll(async () => {
     memory.store.clear();
@@ -89,10 +99,12 @@ describe('POST /api/works (Personal EPUB)', () => {
     admin = await createSession('admin');
     createdEmails.push(owner.email, other.email, admin.email);
     enqueueSpy = vi.spyOn(queueLib, 'enqueue').mockResolvedValue('test-job');
+    enqueueCleanupSpy = vi.spyOn(queueLib, 'enqueueCleanup').mockResolvedValue('cleanup-job');
   });
 
   afterAll(async () => {
     enqueueSpy?.mockRestore();
+    enqueueCleanupSpy?.mockRestore();
     if (createdWorkIds.length) await db.delete(readingWorkTable).where(inArray(readingWorkTable.id, createdWorkIds));
     if (createdHashes.length) {
       await db.delete(uploadedObjectTable).where(inArray(uploadedObjectTable.contentHash, createdHashes));
@@ -137,6 +149,12 @@ describe('POST /api/works (Personal EPUB)', () => {
     expect(sourceAssets).toHaveLength(1);
     expect(sourceAssets[0]).toMatchObject({ kind: 'origin_file', status: 'ready' });
     expect(memory.store.has(sourceAssets[0]!.storageKey!)).toBe(true);
+
+    const processingDelete = await app.request(`/api/works/${workId}`, {
+      method: 'DELETE',
+      headers: { Cookie: owner.cookie },
+    });
+    expect(processingDelete.status).toBe(409);
 
     const spoof = await app.request('/api/works', {
       method: 'POST',
@@ -185,6 +203,60 @@ describe('POST /api/works (Personal EPUB)', () => {
       403,
     );
     expect((await app.request(`/api/assets/${originAsset.id}`)).status).toBe(403);
+
+    const patchResponse = await app.request(`/api/works/${workId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: owner.cookie },
+      body: JSON.stringify({ title: 'My title', author: 'My author', description: 'My note' }),
+    });
+    expect(patchResponse.status).toBe(200);
+    expect(await patchResponse.json()).toEqual({
+      id: workId,
+      title: 'My title',
+      author: 'My author',
+      description: 'My note',
+    });
+    expect(
+      (
+        await app.request(`/api/works/${workId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: other.cookie },
+          body: JSON.stringify({ title: 'Spoofed' }),
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await app.request(`/api/works/${workId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+          body: JSON.stringify({ title: 'Admin override' }),
+        })
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await app.request(`/api/works/${workId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Cookie: owner.cookie },
+          body: JSON.stringify({ ownerUserId: other.userId, title: 'Spoofed owner' }),
+        })
+      ).status,
+    ).toBe(400);
+    await expect(
+      app.request('/api/library', { headers: { Cookie: other.cookie } }).then((response) => response.text()),
+    ).resolves.toContain('"items":[]');
+
+    enqueueCleanupSpy.mockClear();
+    const readyDeleted = await app.request(`/api/works/${workId}`, {
+      method: 'DELETE',
+      headers: { Cookie: owner.cookie },
+    });
+    expect(readyDeleted.status).toBe(200);
+    expect(await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId))).toHaveLength(0);
+    const cleanupData = enqueueCleanupSpy.mock.calls[0]![1] as Parameters<typeof processPersonalWorkCleanup>[0];
+    await processPersonalWorkCleanup(cleanupData);
+    expect(memory.store.has(originAsset.storageKey!)).toBe(false);
   });
 
   it('marks malformed EPUB parsing failed without creating readable parts or derived assets', async () => {
@@ -206,6 +278,117 @@ describe('POST /api/works (Personal EPUB)', () => {
     expect((await db.select().from(readingPartTable).where(eq(readingPartTable.workId, result.id))).length).toBe(0);
     const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, result.id));
     expect(assets.map((asset) => asset.kind)).toEqual(['origin_file']);
+
+    const originalKey = assets[0]!.storageKey;
+    const [tag] = await db
+      .insert(userTagTable)
+      .values({
+        id: randomUUID(),
+        userId: owner.userId,
+        name: '英语学习',
+        normalizedName: `english-${result.id}`,
+      })
+      .returning();
+    await db.insert(userWorkTagTable).values({ userId: owner.userId, workId: result.id, tagId: tag!.id });
+    await db.insert(readingStateTable).values({
+      id: randomUUID(),
+      userId: owner.userId,
+      workId: result.id,
+      currentPartId: null,
+      completedThroughSortOrder: -1,
+      revision: 0,
+      anchorKind: null,
+      anchorValue: null,
+      status: 'in_progress',
+      addedAt: new Date(),
+      lastReadAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const conversationId = randomUUID();
+    await db.insert(conversationTable).values({
+      id: conversationId,
+      userId: owner.userId,
+      surface: 'assist-read',
+      subjectType: 'reading_work',
+      subjectId: result.id,
+    });
+    await db.insert(conversationMessageTable).values({
+      id: randomUUID(),
+      conversationId,
+      role: 'user',
+      content: 'question',
+      status: 'complete',
+    });
+
+    const duplicateResponse = await app.request('/api/works', {
+      method: 'POST',
+      headers: { Cookie: other.cookie },
+      body: uploadForm('Shared Broken.epub', bytes),
+    });
+    expect(duplicateResponse.status).toBe(201);
+    const duplicate = (await duplicateResponse.json()) as { id: string };
+    createdWorkIds.push(duplicate.id);
+    await db.update(readingWorkTable).set({ processingStatus: 'failed' }).where(eq(readingWorkTable.id, duplicate.id));
+    const sharedBefore = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, hashFileContent(bytes)));
+    expect(sharedBefore[0]?.refCount).toBe(2);
+
+    enqueueCleanupSpy.mockClear();
+    const deleted = await app.request(`/api/works/${result.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: owner.cookie },
+    });
+    expect(deleted.status).toBe(200);
+    expect(await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, result.id))).toHaveLength(0);
+    expect(await db.select().from(readingPartTable).where(eq(readingPartTable.workId, result.id))).toHaveLength(0);
+    expect(await db.select().from(readingStateTable).where(eq(readingStateTable.workId, result.id))).toHaveLength(0);
+    expect(await db.select().from(userWorkTagTable).where(eq(userWorkTagTable.workId, result.id))).toHaveLength(0);
+    expect(await db.select().from(userTagTable).where(eq(userTagTable.id, tag!.id))).toHaveLength(1);
+    expect(await db.select().from(conversationTable).where(eq(conversationTable.id, conversationId))).toHaveLength(0);
+    expect(
+      await db
+        .select()
+        .from(conversationMessageTable)
+        .where(eq(conversationMessageTable.conversationId, conversationId)),
+    ).toHaveLength(0);
+    expect(
+      (
+        await db
+          .select()
+          .from(uploadedObjectTable)
+          .where(eq(uploadedObjectTable.contentHash, hashFileContent(bytes)))
+      )[0]?.refCount,
+    ).toBe(1);
+    expect(memory.store.has(originalKey!)).toBe(true);
+    expect(enqueueCleanupSpy).toHaveBeenCalledOnce();
+    await processPersonalWorkCleanup(
+      enqueueCleanupSpy.mock.calls[0]![1] as Parameters<typeof processPersonalWorkCleanup>[0],
+    );
+    expect(memory.store.has(originalKey!)).toBe(true);
+
+    const duplicateDeleted = await app.request(`/api/works/${duplicate.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: other.cookie },
+    });
+    expect(duplicateDeleted.status).toBe(200);
+    const finalCleanup = enqueueCleanupSpy.mock.calls.at(-1)![1] as Parameters<typeof processPersonalWorkCleanup>[0];
+    const deleteMany = memory.deleteMany.bind(memory);
+    let failDeleteOnce = true;
+    memory.deleteMany = async (keys) => {
+      if (failDeleteOnce) {
+        failDeleteOnce = false;
+        return { deleted: [], failed: keys.map((key) => ({ key, error: 'temporary failure' })) };
+      }
+      return deleteMany(keys);
+    };
+    await expect(processPersonalWorkCleanup(finalCleanup)).rejects.toThrow('Failed to delete');
+    expect(memory.store.has(originalKey!)).toBe(true);
+    await processPersonalWorkCleanup(finalCleanup);
+    expect(memory.store.has(originalKey!)).toBe(false);
+    await expect(processPersonalWorkCleanup(finalCleanup)).resolves.toEqual({ ok: true });
   });
 
   it('lets an Admin account upload a private Work through the ordinary User API', async () => {
@@ -233,5 +416,34 @@ describe('POST /api/works (Personal EPUB)', () => {
       publishedAt: null,
       processingStatus: 'uploaded',
     });
+
+    await db.update(readingWorkTable).set({ processingStatus: 'ready' }).where(eq(readingWorkTable.id, workId));
+    const edited = await app.request(`/api/works/${workId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Cookie: admin.cookie },
+      body: JSON.stringify({ title: 'My own book' }),
+    });
+    expect(edited.status).toBe(200);
+    const deleted = await app.request(`/api/works/${workId}`, { method: 'DELETE', headers: { Cookie: admin.cookie } });
+    expect(deleted.status).toBe(200);
+  });
+
+  it('does not expose edit or delete capabilities for Catalog Works, including to Admin', async () => {
+    const catalog = await createCatalogWorkFixture({ title: 'Catalog remains public', body: 'Catalog content.' });
+    createdWorkIds.push(catalog.id);
+    for (const session of [owner, admin]) {
+      const patch = await app.request(`/api/works/${catalog.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Cookie: session.cookie },
+        body: JSON.stringify({ title: 'Not allowed' }),
+      });
+      const deletion = await app.request(`/api/works/${catalog.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: session.cookie },
+      });
+      expect(patch.status).toBe(404);
+      expect(deletion.status).toBe(404);
+    }
+    expect(await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, catalog.id))).toHaveLength(1);
   });
 });

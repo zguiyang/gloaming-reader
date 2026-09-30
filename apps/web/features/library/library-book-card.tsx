@@ -28,8 +28,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AUTH_ROUTES } from '@/constants';
-import { formatLibraryApiError, libraryQueryKey, removeFromLibrary } from '@/features/library/library-api';
+import {
+  deletePersonalWork,
+  formatLibraryApiError,
+  libraryQueryKey,
+  removeFromLibrary,
+} from '@/features/library/library-api';
 import { LibraryTagAssignmentDialog } from '@/features/library/library-tag-assignment-dialog';
+import { PersonalWorkEditSheet } from '@/features/library/personal-work-edit-sheet';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
@@ -58,7 +64,9 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
   const { locale } = useLocale();
   const queryClient = useQueryClient();
   const [isRemoveConfirmationOpen, setIsRemoveConfirmationOpen] = useState(false);
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
   const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const { work, state } = entry;
   const readHref = AUTH_ROUTES.readBook(work.id, state?.currentPartId ?? undefined);
   const tagLine = work.tags
@@ -77,6 +85,16 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
     },
     onError: (error) => toast.error(formatLibraryApiError(error)),
   });
+  const deletion = useMutation({
+    mutationFn: () => deletePersonalWork(work.id),
+    onSuccess: async () => {
+      setIsDeleteConfirmationOpen(false);
+      await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
+      toast.success(t(locale, 'content.library.bookDeleted'));
+    },
+    onError: (error) => toast.error(formatLibraryApiError(error)),
+  });
+  const isPersonal = entry.libraryItemKind === 'personal';
 
   const cover = (
     <WorkCover
@@ -127,7 +145,7 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
               {work.title}
             </h3>
           )}
-          {entry.canRemoveFromLibrary || entry.availability === 'ready' ? (
+          {entry.canRemoveFromLibrary || (isPersonal && entry.availability !== 'processing') ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon" className="-mr-2 -mt-2 size-11 shrink-0" />}
@@ -139,6 +157,16 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
                 {entry.availability === 'ready' ? (
                   <DropdownMenuItem onClick={() => setIsTagDialogOpen(true)}>
                     {t(locale, 'content.library.manageTagsForBook')}
+                  </DropdownMenuItem>
+                ) : null}
+                {isPersonal && entry.availability === 'ready' ? (
+                  <DropdownMenuItem onClick={() => setIsEditSheetOpen(true)}>
+                    {t(locale, 'content.library.editBookInfo')}
+                  </DropdownMenuItem>
+                ) : null}
+                {isPersonal ? (
+                  <DropdownMenuItem onClick={() => setIsDeleteConfirmationOpen(true)}>
+                    {t(locale, 'content.library.deleteBook')}
                   </DropdownMenuItem>
                 ) : null}
                 {entry.canRemoveFromLibrary ? (
@@ -208,7 +236,30 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog open={isDeleteConfirmationOpen} onOpenChange={setIsDeleteConfirmationOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t(locale, 'content.library.deleteBookConfirmTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(locale, 'content.library.deleteBookConfirmDescription', { title: work.title })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletion.isPending}>{t(locale, 'common.close')}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deletion.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletion.mutate()}
+            >
+              {t(locale, 'content.library.deleteBook')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <LibraryTagAssignmentDialog entry={entry} tags={tags} open={isTagDialogOpen} onOpenChange={setIsTagDialogOpen} />
+      {isPersonal && isEditSheetOpen ? (
+        <PersonalWorkEditSheet entry={entry} locale={locale} open onOpenChange={setIsEditSheetOpen} />
+      ) : null}
     </article>
   );
 }

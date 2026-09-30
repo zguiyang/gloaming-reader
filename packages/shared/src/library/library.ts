@@ -32,6 +32,10 @@ export const libraryItemSchema = z.object({
   state: readingStateSchema.nullable(),
   /** User-facing readiness bucket derived from the Work pipeline state. */
   availability: libraryAvailabilitySchema,
+  /** Stable ownership/membership semantics; does not infer source from origin metadata. */
+  libraryItemKind: z.enum(['personal', 'saved_catalog']),
+  /** Owner-editable fields that are not part of the public Reader summary. */
+  personalMetadata: z.object({ author: z.string() }).nullable(),
   /** True only for explicitly saved Catalog works; owned books are not removable from Library. */
   canRemoveFromLibrary: z.boolean(),
   /** Private organization labels owned by the current user. */

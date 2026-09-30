@@ -26,11 +26,21 @@ describe('Library contracts', () => {
     const parsed = libraryDataSchema.parse({
       current: { work, state },
       items: [
-        { work, state: null, availability: 'ready', canRemoveFromLibrary: false, userTags: [] },
+        {
+          work,
+          state: null,
+          availability: 'ready',
+          libraryItemKind: 'personal',
+          personalMetadata: { author: 'A' },
+          canRemoveFromLibrary: false,
+          userTags: [],
+        },
         {
           work,
           state,
           availability: 'ready',
+          libraryItemKind: 'saved_catalog',
+          personalMetadata: null,
           canRemoveFromLibrary: true,
           userTags: [{ id: 'tag-1', name: 'Favorite' }],
         },
@@ -47,7 +57,14 @@ describe('Library contracts', () => {
   });
 
   it('limits item readiness to processing, readable, or failed', () => {
-    const base = { work, state: null, canRemoveFromLibrary: false, userTags: [] };
+    const base = {
+      work,
+      state: null,
+      canRemoveFromLibrary: false,
+      libraryItemKind: 'personal' as const,
+      personalMetadata: { author: '' },
+      userTags: [],
+    };
     expect(() => libraryDataSchema.parse({ current: null, items: [{ ...base, availability: 'metadata' }] })).toThrow();
     expect(
       libraryDataSchema.parse({ current: null, items: [{ ...base, availability: 'processing' }] }).items[0]

@@ -53,6 +53,8 @@ describe('personal EPUB upload', () => {
             work: { id: 'work-1' },
             state: null,
             availability: 'processing',
+            libraryItemKind: 'personal',
+            personalMetadata: { author: '' },
             canRemoveFromLibrary: false,
             userTags: [],
           },

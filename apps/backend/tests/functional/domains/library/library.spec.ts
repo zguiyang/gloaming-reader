@@ -121,6 +121,8 @@ describe('Library HTTP', () => {
     expect(savedData.items.find((item) => item.work.id === work.id)?.state?.status).toBe('in_progress');
     expect(savedData.items.find((item) => item.work.id === work.id)).toMatchObject({
       availability: 'ready',
+      libraryItemKind: 'saved_catalog',
+      personalMetadata: null,
       canRemoveFromLibrary: true,
     });
     expect(
@@ -235,6 +237,8 @@ describe('Library HTTP', () => {
     expect(ownerData.items.find((item) => item.work.id === workId)).toMatchObject({
       state: null,
       availability: 'ready',
+      libraryItemKind: 'personal',
+      personalMetadata: { author: '' },
       canRemoveFromLibrary: false,
     });
     expect(ownerData.items.find((item) => item.work.id === processingWorkId)?.availability).toBe('processing');

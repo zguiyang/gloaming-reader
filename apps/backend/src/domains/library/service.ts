@@ -109,6 +109,8 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
           ? 'failed'
           : 'processing',
     canRemoveFromLibrary: row.canRemoveFromLibrary,
+    libraryItemKind: row.canRemoveFromLibrary ? 'saved_catalog' : 'personal',
+    personalMetadata: row.canRemoveFromLibrary ? null : { author: row.work.author },
     userTags: userTagsByWork.get(row.work.id) ?? [],
   });
 

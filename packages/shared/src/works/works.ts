@@ -104,6 +104,28 @@ export const personalWorkUploadResultSchema = z.object({
 });
 export type PersonalWorkUploadResult = z.infer<typeof personalWorkUploadResultSchema>;
 
+/** Owner-editable metadata only; lifecycle, ownership, and storage fields are excluded. */
+export const personalWorkUpdateSchema = z
+  .object({
+    title: z.string().trim().min(1).max(WORK_TITLE_MAX).optional(),
+    author: z.string().trim().max(500).optional(),
+    description: z.string().trim().max(5000).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, 'At least one editable field is required');
+
+export const personalWorkUpdateResultSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  author: z.string(),
+  description: z.string(),
+});
+
+export const personalWorkDeleteResultSchema = z.object({ id: z.string(), deleted: z.literal(true) });
+export type PersonalWorkUpdate = z.infer<typeof personalWorkUpdateSchema>;
+export type PersonalWorkUpdateResult = z.infer<typeof personalWorkUpdateResultSchema>;
+export type PersonalWorkDeleteResult = z.infer<typeof personalWorkDeleteResultSchema>;
+
 export const CATALOG_SORT_FIELDS = ['publishedAt', 'updatedAt', 'createdAt'] as const;
 export type CatalogSortField = (typeof CATALOG_SORT_FIELDS)[number];
 export const DEFAULT_CATALOG_SORT_BY = 'publishedAt' as const satisfies CatalogSortField;

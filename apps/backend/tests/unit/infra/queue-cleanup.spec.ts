@@ -53,10 +53,13 @@ vi.mock('bullmq', () => {
 });
 
 const processAssetCleanup = vi.fn().mockResolvedValue({ ok: true });
+const processPersonalWorkCleanupJob = vi.fn().mockResolvedValue({ ok: true });
 
 vi.mock('@/application/jobs/asset-cleanup', () => ({
   JOB_ASSET_CLEANUP: 'asset-cleanup',
   processAssetCleanup: (...args: unknown[]) => processAssetCleanup(...args),
+  JOB_PERSONAL_WORK_CLEANUP: 'personal-work-cleanup',
+  processPersonalWorkCleanupJob: (...args: unknown[]) => processPersonalWorkCleanupJob(...args),
 }));
 
 vi.mock('@/application/jobs/content-parse', () => ({
@@ -89,6 +92,7 @@ describe('cleanup queue isolation', () => {
     workerConstructors.length = 0;
     workerProcessors.clear();
     processAssetCleanup.mockClear();
+    processPersonalWorkCleanupJob.mockClear();
   });
 
   afterEach(async () => {
@@ -157,5 +161,10 @@ describe('cleanup queue isolation', () => {
       ok: true,
     });
     expect(processAssetCleanup).toHaveBeenCalledWith({ jobId: 'job_1', scanId: 'scan_1' });
+
+    await expect(
+      cleanupProcessor!({ name: 'personal-work-cleanup', data: { keys: ['epub/key'], uploadContentHash: 'hash' } }),
+    ).resolves.toEqual({ ok: true });
+    expect(processPersonalWorkCleanupJob).toHaveBeenCalledWith({ keys: ['epub/key'], uploadContentHash: 'hash' });
   });
 });

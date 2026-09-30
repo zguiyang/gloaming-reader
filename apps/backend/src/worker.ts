@@ -1,7 +1,12 @@
 import type { Job, Worker } from 'bullmq';
 import { Worker as BullWorker } from 'bullmq';
 
-import { JOB_ASSET_CLEANUP, processAssetCleanup } from '@/application/jobs/asset-cleanup';
+import {
+  JOB_ASSET_CLEANUP,
+  JOB_PERSONAL_WORK_CLEANUP,
+  processAssetCleanup,
+  processPersonalWorkCleanupJob,
+} from '@/application/jobs/asset-cleanup';
 import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from '@/application/jobs/content-parse';
 import {
   JOB_METADATA_ENRICH,
@@ -20,6 +25,7 @@ import {
   processWorkMetadataFill,
   type WorkMetadataFillJobData,
 } from '@/application/jobs/work-metadata-fill';
+import type { PersonalWorkCleanupJobData } from '@/domains/works/personal/management';
 import { commonEnv } from '@/infra/config/env-common';
 import { workerLogger } from '@/infra/logging/logger';
 import { CLEANUP_QUEUE_NAME, closeQueue, getQueueConnection, QUEUE_NAME } from '@/infra/queue';
@@ -44,6 +50,9 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
 }
 
 export async function processCleanupJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
+  if (job.name === JOB_PERSONAL_WORK_CLEANUP) {
+    return processPersonalWorkCleanupJob(job.data as PersonalWorkCleanupJobData);
+  }
   if (job.name !== JOB_ASSET_CLEANUP) {
     throw new Error(`Unknown cleanup job name: ${job.name}`);
   }

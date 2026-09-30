@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
     file.name.toLowerCase().endsWith('.epub') ? null : 'format',
   ),
   removeFromLibrary: vi.fn(),
+  updatePersonalWork: vi.fn(),
+  deletePersonalWork: vi.fn(),
   createUserTag: vi.fn(),
   renameUserTag: vi.fn(),
   deleteUserTag: vi.fn(),
@@ -41,6 +43,8 @@ vi.mock('@/features/library/library-api', () => ({
   uploadPersonalEpub: mocks.uploadPersonalEpub,
   personalEpubValidationError: mocks.personalEpubValidationError,
   removeFromLibrary: mocks.removeFromLibrary,
+  updatePersonalWork: mocks.updatePersonalWork,
+  deletePersonalWork: mocks.deletePersonalWork,
   formatLibraryApiError: mocks.formatLibraryApiError,
   libraryQueryKey: { all: ['library'], tags: ['library', 'tags'] },
 }));
@@ -56,6 +60,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.personalEpubValidationError.mockReturnValue(null);
   mocks.removeFromLibrary.mockResolvedValue(undefined);
+  mocks.updatePersonalWork.mockResolvedValue({ id: 'book', title: 'Updated', author: 'Author', description: 'Note' });
+  mocks.deletePersonalWork.mockResolvedValue(undefined);
   mocks.useUserTagsQuery.mockReturnValue({ data: [] });
   mocks.createUserTag.mockResolvedValue({ id: 'tag-new', name: '新标签' });
   mocks.renameUserTag.mockResolvedValue({ id: 'tag-one', name: '更新' });
@@ -80,6 +86,8 @@ function item(id: string, canRemoveFromLibrary: boolean, availability: 'processi
     work: work(id),
     state: null,
     availability,
+    libraryItemKind: canRemoveFromLibrary ? 'saved_catalog' : 'personal',
+    personalMetadata: canRemoveFromLibrary ? null : { author: '' },
     canRemoveFromLibrary,
     userTags: [],
   } as LibraryData['items'][number];
@@ -277,7 +285,7 @@ describe('LibraryPage', () => {
     expect(view.container.querySelector('a[href="/read/processing"]')).toBeNull();
     expect(view.container.querySelector('a[href="/read/failed"]')).toBeNull();
     expect(view.container.textContent).not.toContain('重试');
-    expect(view.container.querySelectorAll('button[aria-label^="管理《"]')).toHaveLength(0);
+    expect(view.container.querySelectorAll('button[aria-label^="管理《"]')).toHaveLength(1);
     view.cleanup();
   });
 
@@ -365,6 +373,8 @@ describe('LibraryPage', () => {
     const removeMenuItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
       element.textContent?.includes('移出书库'),
     );
+    expect(document.body.textContent).not.toContain('编辑书籍信息');
+    expect(document.body.textContent).not.toContain('删除书籍');
     expect(removeMenuItem).toBeTruthy();
     await act(async () => (removeMenuItem as HTMLElement).click());
     expect(document.body.textContent).toContain('此书将从书库移除，阅读进度和历史记录会保留。');
@@ -373,5 +383,59 @@ describe('LibraryPage', () => {
     expect(mocks.removeFromLibrary).toHaveBeenCalledWith('catalog');
     expect(mocks.toastSuccess).toHaveBeenCalledWith('已移出书库');
     view.cleanup();
+  });
+
+  it('offers owner edit/delete actions for Personal Works and deletes failed uploads', async () => {
+    const view = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('personal', false)] },
+    });
+    const menuTrigger = view.container.querySelector('button[aria-label="管理《Book personal》"]') as HTMLButtonElement;
+    await act(async () => menuTrigger.click());
+    const menuText = document.body.textContent ?? '';
+    expect(menuText).toContain('编辑书籍信息');
+    expect(menuText).toContain('删除书籍');
+    expect(menuText).not.toContain('移出书库');
+    const edit = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('编辑书籍信息'),
+    );
+    await act(async () => (edit as HTMLElement).click());
+    expect(document.body.textContent).toContain('书名');
+    const inputs = document.querySelectorAll('input');
+    await act(async () => {
+      updateInput(inputs[0] as HTMLInputElement, 'New title');
+      updateInput(inputs[1] as HTMLInputElement, 'New author');
+      const submit = Array.from(document.querySelectorAll('button')).find((button) =>
+        button.textContent?.includes('保存更改'),
+      );
+      submit?.click();
+    });
+    expect(mocks.updatePersonalWork).toHaveBeenCalledWith(
+      'personal',
+      expect.objectContaining({ title: 'New title', author: 'New author' }),
+    );
+    view.cleanup();
+
+    const failedView = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('failed', false, 'failed')] },
+    });
+    await act(async () =>
+      (failedView.container.querySelector('button[aria-label="管理《Book failed》"]') as HTMLButtonElement).click(),
+    );
+    const failedMenu = document.body.textContent ?? '';
+    expect(failedMenu).toContain('删除书籍');
+    expect(failedMenu).not.toContain('编辑书籍信息');
+    const deleteItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('删除书籍'),
+    );
+    await act(async () => (deleteItem as HTMLElement).click());
+    expect(document.body.textContent).toContain('《Book failed》及其阅读进度、对话和存储文件将被永久删除。');
+    const confirm = Array.from(document.querySelectorAll('button')).find((button) => button.textContent === '删除书籍');
+    await act(async () => confirm?.click());
+    expect(mocks.deletePersonalWork).toHaveBeenCalledWith('failed');
+    failedView.cleanup();
   });
 });
