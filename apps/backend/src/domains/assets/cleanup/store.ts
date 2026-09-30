@@ -3,8 +3,8 @@ import { type AssetCleanupJob, type AssetCleanupJobStatus } from '@gloaming/shar
 import { snapshotTtlSeconds } from '@/domains/assets/scan/config';
 import { getRedis } from '@/infra/cache';
 
-const JOB_KEY_PREFIX = 'asset-management:cleanup:job:';
-const SCAN_JOB_KEY_PREFIX = 'asset-management:cleanup:scan:';
+const JOB_KEY_PREFIX = 'asset-management:cleanup:job:v2:';
+const SCAN_JOB_KEY_PREFIX = 'asset-management:cleanup:scan:v2:';
 export const CLEANUP_LOCK_KEY = 'asset-management:cleanup:lock';
 
 export const CLEANUP_BATCH_SIZE = 100;
@@ -36,7 +36,7 @@ export type SaveCleanupJobOptions = {
 };
 
 export function cleanupJobIdForScan(scanId: string): string {
-  return `asset-cleanup:${scanId}`;
+  return `asset-cleanup:v2:${scanId}`;
 }
 
 function jobRedisKey(jobId: string): string {

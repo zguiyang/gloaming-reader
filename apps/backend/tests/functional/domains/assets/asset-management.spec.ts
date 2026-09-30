@@ -471,7 +471,7 @@ describe('asset management admin APIs', () => {
   it('rejects cleanup for an incomplete scan snapshot', async () => {
     const scanId = `scan_incomplete_${randomUUID()}`;
     await getRedis().set(
-      `asset-management:scan:${scanId}`,
+      `asset-management:scan:v2:${scanId}`,
       JSON.stringify({
         report: {
           scanId,
@@ -483,12 +483,13 @@ describe('asset management admin APIs', () => {
           referencedBytes: 0,
           orphanCount: 1,
           orphanBytes: 1,
+          legacyDuplicateCount: 0,
+          legacyDuplicateBytes: 0,
           missingCount: 0,
           durationMs: 8,
           categories: [],
         },
-        objects: [],
-        orphanKeys: ['orphan/incomplete.bin'],
+        orphanCandidates: [{ key: 'orphan/incomplete.bin', size: 1 }],
       }),
       'EX',
       60,
@@ -499,6 +500,79 @@ describe('asset management admin APIs', () => {
       body: JSON.stringify({ confirmed: true }),
     });
     expect(response.status).toBe(HTTP_STATUS.CONFLICT);
+  });
+
+  it('expires previous scan snapshots and a new scan restores cleanup', async () => {
+    const staleScanId = `scan_legacy_${randomUUID()}`;
+    const orphan = `orphan/${staleScanId}/must-remain.bin`;
+    await putObject(orphan, 9);
+    await getRedis().set(
+      `asset-management:scan:${staleScanId}`,
+      JSON.stringify({
+        report: { scanId: staleScanId, scanComplete: true },
+        objects: [{ key: orphan, status: 'orphan', size: 9 }],
+        orphanKeys: [orphan],
+      }),
+      'EX',
+      60,
+    );
+
+    const staleCleanup = await app.request(`/api/admin/assets/scans/${staleScanId}/cleanup`, {
+      method: 'POST',
+      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmed: true }),
+    });
+    expect(staleCleanup.status).toBe(HTTP_STATUS.CONFLICT);
+    expect(memory.store.has(orphan)).toBe(true);
+
+    const scan = await app.request('/api/admin/assets/scan', {
+      method: 'POST',
+      headers: { Cookie: adminCookie },
+    });
+    const report = assetScanReportSchema.parse(await scan.json());
+    const accepted = await withCleanupLockHeld(async () => enqueueCleanup(report.scanId));
+    expect(accepted.jobId).toBe(`asset-cleanup:v2:${report.scanId}`);
+
+    await processAssetCleanup({ jobId: accepted.jobId, scanId: accepted.scanId });
+    expect(memory.store.has(orphan)).toBe(false);
+  });
+
+  it('does not retry or run previous cleanup jobs', async () => {
+    const scanId = `scan_legacy_job_${randomUUID()}`;
+    const jobId = `asset-cleanup:${scanId}`;
+    const orphan = `orphan/${scanId}/must-remain.bin`;
+    await putObject(orphan, 9);
+    await getRedis().set(
+      `asset-management:cleanup:job:${jobId}`,
+      JSON.stringify({
+        jobId,
+        scanId,
+        status: 'partial',
+        requestedCount: 1,
+        processedCount: 0,
+        deletedCount: 0,
+        skippedReferencedCount: 0,
+        failedCount: 1,
+        deletedBytes: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        failed: [{ key: orphan, error: 'legacy retry candidate' }],
+        pendingKeys: [orphan],
+        sizeByKey: { [orphan]: 9 },
+        attempt: 1,
+      }),
+      'EX',
+      60,
+    );
+
+    const retry = await app.request(`/api/admin/assets/cleanup-jobs/${encodeURIComponent(jobId)}/retry`, {
+      method: 'POST',
+      headers: { Cookie: adminCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmed: true }),
+    });
+    expect(retry.status).toBe(HTTP_STATUS.NOT_FOUND);
+    await expect(processAssetCleanup({ jobId, scanId })).rejects.toThrow('Cleanup job state missing');
+    expect(memory.store.has(orphan)).toBe(true);
   });
 
   it('renews a lock only for the owning token', async () => {

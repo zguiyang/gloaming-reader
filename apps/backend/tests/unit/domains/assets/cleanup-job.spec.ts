@@ -74,7 +74,7 @@ import { CLEANUP_LOCK_KEY } from '@/domains/assets/cleanup/store';
 function sampleRecord(overrides: Partial<CleanupJobRecord> = {}): CleanupJobRecord {
   const now = '2026-09-10T00:00:00.000Z';
   return {
-    jobId: 'asset-cleanup:scan_job',
+    jobId: 'asset-cleanup:v2:scan_job',
     scanId: 'scan_job',
     status: 'queued',
     requestedCount: 2,
@@ -219,10 +219,10 @@ describe('runAssetCleanupJob lock fencing', () => {
       sampleRecord({ pendingKeys: ['orphan/a.bin'], requestedCount: 1 }),
     );
 
-    const first = runAssetCleanupJob({ jobId: 'asset-cleanup:scan_job', scanId: 'scan_job' });
+    const first = runAssetCleanupJob({ jobId: 'asset-cleanup:v2:scan_job', scanId: 'scan_job' });
     await vi.waitFor(() => expect(mocks.deleteManyObjects).toHaveBeenCalled());
 
-    await expect(runAssetCleanupJob({ jobId: 'asset-cleanup:scan_job', scanId: 'scan_job' })).rejects.toThrow(
+    await expect(runAssetCleanupJob({ jobId: 'asset-cleanup:v2:scan_job', scanId: 'scan_job' })).rejects.toThrow(
       'Another cleanup job holds the cleanup lock',
     );
     expect(mocks.startLockRenewal).toHaveBeenCalledTimes(1);

@@ -61,7 +61,7 @@ export async function enqueueOrphanCleanup(scanId: string): Promise<AssetCleanup
       {
         attempts: 3,
         backoff: { type: 'exponential', delay: 5_000 },
-        jobId: `${CLEANUP_JOB_NAME}:${record.scanId}:${record.attempt}`,
+        jobId: `${CLEANUP_JOB_NAME}-v2-${record.scanId}-${record.attempt}`,
       },
     );
   } catch (error) {
@@ -109,7 +109,7 @@ export async function retryCleanupJob(jobId: string): Promise<AssetCleanupJobAcc
       {
         attempts: 3,
         backoff: { type: 'exponential', delay: 5_000 },
-        jobId: `${CLEANUP_JOB_NAME}:${record.scanId}:${record.attempt}`,
+        jobId: `${CLEANUP_JOB_NAME}-v2-${record.scanId}-${record.attempt}`,
       },
     );
   } catch (error) {

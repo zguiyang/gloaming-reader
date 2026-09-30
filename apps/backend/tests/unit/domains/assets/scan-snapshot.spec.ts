@@ -53,7 +53,7 @@ describe('scan snapshots', () => {
       orphanCandidates: [{ key: 'orphan/a.bin', size: 20 }],
     });
 
-    const stored = redisState.values.get('asset-management:scan:scan_1');
+    const stored = redisState.values.get('asset-management:scan:v2:scan_1');
     expect(stored).toBeDefined();
     expect(JSON.parse(stored!)).toEqual({
       report,
@@ -61,7 +61,7 @@ describe('scan snapshots', () => {
     });
   });
 
-  it('reads still-live legacy snapshots and derives cleanup candidates', async () => {
+  it('does not read snapshots from the previous namespace', async () => {
     redisState.values.set(
       'asset-management:scan:scan_1',
       JSON.stringify({
@@ -76,8 +76,21 @@ describe('scan snapshots', () => {
       }),
     );
 
-    const loaded = await loadScanSnapshot('scan_1');
-    expect(loaded).toEqual({ report, orphanCandidates: [{ key: 'orphan/a.bin', size: 20 }] });
-    expect(loaded.report).not.toHaveProperty('largestObjects');
+    await expect(loadScanSnapshot('scan_1')).rejects.toThrow();
+    expect(redisState.get).toHaveBeenCalledWith('asset-management:scan:v2:scan_1');
+    expect(redisState.get).not.toHaveBeenCalledWith('asset-management:scan:scan_1');
+  });
+
+  it('rejects old-format payloads written into the current namespace', async () => {
+    redisState.values.set(
+      'asset-management:scan:v2:scan_1',
+      JSON.stringify({
+        report,
+        objects: [{ key: 'orphan/a.bin', status: 'orphan', size: 20 }],
+        orphanKeys: ['orphan/a.bin'],
+      }),
+    );
+
+    await expect(loadScanSnapshot('scan_1')).rejects.toThrow();
   });
 });

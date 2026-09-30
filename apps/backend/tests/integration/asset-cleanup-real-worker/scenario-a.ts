@@ -70,7 +70,7 @@ export async function runScenarioA(harness: RealWorkerHarness, adminCookie: stri
       throw new Error(`scan HTTP ${scanResponse.status}`);
     }
     const reportScan = assetScanReportSchema.parse(await scanResponse.json());
-    trackRedisKey(`asset-management:scan:${reportScan.scanId}`);
+    trackRedisKey(`asset-management:scan:v2:${reportScan.scanId}`);
     trackRedisKey(SCAN_LOCK_KEY);
     scenarioA.observations.push(`scanComplete=${reportScan.scanComplete} orphanCount=${reportScan.orphanCount}`);
     scenarioA.evidence.push(`scanId=${reportScan.scanId} durationMs=${reportScan.durationMs} httpScanMs=${scanMs}`);
@@ -100,8 +100,8 @@ export async function runScenarioA(harness: RealWorkerHarness, adminCookie: stri
         throw new Error(`cleanup HTTP ${cleanupResponse.status}`);
       }
       accepted = assetCleanupJobAcceptedSchema.parse(await cleanupResponse.json());
-      trackRedisKey(`asset-management:cleanup:job:${accepted.jobId}`);
-      trackRedisKey(`asset-management:cleanup:scan:${reportScan.scanId}`);
+      trackRedisKey(`asset-management:cleanup:job:v2:${accepted.jobId}`);
+      trackRedisKey(`asset-management:cleanup:scan:v2:${reportScan.scanId}`);
       scenarioA.evidence.push(`cleanupAccepted jobId=${accepted.jobId} status=${accepted.status} httpMs=${cleanupMs}`);
       if (cleanupMs > 5_000) {
         throw new Error(`cleanup enqueue blocked too long (${cleanupMs}ms)`);
@@ -118,7 +118,7 @@ export async function runScenarioA(harness: RealWorkerHarness, adminCookie: stri
         scenarioA.observations.push('concurrent scan correctly conflicted or lock contended');
       } else if (midScan.status === 200) {
         const midScanReport = assetScanReportSchema.parse(await midScan.json());
-        trackRedisKey(`asset-management:scan:${midScanReport.scanId}`);
+        trackRedisKey(`asset-management:scan:v2:${midScanReport.scanId}`);
       } else {
         throw new Error(`unexpected mid-scan status ${midScan.status}`);
       }
@@ -132,8 +132,8 @@ export async function runScenarioA(harness: RealWorkerHarness, adminCookie: stri
     report.realBullmqUsed = true;
     await harness.adoptCurrentRedisKeysAsTracked('after-scenario-a-enqueue');
     const { job, statusHistory } = await harness.pollJob(adminCookie, accepted!.jobId, accepted!.status);
-    trackRedisKey(`asset-management:cleanup:job:${job.jobId}`);
-    trackRedisKey(`asset-management:cleanup:scan:${job.scanId}`);
+    trackRedisKey(`asset-management:cleanup:job:v2:${job.jobId}`);
+    trackRedisKey(`asset-management:cleanup:scan:v2:${job.scanId}`);
     await harness.adoptCurrentRedisKeysAsTracked('after-scenario-a-job');
 
     const statusHistoryObserved = statusHistory.join('→');

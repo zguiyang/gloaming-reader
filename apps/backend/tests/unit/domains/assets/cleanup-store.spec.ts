@@ -52,6 +52,7 @@ import {
   applyCleanupRetryState,
   type AssetCleanupFailure,
   CLEANUP_LOCK_KEY,
+  cleanupJobIdForScan,
   type CleanupJobRecord,
   collectCleanupRetryKeys,
   createQueuedCleanupJob,
@@ -65,7 +66,7 @@ import { acquireLock, releaseLock, renewLock, startLockRenewal } from '@/domains
 function sampleRecord(overrides: Partial<CleanupJobRecord> = {}): CleanupJobRecord {
   const now = '2026-09-10T00:00:00.000Z';
   return {
-    jobId: 'asset-cleanup:scan_1',
+    jobId: 'asset-cleanup:v2:scan_1',
     scanId: 'scan_1',
     status: 'partial',
     requestedCount: 4,
@@ -185,6 +186,25 @@ describe('cleanup lock token fencing', () => {
       status: 'queued',
       scanId: 'scan_api',
     });
+  });
+
+  it('uses only the current cleanup job and scan mapping namespace', async () => {
+    const scanId = 'scan_current';
+    const oldJobId = 'asset-cleanup:scan_legacy';
+    redisState.values.set(
+      `asset-management:cleanup:job:${oldJobId}`,
+      JSON.stringify(sampleRecord({ jobId: oldJobId })),
+    );
+    redisState.values.set('asset-management:cleanup:scan:scan_legacy', oldJobId);
+
+    expect(cleanupJobIdForScan(scanId)).toBe(`asset-cleanup:v2:${scanId}`);
+    await expect(loadCleanupJob(oldJobId)).resolves.toBeNull();
+    await expect(loadCleanupJobIdForScan('scan_legacy')).resolves.toBeNull();
+
+    const record = createQueuedCleanupJob({ scanId, pendingKeys: ['orphan/a.bin'], sizeByKey: { 'orphan/a.bin': 1 } });
+    await saveCleanupJob(record);
+    expect(redisState.values.has(`asset-management:cleanup:job:v2:${record.jobId}`)).toBe(true);
+    expect(redisState.values.has(`asset-management:cleanup:scan:v2:${scanId}`)).toBe(true);
   });
 
   it('marks renewal failed when a different token holds the lock', async () => {

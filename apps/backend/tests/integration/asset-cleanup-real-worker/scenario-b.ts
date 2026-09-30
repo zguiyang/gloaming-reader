@@ -41,7 +41,7 @@ export async function runScenarioB(harness: RealWorkerHarness, adminCookie: stri
       headers: { Cookie: adminCookie },
     });
     const scanReport = assetScanReportSchema.parse(await scanResponse.json());
-    trackRedisKey(`asset-management:scan:${scanReport.scanId}`);
+    trackRedisKey(`asset-management:scan:v2:${scanReport.scanId}`);
     trackRedisKey(SCAN_LOCK_KEY);
 
     const holdToken = `it-hold-b-${randomUUID()}`;
@@ -61,8 +61,8 @@ export async function runScenarioB(harness: RealWorkerHarness, adminCookie: stri
         throw new Error(`cleanup HTTP ${cleanupResponse.status}`);
       }
       accepted = assetCleanupJobAcceptedSchema.parse(await cleanupResponse.json());
-      trackRedisKey(`asset-management:cleanup:job:${accepted.jobId}`);
-      trackRedisKey(`asset-management:cleanup:scan:${scanReport.scanId}`);
+      trackRedisKey(`asset-management:cleanup:job:v2:${accepted.jobId}`);
+      trackRedisKey(`asset-management:cleanup:scan:v2:${scanReport.scanId}`);
       if (accepted.status !== 'queued') {
         throw new Error(`expected queued, got ${accepted.status}`);
       }
@@ -75,8 +75,8 @@ export async function runScenarioB(harness: RealWorkerHarness, adminCookie: stri
 
     await harness.adoptCurrentRedisKeysAsTracked('after-scenario-b-enqueue');
     const { job, statusHistory } = await harness.pollJob(adminCookie, accepted!.jobId, accepted!.status);
-    trackRedisKey(`asset-management:cleanup:job:${job.jobId}`);
-    trackRedisKey(`asset-management:cleanup:scan:${job.scanId}`);
+    trackRedisKey(`asset-management:cleanup:job:v2:${job.jobId}`);
+    trackRedisKey(`asset-management:cleanup:scan:v2:${job.scanId}`);
     await harness.adoptCurrentRedisKeysAsTracked('after-scenario-b-job');
 
     const statusHistoryObserved = statusHistory.join('→');
