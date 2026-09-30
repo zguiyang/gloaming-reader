@@ -115,7 +115,6 @@ describe('taxonomy dimensions management', () => {
       .values({
         id: `tax-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         title,
-        originKind: 'admin_text',
       })
       .returning({ id: readingWorkTable.id });
     workIds.push(row!.id);

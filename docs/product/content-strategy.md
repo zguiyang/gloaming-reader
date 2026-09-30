@@ -29,7 +29,7 @@ Gloaming is not a corpus-building project, not a course publisher, and not an AI
 | Catalog supply                 | Existing published Catalog Works remain available in **发现**; new intake awaits Source ingestion policy   |
 | Real content pipeline (EPUB)   | Shared User upload and EPUB parsing; organize chapters and present like a book; do **not** rewrite lessons |
 | Official catalog               | Existing team-owned or licensed works continue to feed **发现**                                            |
-| `admin_text` fallback          | **Internal only** — dev/test/seed; see §2.1; **not** Short Article Library                                 |
+| Catalog test fixture           | Neutral ownerless Catalog Work; no source identity or Admin provenance is inferred                         |
 | Scraping / crawl               | **Out**                                                                                                    |
 | AI rewrite into graded lessons | **Out** — content generator                                                                                |
 | AI at read time                | Explain / translate / TTS on **this part** of **this work**                                                |
@@ -38,19 +38,11 @@ Gloaming is not a corpus-building project, not a course publisher, and not an AI
 
 Module SSOT: [`mvp-1-modules.md`](./mvp-1-modules.md).
 
-### 2.1 `admin_text` (internal fallback — not product)
+### 2.1 Catalog fixtures
 
-`admin_text` is retained as historical provenance and may be used by development/test fixtures to create **ReadingWork + one ReadingPart (`kind=body`)**. There is no Admin runtime or operator paste flow. Use only for:
-
-- Development and migration testing
-- Automated test fixtures
-- Demo seed without uploading EPUB every time
-
-**It is not:**
-
-- The Short Article Library product (archived — [`docs/archive/feature-short-article-library-v1.md`](../archive/feature-short-article-library-v1.md))
-- What learners should see as the main catalog story
-- A reason to keep `Article`, `level`, `seriesId`, or 300-word caps
+Tests that need a short Catalog body create an ownerless Catalog Work with one
+ReadingPart (`kind=body`). Its nullable `origin_kind` makes no source claim;
+Personal EPUB uploads retain the explicit `user_epub` provenance.
 
 Gloaming’s content identity is **ReadingWork**, not short articles.
 
@@ -149,10 +141,10 @@ User chooses EPUB/PDF/…
 
 Parse failures must be explicit. Do not LLM-“simplify” the book.
 
-### 5.4 Internal fixture — admin_text (dev/test only)
+### 5.4 Catalog test fixture
 
 ```text
-Development/test fixture (admin_text)
+Development/test Catalog fixture
   → 1 ReadingWork + 1 ReadingPart (kind=body)
 ```
 
@@ -191,9 +183,9 @@ Empty reader is a failure mode. Filling it with generated articles is a worse fa
 
 ## 8. Revision log
 
-| Date       | Change                                                                                                                             |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-08-24 | Historical baseline: ReadingWork domain; admin EPUB primary; admin_text internal; ADR-001 alignment.                               |
-| 2026-09-30 | AS-02 removed Admin Works CMS; preserved existing Catalog Works and Personal Upload; deferred new Catalog intake to Source policy. |
-| 2026-08-20 | Real content pipeline wording; 1a/1b split.                                                                                        |
-| 2026-08-05 | Initial curated lean library SSOT (superseded).                                                                                    |
+| Date       | Change                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 2026-08-24 | Historical baseline: ReadingWork domain; admin EPUB primary; admin_text internal; ADR-001 alignment.                     |
+| 2026-09-30 | AS-02 removed Admin Works CMS; AS-02C removed legacy Admin provenance; Catalog intake remains deferred to Source policy. |
+| 2026-08-20 | Real content pipeline wording; 1a/1b split.                                                                              |
+| 2026-08-05 | Initial curated lean library SSOT (superseded).                                                                          |

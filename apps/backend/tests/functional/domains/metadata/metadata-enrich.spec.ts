@@ -31,7 +31,7 @@ import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 import { buildEpubBytes } from '../../../helpers/epub-builder';
-import { createHistoricalCatalogEpubFixture } from '../../../helpers/historical-catalog-epub-fixture';
+import { createCatalogEpubIngestFixture } from '../../../helpers/historical-catalog-epub-fixture';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
 const { invokeAiMock } = vi.hoisted(() => ({
@@ -195,7 +195,7 @@ describe('metadata-enrich AI backfill (invokeAi mocked)', () => {
   }): Promise<string> {
     const bytes = await buildEpubBytes({ title: input.title, chapters: [chapter], ...input });
     createdContentHashes.push(hashFileContent(bytes));
-    const created = await createHistoricalCatalogEpubFixture({ fileName: 'book.epub', bytes });
+    const created = await createCatalogEpubIngestFixture({ fileName: 'book.epub', bytes });
     createdWorkIds.push(created.id);
     await runContentParseWorkflow(created.id);
     const [parsed] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, created.id));

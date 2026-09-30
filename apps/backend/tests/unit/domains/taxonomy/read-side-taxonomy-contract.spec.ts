@@ -96,7 +96,6 @@ describe('read-side taxonomy response contracts', () => {
       language: 'en',
       processingStatus: 'ready',
       visibility: 'catalog',
-      originKind: 'admin_epub',
       tags: [taxonomyTag],
       category: taxonomyCategory,
       sources: [taxonomySource],

@@ -119,7 +119,7 @@ There is no required Practice or Review step.
 | Catalog supply  | Existing published **ReadingWork** via **发现**; new intake awaits Source ingestion policy |
 | Personal Upload | User EPUB → private owned Work in Library                                                  |
 | Unit            | **ReadingWork** (+ **ReadingPart** for text) — not a lesson                                |
-| `admin_text`    | Internal dev/test fallback only                                                            |
+| Catalog fixture | Neutral ownerless Catalog Work used in tests; no source identity is inferred               |
 | Scraping        | Out                                                                                        |
 
 ---

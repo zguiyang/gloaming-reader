@@ -20,7 +20,7 @@ function imagePlaceholder(resolvedHref: string): string {
  * images; the orchestrator stores the bytes and rewrites the URLs.
  */
 export const epubContentParser: ContentParser = {
-  kind: 'admin_epub',
+  contentType: 'application/epub+zip',
 
   async parse(bytes: Buffer): Promise<ParsedContent> {
     const book = await parseEpub(bytes);
@@ -91,4 +91,4 @@ export const epubContentParser: ContentParser = {
   },
 };
 
-registerParser(epubContentParser, ['admin_epub', 'user_epub']);
+registerParser(epubContentParser);

@@ -267,6 +267,13 @@
       "when": 1790697078410,
       "tag": "0037_admin_invocation_log_privacy",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790734208000,
+      "tag": "0038_remove_legacy_admin_provenance",
+      "breakpoints": true
     }
   ]
 }

@@ -383,7 +383,6 @@ export function createHarness(input: {
       await db.insert(readingWorkTable).values({
         id,
         title: 'Asset cleanup real-worker IT',
-        originKind: 'admin_text',
         originMeta,
       });
       workIds.push(id);

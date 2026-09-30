@@ -81,7 +81,6 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
       title: `Work ${id}`,
       processingStatus: 'ready',
       publishedAt: lifecycle === 'published' ? new Date() : null,
-      originKind: 'admin_epub',
     });
     workIds.push(id);
     return id;

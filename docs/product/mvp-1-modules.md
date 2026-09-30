@@ -176,7 +176,7 @@ If AI is off, reading still works.
 | **Responsibility**     | Preserve read access to existing published Catalog Works through **发现** and Reader.                                                                    |
 | **Rough capabilities** | No Admin Work creation, upload, edit, preview, publication, deletion, retry, or per-Work audio operation. New intake awaits a Source ingestion decision. |
 
-Personal Upload remains a User capability at `/api/works`; an Admin account uses that same private-work flow. **`admin_text` is an internal development/test fixture only** — see [`content-strategy.md`](./content-strategy.md) §2.1.
+Personal Upload remains a User capability at `/api/works`; an Admin account uses that same private-work flow. Catalog Works have no Admin intake path; tests create neutral ownerless Catalog fixtures.
 
 ### 4.11 Session / account chrome (supporting)
 

@@ -139,7 +139,6 @@ describe('asset management admin APIs', () => {
     await db.insert(readingWorkTable).values({
       id,
       title: 'Asset management test work',
-      originKind: 'admin_text',
       originMeta,
     });
     workIds.push(id);
@@ -402,7 +401,6 @@ describe('asset management admin APIs', () => {
     await db.insert(readingWorkTable).values({
       id: workId,
       title: 'Asset management test work',
-      originKind: 'admin_text',
       originMeta: {
         workflowParseArtifacts: [{ attemptToken: 'tok', keys: [`book-images/${workId}/a/h.png`] }],
       },

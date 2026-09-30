@@ -1,13 +1,15 @@
 # Gloaming MVP 端到端测试指南
 
-**文档性质：** 面向人工测试（Chrome 可视化操作）的正式 MVP E2E 指南。
+> **历史文档：** 本指南记录 AS-02 前的 Admin Catalog 供应与旧验收路径，不是当前实施或验收依据。AS-02 / AS-02C 已移除 Admin Works intake 与 Admin provenance；其中对应流程仅保留作历史记录。
 
-**依据：** 当前仓库实现与 [`docs/product/mvp-scope.md`](../product/mvp-scope.md)、[`docs/product/mvp-1-modules.md`](../product/mvp-1-modules.md)、[`docs/product/prototype-flows.md`](../product/prototype-flows.md)、[`docs/product/feature-audit.md`](../product/feature-audit.md)、[`docs/deployment.md`](../deployment.md)。
+**文档性质：** 面向人工测试（Chrome 可视化操作）的历史 MVP E2E 指南。
+
+**依据：** AS-02 前的实现快照与测试记录；其中部分内容已被当前产品决策取代。
 **非依据：** 路线图 Phase 1b（用户上传）、Practice/Review/SRS、独立搜索页等未实现或未纳入 MVP 1 学习者能力。
 
-**版本：** 与当前仓库行为对齐（ReadingWork 域、Catalog EPUB 供应、手动工作流 + Worker 队列）。
+**版本：** 记录 AS-02 前的 ReadingWork 域、Catalog EPUB 供应、手动工作流 + Worker 队列。
 
-**当前路径（2026-09-28）：** Admin Catalog 使用 `/admin/catalog/works` 和 `/api/admin/catalog/works`，音频 API 也以 Catalog Work 为路径范围。Personal EPUB 已有认证 API `POST /api/works`；本指南仍不把它列为浏览器 UI E2E 能力，因为当前没有学习者上传界面。下方较早日期的验收记录保留当时实际访问的旧路径。
+**历史路径快照（2026-09-28）：** 当时 Admin Catalog 使用 `/admin/catalog/works` 和 `/api/admin/catalog/works`；AS-02 后这些路径已移除。Personal EPUB 已有认证 API `POST /api/works`；当前仍没有学习者上传界面。下方验收记录保留当时实际访问的旧路径。
 
 ---
 

@@ -18,7 +18,7 @@ import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
 import { buildEpubBytes } from '../../../helpers/epub-builder';
-import { createHistoricalCatalogEpubFixture } from '../../../helpers/historical-catalog-epub-fixture';
+import { createCatalogEpubIngestFixture } from '../../../helpers/historical-catalog-epub-fixture';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
 describe('metadata-fill for historical Catalog Works', () => {
@@ -58,7 +58,7 @@ describe('metadata-fill for historical Catalog Works', () => {
 
   async function uploadAndFill(bytes: Buffer): Promise<string> {
     createdContentHashes.push(hashFileContent(bytes));
-    const created = await createHistoricalCatalogEpubFixture({ fileName: 'book.epub', bytes });
+    const created = await createCatalogEpubIngestFixture({ fileName: 'book.epub', bytes });
     createdWorkIds.push(created.id);
     await runContentParseWorkflow(created.id);
     await fillWorkMetadata(created.id);

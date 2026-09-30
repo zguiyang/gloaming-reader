@@ -71,7 +71,6 @@ async function insertWork() {
     title: `pr01-${id.slice(0, 8)}`,
     processingStatus: 'ready',
     visibility: 'catalog',
-    originKind: 'admin_text',
   });
   return id;
 }

@@ -1,5 +1,3 @@
-import type { WorkOriginKind } from '@/domains/works/work-origin';
-
 /** One resolved image referenced by a parsed chapter (deduped by token). */
 export type ParsedImage = {
   /** Placeholder embedded in chapter HTML; the orchestrator replaces it with the asset URL. */
@@ -55,6 +53,7 @@ export type ParsedContent = {
  * {@link ParsedContent}; the orchestrator owns storage + DB writes.
  */
 export type ContentParser = {
-  readonly kind: WorkOriginKind;
+  /** Content format accepted by this parser, usually an asset MIME type. */
+  readonly contentType: string;
   parse(bytes: Buffer): Promise<ParsedContent>;
 };

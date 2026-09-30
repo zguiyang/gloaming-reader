@@ -43,7 +43,6 @@ async function main() {
       id: workId,
       title: SEED_TITLE,
       processingStatus: 'ready',
-      originKind: 'admin_text',
       visibility: 'catalog',
       ownerUserId: null,
       publishedAt: new Date(),

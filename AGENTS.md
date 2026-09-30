@@ -24,8 +24,8 @@ with `subject_type = reading_work`.
 
 Do not extend legacy `Article`, introduce Article compatibility aliases or dual
 models, add `reading_progress` or `article_audio`, add lesson/course/Learn*
-entities, or make Short Article Library the product identity. `admin_epub` is
-the MVP supply; `admin_text` is internal development/test fallback only.
+entities, or make Short Article Library the product identity. Catalog Works have
+no Admin intake path; Personal EPUB upload is the supported upload flow.
 
 ## Project hard boundaries
 

@@ -39,7 +39,7 @@ describe('work contracts', () => {
       publishedAt: '2026-01-01T00:00:00.000Z',
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
-      originKind: 'admin_epub',
+      originKind: 'privateOrigin',
     });
 
     expect(work.processingStatus).toBe('ready');

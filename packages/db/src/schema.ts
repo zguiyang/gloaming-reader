@@ -134,7 +134,7 @@ export const readingWork = pgTable(
     processingStatus: text('processing_status').notNull().default('processing'),
     visibility: text('visibility').notNull().default('catalog'),
     ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'set null' }),
-    originKind: text('origin_kind').notNull().default('admin_text'),
+    originKind: text('origin_kind').$type<'user_epub' | null>(),
     originMeta: jsonb('origin_meta').$type<Record<string, unknown>>().notNull().default({}),
     descriptionProvenance: text('description_provenance').$type<WorkMetadataProvenance | null>(),
     coverAssetId: text('cover_asset_id'),
@@ -155,6 +155,7 @@ export const readingWork = pgTable(
   (table) => [
     index('reading_work_processing_status_idx').on(table.processingStatus),
     index('reading_work_published_at_idx').on(table.publishedAt),
+    check('reading_work_origin_kind_check', sql`${table.originKind} IS NULL OR ${table.originKind} = 'user_epub'`),
   ],
 );
 

@@ -84,7 +84,7 @@ were removed with the Admin Works module.
 
 ## Current code vs target (honest matrix)
 
-**Historical Phase 3A** retired `Article` and introduced ReadingWork + `admin_epub` catalog intake. AS-02 removed that Admin intake path while preserving existing Catalog data and parser provenance.
+**Historical Phase 3A** retired `Article` and introduced ReadingWork + Admin EPUB catalog intake. AS-02 removed that Admin intake path; AS-02C clears its provenance while preserving Catalog data and format-based parsing.
 **User-first** items below reflect the current repository unless marked **open**.
 
 | Layer / concern          | Current (repository reality)                                                                                | Target (ADR-001 User-first)                           |
@@ -120,12 +120,11 @@ Do **not** reintroduce Article names — see Retired names below.
 
 ## Content origins (MVP)
 
-| `origin_kind`       | MVP              | Role                                                                         |
-| ------------------- | ---------------- | ---------------------------------------------------------------------------- |
-| `admin_epub`        | Historical only  | Provenance and parser support for existing Catalog records; no Admin intake  |
-| `admin_text`        | Internal only    | Development/test fixture: 1 Work + 1 Part (`kind=body`); no runtime CMS path |
-| `user_epub`         | Current Personal | `/api/works` → shared parser → private owner Work                            |
-| Future source kinds | Deferred         | New Catalog intake awaits a separately decided Source policy                 |
+| `origin_kind`       | MVP              | Role                                                                        |
+| ------------------- | ---------------- | --------------------------------------------------------------------------- |
+| `NULL`              | Current Catalog  | No source identity is claimed; Catalog status comes from Work domain fields |
+| `user_epub`         | Current Personal | `/api/works` → shared EPUB parser → private owner Work                      |
+| Future source kinds | Deferred         | New Catalog intake awaits a separately decided Source policy                |
 
 ---
 

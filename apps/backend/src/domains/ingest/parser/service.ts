@@ -37,7 +37,7 @@ type WorkRow = typeof readingWorkTable.$inferSelect;
 
 export type ContentParsePersisted = {
   workId: string;
-  originKind: WorkRow['originKind'];
+  isPersonalWork: boolean;
   hasParsedBefore: boolean;
   parsedLanguage: string;
   preserveManualStats: boolean;
@@ -49,9 +49,9 @@ export type ContentParsePersisted = {
   placeholderDescription: string;
 };
 
-async function loadOriginBytes(workId: string): Promise<Buffer> {
+async function loadOriginAsset(workId: string): Promise<{ body: Buffer; contentType: string }> {
   const [asset] = await db
-    .select({ storageKey: contentAssetTable.storageKey })
+    .select({ storageKey: contentAssetTable.storageKey, contentType: contentAssetTable.mimeType })
     .from(contentAssetTable)
     .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'origin_file')))
     .limit(1);
@@ -62,7 +62,7 @@ async function loadOriginBytes(workId: string): Promise<Buffer> {
   if (!object) {
     throw new Error(`Origin file object missing: ${asset.storageKey}`);
   }
-  return object.body;
+  return { body: object.body, contentType: asset.contentType };
 }
 
 function ingestImageAssetMeta(originalPath: string, optimized: ImageOptimizeResult): ContentAssetMeta {
@@ -112,13 +112,13 @@ export async function runContentParse(
       await deleteParseArtifactKeys(previousArtifacts);
     }
 
-    const bytes = await loadOriginBytes(workId);
-    const parser = parserFor(work.originKind);
-    const content = await parser.parse(bytes);
+    const originAsset = await loadOriginAsset(workId);
+    const parser = parserFor(originAsset.contentType);
+    const content = await parser.parse(originAsset.body);
     await lease.ensureOwned();
 
     if (content.chapters.length === 0) {
-      throw new Error(`${work.originKind} produced no readable chapters`);
+      throw new Error(`${originAsset.contentType} produced no readable chapters`);
     }
 
     const chapterHtml = content.chapters.map((chapter) => chapter.html).join('\n');
@@ -273,7 +273,7 @@ export async function runContentParse(
     );
     return {
       workId,
-      originKind: work.originKind,
+      isPersonalWork: work.originKind === 'user_epub',
       hasParsedBefore,
       parsedLanguage,
       preserveManualStats: work.statsProvenance === 'manual',

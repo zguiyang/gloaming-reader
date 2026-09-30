@@ -88,7 +88,7 @@ No separate vocabulary/SRS product. Lookup “vocabulary card” is assist **for
 | -------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Admin Works CMS                  | **Removed (AS-02)** — no Admin creation, intake, editing, publication, preview, deletion, or retry |
 | ReadingWork + ReadingPart schema | **Done**                                                                                           |
-| Chapter / part reader            | **Done** — multi-part ready; admin_text = 1 body part                                              |
+| Chapter / part reader            | **Done** — multi-part ready; Catalog fixtures use neutral Work fields                              |
 | ContentAsset (origin + TTS)      | **Done** — origin EPUB + part `audio_us` / `audio_uk` rows                                         |
 | Personal EPUB Upload             | **Available** — ordinary User-owned private Work and Library flow                                  |
 | Learner UI wired to Work APIs    | **Done**                                                                                           |
@@ -159,8 +159,8 @@ with the CMS. `published_at` remains the Catalog visibility fact; existing
 Reader audio continues to use the shared ContentAsset runtime.
 
 This boundary does not change the ADR-001 `ReadingWork` / `ReadingPart` /
-`ReadingState` / `ContentAsset` model or the `admin_epub` / `admin_text` origin
-boundary.
+`ReadingState` / `ContentAsset` model. AS-02C removes Admin provenance from the
+current runtime; Catalog identity remains in the Work domain fields.
 
 ---
 

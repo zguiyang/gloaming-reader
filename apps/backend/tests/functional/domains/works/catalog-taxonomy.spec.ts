@@ -54,7 +54,6 @@ describe('public catalog taxonomy APIs', () => {
       title: input.title,
       processingStatus: 'ready',
       visibility: input.visibility,
-      originKind: 'admin_text',
       publishedAt: new Date(),
     });
     await db.insert(readingPartTable).values({
@@ -226,7 +225,6 @@ describe('public catalog taxonomy APIs', () => {
         title: 'Work With Source',
         processingStatus: 'ready',
         visibility: 'catalog',
-        originKind: 'admin_text',
         publishedAt: new Date(),
       });
       await db.insert(readingPartTable).values({

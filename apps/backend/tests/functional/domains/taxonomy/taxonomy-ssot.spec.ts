@@ -39,7 +39,6 @@ describe('taxonomy SSOT projection', () => {
       title: 'Catalog SSOT-Unique-Tag',
       processingStatus: 'ready',
       visibility: 'catalog',
-      originKind: 'admin_text',
       publishedAt: new Date(),
     });
     await db.insert(readingPartTable).values({

@@ -77,7 +77,7 @@ async function finalizeContentParseWorkflow(
     language: persisted.parsedLanguage,
   };
 
-  if (WORKFLOW_AUTO_CHAIN && persisted.originKind !== 'user_epub') {
+  if (WORKFLOW_AUTO_CHAIN && !persisted.isPersonalWork) {
     const [updated] = await db
       .update(readingWorkTable)
       .set({
@@ -120,7 +120,7 @@ async function finalizeContentParseWorkflow(
     if (!statsUpdated) {
       return false;
     }
-    const nextStatus = persisted.originKind === 'user_epub' ? 'ready' : 'parsed';
+    const nextStatus = persisted.isPersonalWork ? 'ready' : 'parsed';
     if (!(await completeWorkflowStep(workId, nextStatus, undefined, 'processing', jobToken, 'parse', attemptToken))) {
       return false;
     }

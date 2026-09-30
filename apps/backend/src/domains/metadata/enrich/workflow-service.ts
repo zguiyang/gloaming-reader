@@ -40,7 +40,7 @@ export async function enrichWorkMetadata(
   if (!work) {
     throw new Error(`Work ${workId} not found`);
   }
-  if (work.originKind !== 'admin_epub') {
+  if (work.ownerUserId !== null || work.visibility !== 'catalog') {
     return { ok: true, enqueueTts: false };
   }
   if (work.processingStatus !== 'metadata') {

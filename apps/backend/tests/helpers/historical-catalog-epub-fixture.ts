@@ -5,8 +5,8 @@ import { contentAsset as contentAssetTable, readingWork as readingWorkTable } fr
 import { storeEpubSource } from '@/domains/ingest/epub/work-upload';
 import { db } from '@/infra/db';
 
-/** Seed an existing pre-AS-02 Catalog EPUB so historical worker behavior stays covered. */
-export async function createHistoricalCatalogEpubFixture(input: { fileName: string; bytes: Buffer }) {
+/** Seed a Catalog EPUB work to exercise format-based parsing without a source identity. */
+export async function createCatalogEpubIngestFixture(input: { fileName: string; bytes: Buffer }) {
   const source = await storeEpubSource({
     fileName: input.fileName,
     body: input.bytes,
@@ -20,7 +20,7 @@ export async function createHistoricalCatalogEpubFixture(input: { fileName: stri
     id,
     title: input.fileName.replace(/\.epub$/i, ''),
     processingStatus: 'uploaded',
-    originKind: 'admin_epub',
+    originKind: null,
     visibility: 'catalog',
     ownerUserId: null,
     originMeta: {

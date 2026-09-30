@@ -11,7 +11,6 @@ export async function createCatalogWorkFixture(
     title?: string;
     body?: string | null;
     processingStatus?: string;
-    originKind?: 'admin_text' | 'admin_epub' | 'user_epub';
     publishedAt?: Date | null;
   } = {},
 ) {
@@ -25,7 +24,6 @@ export async function createCatalogWorkFixture(
     description: '',
     language: 'en',
     processingStatus: input.processingStatus ?? 'ready',
-    originKind: input.originKind ?? 'admin_epub',
     ownerUserId: null,
     visibility: 'catalog',
     publishedAt: input.publishedAt === undefined ? new Date() : input.publishedAt,

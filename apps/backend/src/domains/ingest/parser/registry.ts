@@ -1,19 +1,17 @@
-import type { WorkOriginKind } from '@/domains/works/work-origin';
-
 import type { ContentParser } from './types';
 
 const parsers = new Map<string, ContentParser>();
 
 /** Register a parser implementation (called by each parser module on load). */
-export function registerParser(parser: ContentParser, originKinds: readonly WorkOriginKind[] = [parser.kind]): void {
-  for (const originKind of originKinds) parsers.set(originKind, parser);
+export function registerParser(parser: ContentParser): void {
+  parsers.set(parser.contentType, parser);
 }
 
-/** Resolve the parser for a work origin kind — unknown kinds fail fast. */
-export function parserFor(kind: string): ContentParser {
-  const parser = parsers.get(kind);
+/** Resolve a parser by source asset format — unsupported formats fail fast. */
+export function parserFor(contentType: string): ContentParser {
+  const parser = parsers.get(contentType);
   if (!parser) {
-    throw new Error(`No content parser registered for origin kind: ${kind}`);
+    throw new Error(`No content parser registered for content type: ${contentType}`);
   }
   return parser;
 }

@@ -1,6 +1,6 @@
 # ADR-001: Reading Content Domain Model
 
-**Status:** Accepted / Frozen (amended 2026-09-30 — User-first; Admin Works removal)
+**Status:** Accepted / Frozen (amended 2026-09-30 — User-first; Admin Works and provenance removal)
 **Date:** 2026-08-24  
 **Scope:** Core content domain — replaces the legacy `Article` model
 
@@ -27,9 +27,9 @@ There are **no production users** and **no historical data compatibility** requi
 5. Adopt **`ContentAsset`** for source files and derived resources (replaces `article_audio`).
 6. Keep **`Conversation`**; `subject_type = reading_work`, `subject_id = work.id`.
 7. Treat **`My Library`** as a **read-model aggregate**: works the user **owns** (`reading_work.owner_user_id = user`) **UNION** works explicitly saved via **`user_library_item`** (typically catalog works). **Continue Reading** is a separate projection of accessible in-progress `reading_state` and may contain an unsaved work.
-8. **Catalog supply:** Catalog Works remain shared `ReadingWork` records, but Admin is not a content-management or upload surface. Historical `admin_epub` / `admin_text` provenance remains intact; new Catalog intake awaits a separately decided Source ingestion policy.
+8. **Catalog supply:** Catalog Works remain shared `ReadingWork` records, but Admin is not a content-management or upload surface. Catalog Works have no `origin_kind` until a real Source ingestion policy exists; new Catalog intake awaits a separate decision.
 9. **Personal supply:** users upload through `POST /api/works`, creating a private owned Work in their Library. An Admin account uses this same User flow for a personal upload.
-10. **`admin_text`:** internal fallback only (dev/test/seed) — **not** a product capability or Catalog management path.
+10. **Catalog provenance:** `origin_kind` is nullable and currently identifies only Personal EPUB uploads (`user_epub`). Catalog identity comes from `owner_user_id`, `visibility`, and `published_at`; do not invent a source identity.
 11. **Provider settings (User-first):** `llm_provider`, `llm_app_setting`, and `tts_config` are scoped by **`owner_user_id`**: `NULL` = instance (platform) scope; non-`NULL` = that user’s scope. **Do not** introduce parallel `user_llm_*` tables.
 
 ---
@@ -127,7 +127,7 @@ LibraryWorks(user) =
 
 Admin has no Catalog Work creation, upload, editing, publication, deletion, preview, retry, or per-work asset-management surface. User EPUB upload uses **`POST /api/works`** and creates a private owned Work. Existing published Catalog Works remain readable through Catalog and Reader, and `published_at` continues to control Catalog visibility.
 
-Historical `admin_epub` and `admin_text` provenance is retained without rewriting existing data. New Catalog intake awaits a separately decided Source ingestion policy; AS-02 does not add that policy or a replacement intake route.
+AS-02C clears historical `admin_epub` and `admin_text` values to `NULL` in migration `0038_remove_legacy_admin_provenance.sql`, then removes those values from current runtime and schema. Existing Catalog Works remain readable; `owner_user_id`, `visibility`, and `published_at` continue to express Catalog ownership and visibility. The EPUB parser is selected by the origin asset MIME type, not provenance. New Catalog intake awaits a separately decided Source ingestion policy; AS-02C does not add that policy or an intake route.
 
 ---
 
@@ -155,7 +155,7 @@ The PR-01 rows below record the implementation checkpoint as it stood at that ti
 | Admin supply              | EPUB upload → processing → parts → publish                                            |
 | Discover / Shelf / Reader | Work + Part + State                                                                   |
 | Assist / Translate / TTS  | Part-scoped text                                                                      |
-| `admin_text` fallback     | 1 work + 1 part (`kind=body`) for dev/test only                                       |
+| Catalog text fixture      | 1 ownerless Catalog Work + 1 part (`kind=body`), with no source identity              |
 
 ### Reserved / follow-on (User-first epic)
 
@@ -186,7 +186,7 @@ The PR-01 rows below record the implementation checkpoint as it stood at that ti
 
 **Positive**
 
-- One content model for EPUB, future imports, and internal `admin_text` seed.
+- One content model for EPUB and future imports; provenance does not stand in for Catalog identity.
 - Clear boundaries: Work (catalog/metadata/pipeline) vs Part (read/TTS/translate) vs Library (membership) vs State (position).
 - Phase 3 / User-first migration path: db → shared → backend → tests → web.
 
@@ -209,4 +209,5 @@ The PR-01 rows below record the implementation checkpoint as it stood at that ti
 | 2026-09-28 | **PR-04 implementation** — shared EPUB ingest core; Personal `user_epub` upload/read boundary; Catalog-only Admin namespace; server TTS workflow filter                                                                                              |
 | 2026-09-28 | **User-first amendment** — `processing_status` + `published_at`; `user_library_item`; `reading_state` = position only; provider `owner_user_id`; target admin catalog paths; supersede shelf-on-state clauses; clarify `failed` at any pipeline step |
 | 2026-09-30 | **AS-02 amendment** — Admin no longer manages Catalog Works; preserve historical provenance and Catalog visibility; defer new Catalog supply to a future Source ingestion policy.                                                                    |
+| 2026-09-30 | **AS-02C amendment** — migrate historical Admin provenance to `NULL`; only Personal EPUB has current provenance; select parsers by origin asset MIME type.                                                                                           |
 | 2026-08-24 | Initial ADR — frozen at Phase 1 domain alignment                                                                                                                                                                                                     |
