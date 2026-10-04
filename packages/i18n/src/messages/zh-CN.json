@@ -833,10 +833,14 @@
       "metaTitle": "书库 · Gloaming Reader",
       "loadFailed": "无法加载书库",
       "emptyTitle": "你的书库还是空的",
-      "uploadEpub": "上传 EPUB",
+      "uploadBook": "上传书籍",
+      "sourceFilterAria": "书籍来源",
+      "sourceAll": "全部",
+      "sourcePersonal": "我的上传",
+      "sourceSaved": "已收藏",
       "uploading": "上传中…",
       "uploadStarted": "已加入书库，正在处理",
-      "uploadDialogTitle": "上传 EPUB",
+      "uploadDialogTitle": "上传书籍",
       "uploadDialogDescription": "选择一本 EPUB 电子书，加入你的书库。",
       "dropzoneAria": "选择或拖入 EPUB 文件",
       "dropzoneTitle": "将 EPUB 拖到这里",
@@ -1120,7 +1124,7 @@
         "epubOnly": "仅支持 .epub 格式文件"
       },
       "work": {
-        "uploadEpubFailed": "上传 EPUB 失败",
+        "uploadEpubFailed": "上传书籍失败",
         "reserveParseFailed": "预留 EPUB 解析任务失败",
         "stateChanged": "作品状态已变化，请刷新后再试"
       },

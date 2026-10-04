@@ -833,10 +833,14 @@
       "metaTitle": "Library · Gloaming Reader",
       "loadFailed": "Could not load your library",
       "emptyTitle": "Your library is empty",
-      "uploadEpub": "Upload EPUB",
+      "uploadBook": "Upload book",
+      "sourceFilterAria": "Book source",
+      "sourceAll": "All",
+      "sourcePersonal": "My uploads",
+      "sourceSaved": "Saved",
       "uploading": "Uploading…",
       "uploadStarted": "Added to Library. Processing has started.",
-      "uploadDialogTitle": "Upload EPUB",
+      "uploadDialogTitle": "Upload book",
       "uploadDialogDescription": "Choose an EPUB book to add to your Library.",
       "dropzoneAria": "Choose or drop an EPUB file",
       "dropzoneTitle": "Drop an EPUB here",
@@ -1117,7 +1121,7 @@
         "epubOnly": "Only .epub files are supported"
       },
       "work": {
-        "uploadEpubFailed": "Failed to upload EPUB",
+        "uploadEpubFailed": "Failed to upload book",
         "reserveParseFailed": "Failed to reserve EPUB parse enqueue",
         "stateChanged": "Work state changed; refresh and try again"
       },

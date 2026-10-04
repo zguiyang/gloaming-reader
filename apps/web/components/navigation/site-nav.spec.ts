@@ -58,9 +58,9 @@ describe('SiteNav upload action', () => {
     const root = createRoot(container);
     await act(async () => root.render(withLocale(createElement(SiteNav, { showUpload: true }))));
 
-    expect(container.querySelector('button[aria-label="上传 EPUB"]')).toBeTruthy();
+    expect(container.querySelector('button[aria-label="上传书籍"]')).toBeTruthy();
     expect(container.querySelector('[data-testid="upload-dialog"]')?.getAttribute('data-open')).toBe('false');
-    await act(async () => (container.querySelector('button[aria-label="上传 EPUB"]') as HTMLButtonElement)?.click());
+    await act(async () => (container.querySelector('button[aria-label="上传书籍"]') as HTMLButtonElement)?.click());
     expect(container.querySelector('[data-testid="upload-dialog"]')?.getAttribute('data-open')).toBe('true');
 
     await act(async () => root.unmount());
@@ -73,7 +73,7 @@ describe('SiteNav upload action', () => {
     const root = createRoot(container);
     await act(async () => root.render(withLocale(createElement(SiteNav))));
 
-    expect(container.querySelector('button[aria-label="上传 EPUB"]')).toBeNull();
+    expect(container.querySelector('button[aria-label="上传书籍"]')).toBeNull();
     expect(container.querySelector('[data-testid="upload-dialog"]')).toBeNull();
 
     await act(async () => root.unmount());

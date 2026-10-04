@@ -174,7 +174,7 @@ export function LibraryUploadDialog({ open, onOpenChange, initialFile }: Library
                 onClick={upload}
               >
                 {uploadMutation.isPending ? <Spinner aria-hidden /> : null}
-                {t(locale, uploadMutation.isPending ? 'content.library.uploading' : 'content.library.uploadEpub')}
+                {t(locale, uploadMutation.isPending ? 'content.library.uploading' : 'content.library.uploadBook')}
               </Button>
             </div>
           </div>

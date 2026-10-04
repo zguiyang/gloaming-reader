@@ -148,7 +148,13 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
           {entry.canRemoveFromLibrary || (isPersonal && entry.availability !== 'processing') ? (
             <DropdownMenu>
               <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon" className="-mr-2 -mt-2 size-11 shrink-0" />}
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="-mr-2 -mt-2 size-11 shrink-0 opacity-100 transition-opacity focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+                  />
+                }
                 aria-label={t(locale, 'content.library.manageBookAria', { title: work.title })}
               >
                 <MoreHorizontalIcon className="size-5" aria-hidden />

@@ -153,7 +153,7 @@ describe('LibraryPage', () => {
     expect(empty.container.textContent).toContain('你的书库还是空的');
     expect(empty.container.textContent).toContain('发现一本书开始阅读');
     expect(empty.container.querySelector('button')).toBeTruthy();
-    expect(empty.container.textContent).not.toContain('上传 EPUB');
+    expect(empty.container.textContent).not.toContain('上传书籍');
     expect(empty.container.querySelector('header button')).toBeNull();
     await act(async () => (empty.container.querySelector('button') as HTMLButtonElement)?.click());
     expect(document.body.textContent).toContain('将 EPUB 拖到这里');
@@ -182,24 +182,56 @@ describe('LibraryPage', () => {
     view.cleanup();
   });
 
-  it('filters only the Library grid by User Tags and keeps Continue Reading independent', async () => {
+  it('combines source and User Tag filters with AND and keeps Continue Reading independent', async () => {
     const favorite = { id: 'tag-favorite', name: '喜欢' };
+    const english = { id: 'tag-english', name: '英语学习' };
     const data = {
       current: { work: work('current'), state: { currentPartId: 'part-2', progressRatio: 20 } },
-      items: [{ ...item('favorite', false), userTags: [favorite] }, item('untagged', false)],
+      items: [
+        { ...item('personal-english', false), userTags: [english] },
+        { ...item('personal-favorite', false), userTags: [favorite] },
+        { ...item('saved-favorite', true), userTags: [favorite] },
+        { ...item('saved-english', true), userTags: [english] },
+      ],
     } as unknown as LibraryData;
-    mocks.useUserTagsQuery.mockReturnValue({ data: [{ ...favorite, bookCount: 1 }] });
+    mocks.useUserTagsQuery.mockReturnValue({
+      data: [
+        { ...favorite, bookCount: 2 },
+        { ...english, bookCount: 2 },
+      ],
+    });
     const view = await renderLibrary({ isPending: false, isError: false, data });
 
     expect(view.container.querySelector('a[href="/library/tags"]')?.textContent).toBe('管理标签');
+    await act(async () => {
+      Array.from(view.container.querySelectorAll('button'))
+        .find((button) => button.textContent === '我的上传')
+        ?.click();
+    });
+    await act(async () => {
+      Array.from(view.container.querySelectorAll('button'))
+        .find((button) => button.textContent === '英语学习')
+        ?.click();
+    });
+    expect(view.container.querySelector('a[href="/read/current?part=part-2"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/read/personal-english"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/read/personal-favorite"]')).toBeNull();
+    expect(view.container.querySelector('a[href="/read/saved-english"]')).toBeNull();
+
+    await act(async () => {
+      Array.from(view.container.querySelectorAll('button'))
+        .find((button) => button.textContent === '已收藏')
+        ?.click();
+    });
     await act(async () => {
       Array.from(view.container.querySelectorAll('button'))
         .find((button) => button.textContent === '喜欢')
         ?.click();
     });
     expect(view.container.querySelector('a[href="/read/current?part=part-2"]')).toBeTruthy();
-    expect(view.container.querySelector('a[href="/read/favorite"]')).toBeTruthy();
-    expect(view.container.querySelector('a[href="/read/untagged"]')).toBeNull();
+    expect(view.container.querySelector('a[href="/read/saved-favorite"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/read/personal-favorite"]')).toBeNull();
+    expect(view.container.querySelector('a[href="/read/saved-english"]')).toBeNull();
     view.cleanup();
   });
 
@@ -314,7 +346,7 @@ describe('LibraryPage', () => {
     });
     expect(mocks.uploadPersonalEpub).not.toHaveBeenCalled();
     const submitButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('上传 EPUB'),
+      button.textContent?.includes('上传书籍'),
     );
     await act(async () => submitButton?.click());
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
@@ -352,7 +384,7 @@ describe('LibraryPage', () => {
     });
     await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
     const submitButton = Array.from(document.body.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('上传 EPUB'),
+      button.textContent?.includes('上传书籍'),
     );
     await act(async () => submitButton?.click());
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));

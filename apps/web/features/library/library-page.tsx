@@ -26,7 +26,7 @@ function LibraryHeader() {
   const { locale } = useLocale();
 
   return (
-    <header className="mb-8 flex w-full items-center justify-between gap-4 md:mb-11">
+    <header className="mb-6 flex w-full items-center justify-between gap-4 md:mb-8">
       <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground md:text-4xl md:leading-tight">
         {t(locale, 'content.library.title')}
       </h1>
@@ -61,6 +61,7 @@ export function LibraryPage() {
   const { openLogin } = useAuthDialog();
   const libraryQuery = useLibraryQuery();
   const tagsQuery = useUserTagsQuery();
+  const [selectedSource, setSelectedSource] = useState<'all' | 'personal' | 'saved_catalog'>('all');
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -119,9 +120,11 @@ export function LibraryPage() {
   const items = current ? data.items.filter((item) => item.work.id !== current.work.id) : data.items;
   const tags = tagsQuery.data ?? [];
   const activeTagId = tags.some((tag) => tag.id === selectedTagId) ? selectedTagId : null;
-  const filteredItems = activeTagId
-    ? items.filter((item) => item.userTags.some((tag) => tag.id === activeTagId))
-    : items;
+  const filteredItems = items.filter((item) => {
+    const isSourceMatch = selectedSource === 'all' || item.libraryItemKind === selectedSource;
+    const isTagMatch = !activeTagId || item.userTags.some((tag) => tag.id === activeTagId);
+    return isSourceMatch && isTagMatch;
+  });
   const isEmpty = !current && items.length === 0;
 
   return (
@@ -140,9 +143,16 @@ export function LibraryPage() {
       ) : (
         <>
           <LibraryHeader />
-          <div className="flex flex-col gap-10 md:gap-14">
+          <div className="flex flex-col gap-8 md:gap-10">
             {current ? <LibraryContinueHero entry={current} /> : null}
-            <LibraryGrid items={filteredItems} tags={tags} selectedTagId={activeTagId} onSelectTag={setSelectedTagId} />
+            <LibraryGrid
+              items={filteredItems}
+              tags={tags}
+              selectedSource={selectedSource}
+              onSelectSource={setSelectedSource}
+              selectedTagId={activeTagId}
+              onSelectTag={setSelectedTagId}
+            />
           </div>
         </>
       )}

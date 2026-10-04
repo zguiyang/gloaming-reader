@@ -52,13 +52,13 @@ export function SiteNav({ showUpload = false }: { showUpload?: boolean }) {
               {showUpload ? (
                 <button
                   type="button"
-                  aria-label={t(locale, 'content.library.uploadEpub')}
+                  aria-label={t(locale, 'content.library.uploadBook')}
                   className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none md:h-9 md:w-auto md:gap-2 md:px-2.5"
                   onClick={() => setIsUploadOpen(true)}
                 >
                   <BookUpIcon className="size-4" strokeWidth={1.7} aria-hidden />
                   <span className="hidden text-sm font-medium md:inline">
-                    {t(locale, 'content.library.uploadEpub')}
+                    {t(locale, 'content.library.uploadBook')}
                   </span>
                 </button>
               ) : null}

@@ -37,13 +37,13 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
   const coverImageUrl = coverUrlFromAssetId(entry.work.coverAssetId);
 
   return (
-    <section className="w-full">
-      <div className="mb-4 flex items-center border-b border-border/40 pb-3">
-        <h3 className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+    <section className="w-full max-w-3xl">
+      <div className="mb-3 flex items-center border-b border-border/40 pb-2">
+        <h3 className="text-xs font-medium tracking-wide text-muted-foreground">
           {t(locale, 'content.library.continueReading')}
         </h3>
       </div>
-      <div className={cn('group relative flex flex-row items-center gap-4 rounded-xl bg-paper/65 p-4 md:gap-6 md:p-5')}>
+      <div className={cn('group flex items-center gap-3 py-1 md:gap-5')}>
         <Link
           href={readHref}
           className="shrink-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -53,21 +53,21 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
             title={entry.work.title}
             tags={entry.work.tags.map((tag) => tag.id)}
             coverImageUrl={coverImageUrl}
-            className="aspect-[2/3] w-20 md:w-24"
+            className="aspect-[2/3] w-14 md:w-16"
           />
         </Link>
 
         <div className="min-w-0 flex-1 text-left">
-          <p className="mb-1.5 text-[11px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+          <p className="mb-0.5 line-clamp-1 text-xs text-muted-foreground">
             {metaLine(entry, locale) || t(locale, 'content.library.readingInProgress')}
           </p>
           <Link href={readHref} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <h2 className="font-heading mb-3 line-clamp-2 text-lg leading-snug font-semibold text-foreground transition-colors duration-300 ease-out-soft hover:text-primary md:text-xl">
+            <h2 className="font-heading mb-2 line-clamp-2 text-base leading-snug font-semibold text-foreground transition-colors duration-300 ease-out-soft hover:text-primary md:text-lg">
               {entry.work.title}
             </h2>
           </Link>
-          <div className="mb-3 max-w-md">
-            <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
+          <div className="mb-1 max-w-sm">
+            <div className="mb-1 flex justify-between text-xs text-muted-foreground">
               <span className="font-medium text-primary">{progressLabel(ratio, locale)}</span>
             </div>
             <div className="h-1 w-full overflow-hidden rounded-full bg-muted/80">

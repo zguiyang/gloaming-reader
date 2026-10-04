@@ -19,12 +19,12 @@ export function LibraryTagFilter({
 
   return (
     <nav
-      className="mb-5 flex max-w-full gap-2 overflow-x-auto pb-1"
+      className="mb-6 flex max-w-full gap-4 overflow-x-auto pb-1"
       aria-label={t(locale, 'content.library.tagFilterAria')}
     >
       <button
         type="button"
-        className={`shrink-0 rounded-full border px-3.5 py-2 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ${selectedTagId === null ? 'border-primary/30 bg-brand-soft text-primary' : 'border-border bg-card text-muted-foreground hover:bg-muted/60'}`}
+        className={`min-h-9 shrink-0 text-sm underline-offset-4 transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none ${selectedTagId === null ? 'font-medium text-foreground underline decoration-primary decoration-1' : 'text-muted-foreground hover:text-foreground'}`}
         aria-pressed={selectedTagId === null}
         onClick={() => onSelect(null)}
       >
@@ -34,7 +34,7 @@ export function LibraryTagFilter({
         <button
           key={tag.id}
           type="button"
-          className={`shrink-0 rounded-full border px-3.5 py-2 text-sm transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ${selectedTagId === tag.id ? 'border-primary/30 bg-brand-soft text-primary' : 'border-border bg-card text-muted-foreground hover:bg-muted/60'}`}
+          className={`min-h-9 shrink-0 text-sm underline-offset-4 transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none ${selectedTagId === tag.id ? 'font-medium text-foreground underline decoration-primary decoration-1' : 'text-muted-foreground hover:text-foreground'}`}
           aria-pressed={selectedTagId === tag.id}
           onClick={() => onSelect(tag.id)}
         >
