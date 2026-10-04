@@ -93,7 +93,6 @@ export function LibraryPage() {
         )}
       >
         <LibraryHeader />
-        <LibrarySkeleton />
       </div>
     );
   }

@@ -11,12 +11,15 @@ import {
   discoverQueryKey,
   fetchDiscoverCatalog,
   formatDiscoverApiError,
+  resolveLibraryStatus,
+  useDiscoverLibraryStateQuery,
 } from '@/features/discover/discover-api';
 import { DiscoverEmptyState } from '@/features/discover/discover-empty-state';
 import { DiscoverGrid } from '@/features/discover/discover-grid';
 import { DiscoverHeader } from '@/features/discover/discover-header';
 import { DISCOVER_PAGE_SIZE, type DiscoverItem } from '@/features/discover/discover-model';
 import { DiscoverPagination } from '@/features/discover/discover-pagination';
+import { buildLibraryItemMap } from '@/features/library/library-public';
 import { useLocale } from '@/lib/locale-context';
 import { usePaginatedQuery } from '@/lib/query';
 import { cn } from '@/lib/utils';
@@ -41,6 +44,8 @@ export function DiscoverPage() {
   const { locale } = useLocale();
   const [page, setPage] = useState(1);
   const [mobileVisible, setMobileVisible] = useState(DISCOVER_PAGE_SIZE);
+  const libraryState = useDiscoverLibraryStateQuery();
+  const libraryData = libraryState.data;
 
   const listParams = useMemo(
     () => ({
@@ -61,7 +66,17 @@ export function DiscoverPage() {
     softRefreshMinMs: LIST_REFRESH_MIN_MS,
   });
 
-  const items = list.items;
+  const libraryItems = useMemo(() => (libraryData ? buildLibraryItemMap(libraryData) : new Map()), [libraryData]);
+  const items = list.items.map((item) => {
+    const libraryItem = libraryItems.get(item.id);
+    const current = libraryData?.current;
+    const state = libraryItem?.state ?? (current?.work.id === item.id ? current.state : null);
+    return {
+      ...item,
+      libraryStatus: resolveLibraryStatus(libraryItem),
+      progressRatio: state?.status === 'in_progress' ? state.progressRatio : null,
+    };
+  });
   const totalPages = list.totalPages;
   const safePage = list.page;
   const mobileItems = items.slice(0, mobileVisible);

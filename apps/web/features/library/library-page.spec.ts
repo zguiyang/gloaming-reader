@@ -6,6 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LibraryData } from '@gloaming/shared/library';
 
+import { ApiRequestError } from '@/lib/api-request';
 import { LocaleProvider } from '@/lib/locale-context';
 
 import { LibraryPage } from './library-page';
@@ -164,6 +165,19 @@ describe('LibraryPage', () => {
     expect(error.container.textContent).toContain('无法加载书库');
     expect(error.container.textContent).toContain('重试');
     error.cleanup();
+  });
+
+  it('opens the existing login dialog and exits loading after an unauthenticated Library response', async () => {
+    const view = await renderLibrary({
+      isPending: false,
+      isError: true,
+      error: new ApiRequestError({ message: '未登录', status: 401 }),
+    });
+
+    expect(mocks.openLogin).toHaveBeenCalledTimes(1);
+    expect(view.container.textContent).toContain('书库');
+    expect(view.container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
+    view.cleanup();
   });
 
   it('shows Continue Reading and opens owned and saved books directly in Reader', async () => {

@@ -2,7 +2,6 @@
 
 import { createContext, type ReactNode, useContext } from 'react';
 
-import { GlobalLoading } from '@/components/global-loading';
 import { MobileBottomNav, SiteNav } from '@/components/navigation';
 import { authClient, type User } from '@/lib/auth';
 
@@ -20,12 +19,8 @@ type AppShellProps = {
 };
 
 export function AppShell({ children }: AppShellProps) {
-  const { data, isPending } = authClient.useSession();
+  const { data } = authClient.useSession();
   const user = data?.user ?? null;
-
-  if (isPending) {
-    return <GlobalLoading />;
-  }
 
   return (
     <AppUserContext.Provider value={user}>

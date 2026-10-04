@@ -11,8 +11,8 @@ import {
 } from '@gloaming/shared/works';
 
 import { DISCOVER_PAGE_SIZE, type DiscoverItem, type DiscoverLibraryStatus } from '@/features/discover/discover-model';
-import { buildLibraryItemMap, getLibrary } from '@/features/library/library-public';
-import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
+import { getLibrary } from '@/features/library/library-public';
+import { apiRequest, formatApiError } from '@/lib/api-request';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 
 export type DiscoverListParams = Partial<Pick<CatalogListQuery, 'page' | 'pageSize' | 'q' | 'sortBy' | 'sortOrder'>>;
@@ -25,6 +25,7 @@ export type DiscoverCatalogResult = {
 export const discoverQueryKey = {
   all: ['discover'] as const,
   list: (params: DiscoverListParams) => [...discoverQueryKey.all, 'list', params] as const,
+  libraryState: () => [...discoverQueryKey.all, 'library-state'] as const,
 };
 
 function toIsoString(value: string | Date | null | undefined): string {
@@ -85,20 +86,19 @@ export async function fetchDiscoverCatalog(
   params: DiscoverListParams,
   init?: { signal?: AbortSignal },
 ): Promise<DiscoverCatalogResult> {
-  const [listData, libraryData] = await Promise.all([
-    listCatalogWorks(params, init),
-    getLibrary(init).catch((error: unknown) => {
-      if (error instanceof ApiRequestError && error.status === 401) {
-        return null;
-      }
-      throw error;
-    }),
-  ]);
-  const libraryMap = libraryData ? buildLibraryItemMap(libraryData) : new Map<string, LibraryItem>();
+  const listData = await listCatalogWorks(params, init);
   return {
-    items: listData.items.map((work) => toDiscoverItem(work, libraryMap.get(work.id), libraryData?.current)),
+    items: listData.items.map((work) => toDiscoverItem(work)),
     pagination: listData.pagination,
   };
+}
+
+/** Saved state is optional on Discover and settles independently from public Catalog content. */
+export function useDiscoverLibraryStateQuery() {
+  return useQuery({
+    queryKey: discoverQueryKey.libraryState(),
+    queryFn: ({ signal }) => getLibrary({ signal }),
+  });
 }
 
 export function useDiscoverCatalogQuery(params: DiscoverListParams, options?: { enabled?: boolean }) {

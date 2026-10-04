@@ -1,11 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ContinueReadingItem, LibraryItem } from '@gloaming/shared/library';
 import type { CatalogWork } from '@gloaming/shared/works';
 
+const mocks = vi.hoisted(() => ({ apiRequest: vi.fn(), getLibrary: vi.fn() }));
+
+vi.mock('@/lib/api-request', () => ({
+  apiRequest: mocks.apiRequest,
+  formatApiError: (error: unknown) => String(error),
+}));
+
+vi.mock('@/features/library/library-public', () => ({ getLibrary: mocks.getLibrary }));
+
 import {
   buildDiscoverListQuery,
   discoverQueryKey,
+  fetchDiscoverCatalog,
   resolveLibraryStatus,
   toDiscoverItem,
 } from '@/features/discover/discover-api';
@@ -34,6 +44,10 @@ function sampleWork(overrides: Partial<CatalogWork> = {}): CatalogWork {
   };
 }
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 describe('buildDiscoverListQuery', () => {
   it('sends pagination, search, and stable sort parameters', () => {
     const params = new URLSearchParams(
@@ -56,6 +70,30 @@ describe('buildDiscoverListQuery', () => {
 
   it('provides a query key for the current list parameters', () => {
     expect(discoverQueryKey.list({ page: 2 })).toEqual(['discover', 'list', { page: 2 }]);
+  });
+});
+
+describe('fetchDiscoverCatalog', () => {
+  it('finishes from the public Catalog response without waiting for the Library 401', async () => {
+    mocks.apiRequest.mockResolvedValue({
+      items: [sampleWork()],
+      pagination: {
+        page: 1,
+        pageSize: DISCOVER_PAGE_SIZE,
+        total: 1,
+        totalPages: 1,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      },
+    });
+    mocks.getLibrary.mockRejectedValue({ status: 401 });
+
+    const result = await fetchDiscoverCatalog({ page: 1, pageSize: DISCOVER_PAGE_SIZE });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({ id: 'work-1', libraryStatus: 'available' });
+    expect(mocks.apiRequest).toHaveBeenCalledTimes(1);
+    expect(mocks.getLibrary).not.toHaveBeenCalled();
   });
 });
 
