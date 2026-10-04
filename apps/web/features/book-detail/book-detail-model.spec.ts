@@ -5,11 +5,9 @@ import { workSchema } from '@gloaming/shared/works';
 
 import { chaptersFromParts, toBookDetail } from '@/features/book-detail/book-detail-api';
 import {
-  BOOK_DETAIL_DEFAULT_CATEGORY,
   chapterOrdinalLabel,
   chapterStatusLabel,
   difficultyStarCount,
-  formatBookCategory,
   formatChapterTitle,
   formatMinutes,
   formatRelativeReadTime,
@@ -17,34 +15,8 @@ import {
   languageLabelFromCode,
   primaryReadLabel,
   readingStatusFromProgress,
-  taxonomyDisplayName,
   teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
-
-const taxonomyTag = {
-  id: 'tag-fiction',
-  names: { 'zh-CN': '小说', 'en-US': 'Fiction' },
-  origin: 'manual' as const,
-};
-
-const taxonomyCategory = {
-  id: 'category-fiction',
-  names: { 'zh-CN': '虚构文学', 'en-US': 'Fiction' },
-  origin: 'manual' as const,
-};
-
-const taxonomyTagSecond = {
-  id: 'tag-adventure',
-  names: { 'zh-CN': '冒险', 'en-US': 'Adventure' },
-  origin: 'manual' as const,
-};
-
-const taxonomySource = {
-  id: 'source-gutenberg',
-  name: 'Gutenberg',
-  origin: 'extracted' as const,
-  matchRule: 'gutenberg.org',
-};
 
 describe('book-detail-model', () => {
   it('maps reading status to primary CTA labels', () => {
@@ -108,18 +80,6 @@ describe('book-detail-model', () => {
   it('formats fallback chapter titles from index', () => {
     expect(formatChapterTitle({ index: 3, title: '' }, DEFAULT_LOCALE)).toBe('第 3 章');
     expect(formatChapterTitle({ index: 3, title: 'Custom' }, DEFAULT_LOCALE)).toBe('Custom');
-  });
-
-  it('formats taxonomy category labels for the active locale with fallback', () => {
-    expect(formatBookCategory(taxonomyTag, 'zh-CN')).toBe('小说');
-    expect(formatBookCategory(taxonomyTag, 'en-US')).toBe('Fiction');
-    expect(formatBookCategory(BOOK_DETAIL_DEFAULT_CATEGORY, DEFAULT_LOCALE)).toBe('读物');
-  });
-
-  it('resolves taxonomy tag display names without treating fallback as full translation', () => {
-    const zhOnly = { id: 'tag-zh', names: { 'zh-CN': '冒险' }, origin: 'manual' as const };
-    expect(taxonomyDisplayName(taxonomyTag, 'en-US')).toBe('Fiction');
-    expect(taxonomyDisplayName(zhOnly, 'en-US')).toBe('冒险');
   });
 });
 
@@ -203,9 +163,6 @@ describe('toBookDetail', () => {
     language: 'en',
     processingStatus: 'ready' as const,
     visibility: 'catalog' as const,
-    tags: [taxonomyTag],
-    category: taxonomyCategory,
-    sources: [taxonomySource],
     coverAssetId: null,
     wordCount: null,
     estimatedMinutes: null,
@@ -235,71 +192,12 @@ describe('toBookDetail', () => {
     const book = toBookDetail(work, parts, false, null);
     expect(book.estimatedMinutes).toBe(2);
     expect(book.suggestedVocabSize).toBeNull();
-    expect(book.sourceLabel).toBe('official');
     expect(book.language).toBe('en');
-    expect(book.tags[0]?.id).toBe('tag-fiction');
-    expect(book.category).toEqual(taxonomyCategory);
-  });
-
-  it('uses work.category for book category instead of the first tag', () => {
-    const parts = [
-      {
-        id: 'p1',
-        workId: 'w1',
-        sortOrder: 0,
-        kind: 'chapter' as const,
-        title: 'One',
-        wordCount: 100,
-        estimatedMinutes: 1,
-        createdAt: '2026-01-01',
-        updatedAt: '2026-01-01',
-      },
-    ];
-
-    const book = toBookDetail(
-      {
-        ...work,
-        category: taxonomyCategory,
-        tags: [taxonomyTag, taxonomyTagSecond],
-      },
-      parts,
-      false,
-      null,
-    );
-
-    expect(book.category).toEqual(taxonomyCategory);
-    expect(book.category).not.toEqual(book.tags[0]);
-    expect(book.tags.map((tag) => tag.id)).toEqual(['tag-fiction', 'tag-adventure']);
-  });
-
-  it('falls back to default category when work.category is null', () => {
-    const parts = [
-      {
-        id: 'p1',
-        workId: 'w1',
-        sortOrder: 0,
-        kind: 'chapter' as const,
-        title: 'One',
-        wordCount: 100,
-        estimatedMinutes: 1,
-        createdAt: '2026-01-01',
-        updatedAt: '2026-01-01',
-      },
-    ];
-
-    const book = toBookDetail({ ...work, category: null, tags: [taxonomyTag] }, parts, false, null);
-
-    expect(book.category).toBe(BOOK_DETAIL_DEFAULT_CATEGORY);
-    expect(book.tags).toEqual([taxonomyTag]);
-  });
-
-  it('rejects legacy string taxonomy fields on published work payloads', () => {
-    expect(() =>
-      workSchema.parse({
-        ...work,
-        tags: ['Fiction'],
-        sources: ['Gutenberg'],
-      }),
-    ).toThrow();
+    expect(book).not.toHaveProperty('category');
+    expect(book).not.toHaveProperty('tags');
+    expect(book).not.toHaveProperty('sourceLabel');
+    expect(workSchema.shape).not.toHaveProperty('tags');
+    expect(workSchema.shape).not.toHaveProperty('category');
+    expect(workSchema.shape).not.toHaveProperty('sources');
   });
 });

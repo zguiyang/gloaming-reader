@@ -88,7 +88,6 @@ export function toReaderViewModel(
     workId: partsData.work.id,
     workTitle: partsData.work.title,
     coverAssetId: partsData.work.coverAssetId,
-    tags: partsData.work.tags,
     parts: partsData.parts,
     partId: partData.part.id,
     partTitle: partData.part.title,

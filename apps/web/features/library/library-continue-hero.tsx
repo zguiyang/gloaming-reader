@@ -5,7 +5,6 @@ import Link from 'next/link';
 
 import { type Locale, t } from '@gloaming/i18n';
 import type { ContinueReadingItem } from '@gloaming/shared/library';
-import { resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
@@ -13,18 +12,6 @@ import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
-
-function metaLine(entry: ContinueReadingItem, locale: Locale): string {
-  const parts: string[] = [];
-  const firstTag = entry.work.tags[0];
-  if (firstTag) {
-    const label = resolveLocalizedText(firstTag.names, locale);
-    if (label) {
-      parts.push(label);
-    }
-  }
-  return parts.join(' · ');
-}
 
 function progressLabel(ratio: number, locale: Locale): string {
   return t(locale, 'content.library.progressRead', { ratio });
@@ -49,17 +36,12 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
           className="shrink-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           aria-label={t(locale, 'content.common.openReaderAria', { title: entry.work.title })}
         >
-          <WorkCover
-            title={entry.work.title}
-            tags={entry.work.tags.map((tag) => tag.id)}
-            coverImageUrl={coverImageUrl}
-            className="aspect-[2/3] w-14 md:w-16"
-          />
+          <WorkCover title={entry.work.title} coverImageUrl={coverImageUrl} className="aspect-[2/3] w-14 md:w-16" />
         </Link>
 
         <div className="min-w-0 flex-1 text-left">
           <p className="mb-0.5 line-clamp-1 text-xs text-muted-foreground">
-            {metaLine(entry, locale) || t(locale, 'content.library.readingInProgress')}
+            {t(locale, 'content.library.readingInProgress')}
           </p>
           <Link href={readHref} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <h2 className="font-heading mb-2 line-clamp-2 text-base leading-snug font-semibold text-foreground transition-colors duration-300 ease-out-soft hover:text-primary md:text-lg">

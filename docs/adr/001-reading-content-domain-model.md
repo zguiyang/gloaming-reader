@@ -39,7 +39,7 @@ There are **no production users** and **no historical data compatibility** requi
 ### ReadingWork (`reading_work`)
 
 **User concept:** A book / piece of reading content.  
-**Responsibility:** Metadata, source, pipeline processing, visibility, ownership — **no body text**.
+**Responsibility:** Title, description, language, reading statistics, pipeline processing, visibility, ownership — **no body text**. Future source ingestion identity requires a separate Source policy.
 
 **Processing lifecycle (`processing_status` only):**
 
@@ -53,7 +53,7 @@ TTS is a **workflow step** (`origin_meta` / worker), not a `processing_status` v
 **Publication:** expressed by **`published_at`** (timestamp, nullable).
 `published_at IS NOT NULL` means published to the surfaces that respect catalog publication; it is **not** a processing status.
 
-**Key fields:** `id`, `title`, `description`, `language`, `processing_status`, `visibility`, `owner_user_id` (null = official catalog work; non-null = user-owned work), `origin_kind`, `origin_meta`, tags/category/sources (normalized), `cover_asset_id`, `published_at`, timestamps. Channel providers live on the `source` dimension via `reading_work_source`.
+**Key fields:** `id`, `title`, `description`, `language`, `processing_status`, `visibility`, `owner_user_id` (null = official catalog work; non-null = user-owned work), `origin_kind`, `origin_meta`, `cover_asset_id`, `published_at`, timestamps. `origin_kind` currently identifies Personal EPUB uploads only. Per-user Library tags are separate user-owned data, not Catalog metadata.
 
 **Forbidden on Work:** `level`, `seriesId`, `body` (legacy Article concepts); a single column mixing pipeline and publication (legacy `status` with `published` / `tts`).
 
@@ -210,4 +210,5 @@ The PR-01 rows below record the implementation checkpoint as it stood at that ti
 | 2026-09-28 | **User-first amendment** — `processing_status` + `published_at`; `user_library_item`; `reading_state` = position only; provider `owner_user_id`; target admin catalog paths; supersede shelf-on-state clauses; clarify `failed` at any pipeline step |
 | 2026-09-30 | **AS-02 amendment** — Admin no longer manages Catalog Works; preserve historical provenance and Catalog visibility; defer new Catalog supply to a future Source ingestion policy.                                                                    |
 | 2026-09-30 | **AS-02C amendment** — migrate historical Admin provenance to `NULL`; only Personal EPUB has current provenance; select parsers by origin asset MIME type.                                                                                           |
+| 2026-10-04 | **AS-08 amendment** — remove global Catalog tags, categories, and sources and their enrichment/read surfaces; retain Work description and private per-user Library tags. Future Source ingestion requires a separate decision.                       |
 | 2026-08-24 | Initial ADR — frozen at Phase 1 domain alignment                                                                                                                                                                                                     |

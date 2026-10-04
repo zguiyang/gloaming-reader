@@ -2,7 +2,6 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import type { ContinueReadingItem, LibraryItem } from '@gloaming/shared/library';
 import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
-import { type CatalogTaxonomyListData, catalogTaxonomyListDataSchema } from '@gloaming/shared/taxonomy';
 import {
   type CatalogListData,
   catalogListDataSchema,
@@ -16,9 +15,7 @@ import { buildLibraryItemMap, getLibrary } from '@/features/library/library-publ
 import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 
-export type DiscoverListParams = Partial<
-  Pick<CatalogListQuery, 'page' | 'pageSize' | 'category' | 'tag' | 'q' | 'sortBy' | 'sortOrder'>
->;
+export type DiscoverListParams = Partial<Pick<CatalogListQuery, 'page' | 'pageSize' | 'q' | 'sortBy' | 'sortOrder'>>;
 
 export type DiscoverCatalogResult = {
   items: DiscoverItem[];
@@ -28,8 +25,6 @@ export type DiscoverCatalogResult = {
 export const discoverQueryKey = {
   all: ['discover'] as const,
   list: (params: DiscoverListParams) => [...discoverQueryKey.all, 'list', params] as const,
-  tags: () => [...discoverQueryKey.all, 'tags'] as const,
-  categories: () => [...discoverQueryKey.all, 'categories'] as const,
 };
 
 function toIsoString(value: string | Date | null | undefined): string {
@@ -46,12 +41,6 @@ export function buildDiscoverListQuery(params: DiscoverListParams): string {
   search.set('pageSize', String(params.pageSize ?? DISCOVER_PAGE_SIZE));
   search.set('sortBy', params.sortBy ?? DEFAULT_CATALOG_SORT_BY);
   search.set('sortOrder', params.sortOrder ?? DEFAULT_SORT_ORDER);
-  if (params.category) {
-    search.set('category', params.category);
-  }
-  if (params.tag?.length) {
-    search.set('tag', params.tag.join(','));
-  }
   if (params.q) {
     search.set('q', params.q);
   }
@@ -65,20 +54,6 @@ export async function listCatalogWorks(
   const qs = buildDiscoverListQuery(params);
   return apiRequest(`/api/catalog/works?${qs}`, {
     schema: catalogListDataSchema,
-    signal: init?.signal,
-  });
-}
-
-export async function fetchDiscoverTags(init?: { signal?: AbortSignal }): Promise<CatalogTaxonomyListData> {
-  return apiRequest('/api/catalog/tags', {
-    schema: catalogTaxonomyListDataSchema,
-    signal: init?.signal,
-  });
-}
-
-export async function fetchDiscoverCategories(init?: { signal?: AbortSignal }): Promise<CatalogTaxonomyListData> {
-  return apiRequest('/api/catalog/categories', {
-    schema: catalogTaxonomyListDataSchema,
     signal: init?.signal,
   });
 }
@@ -99,8 +74,6 @@ export function toDiscoverItem(
     title: work.title,
     author: work.author.trim(),
     partCount: work.partCount,
-    tags: work.tags,
-    category: work.category,
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
     publishedAt: toIsoString(work.publishedAt) || toIsoString(work.createdAt),
     libraryStatus,
@@ -133,22 +106,6 @@ export function useDiscoverCatalogQuery(params: DiscoverListParams, options?: { 
     queryKey: discoverQueryKey.list(params),
     queryFn: ({ signal }) => fetchDiscoverCatalog(params, { signal }),
     placeholderData: keepPreviousData,
-    enabled: options?.enabled ?? true,
-  });
-}
-
-export function useDiscoverTagsQuery(options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: discoverQueryKey.tags(),
-    queryFn: ({ signal }) => fetchDiscoverTags({ signal }),
-    enabled: options?.enabled ?? true,
-  });
-}
-
-export function useDiscoverCategoriesQuery(options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: discoverQueryKey.categories(),
-    queryFn: ({ signal }) => fetchDiscoverCategories({ signal }),
     enabled: options?.enabled ?? true,
   });
 }

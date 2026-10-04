@@ -76,8 +76,6 @@ export const epubContentParser: ContentParser = {
         authors: book.authors,
         description: book.description,
         language: book.language,
-        subjects: book.subjects,
-        sourceRaw: book.sourceRaw,
       },
       chapters: resolvedChapters,
       images,

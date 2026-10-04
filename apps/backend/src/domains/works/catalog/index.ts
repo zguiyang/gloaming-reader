@@ -1,6 +1,1 @@
-export {
-  getCatalogWork,
-  listCatalogCategories,
-  listCatalogTags,
-  listCatalogWorks,
-} from '@/domains/works/catalog/catalog';
+export { getCatalogWork, listCatalogWorks } from '@/domains/works/catalog/catalog';

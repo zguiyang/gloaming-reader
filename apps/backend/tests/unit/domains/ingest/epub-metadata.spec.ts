@@ -113,14 +113,15 @@ describe('parseEpub metadata extraction (builder variants)', () => {
     expect(book.description).toBe('Dcterms description');
   });
 
-  it('extracts subjects and source', async () => {
+  it('keeps Catalog ingestion metadata to the supported work fields', async () => {
     const bytes = await buildEpubBytes({
       subjects: ['Science Fiction', 'Adventure'],
       sourceRaw: 'https://example.com/books/source',
       chapters,
     });
     const book = await parseEpub(bytes);
-    expect(book.subjects).toEqual(['Science Fiction', 'Adventure']);
-    expect(book.sourceRaw).toBe('https://example.com/books/source');
+    expect(book.title).toBe('Test Book');
+    expect(book).not.toHaveProperty('subjects');
+    expect(book).not.toHaveProperty('sourceRaw');
   });
 });

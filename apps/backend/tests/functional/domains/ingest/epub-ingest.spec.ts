@@ -40,8 +40,6 @@ function parsedAttemptContent(label: string, imageByte: number): ParsedContent {
       authors: [`${label} author`],
       description: `${label} description`,
       language: 'en',
-      subjects: [],
-      sourceRaw: '',
     },
     chapters: [{ title: `${label} chapter`, html: `<p>${label}</p><img src="${token}">` }],
     images: [{ token, href: `${label}.png`, mime: 'image/png', bytes: Buffer.from([imageByte]) }],

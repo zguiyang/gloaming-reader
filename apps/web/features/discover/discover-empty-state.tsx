@@ -35,11 +35,7 @@ function EmptyDiscoverIllustration() {
   );
 }
 
-type DiscoverEmptyStateProps = {
-  onResetFilters?: () => void;
-};
-
-export function DiscoverEmptyState({ onResetFilters }: DiscoverEmptyStateProps) {
+export function DiscoverEmptyState() {
   const { locale } = useLocale();
 
   return (
@@ -52,15 +48,6 @@ export function DiscoverEmptyState({ onResetFilters }: DiscoverEmptyStateProps) 
         {t(locale, 'content.discover.emptyDescription')}
       </p>
       <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
-        {onResetFilters ? (
-          <Button
-            type="button"
-            className="h-12 rounded-full px-8 text-base hover:bg-brand-deep active:scale-[0.98]"
-            onClick={onResetFilters}
-          >
-            {t(locale, 'content.discover.resetFilters')}
-          </Button>
-        ) : null}
         <Button
           nativeButton={false}
           variant="outline"

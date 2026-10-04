@@ -2,7 +2,6 @@
 
 import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
 import type { ReaderAudioAvailability, ReadingStateStatus } from '@gloaming/shared/reader';
-import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 import type { PartSummary } from '@gloaming/shared/works';
 
 export type ReaderInlineAssistKind = 'explain' | 'translate' | 'ask';
@@ -37,7 +36,6 @@ export type ReaderViewModel = {
   workId: string;
   workTitle: string;
   coverAssetId: string | null;
-  tags: TaxonomyReference[];
   parts: PartSummary[];
   partId: string;
   partTitle: string;
@@ -46,10 +44,6 @@ export type ReaderViewModel = {
   state: ReaderProgressState | null;
   audioAvailable: ReaderAudioAvailability;
 };
-
-export function taxonomyCoverTintSeeds(refs: readonly TaxonomyReference[]): string[] {
-  return refs.map((ref) => ref.id);
-}
 
 /** @deprecated Use ReaderViewModel */
 export type ReaderSession = ReaderViewModel & {

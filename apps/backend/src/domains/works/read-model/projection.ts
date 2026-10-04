@@ -1,5 +1,4 @@
 import type { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
-import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 import { type Part, type Work } from '@gloaming/shared/works';
 
 export type WorkRow = typeof readingWorkTable.$inferSelect;
@@ -9,12 +8,7 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
-export function toWork(
-  row: WorkRow,
-  tags: TaxonomyReference[],
-  sources: SourceReference[],
-  category: TaxonomyReference | null = null,
-): Work {
+export function toWork(row: WorkRow): Work {
   return {
     id: row.id,
     title: row.title,
@@ -23,9 +17,6 @@ export function toWork(
     language: row.language,
     processingStatus: row.processingStatus as Work['processingStatus'],
     visibility: row.visibility as Work['visibility'],
-    tags,
-    category,
-    sources,
     coverAssetId: row.coverAssetId,
     wordCount: row.wordCount,
     estimatedMinutes: row.estimatedMinutes,

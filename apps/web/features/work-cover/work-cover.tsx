@@ -9,34 +9,30 @@ export type WorkCoverAppearance = 'standard' | 'compact';
 
 export type WorkCoverProps = {
   title: string;
-  /** Used by `standard` tint seeding; ignored by `compact` (always empty tags). */
-  tags?: string[];
   coverImageUrl?: string | null;
   /** Layout size overrides for `standard` only. Must not be used to fake `compact`. */
   className?: string;
   appearance?: WorkCoverAppearance;
 };
 
-export function WorkCover({ title, tags = [], coverImageUrl, className, appearance = 'standard' }: WorkCoverProps) {
+export function WorkCover({ title, coverImageUrl, className, appearance = 'standard' }: WorkCoverProps) {
   if (appearance === 'compact') {
     return <WorkCoverCompact title={title} coverImageUrl={coverImageUrl ?? null} />;
   }
 
-  return <WorkCoverStandard title={title} tags={tags} coverImageUrl={coverImageUrl} className={className} />;
+  return <WorkCoverStandard title={title} coverImageUrl={coverImageUrl} className={className} />;
 }
 
 function WorkCoverStandard({
   title,
-  tags,
   coverImageUrl,
   className,
 }: {
   title: string;
-  tags: string[];
   coverImageUrl?: string | null;
   className?: string;
 }) {
-  const tint = coverTintForVolume(tags, title);
+  const tint = coverTintForVolume(title);
   const [hasImageFailed, setHasImageFailed] = useState(false);
   const canShowImage = Boolean(coverImageUrl) && !hasImageFailed;
 
@@ -74,7 +70,7 @@ function WorkCoverStandard({
 }
 
 function WorkCoverCompact({ title, coverImageUrl }: { title: string; coverImageUrl: string | null }) {
-  const tint = coverTintForVolume([], title);
+  const tint = coverTintForVolume(title);
 
   return (
     <div

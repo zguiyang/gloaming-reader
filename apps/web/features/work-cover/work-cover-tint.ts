@@ -12,7 +12,7 @@ export function hashSeed(seed: string): number {
   return hash;
 }
 
-export function coverTintForVolume(tags: string[], title: string): VolumeCoverTint {
-  const seed = tags[0]?.trim() || title.trim() || 'volume';
+export function coverTintForVolume(title: string): VolumeCoverTint {
+  const seed = title.trim() || 'volume';
   return VOLUME_COVER_TINTS[hashSeed(seed) % VOLUME_COVER_TINTS.length]!;
 }

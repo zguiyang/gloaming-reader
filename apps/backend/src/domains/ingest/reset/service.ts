@@ -4,9 +4,6 @@ import {
   contentAsset as contentAssetTable,
   readingPart as readingPartTable,
   readingWork as readingWorkTable,
-  readingWorkCategory as readingWorkCategoryTable,
-  readingWorkSource as readingWorkSourceTable,
-  readingWorkTag as readingWorkTagTable,
 } from '@gloaming/db';
 
 import { deleteAudioAssetObjects } from '@/domains/assets';
@@ -99,14 +96,8 @@ async function clearDerivedAssetObjects(workId: string, cleanup: DerivedAssetsFo
   }
 }
 
-/** AI-output reset: ai-provenance tag/category associations and ai-filled fields. */
+/** AI-output reset: AI-filled description. */
 export async function resetMetadataAiOutputs(work: WorkRow, client: DbClient = db): Promise<void> {
-  await client
-    .delete(readingWorkTagTable)
-    .where(and(eq(readingWorkTagTable.workId, work.id), eq(readingWorkTagTable.provenance, 'ai')));
-  await client
-    .delete(readingWorkCategoryTable)
-    .where(and(eq(readingWorkCategoryTable.workId, work.id), eq(readingWorkCategoryTable.provenance, 'ai')));
   if (work.descriptionProvenance === 'ai') {
     await client
       .update(readingWorkTable)
@@ -115,18 +106,12 @@ export async function resetMetadataAiOutputs(work: WorkRow, client: DbClient = d
   }
 }
 
-/** Re-parse reset: parts, derived assets, AI outputs, extracted junctions, and filled metadata fields. */
+/** Re-parse reset: parts, derived assets, AI description, and filled metadata fields. */
 export async function resetParseStepOutputs(work: WorkRow, claim?: ParseClaim): Promise<void> {
   const reset = async (client: DbClient): Promise<DerivedAssetsForCleanup> => {
     const cleanup = await removeDerivedAssetRows(client, work.id);
     await client.delete(readingPartTable).where(eq(readingPartTable.workId, work.id));
     await resetMetadataAiOutputs(work, client);
-    await client
-      .delete(readingWorkTagTable)
-      .where(and(eq(readingWorkTagTable.workId, work.id), eq(readingWorkTagTable.provenance, 'extracted')));
-    await client
-      .delete(readingWorkSourceTable)
-      .where(and(eq(readingWorkSourceTable.workId, work.id), eq(readingWorkSourceTable.provenance, 'extracted')));
     await client
       .update(readingWorkTable)
       .set({

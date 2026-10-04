@@ -1,36 +1,23 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@gloaming/db';
 
 import { invokeMetadataAiEnrichment, isModelNotConfigured } from '@/domains/metadata/enrich/ai-enrichment';
 import { computeMetadataEnrichGaps, selectFieldsNeedingAi } from '@/domains/metadata/enrich/candidate-selection';
-import {
-  loadBookContext,
-  loadCatalogSubjects,
-  loadCurrentCategory,
-  loadCurrentTags,
-} from '@/domains/metadata/enrich/context';
-import { persistAiMetadataEnrichment } from '@/domains/metadata/enrich/taxonomy-sync';
+import { loadBookContext } from '@/domains/metadata/enrich/context';
+import { metadataFieldRegistry } from '@/domains/metadata/enrich/registry';
 import { completeMetadataStep } from '@/domains/metadata/enrich/workflow';
-import { cleanSubjectsToProductTags } from '@/domains/metadata/fill/subjects';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 
 const enrichLogger = rootLogger.child({ module: 'MetadataEnrich' });
 
 export type EnrichWorkMetadataResult = {
-  /** Whether enrichment finished without aborting the metadata workflow completion attempt. */
   ok: boolean;
-  /** When true, the application job should enqueue TTS after a successful metadata step completion. */
   enqueueTts: boolean;
 };
 
-/**
- * AI backfill orchestration — fills empty/weak fields only (never overrides
- * manual values). Short-circuits with zero cost when nothing is needed.
- * Model-not-configured degrades to a completed step (rules already landed);
- * other failures bubble up so the job can fail the step and retry.
- */
+/** Fill only a weak description; never replace a stronger or manually edited value. */
 export async function enrichWorkMetadata(
   workId: string,
   retryJobToken?: string,
@@ -40,40 +27,26 @@ export async function enrichWorkMetadata(
   if (!work) {
     throw new Error(`Work ${workId} not found`);
   }
-  if (work.ownerUserId !== null || work.visibility !== 'catalog') {
-    return { ok: true, enqueueTts: false };
-  }
-  if (work.processingStatus !== 'metadata') {
+  if (work.ownerUserId !== null || work.visibility !== 'catalog' || work.processingStatus !== 'metadata') {
     return { ok: true, enqueueTts: false };
   }
 
-  const [currentTags, currentCategory, context] = await Promise.all([
-    loadCurrentTags(workId),
-    loadCurrentCategory(workId),
-    loadBookContext(workId),
-  ]);
-
-  const needed = selectFieldsNeedingAi(currentTags, currentCategory, work.description);
-
+  const needed = selectFieldsNeedingAi(work.description);
   if (needed.size === 0) {
     const step = await completeMetadataStep(workId, retryJobToken, attemptToken);
     return { ok: step.completed, enqueueTts: step.enqueueTts };
   }
 
-  const catalogSubjects = loadCatalogSubjects(work);
-  const ruleTagCandidates = cleanSubjectsToProductTags(catalogSubjects);
-
   try {
-    const result = await invokeMetadataAiEnrichment(
-      work,
-      workId,
-      needed,
-      context,
-      currentTags,
-      catalogSubjects,
-      ruleTagCandidates,
-    );
-    await persistAiMetadataEnrichment(workId, needed, result.content);
+    const context = await loadBookContext(workId);
+    const result = await invokeMetadataAiEnrichment(work, workId, context);
+    const description = metadataFieldRegistry.description.normalize(result.content.description);
+    if (description) {
+      await db
+        .update(readingWorkTable)
+        .set({ description, descriptionProvenance: 'ai' })
+        .where(and(eq(readingWorkTable.id, workId), eq(readingWorkTable.description, work.description)));
+    }
   } catch (error) {
     if (isModelNotConfigured(error)) {
       const step = await completeMetadataStep(workId, retryJobToken, attemptToken, [...needed]);
@@ -82,10 +55,12 @@ export async function enrichWorkMetadata(
     throw error;
   }
 
-  const [after] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId)).limit(1);
-  const [afterTags, afterCategory] = await Promise.all([loadCurrentTags(workId), loadCurrentCategory(workId)]);
-  const gaps = computeMetadataEnrichGaps(needed, afterTags, afterCategory, after?.description);
-
+  const [after] = await db
+    .select({ description: readingWorkTable.description })
+    .from(readingWorkTable)
+    .where(eq(readingWorkTable.id, workId))
+    .limit(1);
+  const gaps = computeMetadataEnrichGaps(after?.description);
   const step = await completeMetadataStep(workId, retryJobToken, attemptToken, gaps);
   if (step.completed && gaps.length > 0) {
     enrichLogger.warn({ workId, missingFields: gaps }, 'Metadata enrich completed with fields left unfilled');

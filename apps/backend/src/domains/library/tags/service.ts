@@ -10,7 +10,7 @@ import {
 } from '@gloaming/db';
 import type { UserTag, UserTagManagementItem } from '@gloaming/shared/library';
 
-import { normalizeTag } from '@/domains/taxonomy/normalization';
+import { normalizeTagName } from '@/domains/library/tags/normalization';
 import { db } from '@/infra/db';
 import { HTTP_STATUS } from '@/shared/constants';
 import { AppError, NotFoundError } from '@/shared/errors/app-error';
@@ -56,7 +56,7 @@ export async function listUserTags(userId: string): Promise<UserTagManagementIte
 
 export async function createUserTag(userId: string, rawName: string): Promise<UserTag> {
   const name = rawName.trim();
-  const normalizedName = normalizeTag(name);
+  const normalizedName = normalizeTagName(name);
   const [existing] = await db
     .select({ id: userTagTable.id })
     .from(userTagTable)
@@ -78,7 +78,7 @@ export async function createUserTag(userId: string, rawName: string): Promise<Us
 
 export async function renameUserTag(userId: string, tagId: string, rawName: string): Promise<UserTag> {
   const name = rawName.trim();
-  const normalizedName = normalizeTag(name);
+  const normalizedName = normalizeTagName(name);
   const [owned] = await db
     .select({ id: userTagTable.id })
     .from(userTagTable)

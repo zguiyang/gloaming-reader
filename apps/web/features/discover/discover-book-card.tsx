@@ -6,7 +6,6 @@ import { t } from '@gloaming/i18n';
 
 import { AUTH_ROUTES } from '@/constants';
 import type { DiscoverItem } from '@/features/discover/discover-model';
-import { taxonomyCoverTintSeeds } from '@/features/discover/discover-model';
 import { WorkCover } from '@/features/work-cover';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -31,12 +30,7 @@ export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
         )}
         aria-label={t(locale, 'content.common.viewBookDetailAria', { title: item.title })}
       >
-        <WorkCover
-          title={item.title}
-          tags={taxonomyCoverTintSeeds(item.tags)}
-          coverImageUrl={item.coverImageUrl}
-          className="aspect-[2/3] rounded-sm"
-        />
+        <WorkCover title={item.title} coverImageUrl={item.coverImageUrl} className="aspect-[2/3] rounded-sm" />
         {progress != null ? (
           <div className="absolute inset-x-0 bottom-0 z-10 h-0.5 bg-muted/80">
             <div

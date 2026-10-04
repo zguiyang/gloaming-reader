@@ -11,11 +11,8 @@ import {
   discoverQueryKey,
   fetchDiscoverCatalog,
   formatDiscoverApiError,
-  useDiscoverCategoriesQuery,
-  useDiscoverTagsQuery,
 } from '@/features/discover/discover-api';
 import { DiscoverEmptyState } from '@/features/discover/discover-empty-state';
-import { DiscoverFilters } from '@/features/discover/discover-filters';
 import { DiscoverGrid } from '@/features/discover/discover-grid';
 import { DiscoverHeader } from '@/features/discover/discover-header';
 import { DISCOVER_PAGE_SIZE, type DiscoverItem } from '@/features/discover/discover-model';
@@ -42,26 +39,15 @@ function DiscoverSkeleton() {
 
 export function DiscoverPage() {
   const { locale } = useLocale();
-  const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [mobileVisible, setMobileVisible] = useState(DISCOVER_PAGE_SIZE);
-
-  const categoriesQuery = useDiscoverCategoriesQuery();
-  const tagsQuery = useDiscoverTagsQuery();
-
-  const categories = categoriesQuery.data?.items ?? [];
-  const tags = tagsQuery.data?.items ?? [];
-  const hasActiveFilters = categoryId !== null || selectedTagIds.length > 0;
 
   const listParams = useMemo(
     () => ({
       page,
       pageSize: DISCOVER_PAGE_SIZE,
-      ...(categoryId ? { category: categoryId } : {}),
-      ...(selectedTagIds.length > 0 ? { tag: [...selectedTagIds] } : {}),
     }),
-    [page, categoryId, selectedTagIds],
+    [page],
   );
 
   const list = usePaginatedQuery<DiscoverItem, DiscoverCatalogResult>({
@@ -80,26 +66,7 @@ export function DiscoverPage() {
   const safePage = list.page;
   const mobileItems = items.slice(0, mobileVisible);
   const hasMoreMobile = mobileVisible < items.length;
-  const isCatalogEmpty = !list.isInitialLoading && items.length === 0 && !hasActiveFilters;
-
-  function resetFilters() {
-    setCategoryId(null);
-    setSelectedTagIds([]);
-    setPage(1);
-    setMobileVisible(DISCOVER_PAGE_SIZE);
-  }
-
-  function handleCategoryChange(next: string | null) {
-    setCategoryId(next);
-    setPage(1);
-    setMobileVisible(DISCOVER_PAGE_SIZE);
-  }
-
-  function handleTagIdsChange(next: string[]) {
-    setSelectedTagIds(next);
-    setPage(1);
-    setMobileVisible(DISCOVER_PAGE_SIZE);
-  }
+  const isCatalogEmpty = !list.isInitialLoading && items.length === 0;
 
   function handlePageChange(next: number) {
     setPage(next);
@@ -116,16 +83,6 @@ export function DiscoverPage() {
     >
       <DiscoverHeader />
 
-      <DiscoverFilters
-        categoryId={categoryId}
-        categories={categories}
-        onCategoryChange={handleCategoryChange}
-        selectedTagIds={selectedTagIds}
-        tags={tags}
-        onTagIdsChange={handleTagIdsChange}
-        hasActiveFilters={hasActiveFilters}
-      />
-
       {list.isInitialLoading ? (
         <DiscoverSkeleton />
       ) : list.isError && !list.data ? (
@@ -141,7 +98,7 @@ export function DiscoverPage() {
           {isCatalogEmpty ? (
             <DiscoverEmptyState />
           ) : items.length === 0 ? (
-            <DiscoverEmptyState onResetFilters={resetFilters} />
+            <DiscoverEmptyState />
           ) : (
             <>
               <div className="md:hidden">

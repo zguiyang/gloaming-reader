@@ -44,7 +44,6 @@ export function workToRecommendationCard(work: Work): RelatedBookCard {
   return {
     id: work.id,
     title: work.title,
-    tags: work.tags,
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
     difficultyLabel: work.difficultyScore != null ? difficultyLabelFromScore(work.difficultyScore) : null,
     estimatedMinutes: work.estimatedMinutes,

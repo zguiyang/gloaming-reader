@@ -173,12 +173,6 @@ export async function parseEpub(buffer: Buffer, limits = EPUB_RESOURCE_LIMITS): 
 
     const description = textOfDeep(metadataByLocalName(metadata, 'description')).trim();
 
-    const subjects = metadataValuesByLocalName(metadata, 'subject')
-      .map((s) => textOfDeep(s).trim())
-      .filter(Boolean);
-
-    const sourceRaw = textOfDeep(metadataByLocalName(metadata, 'source')).trim();
-
     // Manifest hrefs are relative to the OPF directory (e.g. "chapter-1.xhtml"
     // lives at "OEBPS/chapter-1.xhtml"); resolve before matching zip entries.
     const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/')) : '';
@@ -234,8 +228,6 @@ export async function parseEpub(buffer: Buffer, limits = EPUB_RESOURCE_LIMITS): 
       authors,
       description,
       language,
-      subjects,
-      sourceRaw,
       spine,
       nav,
       coverHref,

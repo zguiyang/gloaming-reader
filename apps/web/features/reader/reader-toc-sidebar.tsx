@@ -13,7 +13,6 @@ import {
   isCurrentChapter,
   type ReaderViewModel,
   sortedParts,
-  taxonomyCoverTintSeeds,
 } from '@/features/reader/reader-model';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
@@ -67,7 +66,6 @@ export function ReaderTocSidebar({
         <div className="mt-2 flex gap-4">
           <WorkCover
             title={reader.workTitle}
-            tags={taxonomyCoverTintSeeds(reader.tags)}
             coverImageUrl={coverImageUrl}
             className="aspect-[2/3] w-16 shrink-0 rounded-sm shadow-sm"
           />

@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 
 import { type Locale, t } from '@gloaming/i18n';
 import type { LibraryItem, UserTagManagementItem } from '@gloaming/shared/library';
-import { resolveLocalizedText } from '@gloaming/shared/taxonomy';
 
 import {
   AlertDialog,
@@ -69,11 +68,6 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const { work, state } = entry;
   const readHref = AUTH_ROUTES.readBook(work.id, state?.currentPartId ?? undefined);
-  const tagLine = work.tags
-    .slice(0, 2)
-    .map((tag) => resolveLocalizedText(tag.names, locale))
-    .filter(Boolean)
-    .join(' · ');
   const hasProgressBar = entry.availability === 'ready' && state?.status === 'in_progress' && state.progressRatio > 0;
   const coverImageUrl = coverUrlFromAssetId(work.coverAssetId);
   const removal = useMutation({
@@ -99,7 +93,6 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
   const cover = (
     <WorkCover
       title={work.title}
-      tags={work.tags.map((tag) => tag.id)}
       coverImageUrl={coverImageUrl}
       className={cn('aspect-[2/3] rounded-sm', entry.availability !== 'ready' && 'grayscale-[0.25]')}
     />
@@ -184,9 +177,6 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
             </DropdownMenu>
           ) : null}
         </div>
-        {tagLine && entry.availability === 'ready' ? (
-          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{tagLine}</p>
-        ) : null}
         <p
           className={cn(
             'mt-1.5 text-xs',

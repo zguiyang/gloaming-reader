@@ -19,7 +19,6 @@ const ACCEPTED_MODULES = [
   'reading-stats',
   'recommendations',
   'library',
-  'taxonomy',
   'translate',
   'tts',
   'tts-invocations',

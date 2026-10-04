@@ -1,27 +1,9 @@
 import { asc, eq } from 'drizzle-orm';
 
-import type { readingWork as readingWorkTable } from '@gloaming/db';
-import {
-  category as categoryTable,
-  readingPart as readingPartTable,
-  readingWorkCategory as readingWorkCategoryTable,
-  readingWorkTag as readingWorkTagTable,
-  tag as tagTable,
-} from '@gloaming/db';
-import type { LocalizedTextMap } from '@gloaming/shared/taxonomy';
+import { readingPart as readingPartTable } from '@gloaming/db';
 
 import { EXCERPT_MAX_CHARS, TOC_TITLE_MAX } from '@/domains/metadata/enrich/prompt';
 import { db } from '@/infra/db';
-
-export type TaxonomyProvenance = 'extracted' | 'ai' | 'manual';
-
-export type WorkTagSnapshot = { name: string; localizedNames: LocalizedTextMap; provenance: TaxonomyProvenance };
-
-export type WorkCategorySnapshot = {
-  name: string;
-  localizedNames: LocalizedTextMap;
-  provenance: TaxonomyProvenance;
-};
 
 export type BookContext = { excerpt: string; tocTitles: string[] };
 
@@ -44,49 +26,10 @@ export async function loadBookContext(workId: string): Promise<BookContext> {
     .where(eq(readingPartTable.workId, workId))
     .orderBy(asc(readingPartTable.sortOrder), asc(readingPartTable.id));
   const tocTitles = parts
-    .map((p) => p.title.trim())
+    .map((part) => part.title.trim())
     .filter(Boolean)
     .slice(0, TOC_TITLE_MAX);
-  const target = parts.find((p) => wordCountOf(p.body) >= 100) ?? parts[0];
+  const target = parts.find((part) => wordCountOf(part.body) >= 100) ?? parts[0];
   const excerpt = target ? stripHtml(target.body).slice(0, EXCERPT_MAX_CHARS) : '';
   return { excerpt, tocTitles };
-}
-
-export async function loadCurrentTags(workId: string): Promise<WorkTagSnapshot[]> {
-  const rows = await db
-    .select({
-      name: tagTable.name,
-      localizedNames: tagTable.localizedNames,
-      provenance: readingWorkTagTable.provenance,
-    })
-    .from(readingWorkTagTable)
-    .innerJoin(tagTable, eq(readingWorkTagTable.tagId, tagTable.id))
-    .where(eq(readingWorkTagTable.workId, workId));
-  return rows.map((row) => ({
-    name: row.name,
-    localizedNames: row.localizedNames ?? {},
-    provenance: row.provenance,
-  }));
-}
-
-export async function loadCurrentCategory(workId: string): Promise<WorkCategorySnapshot | undefined> {
-  const [row] = await db
-    .select({
-      name: categoryTable.name,
-      localizedNames: categoryTable.localizedNames,
-      provenance: readingWorkCategoryTable.provenance,
-    })
-    .from(readingWorkCategoryTable)
-    .innerJoin(categoryTable, eq(readingWorkCategoryTable.categoryId, categoryTable.id))
-    .where(eq(readingWorkCategoryTable.workId, workId))
-    .limit(1);
-  return row ? { name: row.name, localizedNames: row.localizedNames ?? {}, provenance: row.provenance } : undefined;
-}
-
-export function loadCatalogSubjects(work: typeof readingWorkTable.$inferSelect): string[] {
-  const parsed = (work.originMeta as Record<string, unknown> | undefined)?.parsed;
-  if (!parsed || typeof parsed !== 'object') return [];
-  const subjects = (parsed as Record<string, unknown>).subjects;
-  if (!Array.isArray(subjects)) return [];
-  return subjects.filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
 }

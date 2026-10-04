@@ -2,17 +2,10 @@ import { desc, eq } from 'drizzle-orm';
 
 import { readingState as readingStateTable, readingWork as readingWorkTable } from '@gloaming/db';
 import type { RecommendationsData, RecommendationsQuery } from '@gloaming/shared/recommendations';
-import type { SourceReference, TaxonomyReference } from '@gloaming/shared/taxonomy';
 import type { Work } from '@gloaming/shared/works';
 
-import {
-  extractCategoryId,
-  extractTagIds,
-  type RecommendationFeatures,
-  resolveRecommendationOrder,
-} from '@/domains/recommendations/score';
+import { type RecommendationFeatures, resolveRecommendationOrder } from '@/domains/recommendations/score';
 import { publicCatalogWorkSql } from '@/domains/works/access';
-import { loadCategoriesByWorkIds, loadSourcesByWorkIds, loadTagsByWorkIds } from '@/domains/works/read-model';
 import { db } from '@/infra/db';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
@@ -21,12 +14,7 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
-function toWork(
-  row: WorkRow,
-  tags: TaxonomyReference[],
-  sources: SourceReference[],
-  category: TaxonomyReference | null = null,
-): Work {
+function toWork(row: WorkRow): Work {
   return {
     id: row.id,
     title: row.title,
@@ -35,9 +23,6 @@ function toWork(
     language: row.language,
     processingStatus: row.processingStatus as Work['processingStatus'],
     visibility: row.visibility as Work['visibility'],
-    tags,
-    category,
-    sources,
     coverAssetId: row.coverAssetId,
     wordCount: row.wordCount,
     estimatedMinutes: row.estimatedMinutes,
@@ -50,15 +35,9 @@ function toWork(
   };
 }
 
-function toFeatures(
-  row: WorkRow,
-  tags: TaxonomyReference[],
-  category: TaxonomyReference | null,
-): RecommendationFeatures {
+function toFeatures(row: WorkRow): RecommendationFeatures {
   return {
     id: row.id,
-    tagIds: extractTagIds(tags),
-    categoryId: extractCategoryId(category),
     language: row.language,
     difficultyScore: row.difficultyScore,
     suggestedVocabSize: row.suggestedVocabSize,
@@ -92,13 +71,9 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
     .where(publicCatalogWorkSql())
     .orderBy(desc(readingWorkTable.publishedAt), desc(readingWorkTable.id));
 
-  const allIds = publishedRows.map((row) => row.id);
-  const tagsByWork = await loadTagsByWorkIds(allIds);
-  const categoryByWork = await loadCategoriesByWorkIds(allIds);
-
   const featuresById = new Map<string, RecommendationFeatures>();
   for (const row of publishedRows) {
-    featuresById.set(row.id, toFeatures(row, tagsByWork.get(row.id) ?? [], categoryByWork.get(row.id) ?? null));
+    featuresById.set(row.id, toFeatures(row));
   }
 
   const shelfWorkIds = stateRows.map((row) => row.workId);
@@ -131,13 +106,9 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
     .map((id) => publishedRows.find((row) => row.id === id))
     .filter((row): row is WorkRow => row != null);
 
-  const sourcesByWork = await loadSourcesByWorkIds(selectedRows.map((row) => row.id));
-
   return {
     strategy: plan.strategy,
     anchorWorkId: plan.anchorWorkId,
-    items: selectedRows.map((row) =>
-      toWork(row, tagsByWork.get(row.id) ?? [], sourcesByWork.get(row.id) ?? [], categoryByWork.get(row.id) ?? null),
-    ),
+    items: selectedRows.map((row) => toWork(row)),
   };
 }

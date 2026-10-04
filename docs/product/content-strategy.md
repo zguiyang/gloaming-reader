@@ -74,27 +74,28 @@ The reading atom is a **ReadingWork** the user is in the middle of—not “toda
 
 ### 4.1 Domain entities (ADR-001)
 
-| Entity           | User concept  | Responsibility                                                     |
-| ---------------- | ------------- | ------------------------------------------------------------------ |
-| **ReadingWork**  | 书 / 阅读内容 | Metadata, source, publish status, visibility — **no body**         |
-| **ReadingPart**  | 章节          | Ordered text — Reader / TTS / Translate / Assist boundary          |
-| **ReadingState** | 阅读进度状态  | Per user × work position; never Library membership                 |
-| **ContentAsset** | (internal)    | EPUB file, cover, TTS audio, future derivatives                    |
-| **Conversation** | AI 帮助       | Thread scoped to `reading_work`                                    |
-| **My Library**   | 我的书库      | Owned works + explicitly saved Catalog works; progress is optional |
+| Entity           | User concept  | Responsibility                                                                        |
+| ---------------- | ------------- | ------------------------------------------------------------------------------------- |
+| **ReadingWork**  | 书 / 阅读内容 | Title, description, language, reading stats, publish status, visibility — **no body** |
+| **ReadingPart**  | 章节          | Ordered text — Reader / TTS / Translate / Assist boundary                             |
+| **ReadingState** | 阅读进度状态  | Per user × work position; never Library membership                                    |
+| **ContentAsset** | (internal)    | EPUB file, cover, TTS audio, future derivatives                                       |
+| **Conversation** | AI 帮助       | Thread scoped to `reading_work`                                                       |
+| **My Library**   | 我的书库      | Owned works + explicitly saved Catalog works; progress is optional                    |
 
 **Product rule:** one kind of thing you read — not Article-the-lesson plus Book-the-other-app.
 
 ### 4.2 Work fields (intent)
 
-| Concern                       | Need                                   |
-| ----------------------------- | -------------------------------------- |
-| Title, description, language  | Yes                                    |
-| Ordered parts (chapters)      | Yes for EPUB                           |
-| `origin_kind` / `origin_meta` | Yes — source SSOT                      |
-| Owner / visibility            | Official catalog vs user (1b)          |
-| Reading position              | Per user × work (+ part + anchor)      |
-| Tags                          | Optional metadata — **not** a syllabus |
+| Concern                            | Need                                                                  |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| Title, description, language       | Yes                                                                   |
+| Ordered parts (chapters)           | Yes for EPUB                                                          |
+| `origin_kind` / `origin_meta`      | Personal upload provenance; future Catalog source policy is separate  |
+| Owner / visibility                 | Official catalog vs user (1b)                                         |
+| Reading position                   | Per user × work (+ part + anchor)                                     |
+| Global tags / categories / sources | None — Catalog Work has no taxonomy metadata                          |
+| User Tags                          | Private per-user Library organization, separate from Catalog metadata |
 
 **Forbidden on Work:** `level`, `seriesId`, `estimatedMinutes`, single `body` blob.
 
@@ -165,7 +166,7 @@ AI-generated article library as main shelf filler
 Future Source ingestion should add Catalog Works only when:
 
 1. A reader might **want to keep reading it**
-2. Source/rights are clear (structured `sources` channel, licensed EPUB)
+2. Source/rights are clear under a separately decided Source policy
 3. It does not push Gloaming toward **course pack**, **vocab deck**, **chatbot**, or **AI-generated library**
 
 ---
@@ -187,5 +188,6 @@ Empty reader is a failure mode. Filling it with generated articles is a worse fa
 | ---------- | ------------------------------------------------------------------------------------------------------------------------ |
 | 2026-08-24 | Historical baseline: ReadingWork domain; admin EPUB primary; admin_text internal; ADR-001 alignment.                     |
 | 2026-09-30 | AS-02 removed Admin Works CMS; AS-02C removed legacy Admin provenance; Catalog intake remains deferred to Source policy. |
+| 2026-10-04 | AS-08 removed global Catalog taxonomy metadata and retained only private per-user Library tags.                          |
 | 2026-08-20 | Real content pipeline wording; 1a/1b split.                                                                              |
 | 2026-08-05 | Initial curated lean library SSOT (superseded).                                                                          |

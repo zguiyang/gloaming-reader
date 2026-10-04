@@ -12,7 +12,6 @@ import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloami
 import { type PartSummary, type Work, workSchema } from '@gloaming/shared/works';
 
 import {
-  BOOK_DETAIL_DEFAULT_CATEGORY,
   type BookChapter,
   type BookDetail,
   languageLabelFromCode,
@@ -135,12 +134,9 @@ export function toBookDetail(
     author: work.author,
     difficultyScore: readingStats.difficultyScore,
     difficultyLabel: readingStats.difficultyLabel,
-    category: work.category ?? BOOK_DETAIL_DEFAULT_CATEGORY,
-    tags: work.tags,
     estimatedMinutes: readingStats.estimatedMinutes,
     suggestedVocabSize: readingStats.suggestedVocabSize,
     teaser,
-    sourceLabel: 'official',
     language: work.language,
     languageLabel: languageLabelFromCode(work.language, DEFAULT_LOCALE),
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),

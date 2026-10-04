@@ -6,7 +6,6 @@ const work = {
   id: 'w1',
   title: 'Ocean Quiet',
   description: '',
-  tags: [],
   coverAssetId: null,
   publishedAt: null,
 };

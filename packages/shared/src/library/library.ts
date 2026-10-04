@@ -8,7 +8,7 @@ export const LIBRARY_ITEMS_LIMIT = 48 as const;
 /** A Library member may have no reading progress yet. */
 export const libraryAvailabilitySchema = z.enum(['processing', 'ready', 'failed']);
 
-/** Private Library organization label, separate from Catalog taxonomy. */
+/** Private Library organization label owned by one user. */
 export const userTagSchema = z.object({
   id: z.string(),
   name: z.string(),

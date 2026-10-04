@@ -110,18 +110,9 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-/** Provenance of a work-dimension association (rules / AI / manual). */
-export type WorkMetadataProvenance = 'extracted' | 'ai' | 'manual';
-
 /** Work-level reading stats provenance — algorithm from parse vs admin manual override. */
 export type WorkStatsProvenance = 'algorithm' | 'manual';
-
-/** Runtime-derived admin API projection — not persisted on reading_work. */
-export type WorkMetadataProvenanceMap = {
-  description?: WorkMetadataProvenance;
-  tags?: WorkMetadataProvenance;
-  category?: WorkMetadataProvenance;
-};
+export type WorkDescriptionProvenance = 'extracted' | 'ai' | 'manual';
 
 /** Reading catalog root — metadata only, no body (ADR-001). */
 export const readingWork = pgTable(
@@ -137,7 +128,7 @@ export const readingWork = pgTable(
     ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'set null' }),
     originKind: text('origin_kind').$type<'user_epub' | null>(),
     originMeta: jsonb('origin_meta').$type<Record<string, unknown>>().notNull().default({}),
-    descriptionProvenance: text('description_provenance').$type<WorkMetadataProvenance | null>(),
+    descriptionProvenance: text('description_provenance').$type<WorkDescriptionProvenance | null>(),
     coverAssetId: text('cover_asset_id'),
     /** Running word tokens (not unique lemmas) — set on content parse. */
     wordCount: integer('word_count'),
@@ -157,104 +148,6 @@ export const readingWork = pgTable(
     index('reading_work_processing_status_idx').on(table.processingStatus),
     index('reading_work_published_at_idx').on(table.publishedAt),
     check('reading_work_origin_kind_check', sql`${table.originKind} IS NULL OR ${table.originKind} = 'user_epub'`),
-  ],
-);
-
-/** Locale-keyed display names for taxonomy dimensions (BCP-47 keys, e.g. zh-CN). */
-export type TaxonomyLocalizedNames = Record<string, string>;
-
-/** Shared dimension: tag (unique by normalized form — reuse-first). */
-export const tag = pgTable(
-  'tag',
-  {
-    id: text('id').primaryKey(),
-    name: text('name').notNull().unique(),
-    localizedNames: jsonb('localized_names').$type<TaxonomyLocalizedNames>().notNull().default({}),
-    normalized: text('normalized').notNull().unique(),
-    /** Who first created this row — never rewritten on reuse/rename. */
-    origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),
-  },
-  (table) => [index('tag_normalized_idx').on(table.normalized)],
-);
-
-/** Shared dimension: category used by catalog metadata and Discover filtering. */
-export const category = pgTable(
-  'category',
-  {
-    id: text('id').primaryKey(),
-    name: text('name').notNull().unique(),
-    localizedNames: jsonb('localized_names').$type<TaxonomyLocalizedNames>().notNull().default({}),
-    normalized: text('normalized').notNull().unique(),
-    /** Who first created this row — never rewritten on reuse/rename. */
-    origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),
-  },
-  (table) => [index('category_normalized_idx').on(table.normalized)],
-);
-
-/** Shared dimension: source (match_rule = domain / keyword used against dc:source). */
-export const source = pgTable(
-  'source',
-  {
-    id: text('id').primaryKey(),
-    name: text('name').notNull().unique(),
-    matchRule: text('match_rule').notNull().default(''),
-    /** Who first created this row — never rewritten on reuse/rename. */
-    origin: text('origin').$type<WorkMetadataProvenance>().notNull().default('manual'),
-  },
-  (table) => [index('source_match_rule_idx').on(table.matchRule)],
-);
-
-export const readingWorkTag = pgTable(
-  'reading_work_tag',
-  {
-    workId: text('work_id')
-      .notNull()
-      .references(() => readingWork.id, { onDelete: 'cascade' }),
-    tagId: text('tag_id')
-      .notNull()
-      .references(() => tag.id, { onDelete: 'cascade' }),
-    provenance: text('provenance').$type<WorkMetadataProvenance>().notNull().default('extracted'),
-  },
-  (table) => [
-    unique('reading_work_tag_work_tag_uidx').on(table.workId, table.tagId),
-    index('reading_work_tag_work_idx').on(table.workId),
-    index('reading_work_tag_tag_idx').on(table.tagId),
-  ],
-);
-
-export const readingWorkCategory = pgTable(
-  'reading_work_category',
-  {
-    workId: text('work_id')
-      .notNull()
-      .references(() => readingWork.id, { onDelete: 'cascade' }),
-    categoryId: text('category_id')
-      .notNull()
-      .references(() => category.id, { onDelete: 'cascade' }),
-    provenance: text('provenance').$type<WorkMetadataProvenance>().notNull().default('extracted'),
-  },
-  (table) => [
-    unique('reading_work_category_work_category_uidx').on(table.workId, table.categoryId),
-    index('reading_work_category_work_idx').on(table.workId),
-    index('reading_work_category_category_idx').on(table.categoryId),
-  ],
-);
-
-export const readingWorkSource = pgTable(
-  'reading_work_source',
-  {
-    workId: text('work_id')
-      .notNull()
-      .references(() => readingWork.id, { onDelete: 'cascade' }),
-    sourceId: text('source_id')
-      .notNull()
-      .references(() => source.id, { onDelete: 'cascade' }),
-    provenance: text('provenance').$type<WorkMetadataProvenance>().notNull().default('extracted'),
-  },
-  (table) => [
-    unique('reading_work_source_work_source_uidx').on(table.workId, table.sourceId),
-    index('reading_work_source_work_idx').on(table.workId),
-    index('reading_work_source_source_idx').on(table.sourceId),
   ],
 );
 
@@ -303,7 +196,7 @@ export const userLibraryItem = pgTable(
   ],
 );
 
-/** Private, user-managed Library labels. Distinct from Catalog taxonomy tags. */
+/** Private, user-managed Library labels. */
 export const userTag = pgTable(
   'user_tag',
   {

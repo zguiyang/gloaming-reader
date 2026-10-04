@@ -9,12 +9,11 @@ import {
   userWorkTag as userWorkTagTable,
 } from '@gloaming/db';
 import { LIBRARY_ITEMS_LIMIT, type LibraryData, type LibraryItem } from '@gloaming/shared/library';
-import type { TaxonomyReference } from '@gloaming/shared/taxonomy';
 
 import { loadUserTagsByWorkIds } from '@/domains/library/tags/service';
 import { toReadingState } from '@/domains/reading';
 import { publicCatalogWorkSql, workReadAccessSql, workReadActorFromIdentity } from '@/domains/works/access';
-import { loadPartSortOrdersByWorkIds, loadTagsByWorkIds } from '@/domains/works/read-model';
+import { loadPartSortOrdersByWorkIds } from '@/domains/works/read-model';
 import { db } from '@/infra/db';
 import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
@@ -25,12 +24,11 @@ function toIso(value: Date): string {
   return value.toISOString();
 }
 
-function toWorkSummary(row: WorkRow, tags: TaxonomyReference[]) {
+function toWorkSummary(row: WorkRow) {
   return {
     id: row.id,
     title: row.title,
     description: row.description,
-    tags,
     coverAssetId: row.coverAssetId,
     publishedAt: row.publishedAt ? toIso(row.publishedAt) : null,
   };
@@ -90,8 +88,7 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
     .sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime() || b.work.id.localeCompare(a.work.id))
     .slice(0, LIBRARY_ITEMS_LIMIT);
   const workIds = [...(currentRow ? [currentRow.work.id] : []), ...orderedRows.map((row) => row.work.id)];
-  const [tagsByWork, partsByWork, userTagsByWork] = await Promise.all([
-    loadTagsByWorkIds(workIds),
+  const [partsByWork, userTagsByWork] = await Promise.all([
     loadPartSortOrdersByWorkIds(workIds),
     loadUserTagsByWorkIds(userId, workIds),
   ]);
@@ -100,7 +97,7 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
     state: typeof readingStateTable.$inferSelect | null;
     canRemoveFromLibrary: boolean;
   }): LibraryItem => ({
-    work: toWorkSummary(row.work, tagsByWork.get(row.work.id) ?? []),
+    work: toWorkSummary(row.work),
     state: row.state ? toReadingState(row.state, partsByWork.get(row.work.id) ?? []) : null,
     availability:
       row.work.processingStatus === 'ready'
@@ -117,7 +114,7 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
   return {
     current: currentRow
       ? {
-          work: toWorkSummary(currentRow.work, tagsByWork.get(currentRow.work.id) ?? []),
+          work: toWorkSummary(currentRow.work),
           state: toReadingState(currentRow.state, partsByWork.get(currentRow.work.id) ?? []),
         }
       : null,

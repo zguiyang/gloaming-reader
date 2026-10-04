@@ -15,7 +15,7 @@ export type MetadataEnrichJobData = {
 const enrichJobLogger = rootLogger.child({ module: 'MetadataEnrichJob' });
 
 /**
- * AI backfill job (step `metadata`, attempts: 2, at-least-once). Failure
+ * Description backfill job (step `metadata`, attempts: 2, at-least-once). Failure
  * surfaces as `failed` + `failedStep: metadata`; the BullMQ retry re-claims the
  * step (self-heal). The model-not-configured case degrades inside the service
  * and completes the step without AI.

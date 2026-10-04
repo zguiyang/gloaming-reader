@@ -28,9 +28,6 @@ describe('work contracts', () => {
       language: 'en',
       processingStatus: 'ready',
       visibility: 'catalog',
-      tags: [],
-      category: null,
-      sources: [],
       coverAssetId: null,
       wordCount: null,
       estimatedMinutes: null,
@@ -46,6 +43,9 @@ describe('work contracts', () => {
     expect(work.processingStatus).toBe('ready');
     expect(work.publishedAt).toBe('2026-01-01T00:00:00.000Z');
     expect(work).not.toHaveProperty('originKind');
+    expect(work).not.toHaveProperty('tags');
+    expect(work).not.toHaveProperty('category');
+    expect(work).not.toHaveProperty('sources');
   });
 
   it('retains Catalog list filters and safe Personal upload results', () => {

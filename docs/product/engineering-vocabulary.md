@@ -87,6 +87,11 @@ were removed with the Admin Works module.
 **Historical Phase 3A** retired `Article` and introduced ReadingWork + Admin EPUB catalog intake. AS-02 removed that Admin intake path; AS-02C clears its provenance while preserving Catalog data and format-based parsing.
 **User-first** items below reflect the current repository unless marked **open**.
 
+**AS-08:** Catalog Works currently expose title, author, description, language,
+reading statistics, publication, and reading assets. There are no global Catalog
+tag, category, or source dimensions. Library User Tags remain private to their
+owner and separate from the Catalog contract.
+
 | Layer / concern          | Current (repository reality)                                                                                | Target (ADR-001 User-first)                           |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | Content root             | **ReadingWork** / `reading_work` **done**                                                                   | same                                                  |

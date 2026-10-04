@@ -2,8 +2,6 @@ export { recommendationsRoutes } from '@/domains/recommendations/routes';
 export type { RecommendationFeatures, ResolvedRecommendationPlan } from '@/domains/recommendations/score';
 export {
   buildShelfProfile,
-  extractCategoryId,
-  extractTagIds,
   rankByPublishedAt,
   rankByScore,
   resolveRecommendationOrder,

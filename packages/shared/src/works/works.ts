@@ -8,8 +8,6 @@ import {
   paginationQuerySchema,
 } from '../pagination/index.ts';
 import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, WORK_STATS_PROVENANCES } from '../reading-stats/index.ts';
-import { sourceReferenceSchema, taxonomyReferenceSchema } from '../taxonomy/taxonomy.ts';
-import { catalogCategoryIdQuerySchema, catalogTagIdsQuerySchema } from './catalog-query.ts';
 
 /** ReadingWork pipeline processing statuses (publication is `publishedAt`, not a processing value). */
 export const WORK_PROCESSING_STATUSES = ['uploaded', 'processing', 'parsed', 'metadata', 'ready', 'failed'] as const;
@@ -58,10 +56,6 @@ export const workSchema = z.object({
   language: z.string(),
   processingStatus: workProcessingStatusSchema,
   visibility: workVisibilitySchema,
-  tags: z.array(taxonomyReferenceSchema),
-  category: taxonomyReferenceSchema.nullable(),
-  /** Channel providers (e.g. Project Gutenberg) — auto-filled from EPUB / taxonomy. */
-  sources: z.array(sourceReferenceSchema),
   coverAssetId: z.string().nullable(),
   wordCount: z.number().int().nonnegative().nullable(),
   estimatedMinutes: z.number().int().nonnegative().nullable(),
@@ -138,8 +132,6 @@ const catalogSearchQuerySchema = z.preprocess(
 /** Query for `GET /api/catalog/works`. */
 export const catalogListQuerySchema = paginationQuerySchema.extend({
   sortBy: createSortByQuerySchema(CATALOG_SORT_FIELDS, DEFAULT_CATALOG_SORT_BY),
-  category: catalogCategoryIdQuerySchema,
-  tag: catalogTagIdsQuerySchema,
   q: catalogSearchQuerySchema,
 });
 

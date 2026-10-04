@@ -1,6 +1,6 @@
 'use client';
 
-import { BookmarkIcon, BookOpenIcon, CheckIcon, LanguagesIcon, Loader2Icon, TagIcon } from 'lucide-react';
+import { BookmarkIcon, BookOpenIcon, CheckIcon, LanguagesIcon, Loader2Icon } from 'lucide-react';
 import Link from 'next/link';
 
 import { t } from '@gloaming/i18n';
@@ -9,14 +9,10 @@ import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import {
   type BookDetail,
-  formatBookCategory,
   formatMinutes,
   formatRelativeReadTime,
-  formatSourceLabel,
   languageLabelFromCode,
   primaryReadLabel,
-  taxonomyCoverTintSeeds,
-  taxonomyDisplayName,
 } from '@/features/book-detail/book-detail-model';
 import { WorkCover } from '@/features/work-cover';
 import { useLocale } from '@/lib/locale-context';
@@ -42,15 +38,12 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
     ? t(locale, 'content.bookDetail.progressCompleted')
     : t(locale, 'content.bookDetail.progressRead', { ratio: book.progressRatio ?? 0 });
   const languageLabel = languageLabelFromCode(book.language, locale);
-  const categoryLabel = formatBookCategory(book.category, locale);
-  const hasTags = book.tags.length > 0;
 
   return (
     <section className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-12 lg:gap-16">
       <div className="flex justify-center md:col-span-4 md:justify-start lg:col-span-3">
         <WorkCover
           title={book.title}
-          tags={taxonomyCoverTintSeeds(book.tags)}
           coverImageUrl={book.coverImageUrl}
           className="aspect-[2/3] w-48 md:w-full md:max-w-[280px]"
         />
@@ -59,9 +52,6 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
       <div className="space-y-5 text-center md:col-span-8 md:space-y-6 md:text-left lg:col-span-9">
         <div className="space-y-2">
           <div className="mb-2 flex flex-wrap items-center justify-center gap-2 md:justify-start">
-            <span className="rounded bg-primary/10 px-2 py-1 text-[11px] font-semibold tracking-[0.08em] text-primary uppercase">
-              {formatSourceLabel(book.sourceLabel, locale)}
-            </span>
             {languageLabel ? (
               <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                 <LanguagesIcon className="size-3.5" strokeWidth={1.5} aria-hidden />
@@ -76,25 +66,6 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
             <p className="font-heading text-lg text-muted-foreground italic md:text-2xl md:leading-8">{book.author}</p>
           ) : null}
         </div>
-
-        {categoryLabel || hasTags ? (
-          <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
-            {categoryLabel ? (
-              <span className="rounded-full bg-surface-container px-3.5 py-1.5 text-sm font-medium text-foreground">
-                {categoryLabel}
-              </span>
-            ) : null}
-            {book.tags.map((tag) => (
-              <span
-                key={tag.id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-surface-container-highest/80 px-3.5 py-1.5 text-sm text-muted-foreground"
-              >
-                <TagIcon className="size-3.5 shrink-0" strokeWidth={1.5} aria-hidden />
-                {taxonomyDisplayName(tag, locale)}
-              </span>
-            ))}
-          </div>
-        ) : null}
 
         {book.teaser ? (
           <p className="font-reading mx-auto max-w-2xl text-base leading-7 text-muted-foreground md:mx-0 md:text-lg md:leading-8 md:italic">
@@ -137,9 +108,7 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
         </div>
 
         <p className="text-sm text-muted-foreground md:hidden">
-          {[formatMinutes(book.estimatedMinutes, locale), formatBookCategory(book.category, locale)]
-            .filter(Boolean)
-            .join(' · ')}
+          {[formatMinutes(book.estimatedMinutes, locale)].filter(Boolean).join(' · ')}
         </p>
       </div>
     </section>

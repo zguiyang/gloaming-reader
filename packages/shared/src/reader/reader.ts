@@ -82,7 +82,6 @@ export const readerWorkSummarySchema = workSchema.pick({
   id: true,
   title: true,
   description: true,
-  tags: true,
   coverAssetId: true,
   publishedAt: true,
 });
@@ -116,7 +115,7 @@ export const readerPartsDataSchema = z.object({
 export type ReaderPartsData = z.infer<typeof readerPartsDataSchema>;
 
 export const readerPartDataSchema = z.object({
-  work: readerWorkSummarySchema.pick({ id: true, title: true, coverAssetId: true, tags: true }),
+  work: readerWorkSummarySchema.pick({ id: true, title: true, coverAssetId: true }),
   part: readerCurrentPartSchema,
   audioAvailable: readerAudioAvailabilitySchema,
 });
