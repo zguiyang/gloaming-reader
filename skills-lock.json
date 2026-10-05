@@ -83,7 +83,7 @@
       "source": "zguiyang/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/pi-delegate/SKILL.md",
-      "computedHash": "45d7b953db9abc537da96bb16c07cf7503b4bbe915b2d4ab7451253fa1cb3e06"
+      "computedHash": "3f978559d1ba0513467d7fff59617062b6292d9a27ddca44c596dce5ff0a4ff9"
     },
     "redesign-existing-projects": {
       "source": "Leonxlnx/taste-skill",
