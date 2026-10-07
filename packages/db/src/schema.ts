@@ -878,3 +878,138 @@ export const uploadedObject = pgTable(
   },
   (table) => [index('uploaded_object_storage_key_idx').on(table.storageKey)],
 );
+
+/** Source-registry sync status for a DiscoverySource. */
+export type DiscoverySourceSyncStatus = 'idle' | 'queued' | 'syncing' | 'succeeded' | 'failed';
+
+/**
+ * External catalog source registry (ADR DS-02).
+ * Holds source identity plus the sync run/snapshot state used for conditional refresh.
+ * Source credentials are server configuration, never client-visible; not modeled here.
+ */
+export const discoverySource = pgTable(
+  'discovery_source',
+  {
+    id: text('id').primaryKey(),
+    /** Stable source identity used by adapters (e.g. `project_gutenberg`). */
+    sourceKey: text('source_key').notNull(),
+    /** Adapter/protocol family for this source. */
+    sourceType: text('source_type').notNull(),
+    enabled: boolean('enabled').default(true).notNull(),
+    /** Current sync run status. */
+    syncStatus: text('sync_status').$type<DiscoverySourceSyncStatus>().notNull().default('idle'),
+    syncStartedAt: timestamp('sync_started_at'),
+    syncFinishedAt: timestamp('sync_finished_at'),
+    /** Last fully successful snapshot sync. */
+    lastSuccessAt: timestamp('last_success_at'),
+    /** Sanitized operational error summary; never credentials or raw stack traces. */
+    lastErrorSummary: text('last_error_summary'),
+    /** Upstream snapshot validator for conditional refresh (e.g. HTTP Last-Modified). */
+    snapshotLastModified: text('snapshot_last_modified'),
+    /** Upstream snapshot version/ETag state for conditional refresh. */
+    snapshotVersion: text('snapshot_version'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique('discovery_source_key_uidx').on(table.sourceKey),
+    check('discovery_source_key_nonempty_chk', sql`length(${table.sourceKey}) > 0`),
+    check(
+      'discovery_source_sync_status_check',
+      sql`${table.syncStatus} in ('idle', 'queued', 'syncing', 'succeeded', 'failed')`,
+    ),
+  ],
+);
+
+export type SourceRecordAuthor = {
+  name: string;
+  sortName?: string;
+  role?: string;
+};
+
+/** Compact source-provided metadata preserved from the upstream record. */
+export type SourceRecordSourceMeta = {
+  subjects?: string[];
+  bookshelves?: string[];
+  extra?: Record<string, unknown>;
+};
+
+/** One upstream content file candidate (e.g. an EPUB); never downloaded by this layer. */
+export type SourceRecordContentCandidate = {
+  /** Source format label (e.g. `epub`, `html`). */
+  format: string;
+  /** Candidate URL as provided by the source. */
+  url: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  /** Upstream file/format update timestamp when the source provides one. */
+  updatedAt?: string;
+};
+
+export type SourceRecordAvailability = 'available' | 'unavailable';
+
+/**
+ * One external bibliographic record owned by a DiscoverySource.
+ * Identity is per-source: unique on (source_id, external_id).
+ * Metadata is source-authoritative; no ReadingWork linkage or Library/reading entities.
+ */
+export const sourceRecord = pgTable(
+  'source_record',
+  {
+    id: text('id').primaryKey(),
+    sourceId: text('source_id')
+      .notNull()
+      .references(() => discoverySource.id, { onDelete: 'cascade' }),
+    /** Source-scoped external identifier (e.g. Gutenberg ebook id). */
+    externalId: text('external_id').notNull(),
+    title: text('title').notNull().default(''),
+    /** Ordered authors; preserves multiple authorship from the source. */
+    authors: jsonb('authors').$type<SourceRecordAuthor[]>().notNull().default([]),
+    /** All language codes provided by the source (e.g. `['en', 'fr']`). */
+    languages: text('languages')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    description: text('description'),
+    /** Source rights statement — the single source of truth for rights text. */
+    rightsStatement: text('rights_statement'),
+    /** Source cover candidate URL — not a stored asset. */
+    coverUrl: text('cover_url'),
+    /** All source content candidates (e.g. EPUB formats); never downloaded here. */
+    contentCandidates: jsonb('content_candidates').$type<SourceRecordContentCandidate[]>().notNull().default([]),
+    sourceMeta: jsonb('source_meta').$type<SourceRecordSourceMeta>().notNull().default({}),
+    availability: text('availability').$type<SourceRecordAvailability>().notNull().default('available'),
+    /** Upstream record/format update timestamp, when the source provides one. */
+    sourceUpdatedAt: timestamp('source_updated_at'),
+    /** Last successful snapshot sync that observed this record. */
+    lastSeenAt: timestamp('last_seen_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique('source_record_source_external_uidx').on(table.sourceId, table.externalId),
+    check('source_record_external_id_nonempty_chk', sql`length(${table.externalId}) > 0`),
+    check('source_record_availability_check', sql`${table.availability} in ('available', 'unavailable')`),
+    index('source_record_source_idx').on(table.sourceId),
+    index('source_record_source_availability_idx').on(table.sourceId, table.availability),
+    index('source_record_languages_gin_idx').using('gin', table.languages),
+    index('source_record_last_seen_idx').on(table.lastSeenAt),
+  ],
+);
+
+export const discoverySourceRelations = relations(discoverySource, ({ many }) => ({
+  records: many(sourceRecord),
+}));
+
+export const sourceRecordRelations = relations(sourceRecord, ({ one }) => ({
+  source: one(discoverySource, {
+    fields: [sourceRecord.sourceId],
+    references: [discoverySource.id],
+  }),
+}));

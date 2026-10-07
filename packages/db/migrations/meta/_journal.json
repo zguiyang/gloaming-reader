@@ -295,6 +295,13 @@
       "when": 1791102051693,
       "tag": "0041_remove_catalog_taxonomy",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791335280254,
+      "tag": "0042_discovery_source_metadata",
+      "breakpoints": true
     }
   ]
 }
