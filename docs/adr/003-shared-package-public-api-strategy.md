@@ -87,13 +87,13 @@ and remain the current public module map after root removal:
 | translate       | `@gloaming/shared/translate`       | translation and bilingual-cache contracts               |
 | assist          | `@gloaming/shared/assist`          | assist request and stream contracts                     |
 | conversations   | `@gloaming/shared/conversations`   | conversation and message contracts                      |
-| taxonomy        | `@gloaming/shared/taxonomy`        | taxonomy contracts                                      |
 | tts             | `@gloaming/shared/tts`             | TTS configuration, voices, and timing contracts         |
 | tts-invocations | `@gloaming/shared/tts-invocations` | TTS invocation log contracts                            |
 | content-assets  | `@gloaming/shared/content-assets`  | ContentAsset and audio-asset contracts                  |
 | assets          | `@gloaming/shared/assets`          | object-store health scan and orphan cleanup contracts   |
 | llm             | `@gloaming/shared/llm`             | LLM configuration, keys, and wire registry              |
 | ai-invocations  | `@gloaming/shared/ai-invocations`  | AI invocation log contracts                             |
+| discovery       | `@gloaming/shared/discovery`       | SourceRecord discovery read and search contracts        |
 
 This map is a public-boundary baseline, not a mandate that every module keep
 one source file. Internal files may be split or reorganized while the public

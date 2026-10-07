@@ -8,6 +8,7 @@ import {
   processPersonalWorkCleanupJob,
 } from '@/application/jobs/asset-cleanup';
 import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from '@/application/jobs/content-parse';
+import { type DiscoverySyncJobData, JOB_DISCOVERY_SYNC, processDiscoverySync } from '@/application/jobs/discovery-sync';
 import {
   JOB_METADATA_ENRICH,
   type MetadataEnrichJobData,
@@ -44,6 +45,8 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
       return processMetadataEnrich(job.data as MetadataEnrichJobData);
     case JOB_PART_AUDIO_GENERATE:
       return processPartAudioGenerate(job.data as PartAudioGenerateJobData);
+    case JOB_DISCOVERY_SYNC:
+      return processDiscoverySync(job.data as DiscoverySyncJobData);
     default:
       throw new Error(`Unknown job name: ${job.name}`);
   }

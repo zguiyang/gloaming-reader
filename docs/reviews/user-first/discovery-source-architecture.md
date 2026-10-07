@@ -114,6 +114,26 @@ Catalog list/detail 的 URI 可保留为 Discover facade，但未来 shared DTO 
 
 已有 Catalog Works 与来源书目在读模型中共存；来源故障时继续提供最后一次完整同步的本地记录。当前 `published_at` 仍控制真正 `ReadingWork` 的公开可读性，不承担来源书目目录状态。
 
+### DS-02 实现边界：SourceRecord 读模型与显式 API
+
+DS-02 落地本地 SourceRecord 读模型与来源级 Admin/后台 metadata 同步，不改变 Catalog Work 语义，也不切换用户可见 Discover。
+
+- **Shared 契约归属：** SourceRecord 不是 `ReadingWork`，其公开 DTO/查询/响应契约归新的语义子路径 `@gloaming/shared/discovery`（见 ADR-003 模块表）。Shared 只拥有 schema/type，不拥有 ORM 或工作流。
+- **显式后端 API：** `GET /api/discover/records` 提供本地列表、搜索（标题、作者显示名、来源 external ID）、分页与显式排序；`GET /api/discover/records/:sourceRecordId` 提供详情。两者与现有公开 Catalog 列表/详情同为公开读接口。
+- **身份区分：** 公开 DTO 只以 `sourceRecordId` 表示 SourceRecord 身份；它绝不表示 `reading_work.id`，也不建立 `ReadingWork` 关联。
+- **可用性与语言：** 只返回 `availability = 'available'` 的记录；列表默认 English-first（`language=en`），但存储保留上游全部语言，查询不重写或过滤已持久化 metadata。
+- **来源级 Admin 与后台同步：** DS-02 包含来源级 Admin 运维面：查看 `DiscoverySource` 状态（enabled、sync status、最近成功时间、错误摘要）并手动触发后台 metadata 同步；同步以可恢复的后台作业运行，不阻塞请求。
+- **不变量：** `GET /api/catalog/works` 及其 Work ID 语义保持不变；DS-02 不实现保存意图、Library 成员、`ReadingWork`/`ReadingState`、下载、taxonomy、AI 富化或用户可见 Discover 集成。
+
+### enabled 语义（读可见性 / 手动同步 / 进行中同步）
+
+`DiscoverySource.enabled` 是来源级运行与可见性开关，DS-02 统一实现为：
+
+- **读模型可见性：** `GET /api/discover/records` 与 `GET /api/discover/records/:sourceRecordId` 的 SQL 过滤都要求所属 `DiscoverySource.enabled = true`。禁用来源的 SourceRecord 既不进入公开列表，也无法通过详情读取（按 not found 处理）；记录行本身不删除，重新启用后恢复可见。
+- **手动同步：** 禁用来源不能被新 claim。触发接口显式返回 `disabled`（区别于 `already_running`），不排队、不下载、不改变错误摘要。
+- **排队后禁用：** 在入队之后、执行之前被禁用的作业会在启动时重新检查 `enabled`；发现禁用即释放 queued 状态回 `idle`，不抓取 Gutenberg，也不记录上游失败，避免状态卡住或伪造失败。
+- **进行中的同步：** 不强制中断已开始的同步；它可正常结束。其记录在来源重新启用前仍按上述读模型规则隐藏。
+
 ## 8. Save / Read Lifecycle
 
 ### Save to Library

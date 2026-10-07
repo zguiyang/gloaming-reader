@@ -18,6 +18,7 @@ export const ERROR_CODES = {
     CLEANUP_JOB: 'api.errors.notFound.cleanupJob',
     WORD_DEFINITION: 'api.errors.notFound.wordDefinition',
     USER_TAG: 'api.errors.notFound.userTag',
+    SOURCE_RECORD: 'api.errors.notFound.sourceRecord',
   },
 
   UPLOAD: {

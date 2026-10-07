@@ -12,6 +12,7 @@ const ACCEPTED_MODULES = [
   'content-assets',
   'conversations',
   'dictionary',
+  'discovery',
   'llm',
   'pagination',
   'reader',

@@ -32,6 +32,10 @@ RUN pnpm --filter @gloaming/backend build
 
 FROM base AS runner
 ENV NODE_ENV=production
+# bzip2 decompresses the Project Gutenberg RDF snapshot via a shell:false child process.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bzip2 \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/backend/node_modules ./apps/backend/node_modules

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, HardDrive, Menu, ScrollText, Settings } from 'lucide-react';
+import { ArrowLeft, Globe, HardDrive, Menu, ScrollText, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useState } from 'react';
@@ -36,6 +36,12 @@ function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
       label: t(locale, 'admin.shell.navAssets'),
       icon: HardDrive,
       isActive: pathname === ADMIN_ROUTES.assets || pathname.startsWith(`${ADMIN_ROUTES.assets}/`),
+    },
+    {
+      href: ADMIN_ROUTES.discoverySources,
+      label: t(locale, 'admin.shell.navDiscoverySources'),
+      icon: Globe,
+      isActive: pathname === ADMIN_ROUTES.discoverySources || pathname.startsWith(`${ADMIN_ROUTES.discoverySources}/`),
     },
     {
       href: ADMIN_ROUTES.config,

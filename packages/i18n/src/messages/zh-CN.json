@@ -319,6 +319,7 @@
       "subtitle": "管理后台",
       "contentSubtitle": "内容管理",
       "navAssets": "对象存储占用",
+      "navDiscoverySources": "发现源",
       "navConfig": "配置",
       "navLogs": "日志",
       "signInPrompt": "请先登录后再进入管理后台。",
@@ -330,6 +331,51 @@
       "home": "首页",
       "openNavAria": "打开管理导航",
       "navSrOnly": "管理导航"
+    },
+    "discoverySources": {
+      "page": {
+        "title": "发现源",
+        "subtitle": "Project Gutenberg 元数据覆盖与同步状态。",
+        "loadFailed": "无法加载发现源状态。",
+        "operationFailed": "操作失败"
+      },
+      "fields": {
+        "status": "同步状态",
+        "lastSync": "最近同步",
+        "lastSuccess": "最近成功同步",
+        "recordCount": "记录数",
+        "errorSummary": "最近错误"
+      },
+      "recordCount": "{count} 条记录",
+      "enabled": {
+        "label": "已启用"
+      },
+      "disabled": {
+        "label": "已停用"
+      },
+      "toggleEnableAria": "启用 Project Gutenberg 同步源",
+      "toggleDisableAria": "停用 Project Gutenberg 同步源",
+      "syncNow": "立即同步",
+      "syncing": "同步中…",
+      "pendingHint": "已有同步任务在后台运行。",
+      "disabledSyncHint": "来源已停用，暂时无法手动同步。",
+      "value": {
+        "never": "从未"
+      },
+      "enum": {
+        "syncStatus": {
+          "idle": "空闲",
+          "queued": "排队中",
+          "syncing": "同步中",
+          "succeeded": "成功",
+          "failed": "失败"
+        }
+      },
+      "toast": {
+        "queued": "已加入后台同步队列。",
+        "alreadyRunning": "已有同步任务正在运行。",
+        "disabled": "来源已停用，无法手动同步。"
+      }
     },
     "config": {
       "tabAi": "AI",
@@ -1098,7 +1144,8 @@
         "partAudio": "未找到章节音频",
         "cleanupJob": "未找到清理任务",
         "wordDefinition": "未找到单词「{word}」的词典释义",
-        "userTag": "未找到标签"
+        "userTag": "未找到标签",
+        "sourceRecord": "未找到来源记录"
       },
       "upload": {
         "fileTooLarge": "文件大小超过上限（{maxMb}MB）",

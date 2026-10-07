@@ -319,6 +319,7 @@
       "subtitle": "Admin",
       "contentSubtitle": "Content management",
       "navAssets": "Object storage usage",
+      "navDiscoverySources": "Discovery sources",
       "navConfig": "Configuration",
       "navLogs": "Logs",
       "signInPrompt": "Sign in to access the admin console.",
@@ -330,6 +331,51 @@
       "home": "Home",
       "openNavAria": "Open admin navigation",
       "navSrOnly": "Admin navigation"
+    },
+    "discoverySources": {
+      "page": {
+        "title": "Discovery sources",
+        "subtitle": "Project Gutenberg metadata coverage and sync status.",
+        "loadFailed": "Could not load the discovery source status.",
+        "operationFailed": "Operation failed"
+      },
+      "fields": {
+        "status": "Sync status",
+        "lastSync": "Last sync",
+        "lastSuccess": "Last successful sync",
+        "recordCount": "Records",
+        "errorSummary": "Last error"
+      },
+      "recordCount": "{count} records",
+      "enabled": {
+        "label": "Enabled"
+      },
+      "disabled": {
+        "label": "Disabled"
+      },
+      "toggleEnableAria": "Enable Project Gutenberg sync source",
+      "toggleDisableAria": "Disable Project Gutenberg sync source",
+      "syncNow": "Sync now",
+      "syncing": "Syncing…",
+      "pendingHint": "A sync is already running in the background.",
+      "disabledSyncHint": "Manual sync is unavailable while this source is disabled.",
+      "value": {
+        "never": "Never"
+      },
+      "enum": {
+        "syncStatus": {
+          "idle": "Idle",
+          "queued": "Queued",
+          "syncing": "Syncing",
+          "succeeded": "Succeeded",
+          "failed": "Failed"
+        }
+      },
+      "toast": {
+        "queued": "Background sync queued.",
+        "alreadyRunning": "A sync is already running.",
+        "disabled": "Sync is unavailable while this source is disabled."
+      }
     },
     "config": {
       "tabAi": "AI",
@@ -1095,7 +1141,8 @@
         "partAudio": "Part audio not found",
         "cleanupJob": "Cleanup job not found",
         "wordDefinition": "No dictionary definition found for \"{word}\"",
-        "userTag": "Tag not found"
+        "userTag": "Tag not found",
+        "sourceRecord": "Source record not found"
       },
       "upload": {
         "fileTooLarge": "File size exceeds the limit ({maxMb}MB)",

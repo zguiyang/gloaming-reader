@@ -12,6 +12,7 @@
     "./content-assets": "./src/content-assets/index.ts",
     "./conversations": "./src/conversations/index.ts",
     "./dictionary": "./src/dictionary/index.ts",
+    "./discovery": "./src/discovery/index.ts",
     "./llm": "./src/llm/index.ts",
     "./pagination": "./src/pagination/index.ts",
     "./reader": "./src/reader/index.ts",
