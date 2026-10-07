@@ -302,6 +302,13 @@
       "when": 1791335280254,
       "tag": "0042_discovery_source_metadata",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791386995877,
+      "tag": "0043_brave_exodus",
+      "breakpoints": true
     }
   ]
 }

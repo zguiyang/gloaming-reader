@@ -21,6 +21,9 @@ import { ERROR_CODES } from '@/shared/errors/codes';
 
 const ingestLogger = rootLogger.child({ module: 'EpubWorkIngest' });
 
+/** Caller-owned transaction; lets an entry point bundle the Work/asset insert into its own atomic unit. */
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 /** The one EPUB upload policy used by Personal and Catalog entry points. */
 export const EPUB_UPLOAD_SPEC: UploadSpec = {
   allowedExtensions: ['epub'],
@@ -47,22 +50,41 @@ export async function storeEpubSource(input: { fileName: string; body: Buffer; c
   return acquireUploadedObject({ kind: 'file', ...input, spec: EPUB_UPLOAD_SPEC });
 }
 
-/** Shared persistence core; each entry point supplies its own ownership and visibility policy. */
-export async function createEpubIngestWork(input: {
+export type CreateEpubIngestWorkInput = {
   fileName: string;
   meta: UploadedFileMeta;
   reused: boolean;
-  originKind: 'user_epub';
+  /** `null` for source-origin Catalog works that have no current provenance kind. */
+  originKind: 'user_epub' | null;
   ownerUserId: string | null;
   visibility: WorkVisibility;
   processingStatus?: WorkProcessingStatus;
   retryJobToken?: string;
   workId?: string;
   assetId?: string;
-}): Promise<{ id: string; title: string; processingStatus: WorkProcessingStatus }> {
+  /** Source-supplied fallback metadata; the parser may overwrite it after ingest. */
+  title?: string;
+  author?: string;
+  description?: string;
+  language?: string;
+};
+
+/**
+ * Shared persistence core; each entry point supplies its own ownership and visibility policy.
+ *
+ * When `executor` is provided the writes join the caller's transaction and the caller owns
+ * failure cleanup (e.g. releasing the uploaded object after rollback). When it is omitted the
+ * core opens its own transaction and releases the uploaded object on failure, preserving the
+ * Personal upload behavior.
+ */
+export async function createEpubIngestWork(
+  input: CreateEpubIngestWorkInput,
+  executor?: DbTransaction,
+): Promise<{ id: string; title: string; processingStatus: WorkProcessingStatus }> {
   const workId = input.workId ?? randomUUID();
   const fileName = sanitizeEpubFileName(input.fileName) || 'upload.epub';
-  const title = fileName.replace(/\.epub$/i, '').slice(0, 200) || 'Untitled';
+  const fallbackTitle = fileName.replace(/\.epub$/i, '').slice(0, 200) || 'Untitled';
+  const title = (input.title?.trim() || fallbackTitle).slice(0, 200) || 'Untitled';
   const processingStatus = input.processingStatus ?? 'uploaded';
   const originMeta = {
     originalFileName: fileName,
@@ -70,37 +92,48 @@ export async function createEpubIngestWork(input: {
     ...(input.retryJobToken ? { retryJobToken: input.retryJobToken } : {}),
   };
 
-  try {
-    await db.transaction(async (tx) => {
-      await tx.insert(readingWorkTable).values({
-        id: workId,
-        title,
-        description: '',
-        processingStatus,
-        originKind: input.originKind,
-        ownerUserId: input.ownerUserId,
-        visibility: input.visibility,
-        originMeta,
-        publishedAt: null,
-      });
-      await tx.insert(contentAssetTable).values({
-        id: input.assetId ?? randomUUID(),
-        workId,
-        kind: 'origin_file',
-        status: 'ready',
-        storageKey: input.meta.storageKey,
-        mimeType: input.meta.mimeType,
-        contentHash: input.meta.contentHash,
-        meta: { size: input.meta.size, originalFileName: fileName, reused: input.reused },
-      });
+  const insert = async (tx: DbTransaction) => {
+    await tx.insert(readingWorkTable).values({
+      id: workId,
+      title,
+      author: input.author ?? '',
+      description: input.description ?? '',
+      language: input.language?.trim() || 'en',
+      processingStatus,
+      originKind: input.originKind,
+      ownerUserId: input.ownerUserId,
+      visibility: input.visibility,
+      originMeta,
+      publishedAt: null,
     });
-  } catch (error) {
+    await tx.insert(contentAssetTable).values({
+      id: input.assetId ?? randomUUID(),
+      workId,
+      kind: 'origin_file',
+      status: 'ready',
+      storageKey: input.meta.storageKey,
+      mimeType: input.meta.mimeType,
+      contentHash: input.meta.contentHash,
+      meta: { size: input.meta.size, originalFileName: fileName, reused: input.reused },
+    });
+  };
+
+  if (executor) {
+    await insert(executor);
+  } else {
     try {
-      await releaseUploadedObject(input.meta.storageKey);
-    } catch (cleanupError) {
-      ingestLogger.warn({ err: cleanupError, storageKey: input.meta.storageKey }, 'Failed to release upload reference');
+      await db.transaction(insert);
+    } catch (error) {
+      try {
+        await releaseUploadedObject(input.meta.storageKey);
+      } catch (cleanupError) {
+        ingestLogger.warn(
+          { err: cleanupError, storageKey: input.meta.storageKey },
+          'Failed to release upload reference',
+        );
+      }
+      throw error;
     }
-    throw error;
   }
 
   return {

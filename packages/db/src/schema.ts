@@ -952,9 +952,17 @@ export type SourceRecordContentCandidate = {
 export type SourceRecordAvailability = 'available' | 'unavailable';
 
 /**
+ * Materialization progress for the (optional) SourceRecord → ReadingWork link.
+ * Deliberately separate from `availability` (source metadata presence) and from
+ * DiscoverySource `sync_status` (upstream metadata sync state).
+ */
+export type SourceRecordMaterializationStatus = 'not_materialized' | 'processing' | 'ready' | 'failed';
+
+/**
  * One external bibliographic record owned by a DiscoverySource.
  * Identity is per-source: unique on (source_id, external_id).
- * Metadata is source-authoritative; no ReadingWork linkage or Library/reading entities.
+ * Metadata is source-authoritative; `work_id` is an optional link to the
+ * ReadingWork materialized from this record, never a Library/reading entity.
  */
 export const sourceRecord = pgTable(
   'source_record',
@@ -982,6 +990,16 @@ export const sourceRecord = pgTable(
     contentCandidates: jsonb('content_candidates').$type<SourceRecordContentCandidate[]>().notNull().default([]),
     sourceMeta: jsonb('source_meta').$type<SourceRecordSourceMeta>().notNull().default({}),
     availability: text('availability').$type<SourceRecordAvailability>().notNull().default('available'),
+    /**
+     * Optional materialized ReadingWork. Nullable and `onDelete: 'set null'`:
+     * deleting this SourceRecord (or its owning DiscoverySource) never deletes the
+     * Work, and deleting the Work only unlinks the record.
+     */
+    workId: text('work_id').references(() => readingWork.id, { onDelete: 'set null' }),
+    materializationStatus: text('materialization_status')
+      .$type<SourceRecordMaterializationStatus>()
+      .notNull()
+      .default('not_materialized'),
     /** Upstream record/format update timestamp, when the source provides one. */
     sourceUpdatedAt: timestamp('source_updated_at'),
     /** Last successful snapshot sync that observed this record. */
@@ -996,6 +1014,12 @@ export const sourceRecord = pgTable(
     unique('source_record_source_external_uidx').on(table.sourceId, table.externalId),
     check('source_record_external_id_nonempty_chk', sql`length(${table.externalId}) > 0`),
     check('source_record_availability_check', sql`${table.availability} in ('available', 'unavailable')`),
+    check(
+      'source_record_materialization_status_check',
+      sql`${table.materializationStatus} in ('not_materialized', 'processing', 'ready', 'failed')`,
+    ),
+    /** At most one SourceRecord per ReadingWork (Postgres unique allows many NULLs). */
+    unique('source_record_work_uidx').on(table.workId),
     index('source_record_source_idx').on(table.sourceId),
     index('source_record_source_availability_idx').on(table.sourceId, table.availability),
     index('source_record_languages_gin_idx').using('gin', table.languages),
@@ -1011,5 +1035,9 @@ export const sourceRecordRelations = relations(sourceRecord, ({ one }) => ({
   source: one(discoverySource, {
     fields: [sourceRecord.sourceId],
     references: [discoverySource.id],
+  }),
+  work: one(readingWork, {
+    fields: [sourceRecord.workId],
+    references: [readingWork.id],
   }),
 }));
