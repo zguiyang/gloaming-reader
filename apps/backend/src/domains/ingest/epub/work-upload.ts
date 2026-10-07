@@ -24,14 +24,27 @@ const ingestLogger = rootLogger.child({ module: 'EpubWorkIngest' });
 /** Caller-owned transaction; lets an entry point bundle the Work/asset insert into its own atomic unit. */
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+/** Canonical MIME persisted on the origin asset; the parser registry selects by this exact value. */
+const EPUB_ORIGIN_MIME_TYPE = 'application/epub+zip';
+
 /** The one EPUB upload policy used by Personal and Catalog entry points. */
 export const EPUB_UPLOAD_SPEC: UploadSpec = {
   allowedExtensions: ['epub'],
-  allowedMimeTypes: ['application/epub+zip', 'application/zip', 'application/octet-stream'],
+  allowedMimeTypes: [EPUB_ORIGIN_MIME_TYPE, 'application/zip', 'application/octet-stream'],
   maxBytes: EPUB_UPLOAD_MAX_BYTES,
   validateContent: (body) => (isZipFile(body) ? null : 'EPUB 文件内容无效（非 ZIP 格式）'),
   keyBuilder: (contentHash) => `epub/${contentHash}.epub`,
 };
+
+/**
+ * Upload validation accepts generic ZIP/octet-stream MIME for valid EPUBs, but the parser
+ * registry selects by exact contentType. Persist the canonical EPUB MIME on the origin asset
+ * while leaving validation of the original accepted input untouched.
+ */
+function canonicalEpubMimeType(mimeType: string): string {
+  const normalized = mimeType.trim().toLowerCase();
+  return EPUB_UPLOAD_SPEC.allowedMimeTypes.includes(normalized) ? EPUB_ORIGIN_MIME_TYPE : normalized;
+}
 
 /** A client filename is metadata only; never let it choose an object-storage path. */
 export function sanitizeEpubFileName(value: string): string {
@@ -112,7 +125,7 @@ export async function createEpubIngestWork(
       kind: 'origin_file',
       status: 'ready',
       storageKey: input.meta.storageKey,
-      mimeType: input.meta.mimeType,
+      mimeType: canonicalEpubMimeType(input.meta.mimeType),
       contentHash: input.meta.contentHash,
       meta: { size: input.meta.size, originalFileName: fileName, reused: input.reused },
     });

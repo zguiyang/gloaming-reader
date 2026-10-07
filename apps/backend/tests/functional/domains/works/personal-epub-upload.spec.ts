@@ -27,7 +27,7 @@ import * as queueLib from '@/infra/queue';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
 import { createCatalogWorkFixture } from '../../../helpers/catalog-work-fixture';
-import { buildSampleEpubBytes } from '../../../helpers/epub-builder';
+import { buildEpubBytes, buildSampleEpubBytes } from '../../../helpers/epub-builder';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
 const password = 'password123';
@@ -75,9 +75,9 @@ async function createSession(role: 'user' | 'admin' = 'user') {
   return { email, cookie: cookieHeader(login), userId: user!.id };
 }
 
-function uploadForm(fileName: string, bytes: Buffer): FormData {
+function uploadForm(fileName: string, bytes: Buffer, mimeType = 'application/epub+zip'): FormData {
   const form = new FormData();
-  form.append('file', new File([new Blob([bytes])], fileName, { type: 'application/epub+zip' }));
+  form.append('file', new File([new Blob([bytes])], fileName, { type: mimeType }));
   return form;
 }
 
@@ -257,6 +257,35 @@ describe('POST /api/works (Personal EPUB)', () => {
     const cleanupData = enqueueCleanupSpy.mock.calls[0]![1] as Parameters<typeof processPersonalWorkCleanup>[0];
     await processPersonalWorkCleanup(cleanupData);
     expect(memory.store.has(originAsset.storageKey!)).toBe(false);
+  });
+
+  it('normalizes an accepted generic EPUB MIME to the canonical origin asset type', async () => {
+    const bytes = await buildEpubBytes({
+      title: 'Generic MIME Book',
+      authors: ['Jane Author'],
+      language: 'en',
+      chapters: [
+        {
+          href: 'chapter-1.xhtml',
+          tocLabel: 'Chapter 1',
+          content:
+            '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body><p>Generic.</p></body></html>',
+        },
+      ],
+    });
+    createdHashes.push(hashFileContent(bytes));
+    const response = await app.request('/api/works', {
+      method: 'POST',
+      headers: { Cookie: owner.cookie },
+      body: uploadForm('Generic.epub', bytes, 'application/zip'),
+    });
+    expect(response.status).toBe(201);
+    const result = (await response.json()) as { id: string };
+    createdWorkIds.push(result.id);
+
+    const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, result.id));
+    expect(assets).toHaveLength(1);
+    expect(assets[0]).toMatchObject({ kind: 'origin_file', mimeType: 'application/epub+zip' });
   });
 
   it('marks malformed EPUB parsing failed without creating readable parts or derived assets', async () => {

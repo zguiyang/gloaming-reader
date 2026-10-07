@@ -311,7 +311,7 @@ describe('EPUB ingest pipeline', () => {
       attemptAStarted = resolve;
     });
     registerParser({
-      kind: 'user_epub',
+      contentType: 'application/epub+zip',
       parse: async () => {
         parseCalls += 1;
         if (parseCalls === 1) {
