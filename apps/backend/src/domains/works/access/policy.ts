@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
 
 import type { WorkReadActor } from '@/domains/works/access/actor';
-import { canReadWorkRow, workReadAccessSql } from '@/domains/works/access/predicate';
+import { workReadAccessSql } from '@/domains/works/access/predicate';
 import type { PartRow, WorkRow } from '@/domains/works/read-model/projection';
 import { loadPartsForWork } from '@/domains/works/read-model/relations';
 import { ensureWorkReadingStatsIfMissing } from '@/domains/works/read-model/stats';
@@ -95,23 +95,32 @@ export async function resolveReadableWorkTitle(actor: WorkReadActor, workId: str
 }
 
 export async function resolveReadableWorkIdForPart(actor: WorkReadActor, partId: string): Promise<string | undefined> {
+  const access = workReadAccessSql(actor);
+  const predicates = [eq(readingPartTable.id, partId)];
+  if (access) {
+    predicates.push(access);
+  }
   const [row] = await db
-    .select({
-      workId: readingPartTable.workId,
-      ownerUserId: readingWorkTable.ownerUserId,
-      visibility: readingWorkTable.visibility,
-      publishedAt: readingWorkTable.publishedAt,
-    })
+    .select({ workId: readingPartTable.workId })
     .from(readingPartTable)
     .innerJoin(readingWorkTable, eq(readingPartTable.workId, readingWorkTable.id))
-    .where(eq(readingPartTable.id, partId))
+    .where(and(...predicates))
     .limit(1);
-  if (!row || !canReadWorkRow(actor, row)) {
-    return undefined;
-  }
-  return row.workId;
+  return row?.workId;
 }
 
 export async function assertCanReadWork(actor: WorkReadActor, workId: string): Promise<void> {
   await loadReadableWork(actor, workId);
+}
+
+/**
+ * Boolean form of the central Work Access Policy for one Work. Read-only: unlike
+ * `loadReadableWork` it never materializes reading stats, so the asset gateway
+ * can authorize without side effects or a second policy.
+ */
+export async function canReadWork(actor: WorkReadActor, workId: string): Promise<boolean> {
+  const access = workReadAccessSql(actor);
+  const where = access ? and(eq(readingWorkTable.id, workId), access) : eq(readingWorkTable.id, workId);
+  const [row] = await db.select({ id: readingWorkTable.id }).from(readingWorkTable).where(where).limit(1);
+  return Boolean(row);
 }

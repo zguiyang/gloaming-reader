@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { contentAsset as contentAssetTable, readingWork as readingWorkTable } from '@gloaming/db';
 
 import type { WorkReadActor } from '@/domains/works/access';
-import { canReadWorkRow, isPublicCatalogWork, isWorkReadAdmin } from '@/domains/works/access';
+import { canReadWork, isPublicCatalogWork } from '@/domains/works/access';
 import { db } from '@/infra/db';
 import type { ObjectGetStreamResult, ObjectRange } from '@/infra/storage';
 import { getObjectStream } from '@/infra/storage';
@@ -67,15 +67,26 @@ export async function resolveAsset(assetId: string): Promise<ResolvedAsset | nul
   };
 }
 
-/** Authorization matrix — admin any asset; work owners all kinds; others public catalog kinds only. */
-export function isAssetAuthorized(actor: WorkReadActor, asset: ResolvedAsset): boolean {
-  if (isWorkReadAdmin(actor)) {
-    return true;
-  }
+/**
+ * Authorization matrix built on the single central Work Access Policy:
+ *
+ * 1. No Work (`work_id IS NULL`): never served — asset existence is not access.
+ * 2. `canReadWork` (the central policy) is checked first for every asset,
+ *    before any owner or asset-kind decision.
+ * 3. Only once the Work is readable: the owner may read every kind, and other
+ *    readers only learner-facing kinds.
+ *
+ * The Admin role has no content-read bypass; an Admin follows the same Work
+ * policy as any other actor.
+ *
+ * The kind restriction (owner all kinds vs. others learner-facing kinds) is a
+ * delivery rule, not a second Work authorization policy.
+ */
+export async function isAssetAuthorized(actor: WorkReadActor, asset: ResolvedAsset): Promise<boolean> {
   if (asset.workId == null) {
     return false;
   }
-  if (!canReadWorkRow(actor, asset)) {
+  if (!(await canReadWork(actor, asset.workId))) {
     return false;
   }
   if (actor.userId != null && asset.ownerUserId === actor.userId) {

@@ -22,6 +22,11 @@ import {
 import type { PingJobData } from '@/application/jobs/ping';
 import { JOB_PING, processPing } from '@/application/jobs/ping';
 import {
+  JOB_SOURCE_RECORD_MATERIALIZE,
+  processSourceRecordMaterialize,
+  type SourceRecordMaterializeJobData,
+} from '@/application/jobs/source-record-materialize';
+import {
   JOB_METADATA_FILL,
   processWorkMetadataFill,
   type WorkMetadataFillJobData,
@@ -47,6 +52,8 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
       return processPartAudioGenerate(job.data as PartAudioGenerateJobData);
     case JOB_DISCOVERY_SYNC:
       return processDiscoverySync(job.data as DiscoverySyncJobData);
+    case JOB_SOURCE_RECORD_MATERIALIZE:
+      return processSourceRecordMaterialize(job.data as SourceRecordMaterializeJobData);
     default:
       throw new Error(`Unknown job name: ${job.name}`);
   }

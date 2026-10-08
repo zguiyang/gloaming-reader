@@ -1,9 +1,9 @@
-import { and, eq, isNotNull, isNull, or, type SQL } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, or, type SQL, sql } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@gloaming/db';
+import { sourceRecord as sourceRecordTable, userLibraryItem as userLibraryItemTable } from '@gloaming/db/schema';
 
 import type { WorkReadActor } from '@/domains/works/access/actor';
-import { isWorkReadAdmin } from '@/domains/works/access/actor';
 
 export type WorkAccessRow = {
   ownerUserId: string | null;
@@ -16,16 +16,6 @@ export function isPublicCatalogWork(row: WorkAccessRow): boolean {
   return row.ownerUserId == null && row.visibility === 'catalog' && row.publishedAt != null;
 }
 
-export function canReadWorkRow(actor: WorkReadActor, row: WorkAccessRow): boolean {
-  if (isWorkReadAdmin(actor)) {
-    return true;
-  }
-  if (actor.userId && row.ownerUserId === actor.userId) {
-    return true;
-  }
-  return isPublicCatalogWork(row);
-}
-
 /** SQL for official public Catalog works (`owner_user_id` IS NULL, published catalog). */
 export function publicCatalogWorkSql(): SQL {
   return and(
@@ -35,14 +25,50 @@ export function publicCatalogWorkSql(): SQL {
   )!;
 }
 
-/** Drizzle predicate for `reading_work` rows the actor may read. */
+/**
+ * An unpublished, ownerless, catalog-visible Work that is linked from a
+ * `source_record`. Only this class of Work is readable through a Library
+ * membership: a membership must never unlock another user's Personal Work, an
+ * unlinked Work, or a private Work.
+ */
+function membershipSourceWorkSql(): SQL {
+  return and(
+    isNull(readingWorkTable.ownerUserId),
+    eq(readingWorkTable.visibility, 'catalog'),
+    isNull(readingWorkTable.publishedAt),
+    sql`exists (
+      select 1 from ${sourceRecordTable}
+      where ${sourceRecordTable.workId} = ${readingWorkTable.id}
+    )`,
+  )!;
+}
+
+/** This actor's own Library membership for the Work. */
+function ownMembershipSql(userId: string): SQL {
+  return sql`exists (
+    select 1 from ${userLibraryItemTable}
+    where ${userLibraryItemTable.workId} = ${readingWorkTable.id}
+      and ${userLibraryItemTable.userId} = ${userId}
+  )`;
+}
+
+/**
+ * The single central Work Access Policy shared by Reader parts, the asset
+ * gateway, reading history, catalog detail, and conversation subjects:
+ *
+ * - Personal Work: readable only by its `owner_user_id`.
+ * - Published ownerless Catalog Work: publicly readable.
+ * - Unpublished ownerless Source-materialized Work: readable only through this
+ *   actor's own `user_library_item` membership.
+ *
+ * Exactly `owner OR published public Catalog OR (own membership AND unpublished
+ * linked Source Work)`. The Admin role never grants content access by itself.
+ */
 export function workReadAccessSql(actor: WorkReadActor): SQL | undefined {
-  if (isWorkReadAdmin(actor)) {
-    return undefined;
-  }
-  const publicCatalog = publicCatalogWorkSql();
+  const parts: SQL[] = [publicCatalogWorkSql()];
   if (actor.userId) {
-    return or(eq(readingWorkTable.ownerUserId, actor.userId), publicCatalog)!;
+    parts.push(eq(readingWorkTable.ownerUserId, actor.userId));
+    parts.push(and(ownMembershipSql(actor.userId), membershipSourceWorkSql())!);
   }
-  return publicCatalog;
+  return or(...parts)!;
 }

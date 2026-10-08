@@ -1,4 +1,4 @@
-import { AUTH_USER_ROLE, isAdminRole } from '@gloaming/shared/auth';
+import { AUTH_USER_ROLE } from '@gloaming/shared/auth';
 
 /** Minimal identity for Work read authorization — no HTTP or session types. */
 export type WorkReadActor = {
@@ -15,8 +15,4 @@ export function workReadActorFromIdentity(identity: { id: string; role?: string 
     return anonymousWorkReadActor();
   }
   return { userId: identity.id, role: identity.role ?? AUTH_USER_ROLE };
-}
-
-export function isWorkReadAdmin(actor: WorkReadActor): boolean {
-  return actor.userId !== null && isAdminRole(actor.role);
 }

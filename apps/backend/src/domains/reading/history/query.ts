@@ -12,7 +12,7 @@ import type { ReadingHistoryData, ReadingHistorySummary, ReadingHistoryWork } fr
 import { calendarDateInTimeZone } from '@gloaming/shared/reading-history';
 
 import type { WorkReadActor } from '@/domains/works/access';
-import { canReadWorkRow } from '@/domains/works/access';
+import { workReadAccessSql } from '@/domains/works/access';
 import { db } from '@/infra/db';
 
 function addCalendarDays(date: string, days: number): string {
@@ -80,6 +80,14 @@ async function listEngagedActivity(userId: string): Promise<ReadingHistoryData['
 }
 
 async function listWorks(actor: WorkReadActor, userId: string): Promise<ReadingHistoryWork[]> {
+  // The single membership-aware Work Access Policy gates history exactly like
+  // Reader parts: owner, published Catalog, or an explicit Library membership.
+  const access = workReadAccessSql(actor);
+  const predicates = [eq(readingStateTable.userId, userId)];
+  if (access) {
+    predicates.push(access);
+  }
+
   const rows = await db
     .select({
       status: readingStateTable.status,
@@ -89,19 +97,13 @@ async function listWorks(actor: WorkReadActor, userId: string): Promise<ReadingH
       author: readingWorkTable.author,
       coverAssetId: readingWorkTable.coverAssetId,
       workId: readingWorkTable.id,
-      ownerUserId: readingWorkTable.ownerUserId,
-      visibility: readingWorkTable.visibility,
-      publishedAt: readingWorkTable.publishedAt,
     })
     .from(readingStateTable)
     .innerJoin(readingWorkTable, eq(readingWorkTable.id, readingStateTable.workId))
-    .where(eq(readingStateTable.userId, userId))
+    .where(and(...predicates))
     .orderBy(desc(readingStateTable.lastReadAt), asc(readingWorkTable.title));
 
   const works = rows.flatMap((row): ReadingHistoryWork[] => {
-    if (!canReadWorkRow(actor, row)) {
-      return [];
-    }
     const status = row.status as ReadingStateStatus;
     if (status !== 'in_progress' && status !== 'completed') {
       return [];

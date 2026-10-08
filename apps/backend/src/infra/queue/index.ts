@@ -57,6 +57,8 @@ export type EnqueueJobOptions = {
   attempts?: number;
   backoff?: { type: 'exponential'; delay: number };
   jobId?: string;
+  removeOnComplete?: boolean | number;
+  removeOnFail?: boolean | number;
 };
 
 async function addJob(target: Queue, name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
@@ -64,6 +66,8 @@ async function addJob(target: Queue, name: string, data: unknown, jobOptions?: E
     attempts: jobOptions?.attempts,
     backoff: jobOptions?.backoff,
     jobId: jobOptions?.jobId,
+    removeOnComplete: jobOptions?.removeOnComplete,
+    removeOnFail: jobOptions?.removeOnFail,
   });
   if (!job.id) {
     throw new Error(`Job ${name} was added without an id`);

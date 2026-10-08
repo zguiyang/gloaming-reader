@@ -79,7 +79,9 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
         readingStateTable,
         and(eq(readingStateTable.workId, readingWorkTable.id), eq(readingStateTable.userId, userId)),
       )
-      .where(and(eq(userLibraryItemTable.userId, userId), publicCatalogWorkSql()))
+      // Membership, not publication, owns saved Library visibility: a Source work
+      // saved before publication is readable by its member and must appear here.
+      .where(eq(userLibraryItemTable.userId, userId))
       .orderBy(desc(userLibraryItemTable.createdAt), desc(readingWorkTable.id))
       .limit(LIBRARY_ITEMS_LIMIT),
   ]);

@@ -196,7 +196,7 @@ describe('Work read access policy', () => {
     resetObjectStoreCache();
   });
 
-  it('enforces owner, catalog, anonymous, and admin boundaries across user surfaces', async () => {
+  it('enforces owner, published catalog, anonymous, and no-admin-bypass boundaries across user surfaces', async () => {
     const owner = await createSession('user');
     const other = await createSession('user');
     const admin = await createSession('admin');
@@ -229,12 +229,12 @@ describe('Work read access policy', () => {
     expect((await readerParts(ownerPrivate.workId, owner.cookie)).status).toBe(200);
     expect((await readerParts(ownerPrivate.workId, other.cookie)).status).toBe(404);
     expect((await readerParts(ownerPrivate.workId)).status).toBe(404);
-    expect((await readerParts(ownerPrivate.workId, admin.cookie)).status).toBe(200);
+    expect((await readerParts(ownerPrivate.workId, admin.cookie)).status).toBe(404);
 
     expect((await readerParts(catalogPublished.workId)).status).toBe(200);
     expect((await readerParts(catalogPublished.workId, other.cookie)).status).toBe(200);
     expect((await readerParts(catalogDraft.workId)).status).toBe(404);
-    expect((await readerParts(catalogDraft.workId, admin.cookie)).status).toBe(200);
+    expect((await readerParts(catalogDraft.workId, admin.cookie)).status).toBe(404);
 
     expect(
       (await app.request(`/api/catalog/works/${ownerPrivate.workId}`, { headers: { Cookie: owner.cookie } })).status,
@@ -254,7 +254,7 @@ describe('Work read access policy', () => {
     ).toBe(404);
     expect(
       (await app.request(`/api/reader/parts/${ownerPrivate.partId}`, { headers: { Cookie: admin.cookie } })).status,
-    ).toBe(200);
+    ).toBe(404);
 
     const ownerAudio = await app.request(`/api/reader/parts/${ownerPrivate.partId}/audio?role=us`, {
       headers: { Cookie: owner.cookie },
@@ -274,7 +274,7 @@ describe('Work read access policy', () => {
           headers: { Cookie: admin.cookie },
         })
       ).status,
-    ).toBe(200);
+    ).toBe(404);
 
     const coverOwner = await app.request(`/api/assets/${ownerPrivate.coverAssetId}`, {
       headers: { Cookie: owner.cookie },
@@ -316,8 +316,7 @@ describe('Work read access policy', () => {
     const originAdmin = await app.request(`/api/assets/${originFileAssetId}`, {
       headers: { Cookie: admin.cookie },
     });
-    expect(originAdmin.status).toBe(200);
-    expect(await originAdmin.text()).toBe('owner-epub-bytes');
+    expect(originAdmin.status).toBe(403);
 
     const stateAnonymous = await app.request(`/api/reader/works/${ownerPrivate.workId}/state`);
     expect(stateAnonymous.status).toBe(HTTP_STATUS.UNAUTHORIZED);
@@ -364,7 +363,7 @@ describe('Work read access policy', () => {
     ).toBe(404);
     expect(
       (await app.request(`/api/catalog/works/${catalogDraft.workId}`, { headers: { Cookie: admin.cookie } })).status,
-    ).toBe(200);
+    ).toBe(404);
 
     await db.insert(readingStateTable).values({
       id: randomUUID(),

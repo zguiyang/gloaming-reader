@@ -155,19 +155,16 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
     expect(await response.text()).toBe('mp3');
   });
 
-  it('keeps draft work images admin-only', async () => {
+  it('denies draft work images to anonymous, ordinary, and admin without membership', async () => {
     const workId = await seedWork('draft');
     const assetId = await seedImage(workId, 'draft-img');
 
     expect((await app.request(`/api/assets/${assetId}`)).status).toBe(403);
     expect((await app.request(`/api/assets/${assetId}`, { headers: { Cookie: userCookie } })).status).toBe(403);
-    const adminResponse = await app.request(`/api/assets/${assetId}`, { headers: { Cookie: adminCookie } });
-    expect(adminResponse.status).toBe(200);
-    expect(await adminResponse.text()).toBe('png-data-draft-img');
-    expect(adminResponse.headers.get('Cache-Control')).toBe('private, no-store');
+    expect((await app.request(`/api/assets/${assetId}`, { headers: { Cookie: adminCookie } })).status).toBe(403);
   });
 
-  it('keeps origin_file admin-only', async () => {
+  it('denies origin_file on an unpublished draft to non-owners including admin', async () => {
     const workId = await seedWork('draft');
     const assetId = await seedAsset(workId, 'origin_file', `assets-test/${workId}/origin.epub`);
     memory.store.set(`assets-test/${workId}/origin.epub`, {
@@ -176,17 +173,14 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
     });
 
     expect((await app.request(`/api/assets/${assetId}`)).status).toBe(403);
-    const adminResponse = await app.request(`/api/assets/${assetId}`, { headers: { Cookie: adminCookie } });
-    expect(adminResponse.status).toBe(200);
-    expect(await adminResponse.text()).toBe('epub');
-    expect(adminResponse.headers.get('Cache-Control')).toBe('private, no-store');
+    expect((await app.request(`/api/assets/${assetId}`, { headers: { Cookie: adminCookie } })).status).toBe(403);
   });
 
   it('returns 404 for unknown assets', async () => {
     expect((await app.request('/api/assets/does-not-exist')).status).toBe(404);
   });
 
-  it('allows admin to read orphan stored assets while denying anonymous and ordinary users', async () => {
+  it('denies orphan stored assets to everyone because asset existence is not access', async () => {
     const id = `a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const key = `assets-test/orphan-${id}.png`;
     memory.store.set(key, { body: Buffer.from('orphan-png'), contentType: 'image/png' });
@@ -203,10 +197,7 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
 
     expect((await app.request(`/api/assets/${id}`)).status).toBe(403);
     expect((await app.request(`/api/assets/${id}`, { headers: { Cookie: userCookie } })).status).toBe(403);
-    const adminResponse = await app.request(`/api/assets/${id}`, { headers: { Cookie: adminCookie } });
-    expect(adminResponse.status).toBe(200);
-    expect(await adminResponse.text()).toBe('orphan-png');
-    expect(adminResponse.headers.get('Cache-Control')).toBe('private, no-store');
+    expect((await app.request(`/api/assets/${id}`, { headers: { Cookie: adminCookie } })).status).toBe(403);
   });
 
   it('honors byte ranges with a 206 partial response', async () => {

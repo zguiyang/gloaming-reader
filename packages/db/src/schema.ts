@@ -1041,3 +1041,56 @@ export const sourceRecordRelations = relations(sourceRecord, ({ one }) => ({
     references: [readingWork.id],
   }),
 }));
+
+/**
+ * Lifecycle of one user's intent to save a SourceRecord into their Library.
+ * `pending` waits for materialization, `completed` means the Library membership
+ * exists, `failed` is a retryable terminal state. It is never a Library membership
+ * itself: only a `user_library_item` created after a readable import counts.
+ */
+export type SourceRecordSaveIntentStatus = 'pending' | 'failed' | 'completed';
+
+export const sourceRecordSaveIntent = pgTable(
+  'source_record_save_intent',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sourceRecordId: text('source_record_id')
+      .notNull()
+      .references(() => sourceRecord.id, { onDelete: 'cascade' }),
+    status: text('status').$type<SourceRecordSaveIntentStatus>().notNull().default('pending'),
+    /** Cleaned, short machine code for a failed materialization. */
+    failureCode: text('failure_code'),
+    /** Cleaned, short human-readable reason; never a raw stack or response body. */
+    failureReason: text('failure_reason'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    /** One intent per (user, SourceRecord); repeated saves are idempotent. */
+    unique('source_record_save_intent_user_record_uidx').on(table.userId, table.sourceRecordId),
+    index('source_record_save_intent_user_idx').on(table.userId),
+    index('source_record_save_intent_record_status_idx').on(table.sourceRecordId, table.status),
+    check('source_record_save_intent_status_check', sql`${table.status} in ('pending', 'failed', 'completed')`),
+    check(
+      'source_record_save_intent_failure_code_nonempty_chk',
+      sql`${table.failureCode} is null or length(${table.failureCode}) > 0`,
+    ),
+  ],
+);
+
+export const sourceRecordSaveIntentRelations = relations(sourceRecordSaveIntent, ({ one }) => ({
+  user: one(user, {
+    fields: [sourceRecordSaveIntent.userId],
+    references: [user.id],
+  }),
+  sourceRecord: one(sourceRecord, {
+    fields: [sourceRecordSaveIntent.sourceRecordId],
+    references: [sourceRecord.id],
+  }),
+}));

@@ -263,7 +263,8 @@ describe('Dictionary config & lookup API', () => {
     expect(await lookup(draftId)).toBeUndefined();
     expect(await lookup(privateId)).toBeUndefined();
     expect(await lookup('unknown-work-id')).toBeUndefined();
-    expect(await lookup(draftId, admin.cookie)).toBe('Draft Dictionary Work');
+    // No Admin content bypass: an Admin sees only published Catalog titles too.
+    expect(await lookup(draftId, admin.cookie)).toBeUndefined();
   });
 
   it('protects admin routes from anonymous and normal users', async () => {

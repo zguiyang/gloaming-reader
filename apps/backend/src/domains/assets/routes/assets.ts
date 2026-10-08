@@ -27,8 +27,9 @@ function parseRangeHeader(header: string | undefined): ObjectRange | undefined {
 
 /**
  * Unified resource gateway — the only entry for object-storage reads.
- * Authorization: owners may read their own Work assets; anonymous and other
- * users may read public Catalog assets; admin may read any asset.
+ * Authorization: the central Work Access Policy decides Work readability (owner,
+ * published Catalog, or an own Library membership); the asset kind then decides
+ * whether that readable Work exposes this asset. The Admin role has no bypass.
  */
 assetsRoutes.get('/api/assets/:assetId', async (c) => {
   const assetId = c.req.param('assetId');
@@ -38,7 +39,7 @@ assetsRoutes.get('/api/assets/:assetId', async (c) => {
   }
 
   const actor = workReadActorFromIdentity(c.get('user'));
-  if (!isAssetAuthorized(actor, asset)) {
+  if (!(await isAssetAuthorized(actor, asset))) {
     return c.body(null, HTTP_STATUS.FORBIDDEN);
   }
 
