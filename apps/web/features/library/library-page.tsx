@@ -116,7 +116,7 @@ export function LibraryPage() {
 
   const data = libraryQuery.data;
   const current = data.current;
-  const items = current ? data.items.filter((item) => item.work.id !== current.work.id) : data.items;
+  const items = data.items;
   const tags = tagsQuery.data ?? [];
   const activeTagId = tags.some((tag) => tag.id === selectedTagId) ? selectedTagId : null;
   const filteredItems = items.filter((item) => {

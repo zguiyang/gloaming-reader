@@ -249,6 +249,48 @@ describe('LibraryPage', () => {
     view.cleanup();
   });
 
+  it('keeps the Continue Reading Work eligible for All Books and My Upload while excluding it from Saved Catalog', async () => {
+    const favorite = { id: 'tag-favorite', name: '喜欢' };
+    const data = {
+      current: { work: work('current'), state: { currentPartId: 'part-2', progressRatio: 20 } },
+      items: [{ ...item('current', false), userTags: [favorite] }, item('saved', true)],
+    } as unknown as LibraryData;
+    mocks.useUserTagsQuery.mockReturnValue({ data: [{ ...favorite, bookCount: 1 }] });
+    const view = await renderLibrary({ isPending: false, isError: false, data });
+
+    // Continue Reading still renders the hero for the same Work.
+    expect(view.container.textContent).toContain('继续阅读');
+    expect(view.container.querySelector('a[href="/read/current?part=part-2"]')).toBeTruthy();
+    // The same Work remains eligible for the All Books grid and keeps its management action.
+    expect(view.container.querySelector('a[href="/read/current"]')).toBeTruthy();
+    expect(view.container.querySelector('button[aria-label="管理《Book current》"]')).toBeTruthy();
+
+    // Saved Catalog never contains the Personal current Work.
+    await act(async () => {
+      Array.from(view.container.querySelectorAll('button'))
+        .find((button) => button.textContent === '已收藏')
+        ?.click();
+    });
+    expect(view.container.querySelector('a[href="/read/current"]')).toBeNull();
+    expect(view.container.querySelector('a[href="/read/saved"]')).toBeTruthy();
+
+    // My Upload and the User Tag filter still compose for the current Work.
+    await act(async () => {
+      Array.from(view.container.querySelectorAll('button'))
+        .find((button) => button.textContent === '我的上传')
+        ?.click();
+    });
+    await act(async () => {
+      Array.from(view.container.querySelectorAll('button'))
+        .find((button) => button.textContent === '喜欢')
+        ?.click();
+    });
+    expect(view.container.querySelector('a[href="/read/current"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/read/current?part=part-2"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/read/saved"]')).toBeNull();
+    view.cleanup();
+  });
+
   it('provides tag management and explains that deleting a tag keeps books', async () => {
     const view = await renderTagManagement([{ id: 'tag-one', name: '喜欢', bookCount: 2 }]);
     expect(view.container.textContent).toContain('管理标签');
