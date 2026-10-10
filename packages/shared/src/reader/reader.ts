@@ -21,13 +21,37 @@ export const READING_STATE_CREATE_CONFLICT_RULE = 'existing_row_wins' as const;
 /** No chapters fully completed yet. */
 export const NO_CHAPTERS_COMPLETED = -1 as const;
 
-export const READING_STATE_ACTIONS = ['open', 'complete_chapter', 'navigate', 'finish', 'restart'] as const;
+export const READING_STATE_ACTIONS = [
+  'open',
+  'complete_chapter',
+  'navigate',
+  'finish',
+  'restart',
+  'save_position',
+] as const;
 export type ReadingStateAction = (typeof READING_STATE_ACTIONS)[number];
+
+/** Anchor kind for a within-part scroll position stored on `reading_state`. */
+export const READING_STATE_ANCHOR_KIND = 'part_ratio' as const;
+
+/**
+ * Within-chapter position. `partId` is stored with the ratio so a stale anchor
+ * can never be applied to a different current part.
+ */
+export const readingAnchorSchema = z.object({
+  partId: z.string().min(1),
+  /** 0 = top of the part, 1 = bottom. */
+  ratio: z.number().min(0).max(1),
+});
+
+export type ReadingAnchor = z.infer<typeof readingAnchorSchema>;
 
 export const readingStateSchema = z.object({
   status: readingStateStatusSchema,
   currentPartId: z.string().nullable(),
   completedThroughSortOrder: z.number().int(),
+  /** Saved within-part position for `currentPartId`; null when none or unpaired. */
+  anchor: readingAnchorSchema.nullable().optional(),
   /** DB revision for an optional compare-and-swap update; omitted by legacy responses. */
   revision: z.number().int().nonnegative().optional(),
   /** Computed for UI — not persisted. */
@@ -152,9 +176,33 @@ export const updateReadingStateBodySchema = z
     action: z.enum(READING_STATE_ACTIONS),
     partId: z.string().min(1).optional(),
     nextPartId: z.string().min(1).optional(),
+    /** Required for `save_position`; rejected for every other action. */
+    anchor: readingAnchorSchema.optional(),
     expectedRevision: z.number().int().nonnegative().optional(),
   })
   .superRefine((body, ctx) => {
+    if (body.action === 'save_position') {
+      if (!body.anchor) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['anchor'],
+          message: 'anchor is required for save_position',
+        });
+      }
+      if (body.partId || body.nextPartId) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['anchor'],
+          message: 'partId and nextPartId are not allowed for save_position',
+        });
+      }
+    } else if (body.anchor) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['anchor'],
+        message: 'anchor is only allowed for save_position',
+      });
+    }
     if ((body.action === 'navigate' || body.action === 'open') && !body.partId) {
       if (body.action === 'navigate') {
         ctx.addIssue({

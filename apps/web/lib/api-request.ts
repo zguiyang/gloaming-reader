@@ -42,6 +42,8 @@ export type ApiRequestOptions<T> = {
   body?: BodyInit | null;
   headers?: HeadersInit;
   signal?: AbortSignal;
+  /** Keep a background request alive after the page is hidden or unloaded. */
+  keepalive?: boolean;
   credentials?: RequestCredentials;
   onResponse?: (response: Response) => void;
   onError?: (error: ApiRequestError) => void;

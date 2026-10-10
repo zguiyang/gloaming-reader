@@ -100,6 +100,7 @@ export function toReaderViewModel(
           progressRatio: state.progressRatio,
           completedThroughSortOrder: state.completedThroughSortOrder,
           totalPartCount: state.totalPartCount,
+          anchor: state.anchor ?? null,
           lastReadAt: typeof state.lastReadAt === 'string' ? state.lastReadAt : state.lastReadAt.toISOString(),
           completedAt: state.completedAt
             ? typeof state.completedAt === 'string'

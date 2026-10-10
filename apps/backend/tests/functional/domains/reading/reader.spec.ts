@@ -258,4 +258,82 @@ describe('Reader HTTP', () => {
     expect(restarted.completedThroughSortOrder).toBe(-1);
     expect(restarted.completedAt).toBeNull();
   });
+
+  it('saves a within-chapter anchor for the current part and drops it when the chapter changes', async () => {
+    const learner = await createSession();
+    createdEmails.push(learner.email);
+
+    const work = await createCatalogWorkFixture({ title: 'Anchor Bay', body: 'The first part body.' });
+    createdWorkIds.push(work.id);
+    const secondPartId = randomUUID();
+    await db.insert(readingPartTable).values({
+      id: secondPartId,
+      workId: work.id,
+      sortOrder: 1,
+      kind: 'chapter',
+      title: 'The Second Chapter',
+      body: 'The second part body.',
+    });
+
+    const partsRes = await app.request(`/api/reader/works/${work.id}/parts`);
+    const partsData = (await partsRes.json()) as ReaderPartsData;
+    const firstPartId = partsData.parts[0]!.id;
+
+    const openRes = await app.request(`/api/reader/works/${work.id}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ action: 'open' }),
+    });
+    const opened = (await openRes.json()) as ReadingState;
+    expect(opened.currentPartId).toBe(firstPartId);
+    expect(opened.anchor).toBeNull();
+
+    const saveRes = await app.request(`/api/reader/works/${work.id}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ action: 'save_position', anchor: { partId: firstPartId, ratio: 0.42 } }),
+    });
+    expect(saveRes.status).toBe(200);
+    const saved = (await saveRes.json()) as ReadingState;
+    expect(saved.anchor).toEqual({ partId: firstPartId, ratio: 0.42 });
+    expect(saved.progressRatio).toBe(0);
+    // A position write must not invalidate another client's navigation revision.
+    expect(saved.revision).toBe(opened.revision);
+
+    const reopenRes = await app.request(`/api/reader/works/${work.id}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ action: 'open' }),
+    });
+    const reopened = (await reopenRes.json()) as ReadingState;
+    expect(reopened.currentPartId).toBe(firstPartId);
+    expect(reopened.anchor).toEqual({ partId: firstPartId, ratio: 0.42 });
+
+    const staleAnchorRes = await app.request(`/api/reader/works/${work.id}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ action: 'save_position', anchor: { partId: secondPartId, ratio: 0.9 } }),
+    });
+    expect(staleAnchorRes.status).toBe(200);
+    const afterStaleAnchor = (await staleAnchorRes.json()) as ReadingState;
+    expect(afterStaleAnchor.anchor).toEqual({ partId: firstPartId, ratio: 0.42 });
+
+    const navigateRes = await app.request(`/api/reader/works/${work.id}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', cookie: learner.cookie },
+      body: JSON.stringify({ action: 'navigate', partId: secondPartId, expectedRevision: reopened.revision }),
+    });
+    expect(navigateRes.status).toBe(200);
+    const navigated = (await navigateRes.json()) as ReadingState;
+    expect(navigated.currentPartId).toBe(secondPartId);
+    expect(navigated.anchor).toBeNull();
+
+    const [row] = await db
+      .select({ anchorKind: readingStateTable.anchorKind, anchorValue: readingStateTable.anchorValue })
+      .from(readingStateTable)
+      .where(eq(readingStateTable.workId, work.id))
+      .limit(1);
+    expect(row?.anchorKind).toBeNull();
+    expect(row?.anchorValue).toBeNull();
+  });
 });

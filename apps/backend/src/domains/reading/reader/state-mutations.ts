@@ -8,6 +8,7 @@ import {
   mergeReadingCompletion,
   mergeReadingPosition,
   NO_CHAPTERS_COMPLETED,
+  READING_STATE_ANCHOR_KIND,
   type ReadingState,
   type UpdateReadingStateBody,
 } from '@gloaming/shared/reader';
@@ -111,9 +112,39 @@ export async function updateReadingState(
       return updated;
     };
 
+    /**
+     * Background within-chapter position write. Deliberately does not bump
+     * `revision`, so it never invalidates another client's chapter-navigation
+     * CAS revision or surfaces a conflict toast. The `revision =` predicate
+     * still makes a write that lost a race to a chapter change a silent no-op.
+     */
+    const updateAnchor = async (anchorValue: string): Promise<StateRow> => {
+      const [updated] = await tx
+        .update(readingStateTable)
+        .set({ anchorKind: READING_STATE_ANCHOR_KIND, anchorValue })
+        .where(and(eq(readingStateTable.id, existing.id), eq(readingStateTable.revision, existing.revision)))
+        .returning();
+      if (updated) {
+        return updated;
+      }
+      const [current] = await tx.select().from(readingStateTable).where(eq(readingStateTable.id, existing.id)).limit(1);
+      return current ?? existing;
+    };
+
     const currentPart = existing.currentPartId ? parts.find((part) => part.id === existing.currentPartId) : undefined;
     const currentPartId = currentPart?.id ?? null;
     const requestedPartId = input.partId && parts.some((part) => part.id === input.partId) ? input.partId : undefined;
+    const clearedAnchor = { anchorKind: null, anchorValue: null } as const;
+
+    if (input.action === 'save_position') {
+      const anchor = input.anchor!;
+      // Only accept a position for the part that is still current; a stale
+      // write from a part the reader already left is ignored.
+      if (anchor.partId !== currentPartId) {
+        return existing;
+      }
+      return updateAnchor(JSON.stringify(anchor));
+    }
 
     if (input.action === 'open') {
       const mergedPartId = mergeReadingPosition({
@@ -121,7 +152,9 @@ export async function updateReadingState(
         currentPartId,
         requestedPartId,
       });
-      return updateState({ currentPartId: mergedPartId ?? firstPart.id, lastReadAt: now });
+      const nextPartId = mergedPartId ?? firstPart.id;
+      const changes = { currentPartId: nextPartId, lastReadAt: now };
+      return updateState(nextPartId === currentPartId ? changes : { ...changes, ...clearedAnchor });
     }
 
     if (input.action === 'restart') {
@@ -136,6 +169,7 @@ export async function updateReadingState(
         completedThroughSortOrder: NO_CHAPTERS_COMPLETED,
         completedAt: null,
         lastReadAt: now,
+        ...clearedAnchor,
       });
     }
 
@@ -154,15 +188,14 @@ export async function updateReadingState(
         completedThroughSortOrder: completedThrough,
         ...(existing.status === 'completed' ? {} : { status: 'in_progress', completedAt: null }),
         lastReadAt: now,
+        ...clearedAnchor,
       });
     }
 
     if (input.action === 'navigate') {
       const target = findPart(parts, input.partId!);
-      return updateState({
-        currentPartId: target.id,
-        lastReadAt: now,
-      });
+      const changes = { currentPartId: target.id, lastReadAt: now };
+      return updateState(target.id === currentPartId ? changes : { ...changes, ...clearedAnchor });
     }
 
     if (input.action === 'finish') {
@@ -181,6 +214,8 @@ export async function updateReadingState(
     throw new AppError(400, ERROR_CODES.READER.UNSUPPORTED_ACTION);
   });
 
-  await touchReadingDay(userId);
+  if (input.action !== 'save_position') {
+    await touchReadingDay(userId);
+  }
   return toReadingState(state, parts);
 }

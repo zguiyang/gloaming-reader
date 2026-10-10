@@ -30,6 +30,7 @@ import { ReaderChapterNav } from '@/features/reader/reader-chapter-nav';
 import { ReaderChrome } from '@/features/reader/reader-chrome';
 import { useReadingHeartbeat } from '@/features/reader/reader-heartbeat';
 import type {
+  ReaderAnchorRestore,
   ReaderAudioRole,
   ReaderAudioStatus,
   ReaderFontSize,
@@ -42,16 +43,27 @@ import {
   adjacentPart,
   DEFAULT_READER_PLAYBACK_RATE,
   formatDictionaryWordDeepDivePrompt,
+  isAnchorRestorePending,
+  isReaderScrollIntentKey,
   nextPlaybackRate,
   partIndex,
+  planAnchorRestoreApply,
+  READER_ANCHOR_RESTORE_SETTLE_MS,
+  READER_ANCHOR_THROTTLE_MS,
+  releaseAnchorRestoreMarkers,
+  resolveAnchorFlushRatio,
+  resolveAnchorRatio,
   resolveAudioRole,
+  scrollPositionRatio,
+  shouldPersistAnchor,
+  startAnchorRestore,
 } from '@/features/reader/reader-model';
 import { ReaderPart, ReaderPartSkeleton } from '@/features/reader/reader-part';
 import { ReaderSelectionToolbar } from '@/features/reader/reader-selection-toolbar';
 import { ReaderTocSidebar } from '@/features/reader/reader-toc-sidebar';
 import { ReaderUnavailable } from '@/features/reader/reader-unavailable';
 import { useReaderTranslate } from '@/features/reader/translate/use-reader-translate';
-import { isReadingStateRevisionConflict } from '@/features/reading-state/reading-state-api';
+import { isReadingStateRevisionConflict, saveReadingAnchor } from '@/features/reading-state/reading-state-api';
 import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 
@@ -60,6 +72,18 @@ type ReaderPageProps = {
 };
 
 const FONT_CYCLE: ReaderFontSize[] = ['sm', 'md', 'lg'];
+
+/** Keydown targets that own scroll/activation keys instead of the reading column. */
+function isInteractiveScrollTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  return (
+    target.closest(
+      'button, a[href], input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="button"]',
+    ) !== null
+  );
+}
 
 export function ReaderPage({ workId }: ReaderPageProps) {
   const { locale } = useLocale();
@@ -102,11 +126,35 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   const [tappedSentenceIndex, setTappedSentenceIndex] = useState<number | null>(null);
 
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const restoredPartRef = useRef<string | null>(null);
+  const anchorRestoreRef = useRef<ReaderAnchorRestore | null>(null);
+  const anchorSaveRef = useRef<{
+    lastSavedRatio: number | null;
+    lastSavedAt: number;
+    pendingRatio: number | null;
+    lastFlushedRatio: number | null;
+    timer: ReturnType<typeof setTimeout> | null;
+  }>({
+    lastSavedRatio: null,
+    lastSavedAt: 0,
+    pendingRatio: null,
+    lastFlushedRatio: null,
+    timer: null,
+  });
+  const activePartIdRef = useRef<string | null>(null);
 
   const partsData = partsQuery.data;
   const stateData = stateQuery.data ?? null;
+  const savedAnchor = stateData?.anchor ?? null;
+  const loadedPartId = partQuery.data?.part.id ?? null;
+
+  // Read the latest anchor inside the restore effect without re-running it (and
+  // tearing down an in-flight restore) when the anchor object identity changes.
+  const savedAnchorRef = useRef(savedAnchor);
+  useEffect(() => {
+    savedAnchorRef.current = savedAnchor;
+  }, [savedAnchor]);
 
   const assist = useReaderAssist({
     workId,
@@ -193,10 +241,250 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     stateMutation,
   ]);
 
+  const persistAnchor = useCallback(
+    (ratio: number) => {
+      if (!isAuthenticated || !activePartId) return;
+      void saveReadingAnchor(workId, { partId: activePartId, ratio }).catch(() => {
+        // Background position save — never surface failure to the reader.
+      });
+    },
+    [activePartId, isAuthenticated, workId],
+  );
+  const persistAnchorRef = useRef(persistAnchor);
   useEffect(() => {
-    if (!partsData || !activePartId) return;
-    scrollContainerRef.current?.scrollTo(0, 0);
-  }, [activePartId, partsData]);
+    persistAnchorRef.current = persistAnchor;
+  }, [persistAnchor]);
+
+  // A saved position belongs to exactly one part; reset throttle state and any
+  // in-flight restore when the open chapter changes.
+  useEffect(() => {
+    activePartIdRef.current = activePartId;
+    anchorRestoreRef.current = null;
+    restoredPartRef.current = null;
+    const saveState = anchorSaveRef.current;
+    saveState.lastSavedRatio = null;
+    saveState.pendingRatio = null;
+    saveState.lastFlushedRatio = null;
+    if (saveState.timer != null) {
+      clearTimeout(saveState.timer);
+      saveState.timer = null;
+    }
+  }, [activePartId]);
+
+  // Restore the saved within-chapter position. A resolved part query only means
+  // the content node exists; images, webfonts, and translation inserts keep
+  // changing its height afterwards. The restore therefore owns the scroll
+  // position for a bounded settle window, re-applying the ratio whenever the
+  // scrollable range changes, and yields immediately to reader scroll intent.
+  useEffect(() => {
+    if (!activePartId || loadedPartId !== activePartId) return;
+    if (restoredPartRef.current === activePartId) return;
+
+    const contentEl = contentRef.current;
+    if (!contentEl) return;
+    const container: HTMLDivElement = contentEl;
+
+    const ratio = resolveAnchorRatio(savedAnchorRef.current, activePartId);
+    restoredPartRef.current = activePartId;
+
+    // No saved (or top) anchor: a new part starts at the top.
+    if (ratio == null || ratio <= 0) {
+      container.scrollTop = 0;
+      return;
+    }
+
+    const partId = activePartId;
+    const started = startAnchorRestore({ partId, ratio });
+    if (!started) return;
+
+    anchorRestoreRef.current = started;
+    const saveState = anchorSaveRef.current;
+    saveState.lastSavedRatio = ratio;
+
+    let current = started;
+    let isTornDown = false;
+    let isFontsCancelled = false;
+
+    function teardown() {
+      if (isTornDown) return;
+      isTornDown = true;
+      isFontsCancelled = true;
+      observer?.disconnect();
+      container.removeEventListener('load', onContentLoad, true);
+      container.removeEventListener('wheel', onUserIntent);
+      container.removeEventListener('touchmove', onUserIntent);
+      container.removeEventListener('keydown', onKeyIntent);
+      clearTimeout(settleTimer);
+    }
+
+    function runApply(hasUserScrolled: boolean) {
+      // Ignore queued work once this part is no longer the open chapter.
+      if (activePartIdRef.current !== partId) return;
+      const plan = planAnchorRestoreApply({
+        restore: current,
+        now: Date.now(),
+        hasUserScrolled,
+        metrics: { scrollHeight: container.scrollHeight, clientHeight: container.clientHeight },
+      });
+      current = plan.restore;
+      anchorRestoreRef.current = current;
+      if (plan.applyTop != null) {
+        container.scrollTop = plan.applyTop;
+      }
+      if (current.status !== 'restoring') teardown();
+    }
+
+    function onContentLoad() {
+      runApply(false);
+    }
+
+    function onUserIntent() {
+      runApply(true);
+    }
+
+    // Only actual scroll keys cancel; a click, selection, typing key, or a key
+    // owned by a focused control (e.g. Space activating a button) does not.
+    function onKeyIntent(event: KeyboardEvent) {
+      if (
+        isReaderScrollIntentKey({
+          key: event.key,
+          shiftKey: event.shiftKey,
+          ctrlKey: event.ctrlKey,
+          altKey: event.altKey,
+          metaKey: event.metaKey,
+          isInteractiveTarget: isInteractiveScrollTarget(event.target),
+        })
+      ) {
+        runApply(true);
+      }
+    }
+
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(() => runApply(false));
+    if (observer) {
+      const content = container.firstElementChild;
+      if (content) observer.observe(content);
+      observer.observe(container);
+    }
+
+    container.addEventListener('load', onContentLoad, true);
+    container.addEventListener('wheel', onUserIntent, { passive: true });
+    container.addEventListener('touchmove', onUserIntent, { passive: true });
+    container.addEventListener('keydown', onKeyIntent);
+
+    const settleTimer = setTimeout(() => runApply(false), READER_ANCHOR_RESTORE_SETTLE_MS + 50);
+    runApply(false);
+
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      void document.fonts.ready.then(() => {
+        if (!isFontsCancelled) runApply(false);
+      });
+    }
+
+    return () => {
+      teardown();
+      // Strict Mode replays setup → cleanup → setup. Releasing an in-flight
+      // restore lets the replayed setup re-attach stabilization; a settled or
+      // cancelled restore keeps its marker so a later dependency change cannot
+      // re-apply the anchor over the reader's position.
+      const released = releaseAnchorRestoreMarkers({
+        partId,
+        restoredPartId: restoredPartRef.current,
+        restore: anchorRestoreRef.current,
+      });
+      restoredPartRef.current = released.restoredPartId;
+      anchorRestoreRef.current = released.restore;
+    };
+  }, [activePartId, loadedPartId, stateQuery.isSuccess]);
+
+  const scheduleAnchorSave = useCallback((ratio: number) => {
+    const saveState = anchorSaveRef.current;
+    const now = Date.now();
+    // A restore is still writing scrollTop; those scroll events are not reader intent.
+    if (isAnchorRestorePending(anchorRestoreRef.current, now)) return;
+    if (
+      !shouldPersistAnchor({ lastSavedRatio: saveState.lastSavedRatio, lastSavedAt: saveState.lastSavedAt, now, ratio })
+    ) {
+      saveState.pendingRatio = ratio;
+      if (saveState.timer == null) {
+        const delay = Math.max(0, READER_ANCHOR_THROTTLE_MS - (now - saveState.lastSavedAt));
+        saveState.timer = setTimeout(() => {
+          saveState.timer = null;
+          const pending = saveState.pendingRatio;
+          if (pending == null) return;
+          const at = Date.now();
+          if (
+            !shouldPersistAnchor({
+              lastSavedRatio: saveState.lastSavedRatio,
+              lastSavedAt: saveState.lastSavedAt,
+              now: at,
+              ratio: pending,
+            })
+          ) {
+            return;
+          }
+          saveState.lastSavedRatio = pending;
+          saveState.lastSavedAt = at;
+          saveState.pendingRatio = null;
+          persistAnchorRef.current(pending);
+        }, delay);
+      }
+      return;
+    }
+    saveState.lastSavedRatio = ratio;
+    saveState.lastSavedAt = now;
+    saveState.pendingRatio = null;
+    persistAnchorRef.current(ratio);
+  }, []);
+
+  // Single ref-driven flush for lifecycle writes. It captures the live scroll
+  // ratio (falling back to a scheduled one) and always re-sends with keepalive,
+  // so a position whose last request was an immediate non-keepalive save that
+  // unload aborts is not lost. Deduped so visibility + pagehide + unmount do
+  // not repeat the same write. Returns when the request settles so chapter
+  // navigation can await the old chapter before switching parts.
+  const flushAnchorSave = useCallback(async (): Promise<void> => {
+    const partId = activePartIdRef.current;
+    if (!partId) return;
+    const saveState = anchorSaveRef.current;
+    if (saveState.timer != null) {
+      clearTimeout(saveState.timer);
+      saveState.timer = null;
+    }
+    const pending = saveState.pendingRatio;
+    saveState.pendingRatio = null;
+    // Nothing was ever observed or restored for this part; do not write a no-op anchor.
+    if (saveState.lastSavedRatio == null && pending == null) return;
+    const container = contentRef.current;
+    const isRestorePending = isAnchorRestorePending(anchorRestoreRef.current, Date.now());
+    const ratio = resolveAnchorFlushRatio({
+      containerRatio: container ? scrollPositionRatio(container) : null,
+      pendingRatio: pending,
+      lastFlushedRatio: saveState.lastFlushedRatio,
+      isRestorePending,
+    });
+    if (ratio == null) return;
+    saveState.lastFlushedRatio = ratio;
+    saveState.lastSavedRatio = ratio;
+    saveState.lastSavedAt = Date.now();
+    await saveReadingAnchor(workId, { partId, ratio }, { keepalive: true }).catch(() => {});
+  }, [workId]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const flush = () => {
+      void flushAnchorSave();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, [flushAnchorSave, isAuthenticated]);
 
   useEffect(() => {
     return () => {
@@ -220,6 +508,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         return;
       }
       try {
+        await flushAnchorSave();
         const updated =
           mode === 'navigate'
             ? await stateMutation.mutateAsync({ action: 'navigate', partId })
@@ -247,7 +536,17 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         toast.error(formatReaderApiError(error));
       }
     },
-    [isAuthenticated, locale, openLogin, refetchState, resetAudioPlayback, router, stateMutation, workId],
+    [
+      flushAnchorSave,
+      isAuthenticated,
+      locale,
+      openLogin,
+      refetchState,
+      resetAudioPlayback,
+      router,
+      stateMutation,
+      workId,
+    ],
   );
 
   function clearSelectionUi() {
@@ -351,6 +650,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
       return;
     }
     try {
+      await flushAnchorSave();
       const updated = await stateMutation.mutateAsync({ action: 'finish' });
       setLocalProgressRatio(updated.progressRatio);
       router.push('/library');
@@ -502,7 +802,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           if (selection && assist.aiMode !== 'inline') clearSelectionUi();
         }}
         onScroll={(event) => {
-          scrollContainerRef.current = event.currentTarget;
+          scheduleAnchorSave(scrollPositionRatio(event.currentTarget));
         }}
         footer={
           <ReaderChapterNav
