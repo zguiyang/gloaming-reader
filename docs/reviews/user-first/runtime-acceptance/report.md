@@ -1,7 +1,19 @@
 # Gloaming — Runtime & Visual E2E Acceptance
 
 日期：2026-10-10；环境：开发环境
-本报告仅记录观察结果；没有修改业务代码。
+
+## Current Acceptance Summary
+
+截至 2026-10-10，当前验收结论如下。第 1–14 节（包括 Phase 1、Phase 2 及其后续检查中的旧状态）保留为修复前的历史快照；以本摘要和后续 closure section 为最新结论。
+
+| E2E    | Latest status     | Notes                                                                                           |
+| ------ | ----------------- | ----------------------------------------------------------------------------------------------- |
+| E2E-01 | **CLOSED / PASS** | 章内位置恢复通过；初始落点仍有约 2.5 秒的可见跳动，单独记录为 P2 UX 观察项，不重新打开 E2E-01。 |
+| E2E-05 | **CLOSED / PASS** | Personal Work 进入 Library 主网格和“我的上传”；已有管理能力可用。                               |
+| E2E-06 | **Resolved**      | 随 E2E-05 下游解决；元数据编辑与标签关联入口可用。                                              |
+| E2E-07 | **CLOSED / PASS** | 根因已修复，定向测试通过；中文与 English 内置浏览器复验均通过，刷新后状态一致。                 |
+
+目前没有已知的 P0/P1 问题阻止 Personal EPUB 的基本阅读。历史报告中仍待处理、但本轮未复验的 P2 UX 项包括 E2E-02 首次加载空白、E2E-03 收藏筛选空态文案、E2E-04 Reader 控件可发现性，以及 E2E-01 的短暂初始落点跳动。AI、翻译、TTS 和 SourceRecord Discover 不属于本轮基本 Personal EPUB 阅读闭环的已验收范围。
 
 ## 1. Environment
 
@@ -293,3 +305,211 @@ Phase 1 的统计与结论保留作历史快照；当前合并结论以本节和
 - Continue Reading 和 All Books 现在会同时呈现同一本进行中作品。这是保留现有 Hero、同时满足主列表管理能力的直接结果；与旧体验基线中去重的描述不同。
 - Library 仍有 48 条响应上限，来源/标签筛选仍在客户端；超过该总上限时分类结果可能不完整。这与本次只有 3 条 Library item 的复现无关，未在本轮扩展为分页工作。
 - 本轮没有复测移动端布局；未运行全量测试、全量构建或 Gutenberg benchmark。
+
+## 13. E2E-01 Closure
+
+### Root Cause
+
+The Phase 2 observation conflated chapter restoration with within-chapter scroll restoration. The History link omits `part`, but Reader fetches the user's Reading State and resolves the current valid `currentPartId` when the URL has no valid `part`; this works in the current browser. The reproducible limitation is that no within-chapter location is written or restored. Scrolling therefore returns to the top of the saved part after leaving or refreshing.
+
+### Progress SSOT
+
+`reading_state` is the single persisted source for a user's current part, completed-through sort order, status, revision, and timestamps. `progressRatio` is computed from state and the Work's parts; it is not persisted. Reader heartbeat is a separate engaged-time path to `reading_day` and does not save reading position. No competing persistent position source was found.
+
+The database retains `anchor_kind` and `anchor_value`. As of the approved E2E-01 decision (below), the runtime reuses those existing columns for a within-chapter scroll anchor, so no schema or state model was added. `completed_through_sort_order` remains the chapter-progress field, and `progressRatio` remains chapter-completion based; the anchor never feeds progress.
+
+### Chapter Restore
+
+PASS in the current development browser. Aesop's Fables has 10 parts. After advancing to part 3, Library Continue opened the same part with a `?part=` URL. The History link had no `part` parameter, yet Reader reopened part 3 from Reading State. Reloading that History URL also reopened part 3.
+
+### Intra-chapter Restore (approved E2E-01 decision, implemented)
+
+The pre-decision observation was NOT SUPPORTED: Aesop was scrolled near the end of part 3; History re-entry and browser refresh both returned to the top of part 3, and Miss Moppet behaved the same for its sole part.
+
+**Approved product decision (this task):** restore the reader's last scroll position within the current chapter after leaving, re-entering, or refreshing. Progress percentage stays based solely on completed chapters and is not affected by scroll. No new schema/table/state model; `reading_state.anchor_kind` / `anchor_value` are reused only with a safe `current_part_id` pairing.
+
+**Implemented choice:** the anchor is `anchor_kind = 'part_ratio'` and `anchor_value = JSON.stringify({ partId, ratio })`, where `ratio` is `scrollTop / (scrollHeight - clientHeight)` clamped to `[0, 1]`. The part id is stored _inside_ the anchor and the backend mapper emits the anchor only when that stored `partId` equals the row's `current_part_id`; a mismatched or malformed anchor is treated as absent. A new `save_position` action writes only these two columns for the part that is still current. Explicit chapter changes (`navigate`, `complete_chapter`, `restart`, and an `open` that actually switches parts) clear the anchor, so an old chapter's position can never be applied to a new chapter. Reader entry from Library and History (including a History URL with no `?part`) resolves the current chapter from Reading State and then restores that chapter's saved ratio.
+
+**Write policy:** scroll saves are throttled (`2s`) with a minimum ratio delta (`0.02`). A single ref-driven keepalive flush reads the live scroll-container ratio (falling back to the trailing scheduled ratio) and runs on `visibilitychange` (hidden), `pagehide`, and Reader unmount; it re-sends even when the most recent write was an immediate non-keepalive save, so an in-flight request that unload aborts is not lost. Chapter navigation (`navigate`, `complete_chapter`) and finish await that flush for the outgoing chapter before issuing the state command, so resetting the throttle state on the `activePartId` change cannot discard a recent trailing position; the live ratio is always paired with the still-current part, and duplicate lifecycle flushes of the same ratio are skipped. The `save_position` write intentionally does not bump `revision`, so it never invalidates another client's chapter-navigation CAS revision or raises a conflict toast; the mapper's `partId` pairing and the update's `revision =` predicate together make a write that lost a race to a chapter change a silent no-op.
+
+### Percent Calculation
+
+`computeChapterProgress` calculates completed parts divided by total parts, rounded to an integer; an explicitly completed Work is 100%. Opening or scrolling through a part does not complete it. A one-part Work therefore remains 0% while `in_progress`; its Reader exposes the explicit finish action, which changes the state to `completed` and yields 100%. Aesop reached 20% after completing the first two of 10 parts and remained 20% after scrolling in part 3 and waiting 31 seconds. Miss Moppet remained 0% after scrolling and waiting 31 seconds. These results match the current calculation.
+
+### Library Entry
+
+Library Continue is `/read/{workId}?part={currentPartId}` when a current part exists. The live Library projection showed Aesop at 20% and linked to part 3. Opening that entry restored part 3. A Personal single-part Miss Moppet remained at 0% while in progress.
+
+### History Entry
+
+History work links are `/read/{workId}` without a `part` query. The Reader resolves `currentPartId` from Reading State and, with the E2E-01 implementation, also restores that part's saved within-chapter ratio. Pre-decision browser evidence showed only the chapter restore; the within-chapter part awaits the Supervisor's independent visible IAB verification.
+
+### Single-chapter EPUB
+
+_The Story of Miss Moppet_ has one part. Its current status remained in progress and its displayed ratio remained 0% after scrolling and waiting. This is expected from the completed-part formula; the explicit finish action is the only normal path to 100%. The E2E-01 decision keeps scrolling out of the ratio; a single-part Work can now restore its scroll position while still showing 0% until the reader finishes it.
+
+### Multi-chapter EPUB
+
+The existing _Aesop's Fables; a new translation_ has 10 parts. Reader navigation moved from part 1 to part 2 and then part 3; the current part and 20% ratio survived Library, History, and browser refresh. Scrolling in part 3 does not change the ratio; the E2E-01 implementation now saves and restores that scroll position.
+
+### Automated Tests
+
+Pre-decision run covered the chapter/CAS/History baseline. Post-implementation targeted run:
+
+- `packages/shared/src/reader/reader.spec.ts` — **15 passed** (adds `save_position` contract, anchor pairing validation, and legacy-optional `anchor`).
+- `apps/web/features/reader/reader-model.spec.ts`, `apps/web/features/reader/reader-state-command.spec.ts`, and `apps/web/features/reading-state/reading-state-api.spec.ts` — **25 passed** (scroll-ratio math, part-paired restore, throttle gate, lifecycle flush ratio selection, and anchor projection into the reader view model).
+- `apps/backend/tests/functional/domains/reading/reader.spec.ts` — **2 passed** and `apps/backend/tests/functional/domains/reading/reading-history.spec.ts` — **4 passed** on the explicitly configured `gloaming_test` database. The new backend case covers anchor persistence for the current part, ignoring a write for a non-current part, surviving a re-open of the same part, no revision bump, and clearing on chapter change; it also keeps the pre-existing chapter-progress, finish/restart, and CAS assertions.
+- These tests do not cover the complete browser journey. The backend test run repeatedly logged rejected verification-email submissions from the configured mail provider (unrelated background mail), but all assertions passed.
+
+### Browser Verification
+
+Pre-decision observations above remain historical. The post-implementation visible IAB re-verification was performed on 2026-10-10 in the existing logged-in browser session at the user's development services. No service was started, stopped, or restarted. No Playwright, Puppeteer, Selenium, CDP, or local Chrome automation was used.
+
+#### Runtime Re-verification
+
+- **Runtime Failure Root Cause:** The prior “无法加载书库 / 请求失败” condition did not reproduce during this verification. The logged-in Library page loaded its user-specific contents and displayed both target works; this confirms the browser's authenticated Library request was succeeding, not an anonymous command-line `401`. A precise cause for the earlier transient failure could not be established. Shell HTTP probes could not reach either localhost service from this execution environment (the default proxy and direct loopback attempts both failed), so those unauthenticated probes provide no evidence about the browser session. The Codex thread has no attached app terminal, and the browser-control surface did not expose console or server logs; readiness/DB health could not be independently read through those paths. No credentials or cookies were inspected or emitted.
+- **Services Changed:** None. Read-only listener inspection found Web PID `18774` rooted at `apps/web` on port `3000`, and Backend PID `32533` rooted at `apps/backend` on port `3333`. Both remained untouched. No TCP listener was found for a Worker in the inspected listener list; its process state was not independently established. No database query or write was performed.
+- **Library Recovered:** Yes. The current authenticated Library page rendered 3 works and a Continue Reading card. Aesop and Miss Moppet were present. The previous request-failed page was not visible after the page had recovered.
+- **Single-chapter Restore:** **FAIL.** Miss Moppet's only part was restored, but the scroll anchor drifted materially. After scrolling into the illustrated story, the Library re-entry landed near the story ending; the History re-entry landed farther into the Project Gutenberg license; refresh moved farther again. This is not close to the user's prior reading location. The images themselves loaded, but the visible landing location varied across reload/navigation paths.
+- **Multi-chapter Restore:** **PASS.** Aesop's Fables opened at part 3/10. Library re-entry, History re-entry (whose URL omitted `part`), and refresh all restored part 3 and a visually similar middle-of-part position. The first return and reload did not show stale chapter content or a conflicting-state message.
+- **History Restore:** Aesop **PASS** for chapter and approximate scroll position. Miss Moppet **FAIL** for scroll proximity as described above; its one-part chapter identity stayed correct.
+- **Refresh Restore:** Aesop **PASS** for chapter and approximate scroll position. Miss Moppet **FAIL** for scroll proximity; it remained in the sole part but landed progressively farther into the appended license text across re-entry and refresh.
+- **Rapid Exit:** **PASS** in the exercised paths. Aesop was scrolled and immediately returned; the next History entry reflected the later location. Miss Moppet was rapidly scrolled back to the story opening, immediately left, then reopened from History near that same story-opening region. These checks do not negate the route-dependent drift seen on ordinary Miss Moppet re-entry.
+- **Chapter Switch:** **PASS.** Aesop moved from part 3 to part 4 (`THE ASS IN THE LION'S SKIN`, 4/10), then was immediately exited and reopened from History at part 4 near its start. No old-part position was applied and no conflict/error state appeared.
+- **Progress Regression:** No percentage regression observed. Aesop showed 30% after moving to part 4, consistent with three of ten chapters completed; scrolling did not alter the percentage. Miss Moppet remained 0% while in progress, consistent with the completed-chapter formula for a one-part work. A separate presentation mismatch was visible: Miss Moppet showed “阅读中” in Continue Reading and “正在阅读” in History, while its Library grid card said “未开始”.
+- **Remaining Issues:** Miss Moppet's persisted scroll-ratio restore is not visually stable across Library, History, and refresh; this leaves E2E-01 failed. The current UI also disagrees on Miss Moppet's in-progress status label. The initial Library request failure's exact cause and current Backend readiness/database health were not independently confirmed because shell localhost access and app/server logs were unavailable in this execution context. No restart is indicated by the successfully loaded authenticated Library/Reader paths.
+
+**E2E-01 runtime result: FAIL / NOT CLOSED.** Multi-chapter chapter/position restore, rapid exit, chapter switching, and progress percentages passed. Single-chapter scroll proximity and Library status-label consistency remain failing observations. No source code was changed during this runtime verification.
+
+### Files Changed
+
+- `packages/shared/src/reader/reader.ts`, `packages/shared/src/reader/index.ts`, `packages/shared/src/reader/reader.spec.ts` — `save_position` action, `ReadingAnchor` contract, optional `anchor` on `ReadingState`.
+- `apps/backend/src/domains/reading/reader/reading-state.ts` — decode/emit the anchor only when paired with `current_part_id`.
+- `apps/backend/src/domains/reading/reader/state-mutations.ts` — `save_position` handling, anchor clearing on chapter change, no `reading_day` touch for position writes.
+- `apps/backend/tests/functional/domains/reading/reader.spec.ts` — anchor persistence/reset/pairing coverage.
+- `apps/web/features/reading-state/reading-state-api.ts` — `saveReadingAnchor` keepalive-capable position write.
+- `apps/web/lib/api-request.ts` — optional `keepalive` transport flag.
+- `apps/web/features/reader/reader-model.ts`, `apps/web/features/reader/reader-api.ts`, `apps/web/features/reader/reader-page.tsx` — anchor projection, throttled save, part-paired restore.
+- `apps/web/features/reader/reader-model.spec.ts`, `apps/web/features/reader/reader-state-command.spec.ts` — web anchor behavior coverage.
+- `docs/reviews/user-first/runtime-acceptance/report.md` — this closure record.
+
+No database schema or migration was changed.
+
+### Remaining Limitations
+
+- **E2E-01 is not closed.** The authenticated IAB runtime is currently usable, but Miss Moppet's scroll-ratio landing drifted materially between Library, History, and refresh. The pre-decision observations above remain historical evidence.
+- The anchor is a scroll ratio, not a text/paragraph anchor. Reflow can change the visible semantic location at the same ratio; the Miss Moppet run exposed a larger-than-acceptable difference. This report records the failure without changing code.
+- ADR-001 lists `anchor_kind` / `anchor_value` as ReadingState key fields without defining their semantics. This task gives them the `part_ratio` meaning in code; the ADR wording should be reconciled separately.
+- No schema change, auto-completion behavior, alternative progress model, or change to ownership/Library membership/History/AI/TTS was introduced. `progressRatio` remains completed-chapters divided by total parts.
+
+## 14. E2E-01 Stabilization
+
+### Root Cause
+
+The Reader restored a `part_ratio` anchor against a scroll range that was still changing as content and typography settled. The same ratio could therefore map to a different visible paragraph. A second write path made that transient position persistable: the lifecycle flush could read the live scroll position while restoration was still in progress, even though ordinary scroll saves already suppressed programmatic movement. This allowed a provisional restore position to replace the intended anchor and explained the observed repeated drift toward the appended Gutenberg license.
+
+The code and browser evidence support this timing/write-boundary diagnosis. The browser run did not collect numeric `scrollHeight`, ratio, image-load, or font-load traces, so it does not establish whether images or fonts individually caused a particular layout shift.
+
+### Evidence
+
+- Before the change, the restore effect ran immediately and once on the next animation frame without waiting for content layout to stabilize. Reader content contains inline EPUB images; their natural dimensions and font completion can change the scroll range after that point.
+- Before the change, the `pagehide` / unmount flush read the live scroll ratio without honoring the restore quiet window. A wrong intermediate ratio could consequently become the next persisted anchor.
+- The regression tests now exercise bounded layout reapplication, restore-pending save suppression, cancellation on genuine user scroll intent, lifecycle cleanup/replay behavior, and repeated restores using the existing ratio contract.
+- In the current IAB run, repeated Miss Moppet Library, History, and refresh restores settled on the same recognizable illustrated passage rather than advancing toward the license. Aesop remained at the same part and reading region across the same entry paths.
+
+### Anchor Before
+
+The visual test target was the illustrated passage “Miss Moppet looks worse and worse. The Mouse comes a little nearer.” The reader waited approximately 2.2 seconds after scrolling before leaving. The exact persisted ratio was not exposed by the UI and was not independently queried from the database.
+
+### Anchor After
+
+The saved `part_ratio` contract and its part pairing are unchanged. After stabilization and re-entry, the target paragraph and adjacent illustrations remained in the viewport in each observed Miss Moppet restore. No numeric before/after ratio was read; the browser comparison is visual and semantic.
+
+### Layout Behavior
+
+Content-height changes during the restore window trigger another application of the same saved ratio. The stabilization is bounded and observes content/layout events rather than relying on a fixed one-second delay. Browser verification saw a transient initial position closer to the appended license on some mounts; after roughly 2.5 seconds, the viewport settled back around the target illustration and paragraph. This temporary movement did not accumulate across the repeated rounds. The test did not attribute a particular shift to a specific image or font event.
+
+### Restore Timing
+
+Restore begins after the current part and persisted anchor are available. It remains pending during the bounded layout-stabilization window, reapplies the ratio when the observed scroll range changes, and then settles. Library and History both resolve to the same Reading State part; History's URL omits `part`, while Library carries it. Refresh follows the same resulting part/anchor restore behavior.
+
+### Scroll Write Behavior
+
+Programmatic restoration is not treated as reader intent. Scroll saves and lifecycle flushes are suppressed while restoration is pending. Genuine wheel, touch, and keyboard scroll intent takes ownership and cancels the pending restore; a subsequent user-driven position may then be saved. Cleanup releases an in-flight marker for the same part so React effect replay can restore safely. The persisted anchor remains paired with its part; no second persisted location source was added.
+
+### Fix
+
+The Reader now uses a bounded, event-driven layout-stabilization window with `ResizeObserver`, image `load`, and font readiness signals, reapplying the existing ratio when the scroll range changes. Restore state is ephemeral and gates programmatic scroll writes and lifecycle flushes until settled or cancelled by real user scrolling. The chapter/anchor data contract, `reading_state`, `anchor_kind`, `anchor_value`, and `part_ratio` remain intact.
+
+### Tests
+
+- Reader targeted tests: **7 test files, 55 tests passed**.
+- Web typecheck: **passed**.
+- ESLint on `reader-page.tsx`, `reader-model.ts`, and `reader-model.spec.ts`: **passed** (the existing `no-html-link-for-pages` setup warning remains informational).
+- Prettier check for the three Reader files: **passed**.
+- `git diff --check`: **passed**.
+- No Backend or Shared files were changed by this stabilization, so their typechecks and tests were not rerun. No database writes or schema changes were made.
+
+### Miss Moppet 3-round Result
+
+**PASS after stabilization.** Three repeated visual cycles used the illustrated passage as the target. Across the cycles, Library re-entry was checked three times; History re-entry and refresh were also checked. Each restore remained in the sole part and settled around the same target passage. The first frame could be temporarily displaced toward the license before layout stabilization completed, but the final observed position returned to the target area within approximately 2.5 seconds. No monotonic drift toward the book's end was observed. The single-part progress display remained 0%, consistent with chapter-completion progress.
+
+### Aesop Regression
+
+**PASS.** Aesop restored at `THE ASS IN THE LION'S SKIN`, part 4/10, with the same visible fable region after Library entry, History entry, and refresh. A rapid down/up scroll followed by immediate exit and History re-entry retained part 4 and its saved reading region. Switching to `THE OX AND THE FROG`, part 5/10, then immediately exiting and re-entering restored part 5 at its beginning; the previous chapter's position did not leak into it. Library continued to display 30% while on part 4, with no scroll-related percentage regression observed.
+
+### Browser Verification
+
+Used the current authenticated Codex in-app browser against the user's already-running development services. No service was started, stopped, or restarted. No Playwright, Puppeteer, Selenium, CDP, or local browser automation was used. Reader UI showed no error or conflict state during these paths.
+
+### E2E-07 — Reading Status Label Consistency (pre-fix historical observation)
+
+At the time of this E2E-01 verification, Miss Moppet's Continue Reading section said “阅读中” and Reading History said “正在阅读”, while its grid card said “未开始” at 0%. This historical observation is superseded by Section 15.
+
+### Remaining Risks
+
+- The first visible frame can be temporarily displaced before the layout-stabilization pass completes. The final target was consistent in this run, but the intermediate movement is still visible for up to roughly 2.5 seconds on the tested local runtime.
+- Browser validation was visual; numeric anchor values and scroll metrics were not collected. The automated regression suite covers the save/restore boundaries, but cannot reproduce every browser-specific font or image layout behavior.
+- The GitNexus index was 26 commits behind `HEAD`; impact review therefore relied on source/call-site inspection and targeted tests rather than a current graph index.
+- E2E-07 was open at the time of this snapshot; its current fix and partial browser result are recorded in Section 15.
+
+**E2E-01: CLOSED / PASS.** Across three repeated single-chapter visual cycles, Library, History, and refresh re-entry were exercised and the restored position remained near the same illustrated passage; the multi-chapter regression paths also passed. This result records the settled visual position; transient first-frame movement and the separate E2E-07 display issue remain documented.
+
+## 15. E2E-07 Closure
+
+### Root Cause
+
+`LibraryBookCard` derived its status label from `progressRatio`: it mapped `in_progress` with a zero ratio to “未开始”, and a positive ratio to a percentage status label. For the single-chapter _The Story of Miss Moppet_, `in_progress` with 0% is valid under the existing completed-chapter progress formula. The card therefore contradicted the actual Reading State and the Continue Reading / History surfaces.
+
+### Fix and Files Changed
+
+- `apps/web/features/library/library-book-card.tsx`: visible card status now follows Reading State. An absent state remains “未开始”; `completed` uses the existing completed copy; `in_progress` uses the existing “阅读中” copy regardless of ratio. The percentage remains a separate progress indicator.
+- `apps/web/features/library/library-page.spec.ts`: covers absent state/0%, `in_progress`/0%, `in_progress`/40%, completed/100%, and Continue Reading plus grid status consistency.
+- `apps/web/features/history/history-works.spec.ts`: renders the actual History component and covers `in_progress` → “正在阅读” and `completed` → “已读完”. This confirms the same Reading State semantics while retaining the existing surface-specific copy.
+
+No progress formula, Reading State persistence, schema, database, backend, shared contract, or other domain was changed. The project status enum has `in_progress | completed`; absence of Reading State is its existing not-started representation, so no synthetic `not_started` enum value was introduced.
+
+### Tests
+
+- `pnpm --filter @gloaming/web exec vitest run features/history features/library` — **5 files, 27 tests passed**.
+- `pnpm --filter @gloaming/web typecheck` — **passed**.
+- ESLint for the three changed Web files — **passed**.
+- Prettier check for the three changed Web files — **passed**.
+- `git diff --check` — **passed**.
+- The new Library regression assertion failed against the old zero-ratio status branch (`expected '未开始' to be '阅读中'`), then passed after the fix was restored.
+
+### Browser Result
+
+Using the existing authenticated Codex in-app browser and already-running development services:
+
+- **Library Continue:** Miss Moppet shows “阅读中”; its progress display remains 0%.
+- **Library Grid:** the Miss Moppet card shows “阅读中”.
+- **Reading History:** Miss Moppet shows “正在阅读”.
+- **Refresh:** after refreshing Library, Continue and grid still show “阅读中” at 0%.
+- **English:** the user switched the existing signed-in browser locale to English. Library Continue and the grid card both show “Reading” while the separate progress display remains “0% read”; Reading History also shows “Reading”. After refreshing both History and Library, the same labels and 0% progress remained visible.
+
+### Status and Remaining Issues
+
+**E2E-07: CLOSED / PASS.** Chinese verification showed Library Continue “阅读中”, Grid “阅读中”, History “正在阅读”, and the same after Library refresh. English verification showed Continue “Reading”, Grid “Reading”, History “Reading”, and those labels remained after History and Library refresh. In both locales, Miss Moppet remains at 0% under the existing completed-chapter progress formula.
+
+**E2E-01: CLOSED / PASS.** Its separate P2 observation remains: the initial restored viewport can visibly move for approximately 2.5 seconds before settling. This does not reopen the position-restoration issue.
