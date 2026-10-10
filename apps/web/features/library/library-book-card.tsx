@@ -50,13 +50,11 @@ function statusLabel(entry: LibraryItem, locale: Locale): string {
   if (!entry.state) {
     return t(locale, 'content.library.statusNotStarted');
   }
-  if (entry.state.status === 'completed') {
-    return t(locale, 'content.library.statusCompleted');
-  }
-  if (entry.state.progressRatio <= 0) {
-    return t(locale, 'content.library.statusNotStarted');
-  }
-  return t(locale, 'content.library.statusReadProgress', { ratio: entry.state.progressRatio });
+  // Reading State owns the visible status; progressRatio is only the separate progress indicator,
+  // so any non-completed state reads as in progress, matching History's status semantics.
+  return entry.state.status === 'completed'
+    ? t(locale, 'content.library.statusCompleted')
+    : t(locale, 'content.library.readingInProgress');
 }
 
 export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: UserTagManagementItem[] }) {

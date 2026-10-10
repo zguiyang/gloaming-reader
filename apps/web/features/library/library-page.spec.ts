@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LibraryData } from '@gloaming/shared/library';
+import type { ReadingStateStatus } from '@gloaming/shared/reader';
 
 import { ApiRequestError } from '@/lib/api-request';
 import { LocaleProvider } from '@/lib/locale-context';
@@ -193,6 +194,53 @@ describe('LibraryPage', () => {
     expect(view.container.querySelector('a[href="/read/catalog"]')).toBeTruthy();
     expect(view.container.querySelector('a[href^="/discover/"]')).toBeNull();
     expect(view.container.querySelectorAll('button[aria-label^="管理《"]')).toHaveLength(2);
+    view.cleanup();
+  });
+
+  it('derives Library status from Reading State instead of the progress ratio', async () => {
+    const readingState = (status: ReadingStateStatus, progressRatio: number, currentPartId: string | null = null) => ({
+      status,
+      currentPartId,
+      progressRatio,
+    });
+    const data = {
+      current: { work: work('current'), state: readingState('in_progress', 0, 'part-2') },
+      items: [
+        { ...item('unread', false), state: null },
+        { ...item('current', false), state: readingState('in_progress', 0, 'part-2') },
+        { ...item('reading', false), state: readingState('in_progress', 40, 'part-1') },
+        { ...item('finished', false), state: readingState('completed', 100) },
+      ],
+    } as unknown as LibraryData;
+    const view = await renderLibrary({ isPending: false, isError: false, data });
+
+    const cardFor = (id: string) =>
+      Array.from(view.container.querySelectorAll('article')).find((article) =>
+        article.textContent?.includes(`Book ${id}`),
+      );
+    const statusTextFor = (id: string) =>
+      Array.from(cardFor(id)?.querySelectorAll('p') ?? [])
+        .map((paragraph) => paragraph.textContent)
+        .find((text) => text !== `Book ${id}`);
+
+    // Absent Reading State is the project enum's not-started representation.
+    expect(statusTextFor('unread')).toBe('未开始');
+    // Continue Reading and its grid card agree for the same in_progress Reading State, as History does for any
+    // non-completed status, regardless of progressRatio.
+    const continueHero = Array.from(view.container.querySelectorAll('section')).find((section) =>
+      section.textContent?.includes('继续阅读'),
+    );
+    expect(continueHero?.textContent).toContain('阅读中');
+    expect(statusTextFor('current')).toBe('阅读中');
+    expect(statusTextFor('reading')).toBe('阅读中');
+    expect(statusTextFor('current')).not.toBe('未开始');
+    expect(statusTextFor('reading')).not.toBe('已读 40%');
+    // The percentage stays a separate progress indicator, not the status copy.
+    expect(cardFor('reading')?.querySelector('[role="progressbar"]')?.getAttribute('aria-label')).toBe('已读 40%');
+    expect(cardFor('reading')?.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('40');
+    // completed keeps the existing completed copy.
+    expect(statusTextFor('finished')).toBe('已读完');
+
     view.cleanup();
   });
 
