@@ -74,7 +74,8 @@ export const publicCategoryNameSchema = z
   .trim()
   .min(1)
   .max(PUBLIC_CATEGORY_NAME_MAX_CHARS)
-  .refine((value) => !unsafePublicCategoryNameCharacters.test(value));
+  .refine((value) => !unsafePublicCategoryNameCharacters.test(value))
+  .transform(canonicalizePublicCategoryName);
 
 /** Admin write body for creating a category or editing one localized label. */
 export const publicCategoryWriteSchema = z.object({
@@ -84,6 +85,15 @@ export const publicCategoryWriteSchema = z.object({
 export type PublicCategoryWrite = z.infer<typeof publicCategoryWriteSchema>;
 
 /**
+ * Canonical display form of a public category label: Unicode NFC, trimmed, and
+ * with internal whitespace runs collapsed to a single space. Casing is preserved
+ * because it is presentation, not identity.
+ */
+export function canonicalizePublicCategoryName(value: string): string {
+  return value.normalize('NFC').trim().replace(/\s+/gu, ' ');
+}
+
+/**
  * Locale-independent comparison key for a public category label. Mirrors the
  * NFC / whitespace-folded / case-folded key persisted as
  * `public_category_label.normalized_name`. It only narrows candidates for
@@ -91,7 +101,7 @@ export type PublicCategoryWrite = z.infer<typeof publicCategoryWriteSchema>;
  * never string equality.
  */
 export function normalizePublicCategoryName(value: string): string {
-  return value.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und');
+  return canonicalizePublicCategoryName(value).toLocaleLowerCase('und');
 }
 
 /** One localized display name for a public category. */

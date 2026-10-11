@@ -1,4 +1,5 @@
 import {
+  canonicalizePublicCategoryName,
   type CategorySourceRecordListQuery,
   normalizePublicCategoryName,
   PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
@@ -196,7 +197,7 @@ export async function createManagedCategory(input: {
   name: string;
   locale: string;
 }): Promise<PublicCategoryManagementItem> {
-  const name = input.name.trim();
+  const name = canonicalizePublicCategoryName(input.name);
   const normalizedName = normalizePublicCategoryName(name);
 
   const existingId = await findCategoryIdByNormalizedLabel(input.locale, normalizedName);
@@ -225,7 +226,7 @@ export async function updateManagedCategoryLabel(
   categoryId: string,
   input: { name: string; locale: string },
 ): Promise<PublicCategoryManagementItem> {
-  const name = input.name.trim();
+  const name = canonicalizePublicCategoryName(input.name);
   const normalizedName = normalizePublicCategoryName(name);
 
   const row = await getCategoryRow(categoryId);

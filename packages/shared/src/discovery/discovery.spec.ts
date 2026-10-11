@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  canonicalizePublicCategoryName,
   categorySourceRecordListQuerySchema,
   DEFAULT_SOURCE_RECORD_SORT_BY,
   isPublicCategoryTranslationMissing,
@@ -47,6 +48,12 @@ describe('public category contracts', () => {
     expect(normalizePublicCategoryName('Computer\nScience')).toBe('computer science');
     // Punctuation is meaningful and is preserved rather than stripped.
     expect(normalizePublicCategoryName('C++')).toBe('c++');
+  });
+
+  it('canonicalizes the display name by trimming and collapsing whitespace while preserving case', () => {
+    expect(canonicalizePublicCategoryName('  Science   Fiction  ')).toBe('Science Fiction');
+    expect(canonicalizePublicCategoryName('Computer\n\tScience')).toBe('Computer Science');
+    expect(canonicalizePublicCategoryName('C++')).toBe('C++');
   });
 
   it('keeps a stable identity with localized labels and manual-protected locales', () => {
@@ -225,7 +232,7 @@ describe('public category contracts', () => {
   });
 
   it('validates category write labels and exposes the product assignment cap', () => {
-    expect(publicCategoryWriteSchema.parse({ name: '  Science Fiction  ' }).name).toBe('Science Fiction');
+    expect(publicCategoryWriteSchema.parse({ name: '  Science   Fiction  ' }).name).toBe('Science Fiction');
     expect(publicCategoryWriteSchema.parse({ name: 'Science Fiction', locale: 'en-US' }).locale).toBe('en-US');
     expect(publicCategoryNameSchema.safeParse('').success).toBe(false);
     expect(publicCategoryNameSchema.safeParse('x'.repeat(PUBLIC_CATEGORY_NAME_MAX_CHARS + 1)).success).toBe(false);

@@ -27,6 +27,7 @@ export type {
   SourceRecordSourceMeta,
 } from './discovery.ts';
 export {
+  canonicalizePublicCategoryName,
   categorySourceRecordListQuerySchema,
   DEFAULT_SOURCE_RECORD_SORT_BY,
   DISCOVERY_DEFAULT_LANGUAGE,

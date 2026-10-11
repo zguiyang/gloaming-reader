@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   discoverySource as discoverySourceTable,
+  publicCategory as publicCategoryTable,
   sourceRecord as sourceRecordTable,
+  sourceRecordPublicCategory as sourceRecordPublicCategoryTable,
   sourceRecordPublicCategorySuppression as sourceRecordPublicCategorySuppressionTable,
 } from '@gloaming/db/schema';
 import { categorySourceRecordListQuerySchema, sourceRecordListQuerySchema } from '@gloaming/shared/discovery';
@@ -27,13 +29,17 @@ import { ensureDiscoverySource, upsertSourceRecords } from '@/domains/discovery/
 import { db } from '@/infra/db';
 
 const runId = randomUUID();
+const suffix = runId.slice(0, 8);
 const sourceKey = `pc02_categories_${runId}`;
+const RECORD_COUNT = 6;
+
 let sourceId = '';
 let schemaReady = false;
+const recordIds: string[] = [];
 const createdCategoryIds = new Set<string>();
 
 /**
- * The public_category tables come from the AC-01 foundation migrations. When the
+ * The public_category tables come from the PC-01 foundation migrations. When the
  * isolated test database has not applied them yet, these integration checks are
  * reported as skipped rather than failing for a missing schema.
  */
@@ -60,13 +66,8 @@ function fixtureRecord(index: number): ParsedSourceRecord {
   };
 }
 
-async function recordIdFor(index: number): Promise<string> {
-  const [row] = await db
-    .select({ id: sourceRecordTable.id })
-    .from(sourceRecordTable)
-    .where(eq(sourceRecordTable.externalId, `${runId}-${index}`))
-    .limit(1);
-  return row!.id;
+function recordIdFor(index: number): string {
+  return recordIds[index - 1]!;
 }
 
 async function createCategory(name: string, locale = 'en-US') {
@@ -81,7 +82,29 @@ describe('public category service on gloaming_test', () => {
     if (!schemaReady) return;
     const source = await ensureDiscoverySource(sourceKey, 'gutenberg_rdf');
     sourceId = source.id;
-    await upsertSourceRecords(sourceId, [fixtureRecord(1), fixtureRecord(2)], new Date('2026-01-01T00:00:00.000Z'));
+    await upsertSourceRecords(
+      sourceId,
+      Array.from({ length: RECORD_COUNT }, (_, index) => fixtureRecord(index + 1)),
+      new Date('2026-01-01T00:00:00.000Z'),
+    );
+    const rows = await db
+      .select({ id: sourceRecordTable.id, externalId: sourceRecordTable.externalId })
+      .from(sourceRecordTable)
+      .where(eq(sourceRecordTable.sourceId, sourceId));
+    rows.sort((a, b) => Number(a.externalId.split('-').pop()) - Number(b.externalId.split('-').pop()));
+    recordIds.push(...rows.map((row) => row.id));
+  });
+
+  // Each test owns its own SourceRecord; clearing test-owned association rows
+  // between tests keeps every scenario independent and cleanup bounded.
+  afterEach(async () => {
+    if (!schemaReady || recordIds.length === 0) return;
+    await db
+      .delete(sourceRecordPublicCategorySuppressionTable)
+      .where(inArray(sourceRecordPublicCategorySuppressionTable.sourceRecordId, recordIds));
+    await db
+      .delete(sourceRecordPublicCategoryTable)
+      .where(inArray(sourceRecordPublicCategoryTable.sourceRecordId, recordIds));
   });
 
   afterAll(async () => {
@@ -90,55 +113,57 @@ describe('public category service on gloaming_test', () => {
       await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
     }
     if (createdCategoryIds.size > 0) {
-      await db.execute(
-        sql`delete from public_category where id in (${sql.join(
-          [...createdCategoryIds].map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
-      );
+      await db.delete(publicCategoryTable).where(inArray(publicCategoryTable.id, [...createdCategoryIds]));
     }
   });
 
-  it('reuses the existing category for a normalized-name collision', async (ctx) => {
+  it('reuses the existing category for a normalized-name collision with a canonical display name', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 
-    const created = await createCategory('  Science   Fiction ');
-    expect(created.localizedNames).toEqual({ 'en-US': 'Science Fiction' });
+    const displayName = `Science Fiction ${suffix}`;
+    const created = await createCategory(`  Science   Fiction ${suffix} `);
+    expect(created.localizedNames).toEqual({ 'en-US': displayName });
     expect(created.manualLocales).toEqual(['en-US']);
     expect(created.recordCount).toBe(0);
 
-    const reused = await createCategory('science fiction');
+    const reused = await createCategory(`science   fiction ${suffix}`);
     expect(reused.id).toBe(created.id);
   });
 
   it('enforces per-locale normalized uniqueness and preserves manually edited labels', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 
-    const scifi = await createCategory('Science Fiction');
-    const other = await createCategory('Fantasy');
+    const primary = await createCategory(`Primary ${suffix}`);
+    const secondary = await createCategory(`Secondary ${suffix}`);
 
-    const localized = await updateManagedCategoryLabel(other.id, { name: 'History', locale: 'en-US' });
-    expect(localized.localizedNames['en-US']).toBe('History');
+    const localized = await updateManagedCategoryLabel(secondary.id, { name: `Renamed  ${suffix}`, locale: 'en-US' });
+    expect(localized.localizedNames['en-US']).toBe(`Renamed ${suffix}`);
     expect(localized.manualLocales).toContain('en-US');
 
-    const bilingual = await updateManagedCategoryLabel(scifi.id, { name: '科幻小说', locale: 'zh-CN' });
-    expect(bilingual.localizedNames).toEqual({ 'en-US': 'Science Fiction', 'zh-CN': '科幻小说' });
+    const bilingual = await updateManagedCategoryLabel(primary.id, {
+      name: `Primary ZH ${suffix}`,
+      locale: 'zh-CN',
+    });
+    expect(bilingual.localizedNames).toEqual({
+      'en-US': `Primary ${suffix}`,
+      'zh-CN': `Primary ZH ${suffix}`,
+    });
     expect(bilingual.manualLocales).toEqual(['en-US', 'zh-CN']);
 
     await expect(
-      updateManagedCategoryLabel(other.id, { name: '  science   fiction ', locale: 'en-US' }),
+      updateManagedCategoryLabel(secondary.id, { name: `  primary   ${suffix} `, locale: 'en-US' }),
     ).rejects.toMatchObject({ statusCode: 409 });
   });
 
   it('caps assignments at three and stays idempotent and manual-preferred', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 
-    const recordId = await recordIdFor(1);
+    const recordId = recordIdFor(1);
     const categories = [
-      await createCategory('Category One'),
-      await createCategory('Category Two'),
-      await createCategory('Category Three'),
-      await createCategory('Category Four'),
+      await createCategory(`Cap One ${suffix}`),
+      await createCategory(`Cap Two ${suffix}`),
+      await createCategory(`Cap Three ${suffix}`),
+      await createCategory(`Cap Four ${suffix}`),
     ];
 
     await assignCategoryToSourceRecord(recordId, categories[0]!.id, 'manual');
@@ -168,9 +193,9 @@ describe('public category service on gloaming_test', () => {
   it('suppresses any explicit removal and clears it only on manual re-add', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 
-    const recordId = await recordIdFor(2);
-    const aiCategory = await createCategory('Suppressed Category');
-    const manualCategory = await createCategory('Manual Suppressed Category');
+    const recordId = recordIdFor(2);
+    const aiCategory = await createCategory(`Suppressed AI ${suffix}`);
+    const manualCategory = await createCategory(`Suppressed Manual ${suffix}`);
 
     await assignCategoryToSourceRecord(recordId, aiCategory.id, 'ai');
     await assignCategoryToSourceRecord(recordId, manualCategory.id, 'manual');
@@ -207,19 +232,19 @@ describe('public category service on gloaming_test', () => {
   it('localizes public list/detail and filters the record read model without leaking internals', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 
-    const recordId = await recordIdFor(1);
-    const category = await createCategory('Public Projection');
-    await updateManagedCategoryLabel(category.id, { name: '公开投影', locale: 'zh-CN' });
+    const recordId = recordIdFor(3);
+    const category = await createCategory(`Public Projection ${suffix}`);
+    await updateManagedCategoryLabel(category.id, { name: `公开投影 ${suffix}`, locale: 'zh-CN' });
     await assignCategoryToSourceRecord(recordId, category.id, 'manual');
 
     const zhList = await listPublicCategories('zh-CN');
     expect(zhList.items.find((item) => item.id === category.id)).toMatchObject({
-      name: '公开投影',
+      name: `公开投影 ${suffix}`,
       recordCount: 1,
     });
 
     const enDetail = await getPublicCategory(category.id, 'en-US');
-    expect(enDetail).toEqual({ id: category.id, name: 'Public Projection', recordCount: 1 });
+    expect(enDetail).toEqual({ id: category.id, name: `Public Projection ${suffix}`, recordCount: 1 });
 
     const managed = (await listManagedCategories()).find((item) => item.id === category.id);
     expect(managed?.meaning).toBeNull();
@@ -233,24 +258,24 @@ describe('public category service on gloaming_test', () => {
     for (const summary of records.items[0]!.categories ?? []) {
       expect(Object.keys(summary).sort()).toEqual(['id', 'name']);
     }
-    expect(records.items[0]!.categories).toContainEqual({ id: category.id, name: 'Public Projection' });
+    expect(records.items[0]!.categories).toContainEqual({ id: category.id, name: `Public Projection ${suffix}` });
   });
 
   it('serves a paginated admin view of one category assignments, including hidden records', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 
-    const recordId = await recordIdFor(1);
-    const category = await createCategory('Admin Assignment View');
+    const recordId = recordIdFor(4);
+    const category = await createCategory(`Admin Assignment View ${suffix}`);
     await assignCategoryToSourceRecord(recordId, category.id, 'manual');
 
     const page = await listManagedCategorySourceRecords(
       category.id,
-      categorySourceRecordListQuerySchema.parse({ pageSize: 1, q: 'Category Fixture 1' }),
+      categorySourceRecordListQuerySchema.parse({ pageSize: 1, q: 'Category Fixture 4' }),
       'en-US',
     );
     expect(page.items.map((item) => item.sourceRecordId)).toEqual([recordId]);
     expect(page.pagination).toMatchObject({ page: 1, pageSize: 1, total: 1 });
-    expect(page.items[0]!.categories).toContainEqual({ id: category.id, name: 'Admin Assignment View' });
+    expect(page.items[0]!.categories).toContainEqual({ id: category.id, name: `Admin Assignment View ${suffix}` });
     for (const summary of page.items[0]!.categories ?? []) {
       expect(Object.keys(summary).sort()).toEqual(['id', 'name']);
     }
