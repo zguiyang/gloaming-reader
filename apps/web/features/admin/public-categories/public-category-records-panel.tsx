@@ -63,9 +63,9 @@ function RecordIdentity({ record }: { record: SourceRecordItem }) {
 
 /**
  * One category's assigned SourceRecords plus explicit, single-pair assignment and
- * removal. Search and pagination run against the admin source-records endpoint;
- * candidate discovery reads the public Discover list because no admin
- * SourceRecord search exists in the current API surface.
+ * removal. Search, pagination, and candidate discovery run against the admin
+ * source-records endpoints, so candidates include records hidden from public
+ * Discover (unavailable, disabled source, or non-English).
  */
 export function PublicCategoryRecordsPanel({ category }: { category: PublicCategoryManagementItem }) {
   const { locale } = useLocale();
@@ -239,7 +239,8 @@ export function PublicCategoryRecordsPanel({ category }: { category: PublicCateg
           </Button>
         </form>
         <p className="mt-1.5 text-xs text-muted-foreground">
-          {t(locale, 'admin.publicCategories.assign.hint')} {t(locale, 'admin.publicCategories.assign.publicOnlyHint')}
+          {t(locale, 'admin.publicCategories.assign.hint')}{' '}
+          {t(locale, 'admin.publicCategories.assign.includesHiddenHint')}
         </p>
 
         {!isAssignmentSearchReady(candidateTerm) ? null : candidatesQuery.isPending ? (

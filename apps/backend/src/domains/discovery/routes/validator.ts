@@ -30,6 +30,13 @@ export const validateSourceRecordListQuery = validated('query', sourceRecordList
 
 export const validateCategorySourceRecordListQuery = validated('query', categorySourceRecordListQuerySchema);
 
+/**
+ * Admin candidate search over every SourceRecord. It shares the category
+ * assignment query shape (search, sort, pagination) and deliberately drops the
+ * public content-language and category filters.
+ */
+export const validateAdminSourceRecordListQuery = validated('query', categorySourceRecordListQuerySchema);
+
 export const validateSourceEnabledUpdate = validated('json', discoverySourceEnabledUpdateSchema);
 
 /**

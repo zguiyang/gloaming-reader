@@ -460,7 +460,7 @@
         "searchPlaceholder": "搜索可分配的书名或作者",
         "hint": "输入至少 2 个字符后搜索。",
         "noResults": "没有匹配的来源记录。",
-        "publicOnlyHint": "仅显示可公开发现的来源记录。"
+        "includesHiddenHint": "搜索范围包含未公开的来源记录。"
       },
       "pagination": {
         "page": "第 {page} / {total} 页",

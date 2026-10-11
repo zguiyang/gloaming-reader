@@ -116,12 +116,21 @@ export type SourceRecordReadOptions = {
   locale?: string;
 };
 
-export async function listSourceRecords(
-  query: SourceRecordListQuery,
-  options: SourceRecordReadOptions = {},
+/** Sort/pagination columns shared by every SourceRecord list surface. */
+type SourceRecordPageQuery = Pick<SourceRecordListQuery, 'page' | 'pageSize' | 'sortBy' | 'sortOrder'>;
+
+/**
+ * Admin candidate-search query: the public list controls without any visibility
+ * or content-language constraint. The admin read model resolves the rows.
+ */
+export type AdminSourceRecordListQuery = SourceRecordPageQuery & Pick<SourceRecordListQuery, 'q'>;
+
+/** Shared page query for the public, category, and admin SourceRecord list surfaces. */
+async function listSourceRecordPage(
+  where: SQL,
+  query: SourceRecordPageQuery,
+  locale: string,
 ): Promise<SourceRecordListData> {
-  const locale = options.locale ?? DEFAULT_LOCALE;
-  const where = listWhere(query);
   const offset = (query.page - 1) * query.pageSize;
 
   const [countRow] = await db
@@ -158,6 +167,34 @@ export async function listSourceRecords(
   };
 }
 
+export async function listSourceRecords(
+  query: SourceRecordListQuery,
+  options: SourceRecordReadOptions = {},
+): Promise<SourceRecordListData> {
+  return listSourceRecordPage(listWhere(query), query, options.locale ?? DEFAULT_LOCALE);
+}
+
+/** Admin search has no public visibility or language constraint; only `q` narrows it. */
+function adminListWhere(query: AdminSourceRecordListQuery): SQL {
+  return query.q ? searchFilter(query.q) : sql`true`;
+}
+
+/**
+ * Admin paginated candidate search over every SourceRecord of every
+ * DiscoverySource. Unlike the public Discover list it never filters by record
+ * availability, source enabled state, or content language, so instance
+ * management can assign categories to records that are not publicly
+ * discoverable. It still reads only `source_record` (plus its owning
+ * DiscoverySource metadata), so personal/private EPUB works are never
+ * candidates.
+ */
+export async function listAdminSourceRecords(
+  query: AdminSourceRecordListQuery,
+  options: SourceRecordReadOptions = {},
+): Promise<SourceRecordListData> {
+  return listSourceRecordPage(adminListWhere(query), query, options.locale ?? DEFAULT_LOCALE);
+}
+
 export async function getSourceRecord(
   sourceRecordId: string,
   options: SourceRecordReadOptions = {},
@@ -192,46 +229,9 @@ export async function listCategorySourceRecords(
   query: CategorySourceRecordListQuery,
   options: SourceRecordReadOptions = {},
 ): Promise<SourceRecordListData> {
-  const locale = options.locale ?? DEFAULT_LOCALE;
   const parts: SQL[] = [categoryFilter(categoryId)];
   if (query.q) {
     parts.push(searchFilter(query.q));
   }
-  const where = and(...parts)!;
-  const offset = (query.page - 1) * query.pageSize;
-
-  const [countRow] = await db
-    .select({ value: count() })
-    .from(sourceRecord)
-    .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
-    .where(where);
-  const total = Number(countRow?.value ?? 0);
-
-  const rows = await db
-    .select({ record: sourceRecord, source: discoverySource })
-    .from(sourceRecord)
-    .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
-    .where(where)
-    .orderBy(...listOrderBy(query))
-    .limit(query.pageSize)
-    .offset(offset);
-
-  const categoriesByRecord = await loadCategorySummariesByRecordIds(
-    rows.map((row) => row.record.id),
-    locale,
-  );
-
-  return {
-    items: rows.map((row) => ({
-      ...toSourceRecordItem(row.record, row.source),
-      categories: categoriesByRecord.get(row.record.id) ?? [],
-    })),
-    pagination: buildPaginationMeta({
-      page: query.page,
-      pageSize: query.pageSize,
-      total,
-      sortBy: query.sortBy,
-      sortOrder: query.sortOrder,
-    }),
-  };
+  return listSourceRecordPage(and(...parts)!, query, options.locale ?? DEFAULT_LOCALE);
 }

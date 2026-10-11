@@ -25,11 +25,11 @@ import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 const CATEGORIES_PATH = '/api/admin/discovery/categories';
 const SOURCE_RECORD_CATEGORY_PATH = '/api/admin/discovery/source-records';
 /**
- * The current API surface has no admin SourceRecord search, so candidate
- * assignment reads the existing public Discover list and only sees records that
- * are publicly discoverable. The assign/unassign writes themselves are admin-only.
+ * Candidate assignment searches the admin SourceRecord list so records hidden
+ * from public Discover (unavailable, disabled source, or non-English) stay
+ * assignable. The assign/unassign writes are admin-only too.
  */
-const DISCOVER_RECORDS_PATH = '/api/discover/records';
+const ADMIN_SOURCE_RECORDS_PATH = '/api/admin/discovery/source-records';
 
 const managedCategoryListSchema = z.array(publicCategoryManagementItemSchema);
 
@@ -63,7 +63,7 @@ export function buildCategoryRecordListQuery(params: CategoryRecordListParams): 
   return search.toString();
 }
 
-/** `GET /api/discover/records` query string for assignable SourceRecord candidates. */
+/** `GET /api/admin/discovery/source-records` query string for assignable SourceRecord candidates. */
 export function buildAssignmentCandidateQuery(term: string): string {
   const search = new URLSearchParams();
   search.set('page', String(DEFAULT_PAGE));
@@ -119,7 +119,7 @@ export async function searchAssignableSourceRecords(
   init?: { signal?: AbortSignal },
 ): Promise<SourceRecordListData> {
   const qs = buildAssignmentCandidateQuery(term);
-  return apiRequest(`${DISCOVER_RECORDS_PATH}?${qs}`, {
+  return apiRequest(`${ADMIN_SOURCE_RECORDS_PATH}?${qs}`, {
     schema: sourceRecordListDataSchema,
     signal: init?.signal,
   });

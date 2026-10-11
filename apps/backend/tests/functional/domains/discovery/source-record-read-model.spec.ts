@@ -13,6 +13,7 @@ import {
 } from '@gloaming/db';
 import { discoverySource as discoverySourceTable, sourceRecord as sourceRecordTable } from '@gloaming/db/schema';
 import {
+  categorySourceRecordListQuerySchema,
   sourceRecordDetailSchema,
   sourceRecordListDataSchema,
   sourceRecordListQuerySchema,
@@ -20,7 +21,7 @@ import {
 
 import app from '@/app';
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
-import { getSourceRecord, listSourceRecords } from '@/domains/discovery/read-model';
+import { getSourceRecord, listAdminSourceRecords, listSourceRecords } from '@/domains/discovery/read-model';
 import {
   ensureDiscoverySource,
   reconcileUnavailableRecords,
@@ -58,6 +59,11 @@ function toQuery(input: Record<string, unknown> = {}) {
 async function listAll(input: Record<string, unknown> = {}) {
   const query = toQuery({ pageSize: 50, ...input });
   return listSourceRecords(query);
+}
+
+async function listAdminAll(input: Record<string, unknown> = {}) {
+  const query = categorySourceRecordListQuerySchema.parse({ pageSize: 50, ...input });
+  return listAdminSourceRecords(query);
 }
 
 async function forbiddenRowCounts(): Promise<Record<string, number>> {
@@ -221,6 +227,56 @@ describe('SourceRecord read model on gloaming_test', () => {
       expect(sourceRecordDetailSchema.parse(detail).linkedWorkId).toBe(workId);
     } finally {
       await db.update(sourceRecordTable).set({ workId: null }).where(eq(sourceRecordTable.id, row!.id));
+    }
+  });
+
+  it('admin candidate search surfaces records hidden from public Discover', async () => {
+    const anonymous = await app.request(`/api/admin/discovery/source-records?q=${runId}`);
+    expect(anonymous.status).toBe(401);
+
+    const unavailableId = `${runId}-4`;
+    const expectedRunIds = [`${runId}-1`, `${runId}-2`, `${runId}-3`, unavailableId];
+    await db
+      .update(sourceRecordTable)
+      .set({ availability: 'unavailable' })
+      .where(and(eq(sourceRecordTable.sourceId, sourceId), eq(sourceRecordTable.externalId, unavailableId)));
+
+    try {
+      // Every assertion is bounded to this run's unique runId term, so pre-existing
+      // SourceRecords in gloaming_test can never affect the counts.
+
+      // Public Discover keeps only the available English records: `${runId}-3` is
+      // non-English and `${runId}-4` is unavailable.
+      const publicData = await listAll({ q: runId });
+      expect(publicData.items.map((item) => item.externalId).sort()).toEqual([`${runId}-1`, `${runId}-2`].sort());
+      expect(publicData.pagination.total).toBe(2);
+
+      // Admin candidate search sees every record of the run, including hidden ones.
+      const adminData = await listAdminAll({ q: runId });
+      expect(adminData.items.map((item) => item.externalId).sort()).toEqual(expectedRunIds.slice().sort());
+      expect(adminData.pagination.total).toBe(4);
+      expect(sourceRecordListDataSchema.parse(adminData)).toEqual(adminData);
+
+      // A narrower admin term still narrows within the run.
+      expect((await listAdminAll({ q: `${runId}-3` })).items.map((item) => item.externalId)).toEqual([`${runId}-3`]);
+
+      // Disabling the owning source hides the whole run from public Discover but
+      // not from admin.
+      await db.update(discoverySourceTable).set({ enabled: false }).where(eq(discoverySourceTable.id, sourceId));
+
+      const hiddenPublicData = await listAll({ q: runId });
+      expect(hiddenPublicData.items).toHaveLength(0);
+      expect(hiddenPublicData.pagination.total).toBe(0);
+
+      const adminDisabledData = await listAdminAll({ q: runId });
+      expect(adminDisabledData.items.map((item) => item.externalId).sort()).toEqual(expectedRunIds.slice().sort());
+      expect(adminDisabledData.pagination.total).toBe(4);
+    } finally {
+      await db.update(discoverySourceTable).set({ enabled: true }).where(eq(discoverySourceTable.id, sourceId));
+      await db
+        .update(sourceRecordTable)
+        .set({ availability: 'available' })
+        .where(and(eq(sourceRecordTable.sourceId, sourceId), eq(sourceRecordTable.externalId, unavailableId)));
     }
   });
 
