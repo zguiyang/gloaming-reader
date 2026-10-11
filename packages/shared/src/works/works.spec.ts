@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CATALOG_SOURCE_LINKS,
   catalogListQuerySchema,
   personalWorkUpdateSchema,
   personalWorkUploadResultSchema,
@@ -51,6 +52,10 @@ describe('work contracts', () => {
   it('retains Catalog list filters and safe Personal upload results', () => {
     expect(catalogListQuerySchema.parse({ q: '  book  ' }).q).toBe('book');
     expect(catalogListQuerySchema.parse({ q: '  ' }).q).toBeUndefined();
+    expect(catalogListQuerySchema.parse({}).sourceLink).toBe('any');
+    expect(catalogListQuerySchema.parse({ sourceLink: 'unlinked' }).sourceLink).toBe('unlinked');
+    expect(catalogListQuerySchema.safeParse({ sourceLink: 'linked' }).success).toBe(false);
+    expect(CATALOG_SOURCE_LINKS).toEqual(['any', 'unlinked']);
     expect(personalWorkUploadResultSchema.parse({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' })).toEqual(
       { id: 'work-1', title: 'Book', processingStatus: 'uploaded' },
     );

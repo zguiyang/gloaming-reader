@@ -247,9 +247,13 @@ export type CategorySourceRecordListQuery = z.infer<typeof categorySourceRecordL
 /**
  * List row for the discovery read model.
  * The stable Discover identity is `sourceRecordId`; it is never a ReadingWork id.
+ * `linkedWorkId` is the explicit Reader identity: the readable `reading_work.id`
+ * once the SourceRecord has been materialized, or null before that.
  */
 export const sourceRecordItemSchema = z.object({
   sourceRecordId: z.string(),
+  /** Linked readable `reading_work.id`, or null when not materialized. */
+  linkedWorkId: z.string().nullable(),
   sourceId: z.string(),
   sourceKey: z.string(),
   sourceType: z.string(),

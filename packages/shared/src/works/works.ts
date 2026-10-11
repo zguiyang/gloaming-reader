@@ -129,10 +129,20 @@ const catalogSearchQuerySchema = z.preprocess(
   z.string().trim().min(1).max(WORK_TITLE_MAX).optional(),
 );
 
+/**
+ * Catalog list SourceRecord-link filter. `any` keeps the public Catalog behavior;
+ * `unlinked` returns only published Works with no `source_record.work_id` link so
+ * a Discover compatibility read never duplicates a SourceRecord's materialized Work.
+ */
+export const CATALOG_SOURCE_LINKS = ['any', 'unlinked'] as const;
+export type CatalogSourceLink = (typeof CATALOG_SOURCE_LINKS)[number];
+export const DEFAULT_CATALOG_SOURCE_LINK = 'any' as const satisfies CatalogSourceLink;
+
 /** Query for `GET /api/catalog/works`. */
 export const catalogListQuerySchema = paginationQuerySchema.extend({
   sortBy: createSortByQuerySchema(CATALOG_SORT_FIELDS, DEFAULT_CATALOG_SORT_BY),
   q: catalogSearchQuerySchema,
+  sourceLink: z.preprocess(emptyToUndefined, z.enum(CATALOG_SOURCE_LINKS).default(DEFAULT_CATALOG_SOURCE_LINK)),
 });
 
 export type CatalogListQuery = z.infer<typeof catalogListQuerySchema>;

@@ -1,131 +1,100 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ContinueReadingItem, LibraryItem } from '@gloaming/shared/library';
-import type { CatalogWork } from '@gloaming/shared/works';
+import { publicCategoryListDataSchema, sourceRecordListDataSchema } from '@gloaming/shared/discovery';
+import { sourceRecordSaveResultSchema } from '@gloaming/shared/library';
+import { catalogListDataSchema } from '@gloaming/shared/works';
 
-const mocks = vi.hoisted(() => ({ apiRequest: vi.fn(), getLibrary: vi.fn() }));
+const mocks = vi.hoisted(() => ({ apiRequest: vi.fn() }));
 
 vi.mock('@/lib/api-request', () => ({
   apiRequest: mocks.apiRequest,
   formatApiError: (error: unknown) => String(error),
 }));
 
-vi.mock('@/features/library/library-public', () => ({ getLibrary: mocks.getLibrary }));
-
 import {
-  buildDiscoverListQuery,
+  buildDiscoverLegacyQuery,
+  buildDiscoverRecordsQuery,
   discoverQueryKey,
-  fetchDiscoverCatalog,
-  resolveLibraryStatus,
-  toDiscoverItem,
+  fetchDiscoverCategories,
+  fetchDiscoverLegacyWorks,
+  fetchDiscoverRecords,
+  saveSourceRecordToLibrary,
 } from '@/features/discover/discover-api';
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/discover-model';
 
-function sampleWork(overrides: Partial<CatalogWork> = {}): CatalogWork {
-  return {
-    id: 'work-1',
-    title: 'Sample Title',
-    author: '  Jane Austen  ',
-    description: 'A published catalog work used in discover card mapping tests.',
-    language: 'en',
-    processingStatus: 'ready',
-    visibility: 'catalog',
-    coverAssetId: 'asset-cover-1',
-    wordCount: null,
-    estimatedMinutes: null,
-    suggestedVocabSize: null,
-    difficultyScore: null,
-    statsProvenance: null,
-    publishedAt: '2026-01-01T00:00:00.000Z',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    partCount: 21,
-    ...overrides,
-  };
+function paramsOf(call: unknown[]): URLSearchParams {
+  const path = String(call[0]);
+  return new URLSearchParams(path.slice(path.indexOf('?') + 1));
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.apiRequest.mockResolvedValue({ items: [], pagination: {} });
 });
 
-describe('buildDiscoverListQuery', () => {
-  it('sends pagination, search, and stable sort parameters', () => {
+describe('buildDiscoverRecordsQuery', () => {
+  it('sends pagination, stable SourceRecord sort, search, and category filter', () => {
     const params = new URLSearchParams(
-      buildDiscoverListQuery({
-        page: 2,
-        pageSize: DISCOVER_PAGE_SIZE,
-        q: 'darwin',
-        sortBy: 'createdAt',
-        sortOrder: 'asc',
-      }),
+      buildDiscoverRecordsQuery({ page: 2, pageSize: DISCOVER_PAGE_SIZE, q: 'darwin', categoryId: 'cat-1' }),
     );
     expect(params.get('page')).toBe('2');
     expect(params.get('pageSize')).toBe(String(DISCOVER_PAGE_SIZE));
+    expect(params.get('sortBy')).toBe('sourceUpdatedAt');
+    expect(params.get('sortOrder')).toBe('desc');
     expect(params.get('q')).toBe('darwin');
-    expect(params.get('sortBy')).toBe('createdAt');
-    expect(params.get('sortOrder')).toBe('asc');
-    expect(params.has('category')).toBe(false);
-    expect(params.has('tag')).toBe(false);
+    expect(params.get('categoryId')).toBe('cat-1');
+    expect(params.has('language')).toBe(false);
+    expect(params.has('sourceLink')).toBe(false);
+  });
+
+  it('omits blank search and category filters', () => {
+    const params = new URLSearchParams(buildDiscoverRecordsQuery({ page: 1 }));
+    expect(params.has('q')).toBe(false);
+    expect(params.has('categoryId')).toBe(false);
   });
 
   it('provides a query key for the current list parameters', () => {
-    expect(discoverQueryKey.list({ page: 2 })).toEqual(['discover', 'list', { page: 2 }]);
+    expect(discoverQueryKey.records({ page: 2 })).toEqual(['discover', 'records', { page: 2 }]);
   });
 });
 
-describe('fetchDiscoverCatalog', () => {
-  it('finishes from the public Catalog response without waiting for the Library 401', async () => {
-    mocks.apiRequest.mockResolvedValue({
-      items: [sampleWork()],
-      pagination: {
-        page: 1,
-        pageSize: DISCOVER_PAGE_SIZE,
-        total: 1,
-        totalPages: 1,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-      },
-    });
-    mocks.getLibrary.mockRejectedValue({ status: 401 });
-
-    const result = await fetchDiscoverCatalog({ page: 1, pageSize: DISCOVER_PAGE_SIZE });
-
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]).toMatchObject({ id: 'work-1', libraryStatus: 'available' });
-    expect(mocks.apiRequest).toHaveBeenCalledTimes(1);
-    expect(mocks.getLibrary).not.toHaveBeenCalled();
+describe('buildDiscoverLegacyQuery', () => {
+  it('reads only published Catalog Works without a SourceRecord link', () => {
+    const params = new URLSearchParams(buildDiscoverLegacyQuery({ page: 1, q: 'austen' }));
+    expect(params.get('sourceLink')).toBe('unlinked');
+    expect(params.get('sortBy')).toBe('publishedAt');
+    expect(params.get('q')).toBe('austen');
   });
 });
 
-describe('toDiscoverItem', () => {
-  it('maps the Catalog list fields and explicit Library state', () => {
-    const item = toDiscoverItem(sampleWork());
-    expect(item).toMatchObject({
-      id: 'work-1',
-      title: 'Sample Title',
-      author: 'Jane Austen',
-      partCount: 21,
-      coverImageUrl: '/api/assets/asset-cover-1',
-      libraryStatus: 'available',
-    });
-    expect(item).not.toHaveProperty('tags');
-    expect(item).not.toHaveProperty('category');
+describe('Discover API clients', () => {
+  it('reads the SourceRecord list through its public contract', async () => {
+    await fetchDiscoverRecords({ page: 1, pageSize: DISCOVER_PAGE_SIZE, categoryId: 'cat-9' });
+    const call = mocks.apiRequest.mock.calls[0]!;
+    expect(String(call[0])).toContain('/api/discover/records?');
+    expect(paramsOf(call).get('categoryId')).toBe('cat-9');
+    expect(call[1]).toMatchObject({ schema: sourceRecordListDataSchema });
   });
 
-  it('keeps unsaved Continue Reading progress separate from Library membership', () => {
-    const current = {
-      work: { id: 'work-1' },
-      state: { status: 'in_progress', progressRatio: 12 },
-    } as ContinueReadingItem;
-    const item = toDiscoverItem(sampleWork(), undefined, current);
-    expect(item.libraryStatus).toBe('available');
-    expect(item.progressRatio).toBe(12);
+  it('reads localized public categories', async () => {
+    await fetchDiscoverCategories();
+    const call = mocks.apiRequest.mock.calls[0]!;
+    expect(String(call[0])).toBe('/api/discover/categories');
+    expect(call[1]).toMatchObject({ schema: publicCategoryListDataSchema });
   });
-});
 
-describe('resolveLibraryStatus', () => {
-  it('reports only explicit Library membership', () => {
-    expect(resolveLibraryStatus({ state: null } as LibraryItem)).toBe('in_library');
-    expect(resolveLibraryStatus()).toBe('available');
+  it('uses the compatibility Catalog contract for unlinked Works', async () => {
+    await fetchDiscoverLegacyWorks({ page: 1 });
+    const call = mocks.apiRequest.mock.calls[0]!;
+    expect(String(call[0])).toContain('/api/catalog/works?');
+    expect(paramsOf(call).get('sourceLink')).toBe('unlinked');
+    expect(call[1]).toMatchObject({ schema: catalogListDataSchema });
+  });
+
+  it('creates an explicit SourceRecord Save Intent without auto-save', async () => {
+    await saveSourceRecordToLibrary('source record/1');
+    const call = mocks.apiRequest.mock.calls[0]!;
+    expect(String(call[0])).toBe('/api/library/source-records/source%20record%2F1');
+    expect(call[1]).toMatchObject({ method: 'POST', schema: sourceRecordSaveResultSchema });
   });
 });

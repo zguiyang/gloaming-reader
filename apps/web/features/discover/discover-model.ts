@@ -1,18 +1,80 @@
-/** Catalog membership only; reading progress is carried separately. */
-export type DiscoverLibraryStatus = 'available' | 'in_library';
+import type { PublicCategorySummary, SourceRecordItem } from '@gloaming/shared/discovery';
+import type { CatalogWork } from '@gloaming/shared/works';
 
+/**
+ * Discover membership only; reading progress is carried by the linked Work and
+ * is not exposed by the public SourceRecord contract.
+ */
 export type DiscoverItem = {
+  /** Stable Discover identity: `sourceRecordId`, never a `reading_work.id`. */
+  id: string;
+  /** Linked readable `reading_work.id`, or null before materialization. */
+  linkedWorkId: string | null;
+  title: string;
+  author: string;
+  /** Upstream cover URL, or null when the SourceRecord has no cover. */
+  coverImageUrl: string | null;
+  /** Minimal localized category summaries projected for the request locale. */
+  categories: PublicCategorySummary[];
+};
+
+/**
+ * Compatibility row for already-published Catalog Works that have no linked
+ * SourceRecord. It keeps `reading_work.id` because that is the only readable
+ * identity; it is never presented as a SourceRecord.
+ */
+export type DiscoverLegacyWork = {
   id: string;
   title: string;
   author: string;
-  /** ReadingPart count for compact catalog cards. */
   partCount: number;
-  /** `/api/assets/:id` or null when the work has no cover. */
   coverImageUrl: string | null;
-  publishedAt: string;
-  libraryStatus: DiscoverLibraryStatus;
-  progressRatio: number | null;
 };
 
 /** 3 rows × 5 columns on large screens. */
 export const DISCOVER_PAGE_SIZE = 15;
+
+/** Comma-joined SourceRecord author display names; empty when the source has none. */
+export function formatSourceRecordAuthors(record: Pick<SourceRecordItem, 'authors'>): string {
+  return record.authors
+    .map((author) => author.name.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+export function toDiscoverItem(record: SourceRecordItem): DiscoverItem {
+  return {
+    id: record.sourceRecordId,
+    linkedWorkId: record.linkedWorkId,
+    title: record.title,
+    author: formatSourceRecordAuthors(record),
+    coverImageUrl: record.coverUrl ?? null,
+    categories: record.categories ?? [],
+  };
+}
+
+/**
+ * Safe localized category label. Public summaries are already resolved for the
+ * request locale by the backend; this only guarantees a non-empty chip when a
+ * label is unexpectedly blank.
+ */
+export function categoryDisplayName(category: PublicCategorySummary): string {
+  const name = category.name.trim();
+  return name || category.id;
+}
+
+/** True when a category or non-empty query narrows the current Discover list. */
+export function hasActiveDiscoverFilter(input: { query: string; categoryId: string | null }): boolean {
+  return input.categoryId !== null || input.query.trim() !== '';
+}
+
+/** Maps a published Catalog Work into the compatibility card row. */
+export function toDiscoverLegacyWork(work: CatalogWork, coverImageUrl: string | null): DiscoverLegacyWork {
+  return {
+    id: work.id,
+    title: work.title,
+    author: work.author.trim(),
+    partCount: work.partCount,
+    coverImageUrl,
+  };
+}

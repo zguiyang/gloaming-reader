@@ -84,6 +84,7 @@ function listOrderBy(query: Pick<SourceRecordListQuery, 'sortBy' | 'sortOrder'>)
 function toSourceRecordItem(record: SourceRecordRow, source: DiscoverySourceRow): SourceRecordItem {
   return {
     sourceRecordId: record.id,
+    linkedWorkId: record.workId,
     sourceId: record.sourceId,
     sourceKey: source.sourceKey,
     sourceType: source.sourceType,
