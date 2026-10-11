@@ -1371,6 +1371,36 @@ export const sourceRecordPublicCategorySuppression = pgTable(
   ],
 );
 
+/**
+ * Instance-wide daily reservation counter for public classification and category
+ * label-translation AI calls. This is deliberately not per-user: public
+ * classification runs on the instance provider and shares one fixed daily cap
+ * across every SourceRecord. The row id is a fixed singleton key.
+ */
+export const publicClassificationBudget = pgTable(
+  'public_classification_budget',
+  {
+    id: text('id').primaryKey(),
+    /** UTC date the counters below apply to. */
+    quotaDate: date('quota_date', { mode: 'string' }),
+    /** AI call reservations already settled for `quotaDate`. */
+    quotaUsed: integer('quota_used').default(0).notNull(),
+    /** AI call reservations in flight but not yet settled for `quotaDate`. */
+    quotaReserved: integer('quota_reserved').default(0).notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    check(
+      'public_classification_budget_quota_nonnegative_chk',
+      sql`${table.quotaUsed} >= 0 AND ${table.quotaReserved} >= 0`,
+    ),
+    check('public_classification_budget_quota_limit_chk', sql`${table.quotaUsed} + ${table.quotaReserved} <= 50`),
+  ],
+);
+
 export const publicCategoryRelations = relations(publicCategory, ({ many }) => ({
   labels: many(publicCategoryLabel),
   aliases: many(publicCategoryAlias),
