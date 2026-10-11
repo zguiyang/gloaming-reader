@@ -30,7 +30,7 @@ export const PUBLIC_CATEGORY_ASSIGNMENT_SEARCH_MIN_CHARS = 2;
 export const PUBLIC_CATEGORY_NAME_EXISTS_CODE = 'api.errors.discovery.publicCategoryNameExists';
 export const PUBLIC_CATEGORY_LIMIT_EXCEEDED_CODE = 'api.errors.discovery.publicCategoryLimitExceeded';
 
-/** `GET /api/discover/records` needs an explicit sort; keep it stable for the admin view. */
+/** The admin SourceRecord list needs an explicit sort; keep it stable for the admin view. */
 export const PUBLIC_CATEGORY_RECORD_SORT_BY = 'sourceUpdatedAt' as const;
 
 const PROVENANCE_KEYS: Record<PublicCategoryProvenance, string> = {

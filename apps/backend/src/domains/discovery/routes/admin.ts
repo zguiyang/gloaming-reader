@@ -8,7 +8,9 @@ import {
   unassignCategoryFromSourceRecord,
   updateManagedCategoryLabel,
 } from '@/domains/discovery/categories';
+import { listAdminSourceRecords } from '@/domains/discovery/read-model';
 import {
+  validateAdminSourceRecordListQuery,
   validateCategorySourceRecordListQuery,
   validateManagedCategoryWrite,
   validateSourceEnabledUpdate,
@@ -25,8 +27,8 @@ import { HTTP_STATUS } from '@/shared/constants';
 /**
  * Admin-only Discovery controls. V1 exposes exactly the Project Gutenberg source
  * (status, enabled toggle, manual background sync trigger) plus stable public
- * category management and SourceRecord category assignment. Every route is
- * guarded by `requireAdmin`.
+ * category management, admin SourceRecord candidate search, and SourceRecord
+ * category assignment. Every route is guarded by `requireAdmin`.
  */
 export const discoveryAdminRoutes = new Hono<{ Variables: AuthVariables }>();
 
@@ -44,6 +46,17 @@ discoveryAdminRoutes.patch(PROJECT_GUTENBERG_SOURCE_PATH, requireAdmin, validate
 discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync`, requireAdmin, async (c) => {
   const accepted = await requestProjectGutenbergSync();
   return c.json(accepted, accepted.result === 'queued' ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.OK);
+});
+
+const SOURCE_RECORDS_PATH = '/api/admin/discovery/source-records';
+
+/**
+ * Admin candidate search over every SourceRecord, including records hidden from
+ * public Discover (unavailable, disabled source, or non-English). It reads only
+ * `source_record`, so personal/private EPUB works never appear.
+ */
+discoveryAdminRoutes.get(SOURCE_RECORDS_PATH, requireAdmin, validateAdminSourceRecordListQuery, async (c) => {
+  return c.json(await listAdminSourceRecords(c.req.valid('query'), { locale: resolveRequestLocale(c) }));
 });
 
 const CATEGORIES_PATH = '/api/admin/discovery/categories';

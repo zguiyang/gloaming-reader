@@ -62,7 +62,7 @@ describe('query builders', () => {
     expect(queryOf('?' + buildCategoryRecordListQuery({ page: 1, q: '   ' })).has('q')).toBe(false);
   });
 
-  it('builds a bounded candidate query over the public Discover list', () => {
+  it('builds a bounded candidate query over the admin SourceRecord list', () => {
     const params = queryOf('?' + buildAssignmentCandidateQuery('  darwin '));
     expect(params.get('q')).toBe('darwin');
     expect(params.get('page')).toBe('1');
@@ -107,10 +107,10 @@ describe('category API clients', () => {
     expect(options.schema).toBeDefined();
   });
 
-  it('searches assignable source records through the public Discover list', async () => {
+  it('searches assignable source records through the admin source-records endpoint', async () => {
     await searchAssignableSourceRecords('darwin');
     const [path, options] = callArgs();
-    expect(path.startsWith('/api/discover/records?')).toBe(true);
+    expect(path.startsWith('/api/admin/discovery/source-records?')).toBe(true);
     expect(queryOf(path).get('q')).toBe('darwin');
     expect(options.schema).toBeDefined();
   });

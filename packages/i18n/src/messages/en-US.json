@@ -460,7 +460,7 @@
         "searchPlaceholder": "Search assignable titles or authors",
         "hint": "Type at least 2 characters to search.",
         "noResults": "No matching source records.",
-        "publicOnlyHint": "Only publicly discoverable source records are shown."
+        "includesHiddenHint": "Search includes records hidden from public Discover."
       },
       "pagination": {
         "page": "Page {page} of {total}",

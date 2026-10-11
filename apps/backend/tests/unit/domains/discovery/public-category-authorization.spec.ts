@@ -50,8 +50,9 @@ describe('requireAdmin authorization', () => {
   });
 });
 
-describe('discovery category admin route authorization', () => {
-  const categoryEndpoints: Array<[string, string]> = [
+describe('discovery admin route authorization', () => {
+  const adminEndpoints: Array<[string, string]> = [
+    ['GET', '/api/admin/discovery/source-records'],
     ['GET', '/api/admin/discovery/categories'],
     ['GET', '/api/admin/discovery/categories/cat-1/source-records'],
     ['POST', '/api/admin/discovery/categories'],
@@ -66,7 +67,7 @@ describe('discovery category admin route authorization', () => {
     return app;
   }
 
-  it.each(categoryEndpoints)('guards %s %s with requireAdmin', async (method, path) => {
+  it.each(adminEndpoints)('guards %s %s with requireAdmin', async (method, path) => {
     const anonymous = await adminApp(null, null).request(path, { method });
     expect(anonymous.status).toBe(401);
 
