@@ -74,6 +74,19 @@ export const publicCategoryLabelSchema = z.object({
 export type PublicCategoryLabel = z.infer<typeof publicCategoryLabelSchema>;
 
 /**
+ * One known localized synonym used for candidate retrieval. Aliases are separate
+ * from the display label; a source term like `Sci-Fi` can resolve to the
+ * `Science Fiction` category without renaming it. `manual` aliases are protected
+ * from automatic overwrite.
+ */
+export const publicCategoryAliasSchema = z.object({
+  locale: z.string(),
+  alias: z.string(),
+  editedBy: publicCategoryProvenanceSchema,
+});
+export type PublicCategoryAlias = z.infer<typeof publicCategoryAliasSchema>;
+
+/**
  * A flat, stable Discover category. Identity is `id`; `localizedNames` carries
  * display names per locale so renaming never changes identity. There is no
  * parent/hierarchy and no User Tag sharing.
@@ -83,10 +96,14 @@ export const publicCategorySchema = z.object({
   createdBy: publicCategoryProvenanceSchema,
   /** Locale of the canonical label when the creator recorded one. */
   sourceLocale: z.string().nullable().default(null),
+  /** Concise internal scope/meaning used for candidate retrieval. */
+  meaning: z.string().nullable().default(null),
   /** Locales whose label was manually edited; automation must never overwrite them. */
   manualLocales: z.array(z.string()).default([]),
   /** Localized display names keyed by locale; missing keys are untranslated. */
   localizedNames: z.record(z.string(), z.string()).default({}),
+  /** Known localized synonyms used to find this category; not part of the display label. */
+  aliases: z.array(publicCategoryAliasSchema).default([]),
 });
 export type PublicCategory = z.infer<typeof publicCategorySchema>;
 

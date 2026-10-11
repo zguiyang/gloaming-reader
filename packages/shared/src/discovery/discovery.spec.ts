@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isPublicCategoryTranslationMissing,
   normalizePublicCategoryName,
+  publicCategoryAliasSchema,
   publicCategoryLabelSchema,
   publicCategorySchema,
   resolvePublicCategoryName,
@@ -32,6 +33,38 @@ describe('public category contracts', () => {
     expect(resolvePublicCategoryName(category, 'zh-CN')).toBe('科幻小说');
     expect(isPublicCategoryTranslationMissing(category, 'zh-CN')).toBe(false);
     expect(isPublicCategoryTranslationMissing(category, 'fr-FR')).toBe(true);
+  });
+
+  it('stores a concise meaning and localized aliases for candidate retrieval', () => {
+    const category = publicCategorySchema.parse({
+      id: 'cat-scifi',
+      createdBy: 'ai',
+      sourceLocale: 'en-US',
+      meaning: 'Speculative fiction grounded in science or technology.',
+      localizedNames: { 'en-US': 'Science Fiction' },
+      aliases: [
+        { locale: 'en-US', alias: 'Sci-Fi', editedBy: 'ai' },
+        { locale: 'zh-CN', alias: '科幻', editedBy: 'manual' },
+      ],
+    });
+    expect(category.meaning).toBe('Speculative fiction grounded in science or technology.');
+    expect(category.aliases).toEqual([
+      { locale: 'en-US', alias: 'Sci-Fi', editedBy: 'ai' },
+      { locale: 'zh-CN', alias: '科幻', editedBy: 'manual' },
+    ]);
+    // Aliases are retrieval keys, not display names: the label stays canonical.
+    expect(resolvePublicCategoryName(category, 'en-US')).toBe('Science Fiction');
+
+    const defaults = publicCategorySchema.parse({ id: 'cat-new', createdBy: 'manual' });
+    expect(defaults.meaning).toBeNull();
+    expect(defaults.aliases).toEqual([]);
+
+    expect(publicCategoryAliasSchema.parse({ locale: 'en-US', alias: 'Sci-Fi', editedBy: 'ai' })).toEqual({
+      locale: 'en-US',
+      alias: 'Sci-Fi',
+      editedBy: 'ai',
+    });
+    expect(() => publicCategoryAliasSchema.parse({ locale: 'en-US', alias: 'x', editedBy: 'user' })).toThrow();
   });
 
   it('falls back to the source locale then any label without claiming a translation', () => {

@@ -1219,6 +1219,8 @@ export const publicCategory = pgTable(
     createdBy: text('created_by').$type<PublicCategoryProvenance>().default('manual').notNull(),
     /** Locale of the canonical label when the creator recorded one; null when unknown. */
     sourceLocale: text('source_locale'),
+    /** Concise internal scope/meaning used for candidate retrieval; null when unrecorded. */
+    meaning: text('meaning'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -1263,6 +1265,48 @@ export const publicCategoryLabel = pgTable(
     check('public_category_label_edited_by_check', sql`${table.editedBy} in ('manual', 'ai')`),
     check('public_category_label_name_nonempty_chk', sql`length(${table.name}) > 0`),
     check('public_category_label_normalized_name_nonempty_chk', sql`length(${table.normalizedName}) > 0`),
+  ],
+);
+
+/**
+ * One known localized synonym for a public category, separate from the display
+ * label. Aliases feed candidate retrieval (decision-A equivalence) so a source
+ * term such as `Sci-Fi` can find the `Science Fiction` category. `normalized_name`
+ * uses the same `normalizePublicCategoryName` contract and is unique per locale so
+ * two categories cannot claim the same synonym. `edited_by = 'manual'` marks a
+ * synonym automation must never overwrite.
+ */
+export const publicCategoryAlias = pgTable(
+  'public_category_alias',
+  {
+    id: text('id').primaryKey(),
+    categoryId: text('category_id').notNull(),
+    locale: text('locale').notNull(),
+    alias: text('alias').notNull(),
+    normalizedName: text('normalized_name').notNull(),
+    /** Edit provenance: `manual` aliases are protected from automatic updates. */
+    editedBy: text('edited_by').$type<PublicCategoryProvenance>().default('manual').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.categoryId],
+      foreignColumns: [publicCategory.id],
+      name: 'public_category_alias_category_fk',
+    }).onDelete('cascade'),
+    unique('public_category_alias_category_locale_normalized_uidx').on(
+      table.categoryId,
+      table.locale,
+      table.normalizedName,
+    ),
+    unique('public_category_alias_locale_normalized_name_uidx').on(table.locale, table.normalizedName),
+    check('public_category_alias_edited_by_check', sql`${table.editedBy} in ('manual', 'ai')`),
+    check('public_category_alias_nonempty_chk', sql`length(${table.alias}) > 0`),
+    check('public_category_alias_normalized_name_nonempty_chk', sql`length(${table.normalizedName}) > 0`),
   ],
 );
 
@@ -1329,12 +1373,20 @@ export const sourceRecordPublicCategorySuppression = pgTable(
 
 export const publicCategoryRelations = relations(publicCategory, ({ many }) => ({
   labels: many(publicCategoryLabel),
+  aliases: many(publicCategoryAlias),
   sourceRecordAssignments: many(sourceRecordPublicCategory),
 }));
 
 export const publicCategoryLabelRelations = relations(publicCategoryLabel, ({ one }) => ({
   category: one(publicCategory, {
     fields: [publicCategoryLabel.categoryId],
+    references: [publicCategory.id],
+  }),
+}));
+
+export const publicCategoryAliasRelations = relations(publicCategoryAlias, ({ one }) => ({
+  category: one(publicCategory, {
+    fields: [publicCategoryAlias.categoryId],
     references: [publicCategory.id],
   }),
 }));
