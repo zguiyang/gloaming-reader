@@ -4,6 +4,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import {
+  readingState as readingStateTable,
   readingWork as readingWorkTable,
   user as userTable,
   userLibraryItem as userLibraryItemTable,
@@ -81,6 +82,8 @@ describe('User Tag API', () => {
     const owner = await createSession();
     const other = await createSession();
     emails.push(owner.email, other.email);
+    const ownerWorkId = await createPersonalWork(owner.userId, 'Tagged Personal Work');
+    workIds.push(ownerWorkId);
 
     expect((await app.request('/api/library/tags')).status).toBe(401);
     const ownerCreate = await app.request('/api/library/tags', {
@@ -98,6 +101,11 @@ describe('User Tag API', () => {
       body: JSON.stringify({ name: ' english ' }),
     });
     expect(duplicate.status).toBe(409);
+    const assignment = await app.request(`/api/library/${ownerWorkId}/tags/${ownerTag.id}`, {
+      method: 'PUT',
+      headers: { cookie: owner.cookie },
+    });
+    expect(assignment.status).toBe(204);
     expect((await app.request('/api/library/tags', { headers: { cookie: other.cookie } })).status).toBe(200);
 
     const otherCreate = await app.request('/api/library/tags', {
@@ -164,7 +172,19 @@ describe('User Tag API', () => {
       id: string;
       name: string;
     }[];
-    expect(ownerTags).toEqual([{ id: ownerTag.id, name: 'Favorite', bookCount: 0 }]);
+    expect(ownerTags).toEqual([{ id: ownerTag.id, name: 'Favorite', bookCount: 1 }]);
+    expect(
+      await db
+        .select()
+        .from(userWorkTagTable)
+        .where(
+          and(
+            eq(userWorkTagTable.userId, owner.userId),
+            eq(userWorkTagTable.workId, ownerWorkId),
+            eq(userWorkTagTable.tagId, ownerTag.id),
+          ),
+        ),
+    ).toHaveLength(1);
   });
 
   it('allows only owner Personal Works and saved Catalog Works, and enforces owner consistency in the database', async () => {
@@ -174,6 +194,15 @@ describe('User Tag API', () => {
     const ownWorkId = await createPersonalWork(owner.userId, 'Owner Personal Work');
     const otherWorkId = await createPersonalWork(other.userId, 'Other Personal Work');
     workIds.push(ownWorkId, otherWorkId);
+    await db.insert(readingStateTable).values({
+      id: randomUUID(),
+      userId: owner.userId,
+      workId: ownWorkId,
+      status: 'in_progress',
+      addedAt: new Date(),
+      lastReadAt: new Date(),
+      completedAt: null,
+    });
     const catalog = await createCatalogWorkFixture({ title: 'Saved Catalog Work', body: 'A short chapter.' });
     const unsavedCatalog = await createCatalogWorkFixture({ title: 'Unsaved Catalog Work', body: 'Another chapter.' });
     workIds.push(catalog.id, unsavedCatalog.id);
@@ -297,6 +326,11 @@ describe('User Tag API', () => {
     expect(tagDelete.status).toBe(204);
     expect(await db.select().from(userWorkTagTable).where(eq(userWorkTagTable.tagId, tag!.id))).toHaveLength(0);
     expect(await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, catalog.id))).toHaveLength(1);
+    const readingStates = await db
+      .select({ status: readingStateTable.status })
+      .from(readingStateTable)
+      .where(and(eq(readingStateTable.userId, owner.userId), eq(readingStateTable.workId, ownWorkId)));
+    expect(readingStates).toEqual([{ status: 'in_progress' }]);
     expect(
       await db
         .select()
