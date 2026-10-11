@@ -107,6 +107,19 @@ export const publicCategorySchema = z.object({
 });
 export type PublicCategory = z.infer<typeof publicCategorySchema>;
 
+/**
+ * Minimal Discover display projection of a public category: the stable `id` plus
+ * a display `name` already resolved for the request locale. This is the only
+ * category shape a public SourceRecord response may expose; the retrieval and
+ * management fields (`meaning`, `aliases`, `manualLocales`, `localizedNames`,
+ * `createdBy`, `sourceLocale`) stay on the full `publicCategorySchema`.
+ */
+export const publicCategorySummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+export type PublicCategorySummary = z.infer<typeof publicCategorySummarySchema>;
+
 /** One public category assigned to one SourceRecord, with assignment provenance. */
 export const sourceRecordPublicCategorySchema = z.object({
   categoryId: z.string(),
@@ -168,8 +181,11 @@ export const sourceRecordItemSchema = z.object({
   lastSeenAt: z.union([z.string(), z.date()]).nullable(),
   createdAt: z.union([z.string(), z.date()]),
   updatedAt: z.union([z.string(), z.date()]),
-  /** Public categories projected for Discover; absent until the read model adds them. */
-  categories: z.array(publicCategorySchema).optional(),
+  /**
+   * Public category display summaries projected for Discover; absent until the
+   * read model adds them. Never embeds the full category-management DTO.
+   */
+  categories: z.array(publicCategorySummarySchema).optional(),
 });
 export type SourceRecordItem = z.infer<typeof sourceRecordItemSchema>;
 
