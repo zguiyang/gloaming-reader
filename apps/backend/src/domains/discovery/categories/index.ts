@@ -23,10 +23,24 @@ export {
   publicClassificationReuseSchema,
 } from './classification-contract';
 export type { ValidatedPublicClassificationDecision } from './classification-validation';
+export { validatePublicCategoryTranslations, validatePublicClassificationDecision } from './classification-validation';
+export type {
+  PublicClassificationEvidence,
+  PublicClassificationEvidenceCandidate,
+  PublicClassificationVerdict,
+} from './incremental-classification';
 export {
-  validatePublicCategoryTranslations,
-  validatePublicClassificationDecision,
-} from './classification-validation';
+  completePublicClassification,
+  computePublicClassificationFingerprint,
+  deferPublicClassification,
+  dispatchDuePublicClassifications,
+  getPublicClassificationVerdict,
+  JOB_PUBLIC_CLASSIFICATION,
+  nextUtcMidnight,
+  PUBLIC_CLASSIFICATION_DISPATCH_BATCH_LIMIT,
+  recordPublicClassificationEvidenceBatch,
+  resolvePublicClassificationRetryAt,
+} from './incremental-classification';
 export {
   decideCategoryAssignment,
   shouldSuppressOnRemoval,

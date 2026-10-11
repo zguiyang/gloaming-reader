@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, count, eq, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 
+import type { SourceRecordAuthor, SourceRecordSourceMeta } from '@gloaming/db/schema';
 import { discoverySource, sourceRecord } from '@gloaming/db/schema';
 
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
@@ -137,17 +138,19 @@ export async function markSourceFailed(input: {
 /**
  * Idempotent multi-row upsert keyed by (source_id, external_id).
  * Only source-owned fields are updated; identity and createdAt are preserved.
+ * Returns the stable row id per external id so the caller can key follow-up
+ * classification state without another lookup.
  */
 export async function upsertSourceRecords(
   sourceId: string,
   records: ParsedSourceRecord[],
   observedAt: Date,
-): Promise<void> {
+): Promise<Array<{ id: string; externalId: string }>> {
   if (records.length === 0) {
-    return;
+    return [];
   }
 
-  await db
+  return db
     .insert(sourceRecord)
     .values(
       records.map((record) => ({
@@ -183,7 +186,41 @@ export async function upsertSourceRecords(
         lastSeenAt: sql`excluded.last_seen_at`,
         updatedAt: new Date(),
       },
-    });
+    })
+    .returning({ id: sourceRecord.id, externalId: sourceRecord.externalId });
+}
+
+export type SourceRecordClassificationEvidenceRow = {
+  externalId: string;
+  title: string;
+  authors: SourceRecordAuthor[];
+  languages: string[];
+  description: string | null;
+  sourceMeta: SourceRecordSourceMeta;
+};
+
+/**
+ * Pre-upsert classification evidence for the requested external ids. The caller
+ * compares it with the incoming snapshot to detect new or materially changed
+ * records; the read is bounded to the current upsert batch.
+ */
+export async function loadClassificationEvidenceByExternalId(
+  sourceId: string,
+  externalIds: string[],
+): Promise<Map<string, SourceRecordClassificationEvidenceRow>> {
+  if (externalIds.length === 0) return new Map();
+  const rows = await db
+    .select({
+      externalId: sourceRecord.externalId,
+      title: sourceRecord.title,
+      authors: sourceRecord.authors,
+      languages: sourceRecord.languages,
+      description: sourceRecord.description,
+      sourceMeta: sourceRecord.sourceMeta,
+    })
+    .from(sourceRecord)
+    .where(and(eq(sourceRecord.sourceId, sourceId), inArray(sourceRecord.externalId, externalIds)));
+  return new Map(rows.map((row) => [row.externalId, row]));
 }
 
 /**

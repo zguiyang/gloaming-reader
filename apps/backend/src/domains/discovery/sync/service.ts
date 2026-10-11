@@ -1,3 +1,10 @@
+import type { SourceRecordAuthor, SourceRecordSourceMeta } from '@gloaming/db/schema';
+
+import {
+  computePublicClassificationFingerprint,
+  type PublicClassificationEvidence,
+  recordPublicClassificationEvidenceBatch,
+} from '@/domains/discovery/categories';
 import {
   PROJECT_GUTENBERG_RDF_SNAPSHOT_URL,
   PROJECT_GUTENBERG_SOURCE_KEY,
@@ -12,10 +19,12 @@ import { rootLogger } from '@/infra/logging/logger';
 
 import {
   ensureDiscoverySource,
+  loadClassificationEvidenceByExternalId,
   markSourceFailed,
   markSourceSucceeded,
   reconcileUnavailableRecords,
   releaseSourceQueued,
+  type SourceRecordClassificationEvidenceRow,
   startSourceSyncing,
   upsertSourceRecords,
 } from './repository';
@@ -125,23 +134,83 @@ async function consumeSnapshot(
   let batches = 0;
   let batch: ParsedSourceRecord[] = [];
 
+  const flushBatch = async (): Promise<void> => {
+    if (batch.length === 0) return;
+    const records = batch;
+    batch = [];
+    // Read pre-upsert evidence first so new/changed detection can baseline a
+    // pre-existing record without reprocessing the whole corpus.
+    const previousEvidence = await loadClassificationEvidenceByExternalId(
+      sourceId,
+      records.map((record) => record.externalId),
+    );
+    const upserted = await upsertSourceRecords(sourceId, records, observedAt);
+    await registerIncrementalClassification(records, upserted, previousEvidence);
+    seenRecords += records.length;
+    batches += 1;
+  };
+
   for await (const record of snapshot.records) {
     batch.push(record);
     if (batch.length >= PROJECT_GUTENBERG_UPSERT_BATCH_SIZE) {
-      await upsertSourceRecords(sourceId, batch, observedAt);
-      seenRecords += batch.length;
-      batches += 1;
-      batch = [];
+      await flushBatch();
     }
   }
-
-  if (batch.length > 0) {
-    await upsertSourceRecords(sourceId, batch, observedAt);
-    seenRecords += batch.length;
-    batches += 1;
-  }
+  await flushBatch();
 
   return { seenRecords, batches };
+}
+
+function toClassificationEvidence(input: {
+  title: string;
+  authors: SourceRecordAuthor[];
+  languages: string[];
+  description: string | null;
+  sourceMeta: SourceRecordSourceMeta;
+}): PublicClassificationEvidence {
+  return {
+    title: input.title,
+    authors: input.authors.map((author) => author.name),
+    languages: input.languages,
+    description: input.description,
+    subjects: input.sourceMeta.subjects ?? [],
+    bookshelves: input.sourceMeta.bookshelves ?? [],
+  };
+}
+
+/**
+ * Best-effort incremental classification trigger. A failure here only skips the
+ * trigger for this batch: source metadata is already persisted and the sync
+ * result must not fail because classification bookkeeping could not be written.
+ */
+async function registerIncrementalClassification(
+  records: ParsedSourceRecord[],
+  upserted: Array<{ id: string; externalId: string }>,
+  previousEvidence: Map<string, SourceRecordClassificationEvidenceRow>,
+): Promise<void> {
+  if (upserted.length === 0) return;
+  try {
+    const recordByExternalId = new Map(records.map((record) => [record.externalId, record]));
+    const candidates = upserted.map((row) => {
+      const record = recordByExternalId.get(row.externalId);
+      if (!record) throw new Error(`Missing parsed source record for ${row.externalId}`);
+      const previous = previousEvidence.get(row.externalId);
+      return {
+        sourceRecordId: row.id,
+        fingerprint: computePublicClassificationFingerprint(toClassificationEvidence(record)),
+        previousFingerprint: previous
+          ? computePublicClassificationFingerprint(toClassificationEvidence(previous))
+          : null,
+        isNew: !previous,
+      };
+    });
+    await recordPublicClassificationEvidenceBatch(candidates, new Date());
+  } catch (error) {
+    logger.warn(
+      { err: error, sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
+      'Incremental public classification trigger update failed',
+    );
+  }
 }
 
 function toSyncErrorSummary(error: unknown, signal?: AbortSignal): string {

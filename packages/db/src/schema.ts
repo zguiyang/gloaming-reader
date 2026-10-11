@@ -1401,6 +1401,56 @@ export const publicClassificationBudget = pgTable(
   ],
 );
 
+/**
+ * Durable per-SourceRecord memory for incremental public classification.
+ *
+ * BullMQ retention removes completed/failed jobs, so a stable job id alone
+ * cannot remember the last successfully classified evidence fingerprint nor a
+ * deferred retry time. This small Discovery-owned row closes that gap:
+ * `evidence_fingerprint` is the latest classification evidence queued for the
+ * record, `completed_fingerprint` is the evidence that finished successfully,
+ * and `next_attempt_at` gates retries so a deferred record is not re-enqueued in
+ * a rapid loop. It never stores category assignments (those stay in
+ * `source_record_public_category`) and never mutates raw source metadata.
+ */
+export const sourceRecordPublicClassificationState = pgTable(
+  'source_record_public_classification_state',
+  {
+    sourceRecordId: text('source_record_id')
+      .primaryKey()
+      .references(() => sourceRecord.id, { onDelete: 'cascade' }),
+    /** Stable fingerprint of the bounded classification inputs most recently queued. */
+    evidenceFingerprint: text('evidence_fingerprint').notNull(),
+    /** Fingerprint of the evidence that last completed classification; null when not yet done. */
+    completedFingerprint: text('completed_fingerprint'),
+    /** Earliest time a deferred or new fingerprint may be attempted again. */
+    nextAttemptAt: timestamp('next_attempt_at').defaultNow().notNull(),
+    /** Last deferral reason, for observability; null once completed. */
+    lastDeferredReason: text('last_deferred_reason'),
+    /** Count of deferrals since the current evidence fingerprint was first queued. */
+    retryCount: integer('retry_count').default(0).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    check('source_record_public_classification_retry_nonnegative_chk', sql`${table.retryCount} >= 0`),
+    index('source_record_public_classification_due_idx').on(table.nextAttemptAt),
+  ],
+);
+
+export const sourceRecordPublicClassificationStateRelations = relations(
+  sourceRecordPublicClassificationState,
+  ({ one }) => ({
+    sourceRecord: one(sourceRecord, {
+      fields: [sourceRecordPublicClassificationState.sourceRecordId],
+      references: [sourceRecord.id],
+    }),
+  }),
+);
+
 export const publicCategoryRelations = relations(publicCategory, ({ many }) => ({
   labels: many(publicCategoryLabel),
   aliases: many(publicCategoryAlias),

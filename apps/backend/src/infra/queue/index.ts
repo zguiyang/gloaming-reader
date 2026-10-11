@@ -9,6 +9,7 @@ import { queueLogger } from '@/infra/logging/logger';
 export const QUEUE_NAME = 'gloaming';
 export const CLEANUP_QUEUE_NAME = 'gloaming-asset-cleanup';
 export const PERSONAL_TAG_QUEUE_NAME = 'gloaming-personal-tags';
+export const PUBLIC_CLASSIFICATION_QUEUE_NAME = 'gloaming-public-classification';
 
 const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
 
@@ -16,6 +17,7 @@ let connection: Redis | null = null;
 let queue: Queue | null = null;
 let cleanupQueue: Queue | null = null;
 let personalTagQueue: Queue | null = null;
+let publicClassificationQueue: Queue | null = null;
 
 /** Dedicated BullMQ Redis client. Do not reuse `getRedis()`. */
 export function getQueueConnection(): Redis {
@@ -61,6 +63,13 @@ export function getPersonalTagQueue(): Queue {
   return personalTagQueue;
 }
 
+/** Separate AI-heavy queue so classification never blocks sync/materialization jobs. */
+export function getPublicClassificationQueue(): Queue {
+  if (publicClassificationQueue) return publicClassificationQueue;
+  publicClassificationQueue = createNamedQueue(PUBLIC_CLASSIFICATION_QUEUE_NAME);
+  return publicClassificationQueue;
+}
+
 export type EnqueueJobOptions = {
   attempts?: number;
   backoff?: { type: 'exponential'; delay: number };
@@ -99,12 +108,24 @@ export async function enqueuePersonalTagging(
   return addJob(getPersonalTagQueue(), name, data, jobOptions);
 }
 
+export async function enqueuePublicClassification(
+  name: string,
+  data: unknown,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getPublicClassificationQueue(), name, data, jobOptions);
+}
+
 export async function enqueuePing(data?: PingJobData): Promise<string> {
   const payload: PingJobData = data ?? { requestedAt: new Date().toISOString() };
   return enqueue(JOB_PING, payload);
 }
 
 export async function closeQueue(): Promise<void> {
+  if (publicClassificationQueue) {
+    await publicClassificationQueue.close();
+    publicClassificationQueue = null;
+  }
   if (personalTagQueue) {
     await personalTagQueue.close();
     personalTagQueue = null;

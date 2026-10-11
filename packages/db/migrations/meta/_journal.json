@@ -351,6 +351,13 @@
       "when": 1791728169532,
       "tag": "0049_dark_celestials",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791729494764,
+      "tag": "0050_soft_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }
