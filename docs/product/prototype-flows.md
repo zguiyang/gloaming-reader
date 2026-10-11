@@ -11,20 +11,21 @@ Related: [`mvp-scope.md`](./mvp-scope.md) · [`mvp-1-modules.md`](./mvp-1-module
 - **Confirmed** = product decisions (auth 2026-08-05; reading loop 2026-08-20; learner IA 2026-08-20; ReadingWork domain 2026-08-24).
 - Do not revive Practice or Review screens. Personal EPUB Upload uses the ordinary User flow; Admin does not manage Catalog Works.
 
-**Routes (Phase 3A):** `/read/[workId]`, `/discover/[workId]` (detail).
+**Routes (Phase 1 IA):** `/read/[workId]`, `/discover` (catalog), `/works/[workId]` (ReadingWork detail). The old `/discover/[workId]` path redirects to Work detail for compatibility.
 
 ---
 
 ## 1. Surfaces (MVP 1 / Phase 1a)
 
-| Surface (label) | Audience   | Role now                                        |
-| --------------- | ---------- | ----------------------------------------------- |
-| Landing         | Logged-out | Story / CTA into auth                           |
-| Sign in / up    | Logged-out | Auth                                            |
-| **我的书架**    | Logged-in  | Default home: continue reading + my shelf       |
-| **发现**        | Logged-in  | Official **ReadingWork** catalog; add to shelf  |
-| **阅读历史**    | Logged-in  | Reading-history overview                        |
-| Reader          | Logged-in  | Read **ReadingPart** + assist / translate / TTS |
+| Surface (label) | Audience   | Role now                                                              |
+| --------------- | ---------- | --------------------------------------------------------------------- |
+| Landing         | Logged-out | Story / CTA into auth                                                 |
+| Sign in / up    | Logged-out | Auth                                                                  |
+| **我的书架**    | Logged-in  | Default home: continue reading + my shelf                             |
+| **发现**        | Logged-in  | Official **ReadingWork** catalog; add to shelf and open Work detail   |
+| **阅读历史**    | Logged-in  | Reading-history overview                                              |
+| Work detail     | Logged-in  | Shared ReadingWork information and actions; not a primary destination |
+| Reader          | Logged-in  | Read **ReadingPart** + assist / translate / TTS                       |
 
 Practice and Review surfaces are **removed**. Personal EPUB Upload is a User capability; Admin accounts use the same flow. Existing published Catalog Works remain in Discover; new Catalog intake awaits a separate Source policy decision.
 
@@ -59,8 +60,13 @@ Sign in
 flowchart TD
   Shelf[我的书架] -->|empty_or_browse| Discover[发现]
   Discover -->|加入书架| Shelf
-  Discover -->|打开| R[Reader]
-  Shelf -->|打开_或_继续阅读| R
+  Discover -->|选择作品| Detail[Work detail]
+  Shelf -->|封面或书名| Detail
+  Shelf -->|继续阅读| R[Reader]
+  Detail -->|开始或继续阅读| R
+  History[阅读历史] -->|封面或书名| Detail
+  History -->|继续阅读| R
+  R -->|查看书籍信息| Detail
   R -->|Selection_ask| A[AI companion]
   R -->|Optional| T[Translation]
   R -->|Optional| L[Listen TTS]
@@ -86,18 +92,23 @@ Open Gloaming
   → Leave
 ```
 
-| From     | Entry                             | To                | Status                    |
-| -------- | --------------------------------- | ----------------- | ------------------------- |
-| 我的书架 | Continue / last position          | Reader            | **Confirmed**             |
-| 我的书架 | Browse                            | 发现              | **Confirmed**             |
-| 发现     | Add to shelf                      | 我的书架          | **Confirmed**             |
-| 发现     | Open item                         | Reader            | **Confirmed**             |
-| 我的书架 | Open shelf item                   | Reader            | **Confirmed**             |
-| Reader   | Lookup / translate / TTS / assist | Stay in reader    | **Confirmed**             |
-| Reader   | Done for now                      | 我的书架 or close | **Confirmed**             |
-| Reader   | Practice CTA                      | —                 | **Retired** (removed)     |
-| Any      | 复习                              | —                 | **Retired** (removed)     |
-| 我的书架 | Personal EPUB Upload              | Private Work      | **Available** (User flow) |
+| From        | Entry                             | To                | Status                    |
+| ----------- | --------------------------------- | ----------------- | ------------------------- |
+| 我的书架    | Continue / last position          | Reader            | **Confirmed**             |
+| 我的书架    | Browse                            | 发现              | **Confirmed**             |
+| 发现        | Add to shelf                      | 我的书架          | **Confirmed**             |
+| 发现        | Open item                         | Work detail       | **Confirmed**             |
+| Work detail | Start / continue reading          | Reader            | **Confirmed**             |
+| 我的书架    | Cover / title                     | Work detail       | **Confirmed**             |
+| 我的书架    | Continue Reading shortcut         | Reader            | **Confirmed**             |
+| 阅读历史    | Cover / title                     | Work detail       | **Confirmed**             |
+| 阅读历史    | Explicit read action              | Reader            | **Confirmed**             |
+| Reader      | View book details                 | Work detail       | **Confirmed**             |
+| Reader      | Lookup / translate / TTS / assist | Stay in reader    | **Confirmed**             |
+| Reader      | Done for now                      | 我的书架 or close | **Confirmed**             |
+| Reader      | Practice CTA                      | —                 | **Retired** (removed)     |
+| Any         | 复习                              | —                 | **Retired** (removed)     |
+| 我的书架    | Personal EPUB Upload              | Private Work      | **Available** (User flow) |
 
 **Shell (Confirmed):** default nav is **我的书架 + 发现 + 阅读历史**. Reader is reached via content only.
 
@@ -142,6 +153,8 @@ Auth without this loop is **infra**, not product MVP 1.
 | 6   | Historical MVP 1a admin EPUB catalog decision; superseded by AS-02                                     | 2026-08-24 |
 | 7   | Shelf source labels `官方` / `用户` (`用户` = 1b)                                                      | 2026-08-20 |
 | 8   | No independent Search page; no upload was then planned for MVP 1 (upload boundary superseded by AS-02) | 2026-08-20 |
+| 9   | Work detail is a shared `/works/[workId]` ReadingWork route; legacy Discover detail redirects safely   | 2026-10-10 |
+| 10  | Reading State status determines detail CTA copy; `in_progress` remains continue at 0%                  | 2026-10-10 |
 
 Retired: Practice / Review nav; Dashboard / 图书馆 / 复习 / 成长 study loop.
 
@@ -153,7 +166,9 @@ Retired: Practice / Review nav; Dashboard / 图书馆 / 复习 / 成长 study lo
 | --------------- | ------------------------------------------ | ------------------------- |
 | History metrics | Heatmap / year/30d volume may still evolve | Evolve with product needs |
 
-**Resolved (2026-08-24):** Phase 3A — Article → ReadingWork / Part / State / ContentAsset; routes `/read/[workId]`, `/discover/[workId]`; Work APIs live.
+**Resolved (2026-10-10):** IA Phase 1 — generic `/works/[workId]` detail route, safe return context, and legacy `/discover/[workId]` redirect.
+
+**Historical baseline (2026-08-24):** Phase 3A used `/discover/[workId]` as the ReadingWork detail route. The route is now a compatibility redirect; Discover remains the Catalog surface.
 
 **Historical baseline (2026-08-24, superseded by AS-02):** Admin EPUB upload → parse → metadata → publish was the catalog supply path. AS-02 removed that management path; existing Catalog Works remain readable and Personal EPUB Upload uses the ordinary User flow.
 
@@ -165,11 +180,12 @@ Retired: Practice / Review nav; Dashboard / 图书馆 / 复习 / 成长 study lo
 
 ## 9. Change log
 
-| Date       | Change                                                                                                           |
-| ---------- | ---------------------------------------------------------------------------------------------------------------- |
-| 2026-08-24 | Phase 3A complete; known drift cleared of articleId / Article code notes.                                        |
-| 2026-08-24 | ReadingWork / workId routes; admin EPUB in 1a; user upload wording; known drift updated.                         |
-| 2026-08-23 | Frontend cleanup; nav IA matches mvp-1-modules.                                                                  |
-| 2026-08-20 | Learner IA locked; Practice/Review retired.                                                                      |
-| (revision) | Admin EPUB drift cleared; publish requires ready default US for synth parts (auto-TTS off).                      |
-| 2026-09-30 | AS-02: retained existing Catalog reading; removed Admin Works management; Personal EPUB Upload stays User-owned. |
+| Date       | Change                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-24 | Phase 3A complete; known drift cleared of articleId / Article code notes.                                              |
+| 2026-08-24 | ReadingWork / workId routes; admin EPUB in 1a; user upload wording; known drift updated.                               |
+| 2026-08-23 | Frontend cleanup; nav IA matches mvp-1-modules.                                                                        |
+| 2026-08-20 | Learner IA locked; Practice/Review retired.                                                                            |
+| (revision) | Admin EPUB drift cleared; publish requires ready default US for synth parts (auto-TTS off).                            |
+| 2026-09-30 | AS-02: retained existing Catalog reading; removed Admin Works management; Personal EPUB Upload stays User-owned.       |
+| 2026-10-10 | IA Phase 1: unified Work detail entry and return paths; ReadingState owns status copy independently of progress ratio. |

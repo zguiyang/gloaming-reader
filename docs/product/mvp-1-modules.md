@@ -58,7 +58,7 @@ Logged-out:  Landing → Auth → 我的书架
 Learner primary destinations (exactly three):
   我的书架  |  发现  |  阅读历史
 Content path (not a primary destination in the shell set):
-  → Reader
+  → Work detail → Reader
 ```
 
 ```mermaid
@@ -69,18 +69,24 @@ flowchart LR
     History[阅读历史]
   end
   Discover -->|"加入书架"| Shelf
-  Shelf -->|"继续阅读 / 打开"| Reader[Reader]
-  Discover -->|"打开阅读"| Reader
+  Shelf -->|"封面或书名"| Detail[Work detail]
+  Shelf -->|"继续阅读"| Reader[Reader]
+  Discover -->|"选择作品"| Detail
+  Detail -->|"开始或继续阅读"| Reader
+  History[阅读历史] -->|"封面或书名"| Detail
+  History -->|"继续阅读"| Reader
+  Reader -->|"查看书籍信息"| Detail
 ```
 
 How you **render** navigation (tab bar, rail, menu, …) is a layout choice for the prototype.
 
-| Destination (ZH) | English name    | Role (module only)                                    |
-| ---------------- | --------------- | ----------------------------------------------------- |
-| **我的书架**     | My shelf        | Default home. Continue reading + my shelf items       |
-| **发现**         | Discover        | Official catalog; add to shelf; may open reader       |
-| **阅读历史**     | Reading history | Reading-history overview (not streak / drill theater) |
-| **Reader**       | Reader          | Core read surface; entered via content only           |
+| Destination (ZH) | English name    | Role (module only)                                                        |
+| ---------------- | --------------- | ------------------------------------------------------------------------- |
+| **我的书架**     | My shelf        | Default home. Continue reading + my shelf items                           |
+| **发现**         | Discover        | Official catalog; add to shelf; open Work detail before reading           |
+| **阅读历史**     | Reading history | Reading-history overview (not streak / drill theater)                     |
+| Work detail      | Work detail     | Shared ReadingWork information; supporting route, not a shell destination |
+| **Reader**       | Reader          | Core read surface; entered via content only                               |
 
 **Naming locked:** Prefer **发现** over 图书馆; prefer **阅读历史** over 成长; prefer **我的书架** over 今日 / 我的图书.
 
@@ -110,28 +116,28 @@ Infra for the reading loop, not a product destination.
 
 ### 4.3 我的书架 (My shelf)
 
-|                        |                                                                                                                                                                                                                           |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Responsibility**     | Default home after login: show **what I am reading** and get me back into the book fast.                                                                                                                                  |
-| **Rough capabilities** | **Continue reading** (last unfinished text); shelf grid of books I added; open a book → Reader; per-item **source label** (`官方` for Catalog; `用户` for owned Personal Works); empty state that points toward **发现**. |
+|                        |                                                                                                                                                                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Responsibility**     | Default home after login: show **what I am reading** and get me back into the book fast.                                                                                                                                                                                |
+| **Rough capabilities** | **Continue reading** (last unfinished text) goes directly to Reader; cover/title opens Work detail; the detail page starts or resumes reading; keep source labels (`官方` / `用户`) and per-item management available for owned Personal Works and saved Catalog works. |
 
 No Tab split (mine vs Catalog). Personal EPUB Upload stays within the User-owned Library flow, not a separate top-level destination. Optional light local filter later—not required.
 
 ### 4.4 发现 (Discover)
 
-|                        |                                                                                                                               |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Responsibility**     | Let the user **find official texts** and put them on the shelf (novel-reader “bookstore → bookshelf” pattern).                |
-| **Rough capabilities** | Browse official catalog; **add to shelf** (primary story); **open to read** (allowed); show enough metadata to choose a text. |
+|                        |                                                                                                                  |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Responsibility**     | Let the user **find official texts** and put them on the shelf (novel-reader “bookstore → bookshelf” pattern).   |
+| **Rough capabilities** | Browse official catalog; **add to shelf** (primary story); open Work detail to inspect a text and start reading. |
 
 No independent Search page. Filters optional / non-blocking. Does not replace 我的书架 as the daily home.
 
 ### 4.5 阅读历史 (Reading history)
 
-|                        |                                                                                                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Responsibility**     | Calm overview of **reading over time**—not streaks, XP, or homework queues.                                                                                         |
-| **Rough capabilities** | Reading-history style summary (e.g. days active, volume / completions / lookups as the product already trends toward); evolve copy away from “学习 / 成长” framing. |
+|                        |                                                                                                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Responsibility**     | Calm overview of **reading over time**—not streaks, XP, or homework queues.                                                                                                                                                                |
+| **Rough capabilities** | Reading-history style summary (e.g. days active, volume / completions / lookups as the product already trends toward); cover/title opens Work detail and a separate read action opens Reader. Evolve copy away from “学习 / 成长” framing. |
 
 Must not reintroduce Practice / Review. Must not become the reason to open the app.
 
@@ -143,6 +149,8 @@ Must not reintroduce Practice / Review. Must not become the reason to open the a
 | **Rough capabilities** | Present **ReadingPart** text (typography / page or scroll); chapter/part navigation; restore **ReadingState** (part + anchor); quiet chrome. |
 
 Entered only via content (shelf or discover)—not a shell tab. Target route: `/read/[workId]`.
+
+Work detail is a shared content route at `/works/[workId]`. It displays ReadingWork information, reading status and progress, chapter links, and applicable personal Library management. The old `/discover/[workId]` URL redirects here. ReadingState status—not progress percentage—determines whether the primary action starts, continues, or repeats reading.
 
 ### 4.7 Reader — AI companion
 
@@ -213,7 +221,7 @@ Do not add these as modules or prototype screens for MVP 1:
 ```text
 Auth → 我的书架 (empty or few items)
   → 发现 → 加入书架
-  → 我的书架 → open → Reader
+  → 我的书架 → cover/title → Work detail → Reader
   → (optional) AI / translate / TTS
   → keep reading
 ```
@@ -225,7 +233,9 @@ Open → 我的书架 → Continue reading → Reader
   → help when stuck → leave
 ```
 
-Alternate: **发现** → open or add → Reader / shelf.
+Alternate: **发现** → Work detail → Reader, or add → 我的书架.
+
+From 阅读历史, cover/title opens Work detail and the explicit read action opens Reader. From Reader, book information opens the same Work detail and returns to the current Reader URL.
 
 ---
 
@@ -240,17 +250,21 @@ Before a prototype is accepted for MVP 1:
 - [ ] Discover primary story is **add to shelf** (open-to-read allowed)
 - [ ] Shelf includes source-label concept (`官方`; `用户` not required until 1b)
 - [ ] Continue reading belongs to **我的书架** (placement on the page is free)
+- [ ] `in_progress` status shows Continue reading even when progress is 0%
+- [ ] Library and History distinguish Work detail links from direct Reader actions
+- [ ] Work detail supports Catalog and owner-visible Personal Works at `/works/[workId]`
 - [ ] Layout may differ entirely from the current shipped app
 
 ---
 
 ## 8. Change log
 
-| Date       | Change                                                                                                            |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- |
-| 2026-08-24 | §4.10 Admin Work Management (EPUB upload); 1a includes admin pipeline; user upload still 1b; ADR-001.             |
-| 2026-09-30 | AS-02 removed Admin Works CMS; existing Catalog reads and User Personal Upload remain; Source intake is deferred. |
-| 2026-08-20 | Clarified: modules/IA locked; **layouts not locked** (§0).                                                        |
-| 2026-08-20 | Added per-module responsibility + rough capabilities (§4).                                                        |
-| 2026-08-20 | Initial MVP 1 module roadmap: 1a catalog-to-shelf; 1b import deferred; nav 我的书架 / 发现 / 阅读历史.            |
-| (revision) | §4.9–§4.10: publish default-US gate; auto workflow/TTS flags remain off.                                          |
+| Date       | Change                                                                                                                       |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-24 | §4.10 Admin Work Management (EPUB upload); 1a includes admin pipeline; user upload still 1b; ADR-001.                        |
+| 2026-09-30 | AS-02 removed Admin Works CMS; existing Catalog reads and User Personal Upload remain; Source intake is deferred.            |
+| 2026-10-10 | IA Phase 1: Work detail becomes a shared ReadingWork route; Library, History, and Reader use explicit detail/Reader entries. |
+| 2026-08-20 | Clarified: modules/IA locked; **layouts not locked** (§0).                                                                   |
+| 2026-08-20 | Added per-module responsibility + rough capabilities (§4).                                                                   |
+| 2026-08-20 | Initial MVP 1 module roadmap: 1a catalog-to-shelf; 1b import deferred; nav 我的书架 / 发现 / 阅读历史.                       |
+| (revision) | §4.9–§4.10: publish default-US gate; auto workflow/TTS flags remain off.                                                     |
