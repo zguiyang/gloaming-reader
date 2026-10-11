@@ -109,8 +109,14 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
           'Respond now with the required structured fields only (valid JSON matching the schema). Do not write free-form prose.',
         ),
       );
-      const structured = chat.withStructuredOutput(options.outputSchema, { method: 'jsonSchema', strict: true });
-      content = (await structured.invoke(conversation)) as ContentOut;
+      const structured = chat.withStructuredOutput(options.outputSchema, {
+        method: 'jsonSchema',
+        strict: true,
+        includeRaw: true,
+      });
+      const structuredResult = await structured.invoke(conversation);
+      if (structuredResult.raw instanceof AIMessage) addUsage(tokens, structuredResult.raw.usage_metadata);
+      content = structuredResult.parsed as ContentOut;
     } else if (lastAi) {
       content = messageContentToString(lastAi.content) as ContentOut;
     } else {
@@ -122,24 +128,25 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
 
     const replyText = replyTextFromContent(content);
 
-    await recordInvocation({
-      status: 'success',
-      purpose,
-      source: options.source,
-      userId: options.userId,
-      refType: options.ref?.type,
-      refId: options.ref?.id,
-      modelRowId: resolved.modelRowId,
-      providerId: resolved.providerId,
-      modelId: resolved.modelId,
-      baseUrl: resolved.baseUrl,
-      latencyMs: Date.now() - started,
-      inputTokens: tokens.inputTokens,
-      outputTokens: tokens.outputTokens,
-      totalTokens: tokens.totalTokens,
-      requestSummary: buildRequestSummary(options, toolRoundCount),
-      responseSummary: { replyLength: replyText.length },
-    });
+    if (options.persistInvocationLog !== false)
+      await recordInvocation({
+        status: 'success',
+        purpose,
+        source: options.source,
+        userId: options.userId,
+        refType: options.ref?.type,
+        refId: options.ref?.id,
+        modelRowId: resolved.modelRowId,
+        providerId: resolved.providerId,
+        modelId: resolved.modelId,
+        baseUrl: resolved.baseUrl,
+        latencyMs: Date.now() - started,
+        inputTokens: tokens.inputTokens,
+        outputTokens: tokens.outputTokens,
+        totalTokens: tokens.totalTokens,
+        requestSummary: buildRequestSummary(options, toolRoundCount),
+        responseSummary: { replyLength: replyText.length },
+      });
 
     return {
       content,
@@ -156,24 +163,25 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
       );
     }
 
-    await recordInvocation({
-      status: 'failure',
-      errorCode: String(statusCode),
-      purpose,
-      source: options.source,
-      userId: options.userId,
-      refType: options.ref?.type,
-      refId: options.ref?.id,
-      modelRowId: resolved?.modelRowId,
-      providerId: resolved?.providerId,
-      modelId: resolved?.modelId,
-      baseUrl: resolved?.baseUrl,
-      latencyMs: Date.now() - started,
-      inputTokens: tokens.inputTokens,
-      outputTokens: tokens.outputTokens,
-      totalTokens: tokens.totalTokens,
-      requestSummary: buildRequestSummary(options, toolRoundCount),
-    });
+    if (options.persistInvocationLog !== false)
+      await recordInvocation({
+        status: 'failure',
+        errorCode: String(statusCode),
+        purpose,
+        source: options.source,
+        userId: options.userId,
+        refType: options.ref?.type,
+        refId: options.ref?.id,
+        modelRowId: resolved?.modelRowId,
+        providerId: resolved?.providerId,
+        modelId: resolved?.modelId,
+        baseUrl: resolved?.baseUrl,
+        latencyMs: Date.now() - started,
+        inputTokens: tokens.inputTokens,
+        outputTokens: tokens.outputTokens,
+        totalTokens: tokens.totalTokens,
+        requestSummary: buildRequestSummary(options, toolRoundCount),
+      });
 
     if (error instanceof AppError) {
       throw error;

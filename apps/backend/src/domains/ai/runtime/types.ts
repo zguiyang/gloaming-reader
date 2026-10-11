@@ -40,6 +40,8 @@ export type AiInvokeOptions<TSchema extends ZodTypeAny | undefined = undefined> 
   maxTokens?: number;
   /** Provider-internal retries; background jobs may set zero to keep retry accounting at the queue. */
   maxRetries?: number;
+  /** Skip the invocation-log database write for isolated diagnostic calls. */
+  persistInvocationLog?: boolean;
   requestSummaryExtra?: AiInvocationSummaryExtra;
 };
 

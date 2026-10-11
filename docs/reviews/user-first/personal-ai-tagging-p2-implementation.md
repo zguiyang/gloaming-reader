@@ -179,10 +179,10 @@ This acceptance reviews the current P2 classification path and its Mock-backed b
 - Targeted Prettier check: passed.
 - `git diff --check`: passed.
 - GitNexus reported its index 34 commits behind HEAD, so it was not used as an impact all-clear. Manual search and source review confirmed the schema's production use is the P2 `invokeAi` call and the new focused tests.
-- No migration, development/production database operation, queue cleanup, Worker startup, or real Provider call was performed.
+- At the implementation-verification stage, no migration, development/production database operation, queue cleanup, Worker startup, or real Provider call was performed. The later real-model probes are recorded in the acceptance section below.
 - After the implementation commit, the focused pure unit suite `tests/unit/domains/library/personal-ai-tagging.spec.ts` passed (7 tests). Vitest enforced `TEST_DATABASE_URL=gloaming_test`; the unit cases made no database writes.
 
-### Real AI Semantic Acceptance — cases prepared, execution pending
+### Real AI Semantic Acceptance
 
 The following eight synthetic inputs use the same fields assembled by P2 (`title`, `author`, `language`, `description`, `excerpt`, `tocTitles`, and owned `existingTags`). They are test fixtures, not expected literal model outputs. At execution, use the current P2 system prompt, `personalTagDecisionSchema`, `validatePersonalTagDecision`, the current user's `user-only` `assist` resolver, and `invokeAi`; do not substitute a shorter prompt. Judge concept selection and rationale, not exact names or ordering. Record the raw structured output, accepted IDs/new concepts, validation changes, and PASS/PARTIAL/FAIL per case.
 
@@ -270,17 +270,105 @@ All `tag-*` identifiers below are synthetic candidate IDs. They must be supplied
 
 #### Execution gate and side effects
 
-No model was configured or called while preparing these cases. The production P2 call is embedded in `processPersonalTaggingJob`, which also reads a run/work/tags, reserves quota, and may persist associations. A safe acceptance harness must reuse the exact prompt construction, schema, server validator, and `invokeAi` path while bypassing the queue and all tag/run/quota writes. `invokeAi` itself writes the normal AI invocation audit record, so that audit row is an expected and separately disclosed database side effect unless the user approves a minimal isolated dry-run hook that suppresses only that audit write. Do not start a Worker or call the model until the selected user-owned Provider/model, current price, call cap, cost cap, and explicit approval are recorded.
+The eight samples above were prepared before a Provider was configured. On 2026-10-11, the user configured and explicitly authorized the user's own SenseNova Token Plan Provider (`sensenova-6.8-flash-lite`) for this acceptance, clarifying that there was no cost cap. The settings page showed a successful connectivity check. No API key or secret was recorded.
 
-At the current implementation limits, the original planning estimate remains a ceiling of about 28,000 input tokens and 9,600 output tokens (8 × 3,500 input and 1,200 output), not a usage guarantee. Actual price and expected cost cannot be stated until the user's Provider and model are known. No calls were made.
+#### Isolated execution attempt
+
+- The one-off harness calls the shared P2 `buildPersonalTaggingMessages`, `personalTagDecisionSchema`, `validatePersonalTagDecision`, `invokeAi`, and the existing `user-only` Provider Resolver. It supplies synthetic candidate IDs and synthetic book evidence; it does not read real books or real tags.
+- The harness verified the configured database target was `gloaming_backend` using a read-only query, then read the signed-in user's ID for Provider resolution. It bypasses the Worker, quota reservation, run state, tag/link persistence, translation, and AI invocation audit writes.
+- **Maximum authorized run:** 8 samples, one call per sample, `maxRetries: 0`; the user set no cost cap. No retries.
+- **Actual run:** all 8 cases were sent once, in order, and each returned `api.errors.ai.unavailable`. No structured output or usage metadata was returned.
+- The failed requests may or may not have reached the provider; actual token usage and any charges are unknown.
+- No database writes, Worker activity, migration, or changes to user tags/associations occurred.
+
+| Sample                                    | Execution status  | Structured output                 | Reuse/create result | Semantic judgment                          |
+| ----------------------------------------- | ----------------- | --------------------------------- | ------------------- | ------------------------------------------ |
+| 01 Same-language reuse                    | FAIL (invocation) | None; `api.errors.ai.unavailable` | Not assessed        | Not assessable; model returned no decision |
+| 02 English candidate for Chinese book     | FAIL (invocation) | None; `api.errors.ai.unavailable` | Not assessed        | Not assessable; no decision returned       |
+| 03 Existing-tag combination               | FAIL (invocation) | None; `api.errors.ai.unavailable` | Not assessed        | Not assessable; no decision returned       |
+| 04 Durable new concept                    | FAIL (invocation) | None; `api.errors.ai.unavailable` | Not assessed        | Not assessable; no decision returned       |
+| 05 No existing tags                       | FAIL (invocation) | None; `api.errors.ai.unavailable` | Not assessed        | Not assessable; no decision returned       |
+| 06 Near-synonym / multilingual candidates | FAIL (invocation) | None; `api.errors.ai.unavailable` | Not assessed        | Not assessable; no decision returned       |
+| 07 Insufficient evidence                  | FAIL (invocation) | None; `api.errors.ai.unavailable` | Not assessed        | Not assessable; no decision returned       |
+| 08 Technical-book over-specificity        | FAIL (invocation) | None; `api.errors.ai.unavailable` | Not assessed        | Not assessable; no decision returned       |
+
+#### Prompt-only compatibility probe
+
+After the structured calls failed, the user asked to try the broadest-compatibility plain-text request. The Settings “Test connection” action returned **“Connection successful · 1514 ms”** for the configured `sensenova-6.8-flash-lite` model. Source review confirms that this endpoint sends only a short system/user chat exchange and does not request a response schema.
+
+The user then authorized using that transport for the same eight synthetic cases. This was a separate compatibility probe, not a validation of P2's current strict structured-output request:
+
+- It reused the exact P2 `buildPersonalTaggingMessages` prompt and all eight sample contexts.
+- It omitted the API-level `response_format: json_schema` request, then attempted to parse the returned text as JSON and validate it locally with the current `personalTagDecisionSchema` and server validator.
+- All eight model calls returned text, so ordinary Chat Completions works with the configured model and prompt size.
+- **Five** outputs were not valid JSON (`SyntaxError`, samples 02, 03, 04, 05, 07). **Three** parsed as JSON but failed the P2 schema (`ZodError`, samples 01, 06, 08). No sample produced an accepted P2 decision.
+- The P2 prompt says to return the “required structured result” but leaves the concrete field contract to the API-level schema. Once `response_format` was removed, the plain-text request no longer included those field definitions. This is a prompt/transport mismatch in the compatibility probe; it does not show that the model made poor semantic tag choices.
+- The first harness version did not retain raw text when local parsing failed. The helper now retains that text and token usage for future approved runs. The lost responses and usage cannot be recovered, and no retry was made.
+- No real tags or associations were read or changed by the harness; `persistInvocationLog` was disabled. The separate Settings connection test uses the normal test endpoint, which records its ordinary AI invocation audit entry; it did not modify user tags or associations.
+
+| Sample                                    | Plain-text call | JSON parsing / P2 schema                  | Semantic judgment                                                          |
+| ----------------------------------------- | --------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
+| 01 Same-language reuse                    | PASS            | FAIL — JSON parsed, P2 schema rejected it | Not assessable; raw response was not retained by the first harness version |
+| 02 English candidate for Chinese book     | PASS            | FAIL — not valid JSON                     | Not assessable                                                             |
+| 03 Existing-tag combination               | PASS            | FAIL — not valid JSON                     | Not assessable                                                             |
+| 04 Durable new concept                    | PASS            | FAIL — not valid JSON                     | Not assessable                                                             |
+| 05 No existing tags                       | PASS            | FAIL — not valid JSON                     | Not assessable                                                             |
+| 06 Near-synonym / multilingual candidates | PASS            | FAIL — JSON parsed, P2 schema rejected it | Not assessable                                                             |
+| 07 Insufficient evidence                  | PASS            | FAIL — not valid JSON                     | Not assessable                                                             |
+| 08 Technical-book over-specificity        | PASS            | FAIL — JSON parsed, P2 schema rejected it | Not assessable                                                             |
+
+#### New-provider P2 run — strict structured output
+
+The user replaced the earlier provider with `ofox.ai`, configured its proxy, and asked for a fresh test. The Settings connectivity test succeeded in 2188 ms. The P2 harness then resolved the configured user-owned `assist` model through the existing user-only Provider Resolver and made one strict-schema call for each synthetic sample.
+
+- **Provider/model:** `ofox.ai` / `openai/gpt-6-luna`.
+- **Request path:** existing P2 prompt, `personalTagDecisionSchema` through `withStructuredOutput(method: 'jsonSchema', strict: true)`, existing user-only resolver, configured proxy; `maxRetries: 0`.
+- **Side effects:** read-only development database access for account/config resolution; invocation audit writes disabled; no Worker, tag, association, migration, or other business-data writes.
+- **Execution:** 8/8 calls returned schema-valid results. Server validation changed none of them; no foreign IDs or exact duplicate new names appeared.
+- **Token usage:** 5,886 input; 1,068 output; 6,954 total tokens. The provider did not return billing data, and its per-token price was not available in the app, so actual charge is unknown.
+
+| Sample                                    | Output                                                                                                                        | Reuse / create result                            | Human judgment                                                                                                                                                                             |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 01 Same-language reuse                    | `existingTagIds: [tag-ecology, tag-freshwater, tag-conservation]`; `newTags: []`                                              | Reused 3; created 0                              | **PASS** — relevant established topics cover the river ecology, freshwater habitat, and conservation evidence.                                                                             |
+| 02 English candidate for Chinese book     | `existingTagIds: [tag-climate-fiction, tag-migration]`; `newTags: []`                                                         | Reused both cross-language candidates; created 0 | **PASS** — both localized concepts fit the climate-displacement fiction.                                                                                                                   |
+| 03 Existing-tag combination               | `existingTagIds: [tag-marine-biology, tag-climate-change, tag-conservation]`; `newTags: []`                                   | Reused a sufficient combination; created 0       | **PASS** — multiple existing tags cover the book without a composite or narrow label.                                                                                                      |
+| 04 Durable new topic                      | `existingTagIds: [tag-mathematics]`; `newTags: []`                                                                            | Reused 1 broad tag; created 0                    | **FAIL** — the book is specifically about knot theory, a stable reusable topic. Mathematics alone is too broad to organize it adequately; this is an under-creation/over-broad-reuse miss. |
+| 05 No existing tags                       | `existingTagIds: []`; `newTags: [{name: Scientific method, sourceLocale: en-US, reusable: true, distinctFromExisting: true}]` | Created 1; reused 0                              | **PASS** — a concise, durable concept supported by the evidence, with a relevant rationale.                                                                                                |
+| 06 Near-synonym / multilingual candidates | `existingTagIds: [tag-renewables, tag-clean-power, tag-energy-policy]`; `newTags: []`                                         | Reused 3 localized existing concepts; created 0  | **PASS** — no cross-language duplicate was created; energy transition, clean power, and policy each apply to the described coverage.                                                       |
+| 07 Insufficient evidence                  | `existingTagIds: []`; `newTags: []`                                                                                           | Reused 0; created 0                              | **PASS** — correctly abstained rather than guessing from sparse notes.                                                                                                                     |
+| 08 Technical-book over-specificity        | `existingTagIds: [tag-software-engineering, tag-distributed-systems]`; `newTags: []`                                          | Reused 2; created 0                              | **PASS** — established broad topics fit; no implementation-detail tags were added.                                                                                                         |
+
+This run contrasts with the earlier SenseNova attempt: basic chat worked there, its strict-schema calls failed with a generic error, while the new provider completed all eight strict-schema calls. That strongly points toward provider-specific structured-output compatibility as the likely earlier issue, but the old upstream error body was not retained, so it is not a proven root cause.
+
+#### Acceptance analysis
+
+- **Reuse first:** generally yes. Five cases relied on suitable existing tags or their combination, with no unnecessary new tags. The knot-theory case shows that “reuse first” can become over-broad reuse when a durable subtopic is missing.
+- **Tag inflation:** no inflation appeared in this sample. Only one new tag was created, and it was appropriate for the tag-free scientific-reasoning book.
+- **New-tag quality:** “Scientific method” was clear, stable, and reusable, with evidence-based rationale.
+- **Cross-language reuse:** both multilingual cases reused existing IDs and created no translated duplicate. Two cases are encouraging but too few to establish broad reliability.
+- **Main failure and likely cause:** the model treated `Mathematics` as sufficient for a book centered on knot theory. The prompt asks whether existing coverage is “adequate” but does not give a threshold/example for a durable subtopic that merits its own personal tag. This is a semantic decision miss, not a validation failure.
+- **Prompt:** a narrow clarification is the likely next adjustment if the user chooses to address the miss. One failure does not justify a broad rewrite; do not change prompt/schema in this acceptance run.
+- **Server validation:** no change indicated. All eight strict outputs passed the schema, and server validation changed none. The validator cannot decide whether Mathematics adequately describes a knot-theory book.
+- **Next phase:** preparation may continue, but do not mark P2 semantic acceptance complete. If the next phase depends on accepted P2 behavior, first address or explicitly accept the knot-theory miss. Worker end-to-end remains a separate, unrun acceptance.
+
+#### Cost and diagnostic limits
+
+- The configured base URL is `https://token.sensenova.cn/v1`. SenseNova currently lists `sensenova-6.8-flash-lite` in its [free public-beta Token Plan](https://www.sensenova.cn/token-plan), shown as ¥0/month with 60,000 credits per five-hour window. The provider does not publish a token-to-credit conversion or expose this account's remaining quota in the settings page. The failed request's actual billing outcome is unknown.
+- The [official model API documentation](https://github.com/OpenSenseNova/SenseNova6.8/blob/main/API.md) demonstrates basic OpenAI-compatible Chat Completions and usage fields, but does not document JSON Schema structured-output support. This makes a structured-output compatibility issue a plausible hypothesis, not a confirmed root cause. The current `invokeAi` error boundary returns only the generic unavailable code and logs only the error class, so the upstream HTTP status/body was not available for diagnosis.
+- The successful basic connectivity check plus successful text-only model calls show that the old SenseNova URL/key supported ordinary Chat Completions. Its strict-mode attempts still expose only the generic error. The separate Ofox strict-mode run succeeded 8/8; provider-specific JSON Schema compatibility is therefore the likely difference, while the unavailable SenseNova upstream response prevents certainty.
+- **Structured-output legality:** PASS for the new provider; all eight strict outputs passed `personalTagDecisionSchema` and server validation unchanged. The earlier SenseNova strict requests returned no usable structured output.
+- **Semantic quality:** the new provider passed 7/8 synthetic cases and failed the knot-theory case due to over-broad reuse. The text-only probe's format/schema failures do not count as semantic judgments.
+- **Result:** real-model semantic acceptance is **PARTIAL**. Structured output and most reuse/abstention decisions worked, but one core create-versus-reuse judgment failed. Mock/unit verification, real-model semantic validation, and Worker end-to-end verification remain separate evidence; Worker end-to-end was not run.
+
+The original planning estimate remains about 28,000 input tokens and 9,600 output tokens for eight full cases, not a usage guarantee. The new provider's strict-schema run used 5,886 input and 1,068 output tokens; the earlier SenseNova and text-compatibility runs lost usable usage metadata, and actual charges are unknown. The separate connectivity probes reported latency but no token count.
 
 ### Watchlist and closure
 
 - **BLOCKED — Worker end-to-end:** not run because the Worker environment has unrelated business-queue backlog and the request forbids starting a Worker that could consume it.
-- **NOT TESTED this turn — Browser:** not repeated per this request. It records prior browser acceptance for Settings, English/Chinese, Light/Dark, 390px layout, the auto-organization switch, and quota display; this supersedes the older blocked-browser note above.
+- **PARTIAL — Browser:** the current Settings model connectivity control was exercised and returned success in 1514 ms. This checks only a basic prompt call; the broader prior browser acceptance for Settings, English/Chinese, Light/Dark, 390px layout, auto-organization switch, and quota display remains historical evidence and was not repeated.
 - **PARTIAL — Large candidate sets:** over 100 tags skip classification rather than retrieve a relevant subset. This is a bounded-candidate limitation, not addressed in this acceptance.
-- **PARTIAL — Real semantic quality:** cross-language equivalence, topic applicability, abstention, and duplicate-concept restraint remain unproven until the authorized sample run.
+- **PARTIAL — Real semantic quality:** the current provider passed cross-language reuse, sufficient combinations, abstention, and restraint in these synthetic cases; it reused an overly broad parent tag instead of adding a durable knot-theory tag in case 04. The sample set is small and does not establish general reliability.
 - **PARTIAL — Non-core runtime watchlist:** process-level BullMQ crash/stalled recovery, cluster-wide concurrency, and retry after daily quota exhaustion remain as recorded above. These are not evidence of semantic quality and were not re-tested here.
-- **Git:** branch remains `dev-02`; code, cleanup, and review-document changes were committed in separate batches. This preparation update is a separate documentation batch. Nothing was pushed.
+- **Git:** branch remains `dev-02`. Earlier implementation batches were committed; current acceptance-report and test-helper changes remain uncommitted and unpushed.
 
-Core business acceptance is **PARTIAL** until real-model semantics and the blocked Worker end-to-end path are separately authorized and verified. No known architectural blocker to later public-classification work was found; the remaining gap is evidence of model behavior, not a dependency on a shared taxonomy implementation.
+Core business acceptance is **PARTIAL**: one semantic case failed, and Worker end-to-end remains untested. Do not treat the model as fully accepted until the over-broad-reuse miss is addressed or explicitly accepted. No known architectural blocker to later public-classification work was found; the remaining gap is semantic quality evidence, not a dependency on a shared taxonomy implementation.
