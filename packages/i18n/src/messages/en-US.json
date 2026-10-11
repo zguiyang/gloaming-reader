@@ -339,6 +339,7 @@
       "contentSubtitle": "Content management",
       "navAssets": "Object storage usage",
       "navDiscoverySources": "Discovery sources",
+      "navPublicCategories": "Public categories",
       "navConfig": "Configuration",
       "navLogs": "Logs",
       "signInPrompt": "Sign in to access the admin console.",
@@ -394,6 +395,83 @@
         "queued": "Background sync queued.",
         "alreadyRunning": "A sync is already running.",
         "disabled": "Sync is unavailable while this source is disabled."
+      }
+    },
+    "publicCategories": {
+      "page": {
+        "title": "Public categories",
+        "subtitle": "Instance-level category names and source-record assignments."
+      },
+      "create": {
+        "namePlaceholder": "Category name",
+        "localeLabel": "Name language",
+        "submit": "Create category",
+        "ready": "Category ready."
+      },
+      "cancel": "Cancel",
+      "search": {
+        "placeholder": "Search names",
+        "empty": "No matching categories."
+      },
+      "list": {
+        "empty": "No public categories yet.",
+        "selectHint": "Select a category to edit its names and manage source records."
+      },
+      "recordCount": "{count} records",
+      "provenance": {
+        "manual": "Manual",
+        "ai": "AI"
+      },
+      "labels": {
+        "title": "Localized names",
+        "missing": "Missing name: {locale}",
+        "untranslated": "Untranslated",
+        "complete": "All names filled in",
+        "save": "Save {locale} name",
+        "saved": "Name saved.",
+        "nameExists": "A category with that name already exists for this language."
+      },
+      "detail": {
+        "idLabel": "Category ID",
+        "meaning": "Meaning",
+        "manualLocales": "Manually edited names: {locales}"
+      },
+      "records": {
+        "title": "Assigned source records",
+        "searchPlaceholder": "Search title, author, or source ID",
+        "empty": "No source records in this category yet.",
+        "noMatch": "No matching records.",
+        "assign": "Assign",
+        "assigned": "Assigned",
+        "remove": "Remove",
+        "removeConfirmTitle": "Remove source record?",
+        "removeConfirmDescription": "This removes “{title}” from the category and records manual suppression so automatic classification will not restore it.",
+        "removeAria": "Remove {title} from this category",
+        "assignAria": "Assign {title} to this category",
+        "assignedToast": "Assigned to this category.",
+        "removedToast": "Removed from this category.",
+        "assignmentLimit": "This record already has 3 categories and cannot take another.",
+        "linked": "Work created",
+        "notLinked": "No work yet",
+        "unavailable": "Unavailable"
+      },
+      "assign": {
+        "title": "Add source records",
+        "searchPlaceholder": "Search assignable titles or authors",
+        "hint": "Type at least 2 characters to search.",
+        "noResults": "No matching source records.",
+        "publicOnlyHint": "Only publicly discoverable source records are shown."
+      },
+      "pagination": {
+        "page": "Page {page} of {total}",
+        "prev": "Previous",
+        "next": "Next"
+      },
+      "errors": {
+        "loadCategories": "Could not load categories.",
+        "loadRecords": "Could not load source records.",
+        "searchRecords": "Could not search source records.",
+        "operationFailed": "Operation failed"
       }
     },
     "config": {
