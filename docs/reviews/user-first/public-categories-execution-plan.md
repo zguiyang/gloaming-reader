@@ -5,7 +5,7 @@
 ## Git baseline and frozen scope
 
 - Branch: `dev-02`; HEAD: `b22e7c4bef85ec19b21e42ebd7d5fdb56754100a` (`feat(tags): tighten P2 classification validation`). It contains the five reviewed Personal Tags P2 files; local commit hooks ran ESLint and Prettier successfully. No push was made.
-- At closeout, `dev-02` was 22 commits ahead of `origin/dev-02`. The prior 21 commits were already on the branch; they were not rewritten or pushed.
+- The P2 commit left `dev-02` 22 commits ahead of `origin/dev-02`; the separate plan-document commit followed it. The prior commits were not rewritten or pushed.
 - Personal Tags P1/P2 are frozen. Worker E2E and reliability/ quota follow-up remain Watchlist items. No unrelated Settings Model, Provider, or real-model work is included here.
 - GitNexus was 43 commits behind and returned stale symbols. Its results were not used as an all-clear; current source, call sites, route absence specs, and migration 0041 were checked manually.
 
@@ -62,7 +62,7 @@ Use at most two concurrent implementation Workers: PC-03 and PC-04. Do not paral
 - Current connected delegation skill is `pi-delegate` v4 and the registered MCP is `mcp__pi_task_exec__*`: `pi_list`, `pi_spawn`, `pi_status`, `pi_steer`, `pi_continue`, `pi_abort`. Use `pi_spawn` with a bounded task and `profile: implement`; inspect/release results with `pi_status` and `pi_abort`. `pi_continue` only reuses a related worker while that MCP server still holds its live `workerId`; workers run with `--no-session`, so IDs do not survive an MCP restart/reconnect. The current fleet was empty before investigation.
 - Pi `mode: worktree` creates a `pi-task-exec/<id>` branch under `<cwd>/.pi-task-exec/worktrees`; this appears as untracked content in the parent checkout. The read-only investigation confirmed that behavior. To keep `dev-02` clean, prefer one Codex-managed task Worktree per task, based on the exact accepted commit, then run the Pi Worker with `mode: direct` **inside that isolated Worktree**. First confirm that Pi's allowed roots admit the returned path; never fall back to the primary checkout. The Codex Worktree tool is available, but this run did not create an implementation Worktree.
 - Each task gets its own branch/Worktree and explicit file boundary. Workers report branch, Worktree path, commit SHA, changed files, checks, and unresolved items. They do not merge, push, reset, clean, or remove another Worktree. Codex independently reviews scope and output, runs focused checks, and merges serially.
-- PC-01 starts from `b22e7c4b…`. Later tasks start from the exact merge commit that contains their dependencies. Resolve conflicts only in Codex's integration step. Do not run full integrated acceptance for each Worker.
+- PC-01 starts from the current clean plan baseline (`c979f71e…`); `b22e7c4b…` is the immediately preceding P2 code commit. Later tasks start from the exact merge commit that contains their dependencies. Resolve conflicts only in Codex's integration step. Do not run full integrated acceptance for each Worker.
 
 ## Verification policy
 
