@@ -48,6 +48,106 @@ export const sourceRecordSourceMetaSchema = z.object({
 });
 export type SourceRecordSourceMeta = z.infer<typeof sourceRecordSourceMetaSchema>;
 
+/** Provenance shared by a public category, its labels, and its source assignments. */
+export const PUBLIC_CATEGORY_PROVENANCES = ['manual', 'ai'] as const;
+export type PublicCategoryProvenance = (typeof PUBLIC_CATEGORY_PROVENANCES)[number];
+export const publicCategoryProvenanceSchema = z.enum(PUBLIC_CATEGORY_PROVENANCES);
+
+/**
+ * Locale-independent comparison key for a public category label. Mirrors the
+ * NFC / whitespace-folded / case-folded key persisted as
+ * `public_category_label.normalized_name`. It only narrows candidates for
+ * duplicate detection; semantic identity is still a classification decision and
+ * never string equality.
+ */
+export function normalizePublicCategoryName(value: string): string {
+  return value.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und');
+}
+
+/** One localized display name for a public category. */
+export const publicCategoryLabelSchema = z.object({
+  locale: z.string(),
+  name: z.string(),
+  /** `manual` labels are protected from automatic overwrite. */
+  editedBy: publicCategoryProvenanceSchema,
+});
+export type PublicCategoryLabel = z.infer<typeof publicCategoryLabelSchema>;
+
+/**
+ * One known localized synonym used for candidate retrieval. Aliases are separate
+ * from the display label; a source term like `Sci-Fi` can resolve to the
+ * `Science Fiction` category without renaming it. `manual` aliases are protected
+ * from automatic overwrite.
+ */
+export const publicCategoryAliasSchema = z.object({
+  locale: z.string(),
+  alias: z.string(),
+  editedBy: publicCategoryProvenanceSchema,
+});
+export type PublicCategoryAlias = z.infer<typeof publicCategoryAliasSchema>;
+
+/**
+ * A flat, stable Discover category. Identity is `id`; `localizedNames` carries
+ * display names per locale so renaming never changes identity. There is no
+ * parent/hierarchy and no User Tag sharing.
+ */
+export const publicCategorySchema = z.object({
+  id: z.string(),
+  createdBy: publicCategoryProvenanceSchema,
+  /** Locale of the canonical label when the creator recorded one. */
+  sourceLocale: z.string().nullable().default(null),
+  /** Concise internal scope/meaning used for candidate retrieval. */
+  meaning: z.string().nullable().default(null),
+  /** Locales whose label was manually edited; automation must never overwrite them. */
+  manualLocales: z.array(z.string()).default([]),
+  /** Localized display names keyed by locale; missing keys are untranslated. */
+  localizedNames: z.record(z.string(), z.string()).default({}),
+  /** Known localized synonyms used to find this category; not part of the display label. */
+  aliases: z.array(publicCategoryAliasSchema).default([]),
+});
+export type PublicCategory = z.infer<typeof publicCategorySchema>;
+
+/**
+ * Minimal Discover display projection of a public category: the stable `id` plus
+ * a display `name` already resolved for the request locale. This is the only
+ * category shape a public SourceRecord response may expose; the retrieval and
+ * management fields (`meaning`, `aliases`, `manualLocales`, `localizedNames`,
+ * `createdBy`, `sourceLocale`) stay on the full `publicCategorySchema`.
+ */
+export const publicCategorySummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+export type PublicCategorySummary = z.infer<typeof publicCategorySummarySchema>;
+
+/** One public category assigned to one SourceRecord, with assignment provenance. */
+export const sourceRecordPublicCategorySchema = z.object({
+  categoryId: z.string(),
+  source: publicCategoryProvenanceSchema,
+});
+export type SourceRecordPublicCategory = z.infer<typeof sourceRecordPublicCategorySchema>;
+
+/**
+ * Resolve the display name for a locale using the documented fallback order:
+ * requested locale → source/canonical locale → first available label. Returns
+ * `null` when the category has no label at all; a fallback never claims to be a
+ * translation of the requested locale.
+ */
+export function resolvePublicCategoryName(category: PublicCategory, locale: string): string | null {
+  const names = category.localizedNames ?? {};
+  return (
+    names[locale] ??
+    (category.sourceLocale ? names[category.sourceLocale] : undefined) ??
+    Object.values(names)[0] ??
+    null
+  );
+}
+
+/** True when no label exists for the requested locale (display would fall back). */
+export function isPublicCategoryTranslationMissing(category: PublicCategory, locale: string): boolean {
+  return !category.localizedNames?.[locale];
+}
+
 /**
  * Query for `GET /api/discover/records`.
  * `language` defaults to English-first while all upstream languages stay stored.
@@ -56,6 +156,8 @@ export const sourceRecordListQuerySchema = paginationQuerySchema.extend({
   sortBy: createSortByQuerySchema(SOURCE_RECORD_SORT_FIELDS, DEFAULT_SOURCE_RECORD_SORT_BY),
   q: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(SOURCE_RECORD_SEARCH_MAX_CHARS).optional()),
   language: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(35).default(DISCOVERY_DEFAULT_LANGUAGE)),
+  /** Optional public category filter; the owning read model applies it. */
+  categoryId: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
 });
 export type SourceRecordListQuery = z.infer<typeof sourceRecordListQuerySchema>;
 
@@ -79,6 +181,11 @@ export const sourceRecordItemSchema = z.object({
   lastSeenAt: z.union([z.string(), z.date()]).nullable(),
   createdAt: z.union([z.string(), z.date()]),
   updatedAt: z.union([z.string(), z.date()]),
+  /**
+   * Public category display summaries projected for Discover; absent until the
+   * read model adds them. Never embeds the full category-management DTO.
+   */
+  categories: z.array(publicCategorySummarySchema).optional(),
 });
 export type SourceRecordItem = z.infer<typeof sourceRecordItemSchema>;
 
