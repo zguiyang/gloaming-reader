@@ -11,6 +11,8 @@ import {
   type LlmProvider,
   llmProviderSchema,
   type PutLlmAppSettingBody,
+  type TestLlmProviderResult,
+  testLlmProviderResultSchema,
   type UpdateLlmModelBody,
   type UpdateLlmProviderBody,
 } from '@gloaming/shared/llm';
@@ -21,6 +23,16 @@ import { apiRequest, formatApiError } from '@/lib/api-request';
 const providerListSchema = z.array(llmProviderSchema);
 const modelListSchema = z.array(llmModelSchema);
 const settingListSchema = z.array(llmAppSettingSchema);
+const personalTaggingPreferenceSchema = z.object({
+  enabled: z.boolean(),
+  generation: z.number().int().nonnegative(),
+  providerAvailable: z.boolean(),
+  dailyInvocationLimit: z.number().int().positive(),
+  dailyInvocationsUsed: z.number().int().nonnegative(),
+  dailyInvocationsReserved: z.number().int().nonnegative(),
+  latestRunState: z.enum(['queued', 'processing', 'completed', 'skipped', 'failed']).nullable(),
+});
+export type PersonalTaggingPreference = z.infer<typeof personalTaggingPreferenceSchema>;
 
 export const userSettingsQueryKey = {
   all: ['user-settings'] as const,
@@ -28,7 +40,20 @@ export const userSettingsQueryKey = {
   models: () => [...userSettingsQueryKey.all, 'llm', 'models'] as const,
   settings: () => [...userSettingsQueryKey.all, 'llm', 'settings'] as const,
   tts: () => [...userSettingsQueryKey.all, 'tts'] as const,
+  personalTagging: () => [...userSettingsQueryKey.all, 'personal-tagging'] as const,
 };
+
+export async function getPersonalTaggingPreference(signal?: AbortSignal): Promise<PersonalTaggingPreference> {
+  return apiRequest('/api/settings/personal-tagging', { schema: personalTaggingPreferenceSchema, signal });
+}
+
+export async function putPersonalTaggingPreference(enabled: boolean): Promise<PersonalTaggingPreference> {
+  return apiRequest('/api/settings/personal-tagging', {
+    method: 'PUT',
+    schema: personalTaggingPreferenceSchema,
+    json: { enabled },
+  });
+}
 
 export async function listUserLlmProviders(signal?: AbortSignal): Promise<LlmProvider[]> {
   return apiRequest('/api/settings/llm/providers', { schema: providerListSchema, signal });
@@ -59,6 +84,13 @@ export async function listUserLlmModels(providerId: string, signal?: AbortSignal
 
 export async function createUserLlmModel(input: CreateLlmModelBody): Promise<LlmModel> {
   return apiRequest('/api/settings/llm/models', { method: 'POST', schema: llmModelSchema, json: input });
+}
+
+export async function testUserLlmModel(id: string): Promise<TestLlmProviderResult> {
+  return apiRequest(`/api/settings/llm/models/${encodeURIComponent(id)}/test`, {
+    method: 'POST',
+    schema: testLlmProviderResultSchema,
+  });
 }
 
 export async function updateUserLlmModel(id: string, input: UpdateLlmModelBody): Promise<LlmModel> {

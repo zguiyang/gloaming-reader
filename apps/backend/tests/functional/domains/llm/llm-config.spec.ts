@@ -298,4 +298,54 @@ describe('LLM config HTTP', () => {
       headers: { cookie: admin.cookie },
     });
   });
+
+  it('re-saves a user purpose binding without ON CONFLICT inference errors', async () => {
+    const user = await createSession('user');
+    createdEmails.push(user.email);
+
+    const createProvider = await app.request('/api/settings/llm/providers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: user.cookie },
+      body: JSON.stringify({
+        apiFamily: 'openai',
+        name: `User Gateway ${Date.now().toString(36)}`,
+        baseUrl: 'https://example.com/v1',
+        apiKey: 'sk-user-test',
+      }),
+    });
+    expect(createProvider.status).toBe(201);
+    const provider = (await createProvider.json()) as LlmProvider;
+    createdProviderIds.push(provider.id);
+
+    const createModel = await app.request('/api/settings/llm/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: user.cookie },
+      body: JSON.stringify({
+        providerId: provider.id,
+        modelId: `gpt-user-test-${Date.now().toString(36)}`,
+        label: 'User Test Model',
+      }),
+    });
+    expect(createModel.status).toBe(201);
+    const model = (await createModel.json()) as LlmModel;
+
+    const putSetting = () =>
+      app.request(`/api/settings/llm/settings/${ASSIST_SETTING_KEY}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', cookie: user.cookie },
+        body: JSON.stringify({ modelId: model.id }),
+      });
+
+    const first = await putSetting();
+    expect(first.status).toBe(200);
+    const firstSetting = (await first.json()) as LlmAppSettingView;
+    expect(firstSetting.key).toBe(ASSIST_SETTING_KEY);
+    expect(firstSetting.modelId).toBe(model.id);
+
+    const second = await putSetting();
+    expect(second.status).toBe(200);
+    const secondSetting = (await second.json()) as LlmAppSettingView;
+    expect(secondSetting.key).toBe(ASSIST_SETTING_KEY);
+    expect(secondSetting.modelId).toBe(model.id);
+  });
 });

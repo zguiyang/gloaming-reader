@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 import {
   llmAppSetting as llmAppSettingTable,
@@ -21,10 +21,12 @@ import {
   type LlmModelListQuery,
   type LlmProvider,
   type PutLlmAppSettingBody,
+  type TestLlmProviderResult,
   type UpdateLlmModelBody,
   type UpdateLlmProviderBody,
 } from '@gloaming/shared/llm';
 
+import { invokeAi } from '@/domains/ai';
 import { parseApiFamily } from '@/domains/llm/config/api-family';
 import { settingReferencesModel } from '@/domains/llm/config/settings/references';
 import { isModelRuntimeReady } from '@/domains/llm/runtime/readiness';
@@ -273,6 +275,49 @@ export async function deleteUserModel(userId: string, id: string): Promise<void>
   await db.delete(llmModelTable).where(eq(llmModelTable.id, id));
 }
 
+export async function testUserModel(userId: string, id: string): Promise<TestLlmProviderResult> {
+  const existing = await db
+    .select({
+      modelEnabled: llmModelTable.isEnabled,
+      ownerUserId: llmProviderTable.ownerUserId,
+      providerEnabled: llmProviderTable.isEnabled,
+      apiFamily: llmProviderTable.apiFamily,
+    })
+    .from(llmModelTable)
+    .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
+    .where(eq(llmModelTable.id, id))
+    .limit(1);
+  if (!existing[0] || existing[0].ownerUserId !== userId) {
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
+  }
+  if (!existing[0].modelEnabled || !existing[0].providerEnabled) {
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.MODEL_OR_PROVIDER_DISABLED);
+  }
+  const apiFamily = parseApiFamily(existing[0].apiFamily);
+  if (!isModelRuntimeReady(apiFamily)) {
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.FAMILY_NOT_IMPLEMENTED, { apiFamily });
+  }
+
+  const started = Date.now();
+  const result = await invokeAi({
+    modelRowId: id,
+    source: 'user.provider_test',
+    userId,
+    messages: [
+      { role: 'system', content: 'Reply with exactly: ok' },
+      { role: 'user', content: 'ping' },
+    ],
+    timeoutMs: 30_000,
+    maxRetries: 0,
+  });
+
+  return {
+    ok: true,
+    latencyMs: Date.now() - started,
+    modelLabel: result.model.label,
+  };
+}
+
 export async function listUserSettings(userId: string): Promise<LlmAppSettingView[]> {
   const settings = await db.select().from(llmAppSettingTable).where(eq(llmAppSettingTable.ownerUserId, userId));
   const byKey = new Map(settings.map((s) => [s.key, s.value]));
@@ -363,6 +408,7 @@ export async function putUserSetting(
     })
     .onConflictDoUpdate({
       target: [llmAppSettingTable.ownerUserId, llmAppSettingTable.key],
+      targetWhere: isNotNull(llmAppSettingTable.ownerUserId),
       set: { value: body.modelId, updatedAt: new Date() },
     });
 

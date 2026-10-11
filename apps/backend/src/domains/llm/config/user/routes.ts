@@ -63,6 +63,12 @@ userLlmConfigRoutes.delete('/api/settings/llm/models/:id', requireAuth, async (c
   return c.body(null, HTTP_STATUS.NO_CONTENT);
 });
 
+userLlmConfigRoutes.post('/api/settings/llm/models/:id/test', requireAuth, async (c) => {
+  const user = c.get('user')!;
+  const result = await userLlmConfig.testUserModel(user.id, c.req.param('id'));
+  return c.json(result);
+});
+
 userLlmConfigRoutes.get('/api/settings/llm/settings', requireAuth, async (c) => {
   const user = c.get('user')!;
   return c.json(await userLlmConfig.listUserSettings(user.id));

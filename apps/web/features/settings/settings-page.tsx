@@ -25,11 +25,14 @@ import {
   deleteUserLlmModel,
   deleteUserLlmProvider,
   formatUserSettingsApiError,
+  getPersonalTaggingPreference,
   getUserTtsConfig,
   listUserLlmModels,
   listUserLlmProviders,
   listUserLlmSettings,
+  putPersonalTaggingPreference,
   putUserLlmSetting,
+  testUserLlmModel,
   updateUserLlmModel,
   updateUserLlmProvider,
   userSettingsQueryKey,
@@ -47,6 +50,7 @@ type ProviderDraft = {
   thinkingParam: string;
 };
 type ModelDraft = { modelId: string; label: string; wireVariant: string };
+type ModelTestResult = { status: 'success'; latencyMs: number } | { status: 'error'; message: string };
 
 const EMPTY_PROVIDER: ProviderDraft = {
   apiFamily: 'openai',
@@ -234,8 +238,14 @@ export function SettingsPage() {
     queryFn: ({ signal }) => getUserTtsConfig(signal),
     enabled: Boolean(session.data?.user),
   });
+  const personalTaggingQuery = useQuery({
+    queryKey: userSettingsQueryKey.personalTagging(),
+    queryFn: ({ signal }) => getPersonalTaggingPreference(signal),
+    enabled: Boolean(session.data?.user),
+  });
   const providers = providersQuery.data ?? [];
   const [selectedProviderId, setSelectedProviderId] = useState('');
+  const [modelTestResults, setModelTestResults] = useState<Record<string, ModelTestResult>>({});
   const activeProviderId = providers.some((provider) => provider.id === selectedProviderId)
     ? selectedProviderId
     : (providers[0]?.id ?? '');
@@ -288,6 +298,7 @@ export function SettingsPage() {
           }),
     onSuccess: async () => {
       await refreshLlm();
+      setModelTestResults({});
       setIsProviderFormOpen(false);
       setEditingProvider(null);
       toast.success(t(locale, 'settings.saved'));
@@ -314,13 +325,40 @@ export function SettingsPage() {
         sortOrder: 0,
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (_updated, { model }) => {
       await refreshLlm();
+      if (model) {
+        setModelTestResults((results) => {
+          const next = { ...results };
+          delete next[model.id];
+          return next;
+        });
+      }
       setModelDraft(EMPTY_MODEL);
       setEditingModelId('');
       toast.success(t(locale, 'settings.saved'));
     },
     onError: (error) => toast.error(formatUserSettingsApiError(error)),
+  });
+
+  const modelTestMutation = useMutation({
+    mutationFn: (modelId: string) => testUserLlmModel(modelId),
+    onMutate: (modelId) => {
+      setModelTestResults((results) => {
+        const next = { ...results };
+        delete next[modelId];
+        return next;
+      });
+    },
+    onSuccess: (result, modelId) => {
+      setModelTestResults((results) => ({ ...results, [modelId]: { status: 'success', latencyMs: result.latencyMs } }));
+    },
+    onError: (error, modelId) => {
+      setModelTestResults((results) => ({
+        ...results,
+        [modelId]: { status: 'error', message: formatUserSettingsApiError(error) },
+      }));
+    },
   });
 
   const modeMutation = useMutation({
@@ -344,6 +382,15 @@ export function SettingsPage() {
     mutationFn: ({ key, modelId }: { key: AiSettingKey; modelId: string }) => putUserLlmSetting(key, { modelId }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: userSettingsQueryKey.settings() });
+      toast.success(t(locale, 'settings.saved'));
+    },
+    onError: (error) => toast.error(formatUserSettingsApiError(error)),
+  });
+
+  const personalTaggingMutation = useMutation({
+    mutationFn: (enabled: boolean) => putPersonalTaggingPreference(enabled),
+    onSuccess: async (preference) => {
+      queryClient.setQueryData(userSettingsQueryKey.personalTagging(), preference);
       toast.success(t(locale, 'settings.saved'));
     },
     onError: (error) => toast.error(formatUserSettingsApiError(error)),
@@ -397,6 +444,46 @@ export function SettingsPage() {
               {formatUserSettingsApiError(loadError)}
             </p>
           ) : null}
+          <section className="mb-6 border-b border-border/60 pb-5">
+            <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.personalTagging.title')}</h2>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
+              <label htmlFor="settings-personal-tagging" className="text-sm text-foreground">
+                {t(locale, 'settings.personalTagging.toggle')}
+              </label>
+              <input
+                id="settings-personal-tagging"
+                type="checkbox"
+                className="size-5 accent-primary"
+                checked={personalTaggingQuery.data?.enabled ?? false}
+                disabled={personalTaggingQuery.isPending || personalTaggingMutation.isPending}
+                onChange={(event) => personalTaggingMutation.mutate(event.target.checked)}
+              />
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{t(locale, 'settings.personalTagging.description')}</p>
+            {personalTaggingQuery.data?.enabled && !personalTaggingQuery.data.providerAvailable ? (
+              <p role="status" className="mt-2 text-sm text-muted-foreground">
+                {t(locale, 'settings.personalTagging.providerUnavailable')}
+              </p>
+            ) : null}
+            {personalTaggingQuery.data?.enabled && personalTaggingQuery.data.providerAvailable ? (
+              <p role="status" className="mt-2 text-sm text-muted-foreground">
+                {t(locale, 'settings.personalTagging.quotaStatus', {
+                  used: String(
+                    personalTaggingQuery.data.dailyInvocationsUsed + personalTaggingQuery.data.dailyInvocationsReserved,
+                  ),
+                  limit: String(personalTaggingQuery.data.dailyInvocationLimit),
+                })}
+                {personalTaggingQuery.data.latestRunState
+                  ? ` · ${t(locale, `settings.personalTagging.runState.${personalTaggingQuery.data.latestRunState}`)}`
+                  : null}
+              </p>
+            ) : null}
+            {personalTaggingQuery.error ? (
+              <p role="alert" className="mt-2 text-sm text-destructive">
+                {formatUserSettingsApiError(personalTaggingQuery.error)}
+              </p>
+            ) : null}
+          </section>
           {!providersQuery.isPending && !settingsQuery.isPending && !loadError ? (
             <div className="flex flex-col gap-6">
               <section>
@@ -542,6 +629,7 @@ export function SettingsPage() {
               {isOwnMode ? (
                 <section className="border-t border-border/60 pt-5">
                   <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.ai.models')}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'settings.ai.testCostNotice')}</p>
                   <Field className="mt-4 max-w-sm">
                     <FieldLabel htmlFor="settings-model-provider">{t(locale, 'settings.ai.provider')}</FieldLabel>
                     <select
@@ -558,57 +646,93 @@ export function SettingsPage() {
                     </select>
                   </Field>
                   <div className="mt-4 flex flex-col gap-3">
-                    {modelsByProvider.map((model) => (
-                      <div key={model.id} className="flex flex-wrap items-center gap-3 border-b border-border/50 pb-3">
-                        {editingModelId === model.id ? (
-                          <ModelFields
-                            draft={modelDraft}
-                            setDraft={setModelDraft}
-                            family={providers.find((p) => p.id === model.providerId)?.apiFamily ?? 'openai'}
-                            locale={locale}
-                          />
-                        ) : (
-                          <span className="min-w-32 font-medium">{model.label}</span>
-                        )}
-                        {editingModelId === model.id ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={modelMutation.isPending}
-                            onClick={() => modelMutation.mutate({ draft: modelDraft, model })}
-                          >
-                            {t(locale, 'settings.save')}
-                          </Button>
-                        ) : (
-                          <>
-                            <span className="text-sm text-muted-foreground">{model.modelId}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingModelId(model.id);
-                                setModelDraft({
-                                  modelId: model.modelId,
-                                  label: model.label,
-                                  wireVariant: model.wireVariant,
-                                });
-                              }}
-                            >
-                              {t(locale, 'settings.edit')}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteMutation.mutate({ kind: 'model', id: model.id })}
-                            >
-                              {t(locale, 'settings.delete')}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                    {modelsByProvider.map((model) => {
+                      const modelProvider = providers.find((provider) => provider.id === model.providerId);
+                      const isRuntimeImplemented = modelProvider
+                        ? LLM_WIRE_REGISTRY[modelProvider.apiFamily].runtimeImplemented
+                        : false;
+                      const testResult = modelTestResults[model.id];
+                      const isTesting = modelTestMutation.isPending && modelTestMutation.variables === model.id;
+                      return (
+                        <div key={model.id} className="border-b border-border/50 pb-3">
+                          <div className="flex flex-wrap items-center gap-3">
+                            {editingModelId === model.id ? (
+                              <ModelFields
+                                draft={modelDraft}
+                                setDraft={setModelDraft}
+                                family={providers.find((p) => p.id === model.providerId)?.apiFamily ?? 'openai'}
+                                locale={locale}
+                              />
+                            ) : (
+                              <span className="min-w-32 font-medium">{model.label}</span>
+                            )}
+                            {editingModelId === model.id ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={modelMutation.isPending}
+                                onClick={() => modelMutation.mutate({ draft: modelDraft, model })}
+                              >
+                                {t(locale, 'settings.save')}
+                              </Button>
+                            ) : (
+                              <>
+                                <span className="text-sm text-muted-foreground">{model.modelId}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={
+                                    modelTestMutation.isPending ||
+                                    !model.isEnabled ||
+                                    !modelProvider?.isEnabled ||
+                                    !isRuntimeImplemented
+                                  }
+                                  onClick={() => modelTestMutation.mutate(model.id)}
+                                >
+                                  {isTesting
+                                    ? t(locale, 'settings.ai.testingConnection')
+                                    : t(locale, 'settings.ai.testConnection')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingModelId(model.id);
+                                    setModelDraft({
+                                      modelId: model.modelId,
+                                      label: model.label,
+                                      wireVariant: model.wireVariant,
+                                    });
+                                  }}
+                                >
+                                  {t(locale, 'settings.edit')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteMutation.mutate({ kind: 'model', id: model.id })}
+                                >
+                                  {t(locale, 'settings.delete')}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          {testResult?.status === 'success' ? (
+                            <p role="status" className="mt-2 text-sm text-muted-foreground">
+                              {t(locale, 'settings.ai.testSucceeded', { latencyMs: String(testResult.latencyMs) })}
+                            </p>
+                          ) : null}
+                          {testResult?.status === 'error' ? (
+                            <p role="alert" className="mt-2 text-sm text-destructive">
+                              {t(locale, 'settings.ai.testFailed', { message: testResult.message })}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                     {!modelsByProvider.length ? (
                       <p className="text-sm text-muted-foreground">{t(locale, 'settings.ai.noModels')}</p>
                     ) : null}
