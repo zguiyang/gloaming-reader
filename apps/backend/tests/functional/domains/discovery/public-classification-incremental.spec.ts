@@ -97,6 +97,41 @@ let gutenbergSourceId = '';
 let gutenbergPreExisting: typeof discoverySourceTable.$inferSelect | null = null;
 const createdCategoryIds = new Set<string>();
 
+/**
+ * Preserve the pre-existing singleton budget row so this file only removes rows
+ * it created and restores any budget state it found.
+ */
+let budgetPreExisting: typeof publicClassificationBudgetTable.$inferSelect | null = null;
+
+/** Scoped reset of only the singleton budget row; never a table-wide delete. */
+async function resetClassificationBudgetRow(): Promise<void> {
+  await db
+    .delete(publicClassificationBudgetTable)
+    .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID));
+}
+
+beforeAll(async () => {
+  const [row] = await db
+    .select()
+    .from(publicClassificationBudgetTable)
+    .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID))
+    .limit(1);
+  budgetPreExisting = row ?? null;
+});
+
+afterAll(async () => {
+  await resetClassificationBudgetRow();
+  if (budgetPreExisting) {
+    await db.insert(publicClassificationBudgetTable).values({
+      id: budgetPreExisting.id,
+      quotaDate: budgetPreExisting.quotaDate,
+      quotaUsed: budgetPreExisting.quotaUsed,
+      quotaReserved: budgetPreExisting.quotaReserved,
+      updatedAt: budgetPreExisting.updatedAt,
+    });
+  }
+});
+
 function fixtureRecord(index: number, overrides: Partial<ParsedSourceRecord> = {}): ParsedSourceRecord {
   return {
     externalId: `${runId}-${index}`,
@@ -195,13 +230,12 @@ describe('incremental public classification on gloaming_test', () => {
     acquireLockMock.mockReset().mockResolvedValue(true);
     enqueueMock.mockReset();
     await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
-    await db.delete(publicClassificationBudgetTable);
+    await resetClassificationBudgetRow();
   });
 
   afterAll(async () => {
     await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
     await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
-    await db.delete(publicClassificationBudgetTable);
     if (createdCategoryIds.size > 0) {
       await db.delete(publicCategoryTable).where(inArray(publicCategoryTable.id, [...createdCategoryIds]));
     }
@@ -449,6 +483,7 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
     await db
       .delete(sourceRecordTable)
       .where(and(eq(sourceRecordTable.sourceId, gutenbergSourceId), like(sourceRecordTable.externalId, `${runId}-%`)));
+    await resetClassificationBudgetRow();
     await db
       .update(discoverySourceTable)
       .set({
