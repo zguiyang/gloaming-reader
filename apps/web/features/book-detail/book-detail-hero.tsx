@@ -27,7 +27,8 @@ type BookDetailHeroProps = {
 
 export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibrary }: BookDetailHeroProps) {
   const { locale } = useLocale();
-  const readHref = AUTH_ROUTES.readBook(book.id);
+  const currentPartId = book.chapters.find((chapter) => chapter.status === 'current')?.id;
+  const readHref = AUTH_ROUTES.readBook(book.id, currentPartId);
   const readLabel = primaryReadLabel(book.readingStatus, locale);
   const lastRead = formatRelativeReadTime(book.lastReadAt, new Date(), locale);
   const isCompleted = book.readingStatus === 'completed';
@@ -58,6 +59,14 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
                 {languageLabel}
               </span>
             ) : null}
+            {book.availability === 'processing' ? (
+              <span role="status" className="text-sm text-muted-foreground">
+                {t(locale, 'content.library.processing')}
+              </span>
+            ) : null}
+            {book.availability === 'failed' ? (
+              <span className="text-sm text-destructive">{t(locale, 'content.library.importFailed')}</span>
+            ) : null}
           </div>
           <h1 className="font-heading text-3xl leading-tight font-bold tracking-tight text-foreground text-balance md:text-5xl md:leading-[1.15]">
             {book.title}
@@ -75,14 +84,16 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
 
         <div className="hidden max-w-xl flex-col gap-4 pt-1 md:flex">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <Button
-              nativeButton={false}
-              className="h-11 flex-1 rounded-xl px-8 text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]"
-              render={<Link href={readHref} />}
-            >
-              <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
-              {readLabel}
-            </Button>
+            {book.isReadable ? (
+              <Button
+                nativeButton={false}
+                className="h-11 flex-1 rounded-xl px-8 text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]"
+                render={<Link href={readHref} />}
+              >
+                <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
+                {readLabel}
+              </Button>
+            ) : null}
             <LibraryButton
               inLibrary={inLibrary}
               onAdd={onAddToLibrary}
@@ -165,8 +176,11 @@ export function BookDetailStickyCta({
   isAddingToLibrary?: boolean;
 }) {
   const { locale } = useLocale();
-  const readHref = AUTH_ROUTES.readBook(book.id);
+  const currentPartId = book.chapters.find((chapter) => chapter.status === 'current')?.id;
+  const readHref = AUTH_ROUTES.readBook(book.id, currentPartId);
   const readLabel = primaryReadLabel(book.readingStatus, locale);
+
+  if (!book.isReadable) return null;
 
   return (
     <div className="fixed inset-x-0 z-40 border-t border-border/60 bg-background/95 p-4 backdrop-blur-md md:hidden bottom-[var(--app-shell-bottom,0px)]">

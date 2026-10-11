@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_LOCALE } from '@gloaming/i18n';
 import { workSchema } from '@gloaming/shared/works';
 
-import { chaptersFromParts, toBookDetail } from '@/features/book-detail/book-detail-api';
+import { chaptersFromParts, toBookDetail, toPersonalBookDetail } from '@/features/book-detail/book-detail-api';
 import {
   chapterOrdinalLabel,
   chapterStatusLabel,
@@ -14,9 +14,14 @@ import {
   formatSuggestedVocabSize,
   languageLabelFromCode,
   primaryReadLabel,
-  readingStatusFromProgress,
+  readingStatusFromState,
   teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
+import {
+  legacyWorkDetailRedirect,
+  resolveWorkDetailReturnTo,
+  workDetailHref,
+} from '@/lib/navigation/work-detail-return';
 
 describe('book-detail-model', () => {
   it('maps reading status to primary CTA labels', () => {
@@ -48,10 +53,9 @@ describe('book-detail-model', () => {
   });
 
   it('derives reading status from independent reader state', () => {
-    expect(readingStatusFromProgress('completed', 100)).toBe('completed');
-    expect(readingStatusFromProgress('in_progress', 40)).toBe('in_progress');
-    expect(readingStatusFromProgress('in_progress', 0)).toBe('unread');
-    expect(readingStatusFromProgress(null, null)).toBe('unread');
+    expect(readingStatusFromState('completed')).toBe('completed');
+    expect(readingStatusFromState('in_progress')).toBe('in_progress');
+    expect(readingStatusFromState(null)).toBe('unread');
   });
 
   it('builds teaser from description', () => {
@@ -80,6 +84,33 @@ describe('book-detail-model', () => {
   it('formats fallback chapter titles from index', () => {
     expect(formatChapterTitle({ index: 3, title: '' }, DEFAULT_LOCALE)).toBe('第 3 章');
     expect(formatChapterTitle({ index: 3, title: 'Custom' }, DEFAULT_LOCALE)).toBe('Custom');
+  });
+});
+
+describe('Work detail return path', () => {
+  it('allows Library, History, and the same Work Reader while preserving query', () => {
+    expect(resolveWorkDetailReturnTo('/library?source=personal', 'w1')).toBe('/library?source=personal');
+    expect(resolveWorkDetailReturnTo('/reading-history?range=week', 'w1')).toBe('/reading-history?range=week');
+    expect(resolveWorkDetailReturnTo('/discover', 'w1')).toBe('/discover');
+    expect(resolveWorkDetailReturnTo('/read/w1?part=p2', 'w1')).toBe('/read/w1?part=p2');
+    expect(workDetailHref('w1', '/read/w1?part=p2')).toBe('/works/w1?returnTo=%2Fread%2Fw1%3Fpart%3Dp2');
+    expect(legacyWorkDetailRedirect('w1', '/reading-history')).toBe('/works/w1?returnTo=%2Freading-history');
+  });
+
+  it('rejects external, malformed, cross-Work, and unapproved destinations', () => {
+    for (const value of [
+      'https://example.com',
+      '//example.com',
+      '/\\example.com',
+      '/read/w2?part=p2',
+      '/library/../discover',
+      '/settings',
+      '/library%ZZ',
+      '/library#section',
+    ]) {
+      expect(resolveWorkDetailReturnTo(value, 'w1')).toBe('/library');
+    }
+    expect(resolveWorkDetailReturnTo(undefined, 'w1')).toBe('/library');
   });
 });
 
@@ -189,7 +220,7 @@ describe('toBookDetail', () => {
       },
     ];
 
-    const book = toBookDetail(work, parts, false, null);
+    const book = toBookDetail(work, parts, null, null);
     expect(book.estimatedMinutes).toBe(2);
     expect(book.suggestedVocabSize).toBeNull();
     expect(book.language).toBe('en');
@@ -199,5 +230,84 @@ describe('toBookDetail', () => {
     expect(workSchema.shape).not.toHaveProperty('tags');
     expect(workSchema.shape).not.toHaveProperty('category');
     expect(workSchema.shape).not.toHaveProperty('sources');
+  });
+
+  it('uses the Reading State status for detail copy even at zero percent', () => {
+    const book = toBookDetail(work, [], null, {
+      status: 'in_progress',
+      currentPartId: null,
+      completedThroughSortOrder: -1,
+      progressRatio: 0,
+      totalPartCount: 1,
+      lastReadAt: '2026-08-28T12:00:00.000Z',
+      completedAt: null,
+    });
+    expect(book.readingStatus).toBe('in_progress');
+    expect(book.progressRatio).toBe(0);
+  });
+});
+
+describe('toPersonalBookDetail', () => {
+  const entry = {
+    work: {
+      id: 'personal-1',
+      title: 'Private Book',
+      description: 'A personal book',
+      coverAssetId: null,
+      publishedAt: null,
+    },
+    state: null,
+    availability: 'ready' as const,
+    libraryItemKind: 'personal' as const,
+    personalMetadata: { author: 'Local Author' },
+    canRemoveFromLibrary: false,
+    userTags: [],
+  };
+  const parts = [
+    {
+      id: 'part-1',
+      workId: 'personal-1',
+      sortOrder: 0,
+      kind: 'chapter' as const,
+      title: 'Chapter One',
+      wordCount: 500,
+      estimatedMinutes: 3,
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    },
+  ];
+
+  it('keeps private Work identity, owner metadata, and zero-progress ReadingState', () => {
+    const book = toPersonalBookDetail(
+      entry,
+      { work: entry.work, parts },
+      {
+        status: 'in_progress',
+        currentPartId: 'part-1',
+        completedThroughSortOrder: -1,
+        progressRatio: 0,
+        totalPartCount: 1,
+        lastReadAt: '2026-08-28T12:00:00.000Z',
+        completedAt: null,
+      },
+    );
+
+    expect(book).toMatchObject({
+      id: 'personal-1',
+      author: 'Local Author',
+      libraryStatus: 'in_library',
+      readingStatus: 'in_progress',
+      progressRatio: 0,
+      isReadable: true,
+    });
+    expect(book.libraryItem?.libraryItemKind).toBe('personal');
+    expect(book.chapters.map((chapter) => chapter.status)).toEqual(['current']);
+  });
+
+  it('does not expose a Reader action while a personal Work is processing', () => {
+    const book = toPersonalBookDetail({ ...entry, availability: 'processing' }, null, null);
+    expect(book.availability).toBe('processing');
+    expect(book.isReadable).toBe(false);
+    expect(book.chapters).toEqual([]);
   });
 });

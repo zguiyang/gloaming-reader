@@ -47,6 +47,8 @@ describe('getPrimaryNavLinks', () => {
   it('has no route file for the retired path', () => {
     expect(existsSync(new URL('../../app/(app)/library/page.tsx', import.meta.url))).toBe(true);
     expect(existsSync(new URL('../../app/(app)/my-shelf/page.tsx', import.meta.url))).toBe(false);
+    expect(existsSync(new URL('../../app/(app)/works/[workId]/page.tsx', import.meta.url))).toBe(true);
+    expect(existsSync(new URL('../../app/(app)/discover/[workId]/page.tsx', import.meta.url))).toBe(true);
   });
 });
 

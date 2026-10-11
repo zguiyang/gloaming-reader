@@ -7,13 +7,21 @@ import { useRouter } from 'next/navigation';
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
-import { AUTH_ROUTES } from '@/constants';
 import { BookDetailRecommendations } from '@/features/book-detail/book-detail-recommendations';
 import { useLocale } from '@/lib/locale-context';
+import { workDetailReturnLabelKey } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
 
 /** Content unavailable / load-failure state for live book detail. */
-export function BookDetailUnavailable({ workId, message }: { workId?: string; message?: string }) {
+export function BookDetailUnavailable({
+  workId,
+  message,
+  returnTo,
+}: {
+  workId?: string;
+  message?: string;
+  returnTo: string;
+}) {
   const router = useRouter();
   const { locale } = useLocale();
 
@@ -45,9 +53,9 @@ export function BookDetailUnavailable({ workId, message }: { workId?: string; me
             nativeButton={false}
             variant="outline"
             className="h-11 rounded-xl border-2 border-outline/60 px-8 text-sm text-muted-foreground hover:bg-surface-container-low"
-            render={<Link href={AUTH_ROUTES.discover} />}
+            render={<Link href={returnTo} replace />}
           >
-            {t(locale, 'content.common.backToDiscover')}
+            {t(locale, workDetailReturnLabelKey(returnTo))}
           </Button>
         </div>
       </div>

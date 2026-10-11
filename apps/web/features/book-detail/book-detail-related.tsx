@@ -33,7 +33,7 @@ export function BookDetailRelated({
         {books.map((book) => (
           <Link
             key={book.id}
-            href={AUTH_ROUTES.bookDetail(book.id)}
+            href={AUTH_ROUTES.workDetail(book.id)}
             className={cn(
               'group w-32 shrink-0 snap-start outline-none md:w-auto',
               'transition-transform duration-300 ease-out-soft hover:-translate-y-0.5',

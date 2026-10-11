@@ -1,4 +1,5 @@
 import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
+import type { LibraryItem } from '@gloaming/shared/library';
 
 /** Reading lifecycle for book detail CTA / progress chrome. */
 export type BookReadingStatus = 'unread' | 'in_progress' | 'completed';
@@ -30,6 +31,9 @@ export type BookDetail = {
   languageLabel: string;
   coverImageUrl: string | null;
   libraryStatus: BookDetailLibraryStatus;
+  libraryItem: LibraryItem | null;
+  availability: LibraryItem['availability'];
+  isReadable: boolean;
   readingStatus: BookReadingStatus;
   progressRatio: number | null;
   lastReadAt: string | null;
@@ -135,14 +139,11 @@ export function formatChapterTitle(
   return t(locale, 'content.bookDetail.chapterFallback', { n: chapter.index });
 }
 
-export function readingStatusFromProgress(
-  status: 'in_progress' | 'completed' | null,
-  progressRatio: number | null,
-): BookReadingStatus {
+export function readingStatusFromState(status: 'in_progress' | 'completed' | null): BookReadingStatus {
   if (status === 'completed') {
     return 'completed';
   }
-  if (status === 'in_progress' && progressRatio != null && progressRatio > 0) {
+  if (status === 'in_progress') {
     return 'in_progress';
   }
   return 'unread';

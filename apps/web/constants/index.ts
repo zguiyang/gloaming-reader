@@ -8,8 +8,8 @@ export const AUTH_ROUTES = {
   library: '/library',
   /** Discover catalog. */
   discover: '/discover',
-  /** Discover catalog detail. */
-  bookDetail: (id: string) => `/discover/${id}` as const,
+  /** ReadingWork detail; Catalog and Personal works share this page. */
+  workDetail: (id: string) => `/works/${id}` as const,
   history: '/reading-history',
   more: '/more',
   account: '/account',

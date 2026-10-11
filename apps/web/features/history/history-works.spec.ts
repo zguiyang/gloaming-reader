@@ -47,6 +47,8 @@ describe('HistoryWorks status projection', () => {
     const rowFor = (id: string) =>
       view.container.querySelector(`a[href="/read/${id}"]`)?.closest('li')?.textContent ?? '';
 
+    expect(view.container.querySelector('a[href="/works/reading?returnTo=%2Freading-history"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/works/finished?returnTo=%2Freading-history"]')).toBeTruthy();
     expect(rowFor('reading')).toContain('正在阅读');
     expect(rowFor('reading')).not.toContain('已读完');
     expect(rowFor('finished')).toContain('已读完');

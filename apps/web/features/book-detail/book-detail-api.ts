@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { DEFAULT_LOCALE } from '@gloaming/i18n';
 import type { LibraryItem } from '@gloaming/shared/library';
-import type { ReadingState } from '@gloaming/shared/reader';
+import type { ReaderPartsData, ReadingState } from '@gloaming/shared/reader';
 import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
 import { type PartSummary, type Work, workSchema } from '@gloaming/shared/works';
 
@@ -15,10 +15,10 @@ import {
   type BookChapter,
   type BookDetail,
   languageLabelFromCode,
-  readingStatusFromProgress,
+  readingStatusFromState,
   teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
-import { buildLibraryItemMap, getLibrary } from '@/features/library/library-public';
+import { getLibrary } from '@/features/library/library-public';
 import { getReadingState } from '@/features/reader/reader-api';
 import { getWorkParts } from '@/features/reader/reader-parts-public';
 import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
@@ -76,7 +76,7 @@ function partStatsFields(part: PartSummary): Pick<BookChapter, 'estimatedMinutes
 
 export function chaptersFromParts(parts: PartSummary[], state: ReadingState | null): BookChapter[] {
   const sorted = [...parts].sort((a, b) => a.sortOrder - b.sortOrder);
-  const readingStatus = state ? readingStatusFromProgress(state.status, state.progressRatio) : 'unread';
+  const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
 
   if (readingStatus === 'unread') {
     return sorted.map((part, i) => ({
@@ -120,11 +120,11 @@ export function chaptersFromParts(parts: PartSummary[], state: ReadingState | nu
 export function toBookDetail(
   work: Work,
   parts: PartSummary[],
-  isLibraryMember: boolean,
+  libraryItem: LibraryItem | null,
   state: ReadingState | null,
 ): BookDetail {
   const progressRatio = state?.progressRatio ?? null;
-  const readingStatus = state ? readingStatusFromProgress(state.status, progressRatio) : 'unread';
+  const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
   const teaser = teaserFromDescription(work.description);
   const readingStats = resolveWorkReadingStats(work, parts);
 
@@ -140,7 +140,47 @@ export function toBookDetail(
     language: work.language,
     languageLabel: languageLabelFromCode(work.language, DEFAULT_LOCALE),
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
-    libraryStatus: isLibraryMember ? 'in_library' : 'available',
+    libraryStatus: libraryItem ? 'in_library' : 'available',
+    libraryItem,
+    availability: 'ready',
+    isReadable: work.processingStatus === 'ready',
+    readingStatus,
+    progressRatio: readingStatus === 'unread' ? null : progressRatio,
+    lastReadAt: toIsoString(state?.lastReadAt),
+    completedAt: toIsoString(state?.completedAt),
+    chapters: chaptersFromParts(parts, state),
+    relatedIds: [],
+  };
+}
+
+export function toPersonalBookDetail(
+  libraryItem: LibraryItem,
+  partsData: ReaderPartsData | null,
+  state: ReadingState | null,
+): BookDetail {
+  const parts = partsData?.parts ?? [];
+  const progressRatio = state?.progressRatio ?? null;
+  const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
+  const work = libraryItem.work;
+  const totalWords = parts.reduce((total, part) => total + (part.wordCount ?? 0), 0);
+  const estimatedMinutes = totalWords > 0 ? estimatedMinutesFromWordCount(totalWords) : null;
+
+  return {
+    id: work.id,
+    title: work.title,
+    author: libraryItem.personalMetadata?.author ?? '',
+    difficultyScore: null,
+    difficultyLabel: null,
+    estimatedMinutes,
+    suggestedVocabSize: null,
+    teaser: teaserFromDescription(work.description),
+    language: '',
+    languageLabel: languageLabelFromCode(''),
+    coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
+    libraryStatus: 'in_library',
+    libraryItem,
+    availability: libraryItem.availability,
+    isReadable: libraryItem.availability === 'ready' && parts.length > 0,
     readingStatus,
     progressRatio: readingStatus === 'unread' ? null : progressRatio,
     lastReadAt: toIsoString(state?.lastReadAt),
@@ -155,26 +195,40 @@ export type BookDetailQueryResult = {
 };
 
 export async function fetchBookDetail(workId: string, init?: { signal?: AbortSignal }): Promise<BookDetailQueryResult> {
-  const work = await getPublishedWork(workId, init);
-  const [libraryData, partsData, state] = await Promise.all([
-    getLibrary(init).catch((error: unknown) => {
-      if (error instanceof ApiRequestError && error.status === 401) {
-        return null;
-      }
-      throw error;
-    }),
-    getWorkParts(workId, init),
-    getReadingState(workId, init).catch((error: unknown) => {
-      if (error instanceof ApiRequestError && error.status === 401) {
-        return null;
-      }
-      throw error;
-    }),
-  ]);
+  const libraryData = await getLibrary(init).catch((error: unknown) => {
+    if (error instanceof ApiRequestError && error.status === 401) {
+      return null;
+    }
+    throw error;
+  });
+  const personalItem = libraryData?.items.find(
+    (item) => item.work.id === workId && item.libraryItemKind === 'personal',
+  );
+  if (personalItem) {
+    if (personalItem.availability !== 'ready') {
+      return { book: toPersonalBookDetail(personalItem, null, personalItem.state) };
+    }
+    const [partsData, state] = await Promise.all([getWorkParts(workId, init), getOptionalReadingState(workId, init)]);
+    return { book: toPersonalBookDetail(personalItem, partsData, state) };
+  }
 
-  const libraryMap = libraryData ? buildLibraryItemMap(libraryData) : new Map<string, LibraryItem>();
-  const book = toBookDetail(work, partsData.parts, libraryMap.has(workId), state);
+  const [work, partsData, state] = await Promise.all([
+    getPublishedWork(workId, init),
+    getWorkParts(workId, init),
+    getOptionalReadingState(workId, init),
+  ]);
+  const libraryItem = libraryData?.items.find((item) => item.work.id === workId) ?? null;
+  const book = toBookDetail(work, partsData.parts, libraryItem, state);
   return { book };
+}
+
+function getOptionalReadingState(workId: string, init?: { signal?: AbortSignal }): Promise<ReadingState | null> {
+  return getReadingState(workId, init).catch((error: unknown) => {
+    if (error instanceof ApiRequestError && error.status === 401) {
+      return null;
+    }
+    throw error;
+  });
 }
 
 export function useBookDetailQuery(workId: string, options?: { enabled?: boolean }) {

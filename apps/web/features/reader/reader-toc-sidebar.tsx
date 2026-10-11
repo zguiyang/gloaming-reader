@@ -17,6 +17,7 @@ import {
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
+import { workDetailHref } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
 
 type ReaderTocSidebarProps = {
@@ -49,7 +50,7 @@ export function ReaderTocSidebar({
   const { locale } = useLocale();
   const isDesktop = useIsDesktopTocLayout();
   const parts = sortedParts(reader.parts);
-  const detailHref = AUTH_ROUTES.bookDetail(reader.workId);
+  const detailHref = workDetailHref(reader.workId, AUTH_ROUTES.readBook(reader.workId, currentPartId));
   const coverImageUrl = coverUrlFromAssetId(reader.coverAssetId);
 
   const list = (

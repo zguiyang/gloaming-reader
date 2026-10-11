@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
@@ -21,9 +22,12 @@ import { recommendationsQueryKey } from '@/features/book-detail/book-detail-reco
 import { BookDetailStats } from '@/features/book-detail/book-detail-stats';
 import { BookDetailToc } from '@/features/book-detail/book-detail-toc';
 import { BookDetailUnavailable } from '@/features/book-detail/book-detail-unavailable';
+import { useUserTagsQuery } from '@/features/library/library-api';
 import { useAddToLibraryMutation } from '@/features/library/library-client';
+import { LibraryWorkManagement } from '@/features/library/library-work-management';
 import { formatApiError, isUnauthorizedError } from '@/lib/api-request';
 import { useLocale } from '@/lib/locale-context';
+import { workDetailReturnLabelKey } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
 
 function BookDetailSkeleton() {
@@ -41,13 +45,16 @@ function BookDetailSkeleton() {
   );
 }
 
-function BookDetailView({ book }: { book: BookDetail }) {
+function BookDetailView({ book, returnTo }: { book: BookDetail; returnTo: string }) {
   const { locale } = useLocale();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { openLogin } = useAuthDialog();
   const requireAuth = useRequireAuth();
   const addToLibrary = useAddToLibraryMutation();
+  const userTags = useUserTagsQuery({ enabled: Boolean(book.libraryItem) });
   const isInLibrary = book.libraryStatus === 'in_library';
+  const returnLabel = t(locale, workDetailReturnLabelKey(returnTo));
 
   function handleAddToLibrary() {
     if (!requireAuth({ reason: 'bookmark' })) {
@@ -76,17 +83,27 @@ function BookDetailView({ book }: { book: BookDetail }) {
     <div
       className={cn(
         'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700',
-        'flex w-full flex-col gap-8 pb-36 md:gap-14 md:pb-8',
+        'flex w-full flex-col gap-8 md:gap-14 md:pb-8',
+        book.isReadable ? 'pb-36' : 'pb-8',
       )}
     >
-      <div className="md:hidden">
+      <div className="flex min-h-11 items-center justify-between gap-3">
         <Link
-          href={AUTH_ROUTES.discover}
+          href={returnTo}
+          replace
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors duration-200 ease-out-soft hover:text-primary"
         >
           <ArrowLeftIcon className="size-4" strokeWidth={1.5} aria-hidden />
-          {t(locale, 'content.common.backToDiscover')}
+          {returnLabel}
         </Link>
+        {book.libraryItem ? (
+          <LibraryWorkManagement
+            entry={book.libraryItem}
+            tags={userTags.data ?? []}
+            locale={locale}
+            onRemoved={() => router.replace(AUTH_ROUTES.library)}
+          />
+        ) : null}
       </div>
 
       <BookDetailHero
@@ -99,8 +116,10 @@ function BookDetailView({ book }: { book: BookDetail }) {
 
       <div className="flex flex-col gap-8 md:gap-14">
         <BookDetailStats book={book} />
-        <BookDetailToc book={book} />
-        <BookDetailRecommendations excludeWorkId={book.id} />
+        {book.isReadable && book.chapters.length > 0 ? <BookDetailToc book={book} /> : null}
+        {book.libraryItem?.libraryItemKind === 'personal' ? null : (
+          <BookDetailRecommendations excludeWorkId={book.id} />
+        )}
       </div>
 
       <BookDetailStickyCta
@@ -114,9 +133,9 @@ function BookDetailView({ book }: { book: BookDetail }) {
 }
 
 /**
- * Book detail for published work UUIDs — catalog, Library membership, and parts.
+ * Work detail for public Catalog and owner-visible Personal ReadingWorks.
  */
-export function BookDetailPage({ workId }: { workId: string }) {
+export function BookDetailPage({ workId, returnTo }: { workId: string; returnTo: string }) {
   const detailQuery = useBookDetailQuery(workId);
 
   if (detailQuery.isPending) {
@@ -124,8 +143,14 @@ export function BookDetailPage({ workId }: { workId: string }) {
   }
 
   if (detailQuery.isError) {
-    return <BookDetailUnavailable workId={workId} message={formatBookDetailApiError(detailQuery.error)} />;
+    return (
+      <BookDetailUnavailable
+        workId={workId}
+        message={formatBookDetailApiError(detailQuery.error)}
+        returnTo={returnTo}
+      />
+    );
   }
 
-  return <BookDetailView book={detailQuery.data.book} />;
+  return <BookDetailView book={detailQuery.data.book} returnTo={returnTo} />;
 }

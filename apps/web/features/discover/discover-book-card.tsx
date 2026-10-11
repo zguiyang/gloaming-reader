@@ -8,6 +8,7 @@ import { AUTH_ROUTES } from '@/constants';
 import type { DiscoverItem } from '@/features/discover/discover-model';
 import { WorkCover } from '@/features/work-cover';
 import { useLocale } from '@/lib/locale-context';
+import { workDetailHref } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
 
 type DiscoverBookCardProps = {
@@ -16,7 +17,7 @@ type DiscoverBookCardProps = {
 
 export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
   const { locale } = useLocale();
-  const detailHref = AUTH_ROUTES.bookDetail(item.id);
+  const detailHref = workDetailHref(item.id, AUTH_ROUTES.discover);
   const progress = item.progressRatio != null && item.progressRatio > 0 ? item.progressRatio : null;
 
   return (
