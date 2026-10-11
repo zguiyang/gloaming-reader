@@ -1175,7 +1175,8 @@
         "cleanupJob": "Cleanup job not found",
         "wordDefinition": "No dictionary definition found for \"{word}\"",
         "userTag": "Tag not found",
-        "sourceRecord": "Source record not found"
+        "sourceRecord": "Source record not found",
+        "publicCategory": "Category not found"
       },
       "upload": {
         "fileTooLarge": "File size exceeds the limit ({maxMb}MB)",
@@ -1268,6 +1269,10 @@
       },
       "library": {
         "userTagNameExists": "You already have a tag with that name"
+      },
+      "discovery": {
+        "publicCategoryNameExists": "A category with that name already exists for this language",
+        "publicCategoryLimitExceeded": "A source record can have at most {limit} categories"
       }
     }
   }

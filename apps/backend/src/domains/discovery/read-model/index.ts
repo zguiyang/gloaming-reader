@@ -1,1 +1,1 @@
-export { getSourceRecord, listSourceRecords } from './source-records';
+export { getSourceRecord, listCategorySourceRecords, listSourceRecords } from './source-records';

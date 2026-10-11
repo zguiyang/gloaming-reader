@@ -1,12 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  canonicalizePublicCategoryName,
+  categorySourceRecordListQuerySchema,
+  DEFAULT_SOURCE_RECORD_SORT_BY,
   isPublicCategoryTranslationMissing,
   normalizePublicCategoryName,
+  PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
+  PUBLIC_CATEGORY_NAME_MAX_CHARS,
   publicCategoryAliasSchema,
   publicCategoryLabelSchema,
+  publicCategoryListDataSchema,
+  publicCategoryListItemSchema,
+  publicCategoryManagementItemSchema,
+  publicCategoryNameSchema,
   publicCategorySchema,
   publicCategorySummarySchema,
+  publicCategoryWriteSchema,
   resolvePublicCategoryName,
   sourceRecordItemSchema,
   sourceRecordListQuerySchema,
@@ -38,6 +48,12 @@ describe('public category contracts', () => {
     expect(normalizePublicCategoryName('Computer\nScience')).toBe('computer science');
     // Punctuation is meaningful and is preserved rather than stripped.
     expect(normalizePublicCategoryName('C++')).toBe('c++');
+  });
+
+  it('canonicalizes the display name by trimming and collapsing whitespace while preserving case', () => {
+    expect(canonicalizePublicCategoryName('  Science   Fiction  ')).toBe('Science Fiction');
+    expect(canonicalizePublicCategoryName('Computer\n\tScience')).toBe('Computer Science');
+    expect(canonicalizePublicCategoryName('C++')).toBe('C++');
   });
 
   it('keeps a stable identity with localized labels and manual-protected locales', () => {
@@ -173,5 +189,55 @@ describe('public category contracts', () => {
     expect(full.meaning).toBe('Speculative fiction grounded in science or technology.');
     expect(full.manualLocales).toEqual(['zh-CN']);
     expect(full.aliases).toEqual([{ locale: 'en-US', alias: 'Sci-Fi', editedBy: 'ai' }]);
+  });
+
+  it('drops the content-language and category filters from the admin category record query', () => {
+    const query = categorySourceRecordListQuerySchema.parse({ language: 'fr', categoryId: 'cat-1', q: 'alpha' });
+    expect(query).not.toHaveProperty('language');
+    expect(query).not.toHaveProperty('categoryId');
+    expect(query.q).toBe('alpha');
+    expect(query.sortBy).toBe(DEFAULT_SOURCE_RECORD_SORT_BY);
+    expect(query.page).toBe(1);
+  });
+
+  it('keeps public list/detail items to id, localized name, and a nonnegative count', () => {
+    const item = publicCategoryListItemSchema.parse({ id: 'cat-history', name: 'History', recordCount: 4 });
+    expect(item).toEqual({ id: 'cat-history', name: 'History', recordCount: 4 });
+    expect(publicCategoryListDataSchema.parse({ items: [item] }).items).toHaveLength(1);
+    expect(() => publicCategoryListItemSchema.parse({ id: 'cat-history', name: 'History', recordCount: -1 })).toThrow();
+
+    const withInternalFields = publicCategoryListItemSchema.parse({
+      id: 'cat-history',
+      name: 'History',
+      recordCount: 0,
+      meaning: 'past events',
+      aliases: [{ locale: 'en-US', alias: 'Past', editedBy: 'ai' }],
+    });
+    expect(withInternalFields).toEqual({ id: 'cat-history', name: 'History', recordCount: 0 });
+  });
+
+  it('extends the full category contract only for the admin management projection', () => {
+    const managed = publicCategoryManagementItemSchema.parse({
+      id: 'cat-scifi',
+      createdBy: 'manual',
+      sourceLocale: 'en-US',
+      manualLocales: ['en-US'],
+      localizedNames: { 'en-US': 'Science Fiction' },
+      aliases: [{ locale: 'en-US', alias: 'Sci-Fi', editedBy: 'manual' }],
+      recordCount: 2,
+    });
+    expect(managed.recordCount).toBe(2);
+    expect(managed.localizedNames).toEqual({ 'en-US': 'Science Fiction' });
+    expect(managed.manualLocales).toEqual(['en-US']);
+  });
+
+  it('validates category write labels and exposes the product assignment cap', () => {
+    expect(publicCategoryWriteSchema.parse({ name: '  Science   Fiction  ' }).name).toBe('Science Fiction');
+    expect(publicCategoryWriteSchema.parse({ name: 'Science Fiction', locale: 'en-US' }).locale).toBe('en-US');
+    expect(publicCategoryNameSchema.safeParse('').success).toBe(false);
+    expect(publicCategoryNameSchema.safeParse('x'.repeat(PUBLIC_CATEGORY_NAME_MAX_CHARS + 1)).success).toBe(false);
+    // Bidi/control characters are rejected so a label cannot spoof surrounding UI.
+    expect(publicCategoryNameSchema.safeParse('Fiction\u202e').success).toBe(false);
+    expect(PUBLIC_CATEGORY_ASSIGNMENT_LIMIT).toBe(3);
   });
 });

@@ -1,7 +1,9 @@
 import { and, count, desc, eq, ilike, or, type SQL, sql } from 'drizzle-orm';
 
 import { discoverySource, sourceRecord } from '@gloaming/db/schema';
+import { DEFAULT_LOCALE } from '@gloaming/i18n';
 import type {
+  CategorySourceRecordListQuery,
   SourceRecordDetail,
   SourceRecordItem,
   SourceRecordListData,
@@ -9,6 +11,7 @@ import type {
 } from '@gloaming/shared/discovery';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
+import { loadCategorySummariesByRecordIds } from '@/domains/discovery/categories/repository';
 import { db } from '@/infra/db';
 import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
@@ -48,15 +51,26 @@ function searchFilter(term: string): SQL {
   )!;
 }
 
+/** Matches records that carry a public category assignment. */
+function categoryFilter(categoryId: string): SQL {
+  return sql`EXISTS (
+    SELECT 1 FROM source_record_public_category assigned
+    WHERE assigned.source_record_id = ${sourceRecord.id} AND assigned.category_id = ${categoryId}
+  )`;
+}
+
 function listWhere(query: SourceRecordListQuery): SQL {
   const parts: SQL[] = [availableRecordFilter(), enabledSourceFilter(), languageFilter(query.language)];
   if (query.q) {
     parts.push(searchFilter(query.q));
   }
+  if (query.categoryId) {
+    parts.push(categoryFilter(query.categoryId));
+  }
   return and(...parts)!;
 }
 
-function listOrderBy(query: SourceRecordListQuery): SQL[] {
+function listOrderBy(query: Pick<SourceRecordListQuery, 'sortBy' | 'sortOrder'>): SQL[] {
   const column =
     query.sortBy === 'title'
       ? sourceRecord.title
@@ -96,7 +110,16 @@ function toSourceRecordDetail(record: SourceRecordRow, source: DiscoverySourceRo
   };
 }
 
-export async function listSourceRecords(query: SourceRecordListQuery): Promise<SourceRecordListData> {
+export type SourceRecordReadOptions = {
+  /** Locale for the public category display summaries; defaults to the product locale. */
+  locale?: string;
+};
+
+export async function listSourceRecords(
+  query: SourceRecordListQuery,
+  options: SourceRecordReadOptions = {},
+): Promise<SourceRecordListData> {
+  const locale = options.locale ?? DEFAULT_LOCALE;
   const where = listWhere(query);
   const offset = (query.page - 1) * query.pageSize;
 
@@ -116,8 +139,14 @@ export async function listSourceRecords(query: SourceRecordListQuery): Promise<S
     .limit(query.pageSize)
     .offset(offset);
 
+  const recordIds = rows.map((row) => row.record.id);
+  const categoriesByRecord = await loadCategorySummariesByRecordIds(recordIds, locale);
+
   return {
-    items: rows.map((row) => toSourceRecordItem(row.record, row.source)),
+    items: rows.map((row) => ({
+      ...toSourceRecordItem(row.record, row.source),
+      categories: categoriesByRecord.get(row.record.id) ?? [],
+    })),
     pagination: buildPaginationMeta({
       page: query.page,
       pageSize: query.pageSize,
@@ -128,7 +157,11 @@ export async function listSourceRecords(query: SourceRecordListQuery): Promise<S
   };
 }
 
-export async function getSourceRecord(sourceRecordId: string): Promise<SourceRecordDetail> {
+export async function getSourceRecord(
+  sourceRecordId: string,
+  options: SourceRecordReadOptions = {},
+): Promise<SourceRecordDetail> {
+  const locale = options.locale ?? DEFAULT_LOCALE;
   const [row] = await db
     .select({ record: sourceRecord, source: discoverySource })
     .from(sourceRecord)
@@ -139,5 +172,65 @@ export async function getSourceRecord(sourceRecordId: string): Promise<SourceRec
   if (!row) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
   }
-  return toSourceRecordDetail(row.record, row.source);
+
+  const categoriesByRecord = await loadCategorySummariesByRecordIds([row.record.id], locale);
+  return {
+    ...toSourceRecordDetail(row.record, row.source),
+    categories: categoriesByRecord.get(row.record.id) ?? [],
+  };
+}
+
+/**
+ * Admin paginated view of one category's assignments. Unlike the public list it
+ * does not filter by availability, source-enabled state, or content language, so
+ * instance management sees every assigned SourceRecord. Category summaries are
+ * still the minimal localized projection.
+ */
+export async function listCategorySourceRecords(
+  categoryId: string,
+  query: CategorySourceRecordListQuery,
+  options: SourceRecordReadOptions = {},
+): Promise<SourceRecordListData> {
+  const locale = options.locale ?? DEFAULT_LOCALE;
+  const parts: SQL[] = [categoryFilter(categoryId)];
+  if (query.q) {
+    parts.push(searchFilter(query.q));
+  }
+  const where = and(...parts)!;
+  const offset = (query.page - 1) * query.pageSize;
+
+  const [countRow] = await db
+    .select({ value: count() })
+    .from(sourceRecord)
+    .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
+    .where(where);
+  const total = Number(countRow?.value ?? 0);
+
+  const rows = await db
+    .select({ record: sourceRecord, source: discoverySource })
+    .from(sourceRecord)
+    .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
+    .where(where)
+    .orderBy(...listOrderBy(query))
+    .limit(query.pageSize)
+    .offset(offset);
+
+  const categoriesByRecord = await loadCategorySummariesByRecordIds(
+    rows.map((row) => row.record.id),
+    locale,
+  );
+
+  return {
+    items: rows.map((row) => ({
+      ...toSourceRecordItem(row.record, row.source),
+      categories: categoriesByRecord.get(row.record.id) ?? [],
+    })),
+    pagination: buildPaginationMeta({
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+    }),
+  };
 }

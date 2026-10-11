@@ -53,6 +53,46 @@ export const PUBLIC_CATEGORY_PROVENANCES = ['manual', 'ai'] as const;
 export type PublicCategoryProvenance = (typeof PUBLIC_CATEGORY_PROVENANCES)[number];
 export const publicCategoryProvenanceSchema = z.enum(PUBLIC_CATEGORY_PROVENANCES);
 
+/** Max characters accepted for one public category display label. */
+export const PUBLIC_CATEGORY_NAME_MAX_CHARS = 80 as const;
+
+/**
+ * Product cap: one SourceRecord carries at most this many public categories.
+ * Enforced by the owning Discovery category service, not by the database.
+ */
+export const PUBLIC_CATEGORY_ASSIGNMENT_LIMIT = 3 as const;
+
+const unsafePublicCategoryNameCharacters = /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u;
+
+/**
+ * A public category display label, shared by manual creation and localized label
+ * edits. Control and bidi-override characters are rejected exactly like personal
+ * tag labels so a label cannot spoof surrounding UI text.
+ */
+export const publicCategoryNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(PUBLIC_CATEGORY_NAME_MAX_CHARS)
+  .refine((value) => !unsafePublicCategoryNameCharacters.test(value))
+  .transform(canonicalizePublicCategoryName);
+
+/** Admin write body for creating a category or editing one localized label. */
+export const publicCategoryWriteSchema = z.object({
+  name: publicCategoryNameSchema,
+  locale: z.string().trim().min(1).max(35).optional(),
+});
+export type PublicCategoryWrite = z.infer<typeof publicCategoryWriteSchema>;
+
+/**
+ * Canonical display form of a public category label: Unicode NFC, trimmed, and
+ * with internal whitespace runs collapsed to a single space. Casing is preserved
+ * because it is presentation, not identity.
+ */
+export function canonicalizePublicCategoryName(value: string): string {
+  return value.normalize('NFC').trim().replace(/\s+/gu, ' ');
+}
+
 /**
  * Locale-independent comparison key for a public category label. Mirrors the
  * NFC / whitespace-folded / case-folded key persisted as
@@ -61,7 +101,7 @@ export const publicCategoryProvenanceSchema = z.enum(PUBLIC_CATEGORY_PROVENANCES
  * never string equality.
  */
 export function normalizePublicCategoryName(value: string): string {
-  return value.normalize('NFC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('und');
+  return canonicalizePublicCategoryName(value).toLocaleLowerCase('und');
 }
 
 /** One localized display name for a public category. */
@@ -120,6 +160,38 @@ export const publicCategorySummarySchema = z.object({
 });
 export type PublicCategorySummary = z.infer<typeof publicCategorySummarySchema>;
 
+/**
+ * Minimal public Discover category list/detail item: the stable `id`, the display
+ * `name` already resolved for the requested locale, and the count of publicly
+ * discoverable SourceRecords in that category. Retrieval/management fields
+ * (`meaning`, `aliases`, `manualLocales`, `localizedNames`, `createdBy`,
+ * `sourceLocale`) never appear here.
+ */
+export const publicCategoryListItemSchema = publicCategorySummarySchema.extend({
+  recordCount: z.number().int().nonnegative(),
+});
+export type PublicCategoryListItem = z.infer<typeof publicCategoryListItemSchema>;
+
+/** Public category list payload. Categories are few; this read is not paginated. */
+export const publicCategoryListDataSchema = z.object({
+  items: z.array(publicCategoryListItemSchema),
+});
+export type PublicCategoryListData = z.infer<typeof publicCategoryListDataSchema>;
+
+/** Public category detail is the same minimal projection as a list item. */
+export const publicCategoryDetailSchema = publicCategoryListItemSchema;
+export type PublicCategoryDetail = z.infer<typeof publicCategoryDetailSchema>;
+
+/**
+ * Admin management projection: the full category contract (localized labels,
+ * aliases, meaning, provenance) plus the total number of assigned SourceRecords.
+ * Admin-only; never returned by a public route.
+ */
+export const publicCategoryManagementItemSchema = publicCategorySchema.extend({
+  recordCount: z.number().int().nonnegative(),
+});
+export type PublicCategoryManagementItem = z.infer<typeof publicCategoryManagementItemSchema>;
+
 /** One public category assigned to one SourceRecord, with assignment provenance. */
 export const sourceRecordPublicCategorySchema = z.object({
   categoryId: z.string(),
@@ -160,6 +232,17 @@ export const sourceRecordListQuerySchema = paginationQuerySchema.extend({
   categoryId: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
 });
 export type SourceRecordListQuery = z.infer<typeof sourceRecordListQuerySchema>;
+
+/**
+ * Admin query for one category's assigned SourceRecords. It keeps search, sort,
+ * and pagination but drops the content-language and category filters: instance
+ * management views every assignment regardless of language or public visibility.
+ */
+export const categorySourceRecordListQuerySchema = sourceRecordListQuerySchema.omit({
+  categoryId: true,
+  language: true,
+});
+export type CategorySourceRecordListQuery = z.infer<typeof categorySourceRecordListQuerySchema>;
 
 /**
  * List row for the discovery read model.
