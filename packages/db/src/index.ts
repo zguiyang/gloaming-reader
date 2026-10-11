@@ -4,6 +4,8 @@ export type {
   ContentAssetMeta,
   ContentAssetWordTiming,
   ConversationMessageMetadata,
+  PersonalTagRunState,
+  UserTagProvenance,
   WorkDescriptionProvenance,
 } from './schema';
 export {
@@ -42,8 +44,11 @@ export {
   user,
   userLibraryItem,
   userLibraryItemRelations,
+  userPersonalTagPreference,
+  userPersonalTagRun,
   userRelations,
   userTag,
   userWorkTag,
+  userWorkTagSuppression,
   verification,
 } from './schema';

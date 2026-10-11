@@ -1,7 +1,8 @@
 'use client';
 
-import type { UserTagManagementItem } from '@gloaming/shared/library';
+import { resolveUserTagName, type UserTagManagementItem } from '@gloaming/shared/library';
 
+import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 /** Vertical tag list for the Library source navigation. Selecting an active tag clears it. */
@@ -14,6 +15,7 @@ export function LibraryTagFilter({
   selectedTagId: string | null;
   onSelect: (tagId: string | null) => void;
 }) {
+  const { locale } = useLocale();
   return (
     <ul className="flex flex-col gap-0.5">
       {tags.map((tag) => {
@@ -31,7 +33,7 @@ export function LibraryTagFilter({
               )}
               onClick={() => onSelect(isActive ? null : tag.id)}
             >
-              <span className="min-w-0 flex-1 truncate">{tag.name}</span>
+              <span className="min-w-0 flex-1 truncate">{resolveUserTagName(tag, locale)}</span>
               <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{tag.bookCount}</span>
             </button>
           </li>

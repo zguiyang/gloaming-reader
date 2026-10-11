@@ -193,6 +193,7 @@ export async function completeWorkflowStep(
   retryJobToken?: string,
   claimStep?: WorkflowStep,
   attemptToken?: string,
+  executor: Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db = db,
 ): Promise<boolean> {
   const statuses = expectedStatus
     ? Array.isArray(expectedStatus)
@@ -200,7 +201,7 @@ export async function completeWorkflowStep(
       : [expectedStatus]
     : ['processing', 'metadata', 'ready' as const];
   const patch = JSON.stringify(metaPatch ?? {});
-  const [completed] = await db
+  const [completed] = await executor
     .update(readingWorkTable)
     .set({
       processingStatus: nextStatus,

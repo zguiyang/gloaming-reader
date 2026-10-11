@@ -1,11 +1,21 @@
-export type { ContinueReadingItem, LibraryData, LibraryItem, UserTag, UserTagManagementItem } from './library.ts';
+export type {
+  ContinueReadingItem,
+  LibraryData,
+  LibraryItem,
+  UserTag,
+  UserTagManagementItem,
+  UserTagTranslationsResult,
+} from './library.ts';
 export {
   continueReadingItemSchema,
+  isUserTagTranslationMissing,
   LIBRARY_ITEMS_LIMIT,
   libraryDataSchema,
   libraryItemSchema,
+  resolveUserTagName,
   userTagListSchema,
   userTagManagementItemSchema,
   userTagSchema,
+  userTagTranslationsResultSchema,
   userTagWriteSchema,
 } from './library.ts';

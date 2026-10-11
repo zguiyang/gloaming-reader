@@ -282,6 +282,12 @@ describe('user-first provider resolver', () => {
     expect(resolvedAnon).toBe(instanceModelId);
     const resolvedForOtherUser = await resolveModelRowId({ purpose: 'assist', userId: otherUser.userId });
     expect(resolvedForOtherUser).toBe(instanceModelId);
+    expect(await resolveModelRowId({ purpose: 'assist', userId: user.userId, providerScope: 'user-only' })).toBe(
+      userModelId,
+    );
+    await expect(
+      resolveModelRowId({ purpose: 'assist', userId: otherUser.userId, providerScope: 'user-only' }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.AI.MODEL_NOT_CONFIGURED });
   });
 
   it('does not re-resolve model after upstream client failure', async () => {

@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
 import { t } from '@gloaming/i18n';
+import { resolveUserTagName } from '@gloaming/shared/library';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
@@ -201,7 +202,7 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
       : effectiveFilters.source === 'saved'
         ? t(locale, 'content.library.sourceSaved')
         : t(locale, 'content.library.allBooks');
-  const currentLabel = activeTag ? `${sourceLabel} · ${activeTag.name}` : sourceLabel;
+  const currentLabel = activeTag ? `${sourceLabel} · ${resolveUserTagName(activeTag, locale)}` : sourceLabel;
 
   const sourceNavProps = {
     filters: effectiveFilters,

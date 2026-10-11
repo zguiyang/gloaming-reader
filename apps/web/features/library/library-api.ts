@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
+import type { Locale } from '@gloaming/i18n';
 import { type LibraryData, type UserTag, userTagListSchema, userTagSchema } from '@gloaming/shared/library';
+import { userTagTranslationsResultSchema } from '@gloaming/shared/library';
 import {
   EPUB_UPLOAD_MAX_BYTES,
   personalWorkDeleteResultSchema,
@@ -66,19 +68,26 @@ export async function deletePersonalWork(workId: string): Promise<void> {
   });
 }
 
-export async function createUserTag(name: string): Promise<UserTag> {
+export async function createUserTag(name: string, locale: Locale): Promise<UserTag> {
   return apiRequest('/api/library/tags', {
     method: 'POST',
-    json: { name },
+    json: { name, locale },
     schema: userTagSchema,
   });
 }
 
-export async function renameUserTag(tagId: string, name: string): Promise<UserTag> {
+export async function renameUserTag(tagId: string, name: string, locale: Locale): Promise<UserTag> {
   return apiRequest(`/api/library/tags/${encodeURIComponent(tagId)}`, {
     method: 'PATCH',
-    json: { name },
+    json: { name, locale },
     schema: userTagSchema,
+  });
+}
+
+export async function completeUserTagTranslations(tagId: string) {
+  return apiRequest(`/api/library/tags/${encodeURIComponent(tagId)}/translations/complete`, {
+    method: 'POST',
+    schema: userTagTranslationsResultSchema,
   });
 }
 

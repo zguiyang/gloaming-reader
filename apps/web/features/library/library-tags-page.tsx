@@ -1,14 +1,14 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeftIcon, CheckIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, LanguagesIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import type { UserTagManagementItem } from '@gloaming/shared/library';
+import { SUPPORTED_LOCALES, t } from '@gloaming/i18n';
+import { isUserTagTranslationMissing, resolveUserTagName, type UserTagManagementItem } from '@gloaming/shared/library';
 
 import {
   AlertDialog,
@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import {
+  completeUserTagTranslations,
   createUserTag,
   deleteUserTag,
   formatLibraryApiError,
@@ -57,7 +58,7 @@ function LibraryTagsPageContent() {
   const returnTo = resolveLibraryReturnTo(searchParams?.get('returnTo') ?? undefined);
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
+  const [editingNames, setEditingNames] = useState<Record<string, string>>({});
   const [deletingTag, setDeletingTag] = useState<UserTagManagementItem | null>(null);
 
   useEffect(() => {
@@ -71,22 +72,64 @@ function LibraryTagsPageContent() {
   };
 
   const create = useMutation({
-    mutationFn: () => createUserTag(newName.trim()),
-    onSuccess: async () => {
+    mutationFn: () => createUserTag(newName.trim(), locale),
+    onSuccess: async (tag) => {
       setNewName('');
       await refresh();
       toast.success(t(locale, 'content.library.tagCreated'));
+      void completeUserTagTranslations(tag.id)
+        .then(async (result) => {
+          await refresh();
+          toast.info(
+            t(
+              locale,
+              result.status === 'completed'
+                ? 'content.library.tagTranslationsComplete'
+                : result.status === 'provider_unavailable'
+                  ? 'content.library.tagTranslationProviderUnavailable'
+                  : 'content.library.tagTranslationsMissing',
+            ),
+          );
+        })
+        .catch(() => toast.info(t(locale, 'content.library.tagTranslationsMissing')));
     },
     onError: (error) => toast.error(formatLibraryApiError(error)),
   });
 
   const rename = useMutation({
-    mutationFn: () => renameUserTag(editingId!, editingName.trim()),
+    mutationFn: async () => {
+      const tag = tags.find((item) => item.id === editingId);
+      if (!tag) return;
+      for (const language of SUPPORTED_LOCALES) {
+        const name = editingNames[language]?.trim();
+        if (name && name !== tag.localizedNames?.[language]) {
+          await renameUserTag(tag.id, name, language);
+        }
+      }
+    },
     onSuccess: async () => {
       setEditingId(null);
-      setEditingName('');
+      setEditingNames({});
       await refresh();
       toast.success(t(locale, 'content.library.tagRenamed'));
+    },
+    onError: (error) => toast.error(formatLibraryApiError(error)),
+  });
+
+  const completeTranslations = useMutation({
+    mutationFn: (tagId: string) => completeUserTagTranslations(tagId),
+    onSuccess: async (result) => {
+      await refresh();
+      toast.info(
+        t(
+          locale,
+          result.status === 'completed'
+            ? 'content.library.tagTranslationsComplete'
+            : result.status === 'provider_unavailable'
+              ? 'content.library.tagTranslationProviderUnavailable'
+              : 'content.library.tagTranslationsMissing',
+        ),
+      );
     },
     onError: (error) => toast.error(formatLibraryApiError(error)),
   });
@@ -102,7 +145,7 @@ function LibraryTagsPageContent() {
   });
 
   const tags = tagsQuery.data ?? [];
-  const isPending = create.isPending || rename.isPending || remove.isPending;
+  const isPending = create.isPending || rename.isPending || remove.isPending || completeTranslations.isPending;
   const tagHref = (tagId: string) => {
     const target = new URL(returnTo, 'https://gloaming.invalid');
     const filters = parseLibraryFilters(target.searchParams);
@@ -163,27 +206,38 @@ function LibraryTagsPageContent() {
             <li key={tag.id} className="flex min-h-16 items-center gap-3 px-4 py-3 sm:px-5">
               {editingId === tag.id ? (
                 <form
-                  className="flex min-w-0 flex-1 items-center gap-2"
+                  className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-end"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    if (editingName.trim()) rename.mutate();
+                    if (Object.values(editingNames).some((name) => name.trim())) rename.mutate();
                   }}
                 >
-                  <Input
-                    autoFocus
-                    value={editingName}
-                    maxLength={80}
-                    onChange={(event) => setEditingName(event.currentTarget.value)}
-                    aria-label={t(locale, 'content.library.tagName')}
-                    disabled={isPending}
-                  />
+                  <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+                    {SUPPORTED_LOCALES.map((language) => (
+                      <label key={language} className="min-w-0 text-xs text-muted-foreground">
+                        <span>{language}</span>
+                        <Input
+                          autoFocus={language === locale}
+                          value={editingNames[language] ?? ''}
+                          maxLength={80}
+                          onChange={(event) => {
+                            const value = event.currentTarget.value;
+                            setEditingNames((current) => ({ ...current, [language]: value }));
+                          }}
+                          aria-label={`${t(locale, 'content.library.tagName')} (${language})`}
+                          disabled={isPending}
+                          className="mt-1 h-10 text-foreground"
+                        />
+                      </label>
+                    ))}
+                  </div>
                   <Button
                     type="submit"
                     variant="ghost"
                     size="icon"
                     className="size-11 shrink-0"
                     aria-label={t(locale, 'content.library.save')}
-                    disabled={!editingName.trim() || isPending}
+                    disabled={!Object.values(editingNames).some((name) => name.trim()) || isPending}
                   >
                     <CheckIcon aria-hidden />
                   </Button>
@@ -201,15 +255,38 @@ function LibraryTagsPageContent() {
                 </form>
               ) : (
                 <>
-                  <Link
-                    href={tagHref(tag.id)}
-                    className="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-md text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                  >
-                    <span className="min-w-0 truncate text-sm font-medium">{tag.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {t(locale, 'content.library.usedInBooks', { count: tag.bookCount })}
-                    </span>
-                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={tagHref(tag.id)}
+                      className="flex min-h-8 items-center justify-between gap-3 rounded-md text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    >
+                      <span className="min-w-0 truncate text-sm font-medium">{resolveUserTagName(tag, locale)}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {t(locale, 'content.library.usedInBooks', { count: tag.bookCount })}
+                      </span>
+                    </Link>
+                    <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                      {SUPPORTED_LOCALES.map((language) => (
+                        <span key={language}>
+                          {language}:{' '}
+                          {tag.localizedNames?.[language] ?? t(locale, 'content.library.tagTranslationsMissing')}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {SUPPORTED_LOCALES.some((language) => isUserTagTranslationMissing(tag, language)) ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-11 shrink-0"
+                      aria-label={`${t(locale, 'content.library.completeTagTranslations')}: ${tag.name}`}
+                      disabled={isPending}
+                      onClick={() => completeTranslations.mutate(tag.id)}
+                    >
+                      <LanguagesIcon aria-hidden />
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     variant="ghost"
@@ -219,7 +296,15 @@ function LibraryTagsPageContent() {
                     disabled={isPending}
                     onClick={() => {
                       setEditingId(tag.id);
-                      setEditingName(tag.name);
+                      setEditingNames(
+                        Object.fromEntries(
+                          SUPPORTED_LOCALES.map((language) => [
+                            language,
+                            tag.localizedNames?.[language] ??
+                              (language === locale && !tag.sourceLocale ? tag.name : ''),
+                          ]),
+                        ),
+                      );
                     }}
                   >
                     <PencilIcon aria-hidden />

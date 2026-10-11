@@ -2,6 +2,7 @@ import { type AiPurpose, settingKeyForPurpose } from '@/domains/ai/purposes';
 import {
   assertModelAccessibleForActor,
   resolveScopedAppSettingValue,
+  resolveUserOwnedAppSettingValue,
   runtimeActorFromUserId,
 } from '@/domains/provider-scope';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -12,6 +13,7 @@ export async function resolveModelRowId(options: {
   modelRowId?: string;
   purpose?: AiPurpose;
   userId?: string;
+  providerScope?: 'user-first' | 'user-only';
 }): Promise<string> {
   const actor = runtimeActorFromUserId(options.userId);
 
@@ -22,7 +24,10 @@ export async function resolveModelRowId(options: {
 
   const purpose = options.purpose ?? 'assist';
   const key = settingKeyForPurpose(purpose);
-  const value = await resolveScopedAppSettingValue(key, actor);
+  const value =
+    options.providerScope === 'user-only' && options.userId
+      ? await resolveUserOwnedAppSettingValue(key, options.userId)
+      : await resolveScopedAppSettingValue(key, actor);
   if (!value) {
     const label =
       purpose === 'assist'

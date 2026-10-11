@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   updatePersonalWork: vi.fn(),
   deletePersonalWork: vi.fn(),
   createUserTag: vi.fn(),
+  completeUserTagTranslations: vi.fn(),
   renameUserTag: vi.fn(),
   deleteUserTag: vi.fn(),
   assignUserTag: vi.fn(),
@@ -42,6 +43,7 @@ vi.mock('@/features/library/library-api', () => ({
   useLibraryQuery: mocks.useLibraryQuery,
   useUserTagsQuery: mocks.useUserTagsQuery,
   createUserTag: mocks.createUserTag,
+  completeUserTagTranslations: mocks.completeUserTagTranslations,
   renameUserTag: mocks.renameUserTag,
   deleteUserTag: mocks.deleteUserTag,
   assignUserTag: mocks.assignUserTag,
@@ -65,7 +67,7 @@ vi.mock('next/navigation', async (importOriginal) => {
     useSearchParams: () => mocks.searchParams,
   };
 });
-vi.mock('sonner', () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError } }));
+vi.mock('sonner', () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError, info: vi.fn() } }));
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -80,6 +82,10 @@ beforeEach(() => {
   mocks.deletePersonalWork.mockResolvedValue(undefined);
   mocks.useUserTagsQuery.mockReturnValue({ data: [] });
   mocks.createUserTag.mockResolvedValue({ id: 'tag-new', name: '新标签' });
+  mocks.completeUserTagTranslations.mockResolvedValue({
+    status: 'provider_unavailable',
+    tag: { id: 'tag-new', name: '新标签' },
+  });
   mocks.renameUserTag.mockResolvedValue({ id: 'tag-one', name: '更新' });
   mocks.deleteUserTag.mockResolvedValue(undefined);
   mocks.assignUserTag.mockResolvedValue(undefined);
@@ -412,7 +418,7 @@ describe('LibraryPage', () => {
       (button) => button.textContent === '创建标签',
     );
     await act(async () => createButton?.click());
-    expect(mocks.createUserTag).toHaveBeenCalledWith('以后再读');
+    expect(mocks.createUserTag).toHaveBeenCalledWith('以后再读', 'zh-CN');
 
     const renameButton = view.container.querySelector('button[aria-label="重命名: 喜欢"]') as HTMLButtonElement;
     await act(async () => renameButton.click());
@@ -421,7 +427,7 @@ describe('LibraryPage', () => {
     await act(async () => updateInput(editInput, '更新后的标签'));
     await act(async () => (editForm.querySelector('button[type="submit"]') as HTMLButtonElement).click());
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-    expect(mocks.renameUserTag).toHaveBeenCalledWith('tag-one', '更新后的标签');
+    expect(mocks.renameUserTag).toHaveBeenCalledWith('tag-one', '更新后的标签', 'zh-CN');
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['book-detail'] });
     view.cleanup();
   });
@@ -488,7 +494,7 @@ describe('LibraryPage', () => {
     await act(async () => (dialog.querySelector('button[aria-label="创建标签"]') as HTMLButtonElement).click());
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
-    expect(mocks.createUserTag).toHaveBeenCalledWith('新建并关联');
+    expect(mocks.createUserTag).toHaveBeenCalledWith('新建并关联', 'zh-CN');
     expect(mocks.assignUserTag).toHaveBeenCalledWith('book', 'tag-new');
     view.cleanup();
   });
@@ -807,7 +813,7 @@ describe('LibraryPage', () => {
     await act(async () => updateInput(input, '科幻'));
     await act(async () => buttonByLabel(view.container, '创建标签')?.click());
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-    expect(mocks.createUserTag).toHaveBeenCalledWith('科幻');
+    expect(mocks.createUserTag).toHaveBeenCalledWith('科幻', 'zh-CN');
     expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已创建');
     view.cleanup();
   });

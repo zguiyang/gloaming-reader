@@ -8,12 +8,14 @@ import { queueLogger } from '@/infra/logging/logger';
 
 export const QUEUE_NAME = 'gloaming';
 export const CLEANUP_QUEUE_NAME = 'gloaming-asset-cleanup';
+export const PERSONAL_TAG_QUEUE_NAME = 'gloaming-personal-tags';
 
 const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
 
 let connection: Redis | null = null;
 let queue: Queue | null = null;
 let cleanupQueue: Queue | null = null;
+let personalTagQueue: Queue | null = null;
 
 /** Dedicated BullMQ Redis client. Do not reuse `getRedis()`. */
 export function getQueueConnection(): Redis {
@@ -53,6 +55,12 @@ export function getCleanupQueue(): Queue {
   return cleanupQueue;
 }
 
+export function getPersonalTagQueue(): Queue {
+  if (personalTagQueue) return personalTagQueue;
+  personalTagQueue = createNamedQueue(PERSONAL_TAG_QUEUE_NAME);
+  return personalTagQueue;
+}
+
 export type EnqueueJobOptions = {
   attempts?: number;
   backoff?: { type: 'exponential'; delay: number };
@@ -83,12 +91,24 @@ export async function enqueueCleanup(name: string, data: unknown, jobOptions?: E
   return addJob(getCleanupQueue(), name, data, jobOptions);
 }
 
+export async function enqueuePersonalTagging(
+  name: string,
+  data: unknown,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getPersonalTagQueue(), name, data, jobOptions);
+}
+
 export async function enqueuePing(data?: PingJobData): Promise<string> {
   const payload: PingJobData = data ?? { requestedAt: new Date().toISOString() };
   return enqueue(JOB_PING, payload);
 }
 
 export async function closeQueue(): Promise<void> {
+  if (personalTagQueue) {
+    await personalTagQueue.close();
+    personalTagQueue = null;
+  }
   if (cleanupQueue) {
     await cleanupQueue.close();
     cleanupQueue = null;

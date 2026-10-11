@@ -50,10 +50,13 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
       modelRowId: options.modelRowId,
       purpose: options.purpose,
       userId: options.userId,
+      providerScope: options.providerScope,
     });
     resolved = await resolveLlmByModelRowId(modelRowId);
     const chat = createLlmClient(resolved, {
       timeoutMs: options.timeoutMs,
+      maxTokens: options.maxTokens,
+      maxRetries: options.maxRetries,
       enableThinking: options.enableThinking ?? false,
     });
     const conversation = toBaseMessages(options.messages);

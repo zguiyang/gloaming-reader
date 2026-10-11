@@ -89,6 +89,25 @@ async function isUsableLlmConfiguration(modelId: string, actor: ProviderRuntimeA
   }
 }
 
+/** Resolve only a provider owned by this user. Background P2 tagging must never charge the instance provider. */
+export async function resolveUserOwnedAppSettingValue(key: AiSettingKey, userId: string): Promise<string | null> {
+  const rows = await db
+    .select({ value: llmAppSettingTable.value })
+    .from(llmAppSettingTable)
+    .where(and(eq(llmAppSettingTable.key, key), eq(llmAppSettingTable.ownerUserId, userId)))
+    .limit(1);
+  const modelId = rows[0]?.value;
+  if (!modelId) return null;
+  const usable = await db
+    .select({ ownerUserId: llmProviderTable.ownerUserId })
+    .from(llmModelTable)
+    .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
+    .where(eq(llmModelTable.id, modelId))
+    .limit(1);
+  if (usable[0]?.ownerUserId !== userId) return null;
+  return (await isUsableLlmConfiguration(modelId, { kind: 'authenticated', userId })) ? modelId : null;
+}
+
 /**
  * TTS config row for synthesis. Authenticated: usable user row, then usable instance row.
  * Anonymous: usable instance row only. Validation happens before any upstream call.

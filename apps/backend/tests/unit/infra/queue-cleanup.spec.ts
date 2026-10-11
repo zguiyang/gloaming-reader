@@ -54,6 +54,9 @@ vi.mock('bullmq', () => {
 
 const processAssetCleanup = vi.fn().mockResolvedValue({ ok: true });
 const processPersonalWorkCleanupJob = vi.fn().mockResolvedValue({ ok: true });
+const processPersonalTaggingJob = vi.fn().mockResolvedValue({ ok: true });
+const dispatchQueuedPersonalTagRuns = vi.fn().mockResolvedValue(undefined);
+const finalizeFailedPersonalTagRun = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('@/application/jobs/asset-cleanup', () => ({
   JOB_ASSET_CLEANUP: 'asset-cleanup',
@@ -82,8 +85,24 @@ vi.mock('@/application/jobs/work-metadata-fill', () => ({
   processWorkMetadataFill: vi.fn(),
 }));
 
-const { CLEANUP_QUEUE_NAME, closeQueue, enqueue, enqueueCleanup, QUEUE_NAME } = await import('@/infra/queue');
-const { CLEANUP_WORKER_CONCURRENCY, createWorkers, processCleanupJob, processJob } = await import('@/worker');
+vi.mock('@/domains/library/tags/personal-ai-tagging', () => ({
+  JOB_PERSONAL_TAGGING: 'personal-tagging',
+  processPersonalTaggingJob: (...args: unknown[]) => processPersonalTaggingJob(...args),
+  dispatchQueuedPersonalTagRuns: (...args: unknown[]) => dispatchQueuedPersonalTagRuns(...args),
+  finalizeFailedPersonalTagRun: (...args: unknown[]) => finalizeFailedPersonalTagRun(...args),
+}));
+
+const {
+  CLEANUP_QUEUE_NAME,
+  closeQueue,
+  enqueue,
+  enqueueCleanup,
+  enqueuePersonalTagging,
+  PERSONAL_TAG_QUEUE_NAME,
+  QUEUE_NAME,
+} = await import('@/infra/queue');
+const { CLEANUP_WORKER_CONCURRENCY, PERSONAL_TAG_WORKER_CONCURRENCY, createWorkers, processCleanupJob, processJob } =
+  await import('@/worker');
 
 describe('cleanup queue isolation', () => {
   beforeEach(() => {
@@ -93,6 +112,9 @@ describe('cleanup queue isolation', () => {
     workerProcessors.clear();
     processAssetCleanup.mockClear();
     processPersonalWorkCleanupJob.mockClear();
+    processPersonalTaggingJob.mockClear();
+    dispatchQueuedPersonalTagRuns.mockClear();
+    finalizeFailedPersonalTagRun.mockClear();
   });
 
   afterEach(async () => {
@@ -111,24 +133,32 @@ describe('cleanup queue isolation', () => {
     expect(CLEANUP_QUEUE_NAME).not.toBe(QUEUE_NAME);
   });
 
-  it('closes both queues', async () => {
+  it('closes all dedicated queues', async () => {
     await enqueueCleanup(JOB_ASSET_CLEANUP, { jobId: 'job_1', scanId: 'scan_1' });
+    await enqueuePersonalTagging('personal-tagging', { runId: 'run_1' });
     await enqueue(JOB_PING, { requestedAt: '2026-09-10T00:00:00.000Z' });
     await closeQueue();
 
-    expect(queueCloseCalls).toEqual([CLEANUP_QUEUE_NAME, QUEUE_NAME]);
+    expect(queueCloseCalls).toEqual([PERSONAL_TAG_QUEUE_NAME, CLEANUP_QUEUE_NAME, QUEUE_NAME]);
   });
 
   it('starts a dedicated cleanup worker with concurrency 1', () => {
     const workers = createWorkers();
 
-    expect(workerConstructors).toHaveLength(2);
-    expect(workerConstructors.map((entry) => entry.name)).toEqual([QUEUE_NAME, CLEANUP_QUEUE_NAME]);
+    expect(workerConstructors).toHaveLength(3);
+    expect(workerConstructors.map((entry) => entry.name)).toEqual([
+      QUEUE_NAME,
+      CLEANUP_QUEUE_NAME,
+      PERSONAL_TAG_QUEUE_NAME,
+    ]);
     expect(workerConstructors[0]?.opts.concurrency).toBeUndefined();
     expect(workerConstructors[1]?.opts.concurrency).toBe(CLEANUP_WORKER_CONCURRENCY);
+    expect(workerConstructors[2]?.opts.concurrency).toBe(PERSONAL_TAG_WORKER_CONCURRENCY);
     expect(CLEANUP_WORKER_CONCURRENCY).toBe(1);
+    expect(PERSONAL_TAG_WORKER_CONCURRENCY).toBe(2);
     expect(workers.worker).toBeDefined();
     expect(workers.cleanupWorker).toBeDefined();
+    expect(workers.personalTagWorker).toBeDefined();
   });
 
   it('keeps asset-cleanup off the main worker processor', async () => {

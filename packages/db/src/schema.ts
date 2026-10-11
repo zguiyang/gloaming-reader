@@ -196,6 +196,12 @@ export const userLibraryItem = pgTable(
   ],
 );
 
+/** Provenance of a user-owned tag or tag association. */
+export type UserTagProvenance = 'manual' | 'ai';
+
+/** Lifecycle state of a Personal tag run row (queue recovery and idempotence). */
+export type PersonalTagRunState = 'queued' | 'processing' | 'completed' | 'skipped' | 'failed';
+
 /** Private, user-managed Library labels. */
 export const userTag = pgTable(
   'user_tag',
@@ -206,12 +212,21 @@ export const userTag = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     normalizedName: text('normalized_name').notNull(),
+    /** Creation provenance: `manual` for user-created tags, `ai` for the automatic organizer. */
+    createdBy: text('created_by').$type<UserTagProvenance>().default('manual').notNull(),
+    /** Locale of the original user-entered name; null for tags created before locale tracking. */
+    sourceLocale: text('source_locale'),
+    /** Explicit localized names keyed by SUPPORTED_LOCALES; missing keys are untranslated. */
+    localizedNames: jsonb('localized_names').$type<Record<string, string>>().default({}).notNull(),
+    /** Locales explicitly edited by the user; AI completion must never overwrite these keys. */
+    userEditedLocales: text('user_edited_locales').array().default([]).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [
     unique('user_tag_user_normalized_name_uidx').on(table.userId, table.normalizedName),
     unique('user_tag_user_id_id_uidx').on(table.userId, table.id),
     index('user_tag_user_idx').on(table.userId),
+    check('user_tag_created_by_check', sql`${table.createdBy} in ('manual', 'ai')`),
   ],
 );
 
@@ -226,6 +241,8 @@ export const userWorkTag = pgTable(
       .notNull()
       .references(() => readingWork.id, { onDelete: 'cascade' }),
     tagId: text('tag_id').notNull(),
+    /** Association provenance: `manual` for explicit user assignment, `ai` for the automatic organizer. */
+    source: text('source').$type<UserTagProvenance>().default('manual').notNull(),
   },
   (table) => [
     foreignKey({
@@ -236,6 +253,96 @@ export const userWorkTag = pgTable(
     unique('user_work_tag_user_work_tag_uidx').on(table.userId, table.workId, table.tagId),
     index('user_work_tag_user_work_idx').on(table.userId, table.workId),
     index('user_work_tag_user_tag_idx').on(table.userId, table.tagId),
+    check('user_work_tag_source_check', sql`${table.source} in ('manual', 'ai')`),
+  ],
+);
+
+/** Per-user opt-in and daily AI invocation budget for automatic Personal EPUB tagging. */
+export const userPersonalTagPreference = pgTable(
+  'user_personal_tag_preference',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    /** Master opt-in; an absent row or false means automatic tagging is off. */
+    enabled: boolean('enabled').default(false).notNull(),
+    /** Monotonic generation bumped when the user requests a fresh automatic run. */
+    generation: integer('generation').default(0).notNull(),
+    /** Local date the quota counters below apply to. */
+    quotaDate: date('quota_date', { mode: 'string' }),
+    /** AI invocations already consumed for `quotaDate`. */
+    quotaUsed: integer('quota_used').default(0).notNull(),
+    /** AI invocations reserved but not yet consumed for `quotaDate`. */
+    quotaReserved: integer('quota_reserved').default(0).notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    check('user_personal_tag_preference_generation_nonnegative_chk', sql`${table.generation} >= 0`),
+    check(
+      'user_personal_tag_preference_quota_nonnegative_chk',
+      sql`${table.quotaUsed} >= 0 AND ${table.quotaReserved} >= 0`,
+    ),
+    check('user_personal_tag_preference_quota_limit_chk', sql`${table.quotaUsed} + ${table.quotaReserved} <= 10`),
+  ],
+);
+
+/** Exact user/work/tag triple a user removed manually; AI must not restore it. */
+export const userWorkTagSuppression = pgTable(
+  'user_work_tag_suppression',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    workId: text('work_id')
+      .notNull()
+      .references(() => readingWork.id, { onDelete: 'cascade' }),
+    tagId: text('tag_id').notNull(),
+    removedAt: timestamp('removed_at').defaultNow().notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.userId, table.tagId],
+      foreignColumns: [userTag.userId, userTag.id],
+      name: 'user_work_tag_suppression_user_tag_fk',
+    }).onDelete('cascade'),
+    unique('user_work_tag_suppression_user_work_tag_uidx').on(table.userId, table.workId, table.tagId),
+  ],
+);
+
+/** Per-user/per-work Personal tag run outbox row; one per captured generation. */
+export const userPersonalTagRun = pgTable(
+  'user_personal_tag_run',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    workId: text('work_id')
+      .notNull()
+      .references(() => readingWork.id, { onDelete: 'cascade' }),
+    /** Preference generation captured when the run was enqueued. */
+    generation: integer('generation').notNull(),
+    state: text('state').$type<PersonalTagRunState>().default('queued').notNull(),
+    attempts: integer('attempts').default(0).notNull(),
+    /** Stable error code only; never prompt, excerpt, or model output. */
+    errorCode: text('error_code'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique('user_personal_tag_run_user_work_generation_uidx').on(table.userId, table.workId, table.generation),
+    index('user_personal_tag_run_state_idx').on(table.state),
+    check(
+      'user_personal_tag_run_state_check',
+      sql`${table.state} in ('queued', 'processing', 'completed', 'skipped', 'failed')`,
+    ),
+    check('user_personal_tag_run_attempts_nonnegative_chk', sql`${table.attempts} >= 0`),
   ],
 );
 

@@ -13,7 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { AUTH_ROUTES } from '@/constants';
-import { createUserTag, formatLibraryApiError, libraryQueryKey } from '@/features/library/library-api';
+import {
+  completeUserTagTranslations,
+  createUserTag,
+  formatLibraryApiError,
+  libraryQueryKey,
+} from '@/features/library/library-api';
 import {
   isLibraryFilterActive,
   libraryFilterHref,
@@ -61,12 +66,28 @@ function LibrarySourceNavContent({
     if (!name || isSaving) return;
     setIsSaving(true);
     try {
-      await createUserTag(name);
+      const tag = await createUserTag(name, locale);
       await queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags });
       await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
       setNewTagName('');
       setIsCreating(false);
       toast.success(t(locale, 'content.library.tagCreated'));
+      void completeUserTagTranslations(tag.id)
+        .then(async (result) => {
+          await queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags });
+          await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
+          toast.info(
+            t(
+              locale,
+              result.status === 'completed'
+                ? 'content.library.tagTranslationsComplete'
+                : result.status === 'provider_unavailable'
+                  ? 'content.library.tagTranslationProviderUnavailable'
+                  : 'content.library.tagTranslationsMissing',
+            ),
+          );
+        })
+        .catch(() => toast.info(t(locale, 'content.library.tagTranslationsMissing')));
     } catch (error) {
       toast.error(formatLibraryApiError(error));
     } finally {

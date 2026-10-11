@@ -12,6 +12,9 @@ export const libraryAvailabilitySchema = z.enum(['processing', 'ready', 'failed'
 export const userTagSchema = z.object({
   id: z.string(),
   name: z.string(),
+  localizedNames: z.record(z.string(), z.string()).default({}),
+  sourceLocale: z.string().nullable().default(null),
+  userEditedLocales: z.array(z.string()).default([]),
 });
 
 export const userTagManagementItemSchema = userTagSchema.extend({
@@ -20,12 +23,35 @@ export const userTagManagementItemSchema = userTagSchema.extend({
 
 export const userTagListSchema = z.array(userTagManagementItemSchema);
 
+const unsafeUserTagNameCharacters = /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u;
+
 export const userTagWriteSchema = z.object({
-  name: z.string().trim().min(1).max(80),
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .refine((value) => !unsafeUserTagNameCharacters.test(value)),
+  locale: z.string().trim().min(1).max(35).optional(),
+});
+
+export const userTagTranslationsResultSchema = z.object({
+  tag: userTagSchema,
+  status: z.enum(['completed', 'incomplete', 'provider_unavailable']),
 });
 
 export type UserTag = z.infer<typeof userTagSchema>;
 export type UserTagManagementItem = z.infer<typeof userTagManagementItemSchema>;
+export type UserTagTranslationsResult = z.infer<typeof userTagTranslationsResultSchema>;
+
+/** Display the requested localization, falling back to the original name without claiming it is translated. */
+export function resolveUserTagName(tag: UserTag, locale: string): string {
+  return tag.localizedNames?.[locale] ?? tag.name;
+}
+
+export function isUserTagTranslationMissing(tag: UserTag, locale: string): boolean {
+  return !tag.localizedNames?.[locale];
+}
 
 export const libraryItemSchema = z.object({
   work: readerWorkSummarySchema,

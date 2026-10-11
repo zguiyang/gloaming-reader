@@ -4,6 +4,7 @@ import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
 
 import {
   assignUserTag,
+  completeUserTagTranslations,
   createUserTag,
   deleteUserTag,
   libraryRefetchInterval,
@@ -69,22 +70,64 @@ describe('User Tag API', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ id: 'tag-1', name: 'Favorite' }), {
-          status: 201,
-          headers: { 'Content-Type': 'application/json' },
-        }),
+        new Response(
+          JSON.stringify({
+            id: 'tag-1',
+            name: 'Favorite',
+            localizedNames: { 'en-US': 'Favorite' },
+            sourceLocale: 'en-US',
+            userEditedLocales: ['en-US'],
+          }),
+          {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ id: 'tag-1', name: 'Reading' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
+        new Response(
+          JSON.stringify({
+            id: 'tag-1',
+            name: 'Reading',
+            localizedNames: { 'en-US': 'Reading' },
+            sourceLocale: 'en-US',
+            userEditedLocales: ['en-US'],
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            tag: {
+              id: 'tag-1',
+              name: 'Reading',
+              localizedNames: { 'en-US': 'Reading', 'zh-CN': '阅读' },
+              sourceLocale: 'en-US',
+              userEditedLocales: ['en-US'],
+            },
+            status: 'completed',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
       )
       .mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createUserTag('Favorite')).resolves.toEqual({ id: 'tag-1', name: 'Favorite' });
-    await expect(renameUserTag('tag-1', 'Reading')).resolves.toEqual({ id: 'tag-1', name: 'Reading' });
+    await expect(createUserTag('Favorite', 'en-US')).resolves.toMatchObject({
+      id: 'tag-1',
+      name: 'Favorite',
+      localizedNames: { 'en-US': 'Favorite' },
+    });
+    await expect(renameUserTag('tag-1', 'Reading', 'en-US')).resolves.toMatchObject({
+      id: 'tag-1',
+      name: 'Reading',
+      localizedNames: { 'en-US': 'Reading' },
+    });
+    await expect(completeUserTagTranslations('tag-1')).resolves.toMatchObject({ status: 'completed' });
     await assignUserTag('work-1', 'tag-1');
     await unassignUserTag('work-1', 'tag-1');
     await deleteUserTag('tag-1');
@@ -93,11 +136,12 @@ describe('User Tag API', () => {
     expect(calls.map(([url, init]) => [url, init.method])).toEqual([
       ['/api/library/tags', 'POST'],
       ['/api/library/tags/tag-1', 'PATCH'],
+      ['/api/library/tags/tag-1/translations/complete', 'POST'],
       ['/api/library/work-1/tags/tag-1', 'PUT'],
       ['/api/library/work-1/tags/tag-1', 'DELETE'],
       ['/api/library/tags/tag-1', 'DELETE'],
     ]);
-    expect(calls[0]?.[1].body).toBe(JSON.stringify({ name: 'Favorite' }));
-    expect(calls[1]?.[1].body).toBe(JSON.stringify({ name: 'Reading' }));
+    expect(calls[0]?.[1].body).toBe(JSON.stringify({ name: 'Favorite', locale: 'en-US' }));
+    expect(calls[1]?.[1].body).toBe(JSON.stringify({ name: 'Reading', locale: 'en-US' }));
   });
 });

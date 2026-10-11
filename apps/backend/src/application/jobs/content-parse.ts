@@ -15,6 +15,7 @@ import {
   reviveFailedSaveIntentsForWorkParseRetry,
   type SaveIntentFailure,
 } from '@/domains/library/save-intent';
+import { enqueuePersonalTagRunForReadyWork } from '@/domains/library/tags/personal-ai-tagging';
 import { failWorkflowEnqueue, rotateWorkflowJobToken, WORKFLOW_AUTO_CHAIN } from '@/domains/works/lifecycle';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
@@ -76,6 +77,12 @@ export async function processContentParse(
     await fanOutReadySaveIntentsForWork(data.workId);
   } catch (error) {
     parseLogger.warn({ err: error, workId: data.workId }, 'Failed to fan out source record save intents');
+  }
+  try {
+    await enqueuePersonalTagRunForReadyWork(data.workId);
+  } catch (error) {
+    // The committed feature-specific outbox row is recovered by the tagging worker's dispatcher.
+    parseLogger.warn({ err: error, workId: data.workId }, 'Failed to dispatch the Personal tag outbox row');
   }
   // Auto-chain kept for future: when WORKFLOW_AUTO_CHAIN flips back to true,
   // parse success immediately queues metadata-fill without an admin click.

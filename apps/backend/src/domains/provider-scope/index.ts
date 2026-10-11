@@ -11,6 +11,7 @@ export {
   resolveInstanceTtsConfigRow,
   resolveScopedAppSettingValue,
   resolveScopedTtsConfigRow,
+  resolveUserOwnedAppSettingValue,
   selectUsableTtsConfig,
 } from '@/domains/provider-scope/resolution';
 export type { ProviderRuntimeActor } from '@/domains/provider-scope/types';

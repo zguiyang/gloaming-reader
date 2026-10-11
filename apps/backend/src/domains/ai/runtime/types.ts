@@ -34,6 +34,12 @@ export type AiInvokeOptions<TSchema extends ZodTypeAny | undefined = undefined> 
   timeoutMs?: number;
   /** Thinking mode toggle; off by default. Only forwarded when the provider declares a thinking param. */
   enableThinking?: boolean;
+  /** Require a user-owned provider and never fall back to an instance provider. */
+  providerScope?: 'user-first' | 'user-only';
+  /** Per-invocation token cap, used by bounded background jobs. */
+  maxTokens?: number;
+  /** Provider-internal retries; background jobs may set zero to keep retry accounting at the queue. */
+  maxRetries?: number;
   requestSummaryExtra?: AiInvocationSummaryExtra;
 };
 

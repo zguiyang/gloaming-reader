@@ -13,6 +13,8 @@ const DEFAULT_MAX_RETRIES = 1;
 
 export type CreateLlmClientOptions = {
   timeoutMs?: number;
+  maxTokens?: number;
+  maxRetries?: number;
   /** Thinking-mode toggle; parameter name comes from `ResolvedLlm.thinkingParam`. */
   enableThinking?: boolean;
 };
@@ -27,9 +29,9 @@ function createOpenAiClient(resolved: ResolvedLlm, options?: CreateLlmClientOpti
     model: resolved.modelId,
     apiKey: resolved.apiKey,
     temperature: resolved.temperature ?? undefined,
-    maxTokens: resolved.maxTokens ?? undefined,
+    maxTokens: options?.maxTokens ?? resolved.maxTokens ?? undefined,
     timeout: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-    maxRetries: DEFAULT_MAX_RETRIES,
+    maxRetries: options?.maxRetries ?? DEFAULT_MAX_RETRIES,
     configuration: {
       baseURL: resolved.baseUrl,
       ...(proxiedFetch ? { fetch: proxiedFetch } : {}),

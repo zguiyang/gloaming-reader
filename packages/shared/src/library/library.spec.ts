@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { continueReadingItemSchema, LIBRARY_ITEMS_LIMIT, libraryDataSchema } from './library.ts';
+import {
+  continueReadingItemSchema,
+  isUserTagTranslationMissing,
+  LIBRARY_ITEMS_LIMIT,
+  libraryDataSchema,
+  resolveUserTagName,
+  userTagSchema,
+  userTagWriteSchema,
+} from './library.ts';
 
 const work = {
   id: 'w1',
@@ -21,6 +29,30 @@ const state = {
 };
 
 describe('Library contracts', () => {
+  it('keeps localized labels on one stable tag and falls back without claiming a translation', () => {
+    const tag = userTagSchema.parse({
+      id: 'tag-1',
+      name: 'Children’s Literature',
+      sourceLocale: 'en-US',
+      localizedNames: { 'en-US': 'Children’s Literature' },
+      userEditedLocales: ['en-US'],
+    });
+    expect(resolveUserTagName(tag, 'zh-CN')).toBe('Children’s Literature');
+    expect(isUserTagTranslationMissing(tag, 'zh-CN')).toBe(true);
+    expect(isUserTagTranslationMissing(tag, 'en-US')).toBe(false);
+    expect(userTagSchema.parse({ id: 'old-tag', name: 'Old name' })).toMatchObject({
+      localizedNames: {},
+      sourceLocale: null,
+      userEditedLocales: [],
+    });
+  });
+
+  it('rejects control and bidirectional override characters in manual names', () => {
+    expect(() => userTagWriteSchema.parse({ name: 'two\nlines' })).toThrow();
+    expect(() => userTagWriteSchema.parse({ name: 'hidden\u202eorder' })).toThrow();
+    expect(userTagWriteSchema.parse({ name: 'C++' })).toMatchObject({ name: 'C++' });
+  });
+
   it('accepts owned or saved works with and without reading progress', () => {
     const parsed = libraryDataSchema.parse({
       current: { work, state },
@@ -50,7 +82,15 @@ describe('Library contracts', () => {
     expect(parsed.items[1]?.state?.progressRatio).toBe(40);
     expect(parsed.items[0]?.canRemoveFromLibrary).toBe(false);
     expect(parsed.items[1]?.canRemoveFromLibrary).toBe(true);
-    expect(parsed.items[1]?.userTags).toEqual([{ id: 'tag-1', name: 'Favorite' }]);
+    expect(parsed.items[1]?.userTags).toEqual([
+      {
+        id: 'tag-1',
+        name: 'Favorite',
+        localizedNames: {},
+        sourceLocale: null,
+        userEditedLocales: [],
+      },
+    ]);
     expect(parsed.current?.state).toEqual(state);
     expect(LIBRARY_ITEMS_LIMIT).toBe(48);
   });

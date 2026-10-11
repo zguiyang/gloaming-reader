@@ -7,12 +7,13 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
-import type { LibraryItem, UserTagManagementItem } from '@gloaming/shared/library';
+import { type LibraryItem, resolveUserTagName, type UserTagManagementItem } from '@gloaming/shared/library';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   assignUserTag,
+  completeUserTagTranslations,
   createUserTag,
   formatLibraryApiError,
   libraryQueryKey,
@@ -107,13 +108,29 @@ function LibraryTagAssignmentContent({
 
   const createAndAssign = useMutation({
     mutationFn: async () => {
-      const tag = await createUserTag(newName);
+      const tag = await createUserTag(newName, locale);
       await assignUserTag(entry.work.id, tag.id);
+      return tag;
     },
-    onSuccess: async () => {
+    onSuccess: async (tag) => {
       await refreshTagViews();
       toast.success(t(locale, 'content.library.tagCreated'));
       setNewName('');
+      void completeUserTagTranslations(tag.id)
+        .then(async (result) => {
+          await refreshTagViews();
+          toast.info(
+            t(
+              locale,
+              result.status === 'completed'
+                ? 'content.library.tagTranslationsComplete'
+                : result.status === 'provider_unavailable'
+                  ? 'content.library.tagTranslationProviderUnavailable'
+                  : 'content.library.tagTranslationsMissing',
+            ),
+          );
+        })
+        .catch(() => toast.info(t(locale, 'content.library.tagTranslationsMissing')));
     },
     onError: async (error) => {
       await refreshTagViews();
@@ -143,7 +160,7 @@ function LibraryTagAssignmentContent({
                   );
                 }}
               />
-              <span className="min-w-0 flex-1 truncate">{tag.name}</span>
+              <span className="min-w-0 flex-1 truncate">{resolveUserTagName(tag, locale)}</span>
               <span className="text-xs text-muted-foreground">{tag.bookCount}</span>
             </label>
           ))}

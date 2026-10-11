@@ -12,6 +12,7 @@ import {
   runContentParse,
   startParseWorkflowLease,
 } from '@/domains/ingest/parser';
+import { recordPersonalTagRunOnParseReady } from '@/domains/library/tags/personal-ai-tagging';
 import { computePartReadingStats, computeWorkReadingStats } from '@/domains/reading';
 import {
   claimWorkflowStep,
@@ -125,24 +126,52 @@ async function finalizeContentParseWorkflow(
             statsProvenance: workStats.statsProvenance,
           }),
     };
-    const [statsUpdated] = await db
-      .update(readingWorkTable)
-      .set(statsPatch)
-      .where(workflowClaimWhere(workId, 'parse', jobToken, attemptToken))
-      .returning({ id: readingWorkTable.id });
-    if (!statsUpdated) {
-      return false;
-    }
     const nextStatus = persisted.isPersonalWork ? 'ready' : 'parsed';
-    if (!(await completeWorkflowStep(workId, nextStatus, undefined, 'processing', jobToken, 'parse', attemptToken))) {
-      return false;
+    if (persisted.isPersonalWork) {
+      const completed = await db.transaction(async (tx) => {
+        const [statsUpdated] = await tx
+          .update(readingWorkTable)
+          .set(statsPatch)
+          .where(workflowClaimWhere(workId, 'parse', jobToken, attemptToken))
+          .returning({ id: readingWorkTable.id });
+        if (!statsUpdated) return false;
+        if (
+          !(await completeWorkflowStep(
+            workId,
+            nextStatus,
+            undefined,
+            'processing',
+            jobToken,
+            'parse',
+            attemptToken,
+            tx,
+          ))
+        ) {
+          return false;
+        }
+        await tx
+          .update(readingWorkTable)
+          .set({ originMeta: sql`${readingWorkTable.originMeta} - 'workflowParseArtifacts'` })
+          .where(eq(readingWorkTable.id, workId));
+        await recordPersonalTagRunOnParseReady(tx, workId);
+        return true;
+      });
+      if (!completed) return false;
+    } else {
+      const [statsUpdated] = await db
+        .update(readingWorkTable)
+        .set(statsPatch)
+        .where(workflowClaimWhere(workId, 'parse', jobToken, attemptToken))
+        .returning({ id: readingWorkTable.id });
+      if (!statsUpdated) return false;
+      if (!(await completeWorkflowStep(workId, nextStatus, undefined, 'processing', jobToken, 'parse', attemptToken))) {
+        return false;
+      }
+      await db
+        .update(readingWorkTable)
+        .set({ originMeta: sql`${readingWorkTable.originMeta} - 'workflowParseArtifacts'` })
+        .where(eq(readingWorkTable.id, workId));
     }
-    await db
-      .update(readingWorkTable)
-      .set({
-        originMeta: sql`${readingWorkTable.originMeta} - 'workflowParseArtifacts'`,
-      })
-      .where(eq(readingWorkTable.id, workId));
   }
 
   const parts = await db
