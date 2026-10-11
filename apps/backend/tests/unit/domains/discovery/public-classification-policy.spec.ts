@@ -193,6 +193,30 @@ describe('public classification validator', () => {
     });
   });
 
+  it('does not treat an identical label in another locale as the same category', () => {
+    const translatedLabelOnly = candidate('cat-zh-only', { 'zh-CN': 'AI' });
+    const validated = validatePublicClassificationDecision(
+      decision({
+        outcome: 'CREATE',
+        create: [
+          {
+            name: 'AI',
+            meaning: 'artificial intelligence',
+            reusable: true,
+            distinctFromExisting: true,
+            rationale: 'same spelling in another locale does not establish identity',
+          },
+        ],
+      }),
+      [...candidates, translatedLabelOnly],
+      'en-US',
+    );
+
+    expect(validated.outcome).toBe('CREATE');
+    expect(validated.reuse).toEqual([]);
+    expect(validated.create.map((item) => item.name)).toEqual(['AI']);
+  });
+
   it('clamps the total to three with reuses first and downgrades an unsupported outcome', () => {
     const clamped = validatePublicClassificationDecision(
       decision({

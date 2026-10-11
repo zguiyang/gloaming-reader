@@ -87,7 +87,40 @@ const suffix = runId.slice(0, 8);
 const sourceKey = `pc03_classification_${runId}`;
 
 let sourceId = '';
+let budgetPreExisting: typeof publicClassificationBudgetTable.$inferSelect | null = null;
 const createdCategoryIds = new Set<string>();
+
+async function resetClassificationBudgetRow(): Promise<void> {
+  await db
+    .delete(publicClassificationBudgetTable)
+    .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID));
+}
+
+async function restoreClassificationBudgetRow(): Promise<void> {
+  if (!budgetPreExisting) {
+    await resetClassificationBudgetRow();
+    return;
+  }
+
+  await db
+    .insert(publicClassificationBudgetTable)
+    .values({
+      id: budgetPreExisting.id,
+      quotaDate: budgetPreExisting.quotaDate,
+      quotaUsed: budgetPreExisting.quotaUsed,
+      quotaReserved: budgetPreExisting.quotaReserved,
+      updatedAt: budgetPreExisting.updatedAt,
+    })
+    .onConflictDoUpdate({
+      target: publicClassificationBudgetTable.id,
+      set: {
+        quotaDate: budgetPreExisting.quotaDate,
+        quotaUsed: budgetPreExisting.quotaUsed,
+        quotaReserved: budgetPreExisting.quotaReserved,
+        updatedAt: budgetPreExisting.updatedAt,
+      },
+    });
+}
 
 async function createCategory(name: string, locale = 'en-US') {
   const category = await createManagedCategory({ name, locale });
@@ -118,6 +151,13 @@ async function invocations() {
 
 describe('public classification service on gloaming_test', () => {
   beforeAll(async () => {
+    const [budgetRow] = await db
+      .select()
+      .from(publicClassificationBudgetTable)
+      .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID))
+      .limit(1);
+    budgetPreExisting = budgetRow ?? null;
+
     sourceId = randomUUID();
     await db.insert(discoverySourceTable).values({
       id: sourceId,
@@ -131,16 +171,19 @@ describe('public classification service on gloaming_test', () => {
     invokeAiMock.mockReset();
     instanceProviderMock.mockReset().mockResolvedValue('instance-model');
     acquireLockMock.mockReset().mockResolvedValue(true);
-    await db.delete(publicClassificationBudgetTable);
+    await resetClassificationBudgetRow();
   });
 
   afterAll(async () => {
-    await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
-    await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
-    if (createdCategoryIds.size > 0) {
-      await db.delete(publicCategoryTable).where(inArray(publicCategoryTable.id, [...createdCategoryIds]));
+    try {
+      await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
+      await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
+      if (createdCategoryIds.size > 0) {
+        await db.delete(publicCategoryTable).where(inArray(publicCategoryTable.id, [...createdCategoryIds]));
+      }
+    } finally {
+      await restoreClassificationBudgetRow();
     }
-    await db.delete(publicClassificationBudgetTable);
   });
 
   it('reuses a cross-language equivalent stable id without creating a duplicate', async () => {

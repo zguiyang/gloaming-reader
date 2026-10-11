@@ -59,17 +59,21 @@ export function collectExistingCategoryNames(candidates: PublicCategory[]): Set<
 }
 
 /**
- * Normalized label/alias name to the stable id that owns it. Used to turn an
- * exact name collision into a safe reuse of the existing category instead of a
- * duplicate creation.
+ * Normalized label/alias name to the stable id that owns it. When `locale` is
+ * supplied, only labels in that locale are considered because name uniqueness
+ * is locale-scoped. Used to turn an exact same-locale collision into safe reuse.
  */
-export function collectExistingCategoryNameOwners(candidates: PublicCategory[]): Map<string, string> {
+export function collectExistingCategoryNameOwners(candidates: PublicCategory[], locale?: Locale): Map<string, string> {
   const owners = new Map<string, string>();
   for (const category of candidates) {
-    for (const name of Object.values(category.localizedNames)) {
+    const names = locale
+      ? [category.localizedNames[locale]].filter((name): name is string => Boolean(name))
+      : Object.values(category.localizedNames);
+    for (const name of names) {
       owners.set(normalizePublicCategoryName(name), category.id);
     }
     for (const alias of category.aliases) {
+      if (locale && alias.locale !== locale) continue;
       owners.set(normalizePublicCategoryName(alias.alias), category.id);
     }
   }
@@ -88,10 +92,10 @@ function normalizeNewCategoryName(name: string): string | null {
  * - Reuse ids must exist in the supplied public category set; unknown or
  *   duplicated ids are dropped, so no model id can touch a User Tag or an
  *   unrelated row.
- * - New names must be safe, unique, distinct from every existing category name
- *   and alias, and written in the record's source-locale script. An exact
- *   normalized-name collision is never created; it becomes a safe reuse of the
- *   existing stable id.
+ * - New names must be safe, distinct from every existing same-locale name and
+ *   alias, and written in the record's source-locale script. An exact
+ *   same-locale collision becomes a safe reuse. Cross-locale semantic
+ *   equivalence remains a model decision; string equality alone is not identity.
  * - Total assignments are clamped to the 0-3 product limit, reuses first.
  * - `outcome` is downgraded when the model's selected actions no longer support
  *   it, so the persisted result can never claim a decision it did not apply.
@@ -107,7 +111,7 @@ export function validatePublicClassificationDecision(
   }
 
   const candidateIds = new Set(candidates.map((category) => category.id));
-  const existingNameOwners = collectExistingCategoryNameOwners(candidates);
+  const existingNameOwners = collectExistingCategoryNameOwners(candidates, sourceLocale);
 
   const reuse: PublicClassificationReuse[] = [];
   const seenReuseIds = new Set<string>();
