@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type * as NextNavigation from 'next/navigation';
 import { act, createElement, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -32,6 +33,9 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   openLogin: vi.fn(),
+  navigatePush: vi.fn(),
+  navigateReplace: vi.fn(),
+  searchParams: new URLSearchParams(),
 }));
 
 vi.mock('@/features/library/library-api', () => ({
@@ -52,6 +56,15 @@ vi.mock('@/features/library/library-api', () => ({
 }));
 
 vi.mock('@/features/auth', () => ({ useAuthDialog: () => ({ openLogin: mocks.openLogin }) }));
+vi.mock('next/navigation', async (importOriginal) => {
+  const actual = await importOriginal<typeof NextNavigation>();
+  return {
+    ...actual,
+    usePathname: () => '/library',
+    useRouter: () => ({ push: mocks.navigatePush, replace: mocks.navigateReplace }),
+    useSearchParams: () => mocks.searchParams,
+  };
+});
 vi.mock('sonner', () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError } }));
 
 beforeAll(() => {
@@ -60,6 +73,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.searchParams = new URLSearchParams();
   mocks.personalEpubValidationError.mockReturnValue(null);
   mocks.removeFromLibrary.mockResolvedValue(undefined);
   mocks.updatePersonalWork.mockResolvedValue({ id: 'book', title: 'Updated', author: 'Author', description: 'Note' });
@@ -95,26 +109,33 @@ function item(id: string, canRemoveFromLibrary: boolean, availability: 'processi
   } as LibraryData['items'][number];
 }
 
-function withProviders(node: ReactElement, client: QueryClient) {
+function withProviders(node: ReactElement, client: QueryClient, locale: 'zh-CN' | 'en-US' = 'zh-CN') {
   return createElement(
     QueryClientProvider,
     { client },
     // eslint-disable-next-line react/no-children-prop
-    createElement(LocaleProvider, { locale: 'zh-CN', children: node }),
+    createElement(LocaleProvider, { locale, children: node }),
   );
 }
 
-async function renderLibrary(result: unknown) {
+async function renderLibrary(result: unknown, locale: 'zh-CN' | 'en-US' = 'zh-CN') {
   mocks.useLibraryQuery.mockReturnValue(result);
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  await act(async () => root.render(withProviders(createElement(LibraryPage), client)));
+  const render = async () => {
+    await act(async () => root.render(withProviders(createElement(LibraryPage), client, locale)));
+  };
+  await render();
   return {
     container,
     root,
     client,
+    async navigate(search: string) {
+      mocks.searchParams = new URLSearchParams(search);
+      await render();
+    },
     cleanup() {
       void act(() => root.unmount());
       container.remove();
@@ -131,6 +152,7 @@ async function renderTagManagement(data: unknown) {
   await act(async () => root.render(withProviders(createElement(LibraryTagsPage), client)));
   return {
     container,
+    client,
     cleanup() {
       void act(() => root.unmount());
       container.remove();
@@ -142,6 +164,14 @@ function updateInput(input: HTMLInputElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
   setter?.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function buttonByLabel(container: ParentNode, label: string): HTMLButtonElement | undefined {
+  return Array.from(container.querySelectorAll('button')).find((button) => button.textContent === label);
+}
+
+function tagButton(container: ParentNode, name: string): HTMLButtonElement | undefined {
+  return Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.startsWith(name));
 }
 
 describe('LibraryPage', () => {
@@ -181,7 +211,7 @@ describe('LibraryPage', () => {
     view.cleanup();
   });
 
-  it('shows Continue Reading and opens owned and saved books directly in Reader', async () => {
+  it('keeps Continue Reading direct to Reader and opens grid books in Work detail', async () => {
     const data = {
       current: { work: work('current'), state: { currentPartId: 'part-2', progressRatio: 20 } },
       items: [item('personal', false), item('catalog', true)],
@@ -192,6 +222,8 @@ describe('LibraryPage', () => {
     expect(view.container.querySelector('a[href="/read/current?part=part-2"]')).toBeTruthy();
     expect(view.container.querySelector('a[href="/read/personal"]')).toBeTruthy();
     expect(view.container.querySelector('a[href="/read/catalog"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/works/personal?returnTo=%2Flibrary"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/works/catalog?returnTo=%2Flibrary"]')).toBeTruthy();
     expect(view.container.querySelector('a[href^="/discover/"]')).toBeNull();
     expect(view.container.querySelectorAll('button[aria-label^="管理《"]')).toHaveLength(2);
     view.cleanup();
@@ -230,7 +262,10 @@ describe('LibraryPage', () => {
     const continueHero = Array.from(view.container.querySelectorAll('section')).find((section) =>
       section.textContent?.includes('继续阅读'),
     );
+    expect(continueHero?.querySelector('h2')?.textContent).toBe('继续阅读');
     expect(continueHero?.textContent).toContain('阅读中');
+    expect(continueHero?.textContent).not.toContain('已读 0%');
+    expect(continueHero?.querySelector('[role="progressbar"]')).toBeNull();
     expect(statusTextFor('current')).toBe('阅读中');
     expect(statusTextFor('reading')).toBe('阅读中');
     expect(statusTextFor('current')).not.toBe('未开始');
@@ -272,26 +307,34 @@ describe('LibraryPage', () => {
     });
     await act(async () => {
       Array.from(view.container.querySelectorAll('button'))
-        .find((button) => button.textContent === '英语学习')
+        .find((button) => button.textContent?.startsWith('英语学习'))
         ?.click();
     });
     expect(view.container.querySelector('a[href="/read/current?part=part-2"]')).toBeTruthy();
-    expect(view.container.querySelector('a[href="/read/personal-english"]')).toBeTruthy();
+    expect(
+      view.container.querySelector(
+        'a[href="/works/personal-english?returnTo=%2Flibrary%3Fsource%3Dpersonal%26tag%3Dtag-english"]',
+      ),
+    ).toBeTruthy();
     expect(view.container.querySelector('a[href="/read/personal-favorite"]')).toBeNull();
     expect(view.container.querySelector('a[href="/read/saved-english"]')).toBeNull();
 
     await act(async () => {
       Array.from(view.container.querySelectorAll('button'))
-        .find((button) => button.textContent === '已收藏')
+        .find((button) => button.textContent === '已保存')
         ?.click();
     });
     await act(async () => {
       Array.from(view.container.querySelectorAll('button'))
-        .find((button) => button.textContent === '喜欢')
+        .find((button) => button.textContent?.startsWith('喜欢'))
         ?.click();
     });
     expect(view.container.querySelector('a[href="/read/current?part=part-2"]')).toBeTruthy();
-    expect(view.container.querySelector('a[href="/read/saved-favorite"]')).toBeTruthy();
+    expect(
+      view.container.querySelector(
+        'a[href="/works/saved-favorite?returnTo=%2Flibrary%3Fsource%3Dsaved%26tag%3Dtag-favorite"]',
+      ),
+    ).toBeTruthy();
     expect(view.container.querySelector('a[href="/read/personal-favorite"]')).toBeNull();
     expect(view.container.querySelector('a[href="/read/saved-english"]')).toBeNull();
     view.cleanup();
@@ -310,16 +353,16 @@ describe('LibraryPage', () => {
     expect(view.container.textContent).toContain('继续阅读');
     expect(view.container.querySelector('a[href="/read/current?part=part-2"]')).toBeTruthy();
     // The same Work remains eligible for the All Books grid and keeps its management action.
-    expect(view.container.querySelector('a[href="/read/current"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/works/current?returnTo=%2Flibrary"]')).toBeTruthy();
     expect(view.container.querySelector('button[aria-label="管理《Book current》"]')).toBeTruthy();
 
     // Saved Catalog never contains the Personal current Work.
     await act(async () => {
       Array.from(view.container.querySelectorAll('button'))
-        .find((button) => button.textContent === '已收藏')
+        .find((button) => button.textContent === '已保存')
         ?.click();
     });
-    expect(view.container.querySelector('a[href="/read/current"]')).toBeNull();
+    expect(view.container.querySelector('a[href="/works/current?returnTo=%2Flibrary"]')).toBeNull();
     expect(view.container.querySelector('a[href="/read/saved"]')).toBeTruthy();
 
     // My Upload and the User Tag filter still compose for the current Work.
@@ -330,10 +373,14 @@ describe('LibraryPage', () => {
     });
     await act(async () => {
       Array.from(view.container.querySelectorAll('button'))
-        .find((button) => button.textContent === '喜欢')
+        .find((button) => button.textContent?.startsWith('喜欢'))
         ?.click();
     });
-    expect(view.container.querySelector('a[href="/read/current"]')).toBeTruthy();
+    expect(
+      view.container.querySelector(
+        'a[href="/works/current?returnTo=%2Flibrary%3Fsource%3Dpersonal%26tag%3Dtag-favorite"]',
+      ),
+    ).toBeTruthy();
     expect(view.container.querySelector('a[href="/read/current?part=part-2"]')).toBeTruthy();
     expect(view.container.querySelector('a[href="/read/saved"]')).toBeNull();
     view.cleanup();
@@ -342,6 +389,7 @@ describe('LibraryPage', () => {
   it('provides tag management and explains that deleting a tag keeps books', async () => {
     const view = await renderTagManagement([{ id: 'tag-one', name: '喜欢', bookCount: 2 }]);
     expect(view.container.textContent).toContain('管理标签');
+    expect(view.container.textContent).not.toContain('用标签整理书库中的书籍');
     expect(view.container.textContent).toContain('用于 2 本书');
     const deleteButton = view.container.querySelector('button[aria-label="删除标签: 喜欢"]') as HTMLButtonElement;
     await act(async () => deleteButton.click());
@@ -357,6 +405,7 @@ describe('LibraryPage', () => {
 
   it('creates and renames tags from the management page', async () => {
     const view = await renderTagManagement([{ id: 'tag-one', name: '喜欢', bookCount: 1 }]);
+    const invalidateQueries = vi.spyOn(view.client, 'invalidateQueries');
     const createInput = view.container.querySelector('form input') as HTMLInputElement;
     await act(async () => updateInput(createInput, '以后再读'));
     const createButton = Array.from(view.container.querySelectorAll('button')).find(
@@ -371,7 +420,19 @@ describe('LibraryPage', () => {
     const editInput = editForm.querySelector('input') as HTMLInputElement;
     await act(async () => updateInput(editInput, '更新后的标签'));
     await act(async () => (editForm.querySelector('button[type="submit"]') as HTMLButtonElement).click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(mocks.renameUserTag).toHaveBeenCalledWith('tag-one', '更新后的标签');
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['book-detail'] });
+    view.cleanup();
+  });
+
+  it('opens a tag result from its name and count while preserving the return Library source', async () => {
+    mocks.searchParams = new URLSearchParams({ returnTo: '/library?utm=keep&source=personal' });
+    const view = await renderTagManagement([{ id: 'tag-one', name: '喜欢', bookCount: 2 }]);
+    const tagLink = Array.from(view.container.querySelectorAll('a')).find((link) => link.textContent?.includes('喜欢'));
+
+    expect(tagLink?.getAttribute('href')).toBe('/library?utm=keep&source=personal&tag=tag-one');
+    expect(tagLink?.textContent).toContain('用于 2 本书');
     view.cleanup();
   });
 
@@ -407,6 +468,61 @@ describe('LibraryPage', () => {
     view.cleanup();
   });
 
+  it('creates a tag and immediately associates it with a book', async () => {
+    const view = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('book', false)] },
+    });
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="管理《Book book》"]') as HTMLButtonElement).click(),
+    );
+    const manageItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('管理标签'),
+    );
+    await act(async () => (manageItem as HTMLElement).click());
+
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+    const input = dialog.querySelector('input[aria-label="标签名称"]') as HTMLInputElement;
+    await act(async () => updateInput(input, '新建并关联'));
+    await act(async () => (dialog.querySelector('button[aria-label="创建标签"]') as HTMLButtonElement).click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(mocks.createUserTag).toHaveBeenCalledWith('新建并关联');
+    expect(mocks.assignUserTag).toHaveBeenCalledWith('book', 'tag-new');
+    view.cleanup();
+  });
+
+  it('refreshes Library, tags, and detail after a partial tag-assignment failure', async () => {
+    mocks.assignUserTag.mockRejectedValueOnce(new Error('assignment failed'));
+    const view = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('book', false)] },
+    });
+    const invalidateQueries = vi.spyOn(view.client, 'invalidateQueries');
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="管理《Book book》"]') as HTMLButtonElement).click(),
+    );
+    const manageItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('管理标签'),
+    );
+    await act(async () => (manageItem as HTMLElement).click());
+
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+    await act(async () =>
+      updateInput(dialog.querySelector('input[aria-label="标签名称"]') as HTMLInputElement, '稍后阅读'),
+    );
+    await act(async () => (dialog.querySelector('button[aria-label="创建标签"]') as HTMLButtonElement).click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(mocks.toastError).toHaveBeenCalledWith('Error: assignment failed');
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library', 'tags'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['book-detail', 'book'] });
+    view.cleanup();
+  });
+
   it('shows processing and failed books as non-readable states without fake recovery actions', async () => {
     const data = {
       current: null,
@@ -418,6 +534,8 @@ describe('LibraryPage', () => {
     expect(view.container.textContent).toContain('导入失败');
     expect(view.container.textContent).toContain('暂时无法读取这本书。');
     expect(view.container.querySelector('[role="progressbar"]')?.hasAttribute('aria-valuenow')).toBe(false);
+    expect(view.container.querySelector('a[href="/works/processing?returnTo=%2Flibrary"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href="/works/failed?returnTo=%2Flibrary"]')).toBeTruthy();
     expect(view.container.querySelector('a[href="/read/processing"]')).toBeNull();
     expect(view.container.querySelector('a[href="/read/failed"]')).toBeNull();
     expect(view.container.textContent).not.toContain('重试');
@@ -573,5 +691,220 @@ describe('LibraryPage', () => {
     await act(async () => confirm?.click());
     expect(mocks.deletePersonalWork).toHaveBeenCalledWith('failed');
     failedView.cleanup();
+  });
+
+  it('restores source and tag filters from the URL and normalizes invalid parameters', async () => {
+    const favorite = { id: 'tag-favorite', name: '喜欢', bookCount: 1 };
+    mocks.useUserTagsQuery.mockReturnValue({ data: [favorite] });
+    const data = {
+      current: null,
+      items: [
+        item('personal-english', false),
+        { ...item('saved-favorite', true), userTags: [{ id: 'tag-favorite', name: '喜欢' }] },
+      ],
+    } as unknown as LibraryData;
+
+    mocks.searchParams = new URLSearchParams('source=saved&tag=tag-favorite');
+    const restored = await renderLibrary({ isPending: false, isError: false, data });
+    expect(
+      restored.container.querySelector(
+        'a[href="/works/saved-favorite?returnTo=%2Flibrary%3Fsource%3Dsaved%26tag%3Dtag-favorite"]',
+      ),
+    ).toBeTruthy();
+    expect(restored.container.querySelector('a[href="/works/personal-english?returnTo=%2Flibrary"]')).toBeNull();
+    expect(mocks.navigateReplace).not.toHaveBeenCalled();
+    restored.cleanup();
+
+    mocks.searchParams = new URLSearchParams('source=bogus&tag=missing');
+    const invalid = await renderLibrary({ isPending: false, isError: false, data });
+    expect(invalid.container.querySelector('a[href="/works/personal-english?returnTo=%2Flibrary"]')).toBeTruthy();
+    expect(invalid.container.querySelector('a[href="/works/saved-favorite?returnTo=%2Flibrary"]')).toBeTruthy();
+    expect(mocks.navigateReplace).toHaveBeenCalledWith('/library', { scroll: false });
+    invalid.cleanup();
+  });
+
+  it('persists source and tag selections in the URL', async () => {
+    const favorite = { id: 'tag-favorite', name: '喜欢', bookCount: 1 };
+    mocks.useUserTagsQuery.mockReturnValue({ data: [favorite] });
+    const data = {
+      current: null,
+      items: [{ ...item('saved-favorite', true), userTags: [{ id: 'tag-favorite', name: '喜欢' }] }],
+    } as unknown as LibraryData;
+    mocks.searchParams = new URLSearchParams('utm=keep');
+    const view = await renderLibrary({ isPending: false, isError: false, data });
+
+    await act(async () => buttonByLabel(view.container, '我的上传')?.click());
+    expect(mocks.navigatePush).toHaveBeenCalledWith('/library?utm=keep&source=personal', { scroll: false });
+
+    await act(async () => tagButton(view.container, '喜欢')?.click());
+    expect(mocks.navigatePush).toHaveBeenCalledWith('/library?utm=keep&source=personal&tag=tag-favorite', {
+      scroll: false,
+    });
+    view.cleanup();
+  });
+
+  it('restores filters when the URL changes through browser history', async () => {
+    const favorite = { id: 'tag-favorite', name: '喜欢', bookCount: 1 };
+    mocks.useUserTagsQuery.mockReturnValue({ data: [favorite] });
+    const data = {
+      current: null,
+      items: [
+        item('personal', false),
+        { ...item('saved-favorite', true), userTags: [{ id: 'tag-favorite', name: '喜欢' }] },
+      ],
+    } as unknown as LibraryData;
+    const view = await renderLibrary({ isPending: false, isError: false, data });
+    expect(view.container.querySelector('a[href="/works/personal?returnTo=%2Flibrary"]')).toBeTruthy();
+
+    await view.navigate('?source=saved&tag=tag-favorite');
+    expect(
+      view.container.querySelector(
+        'a[href="/works/saved-favorite?returnTo=%2Flibrary%3Fsource%3Dsaved%26tag%3Dtag-favorite"]',
+      ),
+    ).toBeTruthy();
+    expect(view.container.querySelector('a[href="/works/personal?returnTo=%2Flibrary"]')).toBeNull();
+
+    await view.navigate('');
+    expect(view.container.querySelector('a[href="/works/personal?returnTo=%2Flibrary"]')).toBeTruthy();
+    view.cleanup();
+  });
+
+  it('opens the mobile category drawer, selects a source, and closes it', async () => {
+    const data = {
+      current: null,
+      items: [item('personal', false), item('saved', true)],
+    } as unknown as LibraryData;
+    const view = await renderLibrary({ isPending: false, isError: false, data });
+
+    const trigger = view.container.querySelector('button[aria-haspopup="dialog"]') as HTMLButtonElement;
+    expect(trigger).toBeTruthy();
+    await act(async () => trigger.click());
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+
+    const sheet = document.querySelector('[data-slot="sheet-content"]') as HTMLElement;
+    expect(sheet).toBeTruthy();
+    expect(sheet.textContent).toContain('我的上传');
+
+    await act(async () => (buttonByLabel(sheet, '我的上传') as HTMLButtonElement).click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(
+      view.container.querySelector('a[href="/works/personal?returnTo=%2Flibrary%3Fsource%3Dpersonal"]'),
+    ).toBeTruthy();
+    expect(view.container.querySelector('a[href="/works/saved?returnTo=%2Flibrary"]')).toBeNull();
+    view.cleanup();
+  });
+
+  it('creates a tag from the Library source navigation', async () => {
+    const view = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('book', false)] },
+    });
+    await act(async () => buttonByLabel(view.container, '新建标签')?.click());
+    const input = view.container.querySelector('input[aria-label="标签名称"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    await act(async () => updateInput(input, '科幻'));
+    await act(async () => buttonByLabel(view.container, '创建标签')?.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(mocks.createUserTag).toHaveBeenCalledWith('科幻');
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已创建');
+    view.cleanup();
+  });
+
+  it('keeps tag creation and management discoverable without redundant empty-state copy', async () => {
+    const view = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('book', false)] },
+    });
+
+    expect(view.container.textContent).not.toContain('用标签整理你的书库');
+    expect(buttonByLabel(view.container, '新建标签')).toBeTruthy();
+    expect(view.container.querySelector('a[aria-label="管理标签"]')).toBeTruthy();
+    view.cleanup();
+  });
+
+  it('explains empty source categories and offers a route back to all books', async () => {
+    const savedEmpty = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('personal', false)] },
+    });
+    await savedEmpty.navigate('?source=saved');
+    expect(savedEmpty.container.textContent).toContain('还没有已保存的书');
+    expect(savedEmpty.container.textContent).not.toContain('没有符合条件的书');
+    await act(async () => buttonByLabel(savedEmpty.container, '查看全部书籍')?.click());
+    expect(mocks.navigatePush).toHaveBeenCalledWith('/library', { scroll: false });
+    savedEmpty.cleanup();
+
+    const personalEmpty = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('saved', true)] },
+    });
+    await personalEmpty.navigate('?source=personal');
+    expect(personalEmpty.container.textContent).toContain('还没有上传的书');
+    expect(buttonByLabel(personalEmpty.container, '查看全部书籍')).toBeTruthy();
+    personalEmpty.cleanup();
+  });
+
+  it('renders the new shortcut and empty-source copy in English', async () => {
+    const english = await renderLibrary(
+      {
+        isPending: false,
+        isError: false,
+        data: {
+          current: { work: work('current'), state: { status: 'in_progress', currentPartId: null, progressRatio: 0 } },
+          items: [item('personal', false)],
+        } as unknown as LibraryData,
+      },
+      'en-US',
+    );
+    await english.navigate('?source=saved');
+
+    const continueHero = Array.from(english.container.querySelectorAll('section')).find((section) =>
+      section.textContent?.includes('Continue reading'),
+    );
+    expect(continueHero?.textContent).toContain('Reading');
+    expect(continueHero?.textContent).not.toContain('0% read');
+    expect(english.container.textContent).toContain('No saved books yet');
+    expect(buttonByLabel(english.container, 'View all books')).toBeTruthy();
+    expect(english.container.textContent).not.toContain('Use tags to organize your library');
+    expect(buttonByLabel(english.container, 'New tag')).toBeTruthy();
+    expect(english.container.querySelector('a[aria-label="Manage tags"]')).toBeTruthy();
+    english.cleanup();
+  });
+
+  it('distinguishes a filtered empty result and warns when results may be truncated', async () => {
+    const favorite = { id: 'tag-favorite', name: '喜欢', bookCount: 0 };
+    mocks.useUserTagsQuery.mockReturnValue({ data: [favorite] });
+
+    const small = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('personal', false)] },
+    });
+    await small.navigate('?tag=tag-favorite');
+    expect(small.container.textContent).toContain('当前分类下没有匹配的书籍');
+    expect(buttonByLabel(small.container, '清除筛选')).toBeTruthy();
+    expect(buttonByLabel(small.container, '查看全部书籍')).toBeFalsy();
+    small.cleanup();
+
+    const capped = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: {
+        current: null,
+        items: Array.from({ length: 48 }, (_, index) => item(`book-${index}`, false)),
+      },
+    });
+    await capped.navigate('?source=saved');
+    expect(capped.container.textContent).toContain('当前已加载的书籍中没有符合条件的结果');
+    expect(capped.container.textContent).not.toContain('还没有已保存的书');
+
+    await capped.navigate('?tag=tag-favorite');
+    expect(capped.container.textContent).toContain('当前已加载的书籍中没有符合条件的结果');
+    capped.cleanup();
   });
 });

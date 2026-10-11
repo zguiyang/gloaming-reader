@@ -77,6 +77,14 @@ function LibraryTagAssignmentContent({
   const [selectedIds, setSelectedIds] = useState<string[]>(entry.userTags.map((tag) => tag.id));
   const [newName, setNewName] = useState('');
 
+  const refreshTagViews = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: libraryQueryKey.all }),
+      queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags }),
+      queryClient.invalidateQueries({ queryKey: ['book-detail', entry.work.id] }),
+    ]);
+  };
+
   const save = useMutation({
     mutationFn: async () => {
       const current = new Set(entry.userTags.map((tag) => tag.id));
@@ -87,12 +95,14 @@ function LibraryTagAssignmentContent({
       ]);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
-      await queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags });
+      await refreshTagViews();
       toast.success(t(locale, 'content.library.tagsSaved'));
       onOpenChange(false);
     },
-    onError: (error) => toast.error(formatLibraryApiError(error)),
+    onError: async (error) => {
+      await refreshTagViews();
+      toast.error(formatLibraryApiError(error));
+    },
   });
 
   const createAndAssign = useMutation({
@@ -101,12 +111,14 @@ function LibraryTagAssignmentContent({
       await assignUserTag(entry.work.id, tag.id);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
-      await queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags });
+      await refreshTagViews();
       toast.success(t(locale, 'content.library.tagCreated'));
       setNewName('');
     },
-    onError: (error) => toast.error(formatLibraryApiError(error)),
+    onError: async (error) => {
+      await refreshTagViews();
+      toast.error(formatLibraryApiError(error));
+    },
   });
 
   const isPending = save.isPending || createAndAssign.isPending;

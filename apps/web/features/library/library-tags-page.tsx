@@ -3,7 +3,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeftIcon, CheckIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import {
   createUserTag,
@@ -30,14 +32,29 @@ import {
   renameUserTag,
   useUserTagsQuery,
 } from '@/features/library/library-api';
+import {
+  buildLibraryFilterQuery,
+  parseLibraryFilters,
+  resolveLibraryReturnTo,
+} from '@/features/library/library-filters';
 import { isUnauthorizedError } from '@/lib/api-request';
 import { useLocale } from '@/lib/locale-context';
 
 export function LibraryTagsPage() {
+  return (
+    <Suspense fallback={null}>
+      <LibraryTagsPageContent />
+    </Suspense>
+  );
+}
+
+function LibraryTagsPageContent() {
   const { locale } = useLocale();
   const { openLogin } = useAuthDialog();
   const queryClient = useQueryClient();
   const tagsQuery = useUserTagsQuery();
+  const searchParams = useSearchParams();
+  const returnTo = resolveLibraryReturnTo(searchParams?.get('returnTo') ?? undefined);
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -50,6 +67,7 @@ export function LibraryTagsPage() {
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags });
     await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
+    await queryClient.invalidateQueries({ queryKey: ['book-detail'] });
   };
 
   const create = useMutation({
@@ -85,11 +103,17 @@ export function LibraryTagsPage() {
 
   const tags = tagsQuery.data ?? [];
   const isPending = create.isPending || rename.isPending || remove.isPending;
+  const tagHref = (tagId: string) => {
+    const target = new URL(returnTo, 'https://gloaming.invalid');
+    const filters = parseLibraryFilters(target.searchParams);
+    const query = buildLibraryFilterQuery({ ...filters, tagId }, target.searchParams);
+    return query ? `${AUTH_ROUTES.library}?${query}` : AUTH_ROUTES.library;
+  };
 
   return (
     <main className="mx-auto w-full max-w-3xl">
       <Link
-        href="/library"
+        href={returnTo}
         className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <ArrowLeftIcon className="size-4" aria-hidden />
@@ -99,7 +123,6 @@ export function LibraryTagsPage() {
         <h1 className="font-heading text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
           {t(locale, 'content.library.tagManagementTitle')}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">{t(locale, 'content.library.tagManagementDescription')}</p>
       </header>
 
       <form
@@ -178,10 +201,15 @@ export function LibraryTagsPage() {
                 </form>
               ) : (
                 <>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{tag.name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {t(locale, 'content.library.usedInBooks', { count: tag.bookCount })}
-                  </span>
+                  <Link
+                    href={tagHref(tag.id)}
+                    className="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-md text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  >
+                    <span className="min-w-0 truncate text-sm font-medium">{tag.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {t(locale, 'content.library.usedInBooks', { count: tag.bookCount })}
+                    </span>
+                  </Link>
                   <Button
                     type="button"
                     variant="ghost"

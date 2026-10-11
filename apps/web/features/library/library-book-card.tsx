@@ -1,43 +1,18 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontalIcon } from 'lucide-react';
+import { BookOpenIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
-import { toast } from 'sonner';
 
 import { type Locale, t } from '@gloaming/i18n';
 import type { LibraryItem, UserTagManagementItem } from '@gloaming/shared/library';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { AUTH_ROUTES } from '@/constants';
-import {
-  deletePersonalWork,
-  formatLibraryApiError,
-  libraryQueryKey,
-  removeFromLibrary,
-} from '@/features/library/library-api';
-import { LibraryTagAssignmentDialog } from '@/features/library/library-tag-assignment-dialog';
-import { PersonalWorkEditSheet } from '@/features/library/personal-work-edit-sheet';
+import { LibraryWorkManagement } from '@/features/library/library-work-management';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
+import { workDetailHref } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
 
 function statusLabel(entry: LibraryItem, locale: Locale): string {
@@ -57,36 +32,21 @@ function statusLabel(entry: LibraryItem, locale: Locale): string {
     : t(locale, 'content.library.readingInProgress');
 }
 
-export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: UserTagManagementItem[] }) {
+export function LibraryBookCard({
+  entry,
+  tags,
+  returnTo = AUTH_ROUTES.library,
+}: {
+  entry: LibraryItem;
+  tags: UserTagManagementItem[];
+  returnTo?: string;
+}) {
   const { locale } = useLocale();
-  const queryClient = useQueryClient();
-  const [isRemoveConfirmationOpen, setIsRemoveConfirmationOpen] = useState(false);
-  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
-  const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
-  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
   const { work, state } = entry;
   const readHref = AUTH_ROUTES.readBook(work.id, state?.currentPartId ?? undefined);
+  const detailHref = workDetailHref(work.id, returnTo);
   const hasProgressBar = entry.availability === 'ready' && state?.status === 'in_progress' && state.progressRatio > 0;
   const coverImageUrl = coverUrlFromAssetId(work.coverAssetId);
-  const removal = useMutation({
-    mutationFn: () => removeFromLibrary(work.id),
-    onSuccess: async () => {
-      setIsRemoveConfirmationOpen(false);
-      await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
-      toast.success(t(locale, 'content.library.removedFromLibrary'));
-    },
-    onError: (error) => toast.error(formatLibraryApiError(error)),
-  });
-  const deletion = useMutation({
-    mutationFn: () => deletePersonalWork(work.id),
-    onSuccess: async () => {
-      setIsDeleteConfirmationOpen(false);
-      await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
-      toast.success(t(locale, 'content.library.bookDeleted'));
-    },
-    onError: (error) => toast.error(formatLibraryApiError(error)),
-  });
-  const isPersonal = entry.libraryItemKind === 'personal';
 
   const cover = (
     <WorkCover
@@ -98,82 +58,33 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
 
   return (
     <article className="group flex flex-col gap-3">
-      {entry.availability === 'ready' ? (
-        <Link
-          href={readHref}
-          className="outline-none transition-transform duration-300 ease-out-soft hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50"
-          aria-label={t(locale, 'content.common.openReaderAria', { title: work.title })}
-        >
-          {cover}
-        </Link>
-      ) : (
-        <div className="relative" aria-hidden="true">
-          {cover}
-          {entry.availability === 'processing' && !coverImageUrl ? (
-            <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-sm" aria-hidden>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/25 to-transparent motion-safe:animate-[library-cover-sheen_4.5s_ease-in-out_infinite]" />
-            </div>
-          ) : null}
-        </div>
-      )}
+      <Link
+        href={detailHref}
+        className="relative block outline-none transition-transform duration-300 ease-out-soft hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50"
+        aria-label={t(locale, 'content.common.viewBookDetailAria', { title: work.title })}
+      >
+        {cover}
+        {entry.availability === 'processing' && !coverImageUrl ? (
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-sm" aria-hidden>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/25 to-transparent motion-safe:animate-[library-cover-sheen_4.5s_ease-in-out_infinite]" />
+          </div>
+        ) : null}
+      </Link>
 
       <div className="min-w-0">
         <div className="flex items-start gap-1">
-          {entry.availability === 'ready' ? (
-            <Link
-              href={readHref}
-              className="min-w-0 flex-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          <Link
+            href={detailHref}
+            className="min-w-0 flex-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <h3
+              className="font-heading line-clamp-2 text-sm leading-snug font-medium text-foreground transition-colors duration-300 ease-out-soft group-hover:text-primary md:text-base"
+              title={work.title}
             >
-              <h3
-                className="font-heading line-clamp-2 text-sm leading-snug font-medium text-foreground transition-colors duration-300 ease-out-soft group-hover:text-primary md:text-base"
-                title={work.title}
-              >
-                {work.title}
-              </h3>
-            </Link>
-          ) : (
-            <h3 className="font-heading min-w-0 flex-1 line-clamp-2 text-sm leading-snug font-medium text-foreground md:text-base">
               {work.title}
             </h3>
-          )}
-          {entry.canRemoveFromLibrary || (isPersonal && entry.availability !== 'processing') ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="-mr-2 -mt-2 size-11 shrink-0 opacity-100 transition-opacity focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
-                  />
-                }
-                aria-label={t(locale, 'content.library.manageBookAria', { title: work.title })}
-              >
-                <MoreHorizontalIcon className="size-5" aria-hidden />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-auto min-w-40">
-                {entry.availability === 'ready' ? (
-                  <DropdownMenuItem onClick={() => setIsTagDialogOpen(true)}>
-                    {t(locale, 'content.library.manageTagsForBook')}
-                  </DropdownMenuItem>
-                ) : null}
-                {isPersonal && entry.availability === 'ready' ? (
-                  <DropdownMenuItem onClick={() => setIsEditSheetOpen(true)}>
-                    {t(locale, 'content.library.editBookInfo')}
-                  </DropdownMenuItem>
-                ) : null}
-                {isPersonal ? (
-                  <DropdownMenuItem onClick={() => setIsDeleteConfirmationOpen(true)}>
-                    {t(locale, 'content.library.deleteBook')}
-                  </DropdownMenuItem>
-                ) : null}
-                {entry.canRemoveFromLibrary ? (
-                  <DropdownMenuItem onClick={() => setIsRemoveConfirmationOpen(true)}>
-                    {t(locale, 'content.library.removeFromLibrary')}
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
+          </Link>
+          <LibraryWorkManagement entry={entry} tags={tags} locale={locale} />
         </div>
         <p
           className={cn(
@@ -214,46 +125,27 @@ export function LibraryBookCard({ entry, tags }: { entry: LibraryItem; tags: Use
             />
           </div>
         ) : null}
+        {entry.availability === 'ready' ? (
+          <Button
+            nativeButton={false}
+            variant="link"
+            className="mt-1 h-auto min-h-9 px-0 text-sm"
+            render={
+              <Link href={readHref} aria-label={t(locale, 'content.common.openReaderAria', { title: work.title })} />
+            }
+          >
+            <BookOpenIcon className="size-4" aria-hidden />
+            {t(
+              locale,
+              state?.status === 'completed'
+                ? 'content.bookDetail.readAgain'
+                : state?.status === 'in_progress'
+                  ? 'content.bookDetail.readContinue'
+                  : 'content.bookDetail.readStart',
+            )}
+          </Button>
+        ) : null}
       </div>
-
-      <AlertDialog open={isRemoveConfirmationOpen} onOpenChange={setIsRemoveConfirmationOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t(locale, 'content.library.removeConfirmTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>{t(locale, 'content.library.removeConfirmDescription')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={removal.isPending}>{t(locale, 'common.close')}</AlertDialogCancel>
-            <AlertDialogAction disabled={removal.isPending} onClick={() => removal.mutate()}>
-              {t(locale, 'content.library.removeFromLibrary')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <AlertDialog open={isDeleteConfirmationOpen} onOpenChange={setIsDeleteConfirmationOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t(locale, 'content.library.deleteBookConfirmTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t(locale, 'content.library.deleteBookConfirmDescription', { title: work.title })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletion.isPending}>{t(locale, 'common.close')}</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deletion.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deletion.mutate()}
-            >
-              {t(locale, 'content.library.deleteBook')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <LibraryTagAssignmentDialog entry={entry} tags={tags} open={isTagDialogOpen} onOpenChange={setIsTagDialogOpen} />
-      {isPersonal && isEditSheetOpen ? (
-        <PersonalWorkEditSheet entry={entry} locale={locale} open onOpenChange={setIsEditSheetOpen} />
-      ) : null}
     </article>
   );
 }

@@ -34,6 +34,7 @@ export function PersonalWorkEditSheet({
     onSuccess: async () => {
       onOpenChange(false);
       await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
+      await queryClient.invalidateQueries({ queryKey: ['book-detail', entry.work.id] });
       toast.success(t(locale, 'content.library.bookInfoSaved'));
     },
     onError: (error) => toast.error(formatLibraryApiError(error)),
