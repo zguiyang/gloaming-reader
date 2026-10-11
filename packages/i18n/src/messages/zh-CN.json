@@ -339,6 +339,7 @@
       "contentSubtitle": "内容管理",
       "navAssets": "对象存储占用",
       "navDiscoverySources": "发现源",
+      "navPublicCategories": "公共分类",
       "navConfig": "配置",
       "navLogs": "日志",
       "signInPrompt": "请先登录后再进入管理后台。",
@@ -394,6 +395,83 @@
         "queued": "已加入后台同步队列。",
         "alreadyRunning": "已有同步任务正在运行。",
         "disabled": "来源已停用，无法手动同步。"
+      }
+    },
+    "publicCategories": {
+      "page": {
+        "title": "公共分类",
+        "subtitle": "实例级公共分类的名称与来源记录分配。"
+      },
+      "create": {
+        "namePlaceholder": "输入分类名称",
+        "localeLabel": "名称语言",
+        "submit": "创建分类",
+        "ready": "分类已就绪。"
+      },
+      "cancel": "取消",
+      "search": {
+        "placeholder": "搜索名称",
+        "empty": "没有匹配的分类。"
+      },
+      "list": {
+        "empty": "还没有公共分类。",
+        "selectHint": "选择一个分类以编辑名称并管理来源记录。"
+      },
+      "recordCount": "{count} 条记录",
+      "provenance": {
+        "manual": "手动创建",
+        "ai": "AI 创建"
+      },
+      "labels": {
+        "title": "多语言名称",
+        "missing": "缺少名称：{locale}",
+        "untranslated": "未翻译",
+        "complete": "各语言名称已填写",
+        "save": "保存 {locale} 名称",
+        "saved": "名称已保存。",
+        "nameExists": "该语言下已存在同名分类。"
+      },
+      "detail": {
+        "idLabel": "分类 ID",
+        "meaning": "含义",
+        "manualLocales": "手动名称语言：{locales}"
+      },
+      "records": {
+        "title": "已分配来源记录",
+        "searchPlaceholder": "搜索书名、作者或来源 ID",
+        "empty": "该分类还没有来源记录。",
+        "noMatch": "没有匹配的记录。",
+        "assign": "分配",
+        "assigned": "已分配",
+        "remove": "移除",
+        "removeConfirmTitle": "移除来源记录？",
+        "removeConfirmDescription": "将从该分类移除《{title}》，并记录手动抑制，自动分类不会恢复该分配。",
+        "removeAria": "从该分类移除 {title}",
+        "assignAria": "将 {title} 分配到该分类",
+        "assignedToast": "已分配到该分类。",
+        "removedToast": "已从该分类移除。",
+        "assignmentLimit": "该记录已有 3 个分类，无法再分配。",
+        "linked": "已生成作品",
+        "notLinked": "未生成作品",
+        "unavailable": "不可用"
+      },
+      "assign": {
+        "title": "添加来源记录",
+        "searchPlaceholder": "搜索可分配的书名或作者",
+        "hint": "输入至少 2 个字符后搜索。",
+        "noResults": "没有匹配的来源记录。",
+        "publicOnlyHint": "仅显示可公开发现的来源记录。"
+      },
+      "pagination": {
+        "page": "第 {page} / {total} 页",
+        "prev": "上一页",
+        "next": "下一页"
+      },
+      "errors": {
+        "loadCategories": "无法加载分类列表。",
+        "loadRecords": "无法加载来源记录。",
+        "searchRecords": "无法搜索来源记录。",
+        "operationFailed": "操作失败"
       }
     },
     "config": {

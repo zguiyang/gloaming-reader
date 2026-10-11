@@ -24,6 +24,7 @@ export const ADMIN_ROUTES = {
   root: '/admin',
   assets: '/admin/assets',
   discoverySources: '/admin/discovery-sources',
+  publicCategories: '/admin/public-categories',
   config: '/admin/config',
   configTab: (tab: 'ai' | 'tts' | 'dictionary') => `/admin/config?tab=${tab}` as const,
   logs: '/admin/log-center',
