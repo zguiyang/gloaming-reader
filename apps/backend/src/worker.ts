@@ -22,6 +22,11 @@ import {
 import type { PingJobData } from '@/application/jobs/ping';
 import { JOB_PING, processPing } from '@/application/jobs/ping';
 import {
+  JOB_PUBLIC_CLASSIFICATION,
+  processPublicClassification,
+  type PublicClassificationJobData,
+} from '@/application/jobs/public-classification';
+import {
   JOB_SOURCE_RECORD_MATERIALIZE,
   processSourceRecordMaterialize,
   type SourceRecordMaterializeJobData,
@@ -31,6 +36,7 @@ import {
   processWorkMetadataFill,
   type WorkMetadataFillJobData,
 } from '@/application/jobs/work-metadata-fill';
+import { dispatchDuePublicClassifications } from '@/domains/discovery/categories';
 import {
   dispatchQueuedPersonalTagRuns,
   finalizeFailedPersonalTagRun,
@@ -41,10 +47,18 @@ import {
 import type { PersonalWorkCleanupJobData } from '@/domains/works/personal/management';
 import { commonEnv } from '@/infra/config/env-common';
 import { workerLogger } from '@/infra/logging/logger';
-import { CLEANUP_QUEUE_NAME, closeQueue, getQueueConnection, PERSONAL_TAG_QUEUE_NAME, QUEUE_NAME } from '@/infra/queue';
+import {
+  CLEANUP_QUEUE_NAME,
+  closeQueue,
+  getQueueConnection,
+  PERSONAL_TAG_QUEUE_NAME,
+  PUBLIC_CLASSIFICATION_QUEUE_NAME,
+  QUEUE_NAME,
+} from '@/infra/queue';
 
 export const CLEANUP_WORKER_CONCURRENCY = 1;
 export const PERSONAL_TAG_WORKER_CONCURRENCY = 2;
+export const PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY = 1;
 
 export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
   switch (job.name) {
@@ -89,7 +103,12 @@ function attachWorkerEvents(worker: Worker, queue: string): void {
   });
 }
 
-export function createWorkers(): { worker: Worker; cleanupWorker: Worker; personalTagWorker: Worker } {
+export function createWorkers(): {
+  worker: Worker;
+  cleanupWorker: Worker;
+  personalTagWorker: Worker;
+  publicClassificationWorker: Worker;
+} {
   const connection = getQueueConnection();
 
   const worker = new BullWorker(QUEUE_NAME, async (job) => processJob(job), {
@@ -119,11 +138,21 @@ export function createWorkers(): { worker: Worker; cleanupWorker: Worker; person
   attachWorkerEvents(cleanupWorker, CLEANUP_QUEUE_NAME);
   attachWorkerEvents(personalTagWorker, PERSONAL_TAG_QUEUE_NAME);
 
-  return { worker, cleanupWorker, personalTagWorker };
+  const publicClassificationWorker = new BullWorker(
+    PUBLIC_CLASSIFICATION_QUEUE_NAME,
+    async (job) => {
+      if (job.name !== JOB_PUBLIC_CLASSIFICATION) throw new Error(`Unknown public classification job: ${job.name}`);
+      return processPublicClassification(job.data as PublicClassificationJobData);
+    },
+    { connection, concurrency: PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY },
+  );
+  attachWorkerEvents(publicClassificationWorker, PUBLIC_CLASSIFICATION_QUEUE_NAME);
+
+  return { worker, cleanupWorker, personalTagWorker, publicClassificationWorker };
 }
 
 async function main(): Promise<void> {
-  const { worker, cleanupWorker, personalTagWorker } = createWorkers();
+  const { worker, cleanupWorker, personalTagWorker, publicClassificationWorker } = createWorkers();
   let dispatcherRunning = false;
   const dispatch = async () => {
     if (dispatcherRunning) return;
@@ -132,6 +161,11 @@ async function main(): Promise<void> {
       await dispatchQueuedPersonalTagRuns();
     } catch (error) {
       workerLogger.warn({ err: error }, 'Personal tag outbox recovery pass failed');
+    }
+    try {
+      await dispatchDuePublicClassifications();
+    } catch (error) {
+      workerLogger.warn({ err: error }, 'Public classification outbox recovery pass failed');
     } finally {
       dispatcherRunning = false;
     }
@@ -158,7 +192,12 @@ async function main(): Promise<void> {
     shuttingDown = true;
     clearInterval(personalTagDispatchTimer);
     workerLogger.info({ signal }, 'Worker shutting down');
-    await Promise.all([worker.close(), cleanupWorker.close(), personalTagWorker.close()]);
+    await Promise.all([
+      worker.close(),
+      cleanupWorker.close(),
+      personalTagWorker.close(),
+      publicClassificationWorker.close(),
+    ]);
     await closeQueue();
     process.exit(0);
   };

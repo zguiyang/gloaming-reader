@@ -57,6 +57,8 @@ const processPersonalWorkCleanupJob = vi.fn().mockResolvedValue({ ok: true });
 const processPersonalTaggingJob = vi.fn().mockResolvedValue({ ok: true });
 const dispatchQueuedPersonalTagRuns = vi.fn().mockResolvedValue(undefined);
 const finalizeFailedPersonalTagRun = vi.fn().mockResolvedValue(undefined);
+const processPublicClassification = vi.fn().mockResolvedValue({ status: 'completed' });
+const dispatchDuePublicClassifications = vi.fn().mockResolvedValue(0);
 
 vi.mock('@/application/jobs/asset-cleanup', () => ({
   JOB_ASSET_CLEANUP: 'asset-cleanup',
@@ -92,17 +94,34 @@ vi.mock('@/domains/library/tags/personal-ai-tagging', () => ({
   finalizeFailedPersonalTagRun: (...args: unknown[]) => finalizeFailedPersonalTagRun(...args),
 }));
 
+vi.mock('@/application/jobs/public-classification', () => ({
+  JOB_PUBLIC_CLASSIFICATION: 'public-classification',
+  processPublicClassification: (...args: unknown[]) => processPublicClassification(...args),
+}));
+
+vi.mock('@/domains/discovery/categories', () => ({
+  dispatchDuePublicClassifications: (...args: unknown[]) => dispatchDuePublicClassifications(...args),
+}));
+
 const {
   CLEANUP_QUEUE_NAME,
   closeQueue,
   enqueue,
   enqueueCleanup,
   enqueuePersonalTagging,
+  enqueuePublicClassification,
   PERSONAL_TAG_QUEUE_NAME,
+  PUBLIC_CLASSIFICATION_QUEUE_NAME,
   QUEUE_NAME,
 } = await import('@/infra/queue');
-const { CLEANUP_WORKER_CONCURRENCY, PERSONAL_TAG_WORKER_CONCURRENCY, createWorkers, processCleanupJob, processJob } =
-  await import('@/worker');
+const {
+  CLEANUP_WORKER_CONCURRENCY,
+  PERSONAL_TAG_WORKER_CONCURRENCY,
+  PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY,
+  createWorkers,
+  processCleanupJob,
+  processJob,
+} = await import('@/worker');
 
 describe('cleanup queue isolation', () => {
   beforeEach(() => {
@@ -115,6 +134,8 @@ describe('cleanup queue isolation', () => {
     processPersonalTaggingJob.mockClear();
     dispatchQueuedPersonalTagRuns.mockClear();
     finalizeFailedPersonalTagRun.mockClear();
+    processPublicClassification.mockClear();
+    dispatchDuePublicClassifications.mockClear();
   });
 
   afterEach(async () => {
@@ -136,29 +157,39 @@ describe('cleanup queue isolation', () => {
   it('closes all dedicated queues', async () => {
     await enqueueCleanup(JOB_ASSET_CLEANUP, { jobId: 'job_1', scanId: 'scan_1' });
     await enqueuePersonalTagging('personal-tagging', { runId: 'run_1' });
+    await enqueuePublicClassification('public-classification', { sourceRecordId: 'record_1' });
     await enqueue(JOB_PING, { requestedAt: '2026-09-10T00:00:00.000Z' });
     await closeQueue();
 
-    expect(queueCloseCalls).toEqual([PERSONAL_TAG_QUEUE_NAME, CLEANUP_QUEUE_NAME, QUEUE_NAME]);
+    expect(queueCloseCalls).toEqual([
+      PUBLIC_CLASSIFICATION_QUEUE_NAME,
+      PERSONAL_TAG_QUEUE_NAME,
+      CLEANUP_QUEUE_NAME,
+      QUEUE_NAME,
+    ]);
   });
 
   it('starts a dedicated cleanup worker with concurrency 1', () => {
     const workers = createWorkers();
 
-    expect(workerConstructors).toHaveLength(3);
+    expect(workerConstructors).toHaveLength(4);
     expect(workerConstructors.map((entry) => entry.name)).toEqual([
       QUEUE_NAME,
       CLEANUP_QUEUE_NAME,
       PERSONAL_TAG_QUEUE_NAME,
+      PUBLIC_CLASSIFICATION_QUEUE_NAME,
     ]);
     expect(workerConstructors[0]?.opts.concurrency).toBeUndefined();
     expect(workerConstructors[1]?.opts.concurrency).toBe(CLEANUP_WORKER_CONCURRENCY);
     expect(workerConstructors[2]?.opts.concurrency).toBe(PERSONAL_TAG_WORKER_CONCURRENCY);
+    expect(workerConstructors[3]?.opts.concurrency).toBe(PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY);
     expect(CLEANUP_WORKER_CONCURRENCY).toBe(1);
     expect(PERSONAL_TAG_WORKER_CONCURRENCY).toBe(2);
+    expect(PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY).toBe(1);
     expect(workers.worker).toBeDefined();
     expect(workers.cleanupWorker).toBeDefined();
     expect(workers.personalTagWorker).toBeDefined();
+    expect(workers.publicClassificationWorker).toBeDefined();
   });
 
   it('keeps asset-cleanup off the main worker processor', async () => {
