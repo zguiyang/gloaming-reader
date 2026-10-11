@@ -35,19 +35,30 @@ function EmptyDiscoverIllustration() {
   );
 }
 
-export function DiscoverEmptyState() {
+type DiscoverEmptyStateProps = {
+  /** True when a search term or category filter produced no matches. */
+  isFiltered?: boolean;
+  onClearFilters?: () => void;
+};
+
+export function DiscoverEmptyState({ isFiltered = false, onClearFilters }: DiscoverEmptyStateProps) {
   const { locale } = useLocale();
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center px-2 py-16 text-center md:py-24">
       <EmptyDiscoverIllustration />
       <h2 className="font-heading mt-10 text-2xl font-semibold tracking-tight text-foreground md:text-[2rem] md:leading-10">
-        {t(locale, 'content.discover.emptyTitle')}
+        {t(locale, isFiltered ? 'content.discover.noMatchTitle' : 'content.discover.emptyTitle')}
       </h2>
       <p className="mt-4 max-w-sm text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
-        {t(locale, 'content.discover.emptyDescription')}
+        {t(locale, isFiltered ? 'content.discover.noMatchDescription' : 'content.discover.emptyDescription')}
       </p>
       <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
+        {isFiltered && onClearFilters ? (
+          <Button type="button" className="h-12 rounded-full px-8 text-base" onClick={onClearFilters}>
+            {t(locale, 'content.discover.clearFilters')}
+          </Button>
+        ) : null}
         <Button
           nativeButton={false}
           variant="outline"

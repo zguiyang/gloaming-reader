@@ -25,6 +25,7 @@ import {
 
 const sourceRecordBase = {
   sourceRecordId: 'sr-1',
+  linkedWorkId: null,
   sourceId: 'src-1',
   sourceKey: 'gutenberg',
   sourceType: 'rdf',
@@ -139,6 +140,16 @@ describe('public category contracts', () => {
     expect(sourceRecordListQuerySchema.parse({}).categoryId).toBeUndefined();
     expect(sourceRecordListQuerySchema.parse({ categoryId: 'cat-1' }).categoryId).toBe('cat-1');
     expect(sourceRecordListQuerySchema.parse({ categoryId: '' }).categoryId).toBeUndefined();
+  });
+
+  it('keeps Discover and Reader identities explicitly separate on a SourceRecord item', () => {
+    const unlinked = sourceRecordItemSchema.parse(sourceRecordBase);
+    expect(unlinked.sourceRecordId).toBe('sr-1');
+    expect(unlinked.linkedWorkId).toBeNull();
+
+    const linked = sourceRecordItemSchema.parse({ ...sourceRecordBase, linkedWorkId: 'work-42' });
+    expect(linked.sourceRecordId).toBe('sr-1');
+    expect(linked.linkedWorkId).toBe('work-42');
   });
 
   it('keeps SourceRecord categories optional until the read model projects them', () => {

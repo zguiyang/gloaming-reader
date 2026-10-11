@@ -5,20 +5,24 @@ import Link from 'next/link';
 import { t } from '@gloaming/i18n';
 
 import { AUTH_ROUTES } from '@/constants';
-import type { DiscoverItem } from '@/features/discover/discover-model';
+import type { DiscoverLegacyWork } from '@/features/discover/discover-model';
 import { WorkCover } from '@/features/work-cover';
 import { useLocale } from '@/lib/locale-context';
 import { workDetailHref } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
 
 type DiscoverBookCardProps = {
-  item: DiscoverItem;
+  item: DiscoverLegacyWork;
 };
 
+/**
+ * Compatibility card for an already-published Catalog Work with no SourceRecord.
+ * It keeps the existing ReadingWork identity and detail link instead of faking a
+ * SourceRecord.
+ */
 export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
   const { locale } = useLocale();
   const detailHref = workDetailHref(item.id, AUTH_ROUTES.discover);
-  const progress = item.progressRatio != null && item.progressRatio > 0 ? item.progressRatio : null;
 
   return (
     <article className="group flex flex-col gap-3">
@@ -32,14 +36,6 @@ export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
         aria-label={t(locale, 'content.common.viewBookDetailAria', { title: item.title })}
       >
         <WorkCover title={item.title} coverImageUrl={item.coverImageUrl} className="aspect-[2/3] rounded-sm" />
-        {progress != null ? (
-          <div className="absolute inset-x-0 bottom-0 z-10 h-0.5 bg-muted/80">
-            <div
-              className="h-full bg-primary transition-[width] duration-500 ease-out-soft"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        ) : null}
       </Link>
 
       <div className="min-w-0">

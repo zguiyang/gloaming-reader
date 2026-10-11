@@ -31,6 +31,7 @@ import { db } from '@/infra/db';
 const runId = randomUUID();
 const sourceKey = `read_model_${runId}`;
 let sourceId = '';
+const linkedWorkIds: string[] = [];
 
 const observedAt = new Date('2030-01-01T00:00:00.000Z');
 
@@ -87,6 +88,24 @@ async function recordRow(externalId: string) {
   return row;
 }
 
+/** Minimal readable Work used only to exercise the explicit SourceRecord → Work link. */
+async function createLinkedWorkFixture(title: string): Promise<string> {
+  const id = randomUUID();
+  await db.insert(readingWorkTable).values({
+    id,
+    title,
+    author: '',
+    description: '',
+    language: 'en',
+    processingStatus: 'ready',
+    ownerUserId: null,
+    visibility: 'catalog',
+    publishedAt: null,
+  });
+  linkedWorkIds.push(id);
+  return id;
+}
+
 describe('SourceRecord read model on gloaming_test', () => {
   beforeAll(async () => {
     const source = await ensureDiscoverySource(sourceKey, 'gutenberg_rdf');
@@ -122,6 +141,9 @@ describe('SourceRecord read model on gloaming_test', () => {
   afterAll(async () => {
     await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
     await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
+    for (const workId of linkedWorkIds) {
+      await db.delete(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    }
   });
 
   it('lists only available English records for enabled sources by default', async () => {
@@ -180,6 +202,26 @@ describe('SourceRecord read model on gloaming_test', () => {
       availability: 'available',
     });
     expect(detail).not.toHaveProperty('readingWorkId');
+    expect(detail.linkedWorkId).toBeNull();
+  });
+
+  it('projects the linked ReadingWork id separately from the Discover identity', async () => {
+    const row = await recordRow(`${runId}-1`);
+    const workId = await createLinkedWorkFixture('Linked Work');
+    await db.update(sourceRecordTable).set({ workId }).where(eq(sourceRecordTable.id, row!.id));
+
+    try {
+      const listed = (await listAll({ q: `${runId}-1` })).items[0];
+      expect(listed?.sourceRecordId).toBe(row!.id);
+      expect(listed?.linkedWorkId).toBe(workId);
+
+      const detail = await getSourceRecord(row!.id);
+      expect(detail.sourceRecordId).toBe(row!.id);
+      expect(detail.linkedWorkId).toBe(workId);
+      expect(sourceRecordDetailSchema.parse(detail).linkedWorkId).toBe(workId);
+    } finally {
+      await db.update(sourceRecordTable).set({ workId: null }).where(eq(sourceRecordTable.id, row!.id));
+    }
   });
 
   it('hides records from disabled sources and returns 404 for their detail', async () => {

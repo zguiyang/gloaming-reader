@@ -6,6 +6,7 @@ import {
   LIBRARY_ITEMS_LIMIT,
   libraryDataSchema,
   resolveUserTagName,
+  sourceRecordSaveResultSchema,
   userTagSchema,
   userTagWriteSchema,
 } from './library.ts';
@@ -45,6 +46,18 @@ describe('Library contracts', () => {
       sourceLocale: null,
       userEditedLocales: [],
     });
+  });
+
+  it('keeps SourceRecord Save Intent results pending or ready with an explicit work id', () => {
+    expect(sourceRecordSaveResultSchema.parse({ status: 'pending', workId: null })).toEqual({
+      status: 'pending',
+      workId: null,
+    });
+    expect(sourceRecordSaveResultSchema.parse({ status: 'ready', workId: 'work-1' })).toEqual({
+      status: 'ready',
+      workId: 'work-1',
+    });
+    expect(sourceRecordSaveResultSchema.safeParse({ status: 'completed', workId: 'work-1' }).success).toBe(false);
   });
 
   it('rejects control and bidirectional override characters in manual names', () => {

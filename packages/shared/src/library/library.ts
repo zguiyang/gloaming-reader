@@ -84,3 +84,16 @@ export const libraryDataSchema = z.object({
 });
 
 export type LibraryData = z.infer<typeof libraryDataSchema>;
+
+/**
+ * Result of an explicit SourceRecord Save Intent (`POST /api/library/source-records/:id`).
+ * `pending` means the shared import is queued; `ready` means a readable linked Work
+ * already exists and Library membership was completed. No auto-save happens here.
+ */
+export const SOURCE_RECORD_SAVE_STATUSES = ['pending', 'ready'] as const;
+export const sourceRecordSaveResultSchema = z.object({
+  status: z.enum(SOURCE_RECORD_SAVE_STATUSES),
+  workId: z.string().nullable(),
+});
+
+export type SourceRecordSaveResult = z.infer<typeof sourceRecordSaveResultSchema>;

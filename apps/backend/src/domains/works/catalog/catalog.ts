@@ -1,6 +1,7 @@
-import { and, asc, count, desc, eq, ilike, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, notExists, type SQL } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@gloaming/db';
+import { sourceRecord as sourceRecordTable } from '@gloaming/db/schema';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
 import { type CatalogListData, type CatalogListQuery, type Work } from '@gloaming/shared/works';
 
@@ -21,10 +22,22 @@ function catalogPublishedWorkFilter(id?: string): SQL {
   return and(...(id ? [eq(readingWorkTable.id, id)] : []), publicCatalogWorkSql())!;
 }
 
-function publishedListWhere(query: Pick<CatalogListQuery, 'q'>): SQL {
+function publishedListWhere(query: Pick<CatalogListQuery, 'q' | 'sourceLink'>): SQL {
   const parts: SQL[] = [catalogPublishedWorkFilter()];
   if (query.q) {
     parts.push(ilike(readingWorkTable.title, `%${escapeIlikePattern(query.q)}%`));
+  }
+  // Compatibility read for Discover: a Work linked to a SourceRecord is already
+  // represented by that SourceRecord, so it must not render twice.
+  if (query.sourceLink === 'unlinked') {
+    parts.push(
+      notExists(
+        db
+          .select({ id: sourceRecordTable.id })
+          .from(sourceRecordTable)
+          .where(eq(sourceRecordTable.workId, readingWorkTable.id)),
+      ),
+    );
   }
   return and(...parts)!;
 }
