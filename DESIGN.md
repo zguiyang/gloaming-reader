@@ -598,7 +598,38 @@ Every visible element must earn its place — label, description, helper text, b
 
 > If removing an element would not clearly hurt comprehension, discoverability, or function, prefer removing it.
 
-“Complete expression” is not the same as good design. Prefer one precise signal over three polite repeats.
+Simplicity means reducing the effort needed to understand and act, not minimizing text, controls, or features. Keep text that names an action, communicates a meaningful state, describes useful content, explains an error or recovery, or states a necessary condition. Remove duplicate titles, explanations, and decorative copy. Ask what the page title, section, field, grouping, and control state already tell the user before adding another explanation.
+
+### Self-explanatory hierarchy
+
+Use familiar naming, placement, grouping, spacing, scale, contrast, and interaction states to make the page understandable at a glance. Prefer whitespace and clear hierarchy; add a border, background, or container only when it clarifies a relationship that spacing alone cannot. Use existing Paper-First semantic tokens and surface hierarchy. Avoid nested cards, decorative statistics, and repeated headings; follow the existing one-important-action-per-region rule.
+
+When a control or section is hard to understand, first improve its structure, label, or behavior. Keep explanatory copy when it helps with unfamiliar tasks, reading context, accessibility, or discoverability.
+
+### Action discovery and disclosure
+
+For learner-facing surfaces, use concepts and names users recognize instead of internal domain terms. Admin surfaces may retain established operator vocabulary as described under **Admin workbench density**.
+
+- Keep frequent and essential actions visible in the context where users need them.
+- Put infrequent or advanced actions in a nearby menu, popover, or settings surface; do not bury a common task behind multiple layers.
+- Before activation, make the action's outcome reasonably predictable through its visible name, placement, and current state. Use the feedback specified for that action; do not infer new persistence, confirmation, or side effects for visual simplicity.
+- Reuse the same user-facing names and state meanings across learner surfaces.
+
+### Icons, labels, and access
+
+Use an icon alone only for a widely recognized action whose meaning remains clear in context. Give every icon-only control an accessible name. Use a visible concise label for ambiguous, domain-specific, or consequential actions; do not rely on a tooltip or hover to explain a core action. Tooltips may add context, but keyboard and mobile users must be able to discover and use the same core functions.
+
+### Design review checks
+
+For learner-facing surfaces, review from a first-time user's perspective. Apply **Admin workbench density** to operator surfaces.
+
+1. Can they find the primary task and understand the current state from the page structure, labels, and visible state?
+2. Can they predict the result of each prominent action before activating it?
+3. Does every text element add distinct value, and does every container clarify a real relationship?
+4. Are essential and frequent actions visible without depending on a tooltip, hover, or deep menu?
+5. Can keyboard and mobile users discover and complete the same core tasks?
+
+Use **Information economy** when deciding whether explanatory copy adds distinct value.
 
 ### Interaction compression
 
@@ -631,12 +662,6 @@ Do not restate what the control already communicates.
 
 Accessibility: use `aria-label` / visually hidden text when a control lacks a visible name — not a duplicate visible status word.
 
-### Semantic redundancy
-
-Separate **visual layering** (panel vs field) from **semantic repetition** (saying the same fact in label + description + badge + helper).
-
-Ask: **What does the user already know from page title, tab, section, field name, or control state?** Do not explain again “for safety.”
-
 ### Admin workbench density
 
 Admin (`/admin/**`) serves operators who already understand Provider, Model, API Key, Enable/Disable, Refresh, Configuration.
@@ -656,7 +681,7 @@ Admin (`/admin/**`) serves operators who already understand Provider, Model, API
 3. Minimum interactions — fewest controls that complete the task
 4. Context inference — what do title / tab / grouping already tell them?
 5. Merge related actions into shared control contexts
-6. Delete redundant elements (checklist in frontend.mdc)
+6. Delete redundant elements (review checks above)
 7. Visual polish — tokens above + Taste skills for hierarchy and composition
 ```
 
