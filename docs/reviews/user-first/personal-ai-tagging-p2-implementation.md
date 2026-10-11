@@ -244,7 +244,7 @@ All `tag-*` identifiers below are synthetic candidate IDs. They must be supplied
 - **Description:** A practical overview of replacing fossil-fuel electricity with renewable sources, grid storage, and community-scale clean power.
 - **Excerpt:** “The transition is not a single machine replacing another. Wind and solar production vary by hour, so storage, transmission, demand planning, and local policy all matter. The examples compare several communities that retired coal plants and built cleaner electricity systems. Their choices differ, but each case asks the same question: how can reliable power be supplied while reducing pollution and sharing the cost of change?”
 - **TOC:** “Leaving Coal”; “Storage and the Grid”; “A Fair Transition”.
-- **Existing tags:** `tag-renewables`, primary name `Renewable Energy` (`en-US`); `tag-clean-power`, primary name `Clean Power` (`en-US`); `tag-energy-policy`, primary name `Energy Policy` (`en-US`).
+- **Existing tags:** `tag-renewables`, primary name `可再生能源` (`zh-CN`), localized name `Renewable Energy` (`en-US`); `tag-clean-power`, primary name `清洁能源` (`zh-CN`), localized name `Clean Power` (`en-US`); `tag-energy-policy`, primary name `能源政策` (`zh-CN`), localized name `Energy Policy` (`en-US`).
 - **Reasonable behavior:** Reuse the applicable existing concept IDs and avoid adding another label that means substantially the same thing; distinguish energy sources from policy if both are useful.
 - **Do not:** Create a near-synonym solely because the title uses different wording, or merge genuinely distinct existing concepts.
 
