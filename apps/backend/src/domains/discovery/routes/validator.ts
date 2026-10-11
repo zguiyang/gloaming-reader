@@ -1,8 +1,14 @@
 import { zValidator } from '@hono/zod-validator';
 import type { Context, ValidationTargets } from 'hono';
-import type { ZodType } from 'zod';
+import { z, type ZodType } from 'zod';
 
-import { discoverySourceEnabledUpdateSchema, sourceRecordListQuerySchema } from '@gloaming/shared/discovery';
+import { SUPPORTED_LOCALES } from '@gloaming/i18n';
+import {
+  categorySourceRecordListQuerySchema,
+  discoverySourceEnabledUpdateSchema,
+  publicCategoryWriteSchema,
+  sourceRecordListQuerySchema,
+} from '@gloaming/shared/discovery';
 
 import { sendValidationError } from '@/infra/http/response';
 
@@ -22,4 +28,16 @@ function validated<T extends ZodType, Target extends keyof ValidationTargets>(ta
 
 export const validateSourceRecordListQuery = validated('query', sourceRecordListQuerySchema);
 
+export const validateCategorySourceRecordListQuery = validated('query', categorySourceRecordListQuerySchema);
+
 export const validateSourceEnabledUpdate = validated('json', discoverySourceEnabledUpdateSchema);
+
+/**
+ * Admin category writes always carry one supported locale: a label belongs to
+ * exactly one of the product's supported locales.
+ */
+const managedCategoryWriteSchema = publicCategoryWriteSchema.extend({
+  locale: z.enum(SUPPORTED_LOCALES),
+});
+
+export const validateManagedCategoryWrite = validated('json', managedCategoryWriteSchema);

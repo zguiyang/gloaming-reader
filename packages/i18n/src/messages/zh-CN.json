@@ -1178,7 +1178,8 @@
         "cleanupJob": "未找到清理任务",
         "wordDefinition": "未找到单词「{word}」的词典释义",
         "userTag": "未找到标签",
-        "sourceRecord": "未找到来源记录"
+        "sourceRecord": "未找到来源记录",
+        "publicCategory": "未找到分类"
       },
       "upload": {
         "fileTooLarge": "文件大小超过上限（{maxMb}MB）",
@@ -1271,6 +1272,10 @@
       },
       "library": {
         "userTagNameExists": "你已经有一个同名标签"
+      },
+      "discovery": {
+        "publicCategoryNameExists": "该语言下已存在同名分类",
+        "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类"
       }
     }
   }

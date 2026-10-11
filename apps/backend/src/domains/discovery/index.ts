@@ -1,4 +1,14 @@
 export {
+  assignCategoryToSourceRecord,
+  createManagedCategory,
+  getPublicCategory,
+  listManagedCategories,
+  listManagedCategorySourceRecords,
+  listPublicCategories,
+  unassignCategoryFromSourceRecord,
+  updateManagedCategoryLabel,
+} from './categories';
+export {
   PROJECT_GUTENBERG_RDF_SNAPSHOT_URL,
   PROJECT_GUTENBERG_SOURCE_KEY,
   PROJECT_GUTENBERG_SOURCE_TYPE,

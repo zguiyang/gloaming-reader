@@ -19,6 +19,7 @@ export const ERROR_CODES = {
     WORD_DEFINITION: 'api.errors.notFound.wordDefinition',
     USER_TAG: 'api.errors.notFound.userTag',
     SOURCE_RECORD: 'api.errors.notFound.sourceRecord',
+    PUBLIC_CATEGORY: 'api.errors.notFound.publicCategory',
   },
 
   UPLOAD: {
@@ -124,6 +125,11 @@ export const ERROR_CODES = {
 
   LIBRARY: {
     USER_TAG_NAME_EXISTS: 'api.errors.library.userTagNameExists',
+  },
+
+  DISCOVERY: {
+    PUBLIC_CATEGORY_NAME_EXISTS: 'api.errors.discovery.publicCategoryNameExists',
+    PUBLIC_CATEGORY_LIMIT_EXCEEDED: 'api.errors.discovery.publicCategoryLimitExceeded',
   },
 } as const;
 
