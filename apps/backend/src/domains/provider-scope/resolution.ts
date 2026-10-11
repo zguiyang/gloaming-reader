@@ -109,6 +109,29 @@ export async function resolveUserOwnedAppSettingValue(key: AiSettingKey, userId:
 }
 
 /**
+ * Resolve a purpose binding to instance-owned configuration only. Public
+ * classification and public category label translation run on the instance
+ * provider and must never fall back to a user's BYOK setting.
+ */
+export async function resolveInstanceAppSettingValue(key: AiSettingKey): Promise<string | null> {
+  const rows = await db
+    .select({ value: llmAppSettingTable.value })
+    .from(llmAppSettingTable)
+    .where(and(eq(llmAppSettingTable.key, key), isNull(llmAppSettingTable.ownerUserId)))
+    .limit(1);
+  const modelId = rows[0]?.value;
+  if (!modelId) return null;
+  const owned = await db
+    .select({ ownerUserId: llmProviderTable.ownerUserId })
+    .from(llmModelTable)
+    .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
+    .where(eq(llmModelTable.id, modelId))
+    .limit(1);
+  if (owned[0]?.ownerUserId !== null) return null;
+  return (await isUsableLlmConfiguration(modelId, { kind: 'anonymous' })) ? modelId : null;
+}
+
+/**
  * TTS config row for synthesis. Authenticated: usable user row, then usable instance row.
  * Anonymous: usable instance row only. Validation happens before any upstream call.
  */

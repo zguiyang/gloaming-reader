@@ -1,10 +1,17 @@
+export type {
+  PublicCategoryTranslationResult,
+  PublicClassificationCommandResult,
+  PublicClassificationOutcome,
+} from './categories';
 export {
   assignCategoryToSourceRecord,
+  classifySourceRecordForPublicCategories,
   createManagedCategory,
   getPublicCategory,
   listManagedCategories,
   listManagedCategorySourceRecords,
   listPublicCategories,
+  translateMissingPublicCategoryLabels,
   unassignCategoryFromSourceRecord,
   updateManagedCategoryLabel,
 } from './categories';
