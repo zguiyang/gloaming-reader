@@ -182,11 +182,97 @@ This acceptance reviews the current P2 classification path and its Mock-backed b
 - No migration, development/production database operation, queue cleanup, Worker startup, or real Provider call was performed.
 - After the implementation commit, the focused pure unit suite `tests/unit/domains/library/personal-ai-tagging.spec.ts` passed (7 tests). Vitest enforced `TEST_DATABASE_URL=gloaming_test`; the unit cases made no database writes.
 
-### Real-model sample plan (not executed)
+### Real AI Semantic Acceptance — cases prepared, execution pending
 
-After explicit authorization and selection of a user-owned test model, use eight synthetic classification inputs with the same Prompt/schema via `invokeAi` on the `user-only` assist scope. Cover: an existing three-tag combination; React with broad existing tags; AI history with broad existing tags; Chinese near-equivalent label reuse; English/Chinese localized-name reuse; no existing candidates with one durable new topic; sparse evidence expecting abstention; and unrelated existing candidates where a durable new concept is appropriate. Record chosen IDs/names, rationale, and whether output matches the contract; do not start the queue Worker or write tag/Work rows. Invocation metadata may still be recorded by the existing AI audit path.
+The following eight synthetic inputs use the same fields assembled by P2 (`title`, `author`, `language`, `description`, `excerpt`, `tocTitles`, and owned `existingTags`). They are test fixtures, not expected literal model outputs. At execution, use the current P2 system prompt, `personalTagDecisionSchema`, `validatePersonalTagDecision`, the current user's `user-only` `assist` resolver, and `invokeAi`; do not substitute a shorter prompt. Judge concept selection and rationale, not exact names or ordering. Record the raw structured output, accepted IDs/new concepts, validation changes, and PASS/PARTIAL/FAIL per case.
 
-At the configured limits this plan is capped at about 28,000 input tokens and 9,600 output tokens (8 × 3,500 input and 1,200 output). Monetary cost depends on the selected BYOK model and its current price; no model was selected, so a dollar amount is not asserted. No calls were made in this acceptance.
+All `tag-*` identifiers below are synthetic candidate IDs. They must be supplied as the candidate list for the corresponding sample; no actual user tags or associations are used.
+
+#### Case 1 — Same-language reuse
+
+- **Book:** _The River Remembers_; author: Lena Park; language: `en-US`.
+- **Description:** A field biologist follows a temperate river through seasonal floods, fish migration, wetland recovery, and the effects of nearby farming.
+- **Excerpt:** “At the first winter thaw, the river carried more than water downstream. Flooded banks left silt among the willow roots, and shallow pools warmed before the main channel. Young fish gathered there until the current weakened. By late spring, reeds had returned to the abandoned bend, drawing insects and wading birds. We measured oxygen, sediment, and species counts at each site, then compared restored banks with those still constrained by concrete walls.”
+- **TOC:** “A Living Channel”; “Floodplains and Fish”; “Restoring the Banks”.
+- **Existing tags:** `tag-ecology` — `Ecology` (`en-US`); `tag-freshwater` — `Freshwater Biology` (`en-US`); `tag-conservation` — `Conservation` (`en-US`); `tag-field-biology` — `Field Biology` (`en-US`).
+- **Reasonable behavior:** Reuse the applicable established tag or combination; create nothing if those tags adequately describe the book.
+- **Do not:** Create a title-specific or narrower duplicate such as a one-book label about river restoration.
+
+#### Case 2 — Chinese book reuses an English concept
+
+- **Book:** 《潮汐之间》; author: 林澄; language: `zh-CN`.
+- **Description:** 一部虚构小说，讲述海平面上升后沿海社区迁居、重建生活并保存地方记忆的过程。
+- **Excerpt:** “海水越过旧防波堤的那一年，镇上的人开始把门牌写在木箱上。有人去了山城，有人留在临时搭起的学校里。阿禾每周回到海边，记录潮线移动到哪一棵树下，也记录谁还没有决定离开。多年以后，新的堤岸保护了港口，却没有让所有人回到原来的家。她把这些口述故事整理成一册，留给后来出生的孩子。”
+- **TOC:** “最后一次涨潮”; “临时的家”; “新的海岸线”.
+- **Existing tags:** `tag-climate-fiction`, primary name `Climate Fiction` (`en-US`), localized name `气候小说` (`zh-CN`); `tag-migration`, primary name `Migration` (`en-US`), localized name `迁徙` (`zh-CN`).
+- **Reasonable behavior:** Reuse the stable climate-fiction concept ID, optionally with another applicable existing tag; language difference alone is not a reason to create a new tag.
+- **Do not:** Create a Chinese duplicate of the same concept or a book-title tag.
+
+#### Case 3 — Multiple existing tags are sufficient
+
+- **Book:** _Below the Blue Shelf_; author: Omar Bell; language: `en-US`.
+- **Description:** A nonfiction account of cold-water coral communities, ocean warming, deep-sea surveys, and marine habitat protection.
+- **Excerpt:** “The cameras crossed a ridge where sunlight never reaches. Pale coral branches held small crabs and juvenile fish, while the temperature loggers showed a gradual rise over the past decade. Our team mapped the habitat, compared the images with older surveys, and shared the results with the regional conservation group. The evidence cannot tell us how every colony will respond, but it shows why deep-sea ecosystems belong in climate and marine protection plans.”
+- **TOC:** “A World Without Sunlight”; “Surveying the Ridge”; “Protection at Depth”.
+- **Existing tags:** `tag-marine-biology` — `Marine Biology` (`en-US`); `tag-climate-change` — `Climate Change` (`en-US`); `tag-conservation` — `Conservation` (`en-US`); `tag-oceanography` — `Oceanography` (`en-US`).
+- **Reasonable behavior:** Reuse a sufficient subset or combination of these stable topics.
+- **Do not:** Add a composite label that merely combines existing concepts, or a narrow species/site label unsupported as a reusable concept.
+
+#### Case 4 — Broad existing tags do not cover a durable topic
+
+- **Book:** _A Shape That Cannot Untie_; author: Nia Foster; language: `en-US`.
+- **Description:** An accessible introduction to mathematical knot theory, covering equivalence, invariants, diagrams, and applications in topology.
+- **Excerpt:** “Two loops may look different on paper while describing the same knot. The central question is which transformations preserve that identity. We begin with diagrams and crossings, then use simple invariants to show why some knots cannot be changed into the unknot. Later chapters connect these ideas to three-dimensional spaces and explain how mathematicians use knot theory as a precise language for problems that ordinary geometry does not settle.”
+- **TOC:** “Knots and Equivalence”; “Crossings and Invariants”; “A Topological View”.
+- **Existing tags:** `tag-mathematics` — `Mathematics` (`en-US`); `tag-geometry` — `Geometry` (`en-US`); `tag-puzzles` — `Puzzles` (`en-US`).
+- **Reasonable behavior:** Reuse broad tags where they apply and consider one stable, widely reusable concept for the book's central subject if the combination remains too broad.
+- **Do not:** Treat a broad parent tag as automatically sufficient, or create chapter-level terms, theorem names, or a title-specific tag.
+
+#### Case 5 — User has no tags
+
+- **Book:** _How We Find Out_; author: Mateo Ruiz; language: `en-US`.
+- **Description:** A clear introduction to scientific reasoning, observation, hypothesis testing, measurement, and revision of explanations.
+- **Excerpt:** “A useful explanation must risk being wrong. We observe a pattern, state what we expect to happen, and choose a measurement that could contradict our idea. Repeating the observation helps separate a real effect from chance or faulty equipment. When results disagree with our prediction, we revise the explanation and describe what changed. This cycle does not guarantee certainty, but it gives other people enough detail to check and build on the work.”
+- **TOC:** “Questions and Observations”; “Testing an Explanation”; “Changing Our Minds”.
+- **Existing tags:** none.
+- **Reasonable behavior:** One broad, durable topic may be created because the evidence is strong; zero is also acceptable if the model cannot justify a stable reusable concept.
+- **Do not:** Fill the three-tag limit, create multiple overlapping labels, or use the book title as a tag.
+
+#### Case 6 — Near-synonym should reuse, not duplicate
+
+- **Book:** _Power After Coal_; author: Ada Mensah; language: `en-US`.
+- **Description:** A practical overview of replacing fossil-fuel electricity with renewable sources, grid storage, and community-scale clean power.
+- **Excerpt:** “The transition is not a single machine replacing another. Wind and solar production vary by hour, so storage, transmission, demand planning, and local policy all matter. The examples compare several communities that retired coal plants and built cleaner electricity systems. Their choices differ, but each case asks the same question: how can reliable power be supplied while reducing pollution and sharing the cost of change?”
+- **TOC:** “Leaving Coal”; “Storage and the Grid”; “A Fair Transition”.
+- **Existing tags:** `tag-renewables`, primary name `Renewable Energy` (`en-US`); `tag-clean-power`, primary name `Clean Power` (`en-US`); `tag-energy-policy`, primary name `Energy Policy` (`en-US`).
+- **Reasonable behavior:** Reuse the applicable existing concept IDs and avoid adding another label that means substantially the same thing; distinguish energy sources from policy if both are useful.
+- **Do not:** Create a near-synonym solely because the title uses different wording, or merge genuinely distinct existing concepts.
+
+#### Case 7 — Evidence is too weak; abstention is valid
+
+- **Book:** _Field Notes_; author: Unknown; language: `en-US`.
+- **Description:** “A collection of notes.”
+- **Excerpt:** “The page is dated Tuesday. A blue cup was left near the window. The writer copied a phone number, crossed it out, and made a list of errands. The next page contains three weather observations and an unfinished sentence. There are no chapter headings, subject terms, or further context to explain who wrote the notes or why they were collected.”
+- **TOC:** none.
+- **Existing tags:** `tag-biology` — `Biology` (`en-US`); `tag-travel` — `Travel` (`en-US`); `tag-memoir` — `Memoir` (`en-US`).
+- **Reasonable behavior:** Return zero tags because the evidence does not establish a reliable subject or genre.
+- **Do not:** Infer a topic from the generic title, force the closest available tag, or invent a tag to avoid an empty result.
+
+#### Case 8 — Technical book should avoid over-fine labels
+
+- **Book:** _Reliable Services in Practice_; author: Priya Nair; language: `en-US`.
+- **Description:** A broad engineering guide to designing, operating, and improving distributed services, including architecture, failure handling, observability, and team practices.
+- **Excerpt:** “A service is reliable when its users can depend on the behavior that matters to them. This book starts with system boundaries and failure assumptions, then follows requests through storage, networks, deployment, and monitoring. Short case studies show how teams use timeouts, redundancy, clear ownership, and measured service objectives. Individual algorithms appear as examples, but the recurring subject is how to design and operate dependable software systems as a whole.”
+- **TOC:** “Service Boundaries”; “Failures and Recovery”; “Observability”; “Operating in Teams”.
+- **Existing tags:** `tag-computer-science` — `Computer Science` (`en-US`); `tag-software-engineering` — `Software Engineering` (`en-US`); `tag-distributed-systems` — `Distributed Systems` (`en-US`); `tag-cloud-computing` — `Cloud Computing` (`en-US`).
+- **Reasonable behavior:** Reuse the relevant broad and established tag combination.
+- **Do not:** Create tags for an individual algorithm, protocol, metric, or implementation detail when the existing combination covers the book.
+
+#### Execution gate and side effects
+
+No model was configured or called while preparing these cases. The production P2 call is embedded in `processPersonalTaggingJob`, which also reads a run/work/tags, reserves quota, and may persist associations. A safe acceptance harness must reuse the exact prompt construction, schema, server validator, and `invokeAi` path while bypassing the queue and all tag/run/quota writes. `invokeAi` itself writes the normal AI invocation audit record, so that audit row is an expected and separately disclosed database side effect unless the user approves a minimal isolated dry-run hook that suppresses only that audit write. Do not start a Worker or call the model until the selected user-owned Provider/model, current price, call cap, cost cap, and explicit approval are recorded.
+
+At the current implementation limits, the original planning estimate remains a ceiling of about 28,000 input tokens and 9,600 output tokens (8 × 3,500 input and 1,200 output), not a usage guarantee. Actual price and expected cost cannot be stated until the user's Provider and model are known. No calls were made.
 
 ### Watchlist and closure
 
@@ -195,6 +281,6 @@ At the configured limits this plan is capped at about 28,000 input tokens and 9,
 - **PARTIAL — Large candidate sets:** over 100 tags skip classification rather than retrieve a relevant subset. This is a bounded-candidate limitation, not addressed in this acceptance.
 - **PARTIAL — Real semantic quality:** cross-language equivalence, topic applicability, abstention, and duplicate-concept restraint remain unproven until the authorized sample run.
 - **PARTIAL — Non-core runtime watchlist:** process-level BullMQ crash/stalled recovery, cluster-wide concurrency, and retry after daily quota exhaustion remain as recorded above. These are not evidence of semantic quality and were not re-tested here.
-- **Git:** branch remains `dev-02`; commits `f95775ec` and `3ea34ec4` are present and not pushed. Remaining uncommitted review documents and pre-existing deletions were preserved.
+- **Git:** branch remains `dev-02`; code, cleanup, and review-document changes were committed in separate batches. This preparation update is a separate documentation batch. Nothing was pushed.
 
 Core business acceptance is **PARTIAL** until real-model semantics and the blocked Worker end-to-end path are separately authorized and verified. No known architectural blocker to later public-classification work was found; the remaining gap is evidence of model behavior, not a dependency on a shared taxonomy implementation.
