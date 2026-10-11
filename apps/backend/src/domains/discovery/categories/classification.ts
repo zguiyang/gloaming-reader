@@ -45,11 +45,13 @@ import {
 import { findCategoryIdByNormalizedLabel } from '@/domains/discovery/categories/repository';
 import { resolveInstanceAppSettingValue } from '@/domains/provider-scope';
 import { acquireLock, releaseLock, startLockRenewal } from '@/infra/cache/lock';
+import { rootLogger } from '@/infra/logging/logger';
 import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 /** One instance-wide lock so only a single public classification/translation task runs at a time. */
 const PUBLIC_CLASSIFICATION_LOCK_KEY = 'gloaming:public-classification:instance';
+const logger = rootLogger.child({ module: 'PublicCategoryTranslation' });
 const PUBLIC_CLASSIFICATION_LOCK_SECONDS = 90;
 const PUBLIC_CLASSIFICATION_LOCK_MAX_MS = 120_000;
 const AI_TIMEOUT_MS = 25_000;
@@ -150,6 +152,27 @@ async function persistPublicClassificationDecision(
 }
 
 /**
+ * Best-effort first-pass translation for the public categories created by one
+ * classification pass. It runs only after the classification lock is released
+ * because the translator acquires the same instance lock. Any translation,
+ * provider, budget, validation, or persistence failure is reported and never
+ * changes the already-persisted classification result or hides the created
+ * category.
+ */
+async function translateCreatedPublicCategories(categoryIds: string[]): Promise<void> {
+  for (const categoryId of categoryIds) {
+    try {
+      await translateMissingPublicCategoryLabels(categoryId);
+    } catch (error) {
+      logger.warn(
+        { err: error, categoryId },
+        'Public category label translation failed after classification; the created category is kept',
+      );
+    }
+  }
+}
+
+/**
  * Deterministic public classification command.
  *
  * PC-06 usage: after a successful source sync identifies a new or materially
@@ -159,6 +182,8 @@ async function persistPublicClassificationDecision(
  * not a valid target until its eligibility changes. Do not call at search or
  * render time. The command always resolves the instance provider and never a
  * user BYOK provider, queries only public categories, and never touches User Tags.
+ * After releasing the lock it makes a best-effort translation attempt for each
+ * newly created category, without changing the completed classification result.
  */
 export async function classifySourceRecordForPublicCategories(
   sourceRecordId: string,
@@ -174,6 +199,9 @@ export async function classifySourceRecordForPublicCategories(
       leaseLost = true;
     },
   });
+  // Filled only after the decision is persisted, so early returns and failed
+  // classification passes never trigger translation.
+  let createdCategoryIds: string[] = [];
   try {
     const record = await loadClassifiableSourceRecord(sourceRecordId);
     if (!record) return { status: 'skipped', reason: 'source_record_not_found' };
@@ -215,16 +243,21 @@ export async function classifySourceRecordForPublicCategories(
     const validated = validatePublicClassificationDecision(outcome.content, candidates, sourceLocale);
     if (leaseLost) return { status: 'deferred', reason: 'transient_failure' };
 
-    const { categoryIds, createdCategoryIds } = await persistPublicClassificationDecision(
-      record.id,
-      validated,
-      candidates,
-      sourceLocale,
-    );
-    return { status: 'completed', outcome: validated.outcome, categoryIds, createdCategoryIds };
+    const persisted = await persistPublicClassificationDecision(record.id, validated, candidates, sourceLocale);
+    createdCategoryIds = persisted.createdCategoryIds;
+    return {
+      status: 'completed',
+      outcome: validated.outcome,
+      categoryIds: persisted.categoryIds,
+      createdCategoryIds: persisted.createdCategoryIds,
+    };
   } finally {
     renewal.stop();
     await releaseLock(PUBLIC_CLASSIFICATION_LOCK_KEY, lockToken);
+    // The translator acquires the same instance lock, so only translate after release.
+    if (createdCategoryIds.length > 0) {
+      await translateCreatedPublicCategories(createdCategoryIds);
+    }
   }
 }
 
@@ -235,7 +268,8 @@ export async function classifySourceRecordForPublicCategories(
  * instance-only provider and the same shared daily reservation budget as
  * classification. A label with `edited_by = 'manual'` is never overwritten.
  * Manual category creation never calls this, so it is never blocked by a missing
- * provider. PC-05 may call it optionally; it is not auto-triggered here.
+ * provider. PC-05 may call it optionally, and PC-03 triggers it best-effort for
+ * each category it created after releasing the classification lock.
  */
 export async function translateMissingPublicCategoryLabels(
   categoryId: string,

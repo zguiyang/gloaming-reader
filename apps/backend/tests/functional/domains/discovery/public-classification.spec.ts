@@ -262,6 +262,63 @@ describe('public classification service on gloaming_test', () => {
     expect(await listAssignmentsForRecord(recordId)).toEqual([expect.objectContaining({ categoryId, source: 'ai' })]);
   });
 
+  it('translates a newly created category after releasing the classification lock', async () => {
+    const recordId = await insertRecord();
+    invokeAiMock
+      .mockResolvedValueOnce(aiResult(createDecision(`Auto Translated ${suffix}`)))
+      .mockResolvedValueOnce(aiResult({ translations: [{ locale: 'zh-CN', name: `自动翻译 ${suffix}` }] }));
+
+    const result = await classifySourceRecordForPublicCategories(recordId);
+
+    expect(result.status).toBe('completed');
+    if (result.status !== 'completed') return;
+    expect(result.createdCategoryIds).toHaveLength(1);
+    const categoryId = result.createdCategoryIds[0]!;
+    createdCategoryIds.add(categoryId);
+
+    const labels = await db
+      .select()
+      .from(publicCategoryLabelTable)
+      .where(eq(publicCategoryLabelTable.categoryId, categoryId));
+    expect(labels.find((label) => label.locale === 'en-US')).toMatchObject({
+      name: `Auto Translated ${suffix}`,
+      editedBy: 'ai',
+    });
+    expect(labels.find((label) => label.locale === 'zh-CN')).toMatchObject({
+      name: `自动翻译 ${suffix}`,
+      editedBy: 'ai',
+    });
+
+    const translationRequest = invokeAiMock.mock.calls[1]?.[0] as { ref?: { type: string; id: string } };
+    expect(translationRequest.ref).toEqual({ type: 'public_category', id: categoryId });
+    expect(await invocations()).toBe(2);
+  });
+
+  it('keeps the completed classification and created category when translation fails', async () => {
+    const recordId = await insertRecord();
+    invokeAiMock
+      .mockResolvedValueOnce(aiResult(createDecision(`Translation Fails ${suffix}`)))
+      .mockRejectedValue(new Error('translation provider failed'));
+
+    const result = await classifySourceRecordForPublicCategories(recordId);
+
+    expect(result).toMatchObject({ status: 'completed', outcome: 'CREATE' });
+    if (result.status !== 'completed') return;
+    expect(result.createdCategoryIds).toHaveLength(1);
+    const categoryId = result.createdCategoryIds[0]!;
+    createdCategoryIds.add(categoryId);
+
+    const [category] = await db.select().from(publicCategoryTable).where(eq(publicCategoryTable.id, categoryId));
+    expect(category).toMatchObject({ createdBy: 'ai', sourceLocale: 'en-US' });
+    const labels = await db
+      .select()
+      .from(publicCategoryLabelTable)
+      .where(eq(publicCategoryLabelTable.categoryId, categoryId));
+    expect(labels).toEqual([
+      expect.objectContaining({ locale: 'en-US', name: `Translation Fails ${suffix}`, editedBy: 'ai' }),
+    ]);
+  });
+
   it('resolves an exact normalized name collision to the existing stable id', async () => {
     const existing = await createCategory(`Science Fiction ${suffix}`);
     const recordId = await insertRecord();
