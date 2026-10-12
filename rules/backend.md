@@ -40,7 +40,7 @@ or dependency changes, also read [architecture rules](architecture.md).
   required to preserve inherited behavior.
 - Preserve accepted persistence invariants, user/instance scope separation, and
   concurrency/conflict semantics when changing mutations or workflows. Consult
-  the relevant domain ADR and test the affected invariant; do not infer a new
-  persistence policy from a handler or current database state.
+  current authoritative domain contracts and test the affected invariant; do not
+  infer a new persistence policy from a handler or current database state.
 - Environment authorization, secret protection, migrations, and automated-test
   isolation are governed by [AGENTS.md](../AGENTS.md).

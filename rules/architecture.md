@@ -44,9 +44,10 @@ review. Use a relevant structure Skill for execution methods.
 ## Architectural changes and acceptance
 
 - Before changing module responsibilities, dependency direction, public module
-  maps, or core domain contracts, inspect relevant accepted ADRs, affected
-  producers/consumers, configuration, and tests. Confirm the intended boundary
-  and compatibility strategy before implementation.
+  maps, or core domain contracts, identify the effective accepted boundaries and
+  inspect affected producers/consumers, configuration, and tests. Consult decision
+  records as needed to resolve missing context or conflicting evidence. Confirm
+  the intended boundary and compatibility strategy before implementation.
 - Changing an accepted decision requires an accepted amendment or successor.
   Draft records and current implementation differences do not authorize a new
   decision. If substantive ownership or intent remains unclear, preserve the

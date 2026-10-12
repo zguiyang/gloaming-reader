@@ -18,9 +18,8 @@ exports, consumers, and accepted decisions. Apply
 
 ## Public API and compatibility
 
-- [ADR-003](../docs/adr/003-shared-package-public-api-strategy.md) governs Shared's
-  semantic module subpaths and absent root facade. Consumers use the owning
-  module's declared public entry. Do not restore a Shared root entry or expose
+- Shared uses semantic module subpaths and has no root facade. Consumers use the
+  owning module's declared public entry. Do not restore a Shared root entry or expose
   private source files to bypass this boundary.
 - Declare deliberate public module exports, not one export per implementation
   file. Entry symbols remain explicit; use the current module map and accepted

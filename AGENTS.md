@@ -1,8 +1,9 @@
 # Gloaming Agent Instructions
 
-These instructions apply across the repository. Load detailed rules, Skills, and
-domain documents only when relevant to the task; they own their respective
-implementation details.
+These instructions apply across the repository. Read applicable detailed rules
+and Skills according to the task. Project documents provide context and decision
+evidence; they are not automatically loaded rules or a prerequisite for ordinary
+development.
 
 ## Project
 
@@ -11,10 +12,10 @@ contextual AI support. Do not revive legacy `Article` models, aliases,
 `reading_progress`, `article_audio`, or lesson/course entities, or redefine the
 product as a Short Article Library. Keep web and backend source separate;
 cross-app contracts belong in `@gloaming/shared`, and database schema belongs
-in `@gloaming/db`. Before changing reading-content schema or its public
-contract, consult the [domain model](docs/adr/001-reading-content-domain-model.md)
-and [engineering vocabulary](docs/product/engineering-vocabulary.md). For
-product or feature decisions, start at [product docs](docs/product/README.md).
+in `@gloaming/db`. When changing persistent domain models or public contracts,
+identify the current authoritative model, preserve established invariants, and
+verify affected producers and consumers. Do not change core business semantics
+without task authorization.
 
 ## Safety and data
 
@@ -111,6 +112,11 @@ Read only the rules relevant to the current task:
 
 Consult current source and configuration for implementation details. Use Skills
 for operating procedures and tools for their capabilities and access checks.
+Start from the user's requirements, existing implementation, relevant contracts,
+tests, and explicit product constraints. Independently consult relevant project
+documents when the task needs context, requirements are incomplete, or decision
+evidence conflicts; read materials explicitly requested by the user. No routine
+document loading or recursive document scan is required.
 
 The applicable rules and accepted decisions define project intent. Source,
 configuration, tests, and runtime show current behavior. If they materially
