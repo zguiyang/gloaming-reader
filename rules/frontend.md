@@ -39,13 +39,20 @@ stack. For module ownership or public entries, read
   visual tokens, interaction philosophy, UI/product boundaries, system UI
   language, information economy, and admin density. Preserve its responsive,
   keyboard-access, and accessible-name requirements.
+- Small copy, state, spacing, or existing-component layout fixes may proceed
+  directly with impact-matched checks. For major pages, navigation, core flows,
+  or new interaction patterns, confirm requirements, design direction, core
+  interactions, and acceptance criteria before implementation; use an approved
+  visual reference or prototype where needed. Design tools are task-dependent.
+  Validate implemented changes on real pages across relevant viewports and states
+  in proportion to their impact; small fixes do not require full browser E2E.
 - Use semantic design tokens and existing UI primitives. Prefer their variants
   and composition before bespoke controls; do not introduce a parallel control
   system. Changes to shared primitive source require task authorization and
   review of affected consumers. Component installation methods belong to the
   applicable Skill and current configuration.
 - Visual simplification does not authorize a change to persistence, automatic
-  actions, confirmation, or navigation. Visual Skill output must conform to
+  actions, confirmation, or navigation. Design-tool and Skill output must conform to
   DESIGN.md and the authorized product behavior, without adding dependencies.
 - Label static/mock/UI-only functionality as prototype or stub in source and
   user-facing system-language copy. Do not imply saving, publishing, sync, or

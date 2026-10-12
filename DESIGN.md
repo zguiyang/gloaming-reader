@@ -582,7 +582,7 @@ Depth from **tonal layering** and hairline outlines — not heavy drop shadows.
 
 ## Interaction philosophy
 
-**Scope:** Product and interaction judgment for all Gloaming UI — what to show, what to merge, what to delete. **Visual polish** (typography, color, spacing, composition, anti-slop) stays in the sections above and in Taste skills. **Frontend engineering boundaries** live in [`rules/frontend.md`](rules/frontend.md).
+**Scope:** Product and interaction judgment for all Gloaming UI — what to show, what to merge, what to delete. **Visual polish** (typography, color, spacing, composition, anti-slop) stays in the sections above. **Frontend engineering boundaries** live in [`rules/frontend.md`](rules/frontend.md).
 
 **Priority ladder (default):**
 
@@ -682,10 +682,10 @@ Admin (`/admin/**`) serves operators who already understand Provider, Model, API
 4. Context inference — what do title / tab / grouping already tell them?
 5. Merge related actions into shared control contexts
 6. Delete redundant elements (review checks above)
-7. Visual polish — tokens above + Taste skills for hierarchy and composition
+7. Visual polish — tokens and visual contracts above for hierarchy and composition
 ```
 
-Taste skills own **visual quality**; this section owns **product / interaction quality**. They complement each other — do not replace Taste with more prose here.
+The visual contracts above own **visual quality**; this section owns **product / interaction quality**. They complement each other.
 
 ---
 

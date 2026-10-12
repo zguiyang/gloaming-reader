@@ -51,22 +51,27 @@ product or feature decisions, start at [product docs](docs/product/README.md).
 
 - Use relevant Skills and available tools for execution details; do not copy
   their dispatch, session, model, parameter, or worktree procedures here.
+  Skills do not override project authorization, safety, or accepted architecture
+  and design decisions.
 - The supervising agent decides whether isolation is needed, allocates the
   workspace, reviews results, integrates changes, and coordinates cleanup.
   Prefer an applicable worktree-management Skill. If its preferred method
-  cannot honor the project default, first check for a compatible alternative
+  cannot honor the applicable workspace policy, first check for a compatible alternative
   formally supported by that Skill. If no Skill applies or no compatible
   management capability exists, use an available environment manager, then Git,
   provided the Skill's contract permits that fallback. Preserve equivalent
   safety checks at every fallback. A safety or permission refusal is not missing
   capability and must not be bypassed. If no compatible option can safely honor
-  the project default, stop and report.
-- New worktrees default to `<repository-root>/.worktrees/`; discover the root
-  from Git. Reuse a suitable assigned worktree; before creating one, verify the
-  target, branch state and worktree registration, isolation, and ignore
-  protection. Missing ignore protection or failed safety checks mean stop. Do
-  not change ignore configuration or choose another location without explicit
-  user authorization.
+  the workspace policy, stop and report.
+- Reuse a suitable assigned isolated workspace before creating another. Git-managed
+  worktrees default to `<repository-root>/.worktrees/`; discover the root from Git.
+  Formal host-managed worktrees may use the host's managed directory only when
+  the actual path, project/task ownership, lifecycle manager, work preservation
+  and recovery, and safe cleanup mechanism can be confirmed. Before creation,
+  verify the target, branch state, worktree registration, and isolation; verify
+  ignore protection for project-local directories. Failed safety checks mean
+  stop. Do not change ignore configuration or choose another unmanaged location
+  without explicit user authorization.
 - A delegated write task must use its assigned isolated workspace. Workers do
   not modify the shared main workspace, create or move worktrees, merge changes,
   or clean up workspaces. If isolation is unavailable, stop rather than fall
