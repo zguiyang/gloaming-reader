@@ -28,12 +28,14 @@ PR-01 之后，schema 可表示私有所有者 Work，但运行时读取仍假�
 ## 5. 逐文件变更清单
 
 新增生产文件：
+
 - apps/backend/src/domains/works/access/actor.ts - 最小 `WorkReadActor`、匿名/默认身份与 Admin 角色辅助。
 - apps/backend/src/domains/works/access/predicate.ts - 纯行检查及公共 Catalog 与 actor 读取的 SQL 谓词。
 - apps/backend/src/domains/works/access/policy.ts - 可读 Work/Part 加载器、title/id 解析器与 `assertCanReadWork`。
 - apps/backend/src/domains/works/access/index.ts - 内部领域导出。
 
 变更的生产路径：
+
 - apps/backend/src/domains/assets/content/published.ts -> part-audio-track.ts - 音轨解析使用 readable-part 访问。
 - apps/backend/src/domains/assets/gateway/service.ts；assets/index.ts；routes/assets.ts - asset 可见性与交付使用 actor policy。
 - apps/backend/src/domains/assist/routes/index.ts；service.ts；tools.ts - Assist work/part context 遵循 actor。
@@ -48,6 +50,7 @@ PR-01 之后，schema 可表示私有所有者 Work，但运行时读取仍假�
 - apps/backend/src/domains/works/access 模块为中央策略所有者。
 
 测试（8）：
+
 - apps/backend/tests/functional/domains/assets/assets.spec.ts
 - apps/backend/tests/functional/domains/conversations/conversations.spec.ts
 - apps/backend/tests/functional/domains/dictionary/dictionary-config.spec.ts
@@ -59,6 +62,7 @@ PR-01 之后，schema 可表示私有所有者 Work，但运行时读取仍假�
 - 覆盖所有者、其他用户、匿名与 Admin 边界、公共 Catalog 筛选与消费者上下文隔离。
 
 文档：
+
 - docs/plans/user-first-architecture-implementation.md - 记录访问阶段与验收证据。
 
 ## 6. 符号 / 方法清单

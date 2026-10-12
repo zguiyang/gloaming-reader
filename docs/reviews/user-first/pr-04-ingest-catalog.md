@@ -39,6 +39,7 @@
 ## 5. 逐文件变更清单
 
 共享摄取与策略：
+
 - apps/backend/src/domains/ingest/epub/work-upload.ts - 通用上传规格、清理、对象获取、持久化与解析入队。
 - apps/backend/src/domains/ingest/parser/epub-parser.ts；registry.ts；service.ts - 解析器输入/分发/服务流支持共享 Work 摄取。
 - apps/backend/src/domains/works/personal/personal-epub-upload.ts - Personal 归属/可见性包装。
@@ -52,6 +53,7 @@
 - apps/backend/src/application/commands/delete-work.ts；retry-workflow.ts；run-content-parse-workflow.ts；apps/backend/src/application/jobs/content-parse.ts - 共享解析器/工作流命令集成与所有者安全生命周期行为。
 
 Web 路由与 Admin 消费者变更：
+
 - apps/web/app/admin/works/[id]/page.tsx -> apps/web/app/admin/catalog/works/[id]/page.tsx
 - apps/web/app/admin/works/[id]/preview/page.tsx -> apps/web/app/admin/catalog/works/[id]/preview/page.tsx
 - apps/web/app/admin/works/[id]/preview/part/[partId]/page.tsx -> apps/web/app/admin/catalog/works/[id]/preview/part/[partId]/page.tsx
@@ -62,6 +64,7 @@ Web 路由与 Admin 消费者变更：
 - packages/shared/src/works/works.ts；works.spec.ts；index.ts - 上传契约/工作流查询变更。
 
 测试（15）：
+
 - apps/backend/tests/functional/domains/assets/reader-audio.spec.ts
 - apps/backend/tests/functional/domains/assist/assist.spec.ts
 - apps/backend/tests/functional/domains/ingest/epub-gutenberg.spec.ts
@@ -80,6 +83,7 @@ Web 路由与 Admin 消费者变更：
 - 变更的测试覆盖上传解析、所有者隔离、Admin Catalog 隔离、音频与工作流筛选。
 
 文档：
+
 - docs/adr/001-reading-content-domain-model.md - 记录 Personal upload 与 Catalog 边界。
 - docs/plans/user-first-architecture-implementation.md - 实现状态与检查。
 - docs/product/engineering-vocabulary.md - 命名空间/status 词汇。

@@ -16,31 +16,32 @@
 
 ## 五大核心领域
 
-| 领域 | 单一事实来源（SSOT） | 主要实现 | 当前状态 |
-| --- | --- | --- | --- |
-| 归属 | `reading_work.owner_user_id`；显式保存用 `user_library_item` | PR-01 迁移/schema；PR-04 Personal 上传；PR-05 Library 服务 | Personal 归属与 Catalog 保存已实现。历史回填意图未决。 |
-| 访问 | `canReadWorkRow`/`workReadAccessSql`，基于所有者、角色、可见性与 `published_at` | `apps/backend/src/domains/works/access`；Reader、资源、AI 上下文与历史等消费者 | 已实现所有者、Admin 与公共 Catalog 边界。 |
-| 发布 | `reading_work.published_at`；`processing_status` 独立 | `apps/backend/src/domains/works/admin/admin-lifecycle.ts` | 幂等 Catalog 发布已实现。发布仍要求处理 `ready` 及默认 US 音频就绪。 |
-| 摄取 | ReadingWork + `origin_file` ContentAsset；`origin_kind`/所有者/可见性 | `apps/backend/src/domains/ingest/epub/work-upload.ts`；Personal 与 Catalog 包装 | 共享解析/存储路径、策略分离已实现。Personal UI 缺失。 |
-| 书架（Library） | 拥有 Work 与 `user_library_item` 的并集；`reading_state` 为可选进度 | `apps/backend/src/domains/library/service.ts`；`@gloaming/shared/library`；Web Library 功能模块 | GET/添加/移除与消费者迁移已实现。迁移 0036 行仍为人工决策项。 |
+| 领域            | 单一事实来源（SSOT）                                                            | 主要实现                                                                                        | 当前状态                                                             |
+| --------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 归属            | `reading_work.owner_user_id`；显式保存用 `user_library_item`                    | PR-01 迁移/schema；PR-04 Personal 上传；PR-05 Library 服务                                      | Personal 归属与 Catalog 保存已实现。历史回填意图未决。               |
+| 访问            | `canReadWorkRow`/`workReadAccessSql`，基于所有者、角色、可见性与 `published_at` | `apps/backend/src/domains/works/access`；Reader、资源、AI 上下文与历史等消费者                  | 已实现所有者、Admin 与公共 Catalog 边界。                            |
+| 发布            | `reading_work.published_at`；`processing_status` 独立                           | `apps/backend/src/domains/works/admin/admin-lifecycle.ts`                                       | 幂等 Catalog 发布已实现。发布仍要求处理 `ready` 及默认 US 音频就绪。 |
+| 摄取            | ReadingWork + `origin_file` ContentAsset；`origin_kind`/所有者/可见性           | `apps/backend/src/domains/ingest/epub/work-upload.ts`；Personal 与 Catalog 包装                 | 共享解析/存储路径、策略分离已实现。Personal UI 缺失。                |
+| 书架（Library） | 拥有 Work 与 `user_library_item` 的并集；`reading_state` 为可选进度             | `apps/backend/src/domains/library/service.ts`；`@gloaming/shared/library`；Web Library 功能模块 | GET/添加/移除与消费者迁移已实现。迁移 0036 行仍为人工决策项。        |
 
 ## 前后对比
 
-| 关切点 | origin/dev 4efa89a9 | PR-05 检查点 |
-| --- | --- | --- |
-| Work 生命周期 | status 混合流水线、`tts` 与 `published` | `processing_status` 加 `published_at` |
-| 访问 | 共享读取门控假设仅已发布 | 所有者/Admin/公共 Catalog 访问策略 |
-| 发布 | 表示为 Work status 转换 | 独立、幂等的 `published_at` 转换 |
-| EPUB 摄取 | 面向 Admin | 共享核心；Personal 私有所有者上传与 Admin Catalog 摄取 |
-| Admin Work 命名空间 | `/admin/works` 与 `/api/admin/works` | `/admin/catalog/works` 与 `/api/admin/catalog/works`，旧别名已移除 |
-| 书架（Library） | `reading_state` 隐含书架成员 | 拥有 Work 加显式 Catalog 保存 |
-| 进度/历史 | `reading_state` 亦隐含成员 | 进度、历史与成员分离 |
-| Provider 作用域 | 仅实例级运行时 | schema 有 `owner_user_id`；运行时仍面向实例 |
-| 前端 | 既有 Shelf 消费者 | Library 功能模块与 API 迁移；无大范围应用外壳重写 |
+| 关切点              | origin/dev 4efa89a9                     | PR-05 检查点                                                       |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| Work 生命周期       | status 混合流水线、`tts` 与 `published` | `processing_status` 加 `published_at`                              |
+| 访问                | 共享读取门控假设仅已发布                | 所有者/Admin/公共 Catalog 访问策略                                 |
+| 发布                | 表示为 Work status 转换                 | 独立、幂等的 `published_at` 转换                                   |
+| EPUB 摄取           | 面向 Admin                              | 共享核心；Personal 私有所有者上传与 Admin Catalog 摄取             |
+| Admin Work 命名空间 | `/admin/works` 与 `/api/admin/works`    | `/admin/catalog/works` 与 `/api/admin/catalog/works`，旧别名已移除 |
+| 书架（Library）     | `reading_state` 隐含书架成员            | 拥有 Work 加显式 Catalog 保存                                      |
+| 进度/历史           | `reading_state` 亦隐含成员              | 进度、历史与成员分离                                               |
+| Provider 作用域     | 仅实例级运行时                          | schema 有 `owner_user_id`；运行时仍面向实例                        |
+| 前端                | 既有 Shelf 消费者                       | Library 功能模块与 API 迁移；无大范围应用外壳重写                  |
 
 ## 已删除的主要遗留
 
 在 PR-01..PR-05 内确认：
+
 - `reading_work.status` 存储字段及处理枚举值 `published`/`tts`。
 - `requirePublished*` 辅助作为通用读取访问门控。
 - Admin `/admin/works` 与 `/api/admin/works` 路由；无兼容别名。
@@ -48,6 +49,7 @@
 - `add_to_shelf` 作为 Reader state 变更。
 
 未删除：
+
 - `/my-shelf` Web 路由与 Reader 返回路径。
 - TTS 工作流步骤及其默认 US 发布就绪要求。
 - 内部 `domains/works` 与 `features/admin/works` 命名。
@@ -61,6 +63,7 @@ README 含 **10** 项开放条目：PR05-HISTORY-001 加九项产品决策。历
 ## 架构减法候选
 
 七组候选供后续人工评审；本审计未移除任何一项：
+
 1. Work 读取/公共 Catalog 谓词的 SQL 与内存形式表示重叠规则。
 2. 访问策略的执行者、谓词与编排文件可能在所有消费者稳定后需要内聚性评审。
 3. Catalog 谓词针对不同问题（Catalog 身份与已发布公共访问）；验证各真实调用方，仅在区分仍成立时保留。
@@ -100,6 +103,7 @@ README 含 **10** 项开放条目：PR05-HISTORY-001 加九项产品决策。历
 ## 验证证据
 
 PR 阶段报告记录的历史定向结果：
+
 - PR-01：共享包 14/14；数据库约束 4/4；Work EPUB 19/19；后端聚焦回归 97 项测试；Web 33/33；范围内类型检查/代码检查通过。
 - PR-02：后端 47/47；后端类型检查/代码检查通过。
 - PR-03：后端 35/35 与共享包 14/14；后端/Web 类型检查与范围内代码检查通过。
@@ -111,6 +115,7 @@ PR 阶段报告记录的历史定向结果：
 ## 风险发现
 
 数量：6。
+
 1. 迁移 0036 全量回填可能夸大历史 Library 意图；未确认选择性来源追溯。
 2. 活跃产品流程记录与关于 Shelf 成员与进度的修订已接受 ADR 冲突。
 3. Provider owner 列存在但无用户作用域 Provider 运行时；勿将 schema 当作能力。

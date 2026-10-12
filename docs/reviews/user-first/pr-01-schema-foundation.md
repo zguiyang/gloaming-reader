@@ -38,6 +38,7 @@
 ## 5. 逐文件变更清单
 
 生产路径（36）：
+
 - apps/backend/scripts/seed-dev-works.ts - 种子数据使用 `processingStatus`。
 - apps/backend/src/application/commands/advance-tts-workflow.ts；delete-work.ts；retry-workflow.ts；run-content-parse-workflow.ts - 工作流/删除命令使用新 Work 生命周期字段。
 - apps/backend/src/application/jobs/metadata-enrich.ts - 任务转换使用 `processingStatus`。
@@ -57,15 +58,18 @@
 - packages/shared/src/works/index.ts；works.spec.ts；works.ts - 共享 status 枚举、schema 与数据传输对象契约变更。
 
 迁移路径：
+
 - packages/db/migrations/0036_user_first_pr01_schema_foundation.sql - 创建成员；迁移 status；新增 owner 列/索引；从每条 `reading_state` 行回填。
 - packages/db/migrations/meta/_journal.json - 注册迁移 0036。
 
 文档路径：
+
 - docs/adr/001-reading-content-domain-model.md - 用户优先 schema 方向修订。
 - docs/plans/user-first-architecture-implementation.md - 记录顺序与实现范围。
 - docs/product/engineering-vocabulary.md - status 与字段词汇更新。
 
 测试路径（17）：
+
 - apps/backend/tests/functional/domains/assets/assets.spec.ts
 - apps/backend/tests/functional/domains/db/user-first-pr01-schema-constraints.spec.ts
 - apps/backend/tests/functional/domains/dictionary/dictionary-config.spec.ts
@@ -129,6 +133,7 @@ Catalog/书架/资源可见性 -> `published_at` 谓词。
 ## 13. 测试与验证证据
 
 历史阶段报告 / 计划记录：
+
 - 共享 Work 契约：14/14。
 - PR-01 schema constraints：4/4，数据库 `gloaming_test`。
 - Work EPUB 回归：19/19；聚焦后端功能测试集：13 文件 / 97 项测试。

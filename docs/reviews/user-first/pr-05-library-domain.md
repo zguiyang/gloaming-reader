@@ -37,11 +37,13 @@ PR-05 之前，`reading_state` 同时服务进度与 Shelf 成员。这使自动
 ## 5. 逐文件变更清单
 
 后端 Library 与路由组合：
+
 - apps/backend/src/domains/library/index.ts；routes/index.ts；service.ts - 新 Library 所有者、认证 GET/POST/DELETE 路由、并集/进度投影、幂等成员变更。
 - apps/backend/src/routes/index.ts - 以 `libraryRoutes` 挂载替代 `shelfRoutes`。
 - apps/backend/src/domains/shelf/index.ts；routes/index.ts；service.ts - 移除 Shelf 后端模块。
 
 Reader、历史与测试：
+
 - apps/backend/src/domains/reading/reader/state-mutations.ts - 移除 `add_to_shelf` 操作；打开/重启保留进度创建。
 - apps/backend/tests/functional/domains/library/library.spec.ts - 显式成员、读模型与幂等用例。
 - apps/backend/tests/functional/domains/reading/reader.spec.ts；reading-history.spec.ts - 断言进度/历史不再隐含成员。
@@ -49,6 +51,7 @@ Reader、历史与测试：
 - apps/backend/tests/functional/domains/shelf/shelf.spec.ts - 旧套件移除并由 Library 测试替代。
 
 Web 页面与功能模块迁移：
+
 - apps/web/app/(app)/my-shelf/page.tsx - 路由组合 Library 功能模块，路径保留。
 - apps/web/features/shelf/shelf-book-card.tsx -> apps/web/features/library/library-book-card.tsx
 - apps/web/features/shelf/shelf-continue-hero.tsx -> apps/web/features/library/library-continue-hero.tsx
@@ -65,6 +68,7 @@ Web 页面与功能模块迁移：
 - apps/web/features/reader/reader-api.ts；apps/web/lib/api-request.spec.ts - 端点/client 契约更新。
 
 共享契约与文案：
+
 - packages/shared/src/library/index.ts；library.ts；library.spec.ts - Library 数据传输对象、上限与 schema 替代 Shelf 契约。
 - packages/shared/src/shelf/index.ts；shelf.ts；shelf.spec.ts - 旧 Shared 模块移除。
 - packages/shared/src/reader/reader.ts - 从 reading-state actions 移除 `add_to_shelf`。
@@ -73,6 +77,7 @@ Web 页面与功能模块迁移：
 - packages/i18n/src/messages/en-US.json；packages/i18n/src/messages/zh-CN.json - Shelf 面向文案迁至 Library 用语。
 
 文档（9）：
+
 - docs/adr/001-reading-content-domain-model.md - 已接受领域拆分与当前 Library/继续阅读语义更新。
 - docs/adr/003-shared-package-public-api-strategy.md - Shared 模块图更新。
 - docs/adr/006-frontend-shelf-and-reader-parts-public-seams.md - 前端接缝决策更新。
@@ -119,8 +124,8 @@ PR-05 无新数据库结构。迁移 0036 的 `user_library_item` 现为成员 S
 ## 10. 运行时调用流
 
 Library 页面 `/my-shelf` -> Library 客户端 -> `GET /api/library` -> `getLibrary`：
-  current = 最新可访问 `in_progress` ReadingState + Work
-  items = 拥有 Work 并集显式保存的已发布 Catalog Work，各带可选状态
+current = 最新可访问 `in_progress` ReadingState + Work
+items = 拥有 Work 并集显式保存的已发布 Catalog Work，各带可选状态
 发现页/图书详情 -> `POST`/`DELETE /api/library/:workId` -> `addToLibrary`/`removeFromLibrary` -> 仅 `user_library_item`。
 Reader PATCH 打开/重启 -> `updateReadingState` -> 仅 `reading_state`；无成员写入。
 阅读历史 -> 既有历史查询/心跳 -> 历史行为仍独立。
@@ -146,6 +151,7 @@ Reader PATCH 打开/重启 -> `updateReadingState` -> 仅 `reading_state`；无�
 ## 13. 测试与验证证据
 
 历史 PR-05 报告：
+
 - Library 功能测试：3/3。
 - Reader/历史/访问/Personal/推荐回归：9/9。
 - 后端分类：4/4。

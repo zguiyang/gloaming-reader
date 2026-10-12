@@ -4,15 +4,15 @@
 
 ## 1. Git 基线门禁
 
-| 项目 | 确认值 |
-|---|---|
-| 分支 | `codex/user-first-pr06-provider-resolver` |
-| Worktree | `/Users/joyzhao/.codex/worktrees/user-first-pr06-provider-resolver/gloaming-reader` |
-| HEAD | `da5ede8b83673ec981459fea0091d8d9f5cdb279` — `docs(review): record PR-06 provider resolver` |
-| PR-06 implementation | `b481a2fad4480f8d084d6e1a7fa7f6e96633db53`，HEAD 的直接父提交，故为 ancestor |
-| PR-06 review | `da5ede8b83673ec981459fea0091d8d9f5cdb279`，与 HEAD 相同，故为 ancestor |
-| PR-01～PR-05 | 当前提交链包含 PR-01 schema、PR-02 access、PR-03 publication、PR-04 ingest/catalog、PR-05 Library 的实现/checkpoint commits；PR 阶段索引与各阶段文档也在当前源码树 |
-| 工作树 | 基线检查时 clean |
+| 项目                 | 确认值                                                                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 分支                 | `codex/user-first-pr06-provider-resolver`                                                                                                                          |
+| Worktree             | `/Users/joyzhao/.codex/worktrees/user-first-pr06-provider-resolver/gloaming-reader`                                                                                |
+| HEAD                 | `da5ede8b83673ec981459fea0091d8d9f5cdb279` — `docs(review): record PR-06 provider resolver`                                                                        |
+| PR-06 implementation | `b481a2fad4480f8d084d6e1a7fa7f6e96633db53`，HEAD 的直接父提交，故为 ancestor                                                                                       |
+| PR-06 review         | `da5ede8b83673ec981459fea0091d8d9f5cdb279`，与 HEAD 相同，故为 ancestor                                                                                            |
+| PR-01～PR-05         | 当前提交链包含 PR-01 schema、PR-02 access、PR-03 publication、PR-04 ingest/catalog、PR-05 Library 的实现/checkpoint commits；PR 阶段索引与各阶段文档也在当前源码树 |
+| 工作树               | 基线检查时 clean                                                                                                                                                   |
 
 门禁通过，继续基于此 HEAD 审计。此分支没有 `docs/reviews/user-first/frontend-design-baseline.md` 文件；本文件按请求单独记录增量，不复制或重建此前的完整设计基线。
 
@@ -52,17 +52,17 @@
 
 ## 4. Discover / Book Detail 的实际 API
 
-| 前端功能 | 当前调用 | UI consumer / 说明 |
-|---|---|---|
-| Discover list | `GET /api/catalog/works?...` | `features/discover/discover-api.ts`，`DiscoverPage` / Discover grid |
-| Taxonomy filters | `GET /api/catalog/categories`、`GET /api/catalog/tags` | 同一 API module 的 Query hooks |
-| Discover saved status | `GET /api/library` | `fetchDiscoverCatalog()` 将 `LibraryData.items` 映射为 `available` / `in_library`；401 时按未登录无成员态处理 |
-| Book detail work | `GET /api/catalog/works/:id` | `features/book-detail/book-detail-api.ts`；只取已发布 Catalog Work |
-| Book detail parts | `GET /api/reader/works/:id/parts` | Reader parts public client |
-| Book detail progress | `GET /api/reader/works/:id/state` | 与 Library membership 分开请求；401 时可无 state |
-| Book detail saved status | `GET /api/library` | 通过成员 map 判断该 Catalog Work 是否已在 Library |
-| Add to Library | `POST /api/library/:workId` | Book detail 页面实际有 UI；Discover 卡片源码没有独立 Add 操作 |
-| Remove from Library | `DELETE /api/library/:workId` | API client helper 存在，当前没有 UI consumer |
+| 前端功能                 | 当前调用                                               | UI consumer / 说明                                                                                            |
+| ------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Discover list            | `GET /api/catalog/works?...`                           | `features/discover/discover-api.ts`，`DiscoverPage` / Discover grid                                           |
+| Taxonomy filters         | `GET /api/catalog/categories`、`GET /api/catalog/tags` | 同一 API module 的 Query hooks                                                                                |
+| Discover saved status    | `GET /api/library`                                     | `fetchDiscoverCatalog()` 将 `LibraryData.items` 映射为 `available` / `in_library`；401 时按未登录无成员态处理 |
+| Book detail work         | `GET /api/catalog/works/:id`                           | `features/book-detail/book-detail-api.ts`；只取已发布 Catalog Work                                            |
+| Book detail parts        | `GET /api/reader/works/:id/parts`                      | Reader parts public client                                                                                    |
+| Book detail progress     | `GET /api/reader/works/:id/state`                      | 与 Library membership 分开请求；401 时可无 state                                                              |
+| Book detail saved status | `GET /api/library`                                     | 通过成员 map 判断该 Catalog Work 是否已在 Library                                                             |
+| Add to Library           | `POST /api/library/:workId`                            | Book detail 页面实际有 UI；Discover 卡片源码没有独立 Add 操作                                                 |
+| Remove from Library      | `DELETE /api/library/:workId`                          | API client helper 存在，当前没有 UI consumer                                                                  |
 
 因此，前端的 Saved state 来自 Library member query，不由“读过”推定。已存在详情页 Add flow；Remove endpoint 尚未接入 UI。
 
@@ -94,19 +94,19 @@ PR-06 backend 已新增认证用户 API：
 
 ## 8. Current Frontend Truth Table
 
-| Capability | Backend Ready | Frontend API Client Ready | UI Ready | Current Route | Current API | Notes |
-|---|---|---|---|---|---|---|
-| Library read | 是 | 是 | 是 | `/my-shelf`（挂载 LibraryPage） | `GET /api/library` | API 响应含 `items` 与 `current`；Personal Work 与 Saved Catalog 的来源/处理状态未作为显式字段暴露。 |
-| Add to Library | 是 | 是 | 是 | Discover Book Detail | `POST /api/library/:workId` | 详情 CTA 已接入；不是 Discover 网格卡片 CTA。 |
-| Remove from Library | 是 | 部分：delete helper 存在 | 否 | 无 | `DELETE /api/library/:workId` | 无 hook/UI consumer；仅删除显式 Catalog membership。 |
-| Personal EPUB upload | 是 | 否 | 否 | 无用户上传 route | `POST /api/works` | Backend capability only；Admin 上传使用另一 endpoint。 |
-| Personal Work read | 是 | 是（通用 Reader client） | 部分 | `/read/[workId]` | `/api/reader/works/:id/parts`、`/api/reader/parts/:id`、state API | Reader 可读可访问 Work；Library 普通卡片进入 Catalog-only Book Detail，完整个人作品入口链未就绪。 |
-| Discover | 是 | 是 | 是 | `/discover` | `/api/catalog/works`、`/api/catalog/categories`、`/api/catalog/tags`、`GET /api/library` | Saved state 由 Library data 衍生。 |
-| Continue Reading | 是 | 部分：随 Library query 读取 | 是 | `/my-shelf` | `GET /api/library` 的 `current` | 独立 progress projection；不是独立前端 endpoint/query。 |
-| Reading History | 是 | 是 | 是 | `/reading-history` | `GET /api/reading-history` | 与 Library membership/Continue Reading 分别查询。 |
-| User LLM Provider | 是（PR-06） | 否 | 否 | 无 Settings route | `/api/settings/llm/providers`、`models`、`settings` | 后端能力与 shared DTO；无 web client/UI consumer。 |
-| User TTS Provider | 是（PR-06） | 否 | 否 | 无 Settings route | `/api/settings/tts/config` | 后端能力与既有 TTS DTO；无 web client/UI consumer。 |
-| Admin Catalog | 是 | 是 | 是 | `/admin/catalog/works` | `/api/admin/catalog/works` | Admin 页面、API client、backend route 已迁移；旧 Admin Work 路径无兼容别名。 |
+| Capability           | Backend Ready | Frontend API Client Ready   | UI Ready | Current Route                   | Current API                                                                              | Notes                                                                                               |
+| -------------------- | ------------- | --------------------------- | -------- | ------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Library read         | 是            | 是                          | 是       | `/my-shelf`（挂载 LibraryPage） | `GET /api/library`                                                                       | API 响应含 `items` 与 `current`；Personal Work 与 Saved Catalog 的来源/处理状态未作为显式字段暴露。 |
+| Add to Library       | 是            | 是                          | 是       | Discover Book Detail            | `POST /api/library/:workId`                                                              | 详情 CTA 已接入；不是 Discover 网格卡片 CTA。                                                       |
+| Remove from Library  | 是            | 部分：delete helper 存在    | 否       | 无                              | `DELETE /api/library/:workId`                                                            | 无 hook/UI consumer；仅删除显式 Catalog membership。                                                |
+| Personal EPUB upload | 是            | 否                          | 否       | 无用户上传 route                | `POST /api/works`                                                                        | Backend capability only；Admin 上传使用另一 endpoint。                                              |
+| Personal Work read   | 是            | 是（通用 Reader client）    | 部分     | `/read/[workId]`                | `/api/reader/works/:id/parts`、`/api/reader/parts/:id`、state API                        | Reader 可读可访问 Work；Library 普通卡片进入 Catalog-only Book Detail，完整个人作品入口链未就绪。   |
+| Discover             | 是            | 是                          | 是       | `/discover`                     | `/api/catalog/works`、`/api/catalog/categories`、`/api/catalog/tags`、`GET /api/library` | Saved state 由 Library data 衍生。                                                                  |
+| Continue Reading     | 是            | 部分：随 Library query 读取 | 是       | `/my-shelf`                     | `GET /api/library` 的 `current`                                                          | 独立 progress projection；不是独立前端 endpoint/query。                                             |
+| Reading History      | 是            | 是                          | 是       | `/reading-history`              | `GET /api/reading-history`                                                               | 与 Library membership/Continue Reading 分别查询。                                                   |
+| User LLM Provider    | 是（PR-06）   | 否                          | 否       | 无 Settings route               | `/api/settings/llm/providers`、`models`、`settings`                                      | 后端能力与 shared DTO；无 web client/UI consumer。                                                  |
+| User TTS Provider    | 是（PR-06）   | 否                          | 否       | 无 Settings route               | `/api/settings/tts/config`                                                               | 后端能力与既有 TTS DTO；无 web client/UI consumer。                                                 |
+| Admin Catalog        | 是            | 是                          | 是       | `/admin/catalog/works`          | `/api/admin/catalog/works`                                                               | Admin 页面、API client、backend route 已迁移；旧 Admin Work 路径无兼容别名。                        |
 
 ## 9. Remaining UI Work（事实）
 
