@@ -15,8 +15,8 @@ This record still does **not** extract TTS playback from `reader-page`, widen
 `reader/index.ts` / `reader/shared` / `reader/common`, or require heartbeat /
 chrome / core directoryization.
 
-Related: [`.cursor/rules/frontend.mdc`](../../.cursor/rules/frontend.mdc) ·
-[`.cursor/rules/repository-structure.mdc`](../../.cursor/rules/repository-structure.mdc) ·
+Related: [`rules/frontend.md`](../../rules/frontend.md) ·
+[`rules/architecture.md`](../../rules/architecture.md) ·
 [`docs/adr/004-frontend-reading-state-public-seams.md`](./004-frontend-reading-state-public-seams.md)
 (reading-state seams; Reader may consume them; not superseded) ·
 [`docs/adr/005-frontend-app-shell-site-chrome-ownership.md`](./005-frontend-app-shell-site-chrome-ownership.md)
@@ -88,7 +88,7 @@ chrome / navigation, core).
 Rules:
 
 - App Router `page` / route composition may deep-import `ReaderPage` under the
-  framework composition exception in `frontend.mdc`. That is **not** a
+  framework composition exception in `rules/frontend.md`. That is **not** a
   Feature-to-Feature public seam.
 - Capability private implementation must **not** import `reader-page.tsx` or
   otherwise depend on composition private implementation.

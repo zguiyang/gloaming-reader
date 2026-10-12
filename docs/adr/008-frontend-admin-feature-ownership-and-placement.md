@@ -13,8 +13,8 @@ TTS / taxonomy files under `features/admin/{ai,tts,taxonomy}/**` without changin
 ownership decisions; AdminShell relocation and further AI/TTS config/logs splits
 remain deferred.
 
-Related: [`.cursor/rules/frontend.mdc`](../../.cursor/rules/frontend.mdc) ·
-[`.cursor/rules/repository-structure.mdc`](../../.cursor/rules/repository-structure.mdc) ·
+Related: [`rules/frontend.md`](../../rules/frontend.md) ·
+[`rules/architecture.md`](../../rules/architecture.md) ·
 [`docs/adr/005-frontend-app-shell-site-chrome-ownership.md`](./005-frontend-app-shell-site-chrome-ownership.md)
 (App Shell / Site Chrome; not superseded) ·
 [`docs/adr/006-frontend-shelf-and-reader-parts-public-seams.md`](./006-frontend-shelf-and-reader-parts-public-seams.md)
@@ -46,7 +46,7 @@ until a separate decide relocates them.
 
 Admin has no intentional cross-Feature public seam. App Router `page` / `layout`
 modules deep-import Admin page and shell implementations under the framework
-composition exception in `frontend.mdc`. That is not permission for other
+composition exception in `rules/frontend.md`. That is not permission for other
 Features to import Admin private files, and it is not a reason to invent
 `features/admin/index.ts` as a public barrel.
 

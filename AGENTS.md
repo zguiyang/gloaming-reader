@@ -1,130 +1,120 @@
-# AGENTS.md
+# Gloaming Agent Instructions
 
-Shared instructions for agents working in Gloaming. Read only the documents and
-Skills selected by the task route below; `docs/` is product/engineering evidence,
-not an always-on AI-rule directory.
+These instructions apply across the repository. Load detailed rules, Skills, and
+domain documents only when relevant to the task; they own their respective
+implementation details.
 
-`AGENTS.md` owns cross-agent hard boundaries and task routing. Path rules own
-project-specific implementation constraints; Skills own reusable methods; product
-and engineering documents own task-relevant facts.
+## Project
 
-## Product and domain boundaries
+Gloaming is an AI-native environment for authentic English reading with
+contextual AI support. Do not revive legacy `Article` models, aliases,
+`reading_progress`, `article_audio`, or lesson/course entities, or redefine the
+product as a Short Article Library. Keep web and backend source separate;
+cross-app contracts belong in `@gloaming/shared`, and database schema belongs
+in `@gloaming/db`. Before changing reading-content schema or its public
+contract, consult the [domain model](docs/adr/001-reading-content-domain-model.md)
+and [engineering vocabulary](docs/product/engineering-vocabulary.md). For
+product or feature decisions, start at [product docs](docs/product/README.md).
 
-Gloaming is an AI-native English reading environment: authentic reading with
-contextual AI when needed, not a course, drill product, or chatbot. Read
-[`docs/product/README.md`](docs/product/README.md) only for product or feature
-decisions, then follow its relevant document route.
+## Safety and data
 
-Before schema work, or API work that creates or changes a public contract for
-reading content, state, assets, or conversations, read the [domain
-SSOT](docs/adr/001-reading-content-domain-model.md) and [engineering
-vocabulary](docs/product/engineering-vocabulary.md). Such work targets
-`ReadingWork`, `ReadingPart`, `ReadingState`, `ContentAsset`, and `Conversation`
-with `subject_type = reading_work`.
+- Work within the user's requested scope. Preserve unrelated and pre-existing
+  user changes. Normal, reversible work within scope does not need repeated
+  approval; pause when the target or impact is unclear, outside scope, sensitive,
+  or difficult to reverse.
+- Protect credentials and private data. Never expose server secrets to clients,
+  commit secrets or `.env` files, or disable security middleware.
+- **Automated tests:** Any automated test that writes persistent data must use a
+  verified isolated test environment. If it cannot be confirmed, stop; never
+  fall back to a development or production environment. Clean up only data
+  created by the test. Use the [test database Skill](.agents/skills/test-database-workflow/SKILL.md)
+  for its applicable workflow.
+- **Development:** Local development, API debugging, routine development writes,
+  interactive browser acceptance, and authorized development migrations may use
+  a verified development environment under normal application authorization and
+  data boundaries. Before migration, confirm the target and migration state;
+  existing-data schema changes require explicit user authorization; assess
+  data-loss risk and back up when needed. Treat repeatable browser E2E suites as
+  automated tests; interactive browser acceptance may use the verified
+  development environment.
+- **Production:** Production data operations require explicit authorization for
+  the target and operation. Development authorization does not extend to
+  production; independent platform or tool approvals still apply.
+- **Destructive actions:** Clear operations, broad data changes, and difficult-
+  to-reverse changes require clear target, impact review, and explicit
+  authorization. File changes or deletions that are clearly within the requested
+  scope may proceed; protect user data and work outside that scope.
+- Start local services only when needed for requested development or
+  verification, with local configuration. Never point local work at production.
 
-Do not extend legacy `Article`, introduce Article compatibility aliases or dual
-models, add `reading_progress` or `article_audio`, add lesson/course/Learn*
-entities, or make Short Article Library the product identity. Catalog Works have
-no Admin intake path; Personal EPUB upload is the supported upload flow.
+## Tools and Skills
 
-## Project hard boundaries
+- Use relevant Skills and available tools for execution details; do not copy
+  their dispatch, session, model, parameter, or worktree procedures here.
+- The supervising agent decides whether isolation is needed, allocates the
+  workspace, reviews results, integrates changes, and coordinates cleanup.
+  Prefer an applicable worktree-management Skill. If its preferred method
+  cannot honor the project default, first check for a compatible alternative
+  formally supported by that Skill. If no Skill applies or no compatible
+  management capability exists, use an available environment manager, then Git,
+  provided the Skill's contract permits that fallback. Preserve equivalent
+  safety checks at every fallback. A safety or permission refusal is not missing
+  capability and must not be bypassed. If no compatible option can safely honor
+  the project default, stop and report.
+- New worktrees default to `<repository-root>/.worktrees/`; discover the root
+  from Git. Reuse a suitable assigned worktree; before creating one, verify the
+  target, branch state and worktree registration, isolation, and ignore
+  protection. Missing ignore protection or failed safety checks mean stop. Do
+  not change ignore configuration or choose another location without explicit
+  user authorization.
+- A delegated write task must use its assigned isolated workspace. Workers do
+  not modify the shared main workspace, create or move worktrees, merge changes,
+  or clean up workspaces. If isolation is unavailable, stop rather than fall
+  back to shared work. Read-only investigation does not require a worktree.
+- The supervisor coordinates cleanup only after the task is complete, its work
+  is safely preserved, no uncommitted or important unintegrated work remains,
+  and no other task is using the worktree. Use its managed Git lifecycle; do not
+  delete a worktree directory directly.
+- Delegation does not expand authorization. The supervising agent retains scope
+  and risk decisions and checks the actual result before accepting it.
+- Treat installed external Skills as managed dependencies. Do not edit their
+  installed copies; use their supported source and update process.
 
-- Never commit secrets, `.env`, or local `docker-compose.yaml`; expose server
-  secrets to clients; operate on production data; or disable security middleware.
-- Do not start `dev:*`, `start`, or `preview`; push changes; add dependencies;
-  delete files/directories; or change authentication, root/package configuration,
-  or an existing-data schema without explicit user approval.
-- `apps/web` and `apps/backend` never import each other's source. Both may use
-  `@gloaming/shared`; only `@gloaming/db` owns Drizzle schema and migrations.
-  `@gloaming/shared` has cross-app contracts/policy, never ORM, secrets, or
-  business workflows.
-- For cross-layer work, change the owning layer before its consumers: database
-  schema → backend → tests → web; shared public contract → backend and web.
-  Keep facts in one owner; import or derive them rather than copying them.
-- Automated tests and agent database writes may target only `gloaming_test`. If
-  `TEST_DATABASE_URL` or its target is missing or unclear, stop; never fall back
-  to the development database. Cleanup must be limited to data created by the test.
+## Verification and reporting
 
-## Task start gate
+- Match checks to impact: focused checks during feature work, relevant
+  integration acceptance when a flow or module is complete, and broader
+  verification before release. Validate security-sensitive and data-integrity
+  behavior during implementation. Do not require full-suite tests, browser E2E,
+  or live AI calls for every change.
+- Report what changed and what was actually checked. Distinguish implementation,
+  automated test results, runtime acceptance, and anything still unverified.
 
-For a non-trivial change, before the first edit: identify the target paths and
-operation, load the applicable path rule and only the necessary Skill(s) and
-fact document(s), then state that loaded set in the plan or first progress
-update. Repeat this gate after a material scope change or handoff. Do not claim
-a rule, Skill, or document was read unless it was actually opened.
+## Project instructions
 
-For architecture or repository-structure work, also declare the current phase:
-investigation, decision, implementation, or verification. Keep confirmed facts,
-confirmed decisions, open decisions, non-goals, and completion criteria separate.
-Do not implement during investigation, turn an open decision into a non-goal,
-or declare a partial migration complete. Architecture-level changes require an
-explicit decision gate before implementation; an AI-generated prompt or draft
-ADR cannot silently close that gate.
+Detailed project rules are maintained in the project-owned `rules/` directory.
+Read only the rules relevant to the current task:
 
-Draft or proposed ADRs are evidence and proposals, not active project policy.
-When rules are changed in the working tree but code has not migrated, report
-the rules as target intent and the code as current reality; do not silently
-choose either side. A governance task is not complete merely because a rule
-file changed: its stated failure scenario must also pass a read-only dry run.
+- Backend services and APIs: [backend rules](rules/backend.md).
+- Web and UI: [frontend rules](rules/frontend.md) and, for UI work,
+  [DESIGN.md](DESIGN.md).
+- Shared packages and contracts: [package rules](rules/packages.md).
+- Module ownership, public boundaries, or major structural changes:
+  [architecture rules](rules/architecture.md) and the relevant Skill.
+  Follow their decision boundaries for architectural changes; do
+  not impose it on ordinary local edits.
 
-## UI boundary
+Consult current source and configuration for implementation details. Use Skills
+for operating procedures and tools for their capabilities and access checks.
 
-For UI work, `DESIGN.md` owns visual tokens, interaction philosophy, and the
-UI-versus-product-behavior boundary. Use semantic variables from
-`apps/web/app/globals.css`; visual simplification never implies persistence,
-auto-save, automatic fetch, confirmation, or navigation.
+The applicable rules and accepted decisions define project intent. Source,
+configuration, tests, and runtime show current behavior. If they materially
+conflict, report the mismatch and avoid a risky assumption. Draft proposals are
+not accepted decisions.
 
-## Skill management
+## Communication
 
-Skills installed into this project are vendor-managed dependencies: install,
-update, and remove them only with `npx skills`; their source and version are
-recorded in [`skills-lock.json`](skills-lock.json) and their project-local copies
-live in `.agents/skills/`. When a task route names a project Skill, use that
-project-local copy rather than assuming a global Skill path. Do not edit bundled
-Skill files. `npx skills check` may mutate or access the network, so run it only
-with user approval. Global Skills remain user-environment dependencies.
-
-## Task route
-
-| Task signal                                                              | Read or load                                                                                                                                                                                                                          |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Non-trivial implementation or repository decision                        | `codebase-guardrails`                                                                                                                                                                                                                 |
-| `apps/backend/**`                                                        | [backend.mdc](.cursor/rules/backend.mdc); add domain SSOT + vocabulary only for schema or content-domain public API work                                                                                                              |
-| `apps/web/**`                                                            | [frontend.mdc](.cursor/rules/frontend.mdc); add `DESIGN.md` for UI creation, visual change, or interaction work; add a product flow only when flow, IA, or product behavior changes; at most one visual Skill when polish is in scope |
-| `packages/**`                                                            | [packages.mdc](.cursor/rules/packages.mdc); add domain SSOT + vocabulary only when a shared content-domain public contract changes                                                                                                    |
-| Database writes, migrations, seeds, integration/functional tests         | `test-database-workflow` plus this file's test boundary                                                                                                                                                                               |
-| Add, delete, split, move, promote, or assess an overloaded code unit     | `.cursor/rules/repository-structure.mdc`, `repository-structure`, plus the applicable path rule                                                                                                                                       |
-| Deployment, containers, environment, runtime diagnosis                   | `infrastructure-operations` plus repository configuration                                                                                                                                                                             |
-| Named-symbol change, cross-module exploration/refactor/complex debugging | matching global GitNexus Skill when available                                                                                                                                                                                         |
-| Product scope or feature decision                                        | only the relevant document under `docs/product/` or `docs/adr/`                                                                                                                                                                       |
-
-## Instruction and evidence authority
-
-1. System, security, permission, and explicit user-authorization boundaries.
-2. The user's explicit goal, scope, and limits.
-3. Locked task behavior and product/domain contracts.
-4. This file and applicable path rules; for UI, `DESIGN.md` then `frontend.mdc`.
-5. The selected Skill, then framework/component defaults and assumptions.
-
-Code/configuration/tests/runtime are factual evidence. Lint, formatting,
-typechecks, tests, and builds verify an implementation; they do not decide
-product semantics. Official docs, MCP, and Skills provide external facts or
-guidance, but never override project contracts. If sources conflict, report the
-mismatch and ask rather than silently choosing. A user may change an ordinary
-product preference, but a request that conflicts with a locked product or domain
-contract requires an explicit decision before implementation.
-
-## GitNexus
-
-Use GitNexus only when its MCP or CLI is available and its index is current;
-verify material graph conclusions against source. Before a named-symbol edit,
-obtain impact analysis; before a commit, obtain a complete graph-change check.
-High, critical, unknown, stale, partial, or truncated results are not an
-all-clear. If unavailable, state the limitation and perform source/call-site
-review, relevant tests, and an explicit manual-impact statement.
-
-## Language
-
-- Reply and present plans in Chinese when the user writes Chinese.
-- Code comments, identifiers, and commits are English.
-- Repository documentation is English unless the user requests another language.
+When reporting, include relevant changes, checks, Git state, and unresolved
+issues. Reply in Chinese when the user writes in Chinese. Keep code identifiers
+and comments in English; write repository documentation in English unless
+requested otherwise.

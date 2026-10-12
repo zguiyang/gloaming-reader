@@ -7,7 +7,7 @@
 The User-first amendment updates the Library Shared subpath only; it does not
 change Auth, App Shell, Site Chrome, Navigation, or reading-state seams.
 
-Related: [`.cursor/rules/frontend.mdc`](../../.cursor/rules/frontend.mdc) ·
+Related: [`rules/frontend.md`](../../rules/frontend.md) ·
 [`docs/adr/004-frontend-reading-state-public-seams.md`](./004-frontend-reading-state-public-seams.md)
 (separate reading-state seam record; not superseded here) ·
 [`docs/adr/005-frontend-app-shell-site-chrome-ownership.md`](./005-frontend-app-shell-site-chrome-ownership.md)
@@ -119,7 +119,7 @@ example `app/(reader)/read/[workId]/page.tsx` → `ReaderPage`). That is a
 framework composition exception, not a Feature-to-Feature public seam and not
 authorization to deep-import another Feature’s private files. This ADR records
 only the two data-access seams above; it does not redefine route composition
-rules from `frontend.mdc` or ADR-005.
+rules from `rules/frontend.md` or ADR-005.
 
 ### Explicit non-moves in this decision
 

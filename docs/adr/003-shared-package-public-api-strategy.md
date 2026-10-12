@@ -5,7 +5,7 @@
 **Amended:** 2026-09-08 (root facade removal)
 **Scope:** `@gloaming/shared` package public entrypoints only
 
-Related: [`.cursor/rules/packages.mdc`](../../.cursor/rules/packages.mdc) ·
+Related: [`rules/packages.md`](../../rules/packages.md) ·
 [`packages/shared/package.json`](../../packages/shared/package.json) ·
 [`packages/shared/src/public-exports.spec.ts`](../../packages/shared/src/public-exports.spec.ts)
 
@@ -64,7 +64,7 @@ already present on module entrypoints (no unique root surface).
   entrypoints; it does **not** assert root compatibility.
 - New consumers must import `@gloaming/shared/<module>` from the owning module.
 - Shared module lifecycle rules (add / remove / merge / rename) remain in force
-  via `.cursor/rules/packages.mdc` and the repository-structure protocol.
+  via `rules/packages.md` and the repository-structure protocol.
 - Reintroducing a root entrypoint requires a new independent ADR or Accepted
   amendment plus an explicit compatibility decision; it is not a default.
 
@@ -171,7 +171,7 @@ declares it and `src/works/index.ts` owns its public surface;
 - New public symbols are added only to their owning module entrypoint and
   `package.json` module export.
 - New consumers must import the owning module subpath.
-- Module lifecycle changes follow `.cursor/rules/packages.mdc` (Shared public
+- Module lifecycle changes follow `rules/packages.md` (Shared public
   module lifecycle) and the repository-structure decision protocol.
 
 For future module changes, do **not** treat export count, `index.ts` line count,

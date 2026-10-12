@@ -4,7 +4,7 @@
 **Date:** 2026-09-08
 **Scope:** `apps/web/features/reading-state` cross-Feature public seams only
 
-Related: [`.cursor/rules/frontend.mdc`](../../.cursor/rules/frontend.mdc)
+Related: [`rules/frontend.md`](../../rules/frontend.md)
 
 ---
 

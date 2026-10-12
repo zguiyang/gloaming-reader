@@ -582,7 +582,7 @@ Depth from **tonal layering** and hairline outlines — not heavy drop shadows.
 
 ## Interaction philosophy
 
-**Scope:** Product and interaction judgment for all Gloaming UI — what to show, what to merge, what to delete. **Visual polish** (typography, color, spacing, composition, anti-slop) stays in the sections above and in Taste skills. **AI execution checklists** live in [`.cursor/rules/frontend.mdc`](.cursor/rules/frontend.mdc).
+**Scope:** Product and interaction judgment for all Gloaming UI — what to show, what to merge, what to delete. **Visual polish** (typography, color, spacing, composition, anti-slop) stays in the sections above and in Taste skills. **Frontend engineering boundaries** live in [`rules/frontend.md`](rules/frontend.md).
 
 **Priority ladder (default):**
 
@@ -715,4 +715,4 @@ Taste skills own **visual quality**; this section owns **product / interaction q
 - Don’t add labels, descriptions, badges, cards, or buttons “to be complete” when context or the control already carries the meaning — see **Interaction philosophy**.
 - Don’t let UI simplification infer product behavior (auto-save, automatic fetch, implicit confirm, etc.) — see **UI vs product behavior** under Interaction compression.
 
-**UI composition:** Prefer shadcn atoms, then Tailwind polish, then limited native markup. Apply **Remove → Simplify → Combine → Clarify → Polish** before visual polish. Atom ladder and Base UI gotchas: `.cursor/rules/frontend.mdc`.
+**UI composition:** Prefer shadcn atoms, then Tailwind polish, then limited native markup. Apply **Remove → Simplify → Combine → Clarify → Polish** before visual polish. Engineering boundaries: [`rules/frontend.md`](rules/frontend.md); component operating guidance belongs to the applicable Skill and current configuration.

@@ -6,7 +6,7 @@
 only. Does not change Auth runtime behavior, App Shell, Site Chrome,
 Navigation, Shared, shelf/reader-parts, or reading-state recorded seams.
 
-Related: [`.cursor/rules/frontend.mdc`](../../.cursor/rules/frontend.mdc) ·
+Related: [`rules/frontend.md`](../../rules/frontend.md) ·
 [`docs/adr/005-frontend-app-shell-site-chrome-ownership.md`](./005-frontend-app-shell-site-chrome-ownership.md)
 (separate App Shell / Site Chrome record; deliberately left Auth Viewer
 entrypoints out of that decision) ·
@@ -170,6 +170,6 @@ migration.
 - Route entry modules may continue to use framework composition deep imports
   for Auth page/layout implementations.
 - Agents judging Auth public/private questions should load this ADR for the
-  approved contract and `frontend.mdc` for reusable judgment criteria.
+  approved contract and `rules/frontend.md` for reusable judgment criteria.
 - ADR-005 remains scoped to App Shell / Site Chrome ownership only.
 - ADR-006 remains scoped to shelf / reader-parts seams only.
