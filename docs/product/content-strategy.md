@@ -97,7 +97,10 @@ The reading atom is a **ReadingWork** the user is in the middle of—not “toda
 | Global tags / categories / sources | None — Catalog Work has no taxonomy metadata                          |
 | User Tags                          | Private per-user Library organization, separate from Catalog metadata |
 
-**Forbidden on Work:** `level`, `seriesId`, `estimatedMinutes`, single `body` blob.
+**Forbidden on Work:** `level`, `seriesId`, single `body` blob.
+
+`estimatedMinutes` is an allowed derived reading statistic, as defined by
+[ADR-001](../adr/001-reading-content-domain-model.md#readingwork-reading_work).
 
 ### 4.3 Length
 
@@ -123,11 +126,16 @@ Catalog Works already published remain discoverable through `published_at`. This
 ### 5.2 Learner (MVP)
 
 ```text
-发现 → choose ReadingWork → 加入书架 (ReadingState)
+发现 → choose ReadingWork → explicitly save to Library (UserLibraryItem)
   → Reader (current ReadingPart)
   → Assist / translate / TTS on this part
   → Keep reading
 ```
+
+Library membership and reading progress are separate: opening a work does not
+save it to Library; removing membership preserves its `ReadingState`. Personal
+Works belong to the owner's Library through ownership, without a saved Catalog
+membership row. See [ADR-001](../adr/001-reading-content-domain-model.md#my-library--shelf-read-models).
 
 No practice or review step.
 

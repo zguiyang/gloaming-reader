@@ -24,14 +24,33 @@ Related: [`rules/frontend.md`](../../rules/frontend.md) ·
 
 ---
 
-## Context
+## Effective scope after module retirement (2026-10-12 clarification)
 
-`features/admin` is not one flat cohesive capability. It already contains
+The [ADR-001 AS-02 amendment](./001-reading-content-domain-model.md#catalog-supply-boundary-current-after-as-02)
+retires Admin Works management. Its AS-08 revision records retirement of the
+legacy Catalog taxonomy. The former `features/admin/works/**`,
+`features/admin/taxonomy/**`, `app/admin/works/**`, and
+`app/admin/taxonomy/**` paths are absent from current source; the
+[route-absence test](../../apps/web/features/admin/admin-taxonomy-route-absence.spec.ts)
+explicitly guards removal of `/admin/taxonomy`.
+
+Works / taxonomy paths, consumers, and examples below are historical evidence
+of the 2026-09-08 layout only. They no longer authorize current code placement,
+restoration, or dependencies on those retired modules. This clarification does
+not redefine the current SourceRecord public-category capability.
+
+AdminShell ownership, the absence of an Admin cross-Feature public seam,
+dependency direction, and the surviving capability / neutral-helper decisions
+remain effective. No module relocation or new architecture decision is made.
+
+## Context (decision-time baseline)
+
+`features/admin` was not one flat cohesive capability. At decision time it contained
 several stable ownership clusters that change for different operational
 reasons: works, dictionary, AI configuration and AI logs, TTS configuration and
 TTS logs, taxonomy, AdminShell composition, and Admin-level chrome helpers.
 
-Path expression today:
+Path expression at decision time (Works / taxonomy are now retired):
 
 | Expression               | Examples                                                         |
 | ------------------------ | ---------------------------------------------------------------- |
@@ -80,31 +99,31 @@ Rules:
 - AdminShell must not import Admin capability page or private implementation
   files (current code satisfies this).
 
-### Capability ownership (current paths)
+### Capability ownership (decision-time paths; retired entries are historical)
 
 Ownership follows semantic responsibility, not consumer count.
 
-| Owner      | Current paths (verified)                                                                                                                                           | Route composition (verified)                             |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| works      | `features/admin/works/**`                                                                                                                                          | `app/admin/works/**` → list / edit / preview pages       |
-| dictionary | `features/admin/dictionary/**`                                                                                                                                     | `app/admin/dictionary/page.tsx` → `DictionaryConfigPage` |
-| AI         | `features/admin/ai/**` (`ai-config-*`, `ai-model-*`, `ai-provider-*`, `ai-purpose-*`, `ai-logs-page`, `ai-logs-api`, `ai-log-detail-sheet`; not the shared filter) | `app/admin/ai/page.tsx`, `app/admin/ai-logs/page.tsx`    |
-| TTS        | `features/admin/tts/**` (`tts-config-*`, `tts-logs-page`, `tts-logs-api`; not the shared filter)                                                                   | `app/admin/tts/page.tsx`, `app/admin/tts-logs/page.tsx`  |
-| taxonomy   | `features/admin/taxonomy/**` (`taxonomy-api.ts`, `taxonomy-page.tsx`, `taxonomy-picker.tsx`)                                                                       | `app/admin/taxonomy/page.tsx` → `TaxonomyPage`           |
+| Owner              | Decision-time paths (verified then)                                                                                                                                | Decision-time route composition                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| works (retired)    | `features/admin/works/**`                                                                                                                                          | `app/admin/works/**` → list / edit / preview pages       |
+| dictionary         | `features/admin/dictionary/**`                                                                                                                                     | `app/admin/dictionary/page.tsx` → `DictionaryConfigPage` |
+| AI                 | `features/admin/ai/**` (`ai-config-*`, `ai-model-*`, `ai-provider-*`, `ai-purpose-*`, `ai-logs-page`, `ai-logs-api`, `ai-log-detail-sheet`; not the shared filter) | `app/admin/ai/page.tsx`, `app/admin/ai-logs/page.tsx`    |
+| TTS                | `features/admin/tts/**` (`tts-config-*`, `tts-logs-page`, `tts-logs-api`; not the shared filter)                                                                   | `app/admin/tts/page.tsx`, `app/admin/tts-logs/page.tsx`  |
+| taxonomy (retired) | `features/admin/taxonomy/**` (`taxonomy-api.ts`, `taxonomy-page.tsx`, `taxonomy-picker.tsx`)                                                                       | `app/admin/taxonomy/page.tsx` → `TaxonomyPage`           |
 
 Notes:
 
-- `taxonomy-picker.tsx` is owned by **taxonomy**. Its verified Admin consumer is
+- Historically, `taxonomy-picker.tsx` was owned by **taxonomy**. Its Admin consumer was
   `works/metadata-review-panel.tsx`. A single consumer does **not** move
   ownership into works.
-- AI, TTS, and taxonomy path expression is now under
+- At decision time, AI, TTS, and taxonomy path expression was under
   `features/admin/{ai,tts,taxonomy}/**` (path-only; ownership unchanged). This
   ADR does **not** require further internal config/logs splits within AI or TTS.
-- works and dictionary keep their existing subdirectories.
+- Dictionary retains its subdirectory; Works and legacy taxonomy are retired.
 
 ### Admin-level chrome / neutral helpers
 
-| Symbol path                   | Owner                                                               | Verified consumers                                                                                       |
+| Symbol path                   | Owner                                                               | Decision-time consumers (retired consumers are historical)                                               |
 | ----------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `admin-segmented-tabs.tsx`    | Admin-level chrome helper (Admin Feature internal)                  | `ai-config-page`, `ai-provider-workspace`, `invocation-logs-filters`, `taxonomy-page`, `works-list-page` |
 | `invocation-logs-filters.tsx` | Admin-level **neutral** logs filter helper (Admin Feature internal) | `ai-logs-page`, `tts-logs-page`                                                                          |
@@ -155,9 +174,9 @@ app/admin/** (route / layout)
 Admin capability modules
   → generic UI / lib / constants
   → recorded Feature public seams when needed
-    (e.g. Auth `useAuthDialog` from AdminShell; content `ReadingPartView` from works preview)
+    (e.g. Auth `useAuthDialog` from AdminShell)
   → other Admin capability public-within-Admin surfaces only when ownership allows
-    (e.g. works → taxonomy-picker; AI logs → AI config API within Admin)
+    (e.g. AI logs → AI config API within Admin)
 
 AdminShell
   → generic UI / lib / constants / Auth public seam / shared auth policy
@@ -180,15 +199,14 @@ Verified at record time:
 
 ### Placement test for new Admin code
 
-Before adding a file under `features/admin`:
+Before adding a file under `features/admin`, exclude the retired Works / legacy
+taxonomy paths from current placement candidates:
 
 1. State the semantic owner and reason to change.
 2. Prefer an existing owner:
-   - works → `works/`
    - dictionary → `dictionary/`
    - AI → `ai/` (existing `ai-*` cluster; further config/logs split needs a later decide)
    - TTS → `tts/` (existing `tts-*` cluster)
-   - taxonomy → `taxonomy/` (including picker variants)
    - AdminShell-level nav / session / role chrome → `admin-shell.tsx` (or a
      future composition path after a separate decide)
    - Admin segmented-tabs chrome → `admin-segmented-tabs.tsx` (or same owner)
@@ -248,11 +266,11 @@ unchanged.)
 
 ## Consequences
 
-- New Admin code can be placed by **ownership** (works, dictionary, AI, TTS,
-  taxonomy, AdminShell composition, Admin chrome / neutral helpers), not only
+- New Admin code can be placed by **ownership** (dictionary, AI, TTS,
+  AdminShell composition, Admin chrome / neutral helpers), not only
   by copying filename prefixes.
-- AI / TTS / taxonomy live under `features/admin/{ai,tts,taxonomy}/**`
-  (path-only expression). Further AI/TTS config/logs splits are **not**
+- AI / TTS retain `features/admin/{ai,tts}/**`; the former taxonomy path is
+  historical only. Further AI/TTS config/logs splits are **not**
   required by this ADR.
 - Moving AdminShell’s path requires an independent investigate → decide gate.
 - Shared AI+TTS invocation logs filter UI lives at
