@@ -242,6 +242,27 @@ export async function lockSourceRecord(tx: CategoryTx, sourceRecordId: string): 
   return rows.length > 0;
 }
 
+/** Locks the category row so the delete guard and a concurrent assignment serialize. */
+export async function lockCategoryRow(tx: CategoryTx, categoryId: string): Promise<PublicCategoryRow | null> {
+  const [row] = await tx.select().from(publicCategoryTable).where(eq(publicCategoryTable.id, categoryId)).for('update');
+  return row ?? null;
+}
+
+/** Current assignment count for one category, scoped to the caller's transaction. */
+export async function countAssignmentsForCategory(tx: CategoryTx, categoryId: string): Promise<number> {
+  const [row] = await tx
+    .select({ value: count() })
+    .from(sourceRecordPublicCategoryTable)
+    .where(eq(sourceRecordPublicCategoryTable.categoryId, categoryId));
+  return Number(row?.value ?? 0);
+}
+
+/** Removes the category row; owned labels/aliases/suppressions go via ON DELETE CASCADE. */
+export async function deleteCategoryRow(tx: CategoryTx, categoryId: string): Promise<number> {
+  const result = await tx.delete(publicCategoryTable).where(eq(publicCategoryTable.id, categoryId));
+  return result.rowCount ?? 0;
+}
+
 export async function categoryExists(tx: CategoryTx, categoryId: string): Promise<boolean> {
   const [row] = await tx
     .select({ id: publicCategoryTable.id })

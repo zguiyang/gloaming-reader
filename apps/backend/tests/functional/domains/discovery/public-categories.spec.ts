@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
 
 import { eq, inArray, sql } from 'drizzle-orm';
+import { Hono } from 'hono';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   discoverySource as discoverySourceTable,
   publicCategory as publicCategoryTable,
+  publicCategoryAlias as publicCategoryAliasTable,
+  publicCategoryLabel as publicCategoryLabelTable,
   sourceRecord as sourceRecordTable,
   sourceRecordPublicCategory as sourceRecordPublicCategoryTable,
   sourceRecordPublicCategorySuppression as sourceRecordPublicCategorySuppressionTable,
@@ -25,8 +28,13 @@ import {
 import { listAssignmentsForRecord } from '@/domains/discovery/categories/repository';
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
 import { listSourceRecords } from '@/domains/discovery/read-model';
+import { discoveryAdminRoutes } from '@/domains/discovery/routes/admin';
 import { ensureDiscoverySource, upsertSourceRecords } from '@/domains/discovery/sync/repository';
+import type { AuthSession, AuthSessionUser } from '@/infra/auth/auth';
 import { db } from '@/infra/db';
+import type { AuthVariables } from '@/infra/http/middleware/auth';
+import { errorHandler } from '@/infra/http/middleware/error';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 const runId = randomUUID();
 const suffix = runId.slice(0, 8);
@@ -68,6 +76,26 @@ function fixtureRecord(index: number): ParsedSourceRecord {
 
 function recordIdFor(index: number): string {
   return recordIds[index - 1]!;
+}
+
+const adminUser = { id: 'admin-pc-delete', role: 'admin' } as AuthSessionUser;
+const adminSession = {} as AuthSession;
+
+/** In-process admin app so the delete assertions run through the real routes. */
+function adminApp() {
+  const app = new Hono<{ Variables: AuthVariables }>();
+  app.use('*', async (c, next) => {
+    c.set('user', adminUser);
+    c.set('session', adminSession);
+    await next();
+  });
+  app.onError(errorHandler);
+  app.route('/', discoveryAdminRoutes);
+  return app;
+}
+
+function categoryPath(categoryId: string): string {
+  return `/api/admin/discovery/categories/${categoryId}`;
 }
 
 async function createCategory(name: string, locale = 'en-US') {
@@ -302,5 +330,75 @@ describe('public category service on gloaming_test', () => {
     await expect(
       listManagedCategorySourceRecords('missing-category', categorySourceRecordListQuerySchema.parse({}), 'en-US'),
     ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('deletes an unassigned category with 204 and cascades its labels and aliases', async (ctx) => {
+    if (!schemaReady) return ctx.skip();
+
+    const category = await createCategory(`Deletable ${suffix}`);
+    await db.insert(publicCategoryAliasTable).values({
+      id: randomUUID(),
+      categoryId: category.id,
+      locale: 'en-US',
+      alias: `Deletable Alias ${suffix}`,
+      normalizedName: `deletable alias ${suffix}`,
+      editedBy: 'manual',
+    });
+
+    const response = await adminApp().request(categoryPath(category.id), { method: 'DELETE' });
+    expect(response.status).toBe(204);
+
+    const categories = await db
+      .select({ id: publicCategoryTable.id })
+      .from(publicCategoryTable)
+      .where(eq(publicCategoryTable.id, category.id));
+    expect(categories).toHaveLength(0);
+
+    const labels = await db
+      .select({ id: publicCategoryLabelTable.id })
+      .from(publicCategoryLabelTable)
+      .where(eq(publicCategoryLabelTable.categoryId, category.id));
+    expect(labels).toHaveLength(0);
+
+    const aliases = await db
+      .select({ id: publicCategoryAliasTable.id })
+      .from(publicCategoryAliasTable)
+      .where(eq(publicCategoryAliasTable.categoryId, category.id));
+    expect(aliases).toHaveLength(0);
+  });
+
+  it('refuses with 409 while the category still has an assignment and keeps both rows intact', async (ctx) => {
+    if (!schemaReady) return ctx.skip();
+
+    const recordId = recordIdFor(5);
+    const category = await createCategory(`Still Assigned ${suffix}`);
+    await assignCategoryToSourceRecord(recordId, category.id, 'manual');
+
+    const response = await adminApp().request(categoryPath(category.id), { method: 'DELETE' });
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_HAS_ASSIGNMENTS,
+      error: expect.stringContaining('1'),
+    });
+
+    const categories = await db
+      .select({ id: publicCategoryTable.id })
+      .from(publicCategoryTable)
+      .where(eq(publicCategoryTable.id, category.id));
+    expect(categories).toHaveLength(1);
+
+    const assignments = await db
+      .select({ id: sourceRecordPublicCategoryTable.id })
+      .from(sourceRecordPublicCategoryTable)
+      .where(eq(sourceRecordPublicCategoryTable.categoryId, category.id));
+    expect(assignments).toHaveLength(1);
+  });
+
+  it('returns 404 for an unknown category id', async (ctx) => {
+    if (!schemaReady) return ctx.skip();
+
+    const response = await adminApp().request(categoryPath(`missing-${suffix}`), { method: 'DELETE' });
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY });
   });
 });

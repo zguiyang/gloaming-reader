@@ -1,6 +1,6 @@
 'use client';
 
-import { PlusIcon, SearchIcon } from 'lucide-react';
+import { PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -8,6 +8,16 @@ import { type Locale, SUPPORTED_LOCALES, t } from '@gloaming/i18n';
 import { PUBLIC_CATEGORY_NAME_MAX_CHARS } from '@gloaming/shared/discovery';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +25,10 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   formatPublicCategoriesApiError,
+  isCategoryHasAssignmentsError,
   isCategoryNameCollisionError,
   useCreateManagedCategoryMutation,
+  useDeleteManagedCategoryMutation,
   useManagedCategoriesQuery,
 } from '@/features/admin/public-categories/public-categories-api';
 import {
@@ -44,9 +56,12 @@ export function PublicCategoriesPage() {
   const { locale } = useLocale();
   const categoriesQuery = useManagedCategoriesQuery();
   const createMutation = useCreateManagedCategoryMutation();
+  const deleteMutation = useDeleteManagedCategoryMutation();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteReason, setDeleteReason] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [newLocale, setNewLocale] = useState<Locale>(locale);
 
@@ -78,6 +93,28 @@ export function PublicCategoriesPage() {
           ? t(locale, 'admin.publicCategories.labels.nameExists')
           : formatPublicCategoriesApiError(error),
       );
+    }
+  }
+
+  async function removeCategory() {
+    if (!selected) {
+      return;
+    }
+    try {
+      await deleteMutation.mutateAsync(selected.id);
+      setIsDeleting(false);
+      setDeleteReason(null);
+      setSelectedId(null);
+      toast.success(t(locale, 'admin.publicCategories.delete.deletedToast'));
+    } catch (error) {
+      if (isCategoryHasAssignmentsError(error)) {
+        // The 409 body already carries the localized "still assigned" reason.
+        setDeleteReason(formatPublicCategoriesApiError(error));
+        return;
+      }
+      setIsDeleting(false);
+      setDeleteReason(null);
+      toast.error(formatPublicCategoriesApiError(error));
     }
   }
 
@@ -247,6 +284,20 @@ export function PublicCategoriesPage() {
                   <Badge variant="outline">
                     {t(locale, 'admin.publicCategories.recordCount', { count: selected.recordCount })}
                   </Badge>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="ml-auto shrink-0"
+                    disabled={deleteMutation.isPending}
+                    onClick={() => {
+                      setDeleteReason(null);
+                      setIsDeleting(true);
+                    }}
+                  >
+                    <Trash2Icon data-icon="inline-start" aria-hidden />
+                    {t(locale, 'admin.publicCategories.delete.action')}
+                  </Button>
                 </div>
                 <p className="font-mono text-xs text-muted-foreground">
                   {t(locale, 'admin.publicCategories.detail.idLabel')}: {selected.id}
@@ -266,6 +317,40 @@ export function PublicCategoriesPage() {
               </header>
               <PublicCategoryLabelsEditor key={`labels-${selected.id}`} category={selected} />
               <PublicCategoryRecordsPanel key={`records-${selected.id}`} category={selected} />
+
+              <AlertDialog
+                open={isDeleting}
+                onOpenChange={(open) => {
+                  if (!open) {
+                    setIsDeleting(false);
+                    setDeleteReason(null);
+                  }
+                }}
+              >
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t(locale, 'admin.publicCategories.delete.confirmTitle')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t(locale, 'admin.publicCategories.delete.confirmDescription', {
+                        name: categoryDisplayName(selected, locale),
+                      })}
+                      {deleteReason ? <span className="mt-2 block text-destructive">{deleteReason}</span> : null}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleteMutation.isPending}>
+                      {t(locale, 'admin.publicCategories.cancel')}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      disabled={deleteMutation.isPending}
+                      onClick={() => void removeCategory()}
+                    >
+                      {t(locale, 'admin.publicCategories.delete.confirm')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           ) : (
             <p className="self-start rounded-2xl border border-border/60 px-4 py-6 text-sm text-muted-foreground">

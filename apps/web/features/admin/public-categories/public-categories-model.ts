@@ -29,6 +29,7 @@ export const PUBLIC_CATEGORY_ASSIGNMENT_SEARCH_MIN_CHARS = 2;
  */
 export const PUBLIC_CATEGORY_NAME_EXISTS_CODE = 'api.errors.discovery.publicCategoryNameExists';
 export const PUBLIC_CATEGORY_LIMIT_EXCEEDED_CODE = 'api.errors.discovery.publicCategoryLimitExceeded';
+export const PUBLIC_CATEGORY_HAS_ASSIGNMENTS_CODE = 'api.errors.discovery.publicCategoryHasAssignments';
 
 /** The admin SourceRecord list needs an explicit sort; keep it stable for the admin view. */
 export const PUBLIC_CATEGORY_RECORD_SORT_BY = 'sourceUpdatedAt' as const;

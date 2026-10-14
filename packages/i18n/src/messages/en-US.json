@@ -416,6 +416,13 @@
         "ready": "Category ready."
       },
       "cancel": "Cancel",
+      "delete": {
+        "action": "Delete category",
+        "confirmTitle": "Delete category?",
+        "confirmDescription": "This permanently deletes \"{name}\" together with its localized names, aliases, and suppressions. A category still assigned to source records cannot be deleted.",
+        "confirm": "Delete",
+        "deletedToast": "Category deleted."
+      },
       "search": {
         "placeholder": "Search names",
         "empty": "No matching categories."
@@ -1382,6 +1389,7 @@
       "discovery": {
         "publicCategoryNameExists": "A category with that name already exists for this language",
         "publicCategoryLimitExceeded": "A source record can have at most {limit} categories",
+        "publicCategoryHasAssignments": "This category is still assigned to {count} source record(s). Remove those assignments before deleting it.",
         "gutenbergImportFailed": "The single-record Gutenberg import could not be completed: {reason}",
         "gutenbergImportIdInvalid": "The Gutenberg ebook ID must be a positive whole number",
         "gutenbergImportFileInvalid": "The uploaded file must use the .epub extension"

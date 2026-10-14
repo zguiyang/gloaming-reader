@@ -416,6 +416,13 @@
         "ready": "分类已就绪。"
       },
       "cancel": "取消",
+      "delete": {
+        "action": "删除分类",
+        "confirmTitle": "删除分类？",
+        "confirmDescription": "将永久删除“{name}”及其多语言名称、别名与抑制记录。仍关联来源记录的分类无法删除。",
+        "confirm": "删除",
+        "deletedToast": "分类已删除。"
+      },
       "search": {
         "placeholder": "搜索名称",
         "empty": "没有匹配的分类。"
@@ -1385,6 +1392,7 @@
       "discovery": {
         "publicCategoryNameExists": "该语言下已存在同名分类",
         "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类",
+        "publicCategoryHasAssignments": "该分类仍关联着 {count} 条来源记录，请先解除关联后再删除。",
         "gutenbergImportFailed": "单条 Gutenberg 导入未能完成：{reason}",
         "gutenbergImportIdInvalid": "Gutenberg 电子书 ID 必须是正整数",
         "gutenbergImportFileInvalid": "上传文件的扩展名必须是 .epub"

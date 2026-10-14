@@ -21,9 +21,11 @@ import {
   categoryExists,
   clearSuppression,
   countAssignmentsByCategoryIds,
+  countAssignmentsForCategory,
   countAssignmentsForRecord,
   countPublicRecordsByCategoryIds,
   deleteAssignment,
+  deleteCategoryRow,
   findCategoryIdByNormalizedLabel,
   getAssignmentRow,
   getCategoryRow,
@@ -35,6 +37,7 @@ import {
   listAllLabelRows,
   listCategoryRows,
   listLabelRowsByCategoryIds,
+  lockCategoryRow,
   lockSourceRecord,
   type PublicCategoryAliasRow,
   type PublicCategoryLabelRow,
@@ -56,6 +59,10 @@ function categoryLimitExceeded(): AppError {
   return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_LIMIT_EXCEEDED, {
     limit: PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
   });
+}
+
+function categoryHasAssignments(count: number): AppError {
+  return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_HAS_ASSIGNMENTS, { count });
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -242,6 +249,27 @@ export async function updateManagedCategoryLabel(
     throw error;
   }
   return loadManagedCategory(categoryId);
+}
+
+/**
+ * Permanently delete a category that no SourceRecord still references. The row is
+ * locked `FOR UPDATE` inside the transaction: a concurrent assignment insert first
+ * takes a `FOR KEY SHARE` lock on this parent row, which conflicts with `FOR UPDATE`,
+ * so a new assignment cannot slip past the zero-assignment check between the count
+ * and the delete. Labels, aliases, and suppressions are owned by the category and
+ * are removed by the existing `ON DELETE CASCADE` foreign keys; a category with any
+ * remaining assignment is rejected with 409 instead of silently dropping it.
+ */
+export async function deleteManagedCategory(categoryId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    const row = await lockCategoryRow(tx, categoryId);
+    if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
+
+    const assignmentCount = await countAssignmentsForCategory(tx, categoryId);
+    if (assignmentCount > 0) throw categoryHasAssignments(assignmentCount);
+
+    await deleteCategoryRow(tx, categoryId);
+  });
 }
 
 /**

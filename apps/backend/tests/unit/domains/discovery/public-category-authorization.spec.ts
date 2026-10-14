@@ -56,6 +56,7 @@ describe('discovery admin route authorization', () => {
     ['GET', '/api/admin/discovery/categories'],
     ['GET', '/api/admin/discovery/categories/cat-1/source-records'],
     ['POST', '/api/admin/discovery/categories'],
+    ['DELETE', '/api/admin/discovery/categories/cat-1'],
     ['PATCH', '/api/admin/discovery/categories/cat-1/labels'],
     ['PUT', '/api/admin/discovery/source-records/sr-1/categories/cat-1'],
     ['DELETE', '/api/admin/discovery/source-records/sr-1/categories/cat-1'],
