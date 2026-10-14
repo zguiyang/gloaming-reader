@@ -138,13 +138,14 @@ export async function enqueuePersonalTagRunForReadyWork(workId: string): Promise
 }
 
 /**
- * BullMQ dedupes `add` by `jobId` and retains completed/failed jobs. Include the
- * run's `updatedAt` so a DB-requeued run (its `updated_at` advances) is not
- * silently deduplicated by a retained legacy job under the old stable id, while
- * repeated dispatch of the same queued row stays idempotent.
+ * BullMQ dedupes `add` by `jobId` and retains completed/failed jobs. Custom job
+ * ids must not contain `:`, so hyphens separate the parts. Include the run's
+ * `updatedAt` so a DB-requeued run (its `updated_at` advances) is not silently
+ * deduplicated by a retained legacy job under the old stable id, while repeated
+ * dispatch of the same queued row stays idempotent.
  */
 export function personalTaggingJobId(run: { id: string; updatedAt: Date }): string {
-  return `${JOB_PERSONAL_TAGGING}:${run.id}:${run.updatedAt.getTime()}`;
+  return `${JOB_PERSONAL_TAGGING}-${run.id}-${run.updatedAt.getTime()}`;
 }
 
 async function enqueueRun(run: typeof runTable.$inferSelect): Promise<void> {
