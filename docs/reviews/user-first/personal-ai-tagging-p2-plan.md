@@ -1,5 +1,7 @@
 # Personal AI Tagging P2 — Implementation Plan
 
+> **Superseded (business quotas removed):** The per-user daily invocation quota described in this plan was removed in the MVP quota-removal change; see [mvp-quota-removal.md](mvp-quota-removal.md). The rest of this record is retained as historical evidence.
+
 **Phase:** implementation and verification. This plan reflects the confirmed P2 scope and the implementation in the current working tree. Verification results and remaining acceptance are recorded in `personal-ai-tagging-p2-implementation.md`. It preserves the P1 User-first contract and does not restore global Taxonomy.
 
 ## 1. Current code integration points

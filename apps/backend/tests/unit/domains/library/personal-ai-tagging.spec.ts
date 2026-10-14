@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  JOB_PERSONAL_TAGGING,
   type PersonalTagCandidate,
   type PersonalTagDecision,
   personalTagDecisionSchema,
+  personalTaggingJobId,
   validatePersonalTagDecision,
 } from '@/domains/library/tags/personal-ai-tagging';
 
@@ -96,5 +98,25 @@ describe('Personal AI tag decision validation', () => {
       'en-US',
     );
     expect(result.newTags).toEqual([]);
+  });
+});
+
+describe('Personal AI tag enqueue identity', () => {
+  const runId = 'run-1';
+  const firstQueuedAt = new Date('2026-01-01T00:00:00.000Z');
+  const requeuedAt = new Date('2026-01-02T00:00:00.000Z');
+
+  it('keeps a stable job id for repeated dispatch of one queued run', () => {
+    expect(personalTaggingJobId({ id: runId, updatedAt: firstQueuedAt })).toBe(
+      personalTaggingJobId({ id: runId, updatedAt: firstQueuedAt }),
+    );
+  });
+
+  it('changes the job id after a DB requeue so a retained legacy completed job cannot dedupe it', () => {
+    const legacyRetainedJobId = `${JOB_PERSONAL_TAGGING}:${runId}`;
+    expect(personalTaggingJobId({ id: runId, updatedAt: requeuedAt })).not.toBe(legacyRetainedJobId);
+    expect(personalTaggingJobId({ id: runId, updatedAt: requeuedAt })).not.toBe(
+      personalTaggingJobId({ id: runId, updatedAt: firstQueuedAt }),
+    );
   });
 });

@@ -10,13 +10,6 @@ import { PUBLIC_CATEGORY_ASSIGNMENT_LIMIT, PUBLIC_CATEGORY_NAME_MAX_CHARS } from
 export const PUBLIC_CLASSIFICATION_OUTCOMES = ['REUSE', 'CREATE', 'NO_MATCH', 'NEEDS_REVIEW'] as const;
 export type PublicClassificationOutcome = (typeof PUBLIC_CLASSIFICATION_OUTCOMES)[number];
 
-/**
- * Public classification always runs on the instance provider and shares one
- * fixed daily call budget with public category label translation. The value is a
- * call reservation, not a per-record quota.
- */
-export const PUBLIC_CLASSIFICATION_DAILY_RESERVATION_LIMIT = 50 as const;
-
 /** A transient AI failure is retried at most this many times before deferring. */
 export const PUBLIC_CLASSIFICATION_MAX_ATTEMPTS = 2 as const;
 
@@ -103,12 +96,7 @@ export const publicCategoryTranslationSchema = z.object({
 });
 export type PublicCategoryTranslationOutput = z.infer<typeof publicCategoryTranslationSchema>;
 
-export const PUBLIC_CLASSIFICATION_DEFERRED_REASONS = [
-  'busy',
-  'provider_unavailable',
-  'budget_unavailable',
-  'transient_failure',
-] as const;
+export const PUBLIC_CLASSIFICATION_DEFERRED_REASONS = ['busy', 'provider_unavailable', 'transient_failure'] as const;
 export type PublicClassificationDeferredReason = (typeof PUBLIC_CLASSIFICATION_DEFERRED_REASONS)[number];
 
 export const PUBLIC_CLASSIFICATION_SKIPPED_REASONS = [

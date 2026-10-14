@@ -66,7 +66,6 @@
       "toggle": "个人 EPUB 就绪后自动整理标签",
       "description": "仅对之后上传的书籍使用你配置的 AI Provider，不会处理已有书籍。",
       "providerUnavailable": "请配置并选择个人 AI Provider 的“阅读辅助”模型后再使用此功能。",
-      "quotaStatus": "今日 AI 调用：{used}/{limit}",
       "runState": {
         "queued": "标签整理已排队",
         "processing": "正在整理标签",

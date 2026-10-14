@@ -257,7 +257,7 @@ export const userWorkTag = pgTable(
   ],
 );
 
-/** Per-user opt-in and daily AI invocation budget for automatic Personal EPUB tagging. */
+/** Per-user opt-in for automatic Personal EPUB tagging. */
 export const userPersonalTagPreference = pgTable(
   'user_personal_tag_preference',
   {
@@ -268,25 +268,12 @@ export const userPersonalTagPreference = pgTable(
     enabled: boolean('enabled').default(false).notNull(),
     /** Monotonic generation bumped when the user requests a fresh automatic run. */
     generation: integer('generation').default(0).notNull(),
-    /** Local date the quota counters below apply to. */
-    quotaDate: date('quota_date', { mode: 'string' }),
-    /** AI invocations already consumed for `quotaDate`. */
-    quotaUsed: integer('quota_used').default(0).notNull(),
-    /** AI invocations reserved but not yet consumed for `quotaDate`. */
-    quotaReserved: integer('quota_reserved').default(0).notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [
-    check('user_personal_tag_preference_generation_nonnegative_chk', sql`${table.generation} >= 0`),
-    check(
-      'user_personal_tag_preference_quota_nonnegative_chk',
-      sql`${table.quotaUsed} >= 0 AND ${table.quotaReserved} >= 0`,
-    ),
-    check('user_personal_tag_preference_quota_limit_chk', sql`${table.quotaUsed} + ${table.quotaReserved} <= 10`),
-  ],
+  (table) => [check('user_personal_tag_preference_generation_nonnegative_chk', sql`${table.generation} >= 0`)],
 );
 
 /** Exact user/work/tag triple a user removed manually; AI must not restore it. */
@@ -1368,36 +1355,6 @@ export const sourceRecordPublicCategorySuppression = pgTable(
     }).onDelete('cascade'),
     unique('source_record_public_category_suppression_record_category_uidx').on(table.sourceRecordId, table.categoryId),
     index('source_record_public_category_suppression_category_idx').on(table.categoryId),
-  ],
-);
-
-/**
- * Instance-wide daily reservation counter for public classification and category
- * label-translation AI calls. This is deliberately not per-user: public
- * classification runs on the instance provider and shares one fixed daily cap
- * across every SourceRecord. The row id is a fixed singleton key.
- */
-export const publicClassificationBudget = pgTable(
-  'public_classification_budget',
-  {
-    id: text('id').primaryKey(),
-    /** UTC date the counters below apply to. */
-    quotaDate: date('quota_date', { mode: 'string' }),
-    /** AI call reservations already settled for `quotaDate`. */
-    quotaUsed: integer('quota_used').default(0).notNull(),
-    /** AI call reservations in flight but not yet settled for `quotaDate`. */
-    quotaReserved: integer('quota_reserved').default(0).notNull(),
-    updatedAt: timestamp('updated_at')
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
-  },
-  (table) => [
-    check(
-      'public_classification_budget_quota_nonnegative_chk',
-      sql`${table.quotaUsed} >= 0 AND ${table.quotaReserved} >= 0`,
-    ),
-    check('public_classification_budget_quota_limit_chk', sql`${table.quotaUsed} + ${table.quotaReserved} <= 50`),
   ],
 );
 

@@ -27,9 +27,6 @@ const personalTaggingPreferenceSchema = z.object({
   enabled: z.boolean(),
   generation: z.number().int().nonnegative(),
   providerAvailable: z.boolean(),
-  dailyInvocationLimit: z.number().int().positive(),
-  dailyInvocationsUsed: z.number().int().nonnegative(),
-  dailyInvocationsReserved: z.number().int().nonnegative(),
   latestRunState: z.enum(['queued', 'processing', 'completed', 'skipped', 'failed']).nullable(),
 });
 export type PersonalTaggingPreference = z.infer<typeof personalTaggingPreferenceSchema>;

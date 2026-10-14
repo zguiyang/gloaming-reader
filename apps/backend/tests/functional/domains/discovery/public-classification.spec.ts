@@ -7,7 +7,6 @@ import {
   discoverySource as discoverySourceTable,
   publicCategory as publicCategoryTable,
   publicCategoryLabel as publicCategoryLabelTable,
-  publicClassificationBudget as publicClassificationBudgetTable,
   sourceRecord as sourceRecordTable,
   sourceRecordPublicCategorySuppression as suppressionTable,
 } from '@gloaming/db/schema';
@@ -16,10 +15,7 @@ import {
   classifySourceRecordForPublicCategories,
   translateMissingPublicCategoryLabels,
 } from '@/domains/discovery/categories/classification';
-import {
-  PUBLIC_CLASSIFICATION_BUDGET_ID,
-  upsertAiCategoryLabel,
-} from '@/domains/discovery/categories/classification-repository';
+import { upsertAiCategoryLabel } from '@/domains/discovery/categories/classification-repository';
 import { listAssignmentsForRecord } from '@/domains/discovery/categories/repository';
 import {
   assignCategoryToSourceRecord,
@@ -52,10 +48,6 @@ vi.mock('@/infra/cache/lock', async (importOriginal) => {
   };
 });
 
-function utcDay(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function aiResult<T>(content: T) {
   return {
     content,
@@ -87,40 +79,7 @@ const suffix = runId.slice(0, 8);
 const sourceKey = `pc03_classification_${runId}`;
 
 let sourceId = '';
-let budgetPreExisting: typeof publicClassificationBudgetTable.$inferSelect | null = null;
 const createdCategoryIds = new Set<string>();
-
-async function resetClassificationBudgetRow(): Promise<void> {
-  await db
-    .delete(publicClassificationBudgetTable)
-    .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID));
-}
-
-async function restoreClassificationBudgetRow(): Promise<void> {
-  if (!budgetPreExisting) {
-    await resetClassificationBudgetRow();
-    return;
-  }
-
-  await db
-    .insert(publicClassificationBudgetTable)
-    .values({
-      id: budgetPreExisting.id,
-      quotaDate: budgetPreExisting.quotaDate,
-      quotaUsed: budgetPreExisting.quotaUsed,
-      quotaReserved: budgetPreExisting.quotaReserved,
-      updatedAt: budgetPreExisting.updatedAt,
-    })
-    .onConflictDoUpdate({
-      target: publicClassificationBudgetTable.id,
-      set: {
-        quotaDate: budgetPreExisting.quotaDate,
-        quotaUsed: budgetPreExisting.quotaUsed,
-        quotaReserved: budgetPreExisting.quotaReserved,
-        updatedAt: budgetPreExisting.updatedAt,
-      },
-    });
-}
 
 async function createCategory(name: string, locale = 'en-US') {
   const category = await createManagedCategory({ name, locale });
@@ -151,13 +110,6 @@ async function invocations() {
 
 describe('public classification service on gloaming_test', () => {
   beforeAll(async () => {
-    const [budgetRow] = await db
-      .select()
-      .from(publicClassificationBudgetTable)
-      .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID))
-      .limit(1);
-    budgetPreExisting = budgetRow ?? null;
-
     sourceId = randomUUID();
     await db.insert(discoverySourceTable).values({
       id: sourceId,
@@ -171,18 +123,13 @@ describe('public classification service on gloaming_test', () => {
     invokeAiMock.mockReset();
     instanceProviderMock.mockReset().mockResolvedValue('instance-model');
     acquireLockMock.mockReset().mockResolvedValue(true);
-    await resetClassificationBudgetRow();
   });
 
   afterAll(async () => {
-    try {
-      await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
-      await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
-      if (createdCategoryIds.size > 0) {
-        await db.delete(publicCategoryTable).where(inArray(publicCategoryTable.id, [...createdCategoryIds]));
-      }
-    } finally {
-      await restoreClassificationBudgetRow();
+    await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
+    await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
+    if (createdCategoryIds.size > 0) {
+      await db.delete(publicCategoryTable).where(inArray(publicCategoryTable.id, [...createdCategoryIds]));
     }
   });
 
@@ -462,19 +409,35 @@ describe('public classification service on gloaming_test', () => {
     expect(await listAssignmentsForRecord(recordId)).toHaveLength(0);
   });
 
-  it('defers when the shared daily budget is exhausted without calling AI', async () => {
-    const recordId = await insertRecord();
-    await db.insert(publicClassificationBudgetTable).values({
-      id: PUBLIC_CLASSIFICATION_BUDGET_ID,
-      quotaDate: utcDay(),
-      quotaUsed: 50,
-      quotaReserved: 0,
+  it('runs over fifty same-day classification and translation calls without a shared daily reservation gate', async () => {
+    const iterations = 26;
+    const categoryIdByRecord = new Map<string, string>();
+    for (let index = 0; index < iterations; index += 1) {
+      const category = await createCategory(`No Reservation ${suffix} ${index}`);
+      const recordId = await insertRecord({ title: `No Reservation Record ${index}` });
+      categoryIdByRecord.set(recordId, category.id);
+    }
+    invokeAiMock.mockImplementation((request: { source?: string; ref?: { id?: string } }) => {
+      if (request.source === 'public-classification.translate') {
+        const categorySlug = request.ref?.id ?? '';
+        return Promise.resolve(
+          aiResult({ translations: [{ locale: 'zh-CN', name: `无预留 ${suffix} ${categorySlug}` }] }),
+        );
+      }
+      const categoryId = categoryIdByRecord.get(request.ref?.id ?? '');
+      return Promise.resolve(aiResult(reuseDecision(categoryId ? [categoryId] : [])));
     });
 
-    const result = await classifySourceRecordForPublicCategories(recordId);
+    for (const [recordId, categoryId] of categoryIdByRecord) {
+      const classified = await classifySourceRecordForPublicCategories(recordId);
+      expect(classified).toMatchObject({ status: 'completed', outcome: 'REUSE' });
+      expect(await listAssignmentsForRecord(recordId)).toHaveLength(1);
 
-    expect(result).toEqual({ status: 'deferred', reason: 'budget_unavailable' });
-    expect(await invocations()).toBe(0);
+      const translated = await translateMissingPublicCategoryLabels(categoryId);
+      expect(translated).toEqual({ status: 'completed', categoryId, translatedLocales: ['zh-CN'] });
+    }
+
+    expect(await invocations()).toBeGreaterThan(50);
   });
 
   it('retries a transient failure at most twice, then defers and can succeed later', async () => {
@@ -488,8 +451,7 @@ describe('public classification service on gloaming_test', () => {
     const deferred = await classifySourceRecordForPublicCategories(recordId);
     expect(deferred).toEqual({ status: 'deferred', reason: 'transient_failure' });
     expect(await invocations()).toBe(2);
-    const [budget] = await db.select().from(publicClassificationBudgetTable);
-    expect(budget?.quotaUsed).toBe(2);
+    expect(await listAssignmentsForRecord(recordId)).toHaveLength(0);
 
     const retried = await classifySourceRecordForPublicCategories(recordId);
     expect(retried).toMatchObject({ status: 'completed', outcome: 'REUSE' });

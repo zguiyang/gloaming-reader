@@ -6,7 +6,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import {
   discoverySource as discoverySourceTable,
   publicCategory as publicCategoryTable,
-  publicClassificationBudget as publicClassificationBudgetTable,
   sourceRecord as sourceRecordTable,
   sourceRecordPublicCategorySuppression as suppressionTable,
   sourceRecordPublicClassificationState as stateTable,
@@ -21,7 +20,6 @@ import {
   dispatchDuePublicClassifications,
   recordPublicClassificationEvidenceBatch,
 } from '@/domains/discovery/categories';
-import { PUBLIC_CLASSIFICATION_BUDGET_ID } from '@/domains/discovery/categories/classification-repository';
 import { listAssignmentsForRecord } from '@/domains/discovery/categories/repository';
 import {
   assignCategoryToSourceRecord,
@@ -96,41 +94,6 @@ let sourceId = '';
 let gutenbergSourceId = '';
 let gutenbergPreExisting: typeof discoverySourceTable.$inferSelect | null = null;
 const createdCategoryIds = new Set<string>();
-
-/**
- * Preserve the pre-existing singleton budget row so this file only removes rows
- * it created and restores any budget state it found.
- */
-let budgetPreExisting: typeof publicClassificationBudgetTable.$inferSelect | null = null;
-
-/** Scoped reset of only the singleton budget row; never a table-wide delete. */
-async function resetClassificationBudgetRow(): Promise<void> {
-  await db
-    .delete(publicClassificationBudgetTable)
-    .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID));
-}
-
-beforeAll(async () => {
-  const [row] = await db
-    .select()
-    .from(publicClassificationBudgetTable)
-    .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID))
-    .limit(1);
-  budgetPreExisting = row ?? null;
-});
-
-afterAll(async () => {
-  await resetClassificationBudgetRow();
-  if (budgetPreExisting) {
-    await db.insert(publicClassificationBudgetTable).values({
-      id: budgetPreExisting.id,
-      quotaDate: budgetPreExisting.quotaDate,
-      quotaUsed: budgetPreExisting.quotaUsed,
-      quotaReserved: budgetPreExisting.quotaReserved,
-      updatedAt: budgetPreExisting.updatedAt,
-    });
-  }
-});
 
 function fixtureRecord(index: number, overrides: Partial<ParsedSourceRecord> = {}): ParsedSourceRecord {
   return {
@@ -230,7 +193,6 @@ describe('incremental public classification on gloaming_test', () => {
     acquireLockMock.mockReset().mockResolvedValue(true);
     enqueueMock.mockReset();
     await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
-    await resetClassificationBudgetRow();
   });
 
   afterAll(async () => {
@@ -348,40 +310,19 @@ describe('incremental public classification on gloaming_test', () => {
     expect(invokeAiMock).toHaveBeenCalledTimes(1);
   });
 
-  it('defers on budget exhaustion until the next UTC day, then becomes eligible', async () => {
-    const category = await createCategory('Budget Rollover');
-    const recordId = await insertAndRegister(fixtureRecord(5));
-    const today = new Date().toISOString().slice(0, 10);
-    await db.insert(publicClassificationBudgetTable).values({
-      id: PUBLIC_CLASSIFICATION_BUDGET_ID,
-      quotaDate: today,
-      quotaUsed: 50,
-      quotaReserved: 0,
-    });
-
-    const deferred = await dispatchAndRun(new Set([recordId]));
-    expect(deferred.results).toEqual([{ status: 'deferred', reason: 'budget_unavailable' }]);
-    expect(invokeAiMock).not.toHaveBeenCalled();
-    const state = await readState(recordId);
-    const nextMidnight = new Date();
-    nextMidnight.setUTCHours(24, 1, 0, 0);
-    expect(state?.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
-    expect(state?.nextAttemptAt.getUTCHours()).toBe(0);
-
-    // Simulate the UTC date rollover: yesterday's quota no longer applies.
-    await db
-      .update(publicClassificationBudgetTable)
-      .set({ quotaDate: '2000-01-01', quotaUsed: 50, quotaReserved: 0 })
-      .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID));
-    await db
-      .update(stateTable)
-      .set({ nextAttemptAt: new Date(Date.now() - 1_000) })
-      .where(eq(stateTable.sourceRecordId, recordId));
+  it('classifies every due record in one dispatcher pass without a shared daily gate', async () => {
+    const category = await createCategory('No Shared Gate');
+    const first = await insertAndRegister(fixtureRecord(5));
+    const second = await insertAndRegister(fixtureRecord(6));
     invokeAiMock.mockResolvedValue(aiResult(reuseDecision([category.id])));
 
-    const retried = await dispatchAndRun(new Set([recordId]));
-    expect(retried.results).toEqual([{ status: 'completed' }]);
-    expect(invokeAiMock).toHaveBeenCalledTimes(1);
+    const run = await dispatchAndRun(new Set([first, second]));
+
+    expect(run.results).toHaveLength(2);
+    expect(run.results.every((result) => result.status === 'completed')).toBe(true);
+    expect(invokeAiMock).toHaveBeenCalledTimes(2);
+    expect(await listAssignmentsForRecord(first)).toHaveLength(1);
+    expect(await listAssignmentsForRecord(second)).toHaveLength(1);
   });
 
   it('caps one invocation at the PC-03 two AI attempts before deferring', async () => {
@@ -483,7 +424,6 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
     await db
       .delete(sourceRecordTable)
       .where(and(eq(sourceRecordTable.sourceId, gutenbergSourceId), like(sourceRecordTable.externalId, `${runId}-%`)));
-    await resetClassificationBudgetRow();
     await db
       .update(discoverySourceTable)
       .set({

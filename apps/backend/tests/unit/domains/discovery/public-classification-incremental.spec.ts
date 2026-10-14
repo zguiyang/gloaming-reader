@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   computePublicClassificationFingerprint,
-  nextUtcMidnight,
   type PublicClassificationEvidence,
   resolvePublicClassificationRetryAt,
 } from '@/domains/discovery/categories';
@@ -55,12 +54,6 @@ describe('public classification retry policy', () => {
     );
   });
 
-  it('defers budget exhaustion to the next UTC day so the daily quota can reset', () => {
-    const retryAt = resolvePublicClassificationRetryAt({ status: 'deferred', reason: 'budget_unavailable' }, now);
-    expect(retryAt.toISOString()).toBe('2030-01-02T00:01:00.000Z');
-    expect(retryAt.getTime()).toBeGreaterThan(now.getTime());
-  });
-
   it('delays skipped ineligible and limit outcomes without a rapid loop', () => {
     expect(
       resolvePublicClassificationRetryAt({ status: 'skipped', reason: 'source_record_not_eligible' }, now).getTime(),
@@ -71,10 +64,5 @@ describe('public classification retry policy', () => {
     expect(
       resolvePublicClassificationRetryAt({ status: 'skipped', reason: 'input_limit_exceeded' }, now).getTime(),
     ).toBe(now.getTime() + 24 * 60 * 60_000);
-  });
-
-  it('computes the next UTC midnight after any UTC time', () => {
-    expect(nextUtcMidnight(new Date('2030-01-01T23:59:59.000Z')).toISOString()).toBe('2030-01-02T00:01:00.000Z');
-    expect(nextUtcMidnight(new Date('2030-12-31T00:00:00.000Z')).toISOString()).toBe('2031-01-01T00:01:00.000Z');
   });
 });

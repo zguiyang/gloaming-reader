@@ -26,7 +26,6 @@ import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 export const JOB_PERSONAL_TAGGING = 'personal-tagging';
-export const PERSONAL_TAG_DAILY_INVOCATION_LIMIT = 10;
 export const PERSONAL_TAG_MAX_ASSOCIATIONS = 3;
 export const PERSONAL_TAG_MAX_EXISTING_CANDIDATES = 100;
 
@@ -44,10 +43,6 @@ const TAGGING_LOCK_MAX_MS = 120_000;
 
 export type PersonalTaggingJobData = { runId: string; userId: string; workId: string; generation: number };
 
-function dayUtc(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export async function getPersonalTaggingPreference(userId: string) {
   const [row] = await db.select().from(preferenceTable).where(eq(preferenceTable.userId, userId)).limit(1);
   const [latestRun] = await db
@@ -61,9 +56,6 @@ export async function getPersonalTaggingPreference(userId: string) {
     enabled: row?.enabled ?? false,
     generation: row?.generation ?? 0,
     providerAvailable: providerModel !== null,
-    dailyInvocationLimit: PERSONAL_TAG_DAILY_INVOCATION_LIMIT,
-    dailyInvocationsUsed: row?.quotaDate === dayUtc() ? row.quotaUsed : 0,
-    dailyInvocationsReserved: row?.quotaDate === dayUtc() ? row.quotaReserved : 0,
     latestRunState: latestRun?.state ?? null,
   };
 }
@@ -145,6 +137,16 @@ export async function enqueuePersonalTagRunForReadyWork(workId: string): Promise
   for (const run of queued) await enqueueRun(run);
 }
 
+/**
+ * BullMQ dedupes `add` by `jobId` and retains completed/failed jobs. Include the
+ * run's `updatedAt` so a DB-requeued run (its `updated_at` advances) is not
+ * silently deduplicated by a retained legacy job under the old stable id, while
+ * repeated dispatch of the same queued row stays idempotent.
+ */
+export function personalTaggingJobId(run: { id: string; updatedAt: Date }): string {
+  return `${JOB_PERSONAL_TAGGING}:${run.id}:${run.updatedAt.getTime()}`;
+}
+
 async function enqueueRun(run: typeof runTable.$inferSelect): Promise<void> {
   const data: PersonalTaggingJobData = {
     runId: run.id,
@@ -155,7 +157,7 @@ async function enqueueRun(run: typeof runTable.$inferSelect): Promise<void> {
   await enqueuePersonalTagging(JOB_PERSONAL_TAGGING, data, {
     attempts: 2,
     backoff: { type: 'exponential', delay: 60_000 },
-    jobId: `${JOB_PERSONAL_TAGGING}:${run.id}`,
+    jobId: personalTaggingJobId(run),
   });
 }
 
@@ -285,42 +287,6 @@ function estimateInputTokens(text: string): number {
   let estimate = 0;
   for (const character of text) estimate += character.codePointAt(0)! <= 0x7f ? 0.25 : 1;
   return Math.ceil(estimate);
-}
-
-async function reserveInvocation(userId: string): Promise<string | null> {
-  const today = dayUtc();
-  const [row] = await db
-    .update(preferenceTable)
-    .set({
-      quotaDate: today,
-      quotaUsed: sql`CASE WHEN ${preferenceTable.quotaDate} = ${today} THEN ${preferenceTable.quotaUsed} ELSE 0 END`,
-      quotaReserved: sql`CASE WHEN ${preferenceTable.quotaDate} = ${today} THEN ${preferenceTable.quotaReserved} ELSE 0 END`,
-    })
-    .where(eq(preferenceTable.userId, userId))
-    .returning({ userId: preferenceTable.userId });
-  if (!row) return null;
-  const [reserved] = await db
-    .update(preferenceTable)
-    .set({ quotaReserved: sql`${preferenceTable.quotaReserved} + 1` })
-    .where(
-      and(
-        eq(preferenceTable.userId, userId),
-        eq(preferenceTable.quotaDate, today),
-        sql`${preferenceTable.quotaUsed} + ${preferenceTable.quotaReserved} < ${PERSONAL_TAG_DAILY_INVOCATION_LIMIT}`,
-      ),
-    )
-    .returning({ userId: preferenceTable.userId });
-  return reserved ? today : null;
-}
-
-async function settleInvocationReservation(userId: string, reservationDate: string): Promise<void> {
-  await db
-    .update(preferenceTable)
-    .set({
-      quotaReserved: sql`GREATEST(${preferenceTable.quotaReserved} - 1, 0)`,
-      quotaUsed: sql`${preferenceTable.quotaUsed} + 1`,
-    })
-    .where(and(eq(preferenceTable.userId, userId), eq(preferenceTable.quotaDate, reservationDate)));
 }
 
 async function preferenceStillAuthorizes(userId: string, generation: number): Promise<boolean> {
@@ -477,29 +443,19 @@ export async function processPersonalTaggingJob(data: PersonalTaggingJobData): P
       await markRun(data.runId, 'skipped', 'input_limit_exceeded');
       return { ok: true, workId: data.workId };
     }
-    const classificationReservationDate = await reserveInvocation(data.userId);
-    if (!classificationReservationDate) {
-      await markRun(data.runId, 'skipped', 'daily_limit_reached');
-      return { ok: true, workId: data.workId };
-    }
-    let decision: PersonalTagDecision;
-    try {
-      const result = await invokeAi({
-        purpose: 'assist',
-        providerScope: 'user-only',
-        userId: data.userId,
-        source: 'personal-tagging.classify',
-        ref: { type: 'reading_work', id: data.workId },
-        timeoutMs: AI_TIMEOUT_MS,
-        maxTokens: AI_OUTPUT_TOKEN_LIMIT,
-        maxRetries: 0,
-        outputSchema: personalTagDecisionSchema,
-        messages: buildPersonalTaggingMessages(userContext),
-      });
-      decision = validatePersonalTagDecision(result.content, tags, sourceLocale);
-    } finally {
-      await settleInvocationReservation(data.userId, classificationReservationDate);
-    }
+    const result = await invokeAi({
+      purpose: 'assist',
+      providerScope: 'user-only',
+      userId: data.userId,
+      source: 'personal-tagging.classify',
+      ref: { type: 'reading_work', id: data.workId },
+      timeoutMs: AI_TIMEOUT_MS,
+      maxTokens: AI_OUTPUT_TOKEN_LIMIT,
+      maxRetries: 0,
+      outputSchema: personalTagDecisionSchema,
+      messages: buildPersonalTaggingMessages(userContext),
+    });
+    const decision = validatePersonalTagDecision(result.content, tags, sourceLocale);
     if (leaseLost) throw new Error('PERSONAL_TAGGING_LEASE_LOST');
     const persisted = await persistDecision(data, decision, tags, sourceLocale, lockKey, lockToken);
     if (!persisted) return { ok: true, workId: data.workId };
@@ -518,7 +474,6 @@ export async function processPersonalTaggingJob(data: PersonalTaggingJobData): P
         )
         .limit(1);
       if (created) {
-        let reservationDate: string | null = null;
         try {
           await completeUserTagTranslations(data.userId, created.id, {
             source: 'personal-tagging.translation',
@@ -526,16 +481,9 @@ export async function processPersonalTaggingJob(data: PersonalTaggingJobData): P
             maxTokens: 800,
             maxRetries: 0,
             authorizationGeneration: data.generation,
-            beforeInvoke: async () => {
-              if (!(await preferenceStillAuthorizes(data.userId, data.generation))) return false;
-              reservationDate = await reserveInvocation(data.userId);
-              return reservationDate !== null;
-            },
           });
         } catch {
           // The source name and association are already durable; translation is optional enrichment.
-        } finally {
-          if (reservationDate) await settleInvocationReservation(data.userId, reservationDate);
         }
       }
     }

@@ -33,8 +33,6 @@ import {
   listPublicCategoryCandidates,
   loadClassifiableSourceRecord,
   loadPublicCategoryTranslationSource,
-  reservePublicClassificationCall,
-  settlePublicClassificationCall,
   upsertAiCategoryLabel,
 } from '@/domains/discovery/categories/classification-repository';
 import {
@@ -66,20 +64,16 @@ type InvokeOutcome<T> =
   { status: 'ok'; content: T } | { status: 'deferred'; reason: PublicClassificationDeferredReason };
 
 /**
- * Reserve a shared daily slot, invoke once, and retry a transient failure at most
- * once more. Provider-unavailable and budget exhaustion defer without dropping
- * the work; every reservation is settled whether or not the call succeeds.
+ * Invoke once and retry a transient failure at most once more. A provider that is
+ * unavailable defers without dropping the work; any other failure is retried up to
+ * the bounded attempt limit before deferring as a transient failure.
  */
-async function invokeWithBudgetAndRetries<T>(invoke: () => Promise<T>): Promise<InvokeOutcome<T>> {
+async function invokeWithRetries<T>(invoke: () => Promise<T>): Promise<InvokeOutcome<T>> {
   for (let attempt = 0; attempt < PUBLIC_CLASSIFICATION_MAX_ATTEMPTS; attempt += 1) {
-    const reservation = await reservePublicClassificationCall();
-    if (!reservation) return { status: 'deferred', reason: 'budget_unavailable' };
     try {
       return { status: 'ok', content: await invoke() };
     } catch (error) {
       if (isModelNotConfigured(error)) return { status: 'deferred', reason: 'provider_unavailable' };
-    } finally {
-      await settlePublicClassificationCall(reservation);
     }
   }
   return { status: 'deferred', reason: 'transient_failure' };
@@ -155,7 +149,7 @@ async function persistPublicClassificationDecision(
  * Best-effort first-pass translation for the public categories created by one
  * classification pass. It runs only after the classification lock is released
  * because the translator acquires the same instance lock. Any translation,
- * provider, budget, validation, or persistence failure is reported and never
+ * provider, validation, or persistence failure is reported and never
  * changes the already-persisted classification result or hides the created
  * category.
  */
@@ -225,7 +219,7 @@ export async function classifySourceRecordForPublicCategories(
     }
 
     const messages = buildPublicClassificationMessages(classifiableRecord, candidates, sourceLocale);
-    const outcome = await invokeWithBudgetAndRetries<PublicClassificationDecision>(async () => {
+    const outcome = await invokeWithRetries<PublicClassificationDecision>(async () => {
       const result = await invokeAi({
         purpose: 'assist',
         source: 'public-classification.classify',
@@ -265,8 +259,8 @@ export async function classifySourceRecordForPublicCategories(
  * Minimal callable AI label-translation operation for PC-05.
  *
  * Fills only the SUPPORTED_LOCALES that are missing a label, using the same
- * instance-only provider and the same shared daily reservation budget as
- * classification. A label with `edited_by = 'manual'` is never overwritten.
+ * instance-only provider as classification. A label with `edited_by = 'manual'`
+ * is never overwritten.
  * Manual category creation never calls this, so it is never blocked by a missing
  * provider. PC-05 may call it optionally, and PC-03 triggers it best-effort for
  * each category it created after releasing the classification lock.
@@ -303,7 +297,7 @@ export async function translateMissingPublicCategoryLabels(
       aliases: source.aliases,
       targetLocales: [...targetLocales],
     });
-    const outcome = await invokeWithBudgetAndRetries<PublicCategoryTranslationOutput>(async () => {
+    const outcome = await invokeWithRetries<PublicCategoryTranslationOutput>(async () => {
       const result = await invokeAi({
         purpose: 'assist',
         source: 'public-classification.translate',

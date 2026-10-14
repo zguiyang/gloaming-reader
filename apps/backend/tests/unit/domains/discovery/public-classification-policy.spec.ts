@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import type { PublicCategory } from '@gloaming/shared/discovery';
 
 import {
-  PUBLIC_CLASSIFICATION_DAILY_RESERVATION_LIMIT,
   type PublicClassificationDecision,
   publicClassificationDecisionSchema,
 } from '@/domains/discovery/categories/classification-contract';
@@ -335,7 +334,6 @@ describe('public classification prompt', () => {
     expect(estimatePublicClassificationInputTokens('abcd')).toBe(1);
     expect(publicClassificationInputWithinLimit('x'.repeat(1_000))).toBe(true);
     expect(publicClassificationInputWithinLimit('汉'.repeat(4_000))).toBe(false);
-    expect(PUBLIC_CLASSIFICATION_DAILY_RESERVATION_LIMIT).toBe(50);
   });
 
   it('builds a translation prompt limited to requested locales', () => {

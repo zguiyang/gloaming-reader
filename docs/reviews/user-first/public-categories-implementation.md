@@ -1,5 +1,7 @@
 # Public Categories — PC-07 Final Closure
 
+> **Superseded (business quotas removed):** The instance daily classification budget described in this report was removed in the MVP quota-removal change; see [mvp-quota-removal.md](mvp-quota-removal.md). The rest of this record is retained as historical evidence.
+
 **Date:** 2026-10-11
 
 **Branch:** `dev-02`

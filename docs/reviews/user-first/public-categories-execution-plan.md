@@ -1,5 +1,7 @@
 # Public Categories — Execution Plan
 
+> **Superseded (business quotas removed):** The instance daily classification budget referenced by this plan was removed in the MVP quota-removal change; see [mvp-quota-removal.md](mvp-quota-removal.md). The rest of this record is retained as historical evidence.
+
 **Status:** investigation and task plan only. No Public Categories code, schema, migration, AI call, or database operation was performed. Product/category choices marked open below need approval before implementation.
 
 ## Git baseline and frozen scope

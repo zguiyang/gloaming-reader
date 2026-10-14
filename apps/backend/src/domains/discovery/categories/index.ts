@@ -11,7 +11,6 @@ export type {
   PublicClassificationSkippedReason,
 } from './classification-contract';
 export {
-  PUBLIC_CLASSIFICATION_DAILY_RESERVATION_LIMIT,
   PUBLIC_CLASSIFICATION_DEFERRED_REASONS,
   PUBLIC_CLASSIFICATION_MAX_ATTEMPTS,
   PUBLIC_CLASSIFICATION_MAX_CATEGORY_CANDIDATES,
@@ -36,7 +35,6 @@ export {
   dispatchDuePublicClassifications,
   getPublicClassificationVerdict,
   JOB_PUBLIC_CLASSIFICATION,
-  nextUtcMidnight,
   PUBLIC_CLASSIFICATION_DISPATCH_BATCH_LIMIT,
   recordPublicClassificationEvidenceBatch,
   resolvePublicClassificationRetryAt,

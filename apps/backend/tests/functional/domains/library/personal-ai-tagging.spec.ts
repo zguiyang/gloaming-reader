@@ -21,7 +21,12 @@ import {
   recordPersonalTagRunOnParseReady,
   setPersonalTaggingPreference,
 } from '@/domains/library/tags/personal-ai-tagging';
-import { assignUserTag, renameUserTag, unassignUserTag } from '@/domains/library/tags/service';
+import {
+  assignUserTag,
+  completeUserTagTranslations,
+  renameUserTag,
+  unassignUserTag,
+} from '@/domains/library/tags/service';
 import { startLockRenewal } from '@/infra/cache/lock';
 import { db } from '@/infra/db';
 
@@ -173,7 +178,11 @@ describe('Personal AI Tagging', () => {
     expect(await db.select().from(runTable).where(eq(runTable.workId, work))).toHaveLength(0);
 
     const get = await app.request('/api/settings/personal-tagging', { headers: { cookie: owner.cookie } });
-    expect(await get.json()).toMatchObject({ enabled: false, generation: 0 });
+    const preference = (await get.json()) as Record<string, unknown>;
+    expect(preference).toMatchObject({ enabled: false, generation: 0 });
+    expect(preference).not.toHaveProperty('dailyInvocationLimit');
+    expect(preference).not.toHaveProperty('dailyInvocationsUsed');
+    expect(preference).not.toHaveProperty('dailyInvocationsReserved');
     await setPersonalTaggingPreference(owner.userId, true);
     expect(await db.select().from(runTable).where(eq(runTable.workId, work))).toHaveLength(0);
   });
@@ -564,57 +573,35 @@ describe('Personal AI Tagging', () => {
     expect(runs[0]).toMatchObject({ generation: 1, state: 'queued' });
   });
 
-  it('never lets concurrent jobs exceed the daily invocation cap', async () => {
+  it('completes more than ten same-day tagging runs without a daily invocation gate', async () => {
     const owner = await createSession();
     emails.push(owner.email);
     await setPersonalTaggingPreference(owner.userId, true);
-    await db
-      .update(preferenceTable)
-      .set({ quotaDate: new Date().toISOString().slice(0, 10), quotaUsed: 9, quotaReserved: 0 })
-      .where(eq(preferenceTable.userId, owner.userId));
 
-    const firstWork = await createWork(owner.userId);
-    const secondWork = await createWork(owner.userId);
-    const firstRun = await createRun(owner.userId, firstWork);
-    const secondRun = await createRun(owner.userId, secondWork);
+    const jobs: Array<{ runId: string; workId: string; generation: number }> = [];
+    for (let index = 0; index < 11; index += 1) {
+      const work = await createWork(owner.userId);
+      const run = await createRun(owner.userId, work);
+      jobs.push({ runId: run!.id, workId: work, generation: run!.generation });
+    }
+    invokeAiMock.mockResolvedValue(aiResult());
 
-    let resolveFirstAi!: (value: unknown) => void;
-    let markFirstAiStarted!: () => void;
-    const firstAiStarted = new Promise<void>((resolve) => {
-      markFirstAiStarted = resolve;
-    });
-    invokeAiMock.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveFirstAi = resolve;
-          markFirstAiStarted();
-        }),
-    );
-    invokeAiMock.mockResolvedValueOnce(aiResult());
+    for (const job of jobs) {
+      await processPersonalTaggingJob({ userId: owner.userId, ...job });
+    }
 
-    const firstJob = processPersonalTaggingJob({
-      runId: firstRun!.id,
-      userId: owner.userId,
-      workId: firstWork,
-      generation: firstRun!.generation,
-    });
-    await firstAiStarted;
-
-    await processPersonalTaggingJob({
-      runId: secondRun!.id,
-      userId: owner.userId,
-      workId: secondWork,
-      generation: secondRun!.generation,
-    });
-
-    resolveFirstAi(aiResult());
-    await firstJob;
-
-    expect(invokeAiMock).toHaveBeenCalledTimes(1);
-    const [skipped] = await db.select().from(runTable).where(eq(runTable.id, secondRun!.id));
-    expect(skipped).toMatchObject({ state: 'skipped', errorCode: 'daily_limit_reached' });
-    const [settled] = await db.select().from(preferenceTable).where(eq(preferenceTable.userId, owner.userId));
-    expect(settled).toMatchObject({ quotaUsed: 10, quotaReserved: 0 });
+    expect(invokeAiMock).toHaveBeenCalledTimes(11);
+    const completed = await db
+      .select()
+      .from(runTable)
+      .where(
+        inArray(
+          runTable.id,
+          jobs.map((job) => job.runId),
+        ),
+      );
+    expect(completed).toHaveLength(11);
+    expect(completed.every((run) => run.state === 'completed')).toBe(true);
   });
 
   it('discards the AI result and writes nothing after a lost Redis lease, then completes on retry', async () => {
@@ -702,97 +689,77 @@ describe('Personal AI Tagging', () => {
     expect(completed).toMatchObject({ state: 'completed' });
   });
 
-  it('marks a run skipped at the daily cap as terminal even after the UTC day advances', async () => {
+  it('does not invoke the translation provider when the owner disables tagging during classification', async () => {
     const owner = await createSession();
     emails.push(owner.email);
     await setPersonalTaggingPreference(owner.userId, true);
-    const work = await createWork(owner.userId);
+    const work = await createWork(owner.userId, 'en-US');
     const run = await createRun(owner.userId, work);
 
-    const today = new Date().toISOString().slice(0, 10);
-    const previousDay = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    await db
-      .update(preferenceTable)
-      .set({ quotaDate: today, quotaUsed: 10, quotaReserved: 0 })
-      .where(eq(preferenceTable.userId, owner.userId));
+    let resolveClassification!: (value: unknown) => void;
+    let markClassificationStarted!: () => void;
+    const classificationStarted = new Promise<void>((resolve) => {
+      markClassificationStarted = resolve;
+    });
+    invokeAiMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveClassification = resolve;
+          markClassificationStarted();
+        }),
+    );
 
-    const job = {
+    const job = processPersonalTaggingJob({
       runId: run!.id,
       userId: owner.userId,
       workId: work,
       generation: run!.generation,
-    };
-    await processPersonalTaggingJob(job);
-    expect(invokeAiMock).not.toHaveBeenCalled();
-    const [atCap] = await db.select().from(runTable).where(eq(runTable.id, run!.id));
-    expect(atCap).toMatchObject({ state: 'skipped', errorCode: 'daily_limit_reached' });
+    });
+    await classificationStarted;
+    await setPersonalTaggingPreference(owner.userId, false);
+    resolveClassification({
+      content: {
+        existingTagIds: [],
+        newTags: [
+          {
+            name: 'Space Opera',
+            sourceLocale: 'en-US',
+            reusable: true,
+            distinctFromExisting: true,
+            rationale: 'A durable science fiction subgenre',
+          },
+        ],
+      },
+      model: { rowId: 'mock', label: 'Mock', modelId: 'mock' },
+      usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+    });
+    await job;
 
-    // A new UTC day resets the quota counters, but the terminal run is not retried.
-    await db
-      .update(preferenceTable)
-      .set({ quotaDate: previousDay, quotaUsed: 10, quotaReserved: 0 })
-      .where(eq(preferenceTable.userId, owner.userId));
-    await processPersonalTaggingJob(job);
-
-    expect(invokeAiMock).not.toHaveBeenCalled();
-    const [stillSkipped] = await db.select().from(runTable).where(eq(runTable.id, run!.id));
-    expect(stillSkipped).toMatchObject({ state: 'skipped', errorCode: 'daily_limit_reached' });
+    expect(invokeAiMock).toHaveBeenCalledTimes(1);
+    const [savedRun] = await db.select().from(runTable).where(eq(runTable.id, run!.id));
+    expect(savedRun).toMatchObject({ state: 'skipped', errorCode: 'authorization_expired' });
+    expect(await db.select().from(tagTable).where(eq(tagTable.userId, owner.userId))).toHaveLength(0);
+    expect(await db.select().from(workTagTable).where(eq(workTagTable.workId, work))).toHaveLength(0);
   });
 
-  it('settles an invocation against its reservation date so a cross-midnight job does not touch the new day', async () => {
+  it('skips translation for a disabled preference without invoking the provider', async () => {
     const owner = await createSession();
     emails.push(owner.email);
     await setPersonalTaggingPreference(owner.userId, true);
-    const firstWork = await createWork(owner.userId);
-    const secondWork = await createWork(owner.userId);
-    const firstRun = await createRun(owner.userId, firstWork);
-    const secondRun = await createRun(owner.userId, secondWork);
+    const tagId = await createTag(owner.userId, 'Space Opera', 'en-US');
+    await setPersonalTaggingPreference(owner.userId, false);
 
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      vi.setSystemTime(new Date('2031-03-01T23:59:30.000Z'));
-      let resolveFirstAi!: (value: unknown) => void;
-      let markFirstAiStarted!: () => void;
-      const firstAiStarted = new Promise<void>((resolve) => {
-        markFirstAiStarted = resolve;
-      });
-      invokeAiMock.mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveFirstAi = resolve;
-            markFirstAiStarted();
-          }),
-      );
-      invokeAiMock.mockResolvedValueOnce(aiResult());
+    const result = await completeUserTagTranslations(owner.userId, tagId, {
+      source: 'personal-tagging.translation',
+      providerScope: 'user-only',
+      maxTokens: 800,
+      maxRetries: 0,
+      authorizationGeneration: 1,
+    });
 
-      const firstJob = processPersonalTaggingJob({
-        runId: firstRun!.id,
-        userId: owner.userId,
-        workId: firstWork,
-        generation: firstRun!.generation,
-      });
-      await firstAiStarted;
-
-      vi.setSystemTime(new Date('2031-03-02T00:00:30.000Z'));
-      await processPersonalTaggingJob({
-        runId: secondRun!.id,
-        userId: owner.userId,
-        workId: secondWork,
-        generation: secondRun!.generation,
-      });
-
-      resolveFirstAi(aiResult());
-      await firstJob;
-
-      const [preference] = await db.select().from(preferenceTable).where(eq(preferenceTable.userId, owner.userId));
-      expect(preference).toMatchObject({ quotaDate: '2031-03-02', quotaUsed: 1, quotaReserved: 0 });
-      const runs = await db
-        .select()
-        .from(runTable)
-        .where(inArray(runTable.id, [firstRun!.id, secondRun!.id]));
-      expect(runs.filter((row) => row.state === 'completed')).toHaveLength(2);
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(result.status).toBe('incomplete');
+    expect(invokeAiMock).not.toHaveBeenCalled();
+    const [saved] = await db.select().from(tagTable).where(eq(tagTable.id, tagId));
+    expect(saved?.localizedNames).not.toHaveProperty('zh-CN');
   });
 });

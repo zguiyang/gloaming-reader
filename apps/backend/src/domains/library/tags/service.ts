@@ -249,6 +249,19 @@ async function getOwnedTag(userId: string, tagId: string) {
   return row;
 }
 
+/** Whether the current preference still authorizes writes for one captured generation. */
+async function preferenceAuthorizesGeneration(userId: string, generation: number): Promise<boolean> {
+  const [preference] = await db
+    .select({
+      enabled: userPersonalTagPreferenceTable.enabled,
+      generation: userPersonalTagPreferenceTable.generation,
+    })
+    .from(userPersonalTagPreferenceTable)
+    .where(eq(userPersonalTagPreferenceTable.userId, userId))
+    .limit(1);
+  return Boolean(preference?.enabled && preference.generation === generation);
+}
+
 /** Fill only missing locale keys. The conditional update protects edits made while AI is running. */
 export async function completeUserTagTranslations(
   userId: string,
@@ -258,10 +271,9 @@ export async function completeUserTagTranslations(
     providerScope?: 'user-first' | 'user-only';
     maxTokens?: number;
     maxRetries?: number;
-    beforeInvoke?: () => Promise<boolean>;
     authorizationGeneration?: number;
   } = {},
-): Promise<{ tag: UserTag; status: 'completed' | 'incomplete' | 'provider_unavailable' | 'quota_exceeded' }> {
+): Promise<{ tag: UserTag; status: 'completed' | 'incomplete' | 'provider_unavailable' }> {
   const initial = await getOwnedTag(userId, tagId);
   if (!initial) throw new NotFoundError(ERROR_CODES.NOT_FOUND.USER_TAG);
 
@@ -276,8 +288,11 @@ export async function completeUserTagTranslations(
       locale !== sourceLocale && !initial.localizedNames[locale] && !initial.userEditedLocales.includes(locale),
   );
   if (targets.length === 0) return { tag: toUserTag(initial), status: 'completed' };
-  if (options.beforeInvoke && !(await options.beforeInvoke())) {
-    return { tag: toUserTag(initial), status: 'quota_exceeded' };
+  if (
+    options.authorizationGeneration !== undefined &&
+    !(await preferenceAuthorizesGeneration(userId, options.authorizationGeneration))
+  ) {
+    return { tag: toUserTag(initial), status: 'incomplete' };
   }
 
   let translations: Array<{ locale: string; name: string }>;

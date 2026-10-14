@@ -1,5 +1,7 @@
 # Personal AI Tagging P2 — Implementation Report
 
+> **Superseded (business quotas removed):** The per-user daily invocation quota described in this report was removed in the MVP quota-removal change; see [mvp-quota-removal.md](mvp-quota-removal.md). The rest of this record is retained as historical evidence.
+
 **Status:** implemented; automated verification is partial as listed below. Commits `f95775ec` and `3ea34ec4` are on `dev-02`; neither was pushed.
 
 ## 1. Scope changed

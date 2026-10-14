@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  getPersonalTaggingPreference,
   getUserTtsConfig,
   listUserLlmProviders,
+  putPersonalTaggingPreference,
   putUserTtsConfig,
   updateUserLlmProvider,
 } from '@/features/settings/settings-api';
@@ -130,5 +132,31 @@ describe('user settings API', () => {
     expect(url).toBe('/api/settings/tts/config');
     expect(init.method).toBe('PUT');
     expect(JSON.parse(String(init.body))).not.toHaveProperty('apiKey');
+  });
+
+  it('accepts a quota-free personal tagging preference on read and write', async () => {
+    const preference = {
+      enabled: true,
+      generation: 2,
+      providerAvailable: true,
+      latestRunState: 'completed' as const,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify(preference), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+        ),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getPersonalTaggingPreference()).resolves.toEqual(preference);
+    await expect(putPersonalTaggingPreference(true)).resolves.toEqual(preference);
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/settings/personal-tagging');
+    const [putUrl, putInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(putUrl).toBe('/api/settings/personal-tagging');
+    expect(putInit.method).toBe('PUT');
+    expect(JSON.parse(String(putInit.body))).toEqual({ enabled: true });
   });
 });

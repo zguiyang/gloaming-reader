@@ -7,7 +7,6 @@ import {
   publicCategory as publicCategoryTable,
   publicCategoryAlias as publicCategoryAliasTable,
   publicCategoryLabel as publicCategoryLabelTable,
-  publicClassificationBudget as publicClassificationBudgetTable,
   sourceRecord as sourceRecordTable,
 } from '@gloaming/db/schema';
 import type {
@@ -18,7 +17,6 @@ import type {
   SourceRecordSourceMeta,
 } from '@gloaming/shared/discovery';
 
-import { PUBLIC_CLASSIFICATION_DAILY_RESERVATION_LIMIT } from '@/domains/discovery/categories/classification-contract';
 import { buildPublicCategory, decideCategoryAssignment } from '@/domains/discovery/categories/policy';
 import {
   categoryExists,
@@ -32,9 +30,6 @@ import {
   upsertAssignment,
 } from '@/domains/discovery/categories/repository';
 import { db } from '@/infra/db';
-
-/** Fixed singleton row id for the instance-wide daily reservation budget. */
-export const PUBLIC_CLASSIFICATION_BUDGET_ID = 'instance';
 
 export type ClassifiableSourceRecordRow = {
   id: string;
@@ -65,67 +60,6 @@ function isUniqueViolation(error: unknown): boolean {
     'code' in error.cause &&
     error.cause.code === '23505'
   );
-}
-
-function utcDay(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-/**
- * Reserve one instance-wide AI call slot (classification or label translation)
- * for the current UTC day. Returns the reservation date, or null when the fixed
- * daily cap is exhausted. The singleton row is locked so concurrent callers
- * serialize and can never exceed the cap.
- */
-export async function reservePublicClassificationCall(): Promise<string | null> {
-  const today = utcDay();
-  return db.transaction(async (tx) => {
-    await tx
-      .insert(publicClassificationBudgetTable)
-      .values({ id: PUBLIC_CLASSIFICATION_BUDGET_ID, quotaDate: today, quotaUsed: 0, quotaReserved: 0 })
-      .onConflictDoNothing();
-    const [row] = await tx
-      .select()
-      .from(publicClassificationBudgetTable)
-      .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID))
-      .for('update')
-      .limit(1);
-    if (!row) return null;
-
-    const used = row.quotaDate === today ? row.quotaUsed : 0;
-    const reserved = row.quotaDate === today ? row.quotaReserved : 0;
-    if (used + reserved >= PUBLIC_CLASSIFICATION_DAILY_RESERVATION_LIMIT) {
-      if (row.quotaDate !== today) {
-        await tx
-          .update(publicClassificationBudgetTable)
-          .set({ quotaDate: today, quotaUsed: 0, quotaReserved: 0 })
-          .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID));
-      }
-      return null;
-    }
-
-    await tx
-      .update(publicClassificationBudgetTable)
-      .set({ quotaDate: today, quotaUsed: used, quotaReserved: reserved + 1 })
-      .where(eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID));
-    return today;
-  });
-}
-
-/** Settle a reservation as one consumed call. A failed attempt still counts. */
-export async function settlePublicClassificationCall(reservationDate: string): Promise<void> {
-  await db
-    .update(publicClassificationBudgetTable)
-    .set({
-      quotaReserved: sql`GREATEST(${publicClassificationBudgetTable.quotaReserved} - 1, 0)`,
-      quotaUsed: sql`${publicClassificationBudgetTable.quotaUsed} + 1`,
-    })
-    .where(
-      and(
-        eq(publicClassificationBudgetTable.id, PUBLIC_CLASSIFICATION_BUDGET_ID),
-        eq(publicClassificationBudgetTable.quotaDate, reservationDate),
-      ),
-    );
 }
 
 /** Bounded source-record evidence plus source visibility, for eligibility checks. */

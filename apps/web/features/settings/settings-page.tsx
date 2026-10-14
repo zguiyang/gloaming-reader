@@ -465,17 +465,11 @@ export function SettingsPage() {
                 {t(locale, 'settings.personalTagging.providerUnavailable')}
               </p>
             ) : null}
-            {personalTaggingQuery.data?.enabled && personalTaggingQuery.data.providerAvailable ? (
+            {personalTaggingQuery.data?.enabled &&
+            personalTaggingQuery.data.providerAvailable &&
+            personalTaggingQuery.data.latestRunState ? (
               <p role="status" className="mt-2 text-sm text-muted-foreground">
-                {t(locale, 'settings.personalTagging.quotaStatus', {
-                  used: String(
-                    personalTaggingQuery.data.dailyInvocationsUsed + personalTaggingQuery.data.dailyInvocationsReserved,
-                  ),
-                  limit: String(personalTaggingQuery.data.dailyInvocationLimit),
-                })}
-                {personalTaggingQuery.data.latestRunState
-                  ? ` · ${t(locale, `settings.personalTagging.runState.${personalTaggingQuery.data.latestRunState}`)}`
-                  : null}
+                {t(locale, `settings.personalTagging.runState.${personalTaggingQuery.data.latestRunState}`)}
               </p>
             ) : null}
             {personalTaggingQuery.error ? (

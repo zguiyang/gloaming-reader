@@ -17,7 +17,7 @@ import { enqueuePublicClassification } from '@/infra/queue';
 
 export const JOB_PUBLIC_CLASSIFICATION = 'public-classification';
 
-/** Bounded number of records enqueued per dispatcher pass; the shared PC-03 daily budget throttles AI calls. */
+/** Bounded number of records enqueued per dispatcher pass to keep the outbox resumable and cheap. */
 export const PUBLIC_CLASSIFICATION_DISPATCH_BATCH_LIMIT = 25;
 
 export const PUBLIC_CLASSIFICATION_BUSY_RETRY_MS = 2 * 60_000;
@@ -60,7 +60,7 @@ export function computePublicClassificationFingerprint(evidence: PublicClassific
 /**
  * Persist the fingerprint decision for an upserted metadata batch. This is the
  * only sync-side classification write; it is pure database work so a failing
- * queue, provider, or budget can never affect source sync.
+ * queue or provider can never affect source sync.
  */
 export async function recordPublicClassificationEvidenceBatch(
   candidates: PublicClassificationEvidenceCandidate[],
@@ -82,8 +82,6 @@ export function resolvePublicClassificationRetryAt(
         return new Date(now.getTime() + PUBLIC_CLASSIFICATION_BUSY_RETRY_MS);
       case 'provider_unavailable':
         return new Date(now.getTime() + PUBLIC_CLASSIFICATION_PROVIDER_RETRY_MS);
-      case 'budget_unavailable':
-        return nextUtcMidnight(now);
       case 'transient_failure':
         return new Date(now.getTime() + PUBLIC_CLASSIFICATION_TRANSIENT_RETRY_MS);
     }
@@ -96,11 +94,6 @@ export function resolvePublicClassificationRetryAt(
     case 'input_limit_exceeded':
       return new Date(now.getTime() + PUBLIC_CLASSIFICATION_LIMIT_RETRY_MS);
   }
-}
-
-/** First UTC midnight after `now`, offset by one minute to clear the budget date boundary. */
-export function nextUtcMidnight(now: Date): Date {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 1, 0));
 }
 
 export type PublicClassificationVerdict = 'eligible' | 'completed' | 'superseded' | 'not_due' | 'missing';
