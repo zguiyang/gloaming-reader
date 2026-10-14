@@ -378,6 +378,13 @@
       "syncing": "Syncing…",
       "pendingHint": "A sync is already running in the background.",
       "disabledSyncHint": "Manual sync is unavailable while this source is disabled.",
+      "import": {
+        "title": "Import single sample",
+        "hint": "Upload one sample EPUB named pg<id>.epub to import exactly one record.",
+        "filePickerAria": "Choose a Gutenberg sample EPUB file",
+        "submit": "Import",
+        "toastSuccess": "Imported {title}."
+      },
       "value": {
         "never": "Never"
       },
@@ -1373,7 +1380,9 @@
       },
       "discovery": {
         "publicCategoryNameExists": "A category with that name already exists for this language",
-        "publicCategoryLimitExceeded": "A source record can have at most {limit} categories"
+        "publicCategoryLimitExceeded": "A source record can have at most {limit} categories",
+        "gutenbergImportFailed": "The single-record Gutenberg import could not be completed: {reason}",
+        "gutenbergImportNameInvalid": "Sample file name must match pg<digits>.epub"
       }
     }
   }

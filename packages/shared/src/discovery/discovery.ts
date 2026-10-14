@@ -340,3 +340,12 @@ export const discoverySyncTriggerResultSchema = z.object({
   result: z.enum(DISCOVERY_SYNC_TRIGGER_RESULTS),
 });
 export type DiscoverySyncAccepted = z.infer<typeof discoverySyncTriggerResultSchema>;
+
+/** Outcome of one bounded single-record import from an uploaded sample EPUB. */
+export const discoveryGutenbergImportResultSchema = z.object({
+  externalId: z.string(),
+  title: z.string(),
+  sourceRecordId: z.string(),
+  created: z.boolean(),
+});
+export type DiscoveryGutenbergImportResult = z.infer<typeof discoveryGutenbergImportResultSchema>;

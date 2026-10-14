@@ -60,6 +60,14 @@ export const CLEANUP_WORKER_CONCURRENCY = 1;
 export const PERSONAL_TAG_WORKER_CONCURRENCY = 2;
 export const PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY = 1;
 
+export const PUBLIC_CLASSIFICATION_ONLY_FLAG = '--public-classification-only';
+
+export type WorkerMode = 'full' | 'public-classification-only';
+
+export function resolveWorkerMode(argv: readonly string[] = process.argv): WorkerMode {
+  return argv.includes(PUBLIC_CLASSIFICATION_ONLY_FLAG) ? 'public-classification-only' : 'full';
+}
+
 export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
   switch (job.name) {
     case JOB_PING:
@@ -103,13 +111,30 @@ function attachWorkerEvents(worker: Worker, queue: string): void {
   });
 }
 
-export function createWorkers(): {
-  worker: Worker;
-  cleanupWorker: Worker;
-  personalTagWorker: Worker;
+export function createWorkers(mode: WorkerMode = 'full'): {
+  worker?: Worker;
+  cleanupWorker?: Worker;
+  personalTagWorker?: Worker;
   publicClassificationWorker: Worker;
 } {
   const connection = getQueueConnection();
+
+  const createPublicClassificationWorker = () => {
+    const publicClassificationWorker = new BullWorker(
+      PUBLIC_CLASSIFICATION_QUEUE_NAME,
+      async (job) => {
+        if (job.name !== JOB_PUBLIC_CLASSIFICATION) throw new Error(`Unknown public classification job: ${job.name}`);
+        return processPublicClassification(job.data as PublicClassificationJobData);
+      },
+      { connection, concurrency: PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY },
+    );
+    attachWorkerEvents(publicClassificationWorker, PUBLIC_CLASSIFICATION_QUEUE_NAME);
+    return publicClassificationWorker;
+  };
+
+  if (mode === 'public-classification-only') {
+    return { publicClassificationWorker: createPublicClassificationWorker() };
+  }
 
   const worker = new BullWorker(QUEUE_NAME, async (job) => processJob(job), {
     connection,
@@ -138,29 +163,25 @@ export function createWorkers(): {
   attachWorkerEvents(cleanupWorker, CLEANUP_QUEUE_NAME);
   attachWorkerEvents(personalTagWorker, PERSONAL_TAG_QUEUE_NAME);
 
-  const publicClassificationWorker = new BullWorker(
-    PUBLIC_CLASSIFICATION_QUEUE_NAME,
-    async (job) => {
-      if (job.name !== JOB_PUBLIC_CLASSIFICATION) throw new Error(`Unknown public classification job: ${job.name}`);
-      return processPublicClassification(job.data as PublicClassificationJobData);
-    },
-    { connection, concurrency: PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY },
-  );
-  attachWorkerEvents(publicClassificationWorker, PUBLIC_CLASSIFICATION_QUEUE_NAME);
+  const publicClassificationWorker = createPublicClassificationWorker();
 
   return { worker, cleanupWorker, personalTagWorker, publicClassificationWorker };
 }
 
 async function main(): Promise<void> {
-  const { worker, cleanupWorker, personalTagWorker, publicClassificationWorker } = createWorkers();
+  const mode = resolveWorkerMode();
+  const publicClassificationOnly = mode === 'public-classification-only';
+  const { worker, cleanupWorker, personalTagWorker, publicClassificationWorker } = createWorkers(mode);
   let dispatcherRunning = false;
   const dispatch = async () => {
     if (dispatcherRunning) return;
     dispatcherRunning = true;
-    try {
-      await dispatchQueuedPersonalTagRuns();
-    } catch (error) {
-      workerLogger.warn({ err: error }, 'Personal tag outbox recovery pass failed');
+    if (!publicClassificationOnly) {
+      try {
+        await dispatchQueuedPersonalTagRuns();
+      } catch (error) {
+        workerLogger.warn({ err: error }, 'Personal tag outbox recovery pass failed');
+      }
     }
     try {
       await dispatchDuePublicClassifications();
@@ -180,6 +201,7 @@ async function main(): Promise<void> {
       cleanupQueue: CLEANUP_QUEUE_NAME,
       personalTagQueue: PERSONAL_TAG_QUEUE_NAME,
       nodeEnv: commonEnv.NODE_ENV,
+      mode,
     },
     'Worker listening',
   );
@@ -192,12 +214,11 @@ async function main(): Promise<void> {
     shuttingDown = true;
     clearInterval(personalTagDispatchTimer);
     workerLogger.info({ signal }, 'Worker shutting down');
-    await Promise.all([
-      worker.close(),
-      cleanupWorker.close(),
-      personalTagWorker.close(),
-      publicClassificationWorker.close(),
-    ]);
+    await Promise.all(
+      [worker, cleanupWorker, personalTagWorker, publicClassificationWorker]
+        .filter((created): created is Worker => created !== undefined)
+        .map((created) => created.close()),
+    );
     await closeQueue();
     process.exit(0);
   };

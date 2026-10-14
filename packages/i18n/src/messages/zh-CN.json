@@ -378,6 +378,13 @@
       "syncing": "同步中…",
       "pendingHint": "已有同步任务在后台运行。",
       "disabledSyncHint": "来源已停用，暂时无法手动同步。",
+      "import": {
+        "title": "导入单条样例",
+        "hint": "上传一个名为 pg<id>.epub 的样例 EPUB，仅导入一条记录。",
+        "filePickerAria": "选择 Gutenberg 样例 EPUB 文件",
+        "submit": "导入",
+        "toastSuccess": "已导入 {title}。"
+      },
       "value": {
         "never": "从未"
       },
@@ -1376,7 +1383,9 @@
       },
       "discovery": {
         "publicCategoryNameExists": "该语言下已存在同名分类",
-        "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类"
+        "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类",
+        "gutenbergImportFailed": "单条 Gutenberg 导入未能完成：{reason}",
+        "gutenbergImportNameInvalid": "样例文件名必须为 pg<数字>.epub"
       }
     }
   }

@@ -1,5 +1,8 @@
 import { Hono } from 'hono';
 
+import { discoveryGutenbergImportResultSchema } from '@gloaming/shared/discovery';
+import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
+
 import {
   assignCategoryToSourceRecord,
   createManagedCategory,
@@ -8,6 +11,11 @@ import {
   unassignCategoryFromSourceRecord,
   updateManagedCategoryLabel,
 } from '@/domains/discovery/categories';
+import { GutenbergSnapshotError } from '@/domains/discovery/gutenberg/errors';
+import {
+  gutenbergSampleExternalId,
+  importProjectGutenbergSingleSample,
+} from '@/domains/discovery/gutenberg/single-record';
 import { listAdminSourceRecords } from '@/domains/discovery/read-model';
 import {
   validateAdminSourceRecordListQuery,
@@ -22,7 +30,9 @@ import {
 } from '@/domains/discovery/sync/admin';
 import { resolveRequestLocale } from '@/infra/http/locale';
 import { type AuthVariables, requireAdmin } from '@/infra/http/middleware/auth';
+import { sendError } from '@/infra/http/response';
 import { HTTP_STATUS } from '@/shared/constants';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 /**
  * Admin-only Discovery controls. V1 exposes exactly the Project Gutenberg source
@@ -46,6 +56,51 @@ discoveryAdminRoutes.patch(PROJECT_GUTENBERG_SOURCE_PATH, requireAdmin, validate
 discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync`, requireAdmin, async (c) => {
   const accepted = await requestProjectGutenbergSync();
   return c.json(accepted, accepted.result === 'queued' ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.OK);
+});
+
+/**
+ * Admin single-sample import: one uploaded EPUB (multipart, memory-only) named
+ * `pg<digits>.epub`. The uploaded bytes are parsed and verified against the one
+ * exact RDF record fetched for the id; nothing from the upload is persisted.
+ */
+discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/import`, requireAdmin, async (c) => {
+  const contentLength = Number(c.req.header('content-length') ?? 0);
+  if (contentLength > EPUB_UPLOAD_MAX_BYTES + 1024) {
+    return sendError(c, ERROR_CODES.UPLOAD.FILE_TOO_LARGE, HTTP_STATUS.BAD_REQUEST, { maxMb: 50 });
+  }
+
+  const form = await c.req.parseBody();
+  const keys = Object.keys(form);
+  if (keys.some((key) => key !== 'file')) {
+    return sendError(c, ERROR_CODES.VALIDATION_INVALID_INPUT, HTTP_STATUS.BAD_REQUEST);
+  }
+  const file = form.file;
+  if (!file || typeof file !== 'object' || !('arrayBuffer' in file)) {
+    return sendError(c, ERROR_CODES.UPLOAD.FILE_REQUIRED, HTTP_STATUS.BAD_REQUEST);
+  }
+  const sample = file as File;
+  if (!gutenbergSampleExternalId(sample.name)) {
+    return sendError(c, ERROR_CODES.DISCOVERY.GUTENBERG_IMPORT_NAME_INVALID, HTTP_STATUS.BAD_REQUEST);
+  }
+
+  const bytes = Buffer.from(await sample.arrayBuffer());
+  if (bytes.length > EPUB_UPLOAD_MAX_BYTES) {
+    return sendError(c, ERROR_CODES.UPLOAD.FILE_TOO_LARGE, HTTP_STATUS.BAD_REQUEST, { maxMb: 50 });
+  }
+
+  try {
+    const result = await importProjectGutenbergSingleSample({ fileName: sample.name, bytes });
+    return c.json(discoveryGutenbergImportResultSchema.parse(result), HTTP_STATUS.CREATED);
+  } catch (error) {
+    // Upload bytes were memory-only; surface a sanitized summary only.
+    const summary = error instanceof GutenbergSnapshotError ? error.message : null;
+    return sendError(
+      c,
+      ERROR_CODES.DISCOVERY.GUTENBERG_IMPORT_FAILED,
+      HTTP_STATUS.BAD_REQUEST,
+      summary ? { reason: summary } : undefined,
+    );
+  }
 });
 
 const SOURCE_RECORDS_PATH = '/api/admin/discovery/source-records';
