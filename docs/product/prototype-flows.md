@@ -2,190 +2,93 @@
 
 **SSOT for “which screen leads where.”** Wire the shipped app against the tables below. Visual tokens: [`DESIGN.md`](../../DESIGN.md).
 
-Related: [`mvp-scope.md`](./mvp-scope.md) · [`mvp-1-modules.md`](./mvp-1-modules.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md) · ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
+Related: [`mvp-scope.md`](./mvp-scope.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md) · ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
 
-**How to use**
+**Confirmed** = product decisions (auth 2026-08-05; reading loop / IA 2026-08-20; Work detail route 2026-10-10). Do not revive Practice or Review screens. Personal EPUB Upload is an ordinary User flow; Admin does not manage catalog content. Supply boundary: [`content-strategy.md`](./content-strategy.md).
 
-- Wire the app against the tables below.
-- **Module inventory SSOT for MVP 1:** [`mvp-1-modules.md`](./mvp-1-modules.md).
-- **Confirmed** = product decisions (auth 2026-08-05; reading loop 2026-08-20; learner IA 2026-08-20; ReadingWork domain 2026-08-24).
-- Do not revive Practice or Review screens. Personal EPUB Upload uses the ordinary User flow; Admin does not manage Catalog Works.
-
-**Routes (Phase 1 IA):** `/read/[workId]`, `/discover` (catalog), `/works/[workId]` (ReadingWork detail). The old `/discover/[workId]` path redirects to Work detail for compatibility.
+**Routes:** `/read/[workId]`, `/discover`, `/works/[workId]`, `/library`, `/reading-history`. Legacy `/discover/[workId]` redirects to Work detail.
 
 ---
 
-## 1. Surfaces (MVP 1 / Phase 1a)
+## 1. Surfaces
 
-| Surface (label) | Audience   | Role now                                                              |
-| --------------- | ---------- | --------------------------------------------------------------------- |
-| Landing         | Logged-out | Story / CTA into auth                                                 |
-| Sign in / up    | Logged-out | Auth                                                                  |
-| **我的书架**    | Logged-in  | Default home: continue reading + my shelf                             |
-| **发现**        | Logged-in  | Official **ReadingWork** catalog; add to shelf and open Work detail   |
-| **阅读历史**    | Logged-in  | Reading-history overview                                              |
-| Work detail     | Logged-in  | Shared ReadingWork information and actions; not a primary destination |
-| Reader          | Logged-in  | Read **ReadingPart** + assist / translate / TTS                       |
+| Surface            | Audience   | Role                                                          |
+| ------------------ | ---------- | ------------------------------------------------------------- |
+| Landing / Sign in  | Logged-out | Story / CTA → auth                                            |
+| **Library**        | Logged-in  | Default home: owned ∪ saved works + Continue Reading          |
+| **Discover**       | Logged-in  | Catalog browse; explicit save, open Work detail               |
+| Work detail        | Logged-in  | `/works/[id]` — title/cover/meta; not a primary home          |
+| **Reader**         | Logged-in  | `/read/[id]` — ReadingPart + assist/translate/TTS             |
+| **History**        | Logged-in  | Reading-history overview                                      |
+| Settings / Account | Logged-in  | Session, provider, profile                                    |
+| Admin              | Admin      | Instance ops, public classifications, provider, storage, jobs |
 
-Practice and Review surfaces are **removed**. Personal EPUB Upload is a User capability; Admin accounts use the same flow. Existing published Catalog Works remain in Discover; new Catalog intake awaits a separate Source policy decision.
-
----
-
-## 2. Auth & marketing flow
-
-Unchanged in structure. Landing primary CTA → Sign in. Sign-up → verify email → auto sign-in → **home**. Reset password → auto sign-in → **home**.
-
-| From                   | To                          | Status                                  |
-| ---------------------- | --------------------------- | --------------------------------------- |
-| Landing primary CTA    | Sign in                     | **Confirmed**                           |
-| Sign in success        | Home (reading)              | **Confirmed** (was Dashboard)           |
-| Sign-up                | Check email → verify → Home | **Confirmed** (hard email verification) |
-| Reset password success | Home                        | **Confirmed**                           |
+Practice and Review surfaces are **removed**. Reader is reached via content only.
 
 ---
 
-## 3. First-time user journey (MVP 1 / Phase 1a)
+## 2. Navigation rules
+
+| Rule                                                                      | Notes                                                     |
+| ------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Card **title / cover** → Work detail `/works/[id]`                        | Browsing never jumps straight into reading                |
+| Explicit **Read** and **Continue Reading** → `/read/[id]`                 | Reading is always an explicit action                      |
+| **Safe detail returnTo**: Library / Discover / History / same-work Reader | Invalid or absent detail origins fall back to Library     |
+| Library filter = **source AND tag**, reflected in the URL                 | Client-side loaded subset today — **not** full pagination |
+| No new search page or grid view promised                                  | Existing filters only                                     |
+| After auth, land on Library                                               | Daily home is continue-the-book                           |
+| Reading AI / translate / TTS stay inside the reader                       | Tag organization is separate; never a chat home           |
+
+---
+
+## 3. First-time journey
 
 ```text
-Sign in
-  → 我的书架
-  → 发现 → 加入书架 (creates ReadingState) or open
-  → Reader (ReadingWork / current ReadingPart)
-  → Read
+Sign in → Library (empty or few items)
+  → Discover → Save (UserLibraryItem) or open detail → Read
+  → Reader (current ReadingPart)
   → Language barrier → contextual help / translation / TTS
   → Keep reading
 ```
 
-```mermaid
-flowchart TD
-  Shelf[我的书架] -->|empty_or_browse| Discover[发现]
-  Discover -->|加入书架| Shelf
-  Discover -->|选择作品| Detail[Work detail]
-  Shelf -->|封面或书名| Detail
-  Shelf -->|继续阅读| R[Reader]
-  Detail -->|开始或继续阅读| R
-  History[阅读历史] -->|封面或书名| Detail
-  History -->|继续阅读| R
-  R -->|查看书籍信息| Detail
-  R -->|Selection_ask| A[AI companion]
-  R -->|Optional| T[Translation]
-  R -->|Optional| L[Listen TTS]
-  A --> R
-  T --> R
-  L --> R
-```
-
-**Confirmed (2026-08-20):** first success is **read a real page with help available**, not finish a practice set. Daily first action is **resume the unfinished ReadingWork** on **我的书架**.
-
-**Current boundary (AS-02, 2026-09-30):** Existing published Catalog Works remain available. Admin Works management and intake are removed. Personal EPUB Upload uses the ordinary User flow; new Catalog intake awaits a Source policy decision.
+Saving an existing published Work creates membership, not progress. Saving an unmaterialized SourceRecord first creates a pending intent; successful import establishes membership. Neither operation starts reading progress.
 
 ---
 
-## 4. Daily reading loop (MVP 1)
+## 4. Daily reading loop
 
 ```text
-Open Gloaming
-  → 我的书架 → Resume last ReadingWork (ReadingState)
-  → Reader → current ReadingPart
-  → AI help when stuck
-  → Keep reading
-  → Leave
+Open Gloaming → Library → Continue Reading → /read/[id]
+  → current ReadingPart → AI help when stuck
+  → Keep reading → Leave using the Reader's existing back navigation
 ```
 
-| From        | Entry                             | To                | Status                    |
-| ----------- | --------------------------------- | ----------------- | ------------------------- |
-| 我的书架    | Continue / last position          | Reader            | **Confirmed**             |
-| 我的书架    | Browse                            | 发现              | **Confirmed**             |
-| 发现        | Add to shelf                      | 我的书架          | **Confirmed**             |
-| 发现        | Open item                         | Work detail       | **Confirmed**             |
-| Work detail | Start / continue reading          | Reader            | **Confirmed**             |
-| 我的书架    | Cover / title                     | Work detail       | **Confirmed**             |
-| 我的书架    | Continue Reading shortcut         | Reader            | **Confirmed**             |
-| 阅读历史    | Cover / title                     | Work detail       | **Confirmed**             |
-| 阅读历史    | Explicit read action              | Reader            | **Confirmed**             |
-| Reader      | View book details                 | Work detail       | **Confirmed**             |
-| Reader      | Lookup / translate / TTS / assist | Stay in reader    | **Confirmed**             |
-| Reader      | Done for now                      | 我的书架 or close | **Confirmed**             |
-| Reader      | Practice CTA                      | —                 | **Retired** (removed)     |
-| Any         | 复习                              | —                 | **Retired** (removed)     |
-| 我的书架    | Personal EPUB Upload              | Private Work      | **Available** (User flow) |
-
-**Shell (Confirmed):** default nav is **我的书架 + 发现 + 阅读历史**. Reader is reached via content only.
+| From        | Entry                    | To                                                          | Status        |
+| ----------- | ------------------------ | ----------------------------------------------------------- | ------------- |
+| Library     | Continue Reading         | Reader                                                      | **Confirmed** |
+| Library     | Cover / title            | Work detail                                                 | **Confirmed** |
+| Discover    | Save                     | Library                                                     | **Confirmed** |
+| Discover    | Open item                | Work detail                                                 | **Confirmed** |
+| Work detail | Read / continue          | Reader                                                      | **Confirmed** |
+| History     | Cover / title            | Work detail                                                 | **Confirmed** |
+| History     | Explicit read action     | Reader                                                      | **Confirmed** |
+| Reader      | View book details        | Work detail                                                 | **Confirmed** |
+| Reader      | Lookup / translate / TTS | Stay in reader                                              | **Confirmed** |
+| Work detail | Return                   | Safe Library / Discover / History / same-work Reader origin | **Confirmed** |
+| Any         | Practice / Review        | —                                                           | **Retired**   |
 
 ---
 
-## 5. Happy path (MVP 1 session)
+## 5. Confirmed decisions
 
-```text
-Sign in → 我的书架
-  → resume or 发现 → add / open ReadingWork
-  → Reader (ReadingPart + optional listen + on-demand help)
-  → leave
-```
+| #   | Decision                                                                      | When       |
+| --- | ----------------------------------------------------------------------------- | ---------- |
+| 1   | Landing primary CTA → Sign in                                                 | 2026-08-05 |
+| 2   | Sign-up → verify → reading home                                               | 2026-08-05 |
+| 3   | Library continue → Reader (current ReadingWork)                               | 2026-08-20 |
+| 4   | Default nav → Library + Discover + History                                    | 2026-08-20 |
+| 5   | Practice / Review not in the loop                                             | 2026-08-20 |
+| 6   | Work detail is shared `/works/[workId]`; legacy Discover detail redirects     | 2026-10-10 |
+| 7   | ReadingState status determines detail CTA copy; `in_progress` continues at 0% | 2026-10-10 |
 
-Auth without this loop is **infra**, not product MVP 1.
-
----
-
-## 6. Cross-cutting rules
-
-| Rule                                                   | Source                                   |
-| ------------------------------------------------------ | ---------------------------------------- |
-| After auth, land on 我的书架                           | MVP 1 modules                            |
-| AI / lookup secondary inside the reader; not chat-home | vision + principles                      |
-| No required practice or review                         | V1 non-goals                             |
-| 阅读历史 is reading history, not streak theater        | guardrails + feature-audit               |
-| No **user** upload in MVP 1 learner chrome             | mvp-1-modules Phase 1a                   |
-| Content = ReadingWork + ReadingPart (ADR-001)          | engineering-vocabulary                   |
-| Module inventory SSOT                                  | [`mvp-1-modules.md`](./mvp-1-modules.md) |
-
----
-
-## 7. Confirmed decisions
-
-| #   | Decision                                                                                               | When       |
-| --- | ------------------------------------------------------------------------------------------------------ | ---------- |
-| 1   | Landing primary CTA → Sign in                                                                          | 2026-08-05 |
-| 2   | Sign-up → verify → reading home                                                                        | 2026-08-05 |
-| 3   | 我的书架 continue → Reader (current ReadingWork)                                                       | 2026-08-20 |
-| 4   | Default nav → 我的书架 + 发现 + 阅读历史                                                               | 2026-08-20 |
-| 5   | Practice / Review not in the loop                                                                      | 2026-08-20 |
-| 6   | Historical MVP 1a admin EPUB catalog decision; superseded by AS-02                                     | 2026-08-24 |
-| 7   | Shelf source labels `官方` / `用户` (`用户` = 1b)                                                      | 2026-08-20 |
-| 8   | No independent Search page; no upload was then planned for MVP 1 (upload boundary superseded by AS-02) | 2026-08-20 |
-| 9   | Work detail is a shared `/works/[workId]` ReadingWork route; legacy Discover detail redirects safely   | 2026-10-10 |
-| 10  | Reading State status determines detail CTA copy; `in_progress` remains continue at 0%                  | 2026-10-10 |
-
-Retired: Practice / Review nav; Dashboard / 图书馆 / 复习 / 成长 study loop.
-
----
-
-## 8. Known drift
-
-| Where           | Issue                                      | Action                    |
-| --------------- | ------------------------------------------ | ------------------------- |
-| History metrics | Heatmap / year/30d volume may still evolve | Evolve with product needs |
-
-**Resolved (2026-10-10):** IA Phase 1 — generic `/works/[workId]` detail route, safe return context, and legacy `/discover/[workId]` redirect.
-
-**Historical baseline (2026-08-24):** Phase 3A used `/discover/[workId]` as the ReadingWork detail route. The route is now a compatibility redirect; Discover remains the Catalog surface.
-
-**Historical baseline (2026-08-24, superseded by AS-02):** Admin EPUB upload → parse → metadata → publish was the catalog supply path. AS-02 removed that management path; existing Catalog Works remain readable and Personal EPUB Upload uses the ordinary User flow.
-
-**Resolved (2026-08-23):** Nav IA → 我的书架 / 发现 / 阅读历史; legacy `/dashboard`, `/progress`, `/library`, `/learn` removed.
-
-**North star:** weekly minutes of engaged reading of authentic English—not practice completion, not review queues, not chat turns.
-
----
-
-## 9. Change log
-
-| Date       | Change                                                                                                                 |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 2026-08-24 | Phase 3A complete; known drift cleared of articleId / Article code notes.                                              |
-| 2026-08-24 | ReadingWork / workId routes; admin EPUB in 1a; user upload wording; known drift updated.                               |
-| 2026-08-23 | Frontend cleanup; nav IA matches mvp-1-modules.                                                                        |
-| 2026-08-20 | Learner IA locked; Practice/Review retired.                                                                            |
-| (revision) | Admin EPUB drift cleared; publish requires ready default US for synth parts (auto-TTS off).                            |
-| 2026-09-30 | AS-02: retained existing Catalog reading; removed Admin Works management; Personal EPUB Upload stays User-owned.       |
-| 2026-10-10 | IA Phase 1: unified Work detail entry and return paths; ReadingState owns status copy independently of progress ratio. |
+**North star:** effective reading minutes of authentic English — not practice completion, not review queues, not chat turns.

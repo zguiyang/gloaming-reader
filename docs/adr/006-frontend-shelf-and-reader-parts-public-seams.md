@@ -20,6 +20,8 @@ the runtime API and Shared contract are `/api/library` and
 not Library membership. This amendment supersedes older statements here that
 prohibited renaming the Shelf seam.
 
+**Current route note:** the route mentioned in the dated amendment above is historical. The Library now uses `/library`; current navigation is described in [Product flows](../product/prototype-flows.md). The public-seam ownership decision below is unchanged.
+
 ---
 
 ## Context

@@ -2,9 +2,9 @@
 
 V1 has one job: **be an excellent AI native language reading environment.**
 
-Related: [`product-vision.md`](./product-vision.md) · [`product-principles.md`](./product-principles.md) · [`mvp-1-modules.md`](./mvp-1-modules.md) · [`roadmap.md`](./roadmap.md) · [`content-strategy.md`](./content-strategy.md) · ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
+Related: [`product-vision.md`](./product-vision.md) · [`product-principles.md`](./product-principles.md) · [`roadmap.md`](./roadmap.md) · [`content-strategy.md`](./content-strategy.md) · ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
 
-This document is the **capability** target (must / must-not). Module inventory: [`mvp-1-modules.md`](./mvp-1-modules.md). Shipped code vs target: [`feature-audit.md`](./feature-audit.md).
+This document is the **capability** target (must / must-not).
 
 ---
 
@@ -12,140 +12,82 @@ This document is the **capability** target (must / must-not). Module inventory: 
 
 **V1 success:** A signed-in user can:
 
-1. **Discover and open** authentic English from the official catalog (**ReadingWork**)
-2. **Read it** in a calm, book-like surface (resume via **ReadingState** on the current **ReadingPart**)
+1. **Discover** authentic English from the catalog and save what they want (**ReadingWork**)
+2. **Read** in a calm, book-like surface (resume via **ReadingState** on the current **ReadingPart**)
 3. **Unstick** with on-demand, **passage-grounded** AI
-4. **Translate** when they need the meaning of a sentence or passage
-5. **Listen** to the text (TTS on the current part)
-6. **Keep reading**—no quiz, no review homework, no streak to protect
+4. **Translate** a sentence or passage when needed
+5. **Listen** to the current part (TTS; degrades if audio is unavailable)
+6. **Organize** their Library with personal tags (CRUD + name translation) and browse admin-defined public categories
+7. **Keep reading** — no quiz, no review homework, no streak to protect
 
-Returning users land on **continue the unfinished book**, not a study dashboard.
-
-If they only sign in and see a learning-platform home, V1 has failed.
-
----
-
-## 2. Must include
-
-| Capability               | Notes                                                                                   |
-| ------------------------ | --------------------------------------------------------------------------------------- |
-| Auth session             | Better Auth cookie session; first-party session via Next `/api` proxy                   |
-| Official catalog → shelf | Browse **发现**, add to **我的书架** (creates **ReadingState**)                         |
-| **Catalog Works**        | Existing published Works remain discoverable; new intake awaits Source ingestion policy |
-| **EPUB processing**      | User Personal Upload → shared parser → private Work; Catalog source intake is deferred  |
-| Reading experience       | Typography; chapter/part navigation; resume part + anchor                               |
-| AI companion             | Selection → explain in **this passage**; thread on **reading_work**; not chat home      |
-| Translation              | Sentence or passage; bilingual view must not replace English as default                 |
-| TTS                      | Listen to **current part**; degrade if audio unavailable                                |
-| User import              | Personal EPUB Upload through `/api/works`; remains separate from Catalog supply         |
-
-Discover continues to show existing published **ReadingWorks** according to `published_at`. Admin accounts use the same Personal Upload flow as every other user; Catalog intake awaits Source ingestion policy.
+Returning users land on **continue the unfinished book**, not a study dashboard. **North star:** effective reading minutes of authentic English.
 
 ---
 
-## 3. Must not include (V1)
+## 2. Surfaces
 
-| Out of V1                                           | Why                                                        |
-| --------------------------------------------------- | ---------------------------------------------------------- |
-| Gamification / XP / shame streaks                   | Duolingo                                                   |
-| Word-count / vocab-collecting as the center         | LingQ                                                      |
-| SRS / daily cards / forced review                   | Anki                                                       |
-| Complex review / practice / quiz                    | Second loop                                                |
-| **Lesson system / course progression**              | Course app identity                                        |
-| **Practice loop**                                   | Removed from codebase                                      |
-| Chat as home / chatting as the core                 | ChatGPT reading plugin                                     |
-| **AI-generated article library**                    | Content factory                                            |
-| **Short Article Library** as product                | Superseded by ReadingWork (ADR-001)                        |
-| Speaking training / AI avatar / video chat          | Not a reading environment                                  |
-| Public social feed                                  | Distraction from the page                                  |
-| Kitchen-sink control panels                         | Study chrome we do not copy                                |
-| **User upload** as a primary navigation destination | Upload remains available through the Personal Library flow |
-
-Do not “fill V1” with Phase 2 ideas. See [`roadmap.md`](./roadmap.md).
+User: **Library, Discover, Reader, History, Settings, Account**. Admin: **instance operations, public classifications, provider, storage, jobs** — operations only, no content authoring. Shared: Work detail `/works/[id]` → Read `/read/[id]` (see [`prototype-flows.md`](./prototype-flows.md)).
 
 ---
 
-## 4. Core user journeys (product)
+## 3. Must include
 
-Full navigation SSOT: [`prototype-flows.md`](./prototype-flows.md).
+| Capability         | Notes                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------- |
+| Auth session       | Better Auth cookie session; first-party session via Next `/api` proxy                                    |
+| Library            | Owned personal works ∪ explicit saved catalog membership (`UserLibraryItem`)                             |
+| Discover           | Browse catalog; explicit save creates membership, not progress                                           |
+| Reading experience | Typography; part navigation; resume part + anchor via **ReadingState**                                   |
+| AI reading assist  | Selection → explain in **this passage**; thread scoped to `reading_work`                                 |
+| Translation        | Sentence or passage; bilingual view never replaces English as default                                    |
+| TTS                | Listen to current part; degrade if audio unavailable                                                     |
+| Personal tags      | Per-user tag CRUD, localized name translation, assignment (see [`personal-tags.md`](./personal-tags.md)) |
+| Public categories  | Admin CRUD + user browse (see [`public-categories.md`](./public-categories.md))                          |
+| Personal EPUB      | User-owned, private; shared parser → private Work (see [`content-strategy.md`](./content-strategy.md))   |
 
-### 4.1 Core loop
+---
+
+## 4. Must not include (V1)
+
+| Out of V1                          | Why                       |
+| ---------------------------------- | ------------------------- |
+| Lesson / course / practice loop    | Course identity — removed |
+| Gamification / XP / streaks        | Duolingo                  |
+| SRS / daily cards / forced review  | Anki                      |
+| Word-count / vocab decks as center | LingQ                     |
+| Chat as home                       | ChatGPT reading plugin    |
+| Quota monetization                 | Not in V1                 |
+| New orchestration systems          | Out of scope              |
+| AI-generated article library       | Content factory           |
+| Short Article Library identity     | Superseded by ReadingWork |
+| Public social feed                 | Distraction from the page |
+
+---
+
+## 5. Domain rules (invariants)
+
+- **ReadingWork + ReadingPart** are the content model; no legacy `Article`.
+- **Library** = owned personal works ∪ explicit saved membership (`UserLibraryItem`).
+- **ReadingState** carries progress only: **saving does not start progress; removing membership retains progress.**
+- **SourceRecord** is a separate local bibliography and is **not readable content**.
+
+---
+
+## 6. Core journey
 
 ```text
-Discover
-  → Choose ReadingWork
-  → Add to Shelf (ReadingState)
-  → Reader (ReadingPart)
-  → Encounter difficulty
-  → AI Assist
-  → Continue Reading
+Discover → Save (UserLibraryItem) → Library → Reader (ReadingPart)
+  → Difficulty → AI Assist / Translate / Listen → Keep reading
 ```
 
-### 4.2 First-time
-
-```text
-Sign in
-  → 我的书架 (empty or few items)
-  → 发现 → 加入书架 (or open)
-  → Reader
-  → Read
-  → Language barrier → contextual help / translation / TTS
-  → Keep reading
-```
-
-(Personal Upload is available through the User-owned Library flow; it is not a primary navigation destination. Existing Catalog Works remain available, and new intake awaits Source policy.)
-
-### 4.3 Daily
-
-```text
-Open Gloaming
-  → Resume last unfinished ReadingWork (我的书架)
-  → Read current ReadingPart
-  → Help when stuck
-  → Keep reading
-  → Leave
-```
-
-There is no required Practice or Review step.
+Full navigation SSOT: [`prototype-flows.md`](./prototype-flows.md). There is no required Practice or Review step.
 
 ---
 
-## 5. Content stance for V1
+## 7. AI and content constraints
 
-**Full SSOT:** [`content-strategy.md`](./content-strategy.md).
-
-| Topic           | Stance                                                                                     |
-| --------------- | ------------------------------------------------------------------------------------------ |
-| Catalog supply  | Existing published **ReadingWork** via **发现**; new intake awaits Source ingestion policy |
-| Personal Upload | User EPUB → private owned Work in Library                                                  |
-| Unit            | **ReadingWork** (+ **ReadingPart** for text) — not a lesson                                |
-| Catalog fixture | Neutral ownerless Catalog Work used in tests; no source identity is inferred               |
-| Scraping        | Out                                                                                        |
-
----
-
-## 6. AI / privacy / cost (V1 constraints)
-
-- AI only for **in-text** assistance and translation of the **current part** (help thread scoped to **reading_work** if it exists)
-- **Degrade path:** the work still opens and reads if AI or TTS is off
-- Do not send more context than needed; no always-on companion chat
-- Cost: short prompts tied to selection / sentence / **current part**—not whole-library RAG theater
-- EPUB parsing is infrastructure, not “generate English”
-
----
-
-## 7. How to use this doc in planning
-
-1. Confirm the work is **in** V1 (§2) and not in §3
-2. Answer: _Does this help the user keep reading this page?_ If it creates a study task → stop
-3. Run [`feature-decision-guide.md`](./feature-decision-guide.md)
-4. Walk [`design-guardrails.md`](./design-guardrails.md) before merge
-5. Domain names: [`engineering-vocabulary.md`](./engineering-vocabulary.md)
-
----
-
-## Revision log
-
-| Date       | Change                                                                                |
-| ---------- | ------------------------------------------------------------------------------------- |
-| 2026-08-24 | ReadingWork loop; admin EPUB must; lesson/practice/article library must-not; ADR-001. |
+- **Reading assist** is scoped to in-text help and translation of the **current part**; no always-on companion chat.
+- **Organization AI** is separate from reading assistance: personal automatic tagging requires user opt-in and BYOK; public classification uses instance configuration. See [`personal-tags.md`](./personal-tags.md) and [`public-categories.md`](./public-categories.md).
+- Content stance: [`content-strategy.md`](./content-strategy.md) (personal EPUB; accepted source supply direction).
+- **Degrade path:** the work still opens and reads if AI or TTS is off.
+- Planning aids: [`feature-decision-guide.md`](./feature-decision-guide.md) · [`design-guardrails.md`](./design-guardrails.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md).

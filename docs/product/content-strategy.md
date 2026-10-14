@@ -1,8 +1,8 @@
 # Gloaming Content Strategy
 
-SSOT for **what people read** and **how it enters Gloaming**—under the AI Native Language Reading Environment bet.
+SSOT for **what people read** and **how it enters Gloaming** — under the AI Native Language Reading Environment bet.
 
-Related: [`mvp-scope.md`](./mvp-scope.md) · [`mvp-1-modules.md`](./mvp-1-modules.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md) · ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
+Related: [`mvp-scope.md`](./mvp-scope.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md) · [`personal-tags.md`](./personal-tags.md) · [`public-categories.md`](./public-categories.md) · ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
 
 **Language:** Product docs are English. User-facing copy may be Chinese.
 
@@ -10,101 +10,62 @@ Related: [`mvp-scope.md`](./mvp-scope.md) · [`mvp-1-modules.md`](./mvp-1-module
 
 ## 1. Purpose of content
 
-Content exists so someone can **read real English**.
+Content exists so someone can **read real English**. Gloaming is not a corpus-building project, a course publisher, or an AI writing mill.
 
-Gloaming is not a corpus-building project, not a course publisher, and not an AI writing mill.
-
-**Personal supply:** users bring their own files through Personal Upload → **我的书架**.
-
-**Catalog supply:** existing published Catalog Works continue through **发现** → **我的书架**. New Catalog intake is deferred to a separately decided Source ingestion policy; Admin is not a content-management surface.
-**Never:** generated “learning English” articles as the product. Gloaming does not manufacture learning materials.
+- **Personal supply:** users upload their own EPUB; the work is **user-owned and private**.
+- **Catalog/source supply:** local source metadata and demand-driven import, as defined in section 3.
+- **Never:** generated “learning English” articles as the product.
 
 ---
 
 ## 2. Scope decisions (locked)
 
-| Decision                       | Stance                                                                                                     |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| Personal supply                | User EPUB upload → private owned `ReadingWork` + `ReadingPart[]` → User Library                            |
-| Catalog supply                 | Existing published Catalog Works remain available in **发现**; new intake awaits Source ingestion policy   |
-| Real content pipeline (EPUB)   | Shared User upload and EPUB parsing; organize chapters and present like a book; do **not** rewrite lessons |
-| Official catalog               | Existing team-owned or licensed works continue to feed **发现**                                            |
-| Catalog test fixture           | Neutral ownerless Catalog Work; no source identity or Admin provenance is inferred                         |
-| Scraping / crawl               | **Out**                                                                                                    |
-| AI rewrite into graded lessons | **Out** — content generator                                                                                |
-| AI at read time                | Explain / translate / TTS on **this part** of **this work**                                                |
-| Memes / syllabus trees         | **Out** of identity                                                                                        |
-| User-generated marketplace     | **Out** of MVP 1                                                                                           |
+| Decision                       | Stance                                                              |
+| ------------------------------ | ------------------------------------------------------------------- |
+| Personal supply                | User EPUB → private owned `ReadingWork` + `ReadingPart[]` → Library |
+| Unit                           | **ReadingWork** (+ **ReadingPart**) — not a lesson                  |
+| Real content pipeline          | Shared EPUB parsing; organize chapters; do **not** rewrite lessons  |
+| Scraping user pages            | **Out**                                                             |
+| AI rewrite into graded lessons | **Out**                                                             |
+| AI at read time                | Explain / translate / TTS on **this part** of **this work**         |
+| Catalog test fixture           | Neutral ownerless Work; no source identity inferred                 |
+| Short Article Library          | **Out** — superseded by ReadingWork                                 |
 
-Module SSOT: [`mvp-1-modules.md`](./mvp-1-modules.md).
-
-### 2.1 Catalog fixtures
-
-Tests that need a short Catalog body create an ownerless Catalog Work with one
-ReadingPart (`kind=body`). Its nullable `origin_kind` makes no source claim;
-Personal EPUB uploads retain the explicit `user_epub` provenance.
-
-Gloaming’s content identity is **ReadingWork**, not short articles.
+Reading atom: a **ReadingWork** the user is in the middle of — no 300-word units, no word cap. Difficulty is handled by **help on the page**.
 
 ---
 
-## 3. What “authentic” means here
+## 3. Source intake (accepted: Hybrid — DS01)
 
-Authentic = **not manufactured as a Gloaming lesson**.
+This accepted supply direction supersedes the earlier deferral of new Catalog intake. It does not claim complete runtime acceptance.
 
-Examples that fit:
+- **Hybrid:** sync source **metadata locally** into **SourceRecord**; **materialize the EPUB only on save/read intent**. V1 source: Project Gutenberg only.
+- **SourceRecord** = local bibliography (source + `externalID`, title/author/language/rights/URL). It is **not readable content**; only a materialized Work enters the Library/Reader.
+- **Pending save intent:** save creates a pending intent; on successful import it becomes a **formal membership** (`user_library_item`). Failure keeps a **retryable** state — never fake readiness.
+- **Disabled sources** are hidden; a **failed sync retains the last full snapshot**.
+- V1 synchronizes the official Gutenberg RDF metadata snapshot weekly, with an administrator-triggered retry. Only a successfully completed snapshot can mark missing records unavailable; no hosted third-party catalog is a runtime requirement.
+- **Withdrawal never deletes** an existing work or its progress.
+- **Source metadata updates do not overwrite** already-imported parts.
+- Import retains source metadata and rights evidence; AI description enrichment must not replace authoritative source fields. Raw subjects and bookshelves remain distinct from public categories.
+- **No cross-source semantic dedup:** identity is `(source, externalID)`; identical bytes may be reused, but the same work is not inferred across sources.
 
-- A licensed EPUB the team publishes to Discover
-- A book the user imports (Phase 1b)
-- An essay they saved (when import supports it)
-
-Examples that do not:
-
-- AI-written “B1 daily story” farms
-- Dialogue drills
-- Vocab-pack paragraphs
-
-Difficulty is handled by **help on the page**, not by only shipping easy fables.
+New sources, content replacement, and cross-source identity merging require separate decisions. Do not turn a private uploaded EPUB into a public source record merely from its filename.
 
 ---
 
-## 4. Reading content shape (product contract)
+## 4. Domain contract (ADR-001)
 
-The reading atom is a **ReadingWork** the user is in the middle of—not “today’s 250-word unit.”
+| Entity              | Responsibility                                                 |
+| ------------------- | -------------------------------------------------------------- |
+| **ReadingWork**     | Title, description, language, stats, publication — **no body** |
+| **ReadingPart**     | Ordered text — Reader / TTS / Translate / Assist boundary      |
+| **ReadingState**    | Per user × work progress only; never membership                |
+| **UserLibraryItem** | Explicit catalog membership; membership ≠ progress             |
+| **SourceRecord**    | Local source bibliography; not readable                        |
+| **ContentAsset**    | EPUB file, cover, TTS audio                                    |
+| **Conversation**    | Thread scoped to `reading_work`                                |
 
-### 4.1 Domain entities (ADR-001)
-
-| Entity           | User concept  | Responsibility                                                                        |
-| ---------------- | ------------- | ------------------------------------------------------------------------------------- |
-| **ReadingWork**  | 书 / 阅读内容 | Title, description, language, reading stats, publish status, visibility — **no body** |
-| **ReadingPart**  | 章节          | Ordered text — Reader / TTS / Translate / Assist boundary                             |
-| **ReadingState** | 阅读进度状态  | Per user × work position; never Library membership                                    |
-| **ContentAsset** | (internal)    | EPUB file, cover, TTS audio, future derivatives                                       |
-| **Conversation** | AI 帮助       | Thread scoped to `reading_work`                                                       |
-| **My Library**   | 我的书库      | Owned works + explicitly saved Catalog works; progress is optional                    |
-
-**Product rule:** one kind of thing you read — not Article-the-lesson plus Book-the-other-app.
-
-### 4.2 Work fields (intent)
-
-| Concern                            | Need                                                                  |
-| ---------------------------------- | --------------------------------------------------------------------- |
-| Title, description, language       | Yes                                                                   |
-| Ordered parts (chapters)           | Yes for EPUB                                                          |
-| `origin_kind` / `origin_meta`      | Personal upload provenance; future Catalog source policy is separate  |
-| Owner / visibility                 | Official catalog vs user (1b)                                         |
-| Reading position                   | Per user × work (+ part + anchor)                                     |
-| Global tags / categories / sources | None — Catalog Work has no taxonomy metadata                          |
-| User Tags                          | Private per-user Library organization, separate from Catalog metadata |
-
-**Forbidden on Work:** `level`, `seriesId`, single `body` blob.
-
-`estimatedMinutes` is an allowed derived reading statistic, as defined by
-[ADR-001](../adr/001-reading-content-domain-model.md#readingwork-reading_work).
-
-### 4.3 Length
-
-No 300-word cap on EPUB works. Part bodies are bounded by engineering limits only.
+**Library** = owned personal works ∪ explicit saved membership. Saving does not start progress; removing membership retains progress. Forbidden on Work: `level`, `seriesId`, single `body` blob.
 
 ---
 
@@ -113,53 +74,23 @@ No 300-word cap on EPUB works. Part bodies are bounded by engineering limits onl
 ### 5.1 Personal upload
 
 ```text
-User uploads EPUB
-  → private ReadingWork (processing)
-  → Parse → ReadingPart[] (chapters)
-  → ContentAsset (origin_file)
-  → User Library → Reader
-  → Resume via ReadingState
-```
-
-Catalog Works already published remain discoverable through `published_at`. This task does not add a replacement Catalog intake; future Source ingestion policy requires a separate decision.
-
-### 5.2 Learner (MVP)
-
-```text
-发现 → choose ReadingWork → explicitly save to Library (UserLibraryItem)
-  → Reader (current ReadingPart)
-  → Assist / translate / TTS on this part
-  → Keep reading
-```
-
-Library membership and reading progress are separate: opening a work does not
-save it to Library; removing membership preserves its `ReadingState`. Personal
-Works belong to the owner's Library through ownership, without a saved Catalog
-membership row. See [ADR-001](../adr/001-reading-content-domain-model.md#my-library--shelf-read-models).
-
-No practice or review step.
-
-### 5.3 User import
-
-```text
-User chooses EPUB/PDF/…
-  → Clean + chapter structure
-  → ReadingWork (owner = user, visibility = private)
-  → Open at last ReadingState
+User uploads EPUB → private ReadingWork (processing)
+  → Parse → ReadingPart[] → ContentAsset (origin_file)
+  → Library → Reader → Resume via ReadingState
 ```
 
 Parse failures must be explicit. Do not LLM-“simplify” the book.
 
-### 5.4 Catalog test fixture
+### 5.2 Source save (Hybrid)
 
 ```text
-Development/test Catalog fixture
-  → 1 ReadingWork + 1 ReadingPart (kind=body)
+Discover SourceRecord → Save intent (pending)
+  → EPUB materialize → ready Work → formal membership
+  → Reader → ReadingState on first read
+Failure → retryable intent (no fake readiness)
 ```
 
-This is not an Admin product capability or a Catalog intake path. It is not the Short Article Library.
-
-### 5.5 What we do not run
+### 5.3 What we do not run
 
 ```text
 Crawl the web → auto-AI “course” → ship to users
@@ -171,31 +102,6 @@ AI-generated article library as main shelf filler
 
 ## 6. Quality bar
 
-Future Source ingestion should add Catalog Works only when:
-
-1. A reader might **want to keep reading it**
-2. Source/rights are clear under a separately decided Source policy
-3. It does not push Gloaming toward **course pack**, **vocab deck**, **chatbot**, or **AI-generated library**
-
----
-
-## 7. Phase note
-
-| When    | Content work                                                                                      |
-| ------- | ------------------------------------------------------------------------------------------------- |
-| Current | User Personal Upload + ReadingWork reader + companion on parts; existing Catalog remains readable |
-| Future  | Catalog Source ingestion policy and additional sources via `origin_kind` — same Work/Part model   |
+Add content only when a reader might **want to keep reading it**, provenance/rights are clear, and it does not push Gloaming toward **course pack**, **vocab deck**, **chatbot**, or **AI-generated library**.
 
 Empty reader is a failure mode. Filling it with generated articles is a worse failure mode.
-
----
-
-## 8. Revision log
-
-| Date       | Change                                                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 2026-08-24 | Historical baseline: ReadingWork domain; admin EPUB primary; admin_text internal; ADR-001 alignment.                     |
-| 2026-09-30 | AS-02 removed Admin Works CMS; AS-02C removed legacy Admin provenance; Catalog intake remains deferred to Source policy. |
-| 2026-10-04 | AS-08 removed global Catalog taxonomy metadata and retained only private per-user Library tags.                          |
-| 2026-08-20 | Real content pipeline wording; 1a/1b split.                                                                              |
-| 2026-08-05 | Initial curated lean library SSOT (superseded).                                                                          |

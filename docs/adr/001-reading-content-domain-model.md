@@ -4,7 +4,7 @@
 **Date:** 2026-08-24  
 **Scope:** Core content domain — replaces the legacy `Article` model
 
-Related: [`engineering-vocabulary.md`](../product/engineering-vocabulary.md) · [`content-strategy.md`](../product/content-strategy.md) · [`user-first-architecture-implementation.md`](../plans/user-first-architecture-implementation.md)
+Related: [`engineering-vocabulary.md`](../product/engineering-vocabulary.md) · [`content-strategy.md`](../product/content-strategy.md) · [`roadmap.md`](../product/roadmap.md)
 
 ---
 
@@ -27,7 +27,7 @@ There are **no production users** and **no historical data compatibility** requi
 5. Adopt **`ContentAsset`** for source files and derived resources (replaces `article_audio`).
 6. Keep **`Conversation`**; `subject_type = reading_work`, `subject_id = work.id`.
 7. Treat **`My Library`** as a **read-model aggregate**: works the user **owns** (`reading_work.owner_user_id = user`) **UNION** works explicitly saved via **`user_library_item`** (typically catalog works). **Continue Reading** is a separate projection of accessible in-progress `reading_state` and may contain an unsaved work.
-8. **Catalog supply:** Catalog Works remain shared `ReadingWork` records, but Admin is not a content-management or upload surface. Catalog Works have no `origin_kind` until a real Source ingestion policy exists; new Catalog intake awaits a separate decision.
+8. **Catalog supply:** Catalog Works remain shared `ReadingWork` records, but Admin is not a content-management or upload surface. Catalog Works have no `origin_kind` until a real Source ingestion policy exists; new Catalog intake awaits a separate decision. _(Note: the accepted Hybrid source-supply direction is now recorded in [`content-strategy.md`](../product/content-strategy.md); this freeze statement is retained as the ADR's original decision text.)_
 9. **Personal supply:** users upload through `POST /api/works`, creating a private owned Work in their Library. An Admin account uses this same User flow for a personal upload.
 10. **Catalog provenance:** `origin_kind` is nullable and currently identifies only Personal EPUB uploads (`user_epub`). Catalog identity comes from `owner_user_id`, `visibility`, and `published_at`; do not invent a source identity.
 11. **Provider settings (User-first):** `llm_provider`, `llm_app_setting`, and `tts_config` are scoped by **`owner_user_id`**: `NULL` = instance (platform) scope; non-`NULL` = that user’s scope. **Do not** introduce parallel `user_llm_*` tables.
@@ -127,7 +127,7 @@ LibraryWorks(user) =
 
 Admin has no Catalog Work creation, upload, editing, publication, deletion, preview, retry, or per-work asset-management surface. User EPUB upload uses **`POST /api/works`** and creates a private owned Work. Existing published Catalog Works remain readable through Catalog and Reader, and `published_at` continues to control Catalog visibility.
 
-AS-02C clears historical `admin_epub` and `admin_text` values to `NULL` in migration `0038_remove_legacy_admin_provenance.sql`, then removes those values from current runtime and schema. Existing Catalog Works remain readable; `owner_user_id`, `visibility`, and `published_at` continue to express Catalog ownership and visibility. The EPUB parser is selected by the origin asset MIME type, not provenance. New Catalog intake awaits a separately decided Source ingestion policy; AS-02C does not add that policy or an intake route.
+AS-02C clears historical `admin_epub` and `admin_text` values to `NULL` in migration `0038_remove_legacy_admin_provenance.sql`, then removes those values from current runtime and schema. Existing Catalog Works remain readable; `owner_user_id`, `visibility`, and `published_at` continue to express Catalog ownership and visibility. The EPUB parser is selected by the origin asset MIME type, not provenance. New Catalog intake awaits a separately decided Source ingestion policy; AS-02C does not add that policy or an intake route. _(Present-supply note: the accepted Hybrid direction and its current status live in [`content-strategy.md`](../product/content-strategy.md).)_
 
 ---
 
@@ -198,7 +198,7 @@ The PR-01 rows below record the implementation checkpoint as it stood at that ti
 
 **Implementation order:** `packages/db` → `packages/shared` → `apps/backend` → tests → `apps/web`.
 
-**Epic closeout (User-first):** **Legacy Remaining = 0** — no legacy route aliases, no Article-era names in active code paths, no conflated status/membership semantics in SSOT or production contracts. Tracked in [`user-first-architecture-implementation.md`](../plans/user-first-architecture-implementation.md).
+**Epic closeout (User-first):** **Legacy Remaining = 0** — no legacy route aliases, no Article-era names in active code paths, no conflated status/membership semantics in SSOT or production contracts. Tracked in [`roadmap.md`](../product/roadmap.md).
 
 ---
 

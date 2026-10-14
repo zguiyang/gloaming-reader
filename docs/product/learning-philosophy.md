@@ -105,7 +105,7 @@ High anxiety blocks usable input. Compelling content and low pressure increase t
 
 **Swain (output):** Production can push noticing. Valid later—**not** the V1 identity. Do not reintroduce Practice modules as a philosophy requirement.
 
-**Spacing (Ebbinghaus / Cepeda):** Distributed encounters help memory. In a reader, that should mean **meeting language again in books**, not a daily review queue. Review/SRS was removed from the codebase for V1. See [`feature-audit.md`](./feature-audit.md).
+**Spacing (Ebbinghaus / Cepeda):** Distributed encounters help memory. In a reader, that should mean **meeting language again in books**, not a daily review queue. Review/SRS was removed from the codebase for V1. See [`mvp-scope.md`](./mvp-scope.md).
 
 **Interaction (Long):** Negotiation of meaning is secondary. If it appears, it is clarification **about this page**, not a conversation product.
 

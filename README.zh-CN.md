@@ -26,7 +26,7 @@ Gloaming 意为“暮色”，指昼夜交界的微光，也对应一个安静�
 | Reader | 安静阅读；查词、翻译、TTS                         |
 | AI     | 页内同伴，不需要时消失                            |
 
-Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不是 AI 内容工厂。V1 规格：[`docs/product/mvp-scope.md`](./docs/product/mvp-scope.md)。代码去留：[`docs/product/feature-audit.md`](./docs/product/feature-audit.md)。
+Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不是 AI 内容工厂。V1 规格：[`docs/product/mvp-scope.md`](./docs/product/mvp-scope.md)。开发优先级：[`docs/product/roadmap.md`](./docs/product/roadmap.md)。
 
 ## 技术栈
 

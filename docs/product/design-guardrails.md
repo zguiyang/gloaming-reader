@@ -65,10 +65,10 @@ Standards inform; they do not override the reader bet.
 
 ### 2.6 Output / review too early
 
-| Red light                                           | Why                   | Pull back                                                       |
-| --------------------------------------------------- | --------------------- | --------------------------------------------------------------- |
-| Force speak/write/quiz before or instead of reading | Violates reader-first | Hide practice/review from V1 loop                               |
-| Practice time dwarfs reading                        | Inverted priorities   | Freeze those modules ([`feature-audit.md`](./feature-audit.md)) |
+| Red light                                           | Why                   | Pull back                                                        |
+| --------------------------------------------------- | --------------------- | ---------------------------------------------------------------- |
+| Force speak/write/quiz before or instead of reading | Violates reader-first | Hide practice/review from V1 loop                                |
+| Practice time dwarfs reading                        | Inverted priorities   | Cut it — practice is must-not ([`mvp-scope.md`](./mvp-scope.md)) |
 
 ---
 
