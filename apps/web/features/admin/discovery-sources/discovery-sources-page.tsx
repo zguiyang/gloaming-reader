@@ -34,6 +34,9 @@ type StatusFieldProps = {
   children: ReactNode;
 };
 
+/** Mirrors the backend numeric-ID contract for immediate form feedback. */
+const IMPORT_EXTERNAL_ID_PATTERN = /^[1-9]\d{0,9}$/;
+
 function StatusField({ label, children }: StatusFieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -67,6 +70,9 @@ export function DiscoverySourcesPage() {
   const importMutation = useImportDiscoverySampleMutation();
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importFileName, setImportFileName] = useState<string | null>(null);
+  /** Prefilled with the authorized fixture id (pg11339.epub); freely editable. */
+  const [importExternalId, setImportExternalId] = useState('11339');
+  const isImportExternalIdValid = IMPORT_EXTERNAL_ID_PATTERN.test(importExternalId.trim());
   const status = statusQuery.data;
   const operationFailed = t(locale, 'admin.discoverySources.page.operationFailed');
 
@@ -96,12 +102,12 @@ export function DiscoverySourcesPage() {
   }
 
   async function runImport() {
-    if (!importFileName) return;
+    if (!importFileName || !isImportExternalIdValid) return;
     const input = importInputRef.current;
     const file = input?.files?.[0];
     if (!file) return;
     try {
-      const result = await importMutation.mutateAsync(file);
+      const result = await importMutation.mutateAsync({ file, externalId: importExternalId.trim() });
       toast.success(
         t(locale, 'admin.discoverySources.import.toastSuccess', { title: result.title }),
       );
@@ -221,6 +227,14 @@ export function DiscoverySourcesPage() {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <input
+                type="text"
+                inputMode="numeric"
+                value={importExternalId}
+                onChange={(event) => setImportExternalId(event.target.value)}
+                aria-label={t(locale, 'admin.discoverySources.import.idLabel')}
+                className="w-36 rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+              />
+              <input
                 ref={importInputRef}
                 type="file"
                 accept=".epub,application/epub+zip"
@@ -233,7 +247,9 @@ export function DiscoverySourcesPage() {
               />
               <Button
                 onClick={() => void runImport()}
-                disabled={!importFileName || isSourceDisabled || importMutation.isPending}
+                disabled={
+                  !importFileName || !isImportExternalIdValid || isSourceDisabled || importMutation.isPending
+                }
               >
                 {importMutation.isPending ? <Spinner data-icon="inline-start" /> : <Upload data-icon="inline-start" />}
                 {t(locale, 'admin.discoverySources.import.submit')}

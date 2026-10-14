@@ -13,8 +13,9 @@ import {
 } from '@/domains/discovery/categories';
 import { GutenbergSnapshotError } from '@/domains/discovery/gutenberg/errors';
 import {
-  gutenbergSampleExternalId,
   importProjectGutenbergSingleSample,
+  isEpubUploadFileName,
+  parseGutenbergExternalId,
 } from '@/domains/discovery/gutenberg/single-record';
 import { listAdminSourceRecords } from '@/domains/discovery/read-model';
 import {
@@ -59,9 +60,11 @@ discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync`, requireAdmin,
 });
 
 /**
- * Admin single-sample import: one uploaded EPUB (multipart, memory-only) named
- * `pg<digits>.epub`. The uploaded bytes are parsed and verified against the one
- * exact RDF record fetched for the id; nothing from the upload is persisted.
+ * Admin single-sample import: one uploaded EPUB (multipart, memory-only) plus a
+ * required numeric `externalId` form field. Any `.epub` file name is accepted
+ * case-insensitively; identity comes only from the id field, never the name.
+ * The uploaded bytes are parsed and verified against the one exact RDF record
+ * fetched for the id; nothing from the upload is persisted.
  */
 discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/import`, requireAdmin, async (c) => {
   const contentLength = Number(c.req.header('content-length') ?? 0);
@@ -70,17 +73,23 @@ discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/import`, requireAdmi
   }
 
   const form = await c.req.parseBody();
-  const keys = Object.keys(form);
-  if (keys.some((key) => key !== 'file')) {
+  const keys = Object.keys(form).sort();
+  if (keys.length !== 2 || keys[0] !== 'externalId' || keys[1] !== 'file') {
     return sendError(c, ERROR_CODES.VALIDATION_INVALID_INPUT, HTTP_STATUS.BAD_REQUEST);
   }
+  const rawExternalId = form.externalId;
+  const externalId = typeof rawExternalId === 'string' ? parseGutenbergExternalId(rawExternalId) : null;
+  if (!externalId) {
+    return sendError(c, ERROR_CODES.DISCOVERY.GUTENBERG_IMPORT_ID_INVALID, HTTP_STATUS.BAD_REQUEST);
+  }
+
   const file = form.file;
   if (!file || typeof file !== 'object' || !('arrayBuffer' in file)) {
     return sendError(c, ERROR_CODES.UPLOAD.FILE_REQUIRED, HTTP_STATUS.BAD_REQUEST);
   }
   const sample = file as File;
-  if (!gutenbergSampleExternalId(sample.name)) {
-    return sendError(c, ERROR_CODES.DISCOVERY.GUTENBERG_IMPORT_NAME_INVALID, HTTP_STATUS.BAD_REQUEST);
+  if (!isEpubUploadFileName(sample.name)) {
+    return sendError(c, ERROR_CODES.DISCOVERY.GUTENBERG_IMPORT_FILE_INVALID, HTTP_STATUS.BAD_REQUEST);
   }
 
   const bytes = Buffer.from(await sample.arrayBuffer());
@@ -89,7 +98,7 @@ discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/import`, requireAdmi
   }
 
   try {
-    const result = await importProjectGutenbergSingleSample({ fileName: sample.name, bytes });
+    const result = await importProjectGutenbergSingleSample({ externalId, bytes });
     return c.json(discoveryGutenbergImportResultSchema.parse(result), HTTP_STATUS.CREATED);
   } catch (error) {
     // Upload bytes were memory-only; surface a sanitized summary only.

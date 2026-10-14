@@ -380,7 +380,8 @@
       "disabledSyncHint": "来源已停用，暂时无法手动同步。",
       "import": {
         "title": "导入单条样例",
-        "hint": "上传一个名为 pg<id>.epub 的样例 EPUB，仅导入一条记录。",
+        "hint": "上传一个样例 EPUB 并填写对应的数字 Gutenberg 电子书 ID，仅导入一条记录。文件名无需与 ID 一致。",
+        "idLabel": "Gutenberg 电子书 ID",
         "filePickerAria": "选择 Gutenberg 样例 EPUB 文件",
         "submit": "导入",
         "toastSuccess": "已导入 {title}。"
@@ -1385,7 +1386,8 @@
         "publicCategoryNameExists": "该语言下已存在同名分类",
         "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类",
         "gutenbergImportFailed": "单条 Gutenberg 导入未能完成：{reason}",
-        "gutenbergImportNameInvalid": "样例文件名必须为 pg<数字>.epub"
+        "gutenbergImportIdInvalid": "Gutenberg 电子书 ID 必须是正整数",
+        "gutenbergImportFileInvalid": "上传文件的扩展名必须是 .epub"
       }
     }
   }

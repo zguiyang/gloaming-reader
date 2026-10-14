@@ -25,10 +25,28 @@ export const GUTENBERG_SINGLE_RDF_MAX_BYTES = 8 * 1024 * 1024;
 /** Timeout for the single RDF fetch. */
 export const GUTENBERG_SINGLE_RDF_TIMEOUT_MS = 15_000;
 
-/** Strict `pg<digits>.epub` sample file-name contract; returns the external id. */
-const SAMPLE_FILE_NAME_PATTERN = /^pg(\d+)\.epub$/i;
-export function gutenbergSampleExternalId(fileName: string): string | null {
-  return SAMPLE_FILE_NAME_PATTERN.exec(fileName.trim())?.[1] ?? null;
+/** Numeric-only external id contract; filenames never carry identity. */
+const EXTERNAL_ID_PATTERN = /^\d+$/;
+/** Upper bound keeping the derived upstream RDF URL short and bounded. */
+export const GUTENBERG_EXTERNAL_ID_MAX_DIGITS = 10;
+
+/**
+ * Validates and normalizes the required numeric external id. Leading zeros are
+ * stripped so the id always maps to the one canonical upstream RDF document;
+ * returns null when the value is not a usable positive numeric id.
+ */
+export function parseGutenbergExternalId(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!EXTERNAL_ID_PATTERN.test(trimmed) || trimmed.length > GUTENBERG_EXTERNAL_ID_MAX_DIGITS) {
+    return null;
+  }
+  const normalized = trimmed.replace(/^0+(?=\d)/, '');
+  return normalized === '0' ? null : normalized;
+}
+
+/** Loose upload-name contract: any file name ending in `.epub`, case-insensitive. */
+export function isEpubUploadFileName(fileName: string): boolean {
+  return fileName.toLowerCase().endsWith('.epub');
 }
 
 /** Exact per-ebook RDF URL; never any other upstream path. */
@@ -49,17 +67,18 @@ export type GutenbergSingleImportResult = {
 
 /**
  * Bounded single-record Project Gutenberg import from an uploaded sample EPUB.
- * The uploaded bytes are parsed in memory only (never persisted) and must match
- * the single RDF record fetched for the id encoded in the file name. Metadata-
- * only on the discovery side: no ReadingWork is created.
+ * Identity comes solely from the caller-supplied numeric external id (never the
+ * file name). The uploaded bytes are parsed in memory only (never persisted)
+ * and must match the single RDF record fetched for that id. Metadata-only on
+ * the discovery side: no ReadingWork is created.
  */
 export async function importProjectGutenbergSingleSample(input: {
-  fileName: string;
+  externalId: string;
   bytes: Buffer;
 }): Promise<GutenbergSingleImportResult> {
-  const externalId = gutenbergSampleExternalId(input.fileName);
+  const externalId = parseGutenbergExternalId(input.externalId);
   if (!externalId) {
-    throw new GutenbergSnapshotError('the sample file name must be pg<digits>.epub');
+    throw new GutenbergSnapshotError('the external id must be a positive numeric Gutenberg ebook id');
   }
 
   // Memory-only EPUB verification; bytes are never persisted.
