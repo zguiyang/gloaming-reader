@@ -113,7 +113,12 @@ function LibraryTagsPageContent() {
       await refresh();
       toast.success(t(locale, 'content.library.tagRenamed'));
     },
-    onError: (error) => toast.error(formatLibraryApiError(error)),
+    // A later locale may fail after earlier ones persisted: refetch so the list matches
+    // persistence, but keep the user in edit mode with their input retained.
+    onError: async (error) => {
+      await refresh();
+      toast.error(formatLibraryApiError(error));
+    },
   });
 
   const completeTranslations = useMutation({
@@ -202,128 +207,140 @@ function LibraryTagsPageContent() {
         </p>
       ) : (
         <ul className="divide-y divide-border/50 rounded-xl border border-border/60 bg-card">
-          {tags.map((tag) => (
-            <li key={tag.id} className="flex min-h-16 items-center gap-3 px-4 py-3 sm:px-5">
-              {editingId === tag.id ? (
-                <form
-                  className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-end"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (Object.values(editingNames).some((name) => name.trim())) rename.mutate();
-                  }}
-                >
-                  <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
-                    {SUPPORTED_LOCALES.map((language) => (
-                      <label key={language} className="min-w-0 text-xs text-muted-foreground">
-                        <span>{language}</span>
-                        <Input
-                          autoFocus={language === locale}
-                          value={editingNames[language] ?? ''}
-                          maxLength={80}
-                          onChange={(event) => {
-                            const value = event.currentTarget.value;
-                            setEditingNames((current) => ({ ...current, [language]: value }));
-                          }}
-                          aria-label={`${t(locale, 'content.library.tagName')} (${language})`}
-                          disabled={isPending}
-                          className="mt-1 h-10 text-foreground"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                  <Button
-                    type="submit"
-                    variant="ghost"
-                    size="icon"
-                    className="size-11 shrink-0"
-                    aria-label={t(locale, 'content.library.save')}
-                    disabled={!Object.values(editingNames).some((name) => name.trim()) || isPending}
+          {tags.map((tag) => {
+            const hasInput = SUPPORTED_LOCALES.some((language) => (editingNames[language] ?? '').trim() !== '');
+            const hasClearedName = SUPPORTED_LOCALES.some(
+              (language) =>
+                (editingNames[language] ?? '').trim() === '' && Boolean(tag.localizedNames?.[language]?.trim()),
+            );
+            return (
+              <li key={tag.id} className="flex min-h-16 items-center gap-3 px-4 py-3 sm:px-5">
+                {editingId === tag.id ? (
+                  <form
+                    className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-end"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      // Clearing an existing locale name is not an implicit skip: ask for a name explicitly.
+                      if (hasClearedName) {
+                        toast.error(t(locale, 'content.library.tagNameRequired'));
+                        return;
+                      }
+                      if (hasInput) rename.mutate();
+                    }}
                   >
-                    <CheckIcon aria-hidden />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-11 shrink-0"
-                    aria-label={t(locale, 'content.library.cancel')}
-                    disabled={isPending}
-                    onClick={() => setEditingId(null)}
-                  >
-                    <XIcon aria-hidden />
-                  </Button>
-                </form>
-              ) : (
-                <>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={tagHref(tag.id)}
-                      className="flex min-h-8 items-center justify-between gap-3 rounded-md text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                    >
-                      <span className="min-w-0 truncate text-sm font-medium">{resolveUserTagName(tag, locale)}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {t(locale, 'content.library.usedInBooks', { count: tag.bookCount })}
-                      </span>
-                    </Link>
-                    <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                    <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                       {SUPPORTED_LOCALES.map((language) => (
-                        <span key={language}>
-                          {language}:{' '}
-                          {tag.localizedNames?.[language] ?? t(locale, 'content.library.tagTranslationsMissing')}
-                        </span>
+                        <label key={language} className="min-w-0 text-xs text-muted-foreground">
+                          <span>{language}</span>
+                          <Input
+                            autoFocus={language === locale}
+                            value={editingNames[language] ?? ''}
+                            maxLength={80}
+                            onChange={(event) => {
+                              const value = event.currentTarget.value;
+                              setEditingNames((current) => ({ ...current, [language]: value }));
+                            }}
+                            aria-label={`${t(locale, 'content.library.tagName')} (${language})`}
+                            disabled={isPending}
+                            className="mt-1 h-10 text-foreground"
+                          />
+                        </label>
                       ))}
                     </div>
-                  </div>
-                  {SUPPORTED_LOCALES.some((language) => isUserTagTranslationMissing(tag, language)) ? (
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="icon"
+                      className="size-11 shrink-0"
+                      aria-label={t(locale, 'content.library.save')}
+                      disabled={isPending || (!hasInput && !hasClearedName)}
+                    >
+                      <CheckIcon aria-hidden />
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       className="size-11 shrink-0"
-                      aria-label={`${t(locale, 'content.library.completeTagTranslations')}: ${tag.name}`}
+                      aria-label={t(locale, 'content.library.cancel')}
                       disabled={isPending}
-                      onClick={() => completeTranslations.mutate(tag.id)}
+                      onClick={() => setEditingId(null)}
                     >
-                      <LanguagesIcon aria-hidden />
+                      <XIcon aria-hidden />
                     </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-11 shrink-0"
-                    aria-label={`${t(locale, 'content.library.renameTag')}: ${tag.name}`}
-                    disabled={isPending}
-                    onClick={() => {
-                      setEditingId(tag.id);
-                      setEditingNames(
-                        Object.fromEntries(
-                          SUPPORTED_LOCALES.map((language) => [
-                            language,
-                            tag.localizedNames?.[language] ??
-                              (language === locale && !tag.sourceLocale ? tag.name : ''),
-                          ]),
-                        ),
-                      );
-                    }}
-                  >
-                    <PencilIcon aria-hidden />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-11 shrink-0 text-muted-foreground hover:text-destructive"
-                    aria-label={`${t(locale, 'content.library.deleteTag')}: ${tag.name}`}
-                    disabled={isPending}
-                    onClick={() => setDeletingTag(tag)}
-                  >
-                    <Trash2Icon aria-hidden />
-                  </Button>
-                </>
-              )}
-            </li>
-          ))}
+                  </form>
+                ) : (
+                  <>
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={tagHref(tag.id)}
+                        className="flex min-h-8 items-center justify-between gap-3 rounded-md text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                      >
+                        <span className="min-w-0 truncate text-sm font-medium">{resolveUserTagName(tag, locale)}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {t(locale, 'content.library.usedInBooks', { count: tag.bookCount })}
+                        </span>
+                      </Link>
+                      <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                        {SUPPORTED_LOCALES.map((language) => (
+                          <span key={language}>
+                            {language}:{' '}
+                            {tag.localizedNames?.[language] ?? t(locale, 'content.library.tagTranslationsMissing')}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {SUPPORTED_LOCALES.some((language) => isUserTagTranslationMissing(tag, language)) ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-11 shrink-0"
+                        aria-label={`${t(locale, 'content.library.completeTagTranslations')}: ${tag.name}`}
+                        disabled={isPending}
+                        onClick={() => completeTranslations.mutate(tag.id)}
+                      >
+                        <LanguagesIcon aria-hidden />
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-11 shrink-0"
+                      aria-label={`${t(locale, 'content.library.renameTag')}: ${tag.name}`}
+                      disabled={isPending}
+                      onClick={() => {
+                        setEditingId(tag.id);
+                        setEditingNames(
+                          Object.fromEntries(
+                            SUPPORTED_LOCALES.map((language) => [
+                              language,
+                              tag.localizedNames?.[language] ??
+                                (language === locale && !tag.sourceLocale ? tag.name : ''),
+                            ]),
+                          ),
+                        );
+                      }}
+                    >
+                      <PencilIcon aria-hidden />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-11 shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label={`${t(locale, 'content.library.deleteTag')}: ${tag.name}`}
+                      disabled={isPending}
+                      onClick={() => setDeletingTag(tag)}
+                    >
+                      <Trash2Icon aria-hidden />
+                    </Button>
+                  </>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 

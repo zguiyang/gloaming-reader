@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
   formatLibraryApiError: vi.fn((error: unknown) => String(error)),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+  toastInfo: vi.fn(),
   openLogin: vi.fn(),
   navigatePush: vi.fn(),
   navigateReplace: vi.fn(),
@@ -67,7 +68,7 @@ vi.mock('next/navigation', async (importOriginal) => {
     useSearchParams: () => mocks.searchParams,
   };
 });
-vi.mock('sonner', () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError, info: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError, info: mocks.toastInfo } }));
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -430,6 +431,162 @@ describe('LibraryPage', () => {
     expect(mocks.renameUserTag).toHaveBeenCalledWith('tag-one', '更新后的标签', 'zh-CN');
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['book-detail'] });
     view.cleanup();
+  });
+
+  it('partial rename failure refreshes to persisted state and keeps edits', async () => {
+    mocks.renameUserTag
+      .mockResolvedValueOnce({ id: 'tag-one', name: '最爱' })
+      .mockRejectedValueOnce(new Error('patch failed'));
+    const view = await renderTagManagement([
+      {
+        id: 'tag-one',
+        name: '喜欢',
+        localizedNames: { 'zh-CN': '喜欢', 'en-US': 'Like' },
+        sourceLocale: 'zh-CN',
+        userEditedLocales: ['zh-CN'],
+        bookCount: 1,
+      },
+    ]);
+    const invalidateQueries = vi.spyOn(view.client, 'invalidateQueries');
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="重命名: 喜欢"]') as HTMLButtonElement).click(),
+    );
+    await act(async () =>
+      updateInput(view.container.querySelector('input[aria-label="标签名称 (zh-CN)"]') as HTMLInputElement, '最爱'),
+    );
+    await act(async () =>
+      updateInput(view.container.querySelector('input[aria-label="标签名称 (en-US)"]') as HTMLInputElement, 'Favorite'),
+    );
+    await act(async () => (view.container.querySelector('li form button[type="submit"]') as HTMLButtonElement).click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    const editForm = view.container.querySelector('li form');
+    const zhValue = editForm?.querySelector<HTMLInputElement>('input[aria-label="标签名称 (zh-CN)"]')?.value;
+    const enValue = editForm?.querySelector<HTMLInputElement>('input[aria-label="标签名称 (en-US)"]')?.value;
+    view.cleanup();
+
+    expect(mocks.renameUserTag).toHaveBeenCalledWith('tag-one', '最爱', 'zh-CN');
+    expect(mocks.renameUserTag).toHaveBeenCalledWith('tag-one', 'Favorite', 'en-US');
+    expect(mocks.toastError).toHaveBeenCalledWith('Error: patch failed');
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library', 'tags'] });
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+
+    // Still in edit mode with the user's input retained, matching the partially persisted state.
+    expect(editForm).toBeTruthy();
+    expect(zhValue).toBe('最爱');
+    expect(enValue).toBe('Favorite');
+  });
+
+  it('rejects clearing an existing locale name with explicit validation', async () => {
+    const view = await renderTagManagement([
+      {
+        id: 'tag-one',
+        name: '喜欢',
+        localizedNames: { 'zh-CN': '喜欢' },
+        sourceLocale: 'zh-CN',
+        userEditedLocales: ['zh-CN'],
+        bookCount: 1,
+      },
+    ]);
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="重命名: 喜欢"]') as HTMLButtonElement).click(),
+    );
+    const zhInput = view.container.querySelector('input[aria-label="标签名称 (zh-CN)"]') as HTMLInputElement;
+    await act(async () => updateInput(zhInput, ''));
+
+    const save = view.container.querySelector('button[aria-label="保存"]') as HTMLButtonElement;
+    const isSaveDisabled = save.disabled;
+    await act(async () => save.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    const editFormAfterSubmit = view.container.querySelector('li form');
+    view.cleanup();
+
+    expect(isSaveDisabled).toBe(false);
+    expect(mocks.toastError).toHaveBeenCalledWith('请输入标签名称');
+    expect(mocks.renameUserTag).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(editFormAfterSubmit).toBeTruthy();
+  });
+
+  it('leaves a missing locale empty without validation errors', async () => {
+    const view = await renderTagManagement([
+      {
+        id: 'tag-one',
+        name: '喜欢',
+        localizedNames: { 'zh-CN': '喜欢' },
+        sourceLocale: 'zh-CN',
+        userEditedLocales: ['zh-CN'],
+        bookCount: 1,
+      },
+    ]);
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="重命名: 喜欢"]') as HTMLButtonElement).click(),
+    );
+    await act(async () =>
+      updateInput(view.container.querySelector('input[aria-label="标签名称 (zh-CN)"]') as HTMLInputElement, '最爱'),
+    );
+    await act(async () => (view.container.querySelector('li form button[type="submit"]') as HTMLButtonElement).click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(mocks.renameUserTag).toHaveBeenCalledTimes(1);
+    expect(mocks.renameUserTag).toHaveBeenCalledWith('tag-one', '最爱', 'zh-CN');
+    expect(mocks.renameUserTag).not.toHaveBeenCalledWith('tag-one', expect.anything(), 'en-US');
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已重命名');
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    view.cleanup();
+  });
+
+  it('reports translation outcomes without claiming the tag was not saved', async () => {
+    const view = await renderTagManagement([]);
+    mocks.completeUserTagTranslations.mockRejectedValueOnce(new Error('network'));
+    const createInput = view.container.querySelector('form input') as HTMLInputElement;
+    await act(async () => updateInput(createInput, '以后再读'));
+    const createButton = Array.from(view.container.querySelectorAll('button')).find(
+      (button) => button.textContent === '创建标签',
+    );
+    await act(async () => createButton?.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已创建');
+    expect(mocks.toastInfo).toHaveBeenCalledWith('多语言名称未补全');
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    view.cleanup();
+  });
+
+  it('surfaces completed, missing, provider-unavailable, and failed manual translation feedback', async () => {
+    const tag = {
+      id: 'tag-one',
+      name: '喜欢',
+      localizedNames: { 'zh-CN': '喜欢' },
+      sourceLocale: 'zh-CN',
+      userEditedLocales: ['zh-CN'],
+      bookCount: 1,
+    };
+    const infoCases = [
+      { status: 'completed', info: '多语言名称已补全' },
+      { status: 'incomplete', info: '多语言名称未补全' },
+      { status: 'provider_unavailable', info: '多语言名称未补全；请配置可用的 AI Provider。' },
+    ] as const;
+
+    for (const infoCase of infoCases) {
+      const view = await renderTagManagement([tag]);
+      const complete = view.container.querySelector('button[aria-label="补全名称: 喜欢"]') as HTMLButtonElement;
+      expect(complete).toBeTruthy();
+      mocks.completeUserTagTranslations.mockResolvedValueOnce({ status: infoCase.status, tag });
+      await act(async () => complete.click());
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+      expect(mocks.toastInfo).toHaveBeenCalledWith(infoCase.info);
+      expect(mocks.toastError).not.toHaveBeenCalled();
+      view.cleanup();
+    }
+
+    const failing = await renderTagManagement([tag]);
+    const complete = failing.container.querySelector('button[aria-label="补全名称: 喜欢"]') as HTMLButtonElement;
+    mocks.completeUserTagTranslations.mockRejectedValueOnce(new Error('x'));
+    await act(async () => complete.click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(mocks.toastError).toHaveBeenCalled();
+    failing.cleanup();
   });
 
   it('opens a tag result from its name and count while preserving the return Library source', async () => {
