@@ -10,11 +10,7 @@ import {
 import { parseEpub } from '@/domains/ingest/epub/opf/parse';
 import { rootLogger } from '@/infra/logging/logger';
 
-import {
-  PROJECT_GUTENBERG_SOURCE_KEY,
-  PROJECT_GUTENBERG_SOURCE_TYPE,
-  PROJECT_GUTENBERG_USER_AGENT,
-} from './constants';
+import { PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE, PROJECT_GUTENBERG_USER_AGENT } from './constants';
 import { GutenbergSnapshotError } from './errors';
 import { parseGutenbergRdf } from './rdf-parser';
 
@@ -55,7 +51,10 @@ export function gutenbergSingleRdfUrl(externalId: string): string {
 }
 
 function normalize(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 export type GutenbergSingleImportResult = {

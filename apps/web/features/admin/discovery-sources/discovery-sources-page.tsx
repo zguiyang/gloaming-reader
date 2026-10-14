@@ -108,9 +108,7 @@ export function DiscoverySourcesPage() {
     if (!file) return;
     try {
       const result = await importMutation.mutateAsync({ file, externalId: importExternalId.trim() });
-      toast.success(
-        t(locale, 'admin.discoverySources.import.toastSuccess', { title: result.title }),
-      );
+      toast.success(t(locale, 'admin.discoverySources.import.toastSuccess', { title: result.title }));
     } catch (error) {
       toast.error(formatDiscoverySourcesApiError(error) || operationFailed);
     } finally {
@@ -221,9 +219,7 @@ export function DiscoverySourcesPage() {
           <div className="flex flex-col gap-3 border-t pt-4">
             <div className="flex flex-col gap-1">
               <p className="text-sm font-medium">{t(locale, 'admin.discoverySources.import.title')}</p>
-              <p className="text-xs text-muted-foreground">
-                {t(locale, 'admin.discoverySources.import.hint')}
-              </p>
+              <p className="text-xs text-muted-foreground">{t(locale, 'admin.discoverySources.import.hint')}</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <input
@@ -247,9 +243,7 @@ export function DiscoverySourcesPage() {
               />
               <Button
                 onClick={() => void runImport()}
-                disabled={
-                  !importFileName || !isImportExternalIdValid || isSourceDisabled || importMutation.isPending
-                }
+                disabled={!importFileName || !isImportExternalIdValid || isSourceDisabled || importMutation.isPending}
               >
                 {importMutation.isPending ? <Spinner data-icon="inline-start" /> : <Upload data-icon="inline-start" />}
                 {t(locale, 'admin.discoverySources.import.submit')}

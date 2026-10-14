@@ -40,10 +40,7 @@ export async function triggerDiscoverySourceSync() {
 }
 
 /** Uploads one sample EPUB (multipart) with its numeric Gutenberg ID for a bounded single-record import. */
-export async function importDiscoverySample(
-  file: File,
-  externalId: string,
-): Promise<DiscoveryGutenbergImportResult> {
+export async function importDiscoverySample(file: File, externalId: string): Promise<DiscoveryGutenbergImportResult> {
   const formData = new FormData();
   formData.append('externalId', externalId);
   formData.append('file', file);

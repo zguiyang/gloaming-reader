@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  isEpubUploadFileName,
-  parseGutenbergExternalId,
-} from '@/domains/discovery/gutenberg/single-record';
+import { isEpubUploadFileName, parseGutenbergExternalId } from '@/domains/discovery/gutenberg/single-record';
 
 describe('parseGutenbergExternalId', () => {
   it('accepts a plain positive numeric id', () => {
