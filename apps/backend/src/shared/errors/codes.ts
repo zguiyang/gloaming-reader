@@ -130,6 +130,7 @@ export const ERROR_CODES = {
   DISCOVERY: {
     PUBLIC_CATEGORY_NAME_EXISTS: 'api.errors.discovery.publicCategoryNameExists',
     PUBLIC_CATEGORY_LIMIT_EXCEEDED: 'api.errors.discovery.publicCategoryLimitExceeded',
+    PUBLIC_CATEGORY_HAS_ASSIGNMENTS: 'api.errors.discovery.publicCategoryHasAssignments',
     GUTENBERG_IMPORT_FAILED: 'api.errors.discovery.gutenbergImportFailed',
     GUTENBERG_IMPORT_ID_INVALID: 'api.errors.discovery.gutenbergImportIdInvalid',
     GUTENBERG_IMPORT_FILE_INVALID: 'api.errors.discovery.gutenbergImportFileInvalid',

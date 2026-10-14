@@ -6,6 +6,7 @@ import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
 import {
   assignCategoryToSourceRecord,
   createManagedCategory,
+  deleteManagedCategory,
   listManagedCategories,
   listManagedCategorySourceRecords,
   unassignCategoryFromSourceRecord,
@@ -131,6 +132,12 @@ discoveryAdminRoutes.get(CATEGORIES_PATH, requireAdmin, async (c) => {
 
 discoveryAdminRoutes.post(CATEGORIES_PATH, requireAdmin, validateManagedCategoryWrite, async (c) => {
   return c.json(await createManagedCategory(c.req.valid('json')), HTTP_STATUS.CREATED);
+});
+
+/** Hard delete of an unused category; 409 while any SourceRecord is still assigned. */
+discoveryAdminRoutes.delete(`${CATEGORIES_PATH}/:categoryId`, requireAdmin, async (c) => {
+  await deleteManagedCategory(c.req.param('categoryId'));
+  return c.body(null, HTTP_STATUS.NO_CONTENT);
 });
 
 /** Create or edit one localized label; reuses the existing category on collision. */

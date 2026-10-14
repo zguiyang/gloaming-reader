@@ -14,6 +14,7 @@ import {
   isAssignmentSearchReady,
   normalizeAssignmentSearchTerm,
   PUBLIC_CATEGORY_ASSIGNMENT_SEARCH_SIZE,
+  PUBLIC_CATEGORY_HAS_ASSIGNMENTS_CODE,
   PUBLIC_CATEGORY_LIMIT_EXCEEDED_CODE,
   PUBLIC_CATEGORY_NAME_EXISTS_CODE,
   PUBLIC_CATEGORY_RECORD_PAGE_SIZE,
@@ -147,6 +148,14 @@ export async function unassignCategoryFromSourceRecord(sourceRecordId: string, c
   );
 }
 
+/** Hard delete of one unused category; the backend rejects a category that is still assigned. */
+export async function deleteManagedCategory(categoryId: string): Promise<void> {
+  await apiRequest(`${CATEGORIES_PATH}/${encodeURIComponent(categoryId)}`, {
+    method: 'DELETE',
+    schema: z.void(),
+  });
+}
+
 /** True when a create/PATCH label collides with another category in the same locale. */
 export function isCategoryNameCollisionError(error: unknown): boolean {
   return error instanceof ApiRequestError && error.code === PUBLIC_CATEGORY_NAME_EXISTS_CODE;
@@ -155,6 +164,11 @@ export function isCategoryNameCollisionError(error: unknown): boolean {
 /** True when the SourceRecord already holds the maximum number of categories. */
 export function isCategoryAssignmentLimitError(error: unknown): boolean {
   return error instanceof ApiRequestError && error.code === PUBLIC_CATEGORY_LIMIT_EXCEEDED_CODE;
+}
+
+/** True when the delete was refused because SourceRecords are still assigned to the category. */
+export function isCategoryHasAssignmentsError(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.code === PUBLIC_CATEGORY_HAS_ASSIGNMENTS_CODE;
 }
 
 export function useManagedCategoriesQuery() {
@@ -224,6 +238,16 @@ export function useUnassignCategoryMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.recordsAll() });
       void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.candidatesAll() });
+      void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.list() });
+    },
+  });
+}
+
+export function useDeleteManagedCategoryMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (categoryId: string) => deleteManagedCategory(categoryId),
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.list() });
     },
   });

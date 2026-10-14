@@ -48,6 +48,7 @@ export {
 export {
   assignCategoryToSourceRecord,
   createManagedCategory,
+  deleteManagedCategory,
   getPublicCategory,
   listManagedCategories,
   listManagedCategorySourceRecords,

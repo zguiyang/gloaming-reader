@@ -18,7 +18,9 @@ import {
   buildAssignmentCandidateQuery,
   buildCategoryRecordListQuery,
   createManagedCategory,
+  deleteManagedCategory,
   isCategoryAssignmentLimitError,
+  isCategoryHasAssignmentsError,
   isCategoryNameCollisionError,
   listCategorySourceRecords,
   listManagedCategories,
@@ -29,6 +31,7 @@ import {
 } from '@/features/admin/public-categories/public-categories-api';
 import {
   PUBLIC_CATEGORY_ASSIGNMENT_SEARCH_SIZE,
+  PUBLIC_CATEGORY_HAS_ASSIGNMENTS_CODE,
   PUBLIC_CATEGORY_LIMIT_EXCEEDED_CODE,
   PUBLIC_CATEGORY_NAME_EXISTS_CODE,
   PUBLIC_CATEGORY_RECORD_PAGE_SIZE,
@@ -131,6 +134,15 @@ describe('category API clients', () => {
     expect(options.schema).toBeDefined();
   });
 
+  it('hard-deletes one category with DELETE and no body', async () => {
+    await deleteManagedCategory('cat/1');
+    const [path, options] = callArgs();
+    expect(path).toBe('/api/admin/discovery/categories/cat%2F1');
+    expect(options.method).toBe('DELETE');
+    expect(options.json).toBeUndefined();
+    expect(options.schema).toBeDefined();
+  });
+
   it('exposes stable query keys for list, records, and candidates', () => {
     expect(publicCategoriesQueryKey.list()).toEqual(['admin', 'public-categories', 'list']);
     expect(publicCategoriesQueryKey.records('cat-1', { page: 1 })).toEqual([
@@ -163,6 +175,17 @@ describe('category error classification', () => {
     });
     expect(isCategoryAssignmentLimitError(error)).toBe(true);
     expect(isCategoryNameCollisionError(error)).toBe(false);
+  });
+
+  it('detects the still-assigned delete refusal code', () => {
+    const error = new ApiRequestError({
+      message: 'assigned',
+      status: 409,
+      code: PUBLIC_CATEGORY_HAS_ASSIGNMENTS_CODE,
+    });
+    expect(isCategoryHasAssignmentsError(error)).toBe(true);
+    expect(isCategoryHasAssignmentsError(new Error('other'))).toBe(false);
+    expect(isCategoryAssignmentLimitError(error)).toBe(false);
   });
 });
 
