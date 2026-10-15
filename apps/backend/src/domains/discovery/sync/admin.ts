@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import type { DiscoverySourceStatus, DiscoverySyncAccepted } from '@gloaming/shared/discovery';
 
 import { JOB_DISCOVERY_SYNC } from '@/application/jobs/discovery-sync';
@@ -28,23 +26,38 @@ const STALE_QUEUED_ERROR_SUMMARY = 'the Project Gutenberg metadata sync was queu
 const STALE_SYNCING_ERROR_SUMMARY = 'the Project Gutenberg metadata sync exceeded its time limit';
 
 /**
- * True when a queue job still represents the source's `queued` claim, i.e. a
- * worker is waiting/delayed/active/prioritized with this sourceKey and job name.
- * States are limited to what the installed BullMQ `JobType` accepts: v6 removed
- * `paused` from the type, and this queue is never paused anyway. `prioritized`
- * is BullMQ's own state for priority-ordered jobs, not a substitute for
- * `paused`. On any queue/Redis error
- * this fails safe by reporting `true`: when liveness cannot be verified, a
- * queued claim is never declared failed.
+ * Deterministic queue job id for one queued Gutenberg sync claim: derived only
+ * from the source key and the claim token (`syncStartedAt`), so a status read
+ * can fetch exactly the job that owns the claim. Hyphen-separated epoch
+ * milliseconds and deliberately free of `:`, which BullMQ uses as a Redis key
+ * separator.
+ */
+export function discoverySyncJobId(sourceKey: string, claimedAt: Date): string {
+  return `${JOB_DISCOVERY_SYNC}-${sourceKey}-${claimedAt.getTime()}`;
+}
+
+/**
+ * True when the queue job owning the source's `queued` claim still exists and
+ * has not reached a terminal state. The lookup is a direct `getJob()` by the
+ * claim's deterministic id — never a bounded `getJobs()` scan, so a live job
+ * cannot be pushed out of a page window by newer jobs. A job held by a paused
+ * queue reports state `waiting`, so it counts as live; any state other than
+ * `completed`/`failed` is conservatively treated as live. On any queue/Redis
+ * error this fails safe by reporting `true`: when liveness cannot be verified,
+ * a queued claim is never declared failed.
  */
 async function hasLiveQueuedJob(source: DiscoverySourceRow): Promise<boolean> {
   try {
-    const jobs = await getQueue().getJobs(['waiting', 'delayed', 'active', 'prioritized'], 0, 100);
-    return jobs.some(
-      (job) =>
-        job.name === JOB_DISCOVERY_SYNC &&
-        (job.data as { sourceKey?: string } | undefined)?.sourceKey === source.sourceKey,
-    );
+    if (!source.syncStartedAt) {
+      // No persisted claim token: no job can own this claim.
+      return false;
+    }
+    const job = await getQueue().getJob(discoverySyncJobId(source.sourceKey, source.syncStartedAt));
+    if (!job) {
+      return false;
+    }
+    const state = await job.getState();
+    return state !== 'completed' && state !== 'failed';
   } catch (error) {
     logger.warn(
       { err: error, sourceKey: source.sourceKey },
@@ -151,7 +164,7 @@ export async function requestProjectGutenbergSync(): Promise<DiscoverySyncAccept
     await enqueue(
       JOB_DISCOVERY_SYNC,
       { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: claimedAt.toISOString() },
-      { attempts: 1, jobId: `${JOB_DISCOVERY_SYNC}:${PROJECT_GUTENBERG_SOURCE_KEY}:${randomUUID()}` },
+      { attempts: 1, jobId: discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claimedAt) },
     );
   } catch {
     // Sanitized summary only: enqueue failures may carry connection details.

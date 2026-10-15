@@ -94,6 +94,20 @@ async function discoverySyncJobCount(): Promise<number> {
   return jobs.filter((job) => job.name === JOB_DISCOVERY_SYNC && (job.timestamp ?? 0) >= testStartedAt).length;
 }
 
+/**
+ * Full-range discovery-sync job count: `getJobs(..., 0, -1)` reads each state
+ * end to end, unlike the windowed helpers above, so a job pushed past the
+ * 0..100 page by newer jobs is still counted.
+ */
+async function discoverySyncJobCountFull(): Promise<number> {
+  const jobs = await getQueue().getJobs(
+    ['waiting', 'delayed', 'paused', 'active', 'completed', 'failed', 'prioritized'],
+    0,
+    -1,
+  );
+  return jobs.filter((job) => job.name === JOB_DISCOVERY_SYNC && (job.timestamp ?? 0) >= testStartedAt).length;
+}
+
 describe('Admin DiscoverySource controls', () => {
   let adminCookie = '';
   let userCookie = '';
@@ -380,5 +394,109 @@ describe('Admin DiscoverySource controls', () => {
 
     const second = await app.request(`${SOURCE_PATH}/sync`, { method: 'POST', headers: { cookie: adminCookie } });
     expect(discoverySyncTriggerResultSchema.parse(await second.json())).toEqual({ result: 'already_running' });
+  });
+
+  it('keeps a queued claim live when newer jobs push its job out of the getJobs window', async () => {
+    await resetSourceToIdle();
+    const fillerPrefix = `test-filler-${Date.now()}`;
+    const fillerIds: string[] = [];
+    try {
+      const first = await app.request(`${SOURCE_PATH}/sync`, { method: 'POST', headers: { cookie: adminCookie } });
+      expect(first.status).toBe(HTTP_STATUS.ACCEPTED);
+      expect(discoverySyncTriggerResultSchema.parse(await first.json())).toEqual({ result: 'queued' });
+      expect(await discoverySyncJobCountFull()).toBe(1);
+
+      // New jobs are LPUSHed to the head of the wait list, so 110 filler jobs
+      // added after the claim's job push it past the getJobs(0..100) window.
+      for (let i = 0; i < 110; i += 1) {
+        const jobId = `${fillerPrefix}-${i}`;
+        fillerIds.push(jobId);
+        await getQueue().add('test-filler', { i }, { jobId });
+      }
+
+      // Age the queued claim past the stale threshold while its job still waits.
+      await db
+        .update(discoverySourceTable)
+        .set({ updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000) })
+        .where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY));
+
+      const status = await app.request(SOURCE_PATH, { headers: { cookie: adminCookie } });
+      expect(discoverySourceStatusSchema.parse(await status.json()).syncStatus).toBe('queued');
+
+      const second = await app.request(`${SOURCE_PATH}/sync`, { method: 'POST', headers: { cookie: adminCookie } });
+      expect(second.status).toBe(HTTP_STATUS.OK);
+      expect(discoverySyncTriggerResultSchema.parse(await second.json())).toEqual({ result: 'already_running' });
+      expect(await discoverySyncJobCountFull()).toBe(1);
+    } finally {
+      // Only remove what this test created; never flush Redis.
+      for (const jobId of fillerIds) {
+        const job = await getQueue().getJob(jobId);
+        if (job) {
+          await job.remove().catch(() => undefined);
+        }
+      }
+      await removeDiscoverySyncJobs();
+      await resetSourceToIdle();
+    }
+  });
+
+  it('keeps a queued claim live while the queue is paused', async () => {
+    await resetSourceToIdle();
+    try {
+      await getQueue().pause();
+      const first = await app.request(`${SOURCE_PATH}/sync`, { method: 'POST', headers: { cookie: adminCookie } });
+      expect(first.status).toBe(HTTP_STATUS.ACCEPTED);
+      expect(discoverySyncTriggerResultSchema.parse(await first.json())).toEqual({ result: 'queued' });
+
+      await db
+        .update(discoverySourceTable)
+        .set({ updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000) })
+        .where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY));
+
+      const status = await app.request(SOURCE_PATH, { headers: { cookie: adminCookie } });
+      expect(discoverySourceStatusSchema.parse(await status.json()).syncStatus).toBe('queued');
+    } finally {
+      await getQueue().resume();
+      await removeDiscoverySyncJobs();
+      await resetSourceToIdle();
+    }
+  });
+
+  it('derives a deterministic colon-free queue job id per claim token', async () => {
+    const { discoverySyncJobId } = await import('@/domains/discovery/sync/admin');
+    const claim = new Date(testStartedAt);
+    const otherClaim = new Date(testStartedAt + 1);
+    expect(discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claim)).toBe(
+      discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claim),
+    );
+    expect(discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claim)).not.toBe(
+      discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, otherClaim),
+    );
+    expect(discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claim)).not.toContain(':');
+
+    await resetSourceToIdle();
+    try {
+      const trigger = await app.request(`${SOURCE_PATH}/sync`, { method: 'POST', headers: { cookie: adminCookie } });
+      expect(trigger.status).toBe(HTTP_STATUS.ACCEPTED);
+      expect(discoverySyncTriggerResultSchema.parse(await trigger.json())).toEqual({ result: 'queued' });
+
+      const [row] = await db
+        .select({ syncStartedAt: discoverySourceTable.syncStartedAt })
+        .from(discoverySourceTable)
+        .where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY))
+        .limit(1);
+      const claimedAt = row?.syncStartedAt;
+      expect(claimedAt).toBeInstanceOf(Date);
+      if (!claimedAt) {
+        throw new Error('expected the queued claim to persist syncStartedAt');
+      }
+
+      const job = await getQueue().getJob(discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claimedAt));
+      expect(job).not.toBeNull();
+      expect(job?.name).toBe(JOB_DISCOVERY_SYNC);
+    } finally {
+      await removeDiscoverySyncJobs();
+      await resetSourceToIdle();
+    }
   });
 });

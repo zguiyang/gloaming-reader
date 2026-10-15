@@ -204,7 +204,13 @@ async function consumeSnapshot(
       sourceId,
       records.map((record) => record.externalId),
     );
+    // Guard: the evidence read awaits I/O; a run aborted during it must not
+    // proceed to write the batch.
+    throwIfRunAborted(signal);
     const upserted = await upsertSourceRecords(sourceId, records, observedAt);
+    // Guard: likewise, no classification bookkeeping after an abort that fired
+    // while the upsert was in flight.
+    throwIfRunAborted(signal);
     await registerIncrementalClassification(records, upserted, previousEvidence);
     seenRecords += records.length;
     batches += 1;

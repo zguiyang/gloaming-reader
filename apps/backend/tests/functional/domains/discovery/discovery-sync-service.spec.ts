@@ -14,6 +14,7 @@ import {
 import { discoverySource as discoverySourceTable, sourceRecord as sourceRecordTable } from '@gloaming/db/schema';
 
 import { JOB_DISCOVERY_SYNC, processDiscoverySync } from '@/application/jobs/discovery-sync';
+import type * as DiscoveryCategories from '@/domains/discovery/categories';
 import {
   PROJECT_GUTENBERG_RDF_SNAPSHOT_URL,
   PROJECT_GUTENBERG_SOURCE_KEY,
@@ -22,6 +23,7 @@ import {
 } from '@/domains/discovery/gutenberg/constants';
 import { GutenbergSnapshotError } from '@/domains/discovery/gutenberg/errors';
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
+import type * as SyncRepository from '@/domains/discovery/sync/repository';
 import {
   claimSourceQueued,
   ensureDiscoverySource,
@@ -38,6 +40,72 @@ const snapshotMocks = vi.hoisted(() => ({ open: vi.fn() }));
 vi.mock('@/domains/discovery/gutenberg/snapshot-stream', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return { ...actual, openGutenbergSnapshot: snapshotMocks.open };
+});
+
+/**
+ * Controllable gate + write counters for the flushBatch abort regression.
+ * The repository/categories modules are only wrapped (partial mock): every
+ * call still runs the real implementation, so existing cases are unaffected.
+ */
+const flushGate = vi.hoisted(() => ({
+  gate: null as Promise<void> | null,
+  onEvidenceReached: null as null | (() => void),
+  evidenceCalls: 0,
+  upsertCalls: 0,
+  reconcileCalls: 0,
+  succeededCalls: 0,
+  classificationCalls: 0,
+  reset() {
+    this.gate = null;
+    this.onEvidenceReached = null;
+    this.evidenceCalls = 0;
+    this.upsertCalls = 0;
+    this.reconcileCalls = 0;
+    this.succeededCalls = 0;
+    this.classificationCalls = 0;
+  },
+}));
+
+vi.mock('@/domains/discovery/sync/repository', async (importOriginal) => {
+  const actual = await importOriginal<typeof SyncRepository>();
+  return {
+    ...actual,
+    loadClassificationEvidenceByExternalId: async (sourceId: string, externalIds: string[]) => {
+      flushGate.evidenceCalls += 1;
+      const gate = flushGate.gate;
+      const reached = flushGate.onEvidenceReached;
+      flushGate.gate = null;
+      flushGate.onEvidenceReached = null;
+      reached?.();
+      if (gate) await gate;
+      return actual.loadClassificationEvidenceByExternalId(sourceId, externalIds);
+    },
+    upsertSourceRecords: (...args: Parameters<typeof actual.upsertSourceRecords>) => {
+      flushGate.upsertCalls += 1;
+      return actual.upsertSourceRecords(...args);
+    },
+    reconcileUnavailableRecords: (...args: Parameters<typeof actual.reconcileUnavailableRecords>) => {
+      flushGate.reconcileCalls += 1;
+      return actual.reconcileUnavailableRecords(...args);
+    },
+    markSourceSucceeded: (...args: Parameters<typeof actual.markSourceSucceeded>) => {
+      flushGate.succeededCalls += 1;
+      return actual.markSourceSucceeded(...args);
+    },
+  };
+});
+
+vi.mock('@/domains/discovery/categories', async (importOriginal) => {
+  const actual = await importOriginal<typeof DiscoveryCategories>();
+  return {
+    ...actual,
+    recordPublicClassificationEvidenceBatch: (
+      ...args: Parameters<typeof actual.recordPublicClassificationEvidenceBatch>
+    ) => {
+      flushGate.classificationCalls += 1;
+      return actual.recordPublicClassificationEvidenceBatch(...args);
+    },
+  };
 });
 
 const runId = randomUUID();
@@ -496,5 +564,45 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
 
     expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes('gutenberg.org'))).toHaveLength(0);
     fetchSpy.mockRestore();
+  });
+
+  it('writes nothing more in flushBatch when the run aborts while classification evidence loads', async () => {
+    flushGate.reset();
+
+    // Gate the pre-upsert evidence read: the first flushBatch blocks here.
+    let releaseGate!: () => void;
+    let markReached!: () => void;
+    flushGate.gate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+    const evidenceReached = new Promise<void>((resolve) => {
+      markReached = resolve;
+    });
+    flushGate.onEvidenceReached = markReached;
+
+    snapshotMocks.open.mockResolvedValue(fakeSnapshot(records(3)));
+    const claimedAt = await claimQueued();
+    const controller = new AbortController();
+
+    const runPromise = syncProjectGutenbergMetadata({ claimedAt, signal: controller.signal });
+    await evidenceReached;
+    // Simulate the sync time limit firing mid-flush, then let the evidence
+    // read complete so the code path continues into the guarded section.
+    controller.abort();
+    releaseGate();
+
+    const result = await runPromise;
+
+    expect(result).toEqual({ status: 'failed', errorSummary: TIMEOUT_SUMMARY });
+    // The abort must fence every remaining write in flushBatch and beyond:
+    // no upsert, no incremental classification, no reconciliation, no success.
+    expect(flushGate.evidenceCalls).toBeGreaterThan(0);
+    expect(flushGate.upsertCalls).toBe(0);
+    expect(flushGate.classificationCalls).toBe(0);
+    expect(flushGate.reconcileCalls).toBe(0);
+    expect(flushGate.succeededCalls).toBe(0);
+    expect(await ownedRecordCount()).toBe(0);
+    const source = await sourceRow();
+    expect(source).toMatchObject({ syncStatus: 'failed', lastErrorSummary: TIMEOUT_SUMMARY });
   });
 });
