@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, count, eq, inArray, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 
 import type { SourceRecordAuthor, SourceRecordSourceMeta } from '@gloaming/db/schema';
 import { discoverySource, sourceRecord } from '@gloaming/db/schema';
@@ -32,14 +32,20 @@ export async function countSourceRecords(sourceId: string): Promise<number> {
 
 /**
  * Atomically claims a manual sync by moving a non-pending, enabled source to `queued`.
- * Returns false when a run is already queued/syncing or when the source is disabled,
- * so a repeated trigger cannot enqueue a duplicate concurrent snapshot sync and a
- * disabled source cannot be newly claimed.
+ * The returned Date is the claim's generation token: it is written to
+ * `syncStartedAt`, and every later transition of this claim (`startSourceSyncing`,
+ * `releaseSourceQueued`, `failQueuedClaim`) must present it again, so a job
+ * holding a stale claim from a previous generation can never act on a row that
+ * has since been recovered and re-claimed. Returns null when a run is already
+ * queued/syncing or when the source is disabled, so a repeated trigger cannot
+ * enqueue a duplicate concurrent snapshot sync and a disabled source cannot be
+ * newly claimed.
  */
-export async function claimSourceQueued(sourceId: string): Promise<boolean> {
+export async function claimSourceQueued(sourceId: string): Promise<Date | null> {
+  const claimedAt = new Date();
   const result = await db
     .update(discoverySource)
-    .set({ syncStatus: 'queued', syncStartedAt: null, lastErrorSummary: null })
+    .set({ syncStatus: 'queued', syncStartedAt: claimedAt, lastErrorSummary: null })
     .where(
       and(
         eq(discoverySource.id, sourceId),
@@ -47,20 +53,28 @@ export async function claimSourceQueued(sourceId: string): Promise<boolean> {
         notInArray(discoverySource.syncStatus, ['queued', 'syncing']),
       ),
     );
-  return (result.rowCount ?? 0) > 0;
+  return (result.rowCount ?? 0) > 0 ? claimedAt : null;
 }
 
 /**
  * Clears a queued claim without running upstream, e.g. when the source was disabled
  * between enqueue and execution. Leaves the source `idle`; it is not an upstream
- * failure, so no error summary is recorded. Only releases a still-queued row, and
- * preserves the previous `syncFinishedAt` so Admin "Last sync" stays meaningful.
+ * failure, so no error summary is recorded. Owner-guarded by the claim token
+ * (`queued` + `syncStartedAt = claimedAt`), so an executor from an older
+ * generation cannot release a newer claim. Preserves the previous
+ * `syncFinishedAt` so Admin "Last sync" stays meaningful.
  */
-export async function releaseSourceQueued(sourceId: string): Promise<void> {
+export async function releaseSourceQueued(sourceId: string, claimedAt: Date): Promise<void> {
   await db
     .update(discoverySource)
     .set({ syncStatus: 'idle', syncStartedAt: null, lastErrorSummary: null })
-    .where(and(eq(discoverySource.id, sourceId), eq(discoverySource.syncStatus, 'queued')));
+    .where(
+      and(
+        eq(discoverySource.id, sourceId),
+        eq(discoverySource.syncStatus, 'queued'),
+        eq(discoverySource.syncStartedAt, claimedAt),
+      ),
+    );
 }
 
 /** Persists the admin enable/disable flag and returns the updated source row. */
@@ -76,12 +90,19 @@ export type StartSourceSyncOutcome = 'started' | 'disabled' | 'not-queued';
 
 /**
  * Atomically starts a previously queued run. The single UPDATE matches
- * `enabled = true` and `syncStatus = 'queued'` together, so a source disabled
- * after queueing — or a job that no longer owns the queued claim — cannot begin
- * fetching. A failed transition reports whether the source is disabled or simply
- * no longer queued, without writing an error summary.
+ * `enabled = true`, `syncStatus = 'queued'` and the claim generation token
+ * `syncStartedAt = claimedAt` together, so a source disabled after queueing — or
+ * a job whose claim belongs to an older, already recovered generation — cannot
+ * begin fetching. On success the row's `syncStartedAt` becomes `startedAt`, the
+ * run token that fences every terminal write of this run. A failed transition
+ * reports whether the source is disabled or simply no longer queued, without
+ * writing an error summary.
  */
-export async function startSourceSyncing(sourceId: string, startedAt: Date): Promise<StartSourceSyncOutcome> {
+export async function startSourceSyncing(
+  sourceId: string,
+  claimedAt: Date,
+  startedAt: Date,
+): Promise<StartSourceSyncOutcome> {
   const result = await db
     .update(discoverySource)
     .set({ syncStatus: 'syncing', syncStartedAt: startedAt, lastErrorSummary: null })
@@ -90,6 +111,7 @@ export async function startSourceSyncing(sourceId: string, startedAt: Date): Pro
         eq(discoverySource.id, sourceId),
         eq(discoverySource.enabled, true),
         eq(discoverySource.syncStatus, 'queued'),
+        eq(discoverySource.syncStartedAt, claimedAt),
       ),
     );
   if ((result.rowCount ?? 0) > 0) {
@@ -103,12 +125,21 @@ export async function startSourceSyncing(sourceId: string, startedAt: Date): Pro
     .limit(1);
   return row && !row.enabled ? 'disabled' : 'not-queued';
 }
+
+/**
+ * Reports a successful run. Fenced by generation: the UPDATE only applies while
+ * the row still shows `syncing` with `syncStartedAt = runStartedAt` (the run
+ * token captured when the run started), so a late success from an executor whose
+ * run was recovered or replaced is a no-op instead of overwriting the current
+ * run's state. Returns false when ownership was lost.
+ */
 export async function markSourceSucceeded(input: {
   sourceId: string;
   lastModified: string | null;
   finishedAt: Date;
-}): Promise<void> {
-  await db
+  runStartedAt: Date;
+}): Promise<boolean> {
+  const result = await db
     .update(discoverySource)
     .set({
       syncStatus: 'succeeded',
@@ -117,22 +148,130 @@ export async function markSourceSucceeded(input: {
       lastErrorSummary: null,
       ...(input.lastModified ? { snapshotLastModified: input.lastModified } : {}),
     })
-    .where(eq(discoverySource.id, input.sourceId));
+    .where(
+      and(
+        eq(discoverySource.id, input.sourceId),
+        eq(discoverySource.syncStatus, 'syncing'),
+        eq(discoverySource.syncStartedAt, input.runStartedAt),
+      ),
+    );
+  return (result.rowCount ?? 0) > 0;
 }
 
+/**
+ * Reports a failed run. Fenced by generation exactly like
+ * {@link markSourceSucceeded}: only the current `syncing` run identified by
+ * `runStartedAt` may record the failure, so a late error from a replaced
+ * executor cannot overwrite the newer run's state. Returns false when
+ * ownership was lost.
+ */
 export async function markSourceFailed(input: {
   sourceId: string;
   errorSummary: string;
   finishedAt: Date;
-}): Promise<void> {
-  await db
+  runStartedAt: Date;
+}): Promise<boolean> {
+  const result = await db
     .update(discoverySource)
     .set({
       syncStatus: 'failed',
       syncFinishedAt: input.finishedAt,
       lastErrorSummary: input.errorSummary.slice(0, 500),
     })
-    .where(eq(discoverySource.id, input.sourceId));
+    .where(
+      and(
+        eq(discoverySource.id, input.sourceId),
+        eq(discoverySource.syncStatus, 'syncing'),
+        eq(discoverySource.syncStartedAt, input.runStartedAt),
+      ),
+    );
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Records an enqueue-stage failure for a claim that never started running.
+ * Owner-guarded by the claim token (`queued` + `syncStartedAt = claimedAt`), so
+ * it can only fail the exact claim the caller issued and never overwrites a row
+ * that has already advanced to another run. Returns false when ownership was
+ * lost.
+ */
+export async function failQueuedClaim(
+  sourceId: string,
+  claimedAt: Date,
+  errorSummary: string,
+  finishedAt: Date,
+): Promise<boolean> {
+  const result = await db
+    .update(discoverySource)
+    .set({
+      syncStatus: 'failed',
+      syncFinishedAt: finishedAt,
+      lastErrorSummary: errorSummary.slice(0, 500),
+    })
+    .where(
+      and(
+        eq(discoverySource.id, sourceId),
+        eq(discoverySource.syncStatus, 'queued'),
+        eq(discoverySource.syncStartedAt, claimedAt),
+      ),
+    );
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Marks a lost `queued`/`syncing` run as failed so the source cannot stay stuck
+ * forever after a worker crash. Both transitions are single conditional UPDATEs
+ * bound to the current status plus an age threshold, so a fresh queued claim or
+ * a live run that is still within its limits is never misjudged, and the row can
+ * be re-claimed only after this recovery has recorded the timeout failure.
+ * Returns the updated row when a stale run was recovered, otherwise null.
+ */
+export async function recoverStaleSourceRun(input: {
+  sourceId: string;
+  now: Date;
+  queuedStaleAfterMs: number;
+  syncingStaleAfterMs: number;
+  queuedErrorSummary: string;
+  syncingErrorSummary: string;
+}): Promise<DiscoverySourceRow | null> {
+  const queuedBefore = new Date(input.now.getTime() - input.queuedStaleAfterMs);
+  const recoveredQueued = await db
+    .update(discoverySource)
+    .set({
+      syncStatus: 'failed',
+      syncFinishedAt: input.now,
+      lastErrorSummary: input.queuedErrorSummary.slice(0, 500),
+    })
+    .where(
+      and(
+        eq(discoverySource.id, input.sourceId),
+        eq(discoverySource.syncStatus, 'queued'),
+        lt(discoverySource.updatedAt, queuedBefore),
+      ),
+    )
+    .returning();
+  if (recoveredQueued[0]) {
+    return recoveredQueued[0];
+  }
+
+  const syncingBefore = new Date(input.now.getTime() - input.syncingStaleAfterMs);
+  const recoveredSyncing = await db
+    .update(discoverySource)
+    .set({
+      syncStatus: 'failed',
+      syncFinishedAt: input.now,
+      lastErrorSummary: input.syncingErrorSummary.slice(0, 500),
+    })
+    .where(
+      and(
+        eq(discoverySource.id, input.sourceId),
+        eq(discoverySource.syncStatus, 'syncing'),
+        isNotNull(discoverySource.syncStartedAt),
+        lt(discoverySource.syncStartedAt, syncingBefore),
+      ),
+    )
+    .returning();
+  return recoveredSyncing[0] ?? null;
 }
 
 /**

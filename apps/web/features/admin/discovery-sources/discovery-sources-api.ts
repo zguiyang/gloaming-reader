@@ -1,8 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  type DiscoveryGutenbergImportResult,
-  discoveryGutenbergImportResultSchema,
   type DiscoverySourceStatus,
   discoverySourceStatusSchema,
   discoverySyncTriggerResultSchema,
@@ -39,18 +37,6 @@ export async function triggerDiscoverySourceSync() {
   });
 }
 
-/** Uploads one sample EPUB (multipart) with its numeric Gutenberg ID for a bounded single-record import. */
-export async function importDiscoverySample(file: File, externalId: string): Promise<DiscoveryGutenbergImportResult> {
-  const formData = new FormData();
-  formData.append('externalId', externalId);
-  formData.append('file', file);
-  return apiRequest(`${PROJECT_GUTENBERG_SOURCE_PATH}/import`, {
-    method: 'POST',
-    body: formData,
-    schema: discoveryGutenbergImportResultSchema,
-  });
-}
-
 /** Polls while a run is pending so the operator sees the background sync finish. */
 export function useDiscoverySourceStatusQuery() {
   return useQuery({
@@ -76,16 +62,6 @@ export function useTriggerDiscoverySourceSyncMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => triggerDiscoverySourceSync(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: discoverySourcesQueryKey });
-    },
-  });
-}
-
-export function useImportDiscoverySampleMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ file, externalId }: { file: File; externalId: string }) => importDiscoverySample(file, externalId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: discoverySourcesQueryKey });
     },

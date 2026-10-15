@@ -1,6 +1,5 @@
 export type {
   CategorySourceRecordListQuery,
-  DiscoveryGutenbergImportResult,
   DiscoverySourceEnabledUpdate,
   DiscoverySourceStatus,
   DiscoverySourceSyncStatus,
@@ -34,7 +33,6 @@ export {
   DISCOVERY_DEFAULT_LANGUAGE,
   DISCOVERY_SOURCE_SYNC_STATUSES,
   DISCOVERY_SYNC_TRIGGER_RESULTS,
-  discoveryGutenbergImportResultSchema,
   discoverySourceEnabledUpdateSchema,
   discoverySourceStatusSchema,
   discoverySourceSyncStatusSchema,
