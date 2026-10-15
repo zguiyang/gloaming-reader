@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   openLogin: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
+  userId: 'user-1' as string | null,
   toastInfo: vi.fn(),
 }));
 
@@ -23,13 +24,16 @@ vi.mock('@/features/discover/discover-api', () => ({
   discoverQueryKey: {
     all: ['discover'] as const,
     records: (params: unknown) => ['discover', 'records', params],
-    saveStatus: (sourceRecordId: string) => ['discover', 'save-status', sourceRecordId],
+    saveStatus: (sourceRecordId: string, userId: string | null) => ['discover', 'save-status', userId, sourceRecordId],
   },
   saveSourceRecordToLibrary: mocks.saveSourceRecordToLibrary,
   useSourceRecordSaveStatusQuery: mocks.useSourceRecordSaveStatusQuery,
 }));
 
 vi.mock('@/features/auth', () => ({ useAuthDialog: () => ({ openLogin: mocks.openLogin }) }));
+vi.mock('@/lib/auth', () => ({
+  authClient: { useSession: () => ({ data: mocks.userId ? { user: { id: mocks.userId } } : null }) },
+}));
 vi.mock('sonner', () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError, info: mocks.toastInfo },
 }));
@@ -59,20 +63,23 @@ async function renderCard(locale: 'zh-CN' | 'en-US' = 'zh-CN', cardItem: Discove
   const root = createRoot(container);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
-  await act(async () => {
-    root.render(
-      createElement(
-        QueryClientProvider,
-        { client },
-        // eslint-disable-next-line react/no-children-prop
-        createElement(LocaleProvider, { locale, children: createElement(DiscoverSourceCard, { item: cardItem }) }),
-      ),
-    );
-  });
+  const render = () =>
+    act(async () => {
+      root.render(
+        createElement(
+          QueryClientProvider,
+          { client },
+          // eslint-disable-next-line react/no-children-prop
+          createElement(LocaleProvider, { locale, children: createElement(DiscoverSourceCard, { item: cardItem }) }),
+        ),
+      );
+    });
+  await render();
   return {
     container,
     client,
     invalidateSpy,
+    render,
     cleanup() {
       void act(() => root.unmount());
       container.remove();
@@ -86,10 +93,35 @@ function buttonByText(container: ParentNode, text: string): HTMLButtonElement | 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.userId = 'user-1';
   mocks.useSourceRecordSaveStatusQuery.mockReturnValue({ data: undefined });
 });
 
 describe('DiscoverSourceCard Save Intent', () => {
+  it('keeps an in-flight POST result scoped to its initiating user after a session switch', async () => {
+    let resolveSave!: (result: { status: 'pending'; workId: string | null }) => void;
+    mocks.saveSourceRecordToLibrary.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+    const view = await renderCard();
+    await act(async () => {
+      buttonByText(view.container, '加入书库')?.click();
+    });
+    mocks.userId = 'user-2';
+    await view.render();
+    await act(async () => {
+      resolveSave({ status: 'pending', workId: 'work-1' });
+    });
+    expect(view.container.textContent).not.toContain('正在准备…');
+    expect(view.client.getQueryData(['discover', 'save-status', 'user-1', 'sr-1'])).toMatchObject({
+      status: 'pending',
+    });
+    expect(view.client.getQueryData(['discover', 'save-status', 'user-2', 'sr-1'])).toBeUndefined();
+    view.cleanup();
+  });
+
   it('creates a pending Save Intent on explicit click and never auto-saves', async () => {
     mocks.saveSourceRecordToLibrary.mockResolvedValue({ status: 'pending', workId: null });
     const view = await renderCard();
@@ -97,17 +129,30 @@ describe('DiscoverSourceCard Save Intent', () => {
     expect(mocks.saveSourceRecordToLibrary).not.toHaveBeenCalled();
     expect(view.container.textContent).toContain('加入书库');
 
+    let resolveOldRead!: (value: { status: 'none'; workId: null; failureReason: null }) => void;
+    const oldRead = view.client
+      .fetchQuery({
+        queryKey: ['discover', 'save-status', 'user-1', 'sr-1'],
+        queryFn: () =>
+          new Promise((resolve) => {
+            resolveOldRead = resolve;
+          }),
+      })
+      .catch(() => undefined);
+
     await act(async () => {
       buttonByText(view.container, '加入书库')?.click();
     });
     await flush();
+    resolveOldRead({ status: 'none', workId: null, failureReason: null });
+    await oldRead;
 
     expect(mocks.saveSourceRecordToLibrary).toHaveBeenCalledWith('sr-1');
     expect(view.container.textContent).toContain('正在准备…');
     expect(view.container.textContent).toContain('下载与解析完成后会出现在书库');
     // The POST result seeds the status cache so polling and refresh recovery
     // start from the server-reported state.
-    expect(view.client.getQueryData(['discover', 'save-status', 'sr-1'])).toEqual({
+    expect(view.client.getQueryData(['discover', 'save-status', 'user-1', 'sr-1'])).toEqual({
       status: 'pending',
       workId: null,
       failureReason: null,

@@ -1,10 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+// @vitest-environment happy-dom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { publicCategoryListDataSchema, sourceRecordListDataSchema } from '@gloaming/shared/discovery';
-import { sourceRecordSaveResultSchema, sourceRecordSaveStatusSchema } from '@gloaming/shared/library';
+import {
+  sourceRecordSaveResultSchema,
+  type SourceRecordSaveStatus,
+  sourceRecordSaveStatusSchema,
+} from '@gloaming/shared/library';
 import { catalogListDataSchema } from '@gloaming/shared/works';
 
-const mocks = vi.hoisted(() => ({ apiRequest: vi.fn() }));
+const mocks = vi.hoisted(() => ({ apiRequest: vi.fn(), userId: 'user-1' as string | null }));
 
 vi.mock('@/lib/api-request', () => ({
   apiRequest: mocks.apiRequest,
@@ -12,7 +20,7 @@ vi.mock('@/lib/api-request', () => ({
 }));
 
 vi.mock('@/lib/auth', () => ({
-  authClient: { useSession: () => ({ data: { user: { id: 'user-1' } } }) },
+  authClient: { useSession: () => ({ data: mocks.userId ? { user: { id: mocks.userId } } : null }) },
 }));
 
 import {
@@ -26,6 +34,8 @@ import {
   saveSourceRecordToLibrary,
   saveStatusRefetchInterval,
   SOURCE_RECORD_SAVE_POLL_MS,
+  useDiscoverRecordsQuery,
+  useSourceRecordSaveStatusQuery,
 } from '@/features/discover/discover-api';
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/discover-model';
 
@@ -36,6 +46,7 @@ function paramsOf(call: unknown[]): URLSearchParams {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.userId = 'user-1';
   mocks.apiRequest.mockResolvedValue({ items: [], pagination: {} });
 });
 
@@ -61,7 +72,7 @@ describe('buildDiscoverRecordsQuery', () => {
   });
 
   it('provides a query key for the current list parameters', () => {
-    expect(discoverQueryKey.records({ page: 2 })).toEqual(['discover', 'records', { page: 2 }]);
+    expect(discoverQueryKey.records({ page: 2 }, 'user-1')).toEqual(['discover', 'records', 'user-1', { page: 2 }]);
   });
 });
 
@@ -113,8 +124,58 @@ describe('Discover API clients', () => {
     expect(call[1]).not.toHaveProperty('method');
   });
 
-  it('keys the Save Intent status per SourceRecord', () => {
-    expect(discoverQueryKey.saveStatus('sr-9')).toEqual(['discover', 'save-status', 'sr-9']);
+  it('keys the Save Intent status per viewer and SourceRecord', () => {
+    expect(discoverQueryKey.saveStatus('sr-9', 'user-1')).toEqual(['discover', 'save-status', 'user-1', 'sr-9']);
+  });
+});
+
+beforeAll(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+describe('Discover viewer-scoped query observers', () => {
+  it('never reuses a member cover or save status for another user or an anonymous viewer', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const memberRecords = { items: [{ coverUrl: '/api/assets/member-cover' }], pagination: {} };
+    client.setQueryData(discoverQueryKey.records({}, 'user-1'), memberRecords);
+    client.setQueryData(discoverQueryKey.saveStatus('sr-1', 'user-1'), {
+      status: 'ready',
+      workId: 'work-1',
+      failureReason: null,
+    });
+    // Hold replacement requests open to prove no stale/placeholder data bridges identities.
+    mocks.apiRequest.mockImplementation(() => new Promise(() => {}));
+    let observed: { records: unknown; status: SourceRecordSaveStatus | undefined };
+    function Probe() {
+      const records = useDiscoverRecordsQuery({});
+      const status = useSourceRecordSaveStatusQuery('sr-1');
+      observed = { records: records.data, status: status.data };
+      return null;
+    }
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    const render = () =>
+      act(async () => {
+        root.render(createElement(QueryClientProvider, { client }, createElement(Probe)));
+      });
+    try {
+      await render();
+      expect(observed!.records).toEqual(memberRecords);
+      expect(observed!.status?.status).toBe('ready');
+      mocks.userId = 'user-2';
+      await render();
+      expect(observed!).toEqual({ records: undefined, status: undefined });
+      const statusReads = mocks.apiRequest.mock.calls.filter(([url]) => String(url).startsWith('/api/library/')).length;
+      mocks.userId = null;
+      await render();
+      expect(observed!).toEqual({ records: undefined, status: undefined });
+      expect(mocks.apiRequest.mock.calls.filter(([url]) => String(url).startsWith('/api/library/'))).toHaveLength(
+        statusReads,
+      );
+    } finally {
+      await act(async () => root.unmount());
+      client.clear();
+    }
   });
 });
 

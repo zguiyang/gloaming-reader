@@ -23,15 +23,16 @@ const mocks = vi.hoisted(() => ({
   toastInfo: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  userId: 'user-1' as string | null,
 }));
 
 vi.mock('@/features/discover/discover-api', () => ({
   discoverQueryKey: {
     all: ['discover'],
-    records: (params: unknown) => ['discover', 'records', params],
+    records: (params: unknown, userId: string | null) => ['discover', 'records', userId, params],
     categories: () => ['discover', 'categories'],
     legacyWorks: (params: unknown) => ['discover', 'legacy-works', params],
-    saveStatus: (sourceRecordId: string) => ['discover', 'save-status', sourceRecordId],
+    saveStatus: (sourceRecordId: string, userId: string | null) => ['discover', 'save-status', userId, sourceRecordId],
   },
   fetchDiscoverRecords: mocks.fetchDiscoverRecords,
   fetchDiscoverLegacyWorks: mocks.fetchDiscoverLegacyWorks,
@@ -42,6 +43,9 @@ vi.mock('@/features/discover/discover-api', () => ({
 }));
 
 vi.mock('@/features/auth', () => ({ useAuthDialog: () => ({ openLogin: mocks.openLogin }) }));
+vi.mock('@/lib/auth', () => ({
+  authClient: { useSession: () => ({ data: mocks.userId ? { user: { id: mocks.userId } } : null }) },
+}));
 vi.mock('sonner', () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError, info: mocks.toastInfo },
 }));
@@ -167,6 +171,7 @@ function lastRecordParams() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.userId = 'user-1';
   mocks.useDiscoverCategoriesQuery.mockReturnValue({
     data: {
       items: [
@@ -181,6 +186,20 @@ beforeEach(() => {
 });
 
 describe('DiscoverPage', () => {
+  it('drops the previous viewer list while replacement cover projections are loading', async () => {
+    mocks.fetchDiscoverRecords.mockResolvedValue(recordsData([record({ title: 'Member Projection' })]));
+    const view = await renderDiscover();
+    expect(view.container.textContent).toContain('Member Projection');
+    mocks.fetchDiscoverRecords.mockImplementation(() => new Promise(() => {}));
+    mocks.userId = 'user-2';
+    await view.render();
+    expect(view.container.textContent).not.toContain('Member Projection');
+    mocks.userId = null;
+    await view.render();
+    expect(view.container.textContent).not.toContain('Member Projection');
+    view.cleanup();
+  });
+
   it('browses localized categories and filters the SourceRecord list by the selection', async () => {
     const view = await renderDiscover();
     expect(view.container.textContent).toContain('发现');

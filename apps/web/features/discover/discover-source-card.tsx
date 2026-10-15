@@ -21,6 +21,7 @@ import {
 import { categoryDisplayName, type DiscoverItem } from '@/features/discover/discover-model';
 import { WorkCover } from '@/features/work-cover';
 import { isUnauthorizedError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { workDetailHref } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
@@ -41,6 +42,12 @@ type SaveActionState = 'saving' | null;
  * yet, so its action is an explicit Save Intent that materializes on demand.
  */
 export function DiscoverSourceCard({ item }: DiscoverSourceCardProps) {
+  const { data } = authClient.useSession();
+  const userId = data?.user.id ?? null;
+  return <DiscoverSourceCardContent key={userId ?? 'anonymous'} item={item} userId={userId} />;
+}
+
+function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & { userId: string | null }) {
   const { locale } = useLocale();
   const { openLogin } = useAuthDialog();
   const queryClient = useQueryClient();
@@ -76,7 +83,10 @@ export function DiscoverSourceCard({ item }: DiscoverSourceCardProps) {
     setAction('saving');
     try {
       const result = await saveSourceRecordToLibrary(item.id);
-      queryClient.setQueryData(discoverQueryKey.saveStatus(item.id), {
+      // An older GET (for example, the pre-save `none` read) must not overwrite
+      // this POST result and stop polling after the import has been queued.
+      await queryClient.cancelQueries({ queryKey: discoverQueryKey.saveStatus(item.id, userId), exact: true });
+      queryClient.setQueryData(discoverQueryKey.saveStatus(item.id, userId), {
         status: result.status,
         workId: result.workId,
         failureReason: null,

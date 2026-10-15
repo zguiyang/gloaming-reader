@@ -17,13 +17,9 @@ describe('source-record materialize real enqueue on test Redis', () => {
   const queue = new Queue(QUEUE_NAME, { connection: getQueueConnection() });
 
   afterAll(async () => {
-    // Only this spec enqueues materialize jobs for real; remove every leftover.
-    const materializeJobs = await queue.getJobs(['waiting', 'active', 'delayed', 'completed', 'failed']);
-    for (const job of materializeJobs) {
-      if (job.name === SOURCE_RECORD_MATERIALIZE_JOB) {
-        await job.remove().catch(() => undefined);
-      }
-    }
+    // This queue may be shared by isolated test runs. Remove only our exact job.
+    const job = await queue.getJob(jobId);
+    await job?.remove();
     await queue.close();
     await closeQueue();
   });

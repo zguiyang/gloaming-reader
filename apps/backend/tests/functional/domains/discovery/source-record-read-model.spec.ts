@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { and, count, eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   contentAsset as contentAssetTable,
@@ -31,6 +31,11 @@ import { db } from '@/infra/db';
 import { putObject, resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
+
+vi.mock('@/infra/auth/mail', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  sendAuthMail: vi.fn().mockResolvedValue(undefined),
+}));
 
 const runId = randomUUID();
 const sourceKey = `read_model_${runId}`;
@@ -401,6 +406,7 @@ describe('SourceRecord read model on gloaming_test', () => {
     await db.update(readingWorkTable).set({ coverAssetId: assetId }).where(eq(readingWorkTable.id, workId));
     await db.update(sourceRecordTable).set({ workId, coverUrl: sourceCover }).where(eq(sourceRecordTable.id, row!.id));
     const session = await createUserSession();
+    const otherSession = await createUserSession();
     await db.insert(userLibraryItemTable).values({ id: randomUUID(), userId: session.userId, workId });
     const memory = createMemoryObjectStore();
     setObjectStoreForTests(memory);
@@ -435,6 +441,22 @@ describe('SourceRecord read model on gloaming_test', () => {
       ).json()) as { coverUrl: string | null };
       expect(memberDetail.coverUrl).toBe(`/api/assets/${assetId}`);
 
+      // Another authenticated viewer has no membership and must not inherit
+      // the preceding member request's local cover projection.
+      expect((await app.request(`/api/assets/${assetId}`, { headers: { cookie: otherSession.cookie } })).status).toBe(
+        403,
+      );
+      const otherDetail = (await (
+        await app.request(`/api/discover/records/${row!.id}`, { headers: { cookie: otherSession.cookie } })
+      ).json()) as { coverUrl: string | null };
+      expect(otherDetail.coverUrl).toBe(sourceCover);
+      const otherList = (await (
+        await app.request(`/api/discover/records?q=${encodeURIComponent(`${runId}-1`)}`, {
+          headers: { cookie: otherSession.cookie },
+        })
+      ).json()) as { items: Array<{ coverUrl: string | null }> };
+      expect(otherList.items[0]?.coverUrl).toBe(sourceCover);
+
       // A published Catalog Work proves the local cover readable for everyone.
       await db.update(readingWorkTable).set({ publishedAt: new Date() }).where(eq(readingWorkTable.id, workId));
       expect((await app.request(`/api/assets/${assetId}`)).status).toBe(200);
@@ -445,6 +467,7 @@ describe('SourceRecord read model on gloaming_test', () => {
     } finally {
       await db.delete(userLibraryItemTable).where(eq(userLibraryItemTable.workId, workId));
       await db.delete(userTable).where(eq(userTable.id, session.userId));
+      await db.delete(userTable).where(eq(userTable.id, otherSession.userId));
       await db.delete(contentAssetTable).where(eq(contentAssetTable.id, assetId));
       await db.update(sourceRecordTable).set({ workId: null, coverUrl: null }).where(eq(sourceRecordTable.id, row!.id));
       resetObjectStoreCache();

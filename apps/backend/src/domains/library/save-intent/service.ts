@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, lte } from 'drizzle-orm';
 
 import {
   discoverySource as discoverySourceTable,
@@ -223,7 +223,11 @@ export async function readSourceRecordSaveStatus(
   }
 
   const [intent] = await db
-    .select({ status: saveIntentTable.status, failureReason: saveIntentTable.failureReason })
+    .select({
+      status: saveIntentTable.status,
+      failureReason: saveIntentTable.failureReason,
+      updatedAt: saveIntentTable.updatedAt,
+    })
     .from(saveIntentTable)
     .where(and(eq(saveIntentTable.userId, userId), eq(saveIntentTable.sourceRecordId, sourceRecordId)))
     .limit(1);
@@ -243,7 +247,11 @@ export async function readSourceRecordSaveStatus(
   }
 
   const [work] = await db
-    .select({ processingStatus: readingWorkTable.processingStatus, originMeta: readingWorkTable.originMeta })
+    .select({
+      processingStatus: readingWorkTable.processingStatus,
+      originMeta: readingWorkTable.originMeta,
+      updatedAt: readingWorkTable.updatedAt,
+    })
     .from(readingWorkTable)
     .where(eq(readingWorkTable.id, record.workId))
     .limit(1);
@@ -257,11 +265,26 @@ export async function readSourceRecordSaveStatus(
     }
     return { status: 'pending', workId: record.workId, failureReason: null };
   }
-  if (work.processingStatus === 'failed') {
+  // A retry revives the intent before its queued worker reserves the Work. Its
+  // older failure must not fail the new intent and stop the client's polling.
+  if (work.processingStatus === 'failed' && work.updatedAt > intent.updatedAt) {
     const reason =
       cleanSaveIntentFailureReason(String(work.originMeta?.lastError ?? '')) ?? 'Content processing failed';
-    await failPendingSaveIntents(sourceRecordId, { code: 'processing_failed', reason });
-    return { status: 'failed', workId: record.workId, failureReason: reason };
+    const failed = await db
+      .update(saveIntentTable)
+      .set({ status: 'failed', failureCode: 'processing_failed', failureReason: reason })
+      .where(
+        and(
+          eq(saveIntentTable.userId, userId),
+          eq(saveIntentTable.sourceRecordId, sourceRecordId),
+          eq(saveIntentTable.status, 'pending'),
+          lte(saveIntentTable.updatedAt, work.updatedAt),
+        ),
+      )
+      .returning({ id: saveIntentTable.id });
+    if (failed.length > 0) {
+      return { status: 'failed', workId: record.workId, failureReason: reason };
+    }
   }
   return { status: 'pending', workId: record.workId, failureReason: null };
 }

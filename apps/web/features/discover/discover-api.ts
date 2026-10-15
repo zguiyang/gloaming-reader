@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import {
   type PublicCategoryListData,
@@ -33,10 +33,12 @@ export type DiscoverLegacyParams = Partial<Pick<CatalogListQuery, 'page' | 'page
 
 export const discoverQueryKey = {
   all: ['discover'] as const,
-  records: (params: DiscoverListParams) => [...discoverQueryKey.all, 'records', params] as const,
+  records: (params: DiscoverListParams, userId: string | null) =>
+    [...discoverQueryKey.all, 'records', userId, params] as const,
   categories: () => [...discoverQueryKey.all, 'categories'] as const,
   legacyWorks: (params: DiscoverLegacyParams) => [...discoverQueryKey.all, 'legacy-works', params] as const,
-  saveStatus: (sourceRecordId: string) => [...discoverQueryKey.all, 'save-status', sourceRecordId] as const,
+  saveStatus: (sourceRecordId: string, userId: string | null) =>
+    [...discoverQueryKey.all, 'save-status', userId, sourceRecordId] as const,
 };
 
 const DEFAULT_RECORD_SORT_BY = 'sourceUpdatedAt' as const;
@@ -146,20 +148,23 @@ export function saveStatusRefetchInterval(query: { state: { data?: SourceRecordS
  */
 export function useSourceRecordSaveStatusQuery(sourceRecordId: string, options?: { enabled?: boolean }) {
   const { data: authData } = authClient.useSession();
-  const isAuthenticated = Boolean(authData?.user);
+  const userId = authData?.user.id ?? null;
   return useQuery({
-    queryKey: discoverQueryKey.saveStatus(sourceRecordId),
+    queryKey: discoverQueryKey.saveStatus(sourceRecordId, userId),
     queryFn: ({ signal }) => fetchSourceRecordSaveStatus(sourceRecordId, { signal }),
     refetchInterval: saveStatusRefetchInterval,
-    enabled: (options?.enabled ?? true) && isAuthenticated,
+    enabled: (options?.enabled ?? true) && userId !== null,
   });
 }
 
 export function useDiscoverRecordsQuery(params: DiscoverListParams, options?: { enabled?: boolean }) {
+  const { data: authData } = authClient.useSession();
+  const userId = authData?.user.id ?? null;
   return useQuery({
-    queryKey: discoverQueryKey.records(params),
+    queryKey: discoverQueryKey.records(params, userId),
     queryFn: ({ signal }) => fetchDiscoverRecords(params, { signal }),
-    placeholderData: keepPreviousData,
+    // Pagination may reuse this viewer's results, never another viewer's covers.
+    placeholderData: (data, previousQuery) => (previousQuery?.queryKey[2] === userId ? data : undefined),
     enabled: options?.enabled ?? true,
   });
 }

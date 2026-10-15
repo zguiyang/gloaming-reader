@@ -576,7 +576,7 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
     expect((await intentsFor(record.id))[0]?.status).toBe('completed');
   });
 
-  it('reports failed when the linked Work failed, then a retry POST revives the intent', async () => {
+  it('reports a new Work failure, then keeps polling a retry until its worker advances the Work', async () => {
     const learner = track(await createSession());
     const work = await createCatalogWorkFixture({
       title: 'Status Failed Work',
@@ -586,11 +586,19 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
     createdWorkIds.push(work.id);
     await db
       .update(readingWorkTable)
-      .set({ originMeta: { failedStep: 'parse', lastError: 'EPUB is missing META-INF/container.xml' } })
+      .set({
+        originMeta: { failedStep: 'parse', lastError: 'EPUB is missing META-INF/container.xml' },
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+      })
       .where(eq(readingWorkTable.id, work.id));
     const record = await createRecord({ workId: work.id, materializationStatus: 'failed' });
 
     await saveSourceRecordToLibrary(learner.userId, record.id);
+    // The failure belongs to this attempt, after its intent was created.
+    await db
+      .update(saveIntentTable)
+      .set({ updatedAt: new Date('2026-01-01T00:00:00Z') })
+      .where(and(eq(saveIntentTable.userId, learner.userId), eq(saveIntentTable.sourceRecordId, record.id)));
     const failed = await readSaveStatus(record.id, learner.cookie);
     expect(failed.status).toBe(HTTP_STATUS.OK);
     expect(failed.body).toEqual({
@@ -604,6 +612,21 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
     const retry = await saveSourceRecordToLibrary(learner.userId, record.id);
     expect(retry.status).toBe('pending');
     expect((await intentsFor(record.id))[0]).toMatchObject({ status: 'pending', failureReason: null });
+    // Work is still failed while the retry waits in the queue. A GET must not
+    // interpret that previous attempt's failure as the retry's outcome.
+    expect((await readSaveStatus(record.id, learner.cookie)).body).toEqual({
+      status: 'pending',
+      workId: work.id,
+      failureReason: null,
+    });
+    expect((await intentsFor(record.id))[0]?.status).toBe('pending');
+    await markWorkReady(work.id);
+    expect((await readSaveStatus(record.id, learner.cookie)).body).toEqual({
+      status: 'ready',
+      workId: work.id,
+      failureReason: null,
+    });
+    expect(await membershipCount(learner.userId, work.id)).toBe(1);
   });
 
   it('returns the recorded cleaned reason for an already failed intent', async () => {
