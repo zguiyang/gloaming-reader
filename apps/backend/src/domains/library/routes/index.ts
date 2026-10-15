@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 
-import { saveSourceRecordToLibrary } from '@/domains/library/save-intent';
+import { readSourceRecordSaveStatus, saveSourceRecordToLibrary } from '@/domains/library/save-intent';
 import * as libraryService from '@/domains/library/service';
 import { libraryTagRoutes } from '@/domains/library/tags/routes';
 import { type AuthVariables, requireAuth } from '@/infra/http/middleware/auth';
@@ -20,6 +20,13 @@ libraryRoutes.post('/api/library/source-records/:sourceRecordId', requireAuth, a
   const user = c.get('user')!;
   const result = await saveSourceRecordToLibrary(user.id, c.req.param('sourceRecordId'));
   return c.json(result);
+});
+
+/** Owner-scoped Save Intent status for refresh recovery and pending/failed feedback. */
+libraryRoutes.get('/api/library/source-records/:sourceRecordId', requireAuth, async (c) => {
+  const user = c.get('user')!;
+  const status = await readSourceRecordSaveStatus(user.id, c.req.param('sourceRecordId'));
+  return c.json(status);
 });
 
 libraryRoutes.post('/api/library/:workId', requireAuth, async (c) => {

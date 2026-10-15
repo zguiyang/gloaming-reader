@@ -32,6 +32,7 @@ import {
 import { DiscoverPagination } from '@/features/discover/discover-pagination';
 import { DiscoverSearch } from '@/features/discover/discover-search';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
+import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { usePaginatedQuery } from '@/lib/query';
 import { cn } from '@/lib/utils';
@@ -67,6 +68,14 @@ function DiscoverErrorState({ message, onRetry }: { message: string; onRetry: ()
 }
 
 export function DiscoverPage() {
+  const { data } = authClient.useSession();
+  const userId = data?.user.id ?? null;
+  // Remount the paginated observer and card action state at identity boundaries;
+  // keepPreviousData must not bridge covers from a different viewer.
+  return <DiscoverPageContent key={userId ?? 'anonymous'} userId={userId} />;
+}
+
+function DiscoverPageContent({ userId }: { userId: string | null }) {
   const { locale } = useLocale();
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
@@ -135,7 +144,7 @@ export function DiscoverPage() {
   );
 
   const recordsList = usePaginatedQuery<SourceRecordItem, SourceRecordListData>({
-    queryKey: discoverQueryKey.records(recordsParams),
+    queryKey: discoverQueryKey.records(recordsParams, userId),
     queryFn: ({ signal }) => fetchDiscoverRecords(recordsParams, { signal }),
     page,
     onPageChange: handlePageChange,
@@ -206,6 +215,8 @@ export function DiscoverPage() {
           selectedCategoryId={categoryId}
           onSelect={handleSelectCategory}
           isLoading={categoriesQuery.isLoading}
+          isError={categoriesQuery.isError && !categoriesQuery.data}
+          onRetry={() => void categoriesQuery.refetch()}
         />
         <DiscoverActiveFilters
           query={appliedQuery}

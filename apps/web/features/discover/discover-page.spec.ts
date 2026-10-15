@@ -15,29 +15,37 @@ const mocks = vi.hoisted(() => ({
   fetchDiscoverRecords: vi.fn(),
   fetchDiscoverLegacyWorks: vi.fn(),
   useDiscoverCategoriesQuery: vi.fn(),
+  refetchCategories: vi.fn(),
+  useSourceRecordSaveStatusQuery: vi.fn(() => ({ data: undefined })),
   saveSourceRecordToLibrary: vi.fn(),
   formatDiscoverApiError: vi.fn((error: unknown) => String(error)),
   openLogin: vi.fn(),
   toastInfo: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  userId: 'user-1' as string | null,
 }));
 
 vi.mock('@/features/discover/discover-api', () => ({
   discoverQueryKey: {
     all: ['discover'],
-    records: (params: unknown) => ['discover', 'records', params],
+    records: (params: unknown, userId: string | null) => ['discover', 'records', userId, params],
     categories: () => ['discover', 'categories'],
     legacyWorks: (params: unknown) => ['discover', 'legacy-works', params],
+    saveStatus: (sourceRecordId: string, userId: string | null) => ['discover', 'save-status', userId, sourceRecordId],
   },
   fetchDiscoverRecords: mocks.fetchDiscoverRecords,
   fetchDiscoverLegacyWorks: mocks.fetchDiscoverLegacyWorks,
   useDiscoverCategoriesQuery: mocks.useDiscoverCategoriesQuery,
+  useSourceRecordSaveStatusQuery: mocks.useSourceRecordSaveStatusQuery,
   saveSourceRecordToLibrary: mocks.saveSourceRecordToLibrary,
   formatDiscoverApiError: mocks.formatDiscoverApiError,
 }));
 
 vi.mock('@/features/auth', () => ({ useAuthDialog: () => ({ openLogin: mocks.openLogin }) }));
+vi.mock('@/lib/auth', () => ({
+  authClient: { useSession: () => ({ data: mocks.userId ? { user: { id: mocks.userId } } : null }) },
+}));
 vi.mock('sonner', () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError, info: mocks.toastInfo },
 }));
@@ -163,6 +171,7 @@ function lastRecordParams() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.userId = 'user-1';
   mocks.useDiscoverCategoriesQuery.mockReturnValue({
     data: {
       items: [
@@ -177,6 +186,20 @@ beforeEach(() => {
 });
 
 describe('DiscoverPage', () => {
+  it('drops the previous viewer list while replacement cover projections are loading', async () => {
+    mocks.fetchDiscoverRecords.mockResolvedValue(recordsData([record({ title: 'Member Projection' })]));
+    const view = await renderDiscover();
+    expect(view.container.textContent).toContain('Member Projection');
+    mocks.fetchDiscoverRecords.mockImplementation(() => new Promise(() => {}));
+    mocks.userId = 'user-2';
+    await view.render();
+    expect(view.container.textContent).not.toContain('Member Projection');
+    mocks.userId = null;
+    await view.render();
+    expect(view.container.textContent).not.toContain('Member Projection');
+    view.cleanup();
+  });
+
   it('browses localized categories and filters the SourceRecord list by the selection', async () => {
     const view = await renderDiscover();
     expect(view.container.textContent).toContain('发现');
@@ -281,6 +304,39 @@ describe('DiscoverPage', () => {
     expect(view.container.querySelector('a[href^="/works/work-77"]')).toBeTruthy();
     expect(view.container.textContent).toContain('查看详情');
     expect(view.container.textContent).not.toContain('加入书库');
+    view.cleanup();
+  });
+
+  it('shows a visible retry when the category list fails to load', async () => {
+    mocks.useDiscoverCategoriesQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: mocks.refetchCategories,
+    });
+    const view = await renderDiscover();
+
+    expect(view.container.textContent).toContain('无法加载目录');
+    await act(async () => {
+      buttonByText(view.container, '重试')?.click();
+    });
+    await flush();
+
+    expect(mocks.refetchCategories).toHaveBeenCalledTimes(1);
+    view.cleanup();
+  });
+
+  it('keeps the category chips when only a background refetch fails', async () => {
+    mocks.useDiscoverCategoriesQuery.mockReturnValue({
+      data: { items: [{ id: 'cat-1', name: '科幻', recordCount: 2 }] },
+      isLoading: false,
+      isError: true,
+      refetch: mocks.refetchCategories,
+    });
+    const view = await renderDiscover();
+
+    expect(view.container.textContent).toContain('科幻');
+    expect(view.container.textContent).not.toContain('无法加载目录');
     view.cleanup();
   });
 });

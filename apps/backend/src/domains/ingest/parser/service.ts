@@ -9,6 +9,7 @@ import {
   readingWork as readingWorkTable,
 } from '@gloaming/db';
 
+import { stripOrphanImagePlaceholders } from '@/domains/ingest/epub/normalization/images';
 import { parserFor } from '@/domains/ingest/parser/registry';
 import type { ParsedContent } from '@/domains/ingest/parser/types';
 import { resetParseStepOutputs } from '@/domains/ingest/reset/service';
@@ -91,6 +92,14 @@ function rewriteImageSrcs(html: string, images: ParsedContent['images'], hrefToA
 }
 
 /**
+ * After `rewriteImageSrcs`, every still-resolvable placeholder has been replaced;
+ * a body token that survives belongs to an image dropped by the per-book cap and
+ * must be stripped with its `<img>` (and empty figure shell) instead of leaking a
+ * broken placeholder URL into stored content.
+ */
+const NO_RESOLVED_TOKENS: ReadonlySet<string> = new Set();
+
+/**
  * Parse origin bytes, store parts/images/cover, and persist parse metadata under an
  * active workflow claim. Does not update reading statistics or workflow status.
  */
@@ -122,7 +131,18 @@ export async function runContentParse(
     }
 
     const chapterHtml = content.chapters.map((chapter) => chapter.html).join('\n');
-    const usedImages = content.images.filter((image) => chapterHtml.includes(image.token)).slice(0, MAX_BOOK_IMAGES);
+    const referencedImages = content.images.filter((image) => chapterHtml.includes(image.token));
+    const usedImages = referencedImages.slice(0, MAX_BOOK_IMAGES);
+    // Resource protection keeps MAX_BOOK_IMAGES, but over-limit images are an
+    // explicit, observable outcome: their placeholders are stripped from the
+    // stored bodies below and counted instead of silently leaking tokens.
+    const droppedImages = referencedImages.slice(MAX_BOOK_IMAGES);
+    if (droppedImages.length > 0) {
+      ingestLogger.warn(
+        { workId, kept: usedImages.length, dropped: droppedImages.length },
+        'Book image cap reached; over-limit body images are stripped',
+      );
+    }
 
     const imageDrafts = await Promise.all(
       usedImages.map(async (image) => {
@@ -180,7 +200,10 @@ export async function runContentParse(
     const partBodies: { body: string }[] = [];
     for (let i = 0; i < content.chapters.length; i += 1) {
       const chapter = content.chapters[i]!;
-      const body = rewriteImageSrcs(chapter.html, usedImages, hrefToAssetId);
+      let body = rewriteImageSrcs(chapter.html, usedImages, hrefToAssetId);
+      if (droppedImages.length > 0) {
+        body = stripOrphanImagePlaceholders(body, NO_RESOLVED_TOKENS);
+      }
       partBodies.push({ body });
     }
 
@@ -197,6 +220,7 @@ export async function runContentParse(
       navCount: content.stats.navCount,
       chapterCount: content.stats.chapterCount,
       imageCount: imageDrafts.length,
+      droppedImageCount: droppedImages.length,
       parsedAt: new Date().toISOString(),
     };
 

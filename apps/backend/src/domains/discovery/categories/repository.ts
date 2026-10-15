@@ -14,6 +14,7 @@ import {
 import type { PublicCategoryProvenance, PublicCategorySummary } from '@gloaming/shared/discovery';
 
 import { buildPublicCategory, toPublicCategorySummary } from '@/domains/discovery/categories/policy';
+import { publicDiscoverableRecordWhere } from '@/domains/discovery/read-model/visibility';
 import { db } from '@/infra/db';
 
 export type PublicCategoryRow = typeof publicCategoryTable.$inferSelect;
@@ -95,9 +96,10 @@ export async function countAssignmentsByCategoryIds(categoryIds: string[]): Prom
 }
 
 /**
- * Publicly discoverable SourceRecord count per category. Mirrors the public read
- * model visibility rules (available record on an enabled source) so a category
- * count matches the filtered record list.
+ * Publicly discoverable SourceRecord count per category. Uses the same shared
+ * visibility predicate as the Discover record list (available record on an
+ * enabled source, in the default Discover content language), so a category
+ * count never exceeds what the filtered record list can actually show.
  */
 export async function countPublicRecordsByCategoryIds(categoryIds: string[]): Promise<Map<string, number>> {
   if (categoryIds.length === 0) return new Map();
@@ -106,13 +108,7 @@ export async function countPublicRecordsByCategoryIds(categoryIds: string[]): Pr
     .from(sourceRecordPublicCategoryTable)
     .innerJoin(sourceRecordTable, eq(sourceRecordTable.id, sourceRecordPublicCategoryTable.sourceRecordId))
     .innerJoin(discoverySourceTable, eq(discoverySourceTable.id, sourceRecordTable.sourceId))
-    .where(
-      and(
-        inArray(sourceRecordPublicCategoryTable.categoryId, categoryIds),
-        eq(sourceRecordTable.availability, 'available'),
-        eq(discoverySourceTable.enabled, true),
-      ),
-    )
+    .where(and(inArray(sourceRecordPublicCategoryTable.categoryId, categoryIds), publicDiscoverableRecordWhere()))
     .groupBy(sourceRecordPublicCategoryTable.categoryId);
   return new Map(rows.map((row) => [row.categoryId, Number(row.value)]));
 }

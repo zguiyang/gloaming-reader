@@ -116,7 +116,11 @@ export type PublicClassificationCommandResult =
   | {
       status: 'completed';
       outcome: PublicClassificationOutcome;
-      /** Effective public category ids for the record after this pass (0-3). */
+      /**
+       * Effective public category ids the record actually carries after this
+       * pass (0-3), including preserved manual associations — not merely the
+       * ids this pass proposed.
+       */
       categoryIds: string[];
       /** Newly created category ids from this pass, for observability. */
       createdCategoryIds: string[];

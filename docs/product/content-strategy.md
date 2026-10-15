@@ -41,13 +41,14 @@ This accepted supply direction supersedes the earlier deferral of new Catalog in
 
 - **Hybrid:** sync source **metadata locally** into **SourceRecord**; **materialize the EPUB only on save/read intent**. V1 source: Project Gutenberg only.
 - **SourceRecord** = local bibliography (source + `externalID`, title/author/language/rights/URL). It is **not readable content**; only a materialized Work enters the Library/Reader.
-- **Pending save intent:** save creates a pending intent; on successful import it becomes a **formal membership** (`user_library_item`). Failure keeps a **retryable** state — never fake readiness.
+- **Pending save intent:** save creates a pending intent; on successful import it becomes a **formal membership** (`user_library_item`). Failure keeps a **retryable** state — never fake readiness. The owner reads the intent status via `GET /api/library/source-records/:id`, which drives pending/failed feedback, polling, refresh recovery, and retry; a linked Work id alone never claims readiness before the import is readable.
 - **Disabled sources** are hidden; a **failed sync retains the last full snapshot**.
 - V1 synchronizes the official Gutenberg RDF metadata snapshot **only when an administrator manually triggers it**; automatic/periodic scheduling is deferred. Recovering a lost run (a timed-out or stale `queued`/`syncing` claim) records a visible failure but never starts a new run — only an explicit administrator trigger does. Only a successfully completed snapshot can mark missing records unavailable; no hosted third-party catalog is a runtime requirement.
 - **Withdrawal never deletes** an existing work or its progress.
 - **Source metadata updates do not overwrite** already-imported parts.
 - Import retains source metadata and rights evidence; AI description enrichment must not replace authoritative source fields. Raw subjects and bookshelves remain distinct from public categories.
 - **No cross-source semantic dedup:** identity is `(source, externalID)`; identical bytes may be reused, but the same work is not inferred across sources.
+- **Covers:** an unmaterialized SourceRecord displays its source cover URL. A materialized record prefers the linked Work's local cover asset only when the central Work Access Policy proves the current viewer may read it (published Catalog or own Library membership); otherwise the source cover URL stays. No remote cover is downloaded this round, and asset permissions are unchanged.
 
 New sources, content replacement, and cross-source identity merging require separate decisions. Do not turn a private uploaded EPUB into a public source record merely from its filename.
 
@@ -80,6 +81,8 @@ User uploads EPUB → private ReadingWork (processing)
 ```
 
 Parse failures must be explicit. Do not LLM-“simplify” the book.
+
+Chaptering keeps textless illustration plates (pages whose images are not the cover) as reading content while cover wrapper and blank pages still drop. The per-book image cap stays in force and is enforced explicitly: over-limit placeholder images are stripped from stored bodies and counted in parse metadata instead of leaking placeholder URLs.
 
 ### 5.2 Source save (Hybrid)
 

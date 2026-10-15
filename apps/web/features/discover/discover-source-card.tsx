@@ -1,20 +1,27 @@
 'use client';
 
-import { ArrowRightIcon, BookmarkIcon, CheckIcon, Loader2Icon } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowRightIcon, BookmarkIcon, CheckIcon, Loader2Icon, RotateCcwIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
+import type { SourceRecordSaveResult, SourceRecordSaveStatus } from '@gloaming/shared/library';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
-import { saveSourceRecordToLibrary } from '@/features/discover/discover-api';
+import {
+  discoverQueryKey,
+  saveSourceRecordToLibrary,
+  useSourceRecordSaveStatusQuery,
+} from '@/features/discover/discover-api';
 import { categoryDisplayName, type DiscoverItem } from '@/features/discover/discover-model';
 import { WorkCover } from '@/features/work-cover';
 import { isUnauthorizedError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { workDetailHref } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
@@ -23,48 +30,99 @@ type DiscoverSourceCardProps = {
   item: DiscoverItem;
 };
 
-type SaveIntentState = 'idle' | 'saving' | 'pending' | 'ready';
+type SaveActionState = 'saving' | null;
 
 /**
  * SourceRecord Discover card.
  *
- * A materialized SourceRecord keeps the existing Reader/Library entry through its
- * explicit `linkedWorkId`. An unmaterialized SourceRecord has no readable Work
- * yet, so its only action is an explicit Save Intent that materializes on demand.
+ * Save feedback is driven by the server-side Save Intent status, not by the
+ * linked `linkedWorkId`: materialization links the Work first and keeps
+ * parsing, so only `ready` (readable Work + membership) may claim completion
+ * or expose the Work entry. An unmaterialized SourceRecord has no readable Work
+ * yet, so its action is an explicit Save Intent that materializes on demand.
  */
 export function DiscoverSourceCard({ item }: DiscoverSourceCardProps) {
+  const { data } = authClient.useSession();
+  const userId = data?.user.id ?? null;
+  return <DiscoverSourceCardContent key={userId ?? 'anonymous'} item={item} userId={userId} />;
+}
+
+function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & { userId: string | null }) {
   const { locale } = useLocale();
   const { openLogin } = useAuthDialog();
-  const [saveState, setSaveState] = useState<SaveIntentState>('idle');
+  const queryClient = useQueryClient();
+  const [action, setAction] = useState<SaveActionState>(null);
+  const [posted, setPosted] = useState<{
+    result: SourceRecordSaveResult;
+    seenData: SourceRecordSaveStatus | undefined;
+  } | null>(null);
+  const statusQuery = useSourceRecordSaveStatusQuery(item.id);
 
-  const detailHref = item.linkedWorkId ? workDetailHref(item.linkedWorkId, AUTH_ROUTES.discover) : null;
+  // A POST result only bridges until the status query reports data of its own:
+  // once the query data object changes, the server read is authoritative again.
+  const postedResult = posted && posted.seenData === statusQuery.data ? posted.result : null;
+  const serverStatus = postedResult?.status ?? statusQuery.data?.status ?? null;
+
+  // Refresh the records list once the server reports readiness so the shared
+  // `linkedWorkId` projection catches up with the completed import.
+  const wasReady = useRef(false);
+  useEffect(() => {
+    if (serverStatus === 'ready' && !wasReady.current) {
+      wasReady.current = true;
+      void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'records'] });
+    }
+    if (serverStatus !== 'ready') {
+      wasReady.current = false;
+    }
+  }, [queryClient, serverStatus]);
 
   async function handleSaveIntent() {
-    if (saveState !== 'idle') {
+    if (action) {
       return;
     }
-    setSaveState('saving');
+    setAction('saving');
     try {
       const result = await saveSourceRecordToLibrary(item.id);
-      setSaveState(result.status);
+      // An older GET (for example, the pre-save `none` read) must not overwrite
+      // this POST result and stop polling after the import has been queued.
+      await queryClient.cancelQueries({ queryKey: discoverQueryKey.saveStatus(item.id, userId), exact: true });
+      queryClient.setQueryData(discoverQueryKey.saveStatus(item.id, userId), {
+        status: result.status,
+        workId: result.workId,
+        failureReason: null,
+      });
+      setPosted({ result, seenData: statusQuery.data });
+      void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'records'] });
       if (result.status === 'ready') {
         toast.success(t(locale, 'content.discover.saveReady'));
       } else {
         toast.info(t(locale, 'content.discover.savePending'));
       }
     } catch (error) {
-      setSaveState('idle');
       if (isUnauthorizedError(error)) {
         openLogin();
         return;
       }
       toast.error(t(locale, 'content.discover.saveFailed'));
+    } finally {
+      setAction(null);
     }
   }
 
-  const isSaved = saveState === 'ready';
-  const isPreparing = saveState === 'pending';
-  const isBusy = saveState === 'saving' || isPreparing;
+  const isSaving = action === 'saving';
+  const isPreparing = !isSaving && serverStatus === 'pending';
+  const isFailed = !isSaving && serverStatus === 'failed';
+  const isSaved = !isSaving && serverStatus === 'ready';
+
+  // The Work entry is only truthful when the server says the import is ready;
+  // for viewers without a saved intent the existing linked projection applies,
+  // while pending/failed imports never expose a detail entry of their own.
+  const entryWorkId = isSaved
+    ? (postedResult?.workId ?? statusQuery.data?.workId ?? item.linkedWorkId)
+    : item.linkedWorkId;
+  const detailHref =
+    !isPreparing && !isFailed && !isSaving && entryWorkId ? workDetailHref(entryWorkId, AUTH_ROUTES.discover) : null;
+  const failureReason = isFailed ? (statusQuery.data?.failureReason ?? null) : null;
 
   const cover = <WorkCover title={item.title} coverImageUrl={item.coverImageUrl} className="aspect-[2/3] rounded-sm" />;
 
@@ -119,11 +177,33 @@ export function DiscoverSourceCard({ item }: DiscoverSourceCardProps) {
         ) : null}
 
         <div className="mt-3">
-          {detailHref ? (
-            <Button nativeButton={false} variant="outline" className="h-8 gap-1.5" render={<Link href={detailHref} />}>
-              {t(locale, 'content.discover.viewDetail')}
-              <ArrowRightIcon className="size-4" strokeWidth={1.5} aria-hidden />
+          {isSaving ? (
+            <Button type="button" variant="outline" disabled className="h-8 gap-1.5">
+              <Loader2Icon className="size-4 animate-spin" aria-hidden />
+              {t(locale, 'content.discover.addToLibrary')}
             </Button>
+          ) : isPreparing ? (
+            <Button type="button" variant="outline" disabled className="h-8 gap-1.5">
+              <Loader2Icon className="size-4 animate-spin" aria-hidden />
+              {t(locale, 'content.discover.preparing')}
+            </Button>
+          ) : isFailed ? (
+            <div className="flex flex-col items-start gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 gap-1.5"
+                onClick={() => {
+                  void handleSaveIntent();
+                }}
+              >
+                <RotateCcwIcon className="size-4" strokeWidth={1.5} aria-hidden />
+                {t(locale, 'content.common.retry')}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {failureReason ?? t(locale, 'content.discover.saveFailed')}
+              </p>
+            </div>
           ) : isSaved ? (
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -135,6 +215,17 @@ export function DiscoverSourceCard({ item }: DiscoverSourceCardProps) {
                 <CheckIcon className="size-4" strokeWidth={1.5} aria-hidden />
                 {t(locale, 'content.discover.inLibrary')}
               </Button>
+              {detailHref ? (
+                <Button
+                  nativeButton={false}
+                  variant="outline"
+                  className="h-8 gap-1.5"
+                  render={<Link href={detailHref} />}
+                >
+                  {t(locale, 'content.discover.viewDetail')}
+                  <ArrowRightIcon className="size-4" strokeWidth={1.5} aria-hidden />
+                </Button>
+              ) : null}
               <Button
                 nativeButton={false}
                 variant="link"
@@ -144,22 +235,22 @@ export function DiscoverSourceCard({ item }: DiscoverSourceCardProps) {
                 {t(locale, 'content.discover.goToLibrary')}
               </Button>
             </div>
+          ) : detailHref ? (
+            <Button nativeButton={false} variant="outline" className="h-8 gap-1.5" render={<Link href={detailHref} />}>
+              {t(locale, 'content.discover.viewDetail')}
+              <ArrowRightIcon className="size-4" strokeWidth={1.5} aria-hidden />
+            </Button>
           ) : (
             <Button
               type="button"
               variant="outline"
-              disabled={isBusy}
               className="h-8 gap-1.5"
               onClick={() => {
                 void handleSaveIntent();
               }}
             >
-              {isBusy ? (
-                <Loader2Icon className="size-4 animate-spin" aria-hidden />
-              ) : (
-                <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
-              )}
-              {isPreparing ? t(locale, 'content.discover.preparing') : t(locale, 'content.discover.addToLibrary')}
+              <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
+              {t(locale, 'content.discover.addToLibrary')}
             </Button>
           )}
           {!detailHref && isPreparing ? (

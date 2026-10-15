@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { getPublicCategory, listPublicCategories } from '@/domains/discovery/categories';
 import { getSourceRecord, listSourceRecords } from '@/domains/discovery/read-model';
 import { validateSourceRecordListQuery } from '@/domains/discovery/routes/validator';
+import { workReadActorFromIdentity } from '@/domains/works/access';
 import { resolveRequestLocale } from '@/infra/http/locale';
 import type { AuthVariables } from '@/infra/http/middleware/auth';
 
@@ -22,12 +23,18 @@ discoveryRoutes.get('/api/discover/categories/:categoryId', async (c) => {
 
 /** Public local SourceRecord list: search, pagination, explicit sort, category filter. */
 discoveryRoutes.get('/api/discover/records', validateSourceRecordListQuery, async (c) => {
-  const data = await listSourceRecords(c.req.valid('query'), { locale: resolveRequestLocale(c) });
+  const data = await listSourceRecords(c.req.valid('query'), {
+    locale: resolveRequestLocale(c),
+    actor: workReadActorFromIdentity(c.get('user')),
+  });
   return c.json(data);
 });
 
 /** Public SourceRecord detail; `sourceRecordId` is distinct from a ReadingWork id. */
 discoveryRoutes.get('/api/discover/records/:sourceRecordId', async (c) => {
-  const record = await getSourceRecord(c.req.param('sourceRecordId'), { locale: resolveRequestLocale(c) });
+  const record = await getSourceRecord(c.req.param('sourceRecordId'), {
+    locale: resolveRequestLocale(c),
+    actor: workReadActorFromIdentity(c.get('user')),
+  });
   return c.json(record);
 });

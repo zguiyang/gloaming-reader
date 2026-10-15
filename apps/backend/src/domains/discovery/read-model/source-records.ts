@@ -1,6 +1,6 @@
-import { and, count, desc, eq, ilike, or, type SQL, sql } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, inArray, isNotNull, or, type SQL, sql } from 'drizzle-orm';
 
-import { discoverySource, sourceRecord } from '@gloaming/db/schema';
+import { discoverySource, readingWork, sourceRecord } from '@gloaming/db/schema';
 import { DEFAULT_LOCALE } from '@gloaming/i18n';
 import type {
   CategorySourceRecordListQuery,
@@ -12,6 +12,12 @@ import type {
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
 import { loadCategorySummariesByRecordIds } from '@/domains/discovery/categories/repository';
+import {
+  availableRecordFilter,
+  enabledSourceFilter,
+  publicDiscoverableRecordWhere,
+} from '@/domains/discovery/read-model/visibility';
+import { anonymousWorkReadActor, workReadAccessSql, type WorkReadActor } from '@/domains/works/access';
 import { db } from '@/infra/db';
 import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
@@ -21,21 +27,6 @@ type SourceRecordRow = typeof sourceRecord.$inferSelect;
 
 function escapeIlikePattern(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
-}
-
-/** Only records the last successful sync observed as available are discoverable. */
-function availableRecordFilter(): SQL {
-  return eq(sourceRecord.availability, 'available');
-}
-
-/** A source must be enabled for any of its records to be publicly readable. */
-function enabledSourceFilter(): SQL {
-  return eq(discoverySource.enabled, true);
-}
-
-/** English-first via the existing `languages` GIN index; persisted rows are untouched. */
-function languageFilter(language: string): SQL {
-  return sql`${sourceRecord.languages} @> ARRAY[${language}]::text[]`;
 }
 
 /** Matches title, author display names, and the source-scoped external id. */
@@ -60,7 +51,9 @@ function categoryFilter(categoryId: string): SQL {
 }
 
 function listWhere(query: SourceRecordListQuery): SQL {
-  const parts: SQL[] = [availableRecordFilter(), enabledSourceFilter(), languageFilter(query.language)];
+  // Shared visibility scope (availability + enabled source + content language);
+  // the public category counts use the same predicate.
+  const parts: SQL[] = [publicDiscoverableRecordWhere(query.language)];
   if (query.q) {
     parts.push(searchFilter(query.q));
   }
@@ -81,7 +74,11 @@ function listOrderBy(query: Pick<SourceRecordListQuery, 'sortBy' | 'sortOrder'>)
   return [primary, desc(sourceRecord.id)];
 }
 
-function toSourceRecordItem(record: SourceRecordRow, source: DiscoverySourceRow): SourceRecordItem {
+function toSourceRecordItem(
+  record: SourceRecordRow,
+  source: DiscoverySourceRow,
+  viewerCoverUrl: string | null = null,
+): SourceRecordItem {
   return {
     sourceRecordId: record.id,
     linkedWorkId: record.workId,
@@ -93,7 +90,7 @@ function toSourceRecordItem(record: SourceRecordRow, source: DiscoverySourceRow)
     authors: record.authors,
     languages: record.languages,
     description: record.description,
-    coverUrl: record.coverUrl,
+    coverUrl: viewerCoverUrl ?? record.coverUrl,
     availability: record.availability,
     sourceUpdatedAt: record.sourceUpdatedAt,
     lastSeenAt: record.lastSeenAt,
@@ -102,18 +99,49 @@ function toSourceRecordItem(record: SourceRecordRow, source: DiscoverySourceRow)
   };
 }
 
-function toSourceRecordDetail(record: SourceRecordRow, source: DiscoverySourceRow): SourceRecordDetail {
+function toSourceRecordDetail(
+  record: SourceRecordRow,
+  source: DiscoverySourceRow,
+  viewerCoverUrl: string | null = null,
+): SourceRecordDetail {
   return {
-    ...toSourceRecordItem(record, source),
+    ...toSourceRecordItem(record, source, viewerCoverUrl),
     rightsStatement: record.rightsStatement,
     contentCandidates: record.contentCandidates,
     sourceMeta: record.sourceMeta,
   };
 }
 
+/**
+ * Local cover asset URLs for linked Works this viewer may read, decided solely
+ * by the central Work Access Policy (the same rule the asset gateway enforces).
+ * A Work that is not provably readable for the viewer keeps the source cover
+ * URL, so a public browse page never renders an asset its viewer cannot fetch.
+ */
+async function loadViewerCoverUrls(workIds: Array<string | null>, actor: WorkReadActor): Promise<Map<string, string>> {
+  const ids = [...new Set(workIds.filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) {
+    return new Map();
+  }
+  const access = workReadAccessSql(actor);
+  if (!access) {
+    return new Map();
+  }
+  const rows = await db
+    .select({ id: readingWork.id, coverAssetId: readingWork.coverAssetId })
+    .from(readingWork)
+    .where(and(inArray(readingWork.id, ids), isNotNull(readingWork.coverAssetId), access));
+  return new Map(rows.map((row) => [row.id, `/api/assets/${row.coverAssetId}`]));
+}
+
 export type SourceRecordReadOptions = {
   /** Locale for the public category display summaries; defaults to the product locale. */
   locale?: string;
+  /**
+   * Viewer whose Work access decides whether a linked Work's local cover asset
+   * replaces the source cover URL. Defaults to anonymous (public-only covers).
+   */
+  actor?: WorkReadActor;
 };
 
 /** Sort/pagination columns shared by every SourceRecord list surface. */
@@ -130,6 +158,7 @@ async function listSourceRecordPage(
   where: SQL,
   query: SourceRecordPageQuery,
   locale: string,
+  coverActor?: WorkReadActor | null,
 ): Promise<SourceRecordListData> {
   const offset = (query.page - 1) * query.pageSize;
 
@@ -151,10 +180,16 @@ async function listSourceRecordPage(
 
   const recordIds = rows.map((row) => row.record.id);
   const categoriesByRecord = await loadCategorySummariesByRecordIds(recordIds, locale);
+  const coverUrls = coverActor
+    ? await loadViewerCoverUrls(
+        rows.map((row) => row.record.workId),
+        coverActor,
+      )
+    : null;
 
   return {
     items: rows.map((row) => ({
-      ...toSourceRecordItem(row.record, row.source),
+      ...toSourceRecordItem(row.record, row.source, coverUrls?.get(row.record.workId ?? '') ?? null),
       categories: categoriesByRecord.get(row.record.id) ?? [],
     })),
     pagination: buildPaginationMeta({
@@ -171,7 +206,8 @@ export async function listSourceRecords(
   query: SourceRecordListQuery,
   options: SourceRecordReadOptions = {},
 ): Promise<SourceRecordListData> {
-  return listSourceRecordPage(listWhere(query), query, options.locale ?? DEFAULT_LOCALE);
+  const actor = options.actor ?? anonymousWorkReadActor();
+  return listSourceRecordPage(listWhere(query), query, options.locale ?? DEFAULT_LOCALE, actor);
 }
 
 /** Admin search has no public visibility or language constraint; only `q` narrows it. */
@@ -212,8 +248,9 @@ export async function getSourceRecord(
   }
 
   const categoriesByRecord = await loadCategorySummariesByRecordIds([row.record.id], locale);
+  const coverUrls = await loadViewerCoverUrls([row.record.workId], options.actor ?? anonymousWorkReadActor());
   return {
-    ...toSourceRecordDetail(row.record, row.source),
+    ...toSourceRecordDetail(row.record, row.source, coverUrls.get(row.record.workId ?? '') ?? null),
     categories: categoriesByRecord.get(row.record.id) ?? [],
   };
 }

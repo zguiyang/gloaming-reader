@@ -1,14 +1,26 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+// @vitest-environment happy-dom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { publicCategoryListDataSchema, sourceRecordListDataSchema } from '@gloaming/shared/discovery';
-import { sourceRecordSaveResultSchema } from '@gloaming/shared/library';
+import {
+  sourceRecordSaveResultSchema,
+  type SourceRecordSaveStatus,
+  sourceRecordSaveStatusSchema,
+} from '@gloaming/shared/library';
 import { catalogListDataSchema } from '@gloaming/shared/works';
 
-const mocks = vi.hoisted(() => ({ apiRequest: vi.fn() }));
+const mocks = vi.hoisted(() => ({ apiRequest: vi.fn(), userId: 'user-1' as string | null }));
 
 vi.mock('@/lib/api-request', () => ({
   apiRequest: mocks.apiRequest,
   formatApiError: (error: unknown) => String(error),
+}));
+
+vi.mock('@/lib/auth', () => ({
+  authClient: { useSession: () => ({ data: mocks.userId ? { user: { id: mocks.userId } } : null }) },
 }));
 
 import {
@@ -18,7 +30,12 @@ import {
   fetchDiscoverCategories,
   fetchDiscoverLegacyWorks,
   fetchDiscoverRecords,
+  fetchSourceRecordSaveStatus,
   saveSourceRecordToLibrary,
+  saveStatusRefetchInterval,
+  SOURCE_RECORD_SAVE_POLL_MS,
+  useDiscoverRecordsQuery,
+  useSourceRecordSaveStatusQuery,
 } from '@/features/discover/discover-api';
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/discover-model';
 
@@ -29,6 +46,7 @@ function paramsOf(call: unknown[]): URLSearchParams {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.userId = 'user-1';
   mocks.apiRequest.mockResolvedValue({ items: [], pagination: {} });
 });
 
@@ -54,7 +72,7 @@ describe('buildDiscoverRecordsQuery', () => {
   });
 
   it('provides a query key for the current list parameters', () => {
-    expect(discoverQueryKey.records({ page: 2 })).toEqual(['discover', 'records', { page: 2 }]);
+    expect(discoverQueryKey.records({ page: 2 }, 'user-1')).toEqual(['discover', 'records', 'user-1', { page: 2 }]);
   });
 });
 
@@ -96,5 +114,81 @@ describe('Discover API clients', () => {
     const call = mocks.apiRequest.mock.calls[0]!;
     expect(String(call[0])).toBe('/api/library/source-records/source%20record%2F1');
     expect(call[1]).toMatchObject({ method: 'POST', schema: sourceRecordSaveResultSchema });
+  });
+
+  it('reads the owner-scoped Save Intent status through its contract', async () => {
+    await fetchSourceRecordSaveStatus('source record/1');
+    const call = mocks.apiRequest.mock.calls[0]!;
+    expect(String(call[0])).toBe('/api/library/source-records/source%20record%2F1');
+    expect(call[1]).toMatchObject({ schema: sourceRecordSaveStatusSchema });
+    expect(call[1]).not.toHaveProperty('method');
+  });
+
+  it('keys the Save Intent status per viewer and SourceRecord', () => {
+    expect(discoverQueryKey.saveStatus('sr-9', 'user-1')).toEqual(['discover', 'save-status', 'user-1', 'sr-9']);
+  });
+});
+
+beforeAll(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+describe('Discover viewer-scoped query observers', () => {
+  it('never reuses a member cover or save status for another user or an anonymous viewer', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const memberRecords = { items: [{ coverUrl: '/api/assets/member-cover' }], pagination: {} };
+    client.setQueryData(discoverQueryKey.records({}, 'user-1'), memberRecords);
+    client.setQueryData(discoverQueryKey.saveStatus('sr-1', 'user-1'), {
+      status: 'ready',
+      workId: 'work-1',
+      failureReason: null,
+    });
+    // Hold replacement requests open to prove no stale/placeholder data bridges identities.
+    mocks.apiRequest.mockImplementation(() => new Promise(() => {}));
+    let observed: { records: unknown; status: SourceRecordSaveStatus | undefined };
+    function Probe() {
+      const records = useDiscoverRecordsQuery({});
+      const status = useSourceRecordSaveStatusQuery('sr-1');
+      observed = { records: records.data, status: status.data };
+      return null;
+    }
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    const render = () =>
+      act(async () => {
+        root.render(createElement(QueryClientProvider, { client }, createElement(Probe)));
+      });
+    try {
+      await render();
+      expect(observed!.records).toEqual(memberRecords);
+      expect(observed!.status?.status).toBe('ready');
+      mocks.userId = 'user-2';
+      await render();
+      expect(observed!).toEqual({ records: undefined, status: undefined });
+      const statusReads = mocks.apiRequest.mock.calls.filter(([url]) => String(url).startsWith('/api/library/')).length;
+      mocks.userId = null;
+      await render();
+      expect(observed!).toEqual({ records: undefined, status: undefined });
+      expect(mocks.apiRequest.mock.calls.filter(([url]) => String(url).startsWith('/api/library/'))).toHaveLength(
+        statusReads,
+      );
+    } finally {
+      await act(async () => root.unmount());
+      client.clear();
+    }
+  });
+});
+
+describe('saveStatusRefetchInterval', () => {
+  const statusData = (status: 'none' | 'pending' | 'ready' | 'failed') => ({
+    state: { data: { status, workId: null, failureReason: null } },
+  });
+
+  it('polls only while the server reports an in-flight import', () => {
+    expect(saveStatusRefetchInterval(statusData('pending'))).toBe(SOURCE_RECORD_SAVE_POLL_MS);
+    expect(saveStatusRefetchInterval(statusData('ready'))).toBe(false);
+    expect(saveStatusRefetchInterval(statusData('failed'))).toBe(false);
+    expect(saveStatusRefetchInterval(statusData('none'))).toBe(false);
+    expect(saveStatusRefetchInterval({ state: { data: undefined } })).toBe(false);
   });
 });

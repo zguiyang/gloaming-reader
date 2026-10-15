@@ -127,8 +127,10 @@ function resolveCoverHref(
   }
 
   // Heuristic: entry name contains cover/couv (raster only, mirroring foliate).
+  // Only raster image entries qualify — a `cover.xhtml` wrapper page would
+  // otherwise win the shortest-key sort and be stored as a broken cover asset.
   const candidates = [...entries.keys()].filter(
-    (key) => /cover|couv/i.test(key) && !key.toLowerCase().endsWith('.svg'),
+    (key) => /cover|couv/i.test(key) && /\.(jpe?g|png|gif|webp|avif)$/i.test(key),
   );
   if (candidates.length > 0) {
     candidates.sort((a, b) => a.length - b.length);

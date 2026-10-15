@@ -124,4 +124,20 @@ describe('parseEpub metadata extraction (builder variants)', () => {
     expect(book).not.toHaveProperty('subjects');
     expect(book).not.toHaveProperty('sourceRaw');
   });
+
+  it('resolves the cover heuristic to a raster image, never a cover XHTML page', async () => {
+    // No EPUB3 cover-image property and no EPUB2 meta cover → heuristic only.
+    const bytes = await buildEpubBytes({
+      chapters: [
+        { href: 'cover.xhtml', content: '<html><body><p>Cover page text.</p></body></html>' },
+        { href: 'chapter-1.xhtml', tocLabel: 'Chapter 1', content: '<html><body><p>Body.</p></body></html>' },
+      ],
+      extraEntries: { 'images/cover-art.jpg': Buffer.from([0xff, 0xd8, 0xff, 0xe0]) },
+    });
+
+    const book = await parseEpub(bytes);
+
+    expect(book.coverHref).toBe('OEBPS/images/cover-art.jpg');
+    expect(book.coverMime).toBe('image/jpeg');
+  });
 });
