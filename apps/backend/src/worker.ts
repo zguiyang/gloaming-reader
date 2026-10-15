@@ -50,6 +50,7 @@ import { workerLogger } from '@/infra/logging/logger';
 import {
   CLEANUP_QUEUE_NAME,
   closeQueue,
+  DISCOVERY_SYNC_QUEUE_NAME,
   getQueueConnection,
   PERSONAL_TAG_QUEUE_NAME,
   PUBLIC_CLASSIFICATION_QUEUE_NAME,
@@ -61,10 +62,12 @@ export const PERSONAL_TAG_WORKER_CONCURRENCY = 2;
 export const PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY = 1;
 
 export const PUBLIC_CLASSIFICATION_ONLY_FLAG = '--public-classification-only';
+export const DISCOVERY_SYNC_ONLY_FLAG = '--discovery-sync-only';
 
-export type WorkerMode = 'full' | 'public-classification-only';
+export type WorkerMode = 'full' | 'public-classification-only' | 'discovery-sync-only';
 
 export function resolveWorkerMode(argv: readonly string[] = process.argv): WorkerMode {
+  if (argv.includes(DISCOVERY_SYNC_ONLY_FLAG)) return 'discovery-sync-only';
   return argv.includes(PUBLIC_CLASSIFICATION_ONLY_FLAG) ? 'public-classification-only' : 'full';
 }
 
@@ -111,13 +114,18 @@ function attachWorkerEvents(worker: Worker, queue: string): void {
   });
 }
 
-export function createWorkers(mode: WorkerMode = 'full'): {
+export function createWorkers(
+  mode: WorkerMode = 'full',
+  options: { discoverySyncQueueName?: string } = {},
+): {
   worker?: Worker;
   cleanupWorker?: Worker;
   personalTagWorker?: Worker;
-  publicClassificationWorker: Worker;
+  publicClassificationWorker?: Worker;
+  discoverySyncWorker?: Worker;
 } {
   const connection = getQueueConnection();
+  const discoverySyncQueueName = options.discoverySyncQueueName ?? DISCOVERY_SYNC_QUEUE_NAME;
 
   const createPublicClassificationWorker = () => {
     const publicClassificationWorker = new BullWorker(
@@ -134,6 +142,19 @@ export function createWorkers(mode: WorkerMode = 'full'): {
 
   if (mode === 'public-classification-only') {
     return { publicClassificationWorker: createPublicClassificationWorker() };
+  }
+
+  if (mode === 'discovery-sync-only') {
+    const discoverySyncWorker = new BullWorker(
+      discoverySyncQueueName,
+      async (job) => {
+        if (job.name !== JOB_DISCOVERY_SYNC) throw new Error(`Unknown discovery sync job: ${job.name}`);
+        return processDiscoverySync(job.data as DiscoverySyncJobData);
+      },
+      { connection },
+    );
+    attachWorkerEvents(discoverySyncWorker, discoverySyncQueueName);
+    return { discoverySyncWorker };
   }
 
   const worker = new BullWorker(QUEUE_NAME, async (job) => processJob(job), {
@@ -171,7 +192,23 @@ export function createWorkers(mode: WorkerMode = 'full'): {
 async function main(): Promise<void> {
   const mode = resolveWorkerMode();
   const publicClassificationOnly = mode === 'public-classification-only';
-  const { worker, cleanupWorker, personalTagWorker, publicClassificationWorker } = createWorkers(mode);
+  const { worker, cleanupWorker, personalTagWorker, publicClassificationWorker, discoverySyncWorker } =
+    createWorkers(mode);
+  if (mode === 'discovery-sync-only') {
+    workerLogger.info({ queue: DISCOVERY_SYNC_QUEUE_NAME, mode }, 'Worker listening');
+    let shuttingDown = false;
+    const shutdown = async (signal: string) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      workerLogger.info({ signal }, 'Worker shutting down');
+      await discoverySyncWorker?.close();
+      await closeQueue();
+      process.exit(0);
+    };
+    process.on('SIGINT', () => void shutdown('SIGINT'));
+    process.on('SIGTERM', () => void shutdown('SIGTERM'));
+    return;
+  }
   let dispatcherRunning = false;
   const dispatch = async () => {
     if (dispatcherRunning) return;
@@ -215,7 +252,7 @@ async function main(): Promise<void> {
     clearInterval(personalTagDispatchTimer);
     workerLogger.info({ signal }, 'Worker shutting down');
     await Promise.all(
-      [worker, cleanupWorker, personalTagWorker, publicClassificationWorker]
+      [worker, cleanupWorker, personalTagWorker, publicClassificationWorker, discoverySyncWorker]
         .filter((created): created is Worker => created !== undefined)
         .map((created) => created.close()),
     );

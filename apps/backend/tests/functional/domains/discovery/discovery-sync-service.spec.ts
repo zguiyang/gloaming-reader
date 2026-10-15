@@ -258,6 +258,7 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
           lastErrorSummary: preExisting.lastErrorSummary,
           snapshotLastModified: preExisting.snapshotLastModified,
           snapshotVersion: preExisting.snapshotVersion,
+          updatedAt: preExisting.updatedAt,
         })
         .where(eq(discoverySourceTable.id, sourceId));
     } else {

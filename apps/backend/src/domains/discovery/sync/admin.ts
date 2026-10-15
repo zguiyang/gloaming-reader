@@ -17,7 +17,7 @@ import {
   setSourceEnabled,
 } from '@/domains/discovery/sync/repository';
 import { rootLogger } from '@/infra/logging/logger';
-import { enqueue, getQueue } from '@/infra/queue';
+import { enqueueDiscoverySync, getDiscoverySyncQueue } from '@/infra/queue';
 
 const logger = rootLogger.child({ module: 'DiscoverySourceAdmin' });
 
@@ -52,7 +52,7 @@ async function hasLiveQueuedJob(source: DiscoverySourceRow): Promise<boolean> {
       // No persisted claim token: no job can own this claim.
       return false;
     }
-    const job = await getQueue().getJob(discoverySyncJobId(source.sourceKey, source.syncStartedAt));
+    const job = await getDiscoverySyncQueue().getJob(discoverySyncJobId(source.sourceKey, source.syncStartedAt));
     if (!job) {
       return false;
     }
@@ -161,7 +161,7 @@ export async function requestProjectGutenbergSync(): Promise<DiscoverySyncAccept
   }
 
   try {
-    await enqueue(
+    await enqueueDiscoverySync(
       JOB_DISCOVERY_SYNC,
       { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: claimedAt.toISOString() },
       { attempts: 1, jobId: discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claimedAt) },
