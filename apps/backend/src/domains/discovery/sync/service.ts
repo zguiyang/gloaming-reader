@@ -52,19 +52,25 @@ export type DiscoverySyncResult =
  * - metadata only: never creates ReadingWork/ReadingPart/ContentAsset/Library/ReadingState rows
  * - conditional refresh via Last-Modified / 304
  * - records are never deleted; absence is reconciled only after the full snapshot succeeds
- * - a run starts only through the atomic enabled+queued transition; a disabled or
- *   no-longer-queued job skips without fetching upstream
+ * - a run starts only through the atomic enabled+queued transition, guarded by
+ *   the claim generation token `claimedAt`; a disabled or no-longer-owned job
+ *   skips without fetching upstream
+ * - once the run's abort signal fires (e.g. the time limit), no further data is
+ *   written and no success is reported; every terminal write is fenced by the
+ *   run token so a replaced executor cannot overwrite a newer run
  */
-export async function syncProjectGutenbergMetadata(
-  options: { signal?: AbortSignal } = {},
-): Promise<DiscoverySyncResult> {
+export async function syncProjectGutenbergMetadata(options: {
+  signal?: AbortSignal;
+  claimedAt: Date;
+}): Promise<DiscoverySyncResult> {
   const source = await ensureDiscoverySource(PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE);
-  const startOutcome = await startSourceSyncing(source.id, new Date());
+  const runStartedAt = new Date();
+  const startOutcome = await startSourceSyncing(source.id, options.claimedAt, runStartedAt);
   if (startOutcome !== 'started') {
     if (startOutcome === 'disabled') {
       // Disabled between queueing and execution: release only the still-queued
       // claim without fetching upstream or recording an upstream failure.
-      await releaseSourceQueued(source.id);
+      await releaseSourceQueued(source.id, options.claimedAt);
       logger.info({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Gutenberg metadata sync skipped: source disabled');
       return { status: 'skipped-disabled' };
     }
@@ -81,7 +87,20 @@ export async function syncProjectGutenbergMetadata(
     });
 
     if (!snapshot) {
-      await markSourceSucceeded({ sourceId: source.id, lastModified: null, finishedAt: new Date() });
+      // Guard (c): never report success after the run was aborted.
+      throwIfRunAborted(options.signal);
+      const persisted = await markSourceSucceeded({
+        sourceId: source.id,
+        lastModified: null,
+        finishedAt: new Date(),
+        runStartedAt,
+      });
+      if (!persisted) {
+        logger.warn(
+          { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
+          'Gutenberg sync ownership lost; not-modified status not persisted',
+        );
+      }
       logger.info({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Gutenberg snapshot not modified (304)');
       return {
         status: 'not-modified',
@@ -92,13 +111,28 @@ export async function syncProjectGutenbergMetadata(
     }
 
     const observedAt = new Date();
-    const { seenRecords, batches } = await consumeSnapshot(source.id, snapshot, observedAt);
+    const { seenRecords, batches } = await consumeSnapshot(source.id, snapshot, observedAt, options.signal);
     if (seenRecords === 0) {
       throw new GutenbergSnapshotError('the snapshot archive contained no RDF records');
     }
 
+    // Guard (b): no reconciliation (a data write) once the run is aborted.
+    throwIfRunAborted(options.signal);
     const unavailableRecords = await reconcileUnavailableRecords(source.id, observedAt);
-    await markSourceSucceeded({ sourceId: source.id, lastModified: snapshot.lastModified, finishedAt: new Date() });
+    // Guard (d): no success report after the run was aborted.
+    throwIfRunAborted(options.signal);
+    const persisted = await markSourceSucceeded({
+      sourceId: source.id,
+      lastModified: snapshot.lastModified,
+      finishedAt: new Date(),
+      runStartedAt,
+    });
+    if (!persisted) {
+      logger.warn(
+        { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
+        'Gutenberg sync ownership lost; success status not persisted',
+      );
+    }
 
     logger.info(
       { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, seenRecords, unavailableRecords, batches },
@@ -114,7 +148,18 @@ export async function syncProjectGutenbergMetadata(
   } catch (error) {
     const errorSummary = toSyncErrorSummary(error, options.signal);
     try {
-      await markSourceFailed({ sourceId: source.id, errorSummary, finishedAt: new Date() });
+      const persisted = await markSourceFailed({
+        sourceId: source.id,
+        errorSummary,
+        finishedAt: new Date(),
+        runStartedAt,
+      });
+      if (!persisted) {
+        logger.warn(
+          { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
+          'Gutenberg sync ownership lost; failure status not persisted',
+        );
+      }
     } catch {
       logger.warn({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Failed to persist Gutenberg sync failure status');
     }
@@ -125,10 +170,22 @@ export async function syncProjectGutenbergMetadata(
   }
 }
 
+/**
+ * Aborts the run once its signal fired (e.g. the sync time limit). The thrown
+ * error is a `GutenbergSnapshotError`, and `toSyncErrorSummary` maps an aborted
+ * signal to the sanitized time-limit summary.
+ */
+function throwIfRunAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new GutenbergSnapshotError('the snapshot download was aborted');
+  }
+}
+
 async function consumeSnapshot(
   sourceId: string,
   snapshot: GutenbergSnapshot,
   observedAt: Date,
+  signal?: AbortSignal,
 ): Promise<{ seenRecords: number; batches: number }> {
   let seenRecords = 0;
   let batches = 0;
@@ -136,6 +193,9 @@ async function consumeSnapshot(
 
   const flushBatch = async (): Promise<void> => {
     if (batch.length === 0) return;
+    // Guard (a): an aborted run must not write any more data, even if the
+    // pipeline keeps draining records after the abort.
+    throwIfRunAborted(signal);
     const records = batch;
     batch = [];
     // Read pre-upsert evidence first so new/changed detection can baseline a
@@ -215,7 +275,7 @@ async function registerIncrementalClassification(
 
 function toSyncErrorSummary(error: unknown, signal?: AbortSignal): string {
   if (signal?.aborted) {
-    return 'the Project Gutenberg metadata sync was aborted';
+    return 'the Project Gutenberg metadata sync exceeded its time limit';
   }
   if (error instanceof GutenbergSnapshotError) {
     return error.message.slice(0, 300);

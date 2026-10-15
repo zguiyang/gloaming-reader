@@ -43,7 +43,7 @@ This accepted supply direction supersedes the earlier deferral of new Catalog in
 - **SourceRecord** = local bibliography (source + `externalID`, title/author/language/rights/URL). It is **not readable content**; only a materialized Work enters the Library/Reader.
 - **Pending save intent:** save creates a pending intent; on successful import it becomes a **formal membership** (`user_library_item`). Failure keeps a **retryable** state — never fake readiness.
 - **Disabled sources** are hidden; a **failed sync retains the last full snapshot**.
-- V1 synchronizes the official Gutenberg RDF metadata snapshot weekly, with an administrator-triggered retry. Only a successfully completed snapshot can mark missing records unavailable; no hosted third-party catalog is a runtime requirement.
+- V1 synchronizes the official Gutenberg RDF metadata snapshot **only when an administrator manually triggers it**; automatic/periodic scheduling is deferred. Recovering a lost run (a timed-out or stale `queued`/`syncing` claim) records a visible failure but never starts a new run — only an explicit administrator trigger does. Only a successfully completed snapshot can mark missing records unavailable; no hosted third-party catalog is a runtime requirement.
 - **Withdrawal never deletes** an existing work or its progress.
 - **Source metadata updates do not overwrite** already-imported parts.
 - Import retains source metadata and rights evidence; AI description enrichment must not replace authoritative source fields. Raw subjects and bookshelves remain distinct from public categories.

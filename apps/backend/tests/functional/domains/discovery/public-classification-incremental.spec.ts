@@ -464,8 +464,9 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
     snapshotMocks.open.mockImplementation(async () => fakeSnapshot([record]));
     invokeAiMock.mockResolvedValue(aiResult(reuseDecision([category.id])));
 
-    expect(await claimSourceQueued(gutenbergSourceId)).toBe(true);
-    const firstSync = await syncProjectGutenbergMetadata();
+    const firstClaim = await claimSourceQueued(gutenbergSourceId);
+    expect(firstClaim).not.toBeNull();
+    const firstSync = await syncProjectGutenbergMetadata({ claimedAt: firstClaim! });
     expect(firstSync).toMatchObject({ status: 'succeeded', seenRecords: 1 });
 
     const [recordRow] = await db
@@ -489,8 +490,9 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
       .update(discoverySourceTable)
       .set({ syncStatus: 'idle', syncStartedAt: null })
       .where(eq(discoverySourceTable.id, gutenbergSourceId));
-    expect(await claimSourceQueued(gutenbergSourceId)).toBe(true);
-    const secondSync = await syncProjectGutenbergMetadata();
+    const secondClaim = await claimSourceQueued(gutenbergSourceId);
+    expect(secondClaim).not.toBeNull();
+    const secondSync = await syncProjectGutenbergMetadata({ claimedAt: secondClaim! });
     expect(secondSync).toMatchObject({ status: 'succeeded', seenRecords: 1 });
     const second = await dispatchAndRun(new Set([recordRow!.id]));
     expect(second.jobs).toHaveLength(0);
@@ -502,8 +504,9 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
     const [{ id }] = await upsertSourceRecords(gutenbergSourceId, [record], new Date());
     snapshotMocks.open.mockImplementation(async () => fakeSnapshot([record]));
 
-    expect(await claimSourceQueued(gutenbergSourceId)).toBe(true);
-    await syncProjectGutenbergMetadata();
+    const claimedAt = await claimSourceQueued(gutenbergSourceId);
+    expect(claimedAt).not.toBeNull();
+    await syncProjectGutenbergMetadata({ claimedAt: claimedAt! });
 
     const state = await readState(id!);
     expect(state?.evidenceFingerprint).toBe(computePublicClassificationFingerprint(fixtureEvidence(record)));
@@ -516,8 +519,9 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
   it('keeps the sync successful and the record present when enqueue and classification fail', async () => {
     const record = fixtureRecord(22);
     snapshotMocks.open.mockResolvedValue(fakeSnapshot([record]));
-    expect(await claimSourceQueued(gutenbergSourceId)).toBe(true);
-    expect(await syncProjectGutenbergMetadata()).toMatchObject({ status: 'succeeded' });
+    const claimedAt = await claimSourceQueued(gutenbergSourceId);
+    expect(claimedAt).not.toBeNull();
+    expect(await syncProjectGutenbergMetadata({ claimedAt: claimedAt! })).toMatchObject({ status: 'succeeded' });
 
     const [recordRow] = await db
       .select()

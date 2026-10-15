@@ -378,14 +378,6 @@
       "syncing": "Syncing…",
       "pendingHint": "A sync is already running in the background.",
       "disabledSyncHint": "Manual sync is unavailable while this source is disabled.",
-      "import": {
-        "title": "Import single sample",
-        "hint": "Upload one sample EPUB and enter its numeric Gutenberg ebook ID to import exactly one record. The file name does not need to match the ID.",
-        "idLabel": "Gutenberg ebook ID",
-        "filePickerAria": "Choose a Gutenberg sample EPUB file",
-        "submit": "Import",
-        "toastSuccess": "Imported {title}."
-      },
       "value": {
         "never": "Never"
       },
@@ -1389,10 +1381,7 @@
       "discovery": {
         "publicCategoryNameExists": "A category with that name already exists for this language",
         "publicCategoryLimitExceeded": "A source record can have at most {limit} categories",
-        "publicCategoryHasAssignments": "This category is still assigned to {count} source record(s). Remove those assignments before deleting it.",
-        "gutenbergImportFailed": "The single-record Gutenberg import could not be completed: {reason}",
-        "gutenbergImportIdInvalid": "The Gutenberg ebook ID must be a positive whole number",
-        "gutenbergImportFileInvalid": "The uploaded file must use the .epub extension"
+        "publicCategoryHasAssignments": "This category is still assigned to {count} source record(s). Remove those assignments before deleting it."
       }
     }
   }

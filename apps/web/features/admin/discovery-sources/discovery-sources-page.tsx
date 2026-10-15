@@ -1,8 +1,7 @@
 'use client';
 
-import { RefreshCw, Upload } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
@@ -19,7 +18,6 @@ import {
   formatDiscoverySourcesApiError,
   isDiscoverySyncPending,
   useDiscoverySourceStatusQuery,
-  useImportDiscoverySampleMutation,
   useSetDiscoverySourceEnabledMutation,
   useTriggerDiscoverySourceSyncMutation,
 } from '@/features/admin/discovery-sources/discovery-sources-api';
@@ -33,9 +31,6 @@ type StatusFieldProps = {
   label: string;
   children: ReactNode;
 };
-
-/** Mirrors the backend numeric-ID contract for immediate form feedback. */
-const IMPORT_EXTERNAL_ID_PATTERN = /^[1-9]\d{0,9}$/;
 
 function StatusField({ label, children }: StatusFieldProps) {
   return (
@@ -67,12 +62,6 @@ export function DiscoverySourcesPage() {
   const statusQuery = useDiscoverySourceStatusQuery();
   const enabledMutation = useSetDiscoverySourceEnabledMutation();
   const syncMutation = useTriggerDiscoverySourceSyncMutation();
-  const importMutation = useImportDiscoverySampleMutation();
-  const importInputRef = useRef<HTMLInputElement>(null);
-  const [importFileName, setImportFileName] = useState<string | null>(null);
-  /** Prefilled with the authorized fixture id (pg11339.epub); freely editable. */
-  const [importExternalId, setImportExternalId] = useState('11339');
-  const isImportExternalIdValid = IMPORT_EXTERNAL_ID_PATTERN.test(importExternalId.trim());
   const status = statusQuery.data;
   const operationFailed = t(locale, 'admin.discoverySources.page.operationFailed');
 
@@ -98,22 +87,6 @@ export function DiscoverySourcesPage() {
       );
     } catch (error) {
       toast.error(formatDiscoverySourcesApiError(error) || operationFailed);
-    }
-  }
-
-  async function runImport() {
-    if (!importFileName || !isImportExternalIdValid) return;
-    const input = importInputRef.current;
-    const file = input?.files?.[0];
-    if (!file) return;
-    try {
-      const result = await importMutation.mutateAsync({ file, externalId: importExternalId.trim() });
-      toast.success(t(locale, 'admin.discoverySources.import.toastSuccess', { title: result.title }));
-    } catch (error) {
-      toast.error(formatDiscoverySourcesApiError(error) || operationFailed);
-    } finally {
-      setImportFileName(null);
-      if (input) input.value = '';
     }
   }
 
@@ -214,41 +187,6 @@ export function DiscoverySourcesPage() {
             ) : isSyncPending ? (
               <p className="text-sm text-muted-foreground">{t(locale, 'admin.discoverySources.pendingHint')}</p>
             ) : null}
-          </div>
-
-          <div className="flex flex-col gap-3 border-t pt-4">
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium">{t(locale, 'admin.discoverySources.import.title')}</p>
-              <p className="text-xs text-muted-foreground">{t(locale, 'admin.discoverySources.import.hint')}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={importExternalId}
-                onChange={(event) => setImportExternalId(event.target.value)}
-                aria-label={t(locale, 'admin.discoverySources.import.idLabel')}
-                className="w-36 rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-              />
-              <input
-                ref={importInputRef}
-                type="file"
-                accept=".epub,application/epub+zip"
-                aria-label={t(locale, 'admin.discoverySources.import.filePickerAria')}
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  setImportFileName(file ? file.name : null);
-                }}
-                className="text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm"
-              />
-              <Button
-                onClick={() => void runImport()}
-                disabled={!importFileName || !isImportExternalIdValid || isSourceDisabled || importMutation.isPending}
-              >
-                {importMutation.isPending ? <Spinner data-icon="inline-start" /> : <Upload data-icon="inline-start" />}
-                {t(locale, 'admin.discoverySources.import.submit')}
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>

@@ -17,6 +17,23 @@ export const PROJECT_GUTENBERG_USER_AGENT = 'Gloaming/0.1 (metadata sync)';
 /** Conservative initial multi-row upsert size; Worker F benchmarks PostgreSQL throughput. */
 export const PROJECT_GUTENBERG_UPSERT_BATCH_SIZE = 500;
 
+/**
+ * Hard wall-clock limit for one background sync run. The worker aborts the
+ * snapshot stream past this limit so a hung upstream fetch cannot leave the
+ * source stuck in `syncing`; the run is then reported as a timed-out failure.
+ */
+export const PROJECT_GUTENBERG_SYNC_TIMEOUT_MS = 30 * 60 * 1000;
+
+/** A `queued` claim older than this is treated as lost (e.g. the worker died before starting). */
+export const PROJECT_GUTENBERG_STALE_QUEUED_MS = 10 * 60 * 1000;
+
+/**
+ * A `syncing` run older than this is treated as lost. Always kept above
+ * {@link PROJECT_GUTENBERG_SYNC_TIMEOUT_MS} plus a grace window so a live,
+ * still-executing run is never misjudged and restarted.
+ */
+export const PROJECT_GUTENBERG_STALE_SYNCING_MS = PROJECT_GUTENBERG_SYNC_TIMEOUT_MS + 15 * 60 * 1000;
+
 /** Upper bound for a single decompressed RDF tar member held in memory. */
 export const GUTENBERG_TAR_MEMBER_MAX_BYTES = 16 * 1024 * 1024;
 

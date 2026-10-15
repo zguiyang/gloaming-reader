@@ -18,10 +18,17 @@ import {
   PROJECT_GUTENBERG_RDF_SNAPSHOT_URL,
   PROJECT_GUTENBERG_SOURCE_KEY,
   PROJECT_GUTENBERG_SOURCE_TYPE,
+  PROJECT_GUTENBERG_UPSERT_BATCH_SIZE,
 } from '@/domains/discovery/gutenberg/constants';
 import { GutenbergSnapshotError } from '@/domains/discovery/gutenberg/errors';
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
-import { claimSourceQueued, ensureDiscoverySource } from '@/domains/discovery/sync/repository';
+import {
+  claimSourceQueued,
+  ensureDiscoverySource,
+  markSourceFailed,
+  markSourceSucceeded,
+  upsertSourceRecords,
+} from '@/domains/discovery/sync/repository';
 import { syncProjectGutenbergMetadata } from '@/domains/discovery/sync/service';
 import { db } from '@/infra/db';
 import { processJob } from '@/worker';
@@ -34,6 +41,7 @@ vi.mock('@/domains/discovery/gutenberg/snapshot-stream', async (importOriginal) 
 });
 
 const runId = randomUUID();
+const TIMEOUT_SUMMARY = 'the Project Gutenberg metadata sync exceeded its time limit';
 let sourceId = '';
 let preExisting: typeof discoverySourceTable.$inferSelect | null = null;
 
@@ -78,6 +86,13 @@ function failingSnapshot(error: Error) {
 
 function records(count: number): ParsedSourceRecord[] {
   return Array.from({ length: count }, (_, index) => fixtureRecord(index));
+}
+
+/** Claims the source and returns its non-null claim generation token. */
+async function claimQueued(): Promise<Date> {
+  const claimedAt = await claimSourceQueued(sourceId);
+  expect(claimedAt).not.toBeNull();
+  return claimedAt!;
 }
 
 async function ownedRecordCount(): Promise<number> {
@@ -187,8 +202,8 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     snapshotMocks.open.mockResolvedValue(fakeSnapshot(records(501)));
 
-    expect(await claimSourceQueued(sourceId)).toBe(true);
-    const result = await syncProjectGutenbergMetadata();
+    const claimedAt = await claimQueued();
+    const result = await syncProjectGutenbergMetadata({ claimedAt });
 
     expect(result).toEqual({
       status: 'succeeded',
@@ -219,13 +234,13 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
   it('is idempotent across repeated identical syncs', async () => {
     snapshotMocks.open.mockImplementation(async () => fakeSnapshot(records(20)));
 
-    expect(await claimSourceQueued(sourceId)).toBe(true);
-    const first = await syncProjectGutenbergMetadata();
+    const firstClaim = await claimQueued();
+    const first = await syncProjectGutenbergMetadata({ claimedAt: firstClaim });
     expect(first).toMatchObject({ status: 'succeeded', seenRecords: 20, batches: 1 });
 
     await resetSourceItself();
-    expect(await claimSourceQueued(sourceId)).toBe(true);
-    const second = await syncProjectGutenbergMetadata();
+    const secondClaim = await claimQueued();
+    const second = await syncProjectGutenbergMetadata({ claimedAt: secondClaim });
     expect(second).toMatchObject({ status: 'succeeded', seenRecords: 20, batches: 1 });
 
     expect(await ownedRecordCount()).toBe(20);
@@ -233,13 +248,12 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
 
   it('reconciles records missing from a later snapshot to unavailable and never deletes them', async () => {
     snapshotMocks.open.mockResolvedValue(fakeSnapshot(records(5)));
-    expect(await claimSourceQueued(sourceId)).toBe(true);
-    await syncProjectGutenbergMetadata();
+    await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
 
     await resetSourceItself();
     snapshotMocks.open.mockResolvedValue(fakeSnapshot([fixtureRecord(0), fixtureRecord(1)]));
-    expect(await claimSourceQueued(sourceId)).toBe(true);
-    const result = await syncProjectGutenbergMetadata();
+    const claimedAt = await claimQueued();
+    const result = await syncProjectGutenbergMetadata({ claimedAt });
 
     expect(result).toMatchObject({ status: 'succeeded', seenRecords: 2, unavailableRecords: 3 });
     expect(await ownedRecordCount()).toBe(5);
@@ -247,10 +261,10 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
   });
 
   it('skips without fetching when the source is disabled between queueing and execution', async () => {
-    expect(await claimSourceQueued(sourceId)).toBe(true);
+    const claimedAt = await claimQueued();
     await db.update(discoverySourceTable).set({ enabled: false }).where(eq(discoverySourceTable.id, sourceId));
 
-    const result = await syncProjectGutenbergMetadata();
+    const result = await syncProjectGutenbergMetadata({ claimedAt });
 
     expect(result).toEqual({ status: 'skipped-disabled' });
     expect(snapshotMocks.open).not.toHaveBeenCalled();
@@ -260,7 +274,7 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
   });
 
   it('skips when no queued claim is owned', async () => {
-    const result = await syncProjectGutenbergMetadata();
+    const result = await syncProjectGutenbergMetadata({ claimedAt: new Date() });
     expect(result).toEqual({ status: 'skipped-not-queued' });
     expect(snapshotMocks.open).not.toHaveBeenCalled();
   });
@@ -270,8 +284,8 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
       failingSnapshot(new GutenbergSnapshotError('an RDF member could not be parsed')),
     );
 
-    expect(await claimSourceQueued(sourceId)).toBe(true);
-    const result = await syncProjectGutenbergMetadata();
+    const claimedAt = await claimQueued();
+    const result = await syncProjectGutenbergMetadata({ claimedAt });
 
     expect(result).toEqual({ status: 'failed', errorSummary: 'an RDF member could not be parsed' });
     const source = await sourceRow();
@@ -281,21 +295,206 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
 
   it('runs through the worker job and surfaces result and error', async () => {
     snapshotMocks.open.mockResolvedValue(fakeSnapshot(records(3)));
-    expect(await claimSourceQueued(sourceId)).toBe(true);
+    const claimedAt = await claimQueued();
 
     await expect(
-      processJob({ name: JOB_DISCOVERY_SYNC, data: { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY } }),
+      processJob({
+        name: JOB_DISCOVERY_SYNC,
+        data: { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: claimedAt.toISOString() },
+      }),
     ).resolves.toEqual({ status: 'succeeded' });
 
-    await expect(processDiscoverySync({ sourceKey: 'unsupported-source' })).rejects.toBeInstanceOf(UnrecoverableError);
+    await expect(
+      processDiscoverySync({ sourceKey: 'unsupported-source', claimedAt: claimedAt.toISOString() }),
+    ).rejects.toBeInstanceOf(UnrecoverableError);
 
     snapshotMocks.open.mockResolvedValue(
       failingSnapshot(new GutenbergSnapshotError('an RDF member could not be parsed')),
     );
     await resetSourceItself();
-    expect(await claimSourceQueued(sourceId)).toBe(true);
-    await expect(processDiscoverySync({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY })).rejects.toThrow(
-      'an RDF member could not be parsed',
+    const retryClaim = await claimQueued();
+    await expect(
+      processDiscoverySync({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: retryClaim.toISOString() }),
+    ).rejects.toThrow('an RDF member could not be parsed');
+  });
+
+  it('keeps existing records available when a later sync fails', async () => {
+    snapshotMocks.open.mockResolvedValue(fakeSnapshot(records(3)));
+    await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
+    expect(await availableOwnedRecordCount()).toBe(3);
+
+    await resetSourceItself();
+    snapshotMocks.open.mockResolvedValue(
+      failingSnapshot(new GutenbergSnapshotError('an RDF member could not be parsed')),
     );
+    const claimedAt = await claimQueued();
+    const result = await syncProjectGutenbergMetadata({ claimedAt });
+
+    expect(result.status).toBe('failed');
+    expect(await ownedRecordCount()).toBe(3);
+    expect(await availableOwnedRecordCount()).toBe(3);
+  });
+
+  it('ignores a duplicate job delivery after the queued claim was consumed', async () => {
+    snapshotMocks.open.mockImplementation(async () => fakeSnapshot(records(2)));
+    const claimedAt = await claimQueued();
+    const jobData = { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: claimedAt.toISOString() };
+
+    // A legacy/duplicate job without a valid claim token must not start a run.
+    await expect(processDiscoverySync({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: '' })).resolves.toEqual({
+      status: 'skipped-not-queued',
+    });
+    expect(snapshotMocks.open).not.toHaveBeenCalled();
+
+    await expect(processJob({ name: JOB_DISCOVERY_SYNC, data: jobData })).resolves.toEqual({ status: 'succeeded' });
+    await expect(processJob({ name: JOB_DISCOVERY_SYNC, data: jobData })).resolves.toEqual({
+      status: 'skipped-not-queued',
+    });
+
+    expect(snapshotMocks.open).toHaveBeenCalledTimes(1);
+    expect(await ownedRecordCount()).toBe(2);
+  });
+
+  it('aborts a hung run at the sync time limit and reports a timeout', async () => {
+    snapshotMocks.open.mockImplementation(
+      ({ signal }: { signal?: AbortSignal }) =>
+        new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted', 'AbortError')));
+        }),
+    );
+    const claimedAt = await claimQueued();
+
+    await expect(
+      processDiscoverySync(
+        { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: claimedAt.toISOString() },
+        { timeoutMs: 25 },
+      ),
+    ).rejects.toThrow(TIMEOUT_SUMMARY);
+
+    const source = await sourceRow();
+    expect(source?.syncStatus).toBe('failed');
+    expect(source?.lastErrorSummary).toBe(TIMEOUT_SUMMARY);
+  });
+
+  it('rejects a late delivery from a previous generation after a re-claim', async () => {
+    const claim1 = await claimQueued();
+    // Simulate loss: generation 1 is recovered as failed while its job lingers.
+    await db.update(discoverySourceTable).set({ syncStatus: 'failed' }).where(eq(discoverySourceTable.id, sourceId));
+    // Guarantee a distinct millisecond token for generation 2.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const claim2 = await claimQueued();
+    expect(claim2.getTime()).not.toBe(claim1.getTime());
+
+    snapshotMocks.open.mockResolvedValue(fakeSnapshot(records(1)));
+
+    const lateDelivery = await syncProjectGutenbergMetadata({ claimedAt: claim1 });
+    expect(lateDelivery).toEqual({ status: 'skipped-not-queued' });
+    expect(snapshotMocks.open).not.toHaveBeenCalled();
+    const queuedRow = await sourceRow();
+    expect(queuedRow).toMatchObject({ syncStatus: 'queued' });
+    expect(queuedRow?.syncStartedAt?.getTime()).toBe(claim2.getTime());
+
+    const result = await syncProjectGutenbergMetadata({ claimedAt: claim2 });
+    expect(result).toMatchObject({ status: 'succeeded', seenRecords: 1 });
+    expect(snapshotMocks.open).toHaveBeenCalledTimes(1);
+  });
+
+  it('fences terminal writes from a recovered executor', async () => {
+    const t1 = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const t2 = new Date(Date.now() - 60 * 60 * 1000);
+    expect(t2.getTime()).not.toBe(t1.getTime());
+
+    // Generation 1 starts, then is lost and recovered as failed.
+    await db
+      .update(discoverySourceTable)
+      .set({ syncStatus: 'syncing', syncStartedAt: t1 })
+      .where(eq(discoverySourceTable.id, sourceId));
+    await db.update(discoverySourceTable).set({ syncStatus: 'failed' }).where(eq(discoverySourceTable.id, sourceId));
+
+    // Generation 2 re-claims and starts its own run.
+    const claim2 = await claimQueued();
+    const claimedRow = await sourceRow();
+    expect(claimedRow?.syncStartedAt?.getTime()).toBe(claim2.getTime());
+    await db
+      .update(discoverySourceTable)
+      .set({ syncStatus: 'syncing', syncStartedAt: t2 })
+      .where(eq(discoverySourceTable.id, sourceId));
+
+    // Late terminal writes from generation 1 are fenced no-ops.
+    await expect(
+      markSourceFailed({
+        sourceId,
+        errorSummary: 'late failure from generation 1',
+        finishedAt: new Date(),
+        runStartedAt: t1,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      markSourceSucceeded({ sourceId, lastModified: null, finishedAt: new Date(), runStartedAt: t1 }),
+    ).resolves.toBe(false);
+
+    const fencedRow = await sourceRow();
+    expect(fencedRow).toMatchObject({ syncStatus: 'syncing', lastErrorSummary: null });
+    expect(fencedRow?.syncStartedAt?.getTime()).toBe(t2.getTime());
+
+    // A terminal write fenced by the current run token applies normally.
+    await expect(
+      markSourceSucceeded({
+        sourceId,
+        lastModified: 'Tue, 01 Jan 2030 00:00:00 GMT',
+        finishedAt: new Date(),
+        runStartedAt: t2,
+      }),
+    ).resolves.toBe(true);
+    expect((await sourceRow())?.syncStatus).toBe('succeeded');
+  });
+
+  it('stops writing and reconciling after the sync time limit and reports a timeout', async () => {
+    // Pre-existing record from an earlier run: post-abort reconciliation would
+    // flip it to unavailable, so its availability proves reconcile never ran.
+    const preExistingRecord = fixtureRecord(900);
+    const [{ id: seededId }] = await upsertSourceRecords(sourceId, [preExistingRecord], new Date(Date.now() - 60_000));
+    expect(seededId).toBeDefined();
+
+    // The generator ignores the abort signal: a slow pipeline keeps draining
+    // records after the watchdog fired.
+    snapshotMocks.open.mockImplementation(() => ({
+      lastModified: 'Tue, 01 Jan 2030 00:00:00 GMT',
+      records: (async function* () {
+        for (let index = 0; index < PROJECT_GUTENBERG_UPSERT_BATCH_SIZE; index += 1) {
+          yield fixtureRecord(index);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        for (
+          let index = PROJECT_GUTENBERG_UPSERT_BATCH_SIZE;
+          index < PROJECT_GUTENBERG_UPSERT_BATCH_SIZE + 100;
+          index += 1
+        ) {
+          yield fixtureRecord(index);
+        }
+      })(),
+      close: vi.fn(),
+    }));
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    const claimedAt = await claimQueued();
+    await expect(
+      processDiscoverySync(
+        { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: claimedAt.toISOString() },
+        { timeoutMs: 20 },
+      ),
+    ).rejects.toThrow(TIMEOUT_SUMMARY);
+
+    const source = await sourceRow();
+    expect(source).toMatchObject({ syncStatus: 'failed', lastErrorSummary: TIMEOUT_SUMMARY });
+    // Only the pre-abort batch flush landed (one full batch) plus the seeded
+    // record; the trailing 100 records were never written and no success happened.
+    expect(await ownedRecordCount()).toBe(PROJECT_GUTENBERG_UPSERT_BATCH_SIZE + 1);
+    expect(await availableOwnedRecordCount()).toBe(await ownedRecordCount());
+    const [seededRow] = await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.id, seededId!)).limit(1);
+    expect(seededRow?.availability).toBe('available');
+
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes('gutenberg.org'))).toHaveLength(0);
+    fetchSpy.mockRestore();
   });
 });
