@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type * as NextNavigation from 'next/navigation';
 import { act, createElement, type ReactElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LibraryData } from '@gloaming/shared/library';
 import type { ReadingStateStatus } from '@gloaming/shared/reader';
@@ -93,6 +93,14 @@ beforeEach(() => {
   mocks.unassignUserTag.mockResolvedValue(undefined);
 });
 
+// Safety net: when an assertion fails, the test's own view.cleanup() never runs and its
+// open dialog/menu portals would leak into document.body and poison later tests.
+const renderedRoots: Array<() => void> = [];
+
+afterEach(() => {
+  while (renderedRoots.length) renderedRoots.pop()?.();
+});
+
 function work(id: string) {
   return {
     id,
@@ -147,11 +155,21 @@ async function renderLibrary(result: unknown, locale: 'zh-CN' | 'en-US' = 'zh-CN
     async rerender() {
       await render();
     },
-    cleanup() {
-      void act(() => root.unmount());
-      container.remove();
-    },
+    cleanup: registerRootCleanup(root, container),
   };
+}
+
+/** Idempotent cleanup that also runs from afterEach when a failing test skips it. */
+function registerRootCleanup(root: ReturnType<typeof createRoot>, container: HTMLElement) {
+  let isCleaned = false;
+  const cleanup = () => {
+    if (isCleaned) return;
+    isCleaned = true;
+    void act(() => root.unmount());
+    container.remove();
+  };
+  renderedRoots.push(cleanup);
+  return cleanup;
 }
 
 async function renderTagManagement(data: unknown) {
@@ -164,10 +182,7 @@ async function renderTagManagement(data: unknown) {
   return {
     container,
     client,
-    cleanup() {
-      void act(() => root.unmount());
-      container.remove();
-    },
+    cleanup: registerRootCleanup(root, container),
   };
 }
 
@@ -183,6 +198,38 @@ function buttonByLabel(container: ParentNode, label: string): HTMLButtonElement 
 
 function tagButton(container: ParentNode, name: string): HTMLButtonElement | undefined {
   return Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.startsWith(name));
+}
+
+/** A promise whose settlement the test controls, to force a specific request ordering. */
+function deferred() {
+  let resolve!: () => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<unknown>((settleResolve, settleReject) => {
+    resolve = () => settleResolve(undefined);
+    reject = settleReject;
+  });
+  return { promise, resolve, reject };
+}
+
+const flush = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+/** Open the tag-assignment dialog for `Book book` through its management menu. */
+async function openTagAssignmentDialog(view: Awaited<ReturnType<typeof renderLibrary>>) {
+  await act(async () =>
+    (view.container.querySelector('button[aria-label="管理《Book book》"]') as HTMLButtonElement).click(),
+  );
+  const manageItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+    element.textContent?.includes('管理标签'),
+  );
+  await act(async () => (manageItem as HTMLElement).click());
+}
+
+function dialogCheckboxes() {
+  return Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+}
+
+function saveTagsButton() {
+  return Array.from(document.querySelectorAll('button')).find((button) => button.textContent === '保存标签');
 }
 
 describe('LibraryPage', () => {
@@ -878,6 +925,191 @@ describe('LibraryPage', () => {
     expect(mocks.assignUserTag).toHaveBeenCalledWith('book', 'tag-two');
     expect(mocks.assignUserTag).toHaveBeenCalledTimes(2);
     expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已更新');
+    view.cleanup();
+  });
+
+  it('holds tag-save feedback and the pending lock until every request has settled', async () => {
+    const tags = [
+      { id: 'tag-one', name: '喜欢', bookCount: 1 },
+      { id: 'tag-two', name: '以后再读', bookCount: 0 },
+    ];
+    mocks.useUserTagsQuery.mockReturnValue({ data: tags });
+    const entry = { ...item('book', false), userTags: [{ id: 'tag-one', name: '喜欢' }] };
+    const view = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [entry] } });
+
+    // The assign (add) request fails immediately while the unassign (remove) request
+    // stays in flight and only succeeds later.
+    const unassignDone = deferred();
+    mocks.assignUserTag.mockImplementationOnce(() => Promise.reject(new Error('assign failed')));
+    mocks.unassignUserTag.mockImplementationOnce(() => unassignDone.promise);
+
+    await openTagAssignmentDialog(view);
+    const checkboxes = dialogCheckboxes();
+    expect(checkboxes.map((checkbox) => checkbox.checked)).toEqual([true, false]);
+    await act(async () => {
+      checkboxes[0]?.click();
+      checkboxes[1]?.click();
+    });
+    const invalidateQueries = vi.spyOn(view.client, 'invalidateQueries');
+    await act(async () => saveTagsButton()?.click());
+    await flush();
+
+    // While the slower request is unresolved, the save must stay pending and silent:
+    // no final refresh, no feedback either way, and no second save can start.
+    expect(invalidateQueries).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy();
+    const lockedSave = saveTagsButton();
+    expect(lockedSave?.disabled).toBe(true);
+    await act(async () => lockedSave?.click());
+    await flush();
+    expect(mocks.assignUserTag).toHaveBeenCalledTimes(1);
+    expect(mocks.unassignUserTag).toHaveBeenCalledTimes(1);
+
+    // Only after the slow request settles does the save finish, refresh, and report.
+    unassignDone.resolve();
+    await flush();
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library', 'tags'] });
+    expect(mocks.toastError).toHaveBeenCalledWith('Error: assign failed');
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy();
+    view.cleanup();
+  });
+
+  it('waits for the slower tag request before refreshing, then retries only the missing change', async () => {
+    const tags = [
+      { id: 'tag-one', name: '喜欢', bookCount: 1 },
+      { id: 'tag-two', name: '以后再读', bookCount: 0 },
+    ];
+    mocks.useUserTagsQuery.mockReturnValue({ data: tags });
+    const entry = { ...item('book', false), userTags: [{ id: 'tag-one', name: '喜欢' }] };
+    const view = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [entry] } });
+
+    // Refresh returns the persisted state that is observable at refresh time: with the
+    // unassign still in flight tag-one remains attached; once it settles, only tag-one
+    // was removed (the assign failed), so the partial-success baseline is no tags.
+    let isUnassignSettled = false;
+    const invalidateQueries = vi.spyOn(view.client, 'invalidateQueries').mockImplementation(async () => {
+      const persistedUserTags = isUnassignSettled ? [] : [{ id: 'tag-one', name: '喜欢' }];
+      mocks.useLibraryQuery.mockReturnValue({
+        isPending: false,
+        isError: false,
+        data: { current: null, items: [{ ...entry, userTags: persistedUserTags }] },
+      });
+      mocks.useUserTagsQuery.mockReturnValue({
+        data: [{ ...tags[0]!, bookCount: isUnassignSettled ? 0 : 1 }, tags[1]!],
+      });
+    });
+    const unassignDone = deferred();
+    mocks.assignUserTag.mockImplementationOnce(() => Promise.reject(new Error('assign failed')));
+    mocks.unassignUserTag.mockImplementationOnce(() => unassignDone.promise);
+
+    await openTagAssignmentDialog(view);
+    const checkboxes = dialogCheckboxes();
+    await act(async () => {
+      checkboxes[0]?.click();
+      checkboxes[1]?.click();
+    });
+    await act(async () => saveTagsButton()?.click());
+    await flush();
+
+    isUnassignSettled = true;
+    unassignDone.resolve();
+    await flush();
+
+    // The failed save reports only after every request finished: error feedback, no
+    // success, refreshed queries, and the dialog stays open.
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library', 'tags'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['book-detail', 'book'] });
+    expect(mocks.toastError).toHaveBeenCalledWith('Error: assign failed');
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy();
+
+    // The refresh applied to the open dialog: the user's own selection is preserved.
+    await view.rerender();
+    const keptSelection = dialogCheckboxes();
+    expect(keptSelection.map((checkbox) => checkbox.checked)).toEqual([false, true]);
+
+    // Reopening the dialog exposes the refreshed persisted baseline: the unassign
+    // succeeded (tag-one gone) and the assign never did (tag-two absent).
+    await act(async () =>
+      Array.from(document.querySelectorAll('button'))
+        .find((button) => button.textContent === '关闭')
+        ?.click(),
+    );
+    await openTagAssignmentDialog(view);
+    const baselineCheckboxes = dialogCheckboxes();
+    expect(baselineCheckboxes.map((checkbox) => checkbox.checked)).toEqual([false, false]);
+
+    // Retrying against that baseline sends only the still-missing assign; the
+    // already-successful unassign must not be re-sent.
+    await act(async () => baselineCheckboxes[1]?.click());
+    await act(async () => saveTagsButton()?.click());
+    await flush();
+
+    expect(mocks.unassignUserTag).toHaveBeenCalledTimes(1);
+    expect(mocks.assignUserTag).toHaveBeenCalledTimes(2);
+    expect(mocks.assignUserTag).toHaveBeenLastCalledWith('book', 'tag-two');
+    expect(mocks.toastError).toHaveBeenCalledTimes(1);
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已更新');
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    view.cleanup();
+  });
+
+  it('reports an all-success tag save with success feedback and closes the dialog', async () => {
+    const tags = [
+      { id: 'tag-one', name: '喜欢', bookCount: 1 },
+      { id: 'tag-two', name: '以后再读', bookCount: 0 },
+    ];
+    mocks.useUserTagsQuery.mockReturnValue({ data: tags });
+    const entry = { ...item('book', false), userTags: [{ id: 'tag-one', name: '喜欢' }] };
+    const view = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [entry] } });
+    const invalidateQueries = vi.spyOn(view.client, 'invalidateQueries');
+    await openTagAssignmentDialog(view);
+    const checkboxes = dialogCheckboxes();
+    await act(async () => {
+      checkboxes[0]?.click();
+      checkboxes[1]?.click();
+    });
+    await act(async () => saveTagsButton()?.click());
+    await flush();
+
+    expect(mocks.unassignUserTag).toHaveBeenCalledWith('book', 'tag-one');
+    expect(mocks.assignUserTag).toHaveBeenCalledWith('book', 'tag-two');
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library'] });
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已更新');
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    view.cleanup();
+  });
+
+  it('reports an all-fail tag save with an error, no success, and an open dialog', async () => {
+    const tags = [
+      { id: 'tag-one', name: '喜欢', bookCount: 1 },
+      { id: 'tag-two', name: '以后再读', bookCount: 0 },
+    ];
+    mocks.useUserTagsQuery.mockReturnValue({ data: tags });
+    const entry = { ...item('book', false), userTags: [{ id: 'tag-one', name: '喜欢' }] };
+    const view = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [entry] } });
+    mocks.assignUserTag.mockRejectedValueOnce(new Error('assign failed'));
+    mocks.unassignUserTag.mockRejectedValueOnce(new Error('unassign failed'));
+    await openTagAssignmentDialog(view);
+    const checkboxes = dialogCheckboxes();
+    await act(async () => {
+      checkboxes[0]?.click();
+      checkboxes[1]?.click();
+    });
+    await act(async () => saveTagsButton()?.click());
+    await flush();
+
+    expect(mocks.assignUserTag).toHaveBeenCalledTimes(1);
+    expect(mocks.unassignUserTag).toHaveBeenCalledTimes(1);
+    expect(mocks.toastError).toHaveBeenCalledWith('Error: assign failed');
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy();
     view.cleanup();
   });
 

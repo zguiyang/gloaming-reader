@@ -90,10 +90,15 @@ function LibraryTagAssignmentContent({
     mutationFn: async () => {
       const current = new Set(entry.userTags.map((tag) => tag.id));
       const selected = new Set(selectedIds);
-      await Promise.all([
+      // Wait for every request to settle so success/error handling (refresh, feedback,
+      // unlock) only runs once the full outcome is known and the page cannot diverge
+      // from persistent state while slower requests are still in flight.
+      const results = await Promise.allSettled([
         ...selectedIds.filter((id) => !current.has(id)).map((id) => assignUserTag(entry.work.id, id)),
         ...entry.userTags.filter((tag) => !selected.has(tag.id)).map((tag) => unassignUserTag(entry.work.id, tag.id)),
       ]);
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure) throw (failure as PromiseRejectedResult).reason;
     },
     onSuccess: async () => {
       await refreshTagViews();
