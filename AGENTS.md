@@ -56,21 +56,18 @@ without task authorization.
   and design decisions.
 - The supervising agent decides whether isolation is needed, allocates the
   workspace, reviews results, integrates changes, and coordinates cleanup.
-  Prefer an applicable worktree-management Skill. If its preferred method
-  cannot honor the applicable workspace policy, first check for a compatible alternative
-  formally supported by that Skill. If no Skill applies or no compatible
-  management capability exists, use an available environment manager, then Git,
-  provided the Skill's contract permits that fallback. Preserve equivalent
-  safety checks at every fallback. A safety or permission refusal is not missing
-  capability and must not be bypassed. If no compatible option can safely honor
-  the workspace policy, stop and report.
-- Reuse a suitable assigned isolated workspace before creating another. Git-managed
-  worktrees default to `<repository-root>/.worktrees/`; discover the root from Git.
-  Formal host-managed worktrees may use the host's managed directory only when
-  the actual path, project/task ownership, lifecycle manager, work preservation
-  and recovery, and safe cleanup mechanism can be confirmed. Before creation,
-  verify the target, branch state, worktree registration, and isolation; verify
-  ignore protection for project-local directories. Failed safety checks mean
+  Orca manages task worktree creation, registration, and cleanup. Use the
+  applicable Orca Skill and supported tools for these operations. Agents reuse
+  the assigned workspace; do not create additional worktrees through Codex,
+  other platforms, or raw Git without explicit user authorization. If Orca
+  cannot safely provide the required isolation, stop and report. A safety or
+  permission refusal must not be bypassed.
+- Reuse a suitable assigned isolated workspace before requesting another.
+  Confirm the actual path, project/task ownership, lifecycle manager, work
+  preservation and recovery, and safe cleanup mechanism. Before creation,
+  verify the target repository, intended base ref, branch state, worktree
+  registration, and isolation; verify ignore protection for project-local
+  directories. Failed safety checks mean
   stop. Do not change ignore configuration or choose another unmanaged location
   without explicit user authorization.
 - A delegated write task must use its assigned isolated workspace. Workers do
