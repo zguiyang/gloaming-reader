@@ -143,6 +143,10 @@ async function renderLibrary(result: unknown, locale: 'zh-CN' | 'en-US' = 'zh-CN
       mocks.searchParams = new URLSearchParams(search);
       await render();
     },
+    /** Re-render the same tree so mocked query hooks can supply refreshed fixture data. */
+    async rerender() {
+      await render();
+    },
     cleanup() {
       void act(() => root.unmount());
       container.remove();
@@ -653,6 +657,260 @@ describe('LibraryPage', () => {
 
     expect(mocks.createUserTag).toHaveBeenCalledWith('新建并关联', 'zh-CN');
     expect(mocks.assignUserTag).toHaveBeenCalledWith('book', 'tag-new');
+    view.cleanup();
+  });
+
+  it('syncs the selection after create-and-assign refreshes so a later save does not drop the new association', async () => {
+    const tagOne = { id: 'tag-one', name: '喜欢', bookCount: 0 };
+    mocks.useUserTagsQuery.mockReturnValue({ data: [tagOne] });
+    const view = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('book', false)] },
+    });
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="管理《Book book》"]') as HTMLButtonElement).click(),
+    );
+    const manageItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('管理标签'),
+    );
+    await act(async () => (manageItem as HTMLElement).click());
+
+    // The dialog refreshes tag views after the mutation; mirror the persisted outcome the
+    // server would return: the new tag exists and is already associated with the book.
+    vi.spyOn(view.client, 'invalidateQueries').mockImplementation(async () => {
+      const created = { id: 'tag-new', name: '新建并关联', localizedNames: { 'zh-CN': '新建并关联' }, bookCount: 1 };
+      mocks.useUserTagsQuery.mockReturnValue({ data: [tagOne, created] });
+      mocks.useLibraryQuery.mockReturnValue({
+        isPending: false,
+        isError: false,
+        data: {
+          current: null,
+          items: [{ ...item('book', false), userTags: [{ id: 'tag-new', name: '新建并关联' }] }],
+        },
+      });
+    });
+
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+    const input = dialog.querySelector('input[aria-label="标签名称"]') as HTMLInputElement;
+    await act(async () => updateInput(input, '新建并关联'));
+    await act(async () => (dialog.querySelector('button[aria-label="创建标签"]') as HTMLButtonElement).click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(mocks.createUserTag).toHaveBeenCalledWith('新建并关联', 'zh-CN');
+    expect(mocks.assignUserTag).toHaveBeenCalledWith('book', 'tag-new');
+
+    // After the query refresh propagates, the new tag must render as selected.
+    await view.rerender();
+    const refreshedDialog = document.querySelector('[role="dialog"]') as HTMLElement;
+    const createdCheckbox = Array.from(refreshedDialog.querySelectorAll('label'))
+      .find((label) => label.textContent?.includes('新建并关联'))
+      ?.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(createdCheckbox.checked).toBe(true);
+
+    // Saving again is a no-op: it must not unassign the association just created.
+    await act(async () =>
+      Array.from(document.querySelectorAll('button'))
+        .find((button) => button.textContent === '保存标签')
+        ?.click(),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(mocks.assignUserTag).toHaveBeenCalledTimes(1);
+    expect(mocks.unassignUserTag).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    view.cleanup();
+  });
+
+  it('closes the tag dialog without sending requests when unsaved checkbox changes are cancelled', async () => {
+    const tags = [
+      { id: 'tag-one', name: '喜欢', bookCount: 1 },
+      { id: 'tag-two', name: '以后再读', bookCount: 0 },
+    ];
+    mocks.useUserTagsQuery.mockReturnValue({ data: tags });
+    const entry = { ...item('book', false), userTags: [{ id: 'tag-one', name: '喜欢' }] };
+    const view = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [entry] } });
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="管理《Book book》"]') as HTMLButtonElement).click(),
+    );
+    const manageItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('管理标签'),
+    );
+    await act(async () => (manageItem as HTMLElement).click());
+
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+    const checkboxes = Array.from(dialog.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    await act(async () => {
+      checkboxes[0]?.click();
+      checkboxes[1]?.click();
+    });
+    await act(async () =>
+      Array.from(document.querySelectorAll('button'))
+        .find((button) => button.textContent === '关闭')
+        ?.click(),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(mocks.assignUserTag).not.toHaveBeenCalled();
+    expect(mocks.unassignUserTag).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    view.cleanup();
+  });
+
+  it('keeps repeated saves idempotent after the refreshed associations reload', async () => {
+    const tags = [
+      { id: 'tag-one', name: '喜欢', bookCount: 1 },
+      { id: 'tag-two', name: '以后再读', bookCount: 0 },
+    ];
+    mocks.useUserTagsQuery.mockReturnValue({ data: tags });
+    const entry = { ...item('book', false), userTags: [{ id: 'tag-one', name: '喜欢' }] };
+    const view = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [entry] } });
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="管理《Book book》"]') as HTMLButtonElement).click(),
+    );
+    const manageItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('管理标签'),
+    );
+    await act(async () => (manageItem as HTMLElement).click());
+
+    const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    await act(async () => checkboxes[1]?.click());
+    await act(async () =>
+      Array.from(document.querySelectorAll('button'))
+        .find((button) => button.textContent === '保存标签')
+        ?.click(),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(mocks.assignUserTag).toHaveBeenCalledWith('book', 'tag-two');
+    expect(mocks.unassignUserTag).not.toHaveBeenCalled();
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已更新');
+
+    // Reload the persisted state (tag-two now attached), reopen, and save with no changes.
+    mocks.useUserTagsQuery.mockReturnValue({
+      data: [
+        { ...tags[0]!, bookCount: 1 },
+        { ...tags[1]!, bookCount: 1 },
+      ],
+    });
+    mocks.useLibraryQuery.mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: {
+        current: null,
+        items: [
+          {
+            ...entry,
+            userTags: [
+              { id: 'tag-one', name: '喜欢' },
+              { id: 'tag-two', name: '以后再读' },
+            ],
+          },
+        ],
+      },
+    });
+    await view.rerender();
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="管理《Book book》"]') as HTMLButtonElement).click(),
+    );
+    const reopenItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('管理标签'),
+    );
+    await act(async () => (reopenItem as HTMLElement).click());
+    await act(async () =>
+      Array.from(document.querySelectorAll('button'))
+        .find((button) => button.textContent === '保存标签')
+        ?.click(),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(mocks.assignUserTag).toHaveBeenCalledTimes(1);
+    expect(mocks.unassignUserTag).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    view.cleanup();
+  });
+
+  it('reports a failed save without success, refreshes to actual state, and allows recovery', async () => {
+    const tags = [
+      { id: 'tag-one', name: '喜欢', bookCount: 1 },
+      { id: 'tag-two', name: '以后再读', bookCount: 0 },
+    ];
+    mocks.useUserTagsQuery.mockReturnValue({ data: tags });
+    const entry = { ...item('book', false), userTags: [{ id: 'tag-one', name: '喜欢' }] };
+    const view = await renderLibrary({ isPending: false, isError: false, data: { current: null, items: [entry] } });
+    const invalidateQueries = vi.spyOn(view.client, 'invalidateQueries');
+    mocks.assignUserTag.mockRejectedValueOnce(new Error('assignment failed'));
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="管理《Book book》"]') as HTMLButtonElement).click(),
+    );
+    const manageItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('管理标签'),
+    );
+    await act(async () => (manageItem as HTMLElement).click());
+
+    const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
+    await act(async () => {
+      checkboxes[0]?.click();
+      checkboxes[1]?.click();
+    });
+    await act(async () =>
+      Array.from(document.querySelectorAll('button'))
+        .find((button) => button.textContent === '保存标签')
+        ?.click(),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    // The whole save is not a success; the dialog stays open and refreshes to persisted state.
+    expect(mocks.toastError).toHaveBeenCalledWith('Error: assignment failed');
+    expect(mocks.toastSuccess).not.toHaveBeenCalledWith('标签已更新');
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library', 'tags'] });
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy();
+
+    // Recovery: saving again retries the same pending diff and succeeds.
+    await act(async () =>
+      Array.from(document.querySelectorAll('button'))
+        .find((button) => button.textContent === '保存标签')
+        ?.click(),
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(mocks.unassignUserTag).toHaveBeenCalledWith('book', 'tag-one');
+    expect(mocks.assignUserTag).toHaveBeenCalledWith('book', 'tag-two');
+    expect(mocks.assignUserTag).toHaveBeenCalledTimes(2);
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已更新');
+    view.cleanup();
+  });
+
+  it('keeps manual create-and-assign working when translation completion is unavailable', async () => {
+    mocks.completeUserTagTranslations.mockResolvedValue({
+      status: 'provider_unavailable',
+      tag: { id: 'tag-new', name: '新建并关联' },
+    });
+    const view = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('book', false)] },
+    });
+    await act(async () =>
+      (view.container.querySelector('button[aria-label="管理《Book book》"]') as HTMLButtonElement).click(),
+    );
+    const manageItem = Array.from(document.querySelectorAll('[role="menuitem"]')).find((element) =>
+      element.textContent?.includes('管理标签'),
+    );
+    await act(async () => (manageItem as HTMLElement).click());
+
+    const dialog = document.querySelector('[role="dialog"]') as HTMLElement;
+    await act(async () =>
+      updateInput(dialog.querySelector('input[aria-label="标签名称"]') as HTMLInputElement, '新建并关联'),
+    );
+    await act(async () => (dialog.querySelector('button[aria-label="创建标签"]') as HTMLButtonElement).click());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    expect(mocks.createUserTag).toHaveBeenCalledWith('新建并关联', 'zh-CN');
+    expect(mocks.assignUserTag).toHaveBeenCalledWith('book', 'tag-new');
+    expect(mocks.toastSuccess).toHaveBeenCalledWith('标签已创建');
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(mocks.toastInfo).toHaveBeenCalledWith('多语言名称未补全；请配置可用的 AI Provider。');
     view.cleanup();
   });
 

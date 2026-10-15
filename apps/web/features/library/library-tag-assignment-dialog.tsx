@@ -114,6 +114,9 @@ function LibraryTagAssignmentContent({
     },
     onSuccess: async (tag) => {
       await refreshTagViews();
+      // Keep the selection aligned with the association that was already persisted,
+      // so a later Save cannot treat the new tag as an unselected pending removal.
+      setSelectedIds((current) => (current.includes(tag.id) ? current : [...current, tag.id]));
       toast.success(t(locale, 'content.library.tagCreated'));
       setNewName('');
       void completeUserTagTranslations(tag.id)

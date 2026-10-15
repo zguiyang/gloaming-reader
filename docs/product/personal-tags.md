@@ -54,6 +54,7 @@ Related: [`mvp-scope.md`](./mvp-scope.md) · [`content-strategy.md`](./content-s
 ## 8. Acceptance status (current)
 
 - **Next task:** manual CRUD + localized names acceptance.
-- **Separate acceptance tasks:** book association, real AI translation, and automatic P2 behavior.
+- **Book association + Library tag filtering:** accepted this round (targeted component tests, backend functional tests, and interactive page acceptance on existing ready library books). Found and fixed a selection-sync defect: after "create and assign", the new tag stayed unchecked, and a subsequent Save wrongly unassigned the just-created association; the dialog now syncs the selection with the persisted association. Translation-completion requests were meant to be intercepted in the browser, but the embedded-browser route mock proved ineffective; two acceptance-tag creations therefore invoked the user's real provider before detection. No real-translation acceptance is claimed from this round; no further real calls were made, and all acceptance tags were removed afterwards.
+- **Separate acceptance tasks:** real AI translation, and automatic P2 behavior.
 - Current code and automated tests are **not proof of real acceptance**.
 - P2 real-provider evidence so far (partial): a later provider run returned **8 valid structured outputs, 7/8 semantic passes, 1 miss** (knot-theory book judged adequately covered by an overly broad tag); **Worker end-to-end was not run**. P2 semantic acceptance remains partial.
