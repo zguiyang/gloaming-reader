@@ -7,6 +7,7 @@ import { commonEnv } from '@/infra/config/env-common';
 import { queueLogger } from '@/infra/logging/logger';
 
 export const QUEUE_NAME = 'gloaming';
+export const DISCOVERY_SYNC_QUEUE_NAME = 'gloaming-discovery-sync';
 export const CLEANUP_QUEUE_NAME = 'gloaming-asset-cleanup';
 export const PERSONAL_TAG_QUEUE_NAME = 'gloaming-personal-tags';
 export const PUBLIC_CLASSIFICATION_QUEUE_NAME = 'gloaming-public-classification';
@@ -15,6 +16,7 @@ const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
 
 let connection: Redis | null = null;
 let queue: Queue | null = null;
+let discoverySyncQueue: Queue | null = null;
 let cleanupQueue: Queue | null = null;
 let personalTagQueue: Queue | null = null;
 let publicClassificationQueue: Queue | null = null;
@@ -46,6 +48,13 @@ export function getQueue(): Queue {
 
   queue = createNamedQueue(QUEUE_NAME);
   return queue;
+}
+
+/** Dedicated queue for administrator-triggered Gutenberg snapshot sync jobs. */
+export function getDiscoverySyncQueue(): Queue {
+  if (discoverySyncQueue) return discoverySyncQueue;
+  discoverySyncQueue = createNamedQueue(DISCOVERY_SYNC_QUEUE_NAME);
+  return discoverySyncQueue;
 }
 
 export function getCleanupQueue(): Queue {
@@ -96,6 +105,14 @@ export async function enqueue(name: string, data: unknown, jobOptions?: EnqueueJ
   return addJob(getQueue(), name, data, jobOptions);
 }
 
+export async function enqueueDiscoverySync(
+  name: string,
+  data: unknown,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getDiscoverySyncQueue(), name, data, jobOptions);
+}
+
 export async function enqueueCleanup(name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
   return addJob(getCleanupQueue(), name, data, jobOptions);
 }
@@ -122,6 +139,10 @@ export async function enqueuePing(data?: PingJobData): Promise<string> {
 }
 
 export async function closeQueue(): Promise<void> {
+  if (discoverySyncQueue) {
+    await discoverySyncQueue.close();
+    discoverySyncQueue = null;
+  }
   if (publicClassificationQueue) {
     await publicClassificationQueue.close();
     publicClassificationQueue = null;

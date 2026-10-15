@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { Queue } from 'bullmq';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -12,13 +13,13 @@ import app from '@/app';
 import { JOB_DISCOVERY_SYNC } from '@/application/jobs/discovery-sync';
 import { PROJECT_GUTENBERG_SOURCE_KEY } from '@/domains/discovery/gutenberg/constants';
 import { db } from '@/infra/db';
-import { closeQueue, getQueue } from '@/infra/queue';
+import { closeQueue, getDiscoverySyncQueue, getQueueConnection } from '@/infra/queue';
 import { HTTP_STATUS } from '@/shared/constants';
 
 const { sendAuthMailMock } = vi.hoisted(() => ({ sendAuthMailMock: vi.fn().mockResolvedValue(undefined) }));
 const queueMocks = vi.hoisted(() => ({
   enqueue: vi.fn(),
-  actualEnqueue: null as unknown as (...args: never[]) => Promise<string>,
+  testQueue: null as unknown as { add: (...args: never[]) => Promise<{ id?: string }> },
 }));
 
 vi.mock('@/infra/auth/mail', async (importOriginal) => {
@@ -28,10 +29,14 @@ vi.mock('@/infra/auth/mail', async (importOriginal) => {
 
 vi.mock('@/infra/queue', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown> & {
-    enqueue: (...args: never[]) => Promise<string>;
+    enqueueDiscoverySync: (...args: never[]) => Promise<string>;
+    getDiscoverySyncQueue: () => Queue;
   };
-  queueMocks.actualEnqueue = actual.enqueue;
-  return { ...actual, enqueue: queueMocks.enqueue };
+  return {
+    ...actual,
+    getDiscoverySyncQueue: () => queueMocks.testQueue ?? actual.getDiscoverySyncQueue(),
+    enqueueDiscoverySync: queueMocks.enqueue,
+  };
 });
 
 const password = 'password123';
@@ -77,7 +82,11 @@ async function createSession(role: 'user' | 'admin') {
 }
 
 async function removeDiscoverySyncJobs(): Promise<void> {
-  const jobs = await getQueue().getJobs(['waiting', 'delayed', 'paused', 'active', 'completed', 'failed'], 0, 100);
+  const jobs = await getDiscoverySyncQueue().getJobs(
+    ['waiting', 'delayed', 'paused', 'active', 'completed', 'failed'],
+    0,
+    100,
+  );
   for (const job of jobs) {
     if (job.name !== JOB_DISCOVERY_SYNC) {
       continue;
@@ -90,7 +99,11 @@ async function removeDiscoverySyncJobs(): Promise<void> {
 }
 
 async function discoverySyncJobCount(): Promise<number> {
-  const jobs = await getQueue().getJobs(['waiting', 'delayed', 'paused', 'active', 'completed', 'failed'], 0, 100);
+  const jobs = await getDiscoverySyncQueue().getJobs(
+    ['waiting', 'delayed', 'paused', 'active', 'completed', 'failed'],
+    0,
+    100,
+  );
   return jobs.filter((job) => job.name === JOB_DISCOVERY_SYNC && (job.timestamp ?? 0) >= testStartedAt).length;
 }
 
@@ -100,12 +113,17 @@ async function discoverySyncJobCount(): Promise<number> {
  * 0..100 page by newer jobs is still counted.
  */
 async function discoverySyncJobCountFull(): Promise<number> {
-  const jobs = await getQueue().getJobs(
+  const jobs = await getDiscoverySyncQueue().getJobs(
     ['waiting', 'delayed', 'paused', 'active', 'completed', 'failed', 'prioritized'],
     0,
     -1,
   );
   return jobs.filter((job) => job.name === JOB_DISCOVERY_SYNC && (job.timestamp ?? 0) >= testStartedAt).length;
+}
+
+async function removeUniqueQueueKeys(queueName: string): Promise<void> {
+  const keys = await getQueueConnection().keys(`bull:${queueName}:*`);
+  if (keys.length) await getQueueConnection().del(...keys);
 }
 
 describe('Admin DiscoverySource controls', () => {
@@ -133,8 +151,16 @@ describe('Admin DiscoverySource controls', () => {
     adminCookie = (await createSession('admin')).cookie;
     userCookie = (await createSession('user')).cookie;
 
-    // Default: delegate to the real queue implementation; failure tests override once.
-    queueMocks.enqueue.mockImplementation((...args: never[]) => queueMocks.actualEnqueue(...args));
+    queueMocks.testQueue = new Queue(`gloaming-discovery-sync-admin-test-${randomUUID()}`, {
+      connection: getQueueConnection(),
+    }) as unknown as typeof queueMocks.testQueue;
+
+    // All admin sync jobs are redirected to a unique test-only queue; failure tests override once.
+    queueMocks.enqueue.mockImplementation(async (...args: never[]) => {
+      const job = await queueMocks.testQueue.add(...args);
+      if (!job.id) throw new Error('Test discovery sync job was added without an id');
+      return job.id;
+    });
   });
 
   afterAll(async () => {
@@ -154,11 +180,16 @@ describe('Admin DiscoverySource controls', () => {
           lastErrorSummary: preExisting.lastErrorSummary,
           snapshotLastModified: preExisting.snapshotLastModified,
           snapshotVersion: preExisting.snapshotVersion,
+          updatedAt: preExisting.updatedAt,
         })
         .where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY));
     } else {
       await db.delete(discoverySourceTable).where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY));
     }
+    const testQueue = queueMocks.testQueue as unknown as Queue;
+    await testQueue.obliterate();
+    await removeUniqueQueueKeys(testQueue.name);
+    await testQueue.close();
     await closeQueue();
   });
 
@@ -411,7 +442,7 @@ describe('Admin DiscoverySource controls', () => {
       for (let i = 0; i < 110; i += 1) {
         const jobId = `${fillerPrefix}-${i}`;
         fillerIds.push(jobId);
-        await getQueue().add('test-filler', { i }, { jobId });
+        await getDiscoverySyncQueue().add('test-filler', { i }, { jobId });
       }
 
       // Age the queued claim past the stale threshold while its job still waits.
@@ -430,7 +461,7 @@ describe('Admin DiscoverySource controls', () => {
     } finally {
       // Only remove what this test created; never flush Redis.
       for (const jobId of fillerIds) {
-        const job = await getQueue().getJob(jobId);
+        const job = await getDiscoverySyncQueue().getJob(jobId);
         if (job) {
           await job.remove().catch(() => undefined);
         }
@@ -443,7 +474,7 @@ describe('Admin DiscoverySource controls', () => {
   it('keeps a queued claim live while the queue is paused', async () => {
     await resetSourceToIdle();
     try {
-      await getQueue().pause();
+      await getDiscoverySyncQueue().pause();
       const first = await app.request(`${SOURCE_PATH}/sync`, { method: 'POST', headers: { cookie: adminCookie } });
       expect(first.status).toBe(HTTP_STATUS.ACCEPTED);
       expect(discoverySyncTriggerResultSchema.parse(await first.json())).toEqual({ result: 'queued' });
@@ -456,7 +487,7 @@ describe('Admin DiscoverySource controls', () => {
       const status = await app.request(SOURCE_PATH, { headers: { cookie: adminCookie } });
       expect(discoverySourceStatusSchema.parse(await status.json()).syncStatus).toBe('queued');
     } finally {
-      await getQueue().resume();
+      await getDiscoverySyncQueue().resume();
       await removeDiscoverySyncJobs();
       await resetSourceToIdle();
     }
@@ -491,7 +522,7 @@ describe('Admin DiscoverySource controls', () => {
         throw new Error('expected the queued claim to persist syncStartedAt');
       }
 
-      const job = await getQueue().getJob(discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claimedAt));
+      const job = await getDiscoverySyncQueue().getJob(discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claimedAt));
       expect(job).not.toBeNull();
       expect(job?.name).toBe(JOB_DISCOVERY_SYNC);
     } finally {
