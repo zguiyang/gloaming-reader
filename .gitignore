@@ -49,6 +49,7 @@ openspec/
 .opencode/
 .claude/
 .codex/
+.orca/
 .agents/*
 !.agents/skills/
 !.agents/skills/**
