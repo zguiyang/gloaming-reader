@@ -382,6 +382,85 @@ describe('public classification service on gloaming_test', () => {
     expect(assignments[0]).toMatchObject({ categoryId: category.id, source: 'ai' });
   });
 
+  it('reconciles stale AI associations while preserving manual rows and suppression', async () => {
+    const stale = await createCategory(`Reconcile Stale ${suffix}`);
+    const kept = await createCategory(`Reconcile Kept ${suffix}`);
+    const added = await createCategory(`Reconcile Added ${suffix}`);
+    const manualCategory = await createCategory(`Reconcile Manual ${suffix}`);
+    const suppressedCategory = await createCategory(`Reconcile Suppressed ${suffix}`);
+    const recordId = await insertRecord();
+
+    // Suppression memory first: AI once owned the pair, an explicit removal
+    // must survive later AI passes.
+    await assignCategoryToSourceRecord(recordId, suppressedCategory.id, 'ai');
+    await unassignCategoryFromSourceRecord(recordId, suppressedCategory.id);
+    await assignCategoryToSourceRecord(recordId, manualCategory.id, 'manual');
+
+    // First AI pass owns `stale` + `kept`.
+    invokeAiMock.mockResolvedValueOnce(aiResult(reuseDecision([stale.id, kept.id])));
+    const first = await classifySourceRecordForPublicCategories(recordId);
+    expect(first.status).toBe('completed');
+    expect(await listAssignmentsForRecord(recordId)).toHaveLength(3);
+
+    // Second AI pass: `stale` is no longer proposed, `added` is new, and the
+    // suppressed pair is proposed again (must not be restored).
+    invokeAiMock.mockResolvedValueOnce(aiResult(reuseDecision([kept.id, added.id, suppressedCategory.id])));
+    const second = await classifySourceRecordForPublicCategories(recordId);
+    expect(second.status).toBe('completed');
+    if (second.status !== 'completed') return;
+
+    const assignments = await listAssignmentsForRecord(recordId);
+    const byCategory = new Map(assignments.map((row) => [row.categoryId, row.source]));
+    expect(byCategory.has(stale.id)).toBe(false);
+    expect(byCategory.get(kept.id)).toBe('ai');
+    expect(byCategory.get(added.id)).toBe('ai');
+    expect(byCategory.get(manualCategory.id)).toBe('manual');
+    expect(byCategory.has(suppressedCategory.id)).toBe(false);
+    // The command result reports the actual persisted state, not the proposal.
+    expect([...second.categoryIds].sort()).toEqual(assignments.map((row) => row.categoryId).sort());
+    expect(second.categoryIds).toHaveLength(3);
+  });
+
+  it('clears AI associations on NO_MATCH while keeping manual rows', async () => {
+    const aiCategory = await createCategory(`No Match AI ${suffix}`);
+    const manualCategory = await createCategory(`No Match Manual ${suffix}`);
+    const recordId = await insertRecord();
+    await assignCategoryToSourceRecord(recordId, aiCategory.id, 'ai');
+    await assignCategoryToSourceRecord(recordId, manualCategory.id, 'manual');
+
+    invokeAiMock.mockResolvedValueOnce(aiResult({ outcome: 'NO_MATCH', reuse: [], create: [], reviewReason: null }));
+    const result = await classifySourceRecordForPublicCategories(recordId);
+
+    expect(result.status).toBe('completed');
+    if (result.status !== 'completed') return;
+    expect(result.outcome).toBe('NO_MATCH');
+    expect(result.categoryIds).toEqual([manualCategory.id]);
+    const assignments = await listAssignmentsForRecord(recordId);
+    expect(assignments).toEqual([expect.objectContaining({ categoryId: manualCategory.id, source: 'manual' })]);
+  });
+
+  it('leaves existing associations untouched on NEEDS_REVIEW', async () => {
+    const aiCategory = await createCategory(`Review AI ${suffix}`);
+    const manualCategory = await createCategory(`Review Manual ${suffix}`);
+    const recordId = await insertRecord();
+    await assignCategoryToSourceRecord(recordId, aiCategory.id, 'ai');
+    await assignCategoryToSourceRecord(recordId, manualCategory.id, 'manual');
+
+    invokeAiMock.mockResolvedValueOnce(
+      aiResult({ outcome: 'NEEDS_REVIEW', reuse: [], create: [], reviewReason: 'ambiguous evidence' }),
+    );
+    const result = await classifySourceRecordForPublicCategories(recordId);
+
+    expect(result.status).toBe('completed');
+    if (result.status !== 'completed') return;
+    expect(result.outcome).toBe('NEEDS_REVIEW');
+    expect([...result.categoryIds].sort()).toEqual([aiCategory.id, manualCategory.id].sort());
+    const assignments = await listAssignmentsForRecord(recordId);
+    expect(assignments.map((row) => row.categoryId).sort()).toEqual([aiCategory.id, manualCategory.id].sort());
+    expect(assignments.find((row) => row.categoryId === aiCategory.id)?.source).toBe('ai');
+    expect(assignments.find((row) => row.categoryId === manualCategory.id)?.source).toBe('manual');
+  });
+
   it('defers a concurrent task without duplicating work', async () => {
     const category = await createCategory(`Concurrent ${suffix}`);
     const recordId = await insertRecord();

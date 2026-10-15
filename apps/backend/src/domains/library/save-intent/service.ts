@@ -9,6 +9,7 @@ import {
   sourceRecordSaveIntent as saveIntentTable,
   userLibraryItem as userLibraryItemTable,
 } from '@gloaming/db/schema';
+import type { SourceRecordSaveStatus } from '@gloaming/shared/library';
 
 import { db } from '@/infra/db';
 import { enqueue } from '@/infra/queue';
@@ -136,11 +137,14 @@ async function completePendingIntents(sourceRecordId: string, workId: string): P
   }
 }
 
-/** Enqueue one SourceRecord-level materialization run. The id is reused while queued/active. */
+/**
+ * Enqueue one SourceRecord-level materialization run. The id is reused while queued/active.
+ * Custom BullMQ job ids must not contain `:` — hyphens separate the parts.
+ */
 export async function enqueueSourceRecordMaterialization(sourceRecordId: string): Promise<void> {
   const data: SourceRecordMaterializeJobData = { sourceRecordId };
   await enqueue(SOURCE_RECORD_MATERIALIZE_JOB, data, {
-    jobId: `${SOURCE_RECORD_MATERIALIZE_JOB}:${sourceRecordId}`,
+    jobId: `${SOURCE_RECORD_MATERIALIZE_JOB}-${sourceRecordId}`,
     removeOnComplete: true,
     removeOnFail: true,
   });
@@ -188,6 +192,78 @@ export async function saveSourceRecordToLibrary(
 
   await enqueueSourceRecordMaterialization(sourceRecordId);
   return { status: 'pending', workId };
+}
+
+/**
+ * Owner-scoped Save Intent status for the Discover refresh/recovery loop.
+ *
+ * The intent row plus the linked Work's readiness decide the reported status;
+ * a linked `work_id` alone never means `ready`, because materialization links
+ * the Work before parsing finishes. Another user's intent is never readable
+ * here, a record without this user's intent reports `none`, and an unknown
+ * record is not found. Disabled/unavailable records still report the caller's
+ * own existing state so a saved item never loses its status mid-import.
+ *
+ * A pending intent whose linked Work already became readable completes here
+ * (same idempotent path as POST); a pending intent whose linked Work failed is
+ * persisted as failed with a cleaned reason so the existing POST retry can
+ * revive it.
+ */
+export async function readSourceRecordSaveStatus(
+  userId: string,
+  sourceRecordId: string,
+): Promise<SourceRecordSaveStatus> {
+  const [record] = await db
+    .select({ workId: sourceRecordTable.workId })
+    .from(sourceRecordTable)
+    .where(eq(sourceRecordTable.id, sourceRecordId))
+    .limit(1);
+  if (!record) {
+    throw new NotFoundError(ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
+  }
+
+  const [intent] = await db
+    .select({ status: saveIntentTable.status, failureReason: saveIntentTable.failureReason })
+    .from(saveIntentTable)
+    .where(and(eq(saveIntentTable.userId, userId), eq(saveIntentTable.sourceRecordId, sourceRecordId)))
+    .limit(1);
+
+  if (!intent) {
+    return { status: 'none', workId: record.workId, failureReason: null };
+  }
+  if (intent.status === 'completed') {
+    return { status: 'ready', workId: record.workId, failureReason: null };
+  }
+  if (intent.status === 'failed') {
+    return { status: 'failed', workId: record.workId, failureReason: intent.failureReason };
+  }
+
+  if (!record.workId) {
+    return { status: 'pending', workId: null, failureReason: null };
+  }
+
+  const [work] = await db
+    .select({ processingStatus: readingWorkTable.processingStatus, originMeta: readingWorkTable.originMeta })
+    .from(readingWorkTable)
+    .where(eq(readingWorkTable.id, record.workId))
+    .limit(1);
+  if (!work) {
+    return { status: 'pending', workId: record.workId, failureReason: null };
+  }
+  if (PARSE_COMPLETED_STATUSES.has(work.processingStatus)) {
+    const completed = await completeIntentIfWorkReadable(userId, sourceRecordId, record.workId);
+    if (completed) {
+      return { status: 'ready', workId: record.workId, failureReason: null };
+    }
+    return { status: 'pending', workId: record.workId, failureReason: null };
+  }
+  if (work.processingStatus === 'failed') {
+    const reason =
+      cleanSaveIntentFailureReason(String(work.originMeta?.lastError ?? '')) ?? 'Content processing failed';
+    await failPendingSaveIntents(sourceRecordId, { code: 'processing_failed', reason });
+    return { status: 'failed', workId: record.workId, failureReason: reason };
+  }
+  return { status: 'pending', workId: record.workId, failureReason: null };
 }
 
 /** Fan out a ready import to every pending intent of its SourceRecord. */

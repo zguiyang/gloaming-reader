@@ -7,7 +7,12 @@ import {
   sourceRecordListDataSchema,
   type SourceRecordListQuery,
 } from '@gloaming/shared/discovery';
-import { type SourceRecordSaveResult, sourceRecordSaveResultSchema } from '@gloaming/shared/library';
+import {
+  type SourceRecordSaveResult,
+  sourceRecordSaveResultSchema,
+  type SourceRecordSaveStatus,
+  sourceRecordSaveStatusSchema,
+} from '@gloaming/shared/library';
 import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
 import {
   type CatalogListData,
@@ -18,6 +23,7 @@ import {
 
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/discover-model';
 import { apiRequest, formatApiError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
 
 /** Filters Discover owns; `language` stays the backend English-first default. */
 export type DiscoverListParams = Partial<Pick<SourceRecordListQuery, 'page' | 'pageSize' | 'q' | 'categoryId'>>;
@@ -30,6 +36,7 @@ export const discoverQueryKey = {
   records: (params: DiscoverListParams) => [...discoverQueryKey.all, 'records', params] as const,
   categories: () => [...discoverQueryKey.all, 'categories'] as const,
   legacyWorks: (params: DiscoverLegacyParams) => [...discoverQueryKey.all, 'legacy-works', params] as const,
+  saveStatus: (sourceRecordId: string) => [...discoverQueryKey.all, 'save-status', sourceRecordId] as const,
 };
 
 const DEFAULT_RECORD_SORT_BY = 'sourceUpdatedAt' as const;
@@ -106,6 +113,45 @@ export async function saveSourceRecordToLibrary(sourceRecordId: string): Promise
   return apiRequest(`/api/library/source-records/${encodeURIComponent(sourceRecordId)}`, {
     method: 'POST',
     schema: sourceRecordSaveResultSchema,
+  });
+}
+
+/** Owner-scoped Save Intent status; `status` is authoritative over linked ids. */
+export async function fetchSourceRecordSaveStatus(
+  sourceRecordId: string,
+  init?: { signal?: AbortSignal },
+): Promise<SourceRecordSaveStatus> {
+  return apiRequest(`/api/library/source-records/${encodeURIComponent(sourceRecordId)}`, {
+    schema: sourceRecordSaveStatusSchema,
+    signal: init?.signal,
+  });
+}
+
+/** Poll cadence while the server reports an in-flight import. */
+export const SOURCE_RECORD_SAVE_POLL_MS = 2_000;
+
+/**
+ * Poll only while `pending`; `ready`, `failed`, and `none` settle immediately.
+ * Exported as a pure function for unit tests.
+ */
+export function saveStatusRefetchInterval(query: { state: { data?: SourceRecordSaveStatus } }): number | false {
+  return query.state.data?.status === 'pending' ? SOURCE_RECORD_SAVE_POLL_MS : false;
+}
+
+/**
+ * Refresh recovery for the Save Intent: hydrates pending/failed/ready state on
+ * mount (a linked `linkedWorkId` never short-circuits this — the Work may still
+ * be parsing) and polls while the server reports `pending`. Enabled only for
+ * authenticated viewers; anonymous visitors simply never query.
+ */
+export function useSourceRecordSaveStatusQuery(sourceRecordId: string, options?: { enabled?: boolean }) {
+  const { data: authData } = authClient.useSession();
+  const isAuthenticated = Boolean(authData?.user);
+  return useQuery({
+    queryKey: discoverQueryKey.saveStatus(sourceRecordId),
+    queryFn: ({ signal }) => fetchSourceRecordSaveStatus(sourceRecordId, { signal }),
+    refetchInterval: saveStatusRefetchInterval,
+    enabled: (options?.enabled ?? true) && isAuthenticated,
   });
 }
 

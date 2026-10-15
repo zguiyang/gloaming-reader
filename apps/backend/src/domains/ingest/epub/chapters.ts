@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 
 import { reindexLeafParagraphOrdinals } from '@/domains/works/content';
 
+import { epubParentDir, resolveEpubAgainstBase } from './opf/paths';
 import type { CleanedChapter, EpubBook, EpubNavItem } from './types';
 
 /**
@@ -11,7 +12,8 @@ import type { CleanedChapter, EpubBook, EpubNavItem } from './types';
  * 2. Single-file EPUBs split on h2/h3 headings (skip patterns + leading
  *    front-matter headings dropped); titles get Part/Chapter prefixes.
  * 3. Untitled spine files merge into the previous chapter; cover/blank pages
- *    (no readable text) drop entirely.
+ *    (no readable text) drop entirely, while textless pages carrying non-cover
+ *    images (illustration plates) are kept.
  * 4. Bare chapter-number stubs merge with the following body, keeping the
  *    nav-derived title.
  * 5. Short chapters matching front/back-matter keywords are kept and titled
@@ -268,6 +270,38 @@ function hasReadableText(html: string): boolean {
   return Boolean($.root().text().trim());
 }
 
+/**
+ * True when a textless page's only local images are the cover image itself.
+ * Collected image refs are chapter-relative (like raw `src` attributes), so they
+ * resolve against the spine file's directory before comparing with the
+ * OPF-resolved `book.coverHref`.
+ */
+function isCoverWrapperOnly(cleaned: CleanedChapter, chapterHref: string, coverHref: string | null): boolean {
+  if (!coverHref || cleaned.images.length === 0) {
+    return false;
+  }
+  const chapterDir = epubParentDir(chapterHref);
+  const normalizedCover = coverHref.toLowerCase();
+  return cleaned.images.every(
+    (image) => resolveEpubAgainstBase(chapterDir, image.href).toLowerCase() === normalizedCover,
+  );
+}
+
+/**
+ * Cover/blank pages (no readable text) drop entirely, but a textless page that
+ * carries at least one non-cover image is an illustration plate — real reading
+ * content that must be kept, not treated as a blank page.
+ */
+function shouldDropTextlessPage(cleaned: CleanedChapter, chapterHref: string, coverHref: string | null): boolean {
+  if (hasReadableText(cleaned.html)) {
+    return false;
+  }
+  if (cleaned.images.length > 0 && !isCoverWrapperOnly(cleaned, chapterHref, coverHref)) {
+    return false;
+  }
+  return true;
+}
+
 /** Chapter title fallback chain (textstack GetChapterTitle). */
 function resolveChapterTitle(input: {
   navTitle: string | null;
@@ -312,7 +346,7 @@ export function planChapters(book: EpubBook, clean: (href: string, rawHtml: stri
       if (sections.length > 0) {
         for (const section of sections) {
           const cleaned = clean(href, section.html);
-          if (!hasReadableText(cleaned.html)) continue;
+          if (shouldDropTextlessPage(cleaned, href, book.coverHref)) continue;
           chapters.push({ title: section.title ?? '', html: cleaned.html });
         }
         return finalizeChapterParagraphOrdinals(chapters);
@@ -326,7 +360,7 @@ export function planChapters(book: EpubBook, clean: (href: string, rawHtml: stri
     const rawHtml = raw.toString('utf8');
     const cleaned = clean(spineItem.href, rawHtml);
     const html = cleaned.html;
-    if (!hasReadableText(html)) continue;
+    if (shouldDropTextlessPage(cleaned, spineItem.href, book.coverHref)) continue;
 
     // Piracy-watermark chapters are skipped entirely.
     if (isPiracyWatermark(html)) continue;

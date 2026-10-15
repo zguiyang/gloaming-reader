@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { publicCategoryListDataSchema, sourceRecordListDataSchema } from '@gloaming/shared/discovery';
-import { sourceRecordSaveResultSchema } from '@gloaming/shared/library';
+import { sourceRecordSaveResultSchema, sourceRecordSaveStatusSchema } from '@gloaming/shared/library';
 import { catalogListDataSchema } from '@gloaming/shared/works';
 
 const mocks = vi.hoisted(() => ({ apiRequest: vi.fn() }));
@@ -11,6 +11,10 @@ vi.mock('@/lib/api-request', () => ({
   formatApiError: (error: unknown) => String(error),
 }));
 
+vi.mock('@/lib/auth', () => ({
+  authClient: { useSession: () => ({ data: { user: { id: 'user-1' } } }) },
+}));
+
 import {
   buildDiscoverLegacyQuery,
   buildDiscoverRecordsQuery,
@@ -18,7 +22,10 @@ import {
   fetchDiscoverCategories,
   fetchDiscoverLegacyWorks,
   fetchDiscoverRecords,
+  fetchSourceRecordSaveStatus,
   saveSourceRecordToLibrary,
+  saveStatusRefetchInterval,
+  SOURCE_RECORD_SAVE_POLL_MS,
 } from '@/features/discover/discover-api';
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/discover-model';
 
@@ -96,5 +103,31 @@ describe('Discover API clients', () => {
     const call = mocks.apiRequest.mock.calls[0]!;
     expect(String(call[0])).toBe('/api/library/source-records/source%20record%2F1');
     expect(call[1]).toMatchObject({ method: 'POST', schema: sourceRecordSaveResultSchema });
+  });
+
+  it('reads the owner-scoped Save Intent status through its contract', async () => {
+    await fetchSourceRecordSaveStatus('source record/1');
+    const call = mocks.apiRequest.mock.calls[0]!;
+    expect(String(call[0])).toBe('/api/library/source-records/source%20record%2F1');
+    expect(call[1]).toMatchObject({ schema: sourceRecordSaveStatusSchema });
+    expect(call[1]).not.toHaveProperty('method');
+  });
+
+  it('keys the Save Intent status per SourceRecord', () => {
+    expect(discoverQueryKey.saveStatus('sr-9')).toEqual(['discover', 'save-status', 'sr-9']);
+  });
+});
+
+describe('saveStatusRefetchInterval', () => {
+  const statusData = (status: 'none' | 'pending' | 'ready' | 'failed') => ({
+    state: { data: { status, workId: null, failureReason: null } },
+  });
+
+  it('polls only while the server reports an in-flight import', () => {
+    expect(saveStatusRefetchInterval(statusData('pending'))).toBe(SOURCE_RECORD_SAVE_POLL_MS);
+    expect(saveStatusRefetchInterval(statusData('ready'))).toBe(false);
+    expect(saveStatusRefetchInterval(statusData('failed'))).toBe(false);
+    expect(saveStatusRefetchInterval(statusData('none'))).toBe(false);
+    expect(saveStatusRefetchInterval({ state: { data: undefined } })).toBe(false);
   });
 });

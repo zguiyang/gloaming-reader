@@ -12,6 +12,9 @@ type DiscoverCategoriesProps = {
   selectedCategoryId: string | null;
   onSelect: (categoryId: string | null) => void;
   isLoading?: boolean;
+  /** True only when the category list itself failed and no data is available. */
+  isError?: boolean;
+  onRetry?: () => void;
 };
 
 const chipClassName = (isActive: boolean) =>
@@ -29,6 +32,8 @@ export function DiscoverCategories({
   selectedCategoryId,
   onSelect,
   isLoading = false,
+  isError = false,
+  onRetry,
 }: DiscoverCategoriesProps) {
   const { locale } = useLocale();
 
@@ -38,6 +43,19 @@ export function DiscoverCategories({
         {Array.from({ length: 4 }, (_, index) => (
           <div key={index} className="h-8 w-20 animate-pulse rounded-full bg-surface-container-high" />
         ))}
+      </div>
+    );
+  }
+
+  // A failed category load must stay visible and retryable instead of silently
+  // collapsing into an empty filter row.
+  if (isError && categories.length === 0) {
+    return (
+      <div role="alert" className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-muted-foreground">{t(locale, 'content.discover.loadFailed')}</span>
+        <button type="button" className={chipClassName(false)} onClick={() => onRetry?.()}>
+          {t(locale, 'content.common.retry')}
+        </button>
       </div>
     );
   }

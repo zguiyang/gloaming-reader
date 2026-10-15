@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, ne, sql } from 'drizzle-orm';
 
 import {
   discoverySource as discoverySourceTable,
@@ -8,6 +8,7 @@ import {
   publicCategoryAlias as publicCategoryAliasTable,
   publicCategoryLabel as publicCategoryLabelTable,
   sourceRecord as sourceRecordTable,
+  sourceRecordPublicCategory as sourceRecordPublicCategoryTable,
 } from '@gloaming/db/schema';
 import type {
   PublicCategory,
@@ -21,6 +22,7 @@ import { buildPublicCategory, decideCategoryAssignment } from '@/domains/discove
 import {
   categoryExists,
   countAssignmentsForRecord,
+  deleteAssignment,
   getAssignmentRow,
   hasSuppression,
   listAllAliasRows,
@@ -168,17 +170,53 @@ export async function insertAiCategoryWithLabel(input: {
   });
 }
 
+export type ApplyPublicCategoryAssignmentsOptions = {
+  /**
+   * Reconcile this record's AI-owned associations to the incoming set inside the
+   * same locked transaction: AI rows this pass no longer proposes are deleted
+   * before the incoming set is applied. Manual rows are never deleted, no
+   * suppression is recorded (suppression only remembers explicit administrator
+   * removals), and suppressed pairs are never restored. Pass `false` for a
+   * review abstention, which must leave existing associations untouched.
+   */
+  reconcileStaleAi: boolean;
+};
+
 /**
- * Apply AI assignments for a pre-validated category set. The SourceRecord row is
- * locked, and the shared assignment policy keeps manual assignments, keeps
- * explicit suppression, deduplicates, and enforces the 0-3 limit. Returns the
- * effective category ids for the record (already-present pairs are idempotent).
+ * Apply one classification pass for a pre-validated category set. The whole
+ * operation — SourceRecord row lock, stale-AI reconciliation, insert decisions,
+ * and the final read-back — runs in one transaction so it can never interleave
+ * with a concurrent manual assignment edit. The shared assignment policy keeps
+ * manual assignments, keeps explicit suppression, deduplicates, and enforces
+ * the 0-3 limit. Returns the category ids the record actually carries after
+ * this pass (manual and AI alike).
  */
-export async function applyPublicCategoryAssignments(recordId: string, categoryIds: string[]): Promise<string[]> {
-  if (categoryIds.length === 0) return [];
+export async function applyPublicCategoryAssignments(
+  recordId: string,
+  categoryIds: string[],
+  options: ApplyPublicCategoryAssignmentsOptions,
+): Promise<string[]> {
   return db.transaction(async (tx) => {
     if (!(await lockSourceRecord(tx, recordId))) return [];
-    const effective: string[] = [];
+
+    if (options.reconcileStaleAi) {
+      const incoming = new Set(categoryIds);
+      const aiRows = await tx
+        .select({ categoryId: sourceRecordPublicCategoryTable.categoryId })
+        .from(sourceRecordPublicCategoryTable)
+        .where(
+          and(
+            eq(sourceRecordPublicCategoryTable.sourceRecordId, recordId),
+            eq(sourceRecordPublicCategoryTable.source, 'ai'),
+          ),
+        );
+      for (const row of aiRows) {
+        if (!incoming.has(row.categoryId)) {
+          await deleteAssignment(tx, recordId, row.categoryId);
+        }
+      }
+    }
+
     for (const categoryId of categoryIds) {
       if (!(await categoryExists(tx, categoryId))) continue;
       const existing = await getAssignmentRow(tx, recordId, categoryId);
@@ -192,12 +230,15 @@ export async function applyPublicCategoryAssignments(recordId: string, categoryI
       });
       if (decision === 'insert') {
         await upsertAssignment(tx, { sourceRecordId: recordId, categoryId, source: 'ai' });
-        effective.push(categoryId);
-      } else if (decision === 'noop' || decision === 'keep') {
-        effective.push(categoryId);
       }
     }
-    return effective;
+
+    const rows = await tx
+      .select({ categoryId: sourceRecordPublicCategoryTable.categoryId })
+      .from(sourceRecordPublicCategoryTable)
+      .where(eq(sourceRecordPublicCategoryTable.sourceRecordId, recordId))
+      .orderBy(asc(sourceRecordPublicCategoryTable.categoryId));
+    return rows.map((row) => row.categoryId);
   });
 }
 

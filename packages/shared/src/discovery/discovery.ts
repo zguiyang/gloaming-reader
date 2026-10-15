@@ -262,6 +262,11 @@ export const sourceRecordItemSchema = z.object({
   authors: z.array(sourceRecordAuthorSchema),
   languages: z.array(z.string()),
   description: z.string().nullable(),
+  /**
+   * Display cover URL. The source cover URL unless the linked Work carries a
+   * local cover asset the current viewer is allowed to read (decided by the
+   * backend's central Work Access Policy), in which case it is that asset URL.
+   */
   coverUrl: z.string().nullable(),
   availability: sourceRecordAvailabilitySchema,
   sourceUpdatedAt: z.union([z.string(), z.date()]).nullable(),

@@ -221,6 +221,10 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
     expect(enqueueSpy).toHaveBeenCalledTimes(1);
     expect(enqueueSpy.mock.calls[0]![0]).toBe('source-record-materialize');
     expect(enqueueSpy.mock.calls[0]![1]).toEqual({ sourceRecordId: record.id });
+    // BullMQ rejects custom job ids containing ":" — the id must stay hyphenated.
+    const enqueueOptions = enqueueSpy.mock.calls[0]![2] as { jobId?: string };
+    expect(enqueueOptions.jobId).toBe(`source-record-materialize-${record.id}`);
+    expect(enqueueOptions.jobId).not.toContain(':');
 
     const intents = await intentsFor(record.id);
     expect(intents).toHaveLength(1);
@@ -241,6 +245,23 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
     await saveSourceRecordToLibrary(learner.userId, record.id);
 
     expect(await intentsFor(record.id)).toHaveLength(1);
+  });
+
+  it('stays idempotent under concurrent saves: one intent and one deterministic job id', async () => {
+    const learner = track(await createSession());
+    const record = await createRecord();
+
+    const results = await Promise.all([
+      saveSourceRecordToLibrary(learner.userId, record.id),
+      saveSourceRecordToLibrary(learner.userId, record.id),
+      saveSourceRecordToLibrary(learner.userId, record.id),
+    ]);
+
+    expect(results.map((result) => result.status)).toEqual(['pending', 'pending', 'pending']);
+    expect(await intentsFor(record.id)).toHaveLength(1);
+    const jobIds = enqueueSpy.mock.calls.map((call) => (call[2] as { jobId: string }).jobId);
+    expect(jobIds.length).toBeGreaterThan(0);
+    expect(new Set(jobIds)).toEqual(new Set([`source-record-materialize-${record.id}`]));
   });
 
   it('rejects disabled sources and unavailable records without creating an intent', async () => {
@@ -501,5 +522,128 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
       .from(userWorkTagTable)
       .where(and(eq(userWorkTagTable.userId, learner.userId), eq(userWorkTagTable.workId, work.id)));
     expect(tags).toHaveLength(0);
+  });
+
+  async function readSaveStatus(sourceRecordId: string, cookie?: string) {
+    const response = await app.request(`/api/library/source-records/${sourceRecordId}`, {
+      headers: cookie ? { cookie } : undefined,
+    });
+    return {
+      status: response.status,
+      body: (await response.json().catch(() => null)) as Record<string, unknown> | null,
+    };
+  }
+
+  it('reads the save status API only for authenticated users of existing records', async () => {
+    const record = await createRecord();
+
+    expect((await readSaveStatus(record.id)).status).toBe(HTTP_STATUS.UNAUTHORIZED);
+
+    const learner = track(await createSession());
+    const known = await readSaveStatus(record.id, learner.cookie);
+    expect(known.status).toBe(HTTP_STATUS.OK);
+    expect(known.body).toEqual({ status: 'none', workId: null, failureReason: null });
+
+    expect((await readSaveStatus(randomUUID(), learner.cookie)).status).toBe(HTTP_STATUS.NOT_FOUND);
+  });
+
+  it('reports pending while the linked Work is processing and completes to ready once it is readable', async () => {
+    const learner = track(await createSession());
+    const work = await createCatalogWorkFixture({
+      title: 'Status Processing Work',
+      processingStatus: 'processing',
+      publishedAt: null,
+    });
+    createdWorkIds.push(work.id);
+    const record = await createRecord({ workId: work.id, materializationStatus: 'processing' });
+
+    await saveSourceRecordToLibrary(learner.userId, record.id);
+    expect((await readSaveStatus(record.id, learner.cookie)).body).toEqual({
+      status: 'pending',
+      workId: work.id,
+      failureReason: null,
+    });
+
+    // Refresh recovery: the Work becomes readable without an explicit fan-out
+    // call, so the read must complete the intent and create membership.
+    await markWorkReady(work.id);
+    expect((await readSaveStatus(record.id, learner.cookie)).body).toEqual({
+      status: 'ready',
+      workId: work.id,
+      failureReason: null,
+    });
+    expect(await membershipCount(learner.userId, work.id)).toBe(1);
+    expect((await intentsFor(record.id))[0]?.status).toBe('completed');
+  });
+
+  it('reports failed when the linked Work failed, then a retry POST revives the intent', async () => {
+    const learner = track(await createSession());
+    const work = await createCatalogWorkFixture({
+      title: 'Status Failed Work',
+      processingStatus: 'failed',
+      publishedAt: null,
+    });
+    createdWorkIds.push(work.id);
+    await db
+      .update(readingWorkTable)
+      .set({ originMeta: { failedStep: 'parse', lastError: 'EPUB is missing META-INF/container.xml' } })
+      .where(eq(readingWorkTable.id, work.id));
+    const record = await createRecord({ workId: work.id, materializationStatus: 'failed' });
+
+    await saveSourceRecordToLibrary(learner.userId, record.id);
+    const failed = await readSaveStatus(record.id, learner.cookie);
+    expect(failed.status).toBe(HTTP_STATUS.OK);
+    expect(failed.body).toEqual({
+      status: 'failed',
+      workId: work.id,
+      failureReason: 'EPUB is missing META-INF/container.xml',
+    });
+    expect((await intentsFor(record.id))[0]).toMatchObject({ status: 'failed', failureCode: 'processing_failed' });
+
+    // A failed save stays retryable through the existing POST flow.
+    const retry = await saveSourceRecordToLibrary(learner.userId, record.id);
+    expect(retry.status).toBe('pending');
+    expect((await intentsFor(record.id))[0]).toMatchObject({ status: 'pending', failureReason: null });
+  });
+
+  it('returns the recorded cleaned reason for an already failed intent', async () => {
+    const learner = track(await createSession());
+    const record = await createRecord();
+    await db.insert(saveIntentTable).values({
+      id: randomUUID(),
+      userId: learner.userId,
+      sourceRecordId: record.id,
+      status: 'failed',
+      failureCode: 'download_http_error',
+      failureReason: 'upstream returned an error page',
+    });
+
+    expect((await readSaveStatus(record.id, learner.cookie)).body).toEqual({
+      status: 'failed',
+      workId: null,
+      failureReason: 'upstream returned an error page',
+    });
+  });
+
+  it('keeps the save status isolated per user', async () => {
+    const first = track(await createSession());
+    const second = track(await createSession());
+    const work = await createCatalogWorkFixture({
+      title: 'Status Isolation Work',
+      processingStatus: 'processing',
+      publishedAt: null,
+    });
+    createdWorkIds.push(work.id);
+    const record = await createRecord({ workId: work.id, materializationStatus: 'processing' });
+
+    await saveSourceRecordToLibrary(first.userId, record.id);
+
+    expect((await readSaveStatus(record.id, first.cookie)).body).toMatchObject({ status: 'pending' });
+    expect((await readSaveStatus(record.id, second.cookie)).body).toEqual({
+      status: 'none',
+      workId: work.id,
+      failureReason: null,
+    });
+    expect(await intentsFor(record.id)).toHaveLength(1);
   });
 });

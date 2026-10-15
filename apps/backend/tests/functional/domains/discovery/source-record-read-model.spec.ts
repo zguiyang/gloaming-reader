@@ -28,6 +28,9 @@ import {
   upsertSourceRecords,
 } from '@/domains/discovery/sync/repository';
 import { db } from '@/infra/db';
+import { putObject, resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
+
+import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
 const runId = randomUUID();
 const sourceKey = `read_model_${runId}`;
@@ -357,5 +360,94 @@ describe('SourceRecord read model on gloaming_test', () => {
     expect(sourceRecordListDataSchema.parse(await valid.json()).pagination.pageSize).toBe(2);
 
     expect(await forbiddenRowCounts()).toEqual(beforeCounts);
+  });
+
+  async function createUserSession(): Promise<{ userId: string; cookie: string }> {
+    const email = `read_model_cover_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@example.com`;
+    const username = `rc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const signup = await app.request('/api/auth/sign-up/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
+      body: JSON.stringify({ email, password: 'password123', name: 'cover', username }),
+    });
+    expect(signup.status).toBe(200);
+    await db.update(userTable).set({ emailVerified: true }).where(eq(userTable.email, email));
+    const login = await app.request('/api/auth/sign-in/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
+      body: JSON.stringify({ email, password: 'password123' }),
+    });
+    expect(login.status).toBe(200);
+    const getSetCookie = (login.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.() ?? [];
+    const cookie = getSetCookie.map((entry) => entry.split(';')[0]).join('; ');
+    const [user] = await db.select({ id: userTable.id }).from(userTable).where(eq(userTable.email, email)).limit(1);
+    return { userId: user!.id, cookie };
+  }
+
+  it('projects the local cover only when the viewer may read the linked Work', async () => {
+    const row = await recordRow(`${runId}-1`);
+    const sourceCover = `https://example.test/${runId}/cover.jpg`;
+    const workId = await createLinkedWorkFixture('Cover Source Work');
+    const assetId = randomUUID();
+    await db.insert(contentAssetTable).values({
+      id: assetId,
+      workId,
+      kind: 'cover',
+      storageKey: `covers/${assetId}/cover-v1.webp`,
+      mimeType: 'image/webp',
+      contentHash: assetId,
+      status: 'ready',
+    });
+    await db.update(readingWorkTable).set({ coverAssetId: assetId }).where(eq(readingWorkTable.id, workId));
+    await db.update(sourceRecordTable).set({ workId, coverUrl: sourceCover }).where(eq(sourceRecordTable.id, row!.id));
+    const session = await createUserSession();
+    await db.insert(userLibraryItemTable).values({ id: randomUUID(), userId: session.userId, workId });
+    const memory = createMemoryObjectStore();
+    setObjectStoreForTests(memory);
+    await putObject({
+      key: `covers/${assetId}/cover-v1.webp`,
+      body: Buffer.from([0x52, 0x49, 0x46, 0x46]),
+      contentType: 'image/webp',
+    });
+
+    try {
+      // Unpublished ownerless Source Work: the asset gateway forbids anonymous
+      // reads, so Discover must keep serving the source cover URL.
+      expect((await app.request(`/api/assets/${assetId}`)).status).toBe(403);
+      const anonymousList = await app.request(`/api/discover/records?q=${encodeURIComponent(`${runId}-1`)}`);
+      const anonymousItems = (await anonymousList.json()) as { items: Array<{ coverUrl: string | null }> };
+      expect(anonymousItems.items[0]?.coverUrl).toBe(sourceCover);
+      const anonymousDetail = (await (await app.request(`/api/discover/records/${row!.id}`)).json()) as {
+        coverUrl: string | null;
+      };
+      expect(anonymousDetail.coverUrl).toBe(sourceCover);
+
+      // The linked Work's own Library member may read the local cover asset.
+      expect((await app.request(`/api/assets/${assetId}`, { headers: { cookie: session.cookie } })).status).toBe(200);
+      const memberList = (await (
+        await app.request(`/api/discover/records?q=${encodeURIComponent(`${runId}-1`)}`, {
+          headers: { cookie: session.cookie },
+        })
+      ).json()) as { items: Array<{ coverUrl: string | null }> };
+      expect(memberList.items[0]?.coverUrl).toBe(`/api/assets/${assetId}`);
+      const memberDetail = (await (
+        await app.request(`/api/discover/records/${row!.id}`, { headers: { cookie: session.cookie } })
+      ).json()) as { coverUrl: string | null };
+      expect(memberDetail.coverUrl).toBe(`/api/assets/${assetId}`);
+
+      // A published Catalog Work proves the local cover readable for everyone.
+      await db.update(readingWorkTable).set({ publishedAt: new Date() }).where(eq(readingWorkTable.id, workId));
+      expect((await app.request(`/api/assets/${assetId}`)).status).toBe(200);
+      const publishedList = (await (
+        await app.request(`/api/discover/records?q=${encodeURIComponent(`${runId}-1`)}`)
+      ).json()) as { items: Array<{ coverUrl: string | null }> };
+      expect(publishedList.items[0]?.coverUrl).toBe(`/api/assets/${assetId}`);
+    } finally {
+      await db.delete(userLibraryItemTable).where(eq(userLibraryItemTable.workId, workId));
+      await db.delete(userTable).where(eq(userTable.id, session.userId));
+      await db.delete(contentAssetTable).where(eq(contentAssetTable.id, assetId));
+      await db.update(sourceRecordTable).set({ workId: null, coverUrl: null }).where(eq(sourceRecordTable.id, row!.id));
+      resetObjectStoreCache();
+    }
   });
 });

@@ -10,6 +10,7 @@ Related: [`personal-tags.md`](./personal-tags.md) · [`content-strategy.md`](./c
 - They are **separate from personal tags** (private, per-user): distinct domain identities, ownership, storage, and lifecycles. Source raw subjects/bookshelves remain source metadata and are not public categories.
 - Category records carry stable IDs, localized labels, and provenance; Work display, if needed, derives through the SourceRecord link rather than duplicating assignments onto works.
 - Categories are flat, broad, understandable, and reusable. They are not a hierarchy or one category per book.
+- **Public counts share list visibility:** the public `recordCount` uses the same predicate as the Discover record list (available record, enabled source, default Discover content language), so a category count never exceeds what the filtered list can show. Management counts still include records that are not publicly visible.
 
 ## 2. Admin CRUD semantics
 
@@ -29,9 +30,10 @@ Related: [`personal-tags.md`](./personal-tags.md) · [`content-strategy.md`](./c
 - Classification and translation keep the same stable category identity, preserve manually edited labels and associations, and never rewrite raw source metadata. Missing translations remain explicitly incomplete and need a recoverable completion path.
 - AI taxonomy review produces suggestions; destructive taxonomy changes require administrator confirmation. This does not add merge or bulk-management features.
 - **Engineering safeguards retained:** bounded retry with provider-unavailable/transient handling, evidence fingerprinting, outbox dispatch, instance lock, and **manual-assignment/suppression protection** (manual labels and user decisions are never overwritten by AI).
+- **Reclassification reconciles AI associations:** a completed pass (`REUSE`, `CREATE`, `NO_MATCH`) reconciles the record's AI-owned associations to that pass inside one SourceRecord-locked transaction — stale AI associations are removed, manual associations and suppression memory are never touched, and a `NEEDS_REVIEW` abstention leaves associations unchanged. The command result's `categoryIds` reports the associations actually persisted (including preserved manual rows), not the model's proposal.
 - **Daily business quotas removed** — no instance daily classification reservation limit remains; quota-risk statements from earlier records are obsolete.
 
 ## 4. Verification status
 
-- Real classification Worker, real classification/translation AI calls, and the Discover / save-read loop remain unverified. The reported management-page CRUD acceptance does not establish those results.
+- Real classification Worker, real classification/translation AI calls, and the Discover / save-read loop page acceptance remain unverified; the reclassification reconciliation, public-count scope, and Save Intent status read are verified by automated tests only (mocked AI results, isolated test database/Redis). The reported management-page CRUD acceptance does not establish those results.
 - This document records the current boundary and accepted semantics only; it **authorizes no new features**.

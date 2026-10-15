@@ -289,6 +289,40 @@ describe('public category service on gloaming_test', () => {
     expect(records.items[0]!.categories).toContainEqual({ id: category.id, name: `Public Projection ${suffix}` });
   });
 
+  it('keeps public category counts within the Discover list visibility scope', async (ctx) => {
+    if (!schemaReady) return ctx.skip();
+
+    const category = await createCategory(`Count Scope ${suffix}`);
+    const englishRecordId = recordIdFor(6);
+    await assignCategoryToSourceRecord(englishRecordId, category.id, 'manual');
+
+    // `en-US` content is outside the default Discover list language (`en` via
+    // array containment), so it must not inflate the public count either.
+    await upsertSourceRecords(
+      sourceId,
+      [{ ...fixtureRecord(RECORD_COUNT + 1), languages: ['en-US'] }],
+      new Date('2026-01-02T00:00:00.000Z'),
+    );
+    const [inserted] = await db
+      .select({ id: sourceRecordTable.id })
+      .from(sourceRecordTable)
+      .where(eq(sourceRecordTable.externalId, `${runId}-${RECORD_COUNT + 1}`));
+    recordIds.push(inserted!.id);
+    await assignCategoryToSourceRecord(inserted!.id, category.id, 'manual');
+
+    const publicList = await listPublicCategories('en-US');
+    expect(publicList.items.find((item) => item.id === category.id)?.recordCount).toBe(1);
+
+    const managed = (await listManagedCategories()).find((item) => item.id === category.id);
+    expect(managed?.recordCount).toBe(2);
+
+    const records = await listSourceRecords(
+      sourceRecordListQuerySchema.parse({ categoryId: category.id, pageSize: 50 }),
+      { locale: 'en-US' },
+    );
+    expect(records.items.map((item) => item.sourceRecordId)).toEqual([englishRecordId]);
+  });
+
   it('serves a paginated admin view of one category assignments, including hidden records', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 

@@ -109,7 +109,11 @@ async function resolveNewPublicCategory(input: {
  * Persist a validated decision: reuse existing stable ids and create only the
  * approved new concepts, resolving an exact name collision to the existing id.
  * Raw `sourceMeta` is never written. The shared assignment policy preserves
- * manual assignments and suppression and enforces the 0-3 limit.
+ * manual assignments and suppression and enforces the 0-3 limit. Every outcome
+ * except a review abstention reconciles the record's AI associations to this
+ * pass inside one locked transaction, so stale AI rows are removed while manual
+ * rows and suppression memory survive; `categoryIds` reports the associations
+ * the record actually carries afterwards.
  */
 async function persistPublicClassificationDecision(
   recordId: string,
@@ -141,6 +145,7 @@ async function persistPublicClassificationDecision(
   const categoryIds = await applyPublicCategoryAssignments(
     recordId,
     orderedIds.slice(0, PUBLIC_CATEGORY_ASSIGNMENT_LIMIT),
+    { reconcileStaleAi: decision.outcome !== 'NEEDS_REVIEW' },
   );
   return { categoryIds, createdCategoryIds };
 }

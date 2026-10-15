@@ -97,3 +97,21 @@ export const sourceRecordSaveResultSchema = z.object({
 });
 
 export type SourceRecordSaveResult = z.infer<typeof sourceRecordSaveResultSchema>;
+
+/**
+ * Owner-scoped Save Intent status (`GET /api/library/source-records/:id`).
+ *
+ * `status` is authoritative: linked `workId` alone never means the import is
+ * readable — materialization links the Work first and keeps parsing. `none`
+ * (no intent), `pending` (queued/processing), `ready` (readable Work and
+ * membership completed), `failed` (import failed; retryable). `failureReason`
+ * is a cleaned, user-visible reason and is only set for `failed`.
+ */
+export const SOURCE_RECORD_SAVE_STATUS_VALUES = ['none', 'pending', 'ready', 'failed'] as const;
+export const sourceRecordSaveStatusSchema = z.object({
+  status: z.enum(SOURCE_RECORD_SAVE_STATUS_VALUES),
+  workId: z.string().nullable(),
+  failureReason: z.string().nullable(),
+});
+
+export type SourceRecordSaveStatus = z.infer<typeof sourceRecordSaveStatusSchema>;

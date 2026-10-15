@@ -11,6 +11,7 @@ export {
   failSaveIntentsForWorkParseFailure,
   fanOutReadySaveIntentsForSourceRecord,
   fanOutReadySaveIntentsForWork,
+  readSourceRecordSaveStatus,
   reviveFailedSaveIntentsForWorkParseRetry,
   saveSourceRecordToLibrary,
   SOURCE_RECORD_MATERIALIZE_JOB,

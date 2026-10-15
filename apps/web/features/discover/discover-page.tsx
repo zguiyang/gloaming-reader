@@ -206,6 +206,8 @@ export function DiscoverPage() {
           selectedCategoryId={categoryId}
           onSelect={handleSelectCategory}
           isLoading={categoriesQuery.isLoading}
+          isError={categoriesQuery.isError && !categoriesQuery.data}
+          onRetry={() => void categoriesQuery.refetch()}
         />
         <DiscoverActiveFilters
           query={appliedQuery}

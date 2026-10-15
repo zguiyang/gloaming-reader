@@ -317,6 +317,101 @@ describe('EPUB cleaning & chaptering fixes (builder fixtures)', () => {
     expect(parts[0]!.title).toBe('Chapter 1');
   });
 
+  it('keeps an illustration-only page while the cover wrapper page still drops', async () => {
+    const bytes = await buildEpubBytes({
+      title: 'Plated Book',
+      language: 'en',
+      coverHref: 'cover.jpg',
+      coverBytes: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      chapters: [
+        {
+          href: 'cover.xhtml',
+          content: `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Cover</title></head>
+<body><div style="text-align:center"><img src="cover.jpg" alt="" class="x-ebookmaker-cover"/></div></body></html>`,
+        },
+        {
+          href: 'chapter-1.xhtml',
+          tocLabel: 'Chapter 1',
+          content: `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter 1</title></head>
+<body><h1>Chapter 1</h1><p>Real prose.</p></body></html>`,
+        },
+        {
+          href: 'plate.xhtml',
+          tocLabel: 'Plate I',
+          content: `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Plate I</title></head>
+<body><figure><img src="images/plate1.png" alt="Plate I"/></figure></body></html>`,
+        },
+      ],
+      extraEntries: { 'images/plate1.png': Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x01]) },
+    });
+    const workId = await runEpub(bytes);
+
+    const parts = await db
+      .select({ title: readingPartTable.title, body: readingPartTable.body })
+      .from(readingPartTable)
+      .where(eq(readingPartTable.workId, workId))
+      .orderBy(readingPartTable.sortOrder);
+    expect(parts.map((part) => part.title)).toEqual(['Chapter 1', 'Plate I']);
+
+    const plate = parts[1]!;
+    expect(plate.body).not.toContain('__GLOAMING_IMG__');
+    expect(plate.body).toContain('/api/assets/');
+
+    const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, workId));
+    expect(assets.filter((asset) => asset.kind === 'image')).toHaveLength(1);
+    expect(assets.filter((asset) => asset.kind === 'cover')).toHaveLength(1);
+  });
+
+  it('strips over-cap body images instead of leaking placeholder tokens', async () => {
+    const totalImages = 201;
+    const extraEntries: Record<string, Buffer> = {};
+    const imageTags: string[] = [];
+    for (let index = 0; index < totalImages; index += 1) {
+      const href = `images/plate-${index}.png`;
+      extraEntries[href] = Buffer.from([0x89, 0x50, 0x4e, 0x47, index % 256]);
+      imageTags.push(`<img src="${href}" alt=""/>`);
+    }
+    const bytes = await buildEpubBytes({
+      title: 'Many Images Book',
+      language: 'en',
+      chapters: [
+        {
+          href: 'chapter-1.xhtml',
+          tocLabel: 'Chapter 1',
+          content: `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter 1</title></head>
+<body><h1>Chapter 1</h1><p>Text.</p>${imageTags.join('')}</body></html>`,
+        },
+      ],
+      extraEntries,
+    });
+    const workId = await runEpub(bytes);
+
+    const [part] = await db
+      .select({ body: readingPartTable.body })
+      .from(readingPartTable)
+      .where(eq(readingPartTable.workId, workId))
+      .orderBy(readingPartTable.sortOrder);
+    expect(part!.body).not.toContain('__GLOAMING_IMG__');
+    const assetUrls = part!.body.match(/\/api\/assets\/[\w-]+/g) ?? [];
+    expect(new Set(assetUrls).size).toBe(200);
+    expect(part!.body.match(/<img /g) ?? []).toHaveLength(200);
+
+    const [work] = await db
+      .select({ originMeta: readingWorkTable.originMeta })
+      .from(readingWorkTable)
+      .where(eq(readingWorkTable.id, workId));
+    const parsed = work!.originMeta.parsed as { imageCount: number; droppedImageCount: number };
+    expect(parsed.imageCount).toBe(200);
+    expect(parsed.droppedImageCount).toBe(1);
+
+    const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, workId));
+    expect(assets.filter((asset) => asset.kind === 'image')).toHaveLength(200);
+  });
+
   it('keeps Gutenberg author info while dropping <head> leaks and scripts', async () => {
     const bytes = await buildEpubBytes({
       title: 'Clean Book',
