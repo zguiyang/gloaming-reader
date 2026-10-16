@@ -21,11 +21,13 @@ import { rootLogger } from '@/infra/logging/logger';
 import {
   ensureDiscoverySource,
   loadClassificationEvidenceByExternalId,
+  lockSourceRunOwnership,
   markSourceFailed,
   markSourceSucceeded,
   reconcileUnavailableRecords,
   releaseSourceQueued,
   type SourceRecordClassificationEvidenceRow,
+  SourceRunOwnershipLostError,
   startSourceSyncing,
   upsertSourceRecords,
 } from './repository';
@@ -97,10 +99,13 @@ export async function syncProjectGutenbergMetadata(options: {
         runStartedAt,
       });
       if (!persisted) {
+        // Ownership was lost between claiming and now: never report a terminal
+        // state for a run that no longer owns the source row.
         logger.warn(
           { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
           'Gutenberg sync ownership lost; not-modified status not persisted',
         );
+        throw new SourceRunOwnershipLostError();
       }
       logger.info({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Gutenberg snapshot not modified (304)');
       return {
@@ -112,28 +117,40 @@ export async function syncProjectGutenbergMetadata(options: {
     }
 
     const observedAt = new Date();
-    const { seenRecords, batches } = await consumeSnapshot(source.id, snapshot, observedAt, options.signal);
+    const { seenRecords, batches } = await consumeSnapshot(
+      source.id,
+      snapshot,
+      observedAt,
+      runStartedAt,
+      options.signal,
+    );
     if (seenRecords === 0) {
       throw new GutenbergSnapshotError('the snapshot archive contained no RDF records');
     }
 
     // Guard (b): no reconciliation (a data write) once the run is aborted.
     throwIfRunAborted(options.signal);
-    const unavailableRecords = await reconcileUnavailableRecords(source.id, observedAt);
-    // Guard (d): no success report after the run was aborted.
-    throwIfRunAborted(options.signal);
-    const persisted = await markSourceSucceeded({
-      sourceId: source.id,
-      lastModified: snapshot.lastModified,
-      finishedAt: new Date(),
-      runStartedAt,
+    const lastModified = snapshot.lastModified;
+    // Reconcile and the success report commit together under a source-row lock,
+    // so a run that already lost its token can neither flip availability nor
+    // report success for a generation it no longer owns.
+    const unavailableRecords = await db.transaction(async (tx) => {
+      const reconciled = await reconcileUnavailableRecords(source.id, observedAt, tx, runStartedAt);
+      // Guard (d): no success report after the run was aborted; rolling the
+      // transaction back also undoes the reconciliation above.
+      throwIfRunAborted(options.signal);
+      const persisted = await markSourceSucceeded({
+        sourceId: source.id,
+        lastModified: lastModified,
+        finishedAt: new Date(),
+        runStartedAt,
+        executor: tx,
+      });
+      if (!persisted) {
+        throw new SourceRunOwnershipLostError();
+      }
+      return reconciled;
     });
-    if (!persisted) {
-      logger.warn(
-        { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
-        'Gutenberg sync ownership lost; success status not persisted',
-      );
-    }
 
     logger.info(
       { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, seenRecords, unavailableRecords, batches },
@@ -147,6 +164,16 @@ export async function syncProjectGutenbergMetadata(options: {
       batches,
     };
   } catch (error) {
+    if (error instanceof SourceRunOwnershipLostError) {
+      // This run no longer owns the source row: every write was rolled back and
+      // the new run's terminal state must stay untouched, so skip without
+      // recording a failure for the current generation.
+      logger.info(
+        { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
+        'Gutenberg sync skipped: run ownership lost before the terminal write',
+      );
+      return { status: 'skipped-not-queued' };
+    }
     const errorSummary = toSyncErrorSummary(error, options.signal);
     try {
       const persisted = await markSourceFailed({
@@ -186,6 +213,7 @@ async function consumeSnapshot(
   sourceId: string,
   snapshot: GutenbergSnapshot,
   observedAt: Date,
+  runStartedAt: Date,
   signal?: AbortSignal,
 ): Promise<{ seenRecords: number; batches: number }> {
   let seenRecords = 0;
@@ -208,6 +236,9 @@ async function consumeSnapshot(
         tx,
       );
       throwIfRunAborted(signal);
+      // Lock the source row before any write and hold it to commit: a run whose
+      // token was replaced must not persist metadata or classification state.
+      await lockSourceRunOwnership(tx, sourceId, runStartedAt);
       const upserted = await upsertSourceRecords(sourceId, records, observedAt, tx);
       throwIfRunAborted(signal);
       await registerIncrementalClassification(records, upserted, previousEvidence, tx);

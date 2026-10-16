@@ -65,6 +65,8 @@ const flushGate = vi.hoisted(() => ({
   failClassification: false,
   failAfterClassificationWrite: false,
   lastClassificationId: '',
+  reconcileGate: null as Promise<void> | null,
+  onReconcileReached: null as null | (() => void),
   reset() {
     this.gate = null;
     this.onEvidenceReached = null;
@@ -76,6 +78,8 @@ const flushGate = vi.hoisted(() => ({
     this.failClassification = false;
     this.failAfterClassificationWrite = false;
     this.lastClassificationId = '';
+    this.reconcileGate = null;
+    this.onReconcileReached = null;
   },
 }));
 
@@ -101,8 +105,14 @@ vi.mock('@/domains/discovery/sync/repository', async (importOriginal) => {
       flushGate.upsertCalls += 1;
       return actual.upsertSourceRecords(...args);
     },
-    reconcileUnavailableRecords: (...args: Parameters<typeof actual.reconcileUnavailableRecords>) => {
+    reconcileUnavailableRecords: async (...args: Parameters<typeof actual.reconcileUnavailableRecords>) => {
       flushGate.reconcileCalls += 1;
+      const gate = flushGate.reconcileGate;
+      const reached = flushGate.onReconcileReached;
+      flushGate.reconcileGate = null;
+      flushGate.onReconcileReached = null;
+      reached?.();
+      if (gate) await gate;
       return actual.reconcileUnavailableRecords(...args);
     },
     markSourceSucceeded: (...args: Parameters<typeof actual.markSourceSucceeded>) => {
@@ -383,6 +393,101 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
       .from(stateTable)
       .where(eq(stateTable.sourceRecordId, flushGate.lastClassificationId));
     expect(state?.completedFingerprint).toBeNull();
+  });
+
+  it('drops a stale run batch that lost its token before the write and keeps the new run state', async () => {
+    let releaseGate!: () => void;
+    let markReached!: () => void;
+    flushGate.gate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+    const evidenceReached = new Promise<void>((resolve) => {
+      markReached = resolve;
+    });
+    flushGate.onEvidenceReached = markReached;
+
+    snapshotMocks.open.mockImplementation(async () => fakeSnapshot([fixtureRecord(0)]));
+    const claimedAt = await claimQueued();
+    const runPromise = syncProjectGutenbergMetadata({ claimedAt });
+    await evidenceReached;
+
+    // The stale run is recovered, then a new generation claims and starts.
+    await db
+      .update(discoverySourceTable)
+      .set({ syncStatus: 'failed', lastErrorSummary: 'recovered stale run' })
+      .where(eq(discoverySourceTable.id, sourceId));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const newClaim = await claimSourceQueued(sourceId);
+    expect(newClaim).not.toBeNull();
+    await db
+      .update(discoverySourceTable)
+      .set({ syncStatus: 'syncing', syncStartedAt: newClaim })
+      .where(eq(discoverySourceTable.id, sourceId));
+
+    releaseGate();
+    const result = await runPromise;
+
+    expect(result).toEqual({ status: 'skipped-not-queued' });
+    expect(flushGate.upsertCalls).toBe(0);
+    expect(flushGate.classificationCalls).toBe(0);
+    expect(flushGate.reconcileCalls).toBe(0);
+    expect(flushGate.succeededCalls).toBe(0);
+    expect(await ownedRecordCount()).toBe(0);
+    const stateRows = await db
+      .select({ sourceRecordId: stateTable.sourceRecordId })
+      .from(stateTable)
+      .innerJoin(sourceRecordTable, eq(sourceRecordTable.id, stateTable.sourceRecordId))
+      .where(eq(sourceRecordTable.sourceId, sourceId));
+    expect(stateRows).toHaveLength(0);
+    const source = await sourceRow();
+    expect(source).toMatchObject({ syncStatus: 'syncing', lastErrorSummary: null });
+    expect(source?.syncStartedAt?.getTime()).toBe(newClaim!.getTime());
+  });
+
+  it('skips reconcile and success after the run token is replaced once the last batch landed', async () => {
+    const [{ id: seededId }] = await upsertSourceRecords(sourceId, [fixtureRecord(900)], new Date(Date.now() - 60_000));
+    expect(seededId).toBeDefined();
+
+    let releaseGate!: () => void;
+    let markReached!: () => void;
+    flushGate.reconcileGate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+    const reconcileReached = new Promise<void>((resolve) => {
+      markReached = resolve;
+    });
+    flushGate.onReconcileReached = markReached;
+
+    snapshotMocks.open.mockImplementation(async () => fakeSnapshot([fixtureRecord(0)]));
+    const claimedAt = await claimQueued();
+    const runPromise = syncProjectGutenbergMetadata({ claimedAt });
+    await reconcileReached;
+
+    // The final batch has committed before the reconcile gate fires.
+    expect(await ownedRecordCount()).toBe(2);
+
+    await db
+      .update(discoverySourceTable)
+      .set({ syncStatus: 'failed', lastErrorSummary: 'recovered stale run' })
+      .where(eq(discoverySourceTable.id, sourceId));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const newClaim = await claimSourceQueued(sourceId);
+    expect(newClaim).not.toBeNull();
+    await db
+      .update(discoverySourceTable)
+      .set({ syncStatus: 'syncing', syncStartedAt: newClaim })
+      .where(eq(discoverySourceTable.id, sourceId));
+
+    releaseGate();
+    const result = await runPromise;
+
+    expect(result).toEqual({ status: 'skipped-not-queued' });
+    expect(flushGate.succeededCalls).toBe(0);
+    const [seededRow] = await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.id, seededId!)).limit(1);
+    expect(seededRow?.availability).toBe('available');
+    const source = await sourceRow();
+    expect(source).toMatchObject({ syncStatus: 'syncing' });
+    expect(source?.syncStartedAt?.getTime()).toBe(newClaim!.getTime());
   });
 
   it('reconciles records missing from a later snapshot to unavailable and never deletes them', async () => {

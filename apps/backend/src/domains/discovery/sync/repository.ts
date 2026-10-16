@@ -10,6 +10,35 @@ import { db, type DbTransaction } from '@/infra/db';
 
 export type DiscoverySourceRow = typeof discoverySource.$inferSelect;
 
+/** Raised when this run's token no longer owns the source row and no write may proceed. */
+export class SourceRunOwnershipLostError extends Error {
+  constructor() {
+    super('the discovery source run no longer owns its claim');
+    this.name = 'SourceRunOwnershipLostError';
+  }
+}
+
+/**
+ * Locks the source row for the rest of the transaction and verifies it still
+ * shows `syncing` for this run's token. The FOR UPDATE lock is held until the
+ * transaction commits or rolls back, so a recovery that replaces the run token
+ * cannot interleave between the check and the writes that follow it.
+ */
+export async function lockSourceRunOwnership(
+  executor: DbTransaction,
+  sourceId: string,
+  runStartedAt: Date,
+): Promise<void> {
+  const [row] = await executor
+    .select({ syncStatus: discoverySource.syncStatus, syncStartedAt: discoverySource.syncStartedAt })
+    .from(discoverySource)
+    .where(eq(discoverySource.id, sourceId))
+    .for('update');
+  if (!row || row.syncStatus !== 'syncing' || row.syncStartedAt?.getTime() !== runStartedAt.getTime()) {
+    throw new SourceRunOwnershipLostError();
+  }
+}
+
 /** Creates the stable source row if missing, then returns it. */
 export async function ensureDiscoverySource(sourceKey: string, sourceType: string): Promise<DiscoverySourceRow> {
   await db
@@ -138,8 +167,10 @@ export async function markSourceSucceeded(input: {
   lastModified: string | null;
   finishedAt: Date;
   runStartedAt: Date;
+  executor?: typeof db | DbTransaction;
 }): Promise<boolean> {
-  const result = await db
+  const executor = input.executor ?? db;
+  const result = await executor
     .update(discoverySource)
     .set({
       syncStatus: 'succeeded',
@@ -367,9 +398,21 @@ export async function loadClassificationEvidenceByExternalId(
 /**
  * Marks records not observed in the completed snapshot as unavailable.
  * Never deletes records. Only valid after the full snapshot and every batch succeed.
+ * When `runStartedAt` is supplied, the source row is locked and ownership is
+ * verified inside the caller's transaction first, so a replaced run can never
+ * flip availability; losing the token raises {@link SourceRunOwnershipLostError}
+ * before any availability write.
  */
-export async function reconcileUnavailableRecords(sourceId: string, observedAt: Date): Promise<number> {
-  const result = await db
+export async function reconcileUnavailableRecords(
+  sourceId: string,
+  observedAt: Date,
+  executor: typeof db | DbTransaction = db,
+  runStartedAt?: Date,
+): Promise<number> {
+  if (runStartedAt) {
+    await lockSourceRunOwnership(executor as DbTransaction, sourceId, runStartedAt);
+  }
+  const result = await executor
     .update(sourceRecord)
     .set({ availability: 'unavailable', updatedAt: new Date() })
     .where(
