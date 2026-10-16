@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, inArray, like } from 'drizzle-orm';
+import { and, count, eq, inArray, like } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -28,6 +28,7 @@ import {
 } from '@/domains/discovery/categories/service';
 import { PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE } from '@/domains/discovery/gutenberg/constants';
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
+import type * as SyncRepository from '@/domains/discovery/sync/repository';
 import { claimSourceQueued, ensureDiscoverySource, upsertSourceRecords } from '@/domains/discovery/sync/repository';
 import { syncProjectGutenbergMetadata } from '@/domains/discovery/sync/service';
 import { db } from '@/infra/db';
@@ -68,6 +69,27 @@ vi.mock('@/domains/discovery/gutenberg/snapshot-stream', async (importOriginal) 
   return { ...actual, openGutenbergSnapshot: snapshotMocks.open };
 });
 
+/**
+ * The Gutenberg sync block must never write the stable project_gutenberg source
+ * row or its records: the sync service resolves its source by key, so this run
+ * redirects that key to a run-owned fixture source and deletes only it afterwards
+ * (same pattern as discovery-sync-service.spec.ts).
+ */
+const gutenbergFixtureSourceKey = vi.hoisted(() => `pc06_gutenberg_sync_${crypto.randomUUID()}`);
+
+vi.mock('@/domains/discovery/sync/repository', async (importOriginal) => {
+  const actual = await importOriginal<typeof SyncRepository>();
+  const { PROJECT_GUTENBERG_SOURCE_KEY } = await import('@/domains/discovery/gutenberg/constants');
+  return {
+    ...actual,
+    ensureDiscoverySource: (sourceKey: string, sourceType: string) =>
+      actual.ensureDiscoverySource(
+        sourceKey === PROJECT_GUTENBERG_SOURCE_KEY ? gutenbergFixtureSourceKey : sourceKey,
+        sourceType,
+      ),
+  };
+});
+
 function aiResult<T>(content: T) {
   return {
     content,
@@ -92,8 +114,8 @@ const sourceType = 'gutenberg_rdf';
 
 let sourceId = '';
 let gutenbergSourceId = '';
-let gutenbergPreExisting: typeof discoverySourceTable.$inferSelect | null = null;
 const createdCategoryIds = new Set<string>();
+let stableGutenbergBefore: Awaited<ReturnType<typeof readStableGutenbergState>> | null = null;
 
 function fixtureRecord(index: number, overrides: Partial<ParsedSourceRecord> = {}): ParsedSourceRecord {
   return {
@@ -165,6 +187,21 @@ async function readSource(sourceIdValue: string) {
   return row ?? null;
 }
 
+/** Read-only snapshot of the stable project_gutenberg source this file must never modify. */
+async function readStableGutenbergState() {
+  const [row] = await db
+    .select()
+    .from(discoverySourceTable)
+    .where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY))
+    .limit(1);
+  if (!row) return { exists: false as const };
+  const [records] = await db
+    .select({ value: count() })
+    .from(sourceRecordTable)
+    .where(eq(sourceRecordTable.sourceId, row.id));
+  return { exists: true as const, row, recordCount: Number(records?.value ?? 0) };
+}
+
 /** Dispatch due rows, then run only the jobs belonging to the supplied record ids. */
 async function dispatchAndRun(recordIds: Set<string>): Promise<{
   jobs: PublicClassificationJobData[];
@@ -180,6 +217,41 @@ async function dispatchAndRun(recordIds: Set<string>): Promise<{
   for (const job of jobs) results.push(await processPublicClassification(job));
   return { jobs, results };
 }
+
+beforeAll(async () => {
+  stableGutenbergBefore = await readStableGutenbergState();
+});
+
+/**
+ * Runs only after every describe has finished: categories are shared across the
+ * whole file (the Gutenberg sync block creates its own), so the final cleanup
+ * deletes exactly this run's category IDs — never historical rows — and proves
+ * both the cleanup and that the stable Gutenberg source stayed untouched.
+ */
+afterAll(async () => {
+  const ids = [...createdCategoryIds];
+  if (ids.length > 0) {
+    const [beforeDelete] = await db
+      .select({ value: count() })
+      .from(publicCategoryTable)
+      .where(inArray(publicCategoryTable.id, ids));
+    expect(Number(beforeDelete?.value ?? 0)).toBe(ids.length);
+    await db.delete(publicCategoryTable).where(inArray(publicCategoryTable.id, ids));
+    const [afterDelete] = await db
+      .select({ value: count() })
+      .from(publicCategoryTable)
+      .where(inArray(publicCategoryTable.id, ids));
+    expect(Number(afterDelete?.value ?? 0)).toBe(0);
+  }
+
+  const [leftoverSources] = await db
+    .select({ value: count() })
+    .from(discoverySourceTable)
+    .where(inArray(discoverySourceTable.sourceKey, [sourceKey, gutenbergFixtureSourceKey]));
+  expect(Number(leftoverSources?.value ?? 0)).toBe(0);
+
+  expect(await readStableGutenbergState()).toEqual(stableGutenbergBefore);
+});
 
 describe('incremental public classification on gloaming_test', () => {
   beforeAll(async () => {
@@ -198,9 +270,8 @@ describe('incremental public classification on gloaming_test', () => {
   afterAll(async () => {
     await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
     await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
-    if (createdCategoryIds.size > 0) {
-      await db.delete(publicCategoryTable).where(inArray(publicCategoryTable.id, [...createdCategoryIds]));
-    }
+    // Shared categories are deleted in the file-level afterAll so categories
+    // created by later describes are covered too.
   });
 
   it('classifies a new record once, persists success per fingerprint, and keeps repeated sync free', async () => {
@@ -405,12 +476,8 @@ describe('incremental public classification on gloaming_test', () => {
 
 describe('Gutenberg sync incremental trigger on gloaming_test', () => {
   beforeAll(async () => {
-    const [existing] = await db
-      .select()
-      .from(discoverySourceTable)
-      .where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY))
-      .limit(1);
-    gutenbergPreExisting = existing ?? null;
+    // The repository mock resolves the stable Gutenberg key to this run's unique
+    // fixture source, so the stable project_gutenberg row is never written.
     const source = await ensureDiscoverySource(PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE);
     gutenbergSourceId = source.id;
   });
@@ -439,23 +506,10 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
   });
 
   afterAll(async () => {
-    await db
-      .delete(sourceRecordTable)
-      .where(and(eq(sourceRecordTable.sourceId, gutenbergSourceId), like(sourceRecordTable.externalId, `${runId}-%`)));
-    if (gutenbergPreExisting) {
-      await db
-        .update(discoverySourceTable)
-        .set({
-          enabled: gutenbergPreExisting.enabled,
-          syncStatus: gutenbergPreExisting.syncStatus,
-          syncStartedAt: gutenbergPreExisting.syncStartedAt,
-          syncFinishedAt: gutenbergPreExisting.syncFinishedAt,
-          lastSuccessAt: gutenbergPreExisting.lastSuccessAt,
-          lastErrorSummary: gutenbergPreExisting.lastErrorSummary,
-          snapshotLastModified: gutenbergPreExisting.snapshotLastModified,
-        })
-        .where(eq(discoverySourceTable.id, gutenbergSourceId));
-    }
+    // Every row under this source belongs to this run: delete its records, then
+    // the run-owned fixture source itself (exact IDs only, no stable rows).
+    await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, gutenbergSourceId));
+    await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, gutenbergSourceId));
   });
 
   it('triggers classification once for a new record and stays free on an unchanged sync', async () => {

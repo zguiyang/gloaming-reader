@@ -15,16 +15,19 @@ import { GutenbergSnapshotError } from '@/domains/discovery/gutenberg/errors';
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
 import type { GutenbergSnapshot } from '@/domains/discovery/gutenberg/snapshot-stream';
 import { openGutenbergSnapshot } from '@/domains/discovery/gutenberg/snapshot-stream';
+import { db, type DbTransaction } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 
 import {
   ensureDiscoverySource,
   loadClassificationEvidenceByExternalId,
+  lockSourceRunOwnership,
   markSourceFailed,
   markSourceSucceeded,
   reconcileUnavailableRecords,
   releaseSourceQueued,
   type SourceRecordClassificationEvidenceRow,
+  SourceRunOwnershipLostError,
   startSourceSyncing,
   upsertSourceRecords,
 } from './repository';
@@ -96,10 +99,13 @@ export async function syncProjectGutenbergMetadata(options: {
         runStartedAt,
       });
       if (!persisted) {
+        // Ownership was lost between claiming and now: never report a terminal
+        // state for a run that no longer owns the source row.
         logger.warn(
           { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
           'Gutenberg sync ownership lost; not-modified status not persisted',
         );
+        throw new SourceRunOwnershipLostError();
       }
       logger.info({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Gutenberg snapshot not modified (304)');
       return {
@@ -111,28 +117,40 @@ export async function syncProjectGutenbergMetadata(options: {
     }
 
     const observedAt = new Date();
-    const { seenRecords, batches } = await consumeSnapshot(source.id, snapshot, observedAt, options.signal);
+    const { seenRecords, batches } = await consumeSnapshot(
+      source.id,
+      snapshot,
+      observedAt,
+      runStartedAt,
+      options.signal,
+    );
     if (seenRecords === 0) {
       throw new GutenbergSnapshotError('the snapshot archive contained no RDF records');
     }
 
     // Guard (b): no reconciliation (a data write) once the run is aborted.
     throwIfRunAborted(options.signal);
-    const unavailableRecords = await reconcileUnavailableRecords(source.id, observedAt);
-    // Guard (d): no success report after the run was aborted.
-    throwIfRunAborted(options.signal);
-    const persisted = await markSourceSucceeded({
-      sourceId: source.id,
-      lastModified: snapshot.lastModified,
-      finishedAt: new Date(),
-      runStartedAt,
+    const lastModified = snapshot.lastModified;
+    // Reconcile and the success report commit together under a source-row lock,
+    // so a run that already lost its token can neither flip availability nor
+    // report success for a generation it no longer owns.
+    const unavailableRecords = await db.transaction(async (tx) => {
+      const reconciled = await reconcileUnavailableRecords(source.id, observedAt, tx, runStartedAt);
+      // Guard (d): no success report after the run was aborted; rolling the
+      // transaction back also undoes the reconciliation above.
+      throwIfRunAborted(options.signal);
+      const persisted = await markSourceSucceeded({
+        sourceId: source.id,
+        lastModified: lastModified,
+        finishedAt: new Date(),
+        runStartedAt,
+        executor: tx,
+      });
+      if (!persisted) {
+        throw new SourceRunOwnershipLostError();
+      }
+      return reconciled;
     });
-    if (!persisted) {
-      logger.warn(
-        { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
-        'Gutenberg sync ownership lost; success status not persisted',
-      );
-    }
 
     logger.info(
       { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, seenRecords, unavailableRecords, batches },
@@ -146,6 +164,17 @@ export async function syncProjectGutenbergMetadata(options: {
       batches,
     };
   } catch (error) {
+    if (error instanceof SourceRunOwnershipLostError) {
+      // This run no longer owns the source row: the current batch/final
+      // transaction was rolled back while previously committed batches remain,
+      // and the new run's terminal state must stay untouched, so skip without
+      // recording a failure for the current generation.
+      logger.info(
+        { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
+        'Gutenberg sync skipped: run ownership lost before the terminal write',
+      );
+      return { status: 'skipped-not-queued' };
+    }
     const errorSummary = toSyncErrorSummary(error, options.signal);
     try {
       const persisted = await markSourceFailed({
@@ -185,6 +214,7 @@ async function consumeSnapshot(
   sourceId: string,
   snapshot: GutenbergSnapshot,
   observedAt: Date,
+  runStartedAt: Date,
   signal?: AbortSignal,
 ): Promise<{ seenRecords: number; batches: number }> {
   let seenRecords = 0;
@@ -198,20 +228,23 @@ async function consumeSnapshot(
     throwIfRunAborted(signal);
     const records = batch;
     batch = [];
-    // Read pre-upsert evidence first so new/changed detection can baseline a
-    // pre-existing record without reprocessing the whole corpus.
-    const previousEvidence = await loadClassificationEvidenceByExternalId(
-      sourceId,
-      records.map((record) => record.externalId),
-    );
-    // Guard: the evidence read awaits I/O; a run aborted during it must not
-    // proceed to write the batch.
-    throwIfRunAborted(signal);
-    const upserted = await upsertSourceRecords(sourceId, records, observedAt);
-    // Guard: likewise, no classification bookkeeping after an abort that fired
-    // while the upsert was in flight.
-    throwIfRunAborted(signal);
-    await registerIncrementalClassification(records, upserted, previousEvidence);
+    // Metadata and its classification decision must commit together. Otherwise
+    // an identical retry can mistake lost new/changed evidence for legacy data.
+    await db.transaction(async (tx) => {
+      const previousEvidence = await loadClassificationEvidenceByExternalId(
+        sourceId,
+        records.map((record) => record.externalId),
+        tx,
+      );
+      throwIfRunAborted(signal);
+      // Lock the source row before any write and hold it to commit: a run whose
+      // token was replaced must not persist metadata or classification state.
+      await lockSourceRunOwnership(tx, sourceId, runStartedAt);
+      const upserted = await upsertSourceRecords(sourceId, records, observedAt, tx);
+      throwIfRunAborted(signal);
+      await registerIncrementalClassification(records, upserted, previousEvidence, tx);
+      throwIfRunAborted(signal);
+    });
     seenRecords += records.length;
     batches += 1;
   };
@@ -245,38 +278,30 @@ function toClassificationEvidence(input: {
 }
 
 /**
- * Best-effort incremental classification trigger. A failure here only skips the
- * trigger for this batch: source metadata is already persisted and the sync
- * result must not fail because classification bookkeeping could not be written.
+ * Persist the classification decision inside the metadata batch transaction.
+ * A bookkeeping failure rolls back the batch and fails this sync so identical
+ * snapshot retries can still detect the original new/changed evidence.
  */
 async function registerIncrementalClassification(
   records: ParsedSourceRecord[],
   upserted: Array<{ id: string; externalId: string }>,
   previousEvidence: Map<string, SourceRecordClassificationEvidenceRow>,
+  executor: DbTransaction,
 ): Promise<void> {
   if (upserted.length === 0) return;
-  try {
-    const recordByExternalId = new Map(records.map((record) => [record.externalId, record]));
-    const candidates = upserted.map((row) => {
-      const record = recordByExternalId.get(row.externalId);
-      if (!record) throw new Error(`Missing parsed source record for ${row.externalId}`);
-      const previous = previousEvidence.get(row.externalId);
-      return {
-        sourceRecordId: row.id,
-        fingerprint: computePublicClassificationFingerprint(toClassificationEvidence(record)),
-        previousFingerprint: previous
-          ? computePublicClassificationFingerprint(toClassificationEvidence(previous))
-          : null,
-        isNew: !previous,
-      };
-    });
-    await recordPublicClassificationEvidenceBatch(candidates, new Date());
-  } catch (error) {
-    logger.warn(
-      { err: error, sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
-      'Incremental public classification trigger update failed',
-    );
-  }
+  const recordByExternalId = new Map(records.map((record) => [record.externalId, record]));
+  const candidates = upserted.map((row) => {
+    const record = recordByExternalId.get(row.externalId);
+    if (!record) throw new Error(`Missing parsed source record for ${row.externalId}`);
+    const previous = previousEvidence.get(row.externalId);
+    return {
+      sourceRecordId: row.id,
+      fingerprint: computePublicClassificationFingerprint(toClassificationEvidence(record)),
+      previousFingerprint: previous ? computePublicClassificationFingerprint(toClassificationEvidence(previous)) : null,
+      isNew: !previous,
+    };
+  });
+  await recordPublicClassificationEvidenceBatch(candidates, new Date(), executor);
 }
 
 function toSyncErrorSummary(error: unknown, signal?: AbortSignal): string {

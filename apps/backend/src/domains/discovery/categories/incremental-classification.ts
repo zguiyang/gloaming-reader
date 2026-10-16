@@ -12,6 +12,7 @@ import {
   type PublicClassificationEvidenceCandidate,
   recordPublicClassificationEvidenceCandidates,
 } from '@/domains/discovery/categories/incremental-classification-repository';
+import type { DbTransaction } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 import { enqueuePublicClassification } from '@/infra/queue';
 
@@ -65,8 +66,9 @@ export function computePublicClassificationFingerprint(evidence: PublicClassific
 export async function recordPublicClassificationEvidenceBatch(
   candidates: PublicClassificationEvidenceCandidate[],
   now: Date = new Date(),
+  executor?: DbTransaction,
 ): Promise<number> {
-  return recordPublicClassificationEvidenceCandidates(candidates, now);
+  return recordPublicClassificationEvidenceCandidates(candidates, now, executor);
 }
 
 /** Earliest next attempt after one PC-03 outcome; bounded so retries are never a rapid loop. */
