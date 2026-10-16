@@ -50,6 +50,7 @@ import { workerLogger } from '@/infra/logging/logger';
 import {
   CLEANUP_QUEUE_NAME,
   closeQueue,
+  DISCOVERY_IMPORT_QUEUE_NAME,
   DISCOVERY_SYNC_QUEUE_NAME,
   getQueueConnection,
   PERSONAL_TAG_QUEUE_NAME,
@@ -63,10 +64,12 @@ export const PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY = 1;
 
 export const PUBLIC_CLASSIFICATION_ONLY_FLAG = '--public-classification-only';
 export const DISCOVERY_SYNC_ONLY_FLAG = '--discovery-sync-only';
+export const DISCOVERY_IMPORT_ONLY_FLAG = '--discovery-import-only';
 
-export type WorkerMode = 'full' | 'public-classification-only' | 'discovery-sync-only';
+export type WorkerMode = 'full' | 'public-classification-only' | 'discovery-sync-only' | 'discovery-import-only';
 
 export function resolveWorkerMode(argv: readonly string[] = process.argv): WorkerMode {
+  if (argv.includes(DISCOVERY_IMPORT_ONLY_FLAG)) return 'discovery-import-only';
   if (argv.includes(DISCOVERY_SYNC_ONLY_FLAG)) return 'discovery-sync-only';
   return argv.includes(PUBLIC_CLASSIFICATION_ONLY_FLAG) ? 'public-classification-only' : 'full';
 }
@@ -102,6 +105,20 @@ export async function processCleanupJob(job: Pick<Job, 'name' | 'data'>): Promis
   return processAssetCleanup(job.data as { jobId: string; scanId: string });
 }
 
+export async function processDiscoveryImportJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
+  if (job.name === JOB_SOURCE_RECORD_MATERIALIZE) {
+    return processSourceRecordMaterialize(job.data as SourceRecordMaterializeJobData);
+  }
+  if (job.name === JOB_CONTENT_PARSE) {
+    const data = job.data as ContentParseJobData;
+    if (data.processingLane !== 'discovery') {
+      throw new Error('Discovery import content-parse job is missing its discovery processing lane');
+    }
+    return processContentParse(data);
+  }
+  throw new Error(`Unknown discovery import job: ${job.name}`);
+}
+
 function attachWorkerEvents(worker: Worker, queue: string): void {
   worker.on('completed', (job) => {
     workerLogger.info({ jobId: job.id, name: job.name, queue }, 'Job completed');
@@ -116,16 +133,18 @@ function attachWorkerEvents(worker: Worker, queue: string): void {
 
 export function createWorkers(
   mode: WorkerMode = 'full',
-  options: { discoverySyncQueueName?: string } = {},
+  options: { discoverySyncQueueName?: string; discoveryImportQueueName?: string } = {},
 ): {
   worker?: Worker;
   cleanupWorker?: Worker;
   personalTagWorker?: Worker;
   publicClassificationWorker?: Worker;
   discoverySyncWorker?: Worker;
+  discoveryImportWorker?: Worker;
 } {
   const connection = getQueueConnection();
   const discoverySyncQueueName = options.discoverySyncQueueName ?? DISCOVERY_SYNC_QUEUE_NAME;
+  const discoveryImportQueueName = options.discoveryImportQueueName ?? DISCOVERY_IMPORT_QUEUE_NAME;
 
   const createPublicClassificationWorker = () => {
     const publicClassificationWorker = new BullWorker(
@@ -138,6 +157,16 @@ export function createWorkers(
     );
     attachWorkerEvents(publicClassificationWorker, PUBLIC_CLASSIFICATION_QUEUE_NAME);
     return publicClassificationWorker;
+  };
+
+  const createDiscoveryImportWorker = () => {
+    const discoveryImportWorker = new BullWorker(
+      discoveryImportQueueName,
+      async (job) => processDiscoveryImportJob(job),
+      { connection },
+    );
+    attachWorkerEvents(discoveryImportWorker, discoveryImportQueueName);
+    return discoveryImportWorker;
   };
 
   if (mode === 'public-classification-only') {
@@ -155,6 +184,10 @@ export function createWorkers(
     );
     attachWorkerEvents(discoverySyncWorker, discoverySyncQueueName);
     return { discoverySyncWorker };
+  }
+
+  if (mode === 'discovery-import-only') {
+    return { discoveryImportWorker: createDiscoveryImportWorker() };
   }
 
   const worker = new BullWorker(QUEUE_NAME, async (job) => processJob(job), {
@@ -185,15 +218,22 @@ export function createWorkers(
   attachWorkerEvents(personalTagWorker, PERSONAL_TAG_QUEUE_NAME);
 
   const publicClassificationWorker = createPublicClassificationWorker();
+  const discoveryImportWorker = createDiscoveryImportWorker();
 
-  return { worker, cleanupWorker, personalTagWorker, publicClassificationWorker };
+  return { worker, cleanupWorker, personalTagWorker, publicClassificationWorker, discoveryImportWorker };
 }
 
 async function main(): Promise<void> {
   const mode = resolveWorkerMode();
   const publicClassificationOnly = mode === 'public-classification-only';
-  const { worker, cleanupWorker, personalTagWorker, publicClassificationWorker, discoverySyncWorker } =
-    createWorkers(mode);
+  const {
+    worker,
+    cleanupWorker,
+    personalTagWorker,
+    publicClassificationWorker,
+    discoverySyncWorker,
+    discoveryImportWorker,
+  } = createWorkers(mode);
   if (mode === 'discovery-sync-only') {
     workerLogger.info({ queue: DISCOVERY_SYNC_QUEUE_NAME, mode }, 'Worker listening');
     let shuttingDown = false;
@@ -202,6 +242,21 @@ async function main(): Promise<void> {
       shuttingDown = true;
       workerLogger.info({ signal }, 'Worker shutting down');
       await discoverySyncWorker?.close();
+      await closeQueue();
+      process.exit(0);
+    };
+    process.on('SIGINT', () => void shutdown('SIGINT'));
+    process.on('SIGTERM', () => void shutdown('SIGTERM'));
+    return;
+  }
+  if (mode === 'discovery-import-only') {
+    workerLogger.info({ queue: DISCOVERY_IMPORT_QUEUE_NAME, mode }, 'Worker listening');
+    let shuttingDown = false;
+    const shutdown = async (signal: string) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      workerLogger.info({ signal }, 'Worker shutting down');
+      await discoveryImportWorker?.close();
       await closeQueue();
       process.exit(0);
     };
@@ -235,6 +290,7 @@ async function main(): Promise<void> {
   workerLogger.info(
     {
       queue: QUEUE_NAME,
+      discoveryImportQueue: DISCOVERY_IMPORT_QUEUE_NAME,
       cleanupQueue: CLEANUP_QUEUE_NAME,
       personalTagQueue: PERSONAL_TAG_QUEUE_NAME,
       nodeEnv: commonEnv.NODE_ENV,
@@ -252,7 +308,7 @@ async function main(): Promise<void> {
     clearInterval(personalTagDispatchTimer);
     workerLogger.info({ signal }, 'Worker shutting down');
     await Promise.all(
-      [worker, cleanupWorker, personalTagWorker, publicClassificationWorker, discoverySyncWorker]
+      [worker, cleanupWorker, personalTagWorker, publicClassificationWorker, discoverySyncWorker, discoveryImportWorker]
         .filter((created): created is Worker => created !== undefined)
         .map((created) => created.close()),
     );

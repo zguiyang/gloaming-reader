@@ -40,6 +40,7 @@ describe('resolveWorkerMode', () => {
     expect(resolveWorkerMode(['node', 'worker.ts'])).toBe('full');
     expect(resolveWorkerMode([])).toBe('full');
     expect(resolveWorkerMode(['node', 'worker.ts', DISCOVERY_SYNC_ONLY_FLAG])).toBe('discovery-sync-only');
+    expect(resolveWorkerMode(['node', 'worker.ts', '--discovery-import-only'])).toBe('discovery-import-only');
   });
 
   it('creates exactly one consumer for the discovery-only mode', () => {
@@ -50,6 +51,28 @@ describe('resolveWorkerMode', () => {
 
     expect(workerMocks.instances).toEqual([{ queueName }]);
     expect(workers.discoverySyncWorker).toBeDefined();
+    expect(workers.worker).toBeUndefined();
+    expect(workers.cleanupWorker).toBeUndefined();
+    expect(workers.personalTagWorker).toBeUndefined();
+    expect(workers.publicClassificationWorker).toBeUndefined();
+  });
+
+  it('keeps the import consumer active in full mode while retaining the shared worker', () => {
+    workerMocks.instances.length = 0;
+
+    const workers = createWorkers('full');
+
+    expect(workerMocks.instances.map(({ queueName }) => queueName)).toContain('gloaming-discovery-import');
+    expect(workers.worker).toBeDefined();
+  });
+
+  it('creates only the import consumer in discovery-import-only mode', () => {
+    workerMocks.instances.length = 0;
+    const mode = resolveWorkerMode(['node', 'worker.ts', '--discovery-import-only']);
+
+    const workers = createWorkers(mode);
+
+    expect(workerMocks.instances).toEqual([{ queueName: 'gloaming-discovery-import' }]);
     expect(workers.worker).toBeUndefined();
     expect(workers.cleanupWorker).toBeUndefined();
     expect(workers.personalTagWorker).toBeUndefined();

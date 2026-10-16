@@ -4,7 +4,7 @@ import { contentAsset as contentAssetTable, readingWork as readingWorkTable } fr
 import type { WorkProcessingStatus, WorkVisibility } from '@gloaming/shared/works';
 import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
 
-import { JOB_CONTENT_PARSE } from '@/application/jobs/content-parse';
+import { type ContentParseLane, JOB_CONTENT_PARSE } from '@/application/jobs/content-parse';
 import {
   acquireUploadedObject,
   isZipFile,
@@ -15,7 +15,7 @@ import {
 import { failWorkflowEnqueue, prepareWorkflowEnqueue } from '@/domains/works/lifecycle/workflow';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
-import { enqueue } from '@/infra/queue';
+import { enqueue, enqueueDiscoveryImport } from '@/infra/queue';
 import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
@@ -161,6 +161,7 @@ export async function enqueueCoreEpubParse(input: {
   workId: string;
   retryJobToken: string;
   currentStatus: WorkProcessingStatus;
+  processingLane?: ContentParseLane;
 }): Promise<void> {
   const enqueueAttemptToken = randomUUID();
   if (
@@ -174,12 +175,18 @@ export async function enqueueCoreEpubParse(input: {
   ) {
     throw new AppError(500, ERROR_CODES.WORK.RESERVE_PARSE_FAILED);
   }
+  const discoveryLane = input.processingLane === 'discovery';
+  const enqueueJob = discoveryLane ? enqueueDiscoveryImport : enqueue;
+  const data = {
+    workId: input.workId,
+    retryJobToken: input.retryJobToken,
+    ...(discoveryLane ? { processingLane: 'discovery' as const } : {}),
+  };
   try {
-    await enqueue(
-      JOB_CONTENT_PARSE,
-      { workId: input.workId, retryJobToken: input.retryJobToken },
-      { attempts: 2, jobId: `${JOB_CONTENT_PARSE}:${input.workId}:${input.retryJobToken}` },
-    );
+    await enqueueJob(JOB_CONTENT_PARSE, data, {
+      attempts: 2,
+      jobId: `${JOB_CONTENT_PARSE}-${input.workId}-${input.retryJobToken}`,
+    });
   } catch (error) {
     await failWorkflowEnqueue(
       input.workId,

@@ -236,7 +236,12 @@ async function retryFailedParse(
   }
 
   try {
-    await enqueueCoreEpubParse({ workId: work.id, retryJobToken, currentStatus: 'failed' });
+    await enqueueCoreEpubParse({
+      workId: work.id,
+      retryJobToken,
+      currentStatus: 'failed',
+      processingLane: 'discovery',
+    });
   } catch (error) {
     if (isParseReservationUnavailable(error)) {
       return reloadLinkedWorkResult(sourceRecordId, work.id);
@@ -386,7 +391,12 @@ export async function materializeSourceRecord(sourceRecordId: string): Promise<S
   }
 
   try {
-    await enqueueCoreEpubParse({ workId: outcome.workId, retryJobToken, currentStatus: 'uploaded' });
+    await enqueueCoreEpubParse({
+      workId: outcome.workId,
+      retryJobToken,
+      currentStatus: 'uploaded',
+      processingLane: 'discovery',
+    });
   } catch (error) {
     // The Work and its asset are linked now; keep them and let a later task retry parse.
     await markMaterializationFailedForWork(sourceRecordId, outcome.workId);

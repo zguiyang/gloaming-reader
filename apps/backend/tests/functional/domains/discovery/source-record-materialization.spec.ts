@@ -35,7 +35,7 @@ const createdWorkIds: string[] = [];
 const createdHashes: string[] = [];
 
 const fetchMock = vi.fn();
-let enqueueSpy: ReturnType<typeof vi.spyOn<typeof queueLib, 'enqueue'>>;
+let enqueueSpy: ReturnType<typeof vi.spyOn<typeof queueLib, 'enqueueDiscoveryImport'>>;
 
 function epubResponse(bytes: Buffer): Response {
   return new Response(bytes, { status: 200, headers: { 'content-type': 'application/epub+zip' } });
@@ -76,7 +76,7 @@ describe('SourceRecord materialization on gloaming_test', () => {
       sourceKey: `materialization_test_${runId}`,
       sourceType: 'gutenberg_rdf',
     });
-    enqueueSpy = vi.spyOn(queueLib, 'enqueue').mockResolvedValue('materialization-test-job');
+    enqueueSpy = vi.spyOn(queueLib, 'enqueueDiscoveryImport').mockResolvedValue('materialization-test-job');
   });
 
   beforeEach(() => {
@@ -129,6 +129,7 @@ describe('SourceRecord materialization on gloaming_test', () => {
     expect(result.processingStatus).toBe('uploaded');
     expect(enqueueSpy).toHaveBeenCalledTimes(1);
     expect(enqueueSpy.mock.calls[0]![0]).toBe('content-parse');
+    expect(enqueueSpy.mock.calls[0]![1]).toMatchObject({ processingLane: 'discovery' });
 
     const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, result.workId));
     expect(work).toMatchObject({
@@ -269,6 +270,7 @@ describe('SourceRecord materialization on gloaming_test', () => {
     expect(repeated.materializationStatus).toBe('processing');
     expect(enqueueSpy).toHaveBeenCalledTimes(1);
     expect(enqueueSpy.mock.calls[0]![0]).toBe('content-parse');
+    expect(enqueueSpy.mock.calls[0]![1]).toMatchObject({ processingLane: 'discovery' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect((await sourceRow(record.id))?.materializationStatus).toBe('processing');
   });

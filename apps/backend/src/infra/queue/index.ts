@@ -8,6 +8,7 @@ import { queueLogger } from '@/infra/logging/logger';
 
 export const QUEUE_NAME = 'gloaming';
 export const DISCOVERY_SYNC_QUEUE_NAME = 'gloaming-discovery-sync';
+export const DISCOVERY_IMPORT_QUEUE_NAME = 'gloaming-discovery-import';
 export const CLEANUP_QUEUE_NAME = 'gloaming-asset-cleanup';
 export const PERSONAL_TAG_QUEUE_NAME = 'gloaming-personal-tags';
 export const PUBLIC_CLASSIFICATION_QUEUE_NAME = 'gloaming-public-classification';
@@ -17,6 +18,7 @@ const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
 let connection: Redis | null = null;
 let queue: Queue | null = null;
 let discoverySyncQueue: Queue | null = null;
+let discoveryImportQueue: Queue | null = null;
 let cleanupQueue: Queue | null = null;
 let personalTagQueue: Queue | null = null;
 let publicClassificationQueue: Queue | null = null;
@@ -55,6 +57,13 @@ export function getDiscoverySyncQueue(): Queue {
   if (discoverySyncQueue) return discoverySyncQueue;
   discoverySyncQueue = createNamedQueue(DISCOVERY_SYNC_QUEUE_NAME);
   return discoverySyncQueue;
+}
+
+/** Dedicated queue for SourceRecord materialization and EPUB parsing. */
+export function getDiscoveryImportQueue(): Queue {
+  if (discoveryImportQueue) return discoveryImportQueue;
+  discoveryImportQueue = createNamedQueue(DISCOVERY_IMPORT_QUEUE_NAME);
+  return discoveryImportQueue;
 }
 
 export function getCleanupQueue(): Queue {
@@ -113,6 +122,14 @@ export async function enqueueDiscoverySync(
   return addJob(getDiscoverySyncQueue(), name, data, jobOptions);
 }
 
+export async function enqueueDiscoveryImport(
+  name: string,
+  data: unknown,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getDiscoveryImportQueue(), name, data, jobOptions);
+}
+
 export async function enqueueCleanup(name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
   return addJob(getCleanupQueue(), name, data, jobOptions);
 }
@@ -142,6 +159,10 @@ export async function closeQueue(): Promise<void> {
   if (discoverySyncQueue) {
     await discoverySyncQueue.close();
     discoverySyncQueue = null;
+  }
+  if (discoveryImportQueue) {
+    await discoveryImportQueue.close();
+    discoveryImportQueue = null;
   }
   if (publicClassificationQueue) {
     await publicClassificationQueue.close();

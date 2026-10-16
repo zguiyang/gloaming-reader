@@ -12,7 +12,7 @@ import {
 import type { SourceRecordSaveStatus } from '@gloaming/shared/library';
 
 import { db } from '@/infra/db';
-import { enqueue } from '@/infra/queue';
+import { enqueueDiscoveryImport } from '@/infra/queue';
 import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
@@ -143,7 +143,7 @@ async function completePendingIntents(sourceRecordId: string, workId: string): P
  */
 export async function enqueueSourceRecordMaterialization(sourceRecordId: string): Promise<void> {
   const data: SourceRecordMaterializeJobData = { sourceRecordId };
-  await enqueue(SOURCE_RECORD_MATERIALIZE_JOB, data, {
+  await enqueueDiscoveryImport(SOURCE_RECORD_MATERIALIZE_JOB, data, {
     jobId: `${SOURCE_RECORD_MATERIALIZE_JOB}-${sourceRecordId}`,
     removeOnComplete: true,
     removeOnFail: true,

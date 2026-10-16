@@ -4,7 +4,7 @@ import { Queue } from 'bullmq';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { enqueueSourceRecordMaterialization, SOURCE_RECORD_MATERIALIZE_JOB } from '@/domains/library/save-intent';
-import { closeQueue, getQueueConnection, QUEUE_NAME } from '@/infra/queue';
+import { closeQueue, DISCOVERY_IMPORT_QUEUE_NAME, getQueueConnection } from '@/infra/queue';
 
 /**
  * Real BullMQ enqueue validation for the materialization job. This spec never
@@ -14,7 +14,7 @@ import { closeQueue, getQueueConnection, QUEUE_NAME } from '@/infra/queue';
 describe('source-record materialize real enqueue on test Redis', () => {
   const sourceRecordId = randomUUID();
   const jobId = `${SOURCE_RECORD_MATERIALIZE_JOB}-${sourceRecordId}`;
-  const queue = new Queue(QUEUE_NAME, { connection: getQueueConnection() });
+  const queue = new Queue(DISCOVERY_IMPORT_QUEUE_NAME, { connection: getQueueConnection() });
 
   afterAll(async () => {
     // This queue may be shared by isolated test runs. Remove only our exact job.
