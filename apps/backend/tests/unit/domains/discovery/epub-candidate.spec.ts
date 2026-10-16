@@ -87,6 +87,21 @@ describe('selectGutenbergEpubCandidate', () => {
     );
   });
 
+  it('accepts the confirmed canonical images filename and ranks it as an images variant', () => {
+    const canonicalImages = 'https://www.gutenberg.org/cache/epub/11339/pg11339-images.epub';
+
+    expect(isOfficialGutenbergEpubUrl(canonicalImages)).toBe(true);
+    expect(
+      selectGutenbergEpubCandidate(
+        source(
+          candidate('https://www.gutenberg.org/cache/epub/11339/pg11339.epub'),
+          candidate('https://www.gutenberg.org/cache/epub/11339/pg11339.epub.noimages'),
+          candidate(canonicalImages),
+        ),
+      ).url,
+    ).toBe(canonicalImages);
+  });
+
   it('ignores HTML, plain text, and non-official EPUB candidates', () => {
     expect(() =>
       selectGutenbergEpubCandidate(
@@ -124,6 +139,9 @@ describe('isOfficialGutenbergEpubUrl', () => {
     for (const url of [
       'https://www.gutenberg.org/ebooks/1342.html.images',
       'https://www.gutenberg.org/ebooks/1342.txt.utf-8',
+      'https://www.gutenberg.org/cache/epub/11339/pg11339-images.pdf',
+      'https://www.gutenberg.org/cache/epub/11339/pg11339-images.epub/extra',
+      'https://www.gutenberg.org/cache/epub/11339/pg999-images.epub',
       'http://www.gutenberg.org/ebooks/1342.epub.images',
       'https://gutenberg.org/ebooks/1342.epub.images',
       'https://www.gutenberg.org.evil.test/ebooks/1342.epub.images',
