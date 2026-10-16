@@ -165,8 +165,9 @@ export async function syncProjectGutenbergMetadata(options: {
     };
   } catch (error) {
     if (error instanceof SourceRunOwnershipLostError) {
-      // This run no longer owns the source row: every write was rolled back and
-      // the new run's terminal state must stay untouched, so skip without
+      // This run no longer owns the source row: the current batch/final
+      // transaction was rolled back while previously committed batches remain,
+      // and the new run's terminal state must stay untouched, so skip without
       // recording a failure for the current generation.
       logger.info(
         { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
