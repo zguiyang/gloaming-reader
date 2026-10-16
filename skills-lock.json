@@ -7,6 +7,12 @@
       "skillPath": "skills/azure-ai/SKILL.md",
       "computedHash": "00533909740269b80dfaa1edd24b0ce86f2fc452e977c811647839353c793025"
     },
+    "cloudflare": {
+      "source": "cloudflare/skills",
+      "sourceType": "github",
+      "skillPath": "skills/cloudflare/SKILL.md",
+      "computedHash": "f08c8c1be96dfad7f9d5418b1345477dd2e55af58c8da01326c9a2616c7ed721"
+    },
     "codebase-guardrails": {
       "source": "zguiyang/agent-skills",
       "sourceType": "github",
