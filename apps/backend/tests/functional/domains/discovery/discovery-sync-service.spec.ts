@@ -11,10 +11,15 @@ import {
   readingWork as readingWorkTable,
   userLibraryItem as userLibraryItemTable,
 } from '@gloaming/db';
-import { discoverySource as discoverySourceTable, sourceRecord as sourceRecordTable } from '@gloaming/db/schema';
+import {
+  discoverySource as discoverySourceTable,
+  sourceRecord as sourceRecordTable,
+  sourceRecordPublicClassificationState as stateTable,
+} from '@gloaming/db/schema';
 
 import { JOB_DISCOVERY_SYNC, processDiscoverySync } from '@/application/jobs/discovery-sync';
 import type * as DiscoveryCategories from '@/domains/discovery/categories';
+import { loadDuePublicClassifications } from '@/domains/discovery/categories/incremental-classification-repository';
 import {
   PROJECT_GUTENBERG_RDF_SNAPSHOT_URL,
   PROJECT_GUTENBERG_SOURCE_KEY,
@@ -36,6 +41,7 @@ import { db } from '@/infra/db';
 import { processJob } from '@/worker';
 
 const snapshotMocks = vi.hoisted(() => ({ open: vi.fn() }));
+const fixtureSourceKey = vi.hoisted(() => `sync_recovery_${crypto.randomUUID()}`);
 
 vi.mock('@/domains/discovery/gutenberg/snapshot-stream', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -45,7 +51,8 @@ vi.mock('@/domains/discovery/gutenberg/snapshot-stream', async (importOriginal) 
 /**
  * Controllable gate + write counters for the flushBatch abort regression.
  * The repository/categories modules are only wrapped (partial mock): every
- * call still runs the real implementation, so existing cases are unaffected.
+ * call runs the real implementation unless a test explicitly injects a failure.
+ * Source lookup uses a run-owned source so reconciliation never touches existing data.
  */
 const flushGate = vi.hoisted(() => ({
   gate: null as Promise<void> | null,
@@ -55,6 +62,9 @@ const flushGate = vi.hoisted(() => ({
   reconcileCalls: 0,
   succeededCalls: 0,
   classificationCalls: 0,
+  failClassification: false,
+  failAfterClassificationWrite: false,
+  lastClassificationId: '',
   reset() {
     this.gate = null;
     this.onEvidenceReached = null;
@@ -63,6 +73,9 @@ const flushGate = vi.hoisted(() => ({
     this.reconcileCalls = 0;
     this.succeededCalls = 0;
     this.classificationCalls = 0;
+    this.failClassification = false;
+    this.failAfterClassificationWrite = false;
+    this.lastClassificationId = '';
   },
 }));
 
@@ -70,7 +83,11 @@ vi.mock('@/domains/discovery/sync/repository', async (importOriginal) => {
   const actual = await importOriginal<typeof SyncRepository>();
   return {
     ...actual,
-    loadClassificationEvidenceByExternalId: async (sourceId: string, externalIds: string[]) => {
+    ensureDiscoverySource: (_sourceKey: string, sourceType: string) =>
+      actual.ensureDiscoverySource(fixtureSourceKey, sourceType),
+    loadClassificationEvidenceByExternalId: async (
+      ...args: Parameters<typeof actual.loadClassificationEvidenceByExternalId>
+    ) => {
       flushGate.evidenceCalls += 1;
       const gate = flushGate.gate;
       const reached = flushGate.onEvidenceReached;
@@ -78,7 +95,7 @@ vi.mock('@/domains/discovery/sync/repository', async (importOriginal) => {
       flushGate.onEvidenceReached = null;
       reached?.();
       if (gate) await gate;
-      return actual.loadClassificationEvidenceByExternalId(sourceId, externalIds);
+      return actual.loadClassificationEvidenceByExternalId(...args);
     },
     upsertSourceRecords: (...args: Parameters<typeof actual.upsertSourceRecords>) => {
       flushGate.upsertCalls += 1;
@@ -99,11 +116,15 @@ vi.mock('@/domains/discovery/categories', async (importOriginal) => {
   const actual = await importOriginal<typeof DiscoveryCategories>();
   return {
     ...actual,
-    recordPublicClassificationEvidenceBatch: (
+    recordPublicClassificationEvidenceBatch: async (
       ...args: Parameters<typeof actual.recordPublicClassificationEvidenceBatch>
     ) => {
       flushGate.classificationCalls += 1;
-      return actual.recordPublicClassificationEvidenceBatch(...args);
+      flushGate.lastClassificationId = args[0][0]?.sourceRecordId ?? '';
+      if (flushGate.failClassification) throw new Error('Injected classification evidence write failure');
+      const result = await actual.recordPublicClassificationEvidenceBatch(...args);
+      if (flushGate.failAfterClassificationWrite) throw new Error('Injected failure after classification write');
+      return result;
     },
   };
 });
@@ -111,7 +132,6 @@ vi.mock('@/domains/discovery/categories', async (importOriginal) => {
 const runId = randomUUID();
 const TIMEOUT_SUMMARY = 'the Project Gutenberg metadata sync exceeded its time limit';
 let sourceId = '';
-let preExisting: typeof discoverySourceTable.$inferSelect | null = null;
 
 function fixtureRecord(index: number, overrides: Partial<ParsedSourceRecord> = {}): ParsedSourceRecord {
   return {
@@ -224,17 +244,12 @@ async function resetSourceItself(): Promise<void> {
 
 describe('Project Gutenberg sync service on gloaming_test', () => {
   beforeAll(async () => {
-    const [existing] = await db
-      .select()
-      .from(discoverySourceTable)
-      .where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY))
-      .limit(1);
-    preExisting = existing ?? null;
     const source = await ensureDiscoverySource(PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE);
     sourceId = source.id;
   });
 
   beforeEach(async () => {
+    flushGate.reset();
     snapshotMocks.open.mockReset();
     await db
       .delete(sourceRecordTable)
@@ -246,24 +261,7 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
     await db
       .delete(sourceRecordTable)
       .where(and(eq(sourceRecordTable.sourceId, sourceId), like(sourceRecordTable.externalId, `${runId}-%`)));
-    if (preExisting) {
-      await db
-        .update(discoverySourceTable)
-        .set({
-          enabled: preExisting.enabled,
-          syncStatus: preExisting.syncStatus,
-          syncStartedAt: preExisting.syncStartedAt,
-          syncFinishedAt: preExisting.syncFinishedAt,
-          lastSuccessAt: preExisting.lastSuccessAt,
-          lastErrorSummary: preExisting.lastErrorSummary,
-          snapshotLastModified: preExisting.snapshotLastModified,
-          snapshotVersion: preExisting.snapshotVersion,
-          updatedAt: preExisting.updatedAt,
-        })
-        .where(eq(discoverySourceTable.id, sourceId));
-    } else {
-      await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
-    }
+    await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
   });
 
   it('upserts a 501-record snapshot in bounded batches without public Gutenberg access', async () => {
@@ -313,6 +311,78 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
     expect(second).toMatchObject({ status: 'succeeded', seenRecords: 20, batches: 1 });
 
     expect(await ownedRecordCount()).toBe(20);
+  });
+
+  it.each(['new', 'changed-legacy', 'changed-completed'] as const)(
+    'keeps %s evidence due after a failed registration and identical snapshot retry',
+    async (scenario) => {
+      const incoming = fixtureRecord(0, { title: 'Changed evidence' });
+      let originalId: string | undefined;
+      if (scenario !== 'new') {
+        [{ id: originalId }] = await upsertSourceRecords(sourceId, [fixtureRecord(0)], new Date());
+        if (scenario === 'changed-completed') {
+          // An unchanged legacy sync establishes a completed baseline first.
+          snapshotMocks.open.mockResolvedValueOnce(fakeSnapshot([fixtureRecord(0)]));
+          expect((await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() })).status).toBe('succeeded');
+        }
+      }
+
+      snapshotMocks.open.mockImplementation(async () => fakeSnapshot([incoming]));
+      flushGate.failClassification = true;
+      const first = await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
+      const [afterFailure] = await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
+      const sourceAfterFailure = await sourceRow();
+
+      flushGate.failClassification = false;
+      const retry = await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
+      expect(retry.status).toBe('succeeded');
+      const [record] = await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
+      const [state] = await db.select().from(stateTable).where(eq(stateTable.sourceRecordId, record!.id));
+      expect(state?.completedFingerprint).toBeNull();
+      expect(await loadDuePublicClassifications(new Date(), 10_000)).toContainEqual({
+        sourceRecordId: record!.id,
+        fingerprint: state!.evidenceFingerprint,
+      });
+      expect(first.status).toBe('failed');
+      expect(sourceAfterFailure?.snapshotLastModified).toBe(
+        scenario === 'changed-completed' ? 'Tue, 01 Jan 2030 00:00:00 GMT' : null,
+      );
+      if (scenario === 'new') expect(afterFailure).toBeUndefined();
+      else {
+        expect(afterFailure).toMatchObject({ id: originalId, title: fixtureRecord(0).title });
+        expect(record!.id).toBe(originalId);
+      }
+    },
+  );
+
+  it('baselines unchanged legacy metadata without making it due', async () => {
+    const [{ id }] = await upsertSourceRecords(sourceId, [fixtureRecord(0)], new Date());
+    snapshotMocks.open.mockResolvedValue(fakeSnapshot([fixtureRecord(0)]));
+    expect((await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() })).status).toBe('succeeded');
+    const [state] = await db.select().from(stateTable).where(eq(stateTable.sourceRecordId, id!));
+    expect(state?.completedFingerprint).toBe(state?.evidenceFingerprint);
+    expect(await loadDuePublicClassifications(new Date(), 10_000)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ sourceRecordId: id })]),
+    );
+  });
+
+  it('rolls back metadata and classification state together after a classification write', async () => {
+    snapshotMocks.open.mockImplementation(async () => fakeSnapshot([fixtureRecord(0)]));
+    flushGate.failAfterClassificationWrite = true;
+    expect((await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() })).status).toBe('failed');
+    expect(await ownedRecordCount()).toBe(0);
+    expect(
+      await db.select().from(stateTable).where(eq(stateTable.sourceRecordId, flushGate.lastClassificationId)),
+    ).toHaveLength(0);
+    expect((await sourceRow())?.snapshotLastModified).toBeNull();
+
+    flushGate.failAfterClassificationWrite = false;
+    expect((await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() })).status).toBe('succeeded');
+    const [state] = await db
+      .select()
+      .from(stateTable)
+      .where(eq(stateTable.sourceRecordId, flushGate.lastClassificationId));
+    expect(state?.completedFingerprint).toBeNull();
   });
 
   it('reconciles records missing from a later snapshot to unavailable and never deletes them', async () => {
@@ -519,6 +589,7 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
   });
 
   it('stops writing and reconciling after the sync time limit and reports a timeout', async () => {
+    const controller = new AbortController();
     // Pre-existing record from an earlier run: post-abort reconciliation would
     // flip it to unavailable, so its availability proves reconcile never ran.
     const preExistingRecord = fixtureRecord(900);
@@ -533,7 +604,9 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
         for (let index = 0; index < PROJECT_GUTENBERG_UPSERT_BATCH_SIZE; index += 1) {
           yield fixtureRecord(index);
         }
-        await new Promise((resolve) => setTimeout(resolve, 80));
+        // Resuming the generator proves the first batch has committed. Abort
+        // here rather than depending on how fast 500 database writes finish.
+        controller.abort();
         for (
           let index = PROJECT_GUTENBERG_UPSERT_BATCH_SIZE;
           index < PROJECT_GUTENBERG_UPSERT_BATCH_SIZE + 100;
@@ -547,12 +620,10 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
     const claimedAt = await claimQueued();
-    await expect(
-      processDiscoverySync(
-        { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: claimedAt.toISOString() },
-        { timeoutMs: 20 },
-      ),
-    ).rejects.toThrow(TIMEOUT_SUMMARY);
+    await expect(syncProjectGutenbergMetadata({ claimedAt, signal: controller.signal })).resolves.toEqual({
+      status: 'failed',
+      errorSummary: TIMEOUT_SUMMARY,
+    });
 
     const source = await sourceRow();
     expect(source).toMatchObject({ syncStatus: 'failed', lastErrorSummary: TIMEOUT_SUMMARY });

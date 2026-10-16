@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
 
 import { sourceRecordPublicClassificationState as stateTable } from '@gloaming/db/schema';
 
-import { db } from '@/infra/db';
+import { db, type DbTransaction } from '@/infra/db';
 
 export type PublicClassificationStateRow = typeof stateTable.$inferSelect;
 
@@ -39,15 +39,17 @@ export async function loadPublicClassificationState(
  * - Unchanged evidence keeps its stored deferral/retry time untouched.
  *
  * The touched rows are locked in one transaction so a concurrent classification
- * outcome cannot be overwritten by the sync decision.
+ * outcome cannot be overwritten by the sync decision. Metadata sync supplies its
+ * batch transaction so source evidence and this decision commit together.
  */
 export async function recordPublicClassificationEvidenceCandidates(
   candidates: PublicClassificationEvidenceCandidate[],
   now: Date,
+  executor?: DbTransaction,
 ): Promise<number> {
   if (candidates.length === 0) return 0;
 
-  return db.transaction(async (tx) => {
+  const persist = async (tx: DbTransaction): Promise<number> => {
     const ids = candidates.map((candidate) => candidate.sourceRecordId);
     const existingRows = await tx
       .select()
@@ -103,7 +105,8 @@ export async function recordPublicClassificationEvidenceCandidates(
         },
       });
     return upserts.length;
-  });
+  };
+  return executor ? persist(executor) : db.transaction(persist);
 }
 
 /** Rows whose current evidence has not completed and whose retry gate has passed. */

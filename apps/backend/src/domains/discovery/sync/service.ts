@@ -15,6 +15,7 @@ import { GutenbergSnapshotError } from '@/domains/discovery/gutenberg/errors';
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
 import type { GutenbergSnapshot } from '@/domains/discovery/gutenberg/snapshot-stream';
 import { openGutenbergSnapshot } from '@/domains/discovery/gutenberg/snapshot-stream';
+import { db, type DbTransaction } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 
 import {
@@ -198,20 +199,20 @@ async function consumeSnapshot(
     throwIfRunAborted(signal);
     const records = batch;
     batch = [];
-    // Read pre-upsert evidence first so new/changed detection can baseline a
-    // pre-existing record without reprocessing the whole corpus.
-    const previousEvidence = await loadClassificationEvidenceByExternalId(
-      sourceId,
-      records.map((record) => record.externalId),
-    );
-    // Guard: the evidence read awaits I/O; a run aborted during it must not
-    // proceed to write the batch.
-    throwIfRunAborted(signal);
-    const upserted = await upsertSourceRecords(sourceId, records, observedAt);
-    // Guard: likewise, no classification bookkeeping after an abort that fired
-    // while the upsert was in flight.
-    throwIfRunAborted(signal);
-    await registerIncrementalClassification(records, upserted, previousEvidence);
+    // Metadata and its classification decision must commit together. Otherwise
+    // an identical retry can mistake lost new/changed evidence for legacy data.
+    await db.transaction(async (tx) => {
+      const previousEvidence = await loadClassificationEvidenceByExternalId(
+        sourceId,
+        records.map((record) => record.externalId),
+        tx,
+      );
+      throwIfRunAborted(signal);
+      const upserted = await upsertSourceRecords(sourceId, records, observedAt, tx);
+      throwIfRunAborted(signal);
+      await registerIncrementalClassification(records, upserted, previousEvidence, tx);
+      throwIfRunAborted(signal);
+    });
     seenRecords += records.length;
     batches += 1;
   };
@@ -245,38 +246,30 @@ function toClassificationEvidence(input: {
 }
 
 /**
- * Best-effort incremental classification trigger. A failure here only skips the
- * trigger for this batch: source metadata is already persisted and the sync
- * result must not fail because classification bookkeeping could not be written.
+ * Persist the classification decision inside the metadata batch transaction.
+ * A bookkeeping failure rolls back the batch and fails this sync so identical
+ * snapshot retries can still detect the original new/changed evidence.
  */
 async function registerIncrementalClassification(
   records: ParsedSourceRecord[],
   upserted: Array<{ id: string; externalId: string }>,
   previousEvidence: Map<string, SourceRecordClassificationEvidenceRow>,
+  executor: DbTransaction,
 ): Promise<void> {
   if (upserted.length === 0) return;
-  try {
-    const recordByExternalId = new Map(records.map((record) => [record.externalId, record]));
-    const candidates = upserted.map((row) => {
-      const record = recordByExternalId.get(row.externalId);
-      if (!record) throw new Error(`Missing parsed source record for ${row.externalId}`);
-      const previous = previousEvidence.get(row.externalId);
-      return {
-        sourceRecordId: row.id,
-        fingerprint: computePublicClassificationFingerprint(toClassificationEvidence(record)),
-        previousFingerprint: previous
-          ? computePublicClassificationFingerprint(toClassificationEvidence(previous))
-          : null,
-        isNew: !previous,
-      };
-    });
-    await recordPublicClassificationEvidenceBatch(candidates, new Date());
-  } catch (error) {
-    logger.warn(
-      { err: error, sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
-      'Incremental public classification trigger update failed',
-    );
-  }
+  const recordByExternalId = new Map(records.map((record) => [record.externalId, record]));
+  const candidates = upserted.map((row) => {
+    const record = recordByExternalId.get(row.externalId);
+    if (!record) throw new Error(`Missing parsed source record for ${row.externalId}`);
+    const previous = previousEvidence.get(row.externalId);
+    return {
+      sourceRecordId: row.id,
+      fingerprint: computePublicClassificationFingerprint(toClassificationEvidence(record)),
+      previousFingerprint: previous ? computePublicClassificationFingerprint(toClassificationEvidence(previous)) : null,
+      isNew: !previous,
+    };
+  });
+  await recordPublicClassificationEvidenceBatch(candidates, new Date(), executor);
 }
 
 function toSyncErrorSummary(error: unknown, signal?: AbortSignal): string {

@@ -6,7 +6,7 @@ import type { SourceRecordAuthor, SourceRecordSourceMeta } from '@gloaming/db/sc
 import { discoverySource, sourceRecord } from '@gloaming/db/schema';
 
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
-import { db } from '@/infra/db';
+import { db, type DbTransaction } from '@/infra/db';
 
 export type DiscoverySourceRow = typeof discoverySource.$inferSelect;
 
@@ -284,12 +284,13 @@ export async function upsertSourceRecords(
   sourceId: string,
   records: ParsedSourceRecord[],
   observedAt: Date,
+  executor: typeof db | DbTransaction = db,
 ): Promise<Array<{ id: string; externalId: string }>> {
   if (records.length === 0) {
     return [];
   }
 
-  return db
+  return executor
     .insert(sourceRecord)
     .values(
       records.map((record) => ({
@@ -346,9 +347,10 @@ export type SourceRecordClassificationEvidenceRow = {
 export async function loadClassificationEvidenceByExternalId(
   sourceId: string,
   externalIds: string[],
+  executor: typeof db | DbTransaction = db,
 ): Promise<Map<string, SourceRecordClassificationEvidenceRow>> {
   if (externalIds.length === 0) return new Map();
-  const rows = await db
+  const rows = await executor
     .select({
       externalId: sourceRecord.externalId,
       title: sourceRecord.title,
