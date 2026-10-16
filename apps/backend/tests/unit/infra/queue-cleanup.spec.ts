@@ -59,6 +59,7 @@ const dispatchQueuedPersonalTagRuns = vi.fn().mockResolvedValue(undefined);
 const finalizeFailedPersonalTagRun = vi.fn().mockResolvedValue(undefined);
 const processPublicClassification = vi.fn().mockResolvedValue({ status: 'completed' });
 const dispatchDuePublicClassifications = vi.fn().mockResolvedValue(0);
+const processSourceRecordMaterialize = vi.fn().mockResolvedValue({ status: 'processing' });
 
 vi.mock('@/application/jobs/asset-cleanup', () => ({
   JOB_ASSET_CLEANUP: 'asset-cleanup',
@@ -70,6 +71,11 @@ vi.mock('@/application/jobs/asset-cleanup', () => ({
 vi.mock('@/application/jobs/content-parse', () => ({
   JOB_CONTENT_PARSE: 'content-parse',
   processContentParse: vi.fn(),
+}));
+
+vi.mock('@/application/jobs/source-record-materialize', () => ({
+  JOB_SOURCE_RECORD_MATERIALIZE: 'source-record-materialize',
+  processSourceRecordMaterialize: (...args: unknown[]) => processSourceRecordMaterialize(...args),
 }));
 
 vi.mock('@/application/jobs/metadata-enrich', () => ({
@@ -108,6 +114,7 @@ const {
   closeQueue,
   enqueue,
   enqueueCleanup,
+  enqueueDiscoveryImport,
   enqueuePersonalTagging,
   enqueuePublicClassification,
   PERSONAL_TAG_QUEUE_NAME,
@@ -120,6 +127,7 @@ const {
   PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY,
   createWorkers,
   processCleanupJob,
+  processDiscoveryImportJob,
   processJob,
 } = await import('@/worker');
 
@@ -136,6 +144,7 @@ describe('cleanup queue isolation', () => {
     finalizeFailedPersonalTagRun.mockClear();
     processPublicClassification.mockClear();
     dispatchDuePublicClassifications.mockClear();
+    processSourceRecordMaterialize.mockClear();
   });
 
   afterEach(async () => {
@@ -154,7 +163,14 @@ describe('cleanup queue isolation', () => {
     expect(CLEANUP_QUEUE_NAME).not.toBe(QUEUE_NAME);
   });
 
+  it('enqueues Discover import jobs on their dedicated queue', async () => {
+    await enqueueDiscoveryImport('source-record-materialize', { sourceRecordId: 'record_1' });
+
+    expect(queueAddCalls).toEqual([{ queueName: 'gloaming-discovery-import', name: 'source-record-materialize' }]);
+  });
+
   it('closes all dedicated queues', async () => {
+    await enqueueDiscoveryImport('source-record-materialize', { sourceRecordId: 'record_1' });
     await enqueueCleanup(JOB_ASSET_CLEANUP, { jobId: 'job_1', scanId: 'scan_1' });
     await enqueuePersonalTagging('personal-tagging', { runId: 'run_1' });
     await enqueuePublicClassification('public-classification', { sourceRecordId: 'record_1' });
@@ -162,6 +178,7 @@ describe('cleanup queue isolation', () => {
     await closeQueue();
 
     expect(queueCloseCalls).toEqual([
+      'gloaming-discovery-import',
       PUBLIC_CLASSIFICATION_QUEUE_NAME,
       PERSONAL_TAG_QUEUE_NAME,
       CLEANUP_QUEUE_NAME,
@@ -172,12 +189,13 @@ describe('cleanup queue isolation', () => {
   it('starts a dedicated cleanup worker with concurrency 1', () => {
     const workers = createWorkers();
 
-    expect(workerConstructors).toHaveLength(4);
+    expect(workerConstructors).toHaveLength(5);
     expect(workerConstructors.map((entry) => entry.name)).toEqual([
       QUEUE_NAME,
       CLEANUP_QUEUE_NAME,
       PERSONAL_TAG_QUEUE_NAME,
       PUBLIC_CLASSIFICATION_QUEUE_NAME,
+      'gloaming-discovery-import',
     ]);
     expect(workerConstructors[0]?.opts.concurrency).toBeUndefined();
     expect(workerConstructors[1]?.opts.concurrency).toBe(CLEANUP_WORKER_CONCURRENCY);
@@ -190,6 +208,7 @@ describe('cleanup queue isolation', () => {
     expect(workers.cleanupWorker).toBeDefined();
     expect(workers.personalTagWorker).toBeDefined();
     expect(workers.publicClassificationWorker).toBeDefined();
+    expect(workers.discoveryImportWorker).toBeDefined();
   });
 
   it('keeps asset-cleanup off the main worker processor', async () => {
@@ -202,6 +221,18 @@ describe('cleanup queue isolation', () => {
       ok: true,
       requestedAt: '2026-09-10T00:00:00.000Z',
     });
+  });
+
+  it('keeps legacy materialization jobs supported by the full worker', async () => {
+    await expect(
+      processJob({ name: 'source-record-materialize', data: { sourceRecordId: 'record_1' } }),
+    ).resolves.toEqual({ status: 'processing' });
+    expect(processSourceRecordMaterialize).toHaveBeenCalledWith({ sourceRecordId: 'record_1' });
+
+    await expect(
+      processDiscoveryImportJob({ name: 'source-record-materialize', data: { sourceRecordId: 'record_2' } }),
+    ).resolves.toEqual({ status: 'processing' });
+    expect(processSourceRecordMaterialize).toHaveBeenCalledWith({ sourceRecordId: 'record_2' });
   });
 
   it('routes asset-cleanup only through the cleanup worker processor', async () => {

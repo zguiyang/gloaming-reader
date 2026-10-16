@@ -19,11 +19,13 @@ const GUTENBERG_HOSTNAME = 'www.gutenberg.org';
  * Official Project Gutenberg EPUB content paths:
  *   /ebooks/{id}.epub[3][.images|.noimages]
  *   /cache/epub/{id}/pg{id}.epub[3][.images|.noimages]
+ *   /cache/epub/{id}/pg{id}-images.epub (confirmed canonical images file)
  *   /files/{id}/[pg]{id}.epub[3][.images|.noimages]
  * Anything else (HTML, plain text, third-party hosts) is not an accepted candidate.
  */
 const GUTENBERG_EPUB_PATH_PATTERN =
   /^\/(?:ebooks\/\d+|cache\/epub\/\d+\/pg\d+|files\/\d+\/(?:pg)?\d+)\.(?:epub|epub3)(?:\.(?:images|noimages))?$/;
+const GUTENBERG_CANONICAL_IMAGES_PATH_PATTERN = /^\/cache\/epub\/(\d+)\/pg\1-images\.epub$/;
 
 const EPUB_MIME_PATTERN = /epub/i;
 const HTML_OR_TEXT_MIME_PATTERN = /^(?:text\/|application\/xhtml)/i;
@@ -54,7 +56,9 @@ export function isOfficialGutenbergEpubUrl(url: string): boolean {
   if (parsed.protocol !== 'https:' || parsed.hostname !== GUTENBERG_HOSTNAME) {
     return false;
   }
-  return GUTENBERG_EPUB_PATH_PATTERN.test(parsed.pathname);
+  return (
+    GUTENBERG_EPUB_PATH_PATTERN.test(parsed.pathname) || GUTENBERG_CANONICAL_IMAGES_PATH_PATTERN.test(parsed.pathname)
+  );
 }
 
 /**
@@ -89,7 +93,7 @@ function imageRank(pathname: string): number {
   if (/\.noimages$/i.test(pathname)) {
     return 1;
   }
-  if (/\.images$/i.test(pathname)) {
+  if (/\.images$/i.test(pathname) || /-images\.epub$/i.test(pathname)) {
     return 0;
   }
   return 2;

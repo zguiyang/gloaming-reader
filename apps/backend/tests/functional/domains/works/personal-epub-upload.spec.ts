@@ -129,6 +129,7 @@ describe('POST /api/works (Personal EPUB)', () => {
     createdWorkIds.push(workId);
     expect(enqueueSpy).toHaveBeenCalledTimes(1);
     expect(enqueueSpy.mock.calls[0]?.[0]).toBe('content-parse');
+    expect(enqueueSpy.mock.calls[0]?.[1]).not.toHaveProperty('processingLane');
 
     const [uploaded] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
     expect(uploaded).toMatchObject({

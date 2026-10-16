@@ -22,6 +22,7 @@ import { rootLogger } from '@/infra/logging/logger';
 import { enqueue } from '@/infra/queue';
 
 export const JOB_CONTENT_PARSE = 'content-parse';
+export type ContentParseLane = 'default' | 'discovery';
 
 const parseLogger = rootLogger.child({ module: 'ContentParseJob' });
 
@@ -37,6 +38,8 @@ function classifyParseFailure(error: unknown): SaveIntentFailure {
 export type ContentParseJobData = {
   workId: string;
   retryJobToken: string;
+  /** Missing context is a legacy/default parse and stays on the general workflow. */
+  processingLane?: ContentParseLane;
 };
 
 export async function processContentParse(
@@ -86,7 +89,7 @@ export async function processContentParse(
   }
   // Auto-chain kept for future: when WORKFLOW_AUTO_CHAIN flips back to true,
   // parse success immediately queues metadata-fill without an admin click.
-  if (WORKFLOW_AUTO_CHAIN) {
+  if (WORKFLOW_AUTO_CHAIN && data.processingLane !== 'discovery') {
     const [work] = await db
       .select({ originKind: readingWorkTable.originKind })
       .from(readingWorkTable)

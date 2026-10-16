@@ -25,6 +25,8 @@ PostgreSQL, Redis, and S3-compatible object storage are external dependencies. R
 
 The web image requires `API_INTERNAL_URL` during the build as well as at runtime. Set it as a build argument or platform build variable.
 
+Discover Save materialization and EPUB parsing use the separate `gloaming-discovery-import` queue. The normal `pnpm worker` mode consumes it alongside the legacy `gloaming` queue so new API jobs always have a consumer; `pnpm --filter @gloaming/backend worker:discovery-import` runs an import-only consumer. If both modes run, they share that queue and add combined capacity; the import-only process creates no other queue consumers or AI dispatchers. During rollout, do not move waiting or active jobs between queues: legacy jobs drain on `gloaming`, while new jobs go to the import queue. BullMQ de-duplicates only within a queue, so overlapping old/new jobs can occur during deployment; SourceRecord row locking and parse workflow claims keep materialization and parsing idempotent. Deploy a consumer-capable worker with the producers, then wait for legacy Discover jobs to drain before considering any later removal of their compatibility handlers.
+
 ## Environment variables
 
 Use [`apps/web/.env.example`](../apps/web/.env.example), [`apps/backend/.env.example`](../apps/backend/.env.example), and [`apps/backend/.env.worker.example`](../apps/backend/.env.worker.example) as the source of variable names. Inject values through the platform secret manager; never commit them.

@@ -129,7 +129,7 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
   const createdEmails: string[] = [];
   const createdWorkIds: string[] = [];
   let sourceId = '';
-  let enqueueSpy: ReturnType<typeof vi.spyOn<typeof queueLib, 'enqueue'>>;
+  let enqueueSpy: ReturnType<typeof vi.spyOn<typeof queueLib, 'enqueueDiscoveryImport'>>;
 
   function track<T extends { email: string }>(session: T): T {
     createdEmails.push(session.email);
@@ -176,7 +176,7 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
       sourceKey: `save_intent_test_${runId}`,
       sourceType: 'gutenberg_rdf',
     });
-    enqueueSpy = vi.spyOn(queueLib, 'enqueue').mockResolvedValue('save-intent-test-job');
+    enqueueSpy = vi.spyOn(queueLib, 'enqueueDiscoveryImport').mockResolvedValue('save-intent-test-job');
   });
 
   beforeEach(() => {

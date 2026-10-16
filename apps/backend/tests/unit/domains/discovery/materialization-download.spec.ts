@@ -28,12 +28,19 @@ function epubResponse(input: { bytes?: Uint8Array<ArrayBuffer>; headers?: Record
   });
 }
 
-function redirectResponse(location: string | null, status = 302): Response {
+function redirectResponse(location: string | null, status = 302, onCancel?: () => void): Response {
   const headers: Record<string, string> = {};
   if (location !== null) {
     headers.location = location;
   }
-  return new Response(null, { status, headers });
+  const body = onCancel
+    ? new ReadableStream<Uint8Array>({
+        cancel() {
+          onCancel();
+        },
+      })
+    : null;
+  return new Response(body, { status, headers });
 }
 
 /**
@@ -135,6 +142,26 @@ describe('downloadGutenbergEpub', () => {
     expect(fetchMock.mock.calls[0]![0]).toBe(OFFICIAL);
     expect(fetchMock.mock.calls[1]![0]).toBe(CACHE);
     expect(result.finalUrl).toBe(CACHE);
+  });
+
+  it('follows the confirmed canonical images redirect and cancels the redirect body', async () => {
+    const canonical = 'https://www.gutenberg.org/cache/epub/11339/pg11339-images.epub';
+    let redirectBodyCancelled = false;
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(canonical, 302, () => (redirectBodyCancelled = true)))
+      .mockResolvedValueOnce(epubResponse());
+
+    const result = await downloadGutenbergEpub('https://www.gutenberg.org/ebooks/11339.epub.images');
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.map(([requestUrl]) => requestUrl)).toEqual([
+      'https://www.gutenberg.org/ebooks/11339.epub.images',
+      canonical,
+    ]);
+    expect(fetchMock.mock.calls[0]![1]).toMatchObject({ method: 'GET', redirect: 'manual' });
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(GUTENBERG_EPUB_MAX_REDIRECTS + 1);
+    expect(redirectBodyCancelled).toBe(true);
+    expect(result.finalUrl).toBe(canonical);
   });
 
   it('rejects a redirect that leaves official Gutenberg HTTPS EPUB URLs', async () => {
