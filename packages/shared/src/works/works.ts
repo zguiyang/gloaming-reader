@@ -22,6 +22,42 @@ export const WORK_PROCESSING_STATUS_LABELS = {
   failed: 'Failed',
 } as const satisfies Record<WorkProcessingStatus, string>;
 
+/**
+ * Pipeline statuses whose parse finished. Readability additionally requires at
+ * least one part — see {@link isWorkReadable} / {@link workAvailability}.
+ */
+export const WORK_PARSE_COMPLETED_STATUSES = ['parsed', 'metadata', 'ready'] as const;
+export type WorkParseCompletedStatus = (typeof WORK_PARSE_COMPLETED_STATUSES)[number];
+
+/** User-facing readiness bucket shared by Library availability and book detail. */
+export type WorkAvailability = 'processing' | 'ready' | 'failed';
+
+/**
+ * Unique pure judgment: has the Work pipeline finished parsing?
+ * Accepts `string` because persistence layers type the column loosely; unknown
+ * values are treated as not parse-completed.
+ */
+export function isWorkParseCompleted(processingStatus: string): boolean {
+  return (WORK_PARSE_COMPLETED_STATUSES as readonly string[]).includes(processingStatus);
+}
+
+/** Unique pure judgment: parse-completed and has at least one part to read. */
+export function isWorkReadable(processingStatus: string, partCount: number): boolean {
+  return partCount > 0 && isWorkParseCompleted(processingStatus);
+}
+
+/**
+ * Bucket a Work for UI/read paths: `failed` stays failed, only a parse-completed
+ * Work with parts is `ready`, everything else (still importing/processing or
+ * parse-completed without parts) reads as `processing`.
+ */
+export function workAvailability(processingStatus: string, partCount: number): WorkAvailability {
+  if (processingStatus === 'failed') {
+    return 'failed';
+  }
+  return isWorkReadable(processingStatus, partCount) ? 'ready' : 'processing';
+}
+
 export const WORK_VISIBILITIES = ['catalog', 'private'] as const;
 export type WorkVisibility = (typeof WORK_VISIBILITIES)[number];
 export const workVisibilitySchema = z.enum(WORK_VISIBILITIES);

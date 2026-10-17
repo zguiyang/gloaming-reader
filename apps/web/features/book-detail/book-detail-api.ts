@@ -9,7 +9,7 @@ import { DEFAULT_LOCALE } from '@gloaming/i18n';
 import type { LibraryItem } from '@gloaming/shared/library';
 import type { ReaderPartsData, ReadingState } from '@gloaming/shared/reader';
 import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
-import { type PartSummary, type Work, workSchema } from '@gloaming/shared/works';
+import { type PartSummary, type Work, workAvailability, workSchema } from '@gloaming/shared/works';
 
 import {
   type BookChapter,
@@ -127,6 +127,7 @@ export function toBookDetail(
   const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
   const teaser = teaserFromDescription(work.description);
   const readingStats = resolveWorkReadingStats(work, parts);
+  const availability = workAvailability(work.processingStatus, parts.length);
 
   return {
     id: work.id,
@@ -142,8 +143,8 @@ export function toBookDetail(
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
     libraryStatus: libraryItem ? 'in_library' : 'available',
     libraryItem,
-    availability: 'ready',
-    isReadable: work.processingStatus === 'ready',
+    availability,
+    isReadable: availability === 'ready',
     readingStatus,
     progressRatio: readingStatus === 'unread' ? null : progressRatio,
     lastReadAt: toIsoString(state?.lastReadAt),

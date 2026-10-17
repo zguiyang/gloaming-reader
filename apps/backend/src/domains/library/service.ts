@@ -9,6 +9,7 @@ import {
   userWorkTag as userWorkTagTable,
 } from '@gloaming/db';
 import { LIBRARY_ITEMS_LIMIT, type LibraryData, type LibraryItem } from '@gloaming/shared/library';
+import { workAvailability } from '@gloaming/shared/works';
 
 import { loadUserTagsByWorkIds } from '@/domains/library/tags/service';
 import { toReadingState } from '@/domains/reading';
@@ -101,12 +102,7 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
   }): LibraryItem => ({
     work: toWorkSummary(row.work),
     state: row.state ? toReadingState(row.state, partsByWork.get(row.work.id) ?? []) : null,
-    availability:
-      row.work.processingStatus === 'ready'
-        ? 'ready'
-        : row.work.processingStatus === 'failed'
-          ? 'failed'
-          : 'processing',
+    availability: workAvailability(row.work.processingStatus, (partsByWork.get(row.work.id) ?? []).length),
     canRemoveFromLibrary: row.canRemoveFromLibrary,
     libraryItemKind: row.canRemoveFromLibrary ? 'saved_catalog' : 'personal',
     personalMetadata: row.canRemoveFromLibrary ? null : { author: row.work.author },

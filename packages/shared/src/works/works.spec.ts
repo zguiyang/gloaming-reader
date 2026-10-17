@@ -3,9 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   CATALOG_SOURCE_LINKS,
   catalogListQuerySchema,
+  isWorkParseCompleted,
+  isWorkReadable,
   personalWorkUpdateSchema,
   personalWorkUploadResultSchema,
   WORK_PROCESSING_STATUSES,
+  workAvailability,
+  type WorkProcessingStatus,
   workProcessingStatusSchema,
   workSchema,
 } from './works.ts';
@@ -18,6 +22,36 @@ describe('work contracts', () => {
     }
     expect(workProcessingStatusSchema.safeParse('published').success).toBe(false);
     expect(workProcessingStatusSchema.safeParse('tts').success).toBe(false);
+  });
+
+  it('judges parse-completed Works readable only when they have parts', () => {
+    expect(isWorkParseCompleted('parsed')).toBe(true);
+    expect(isWorkParseCompleted('metadata')).toBe(true);
+    expect(isWorkParseCompleted('ready')).toBe(true);
+    expect(isWorkReadable('parsed', 1)).toBe(true);
+    expect(isWorkReadable('metadata', 3)).toBe(true);
+    expect(isWorkReadable('ready', 1)).toBe(true);
+    expect(isWorkReadable('parsed', 0)).toBe(false);
+    expect(isWorkReadable('metadata', 0)).toBe(false);
+    for (const processingStatus of [
+      'uploaded',
+      'processing',
+      'failed',
+    ] as const satisfies readonly WorkProcessingStatus[]) {
+      expect(isWorkParseCompleted(processingStatus)).toBe(false);
+      expect(isWorkReadable(processingStatus, 4)).toBe(false);
+    }
+  });
+
+  it('maps one availability bucket from pipeline status and part presence', () => {
+    expect(workAvailability('parsed', 2)).toBe('ready');
+    expect(workAvailability('metadata', 1)).toBe('ready');
+    expect(workAvailability('ready', 1)).toBe('ready');
+    expect(workAvailability('ready', 0)).toBe('processing');
+    expect(workAvailability('parsed', 0)).toBe('processing');
+    expect(workAvailability('uploaded', 4)).toBe('processing');
+    expect(workAvailability('processing', 0)).toBe('processing');
+    expect(workAvailability('failed', 4)).toBe('failed');
   });
 
   it('keeps the public Catalog Work contract independent of Admin provenance', () => {

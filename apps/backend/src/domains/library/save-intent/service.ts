@@ -10,6 +10,7 @@ import {
   userLibraryItem as userLibraryItemTable,
 } from '@gloaming/db/schema';
 import type { SourceRecordSaveStatus } from '@gloaming/shared/library';
+import { isWorkParseCompleted } from '@gloaming/shared/works';
 
 import { db } from '@/infra/db';
 import { enqueueDiscoveryImport } from '@/infra/queue';
@@ -45,9 +46,6 @@ export type SaveIntentFailure = {
   readonly code: string;
   readonly reason: string | null;
 };
-
-/** Parse-completed Work states that make a linked SourceRecord membership-eligible. */
-const PARSE_COMPLETED_STATUSES = new Set(['parsed', 'metadata', 'ready']);
 
 type SavableSourceRecord = {
   readonly id: string;
@@ -109,7 +107,7 @@ async function completeIntentIfWorkReadable(userId: string, sourceRecordId: stri
     .where(eq(readingWorkTable.id, workId))
     .limit(1);
 
-  if (!work || !PARSE_COMPLETED_STATUSES.has(work.processingStatus)) {
+  if (!work || !isWorkParseCompleted(work.processingStatus)) {
     return false;
   }
 
@@ -258,7 +256,7 @@ export async function readSourceRecordSaveStatus(
   if (!work) {
     return { status: 'pending', workId: record.workId, failureReason: null };
   }
-  if (PARSE_COMPLETED_STATUSES.has(work.processingStatus)) {
+  if (isWorkParseCompleted(work.processingStatus)) {
     const completed = await completeIntentIfWorkReadable(userId, sourceRecordId, record.workId);
     if (completed) {
       return { status: 'ready', workId: record.workId, failureReason: null };

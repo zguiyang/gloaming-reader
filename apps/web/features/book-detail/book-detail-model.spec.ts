@@ -232,6 +232,39 @@ describe('toBookDetail', () => {
     expect(workSchema.shape).not.toHaveProperty('sources');
   });
 
+  const parts = [
+    {
+      id: 'p1',
+      workId: 'w1',
+      sortOrder: 0,
+      kind: 'chapter' as const,
+      title: 'One',
+      wordCount: 400,
+      estimatedMinutes: 2,
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    },
+  ];
+
+  it('offers a reading entry for parse-completed Works that have parts', () => {
+    for (const processingStatus of ['parsed', 'metadata', 'ready'] as const) {
+      const book = toBookDetail({ ...work, processingStatus }, parts, null, null);
+      expect(book.availability).toBe('ready');
+      expect(book.isReadable).toBe(true);
+      expect(book.chapters).toHaveLength(1);
+    }
+  });
+
+  it('withholds the reading entry for unfinished or failed Works and empty parts', () => {
+    for (const processingStatus of ['uploaded', 'processing', 'failed'] as const) {
+      const book = toBookDetail({ ...work, processingStatus }, parts, null, null);
+      expect(book.availability).not.toBe('ready');
+      expect(book.isReadable).toBe(false);
+    }
+    const empty = toBookDetail(work, [], null, null);
+    expect(empty.isReadable).toBe(false);
+  });
+
   it('uses the Reading State status for detail copy even at zero percent', () => {
     const book = toBookDetail(work, [], null, {
       status: 'in_progress',
