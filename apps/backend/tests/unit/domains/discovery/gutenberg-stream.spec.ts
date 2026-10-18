@@ -54,7 +54,7 @@ function buildEbookRdf(input: { externalId: string; title: string; agentName: st
   const { externalId, title, agentName } = input;
   return Buffer.from(
     `<?xml version="1.0" encoding="utf-8"?>
-<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:pgterms="http://www.gutenberg.org/2009/pgterms/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcam="http://purl.org/dc/dcam/" xmlns:pgterms="http://www.gutenberg.org/2009/pgterms/">
   <pgterms:ebook rdf:about="ebooks/${externalId}">
     <dcterms:title>${title}</dcterms:title>
     <dcterms:creator>
@@ -72,14 +72,29 @@ function buildEbookRdf(input: { externalId: string; title: string; agentName: st
     <dcterms:issued>1998-06-01</dcterms:issued>
     <dcterms:publisher>Project Gutenberg</dcterms:publisher>
     <dcterms:modified>2021-05-20T10:00:00</dcterms:modified>
-    <pgterms:file rdf:about="https://www.gutenberg.org/ebooks/${externalId}.epub3.images">
-      <dcterms:format><rdf:Description><rdf:value rdf:resource="http://purl.org/dc/terms/epub"/></rdf:Description></dcterms:format>
-      <dcterms:extent>1234</dcterms:extent>
-      <dcterms:modified>2021-05-19</dcterms:modified>
-    </pgterms:file>
-    <pgterms:file rdf:about="https://www.gutenberg.org/cache/epub/${externalId}/pg${externalId}.cover.medium.jpg">
-      <dcterms:format><rdf:Description><rdf:value rdf:resource="http://purl.org/dc/terms/IMT/image/jpeg"/></rdf:Description></dcterms:format>
-    </pgterms:file>
+    <dcterms:hasFormat>
+      <pgterms:file rdf:about="https://www.gutenberg.org/ebooks/${externalId}.epub3.images">
+        <dcterms:isFormatOf rdf:resource="ebooks/${externalId}" />
+        <dcterms:extent rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1234</dcterms:extent>
+        <dcterms:modified rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2021-05-19T10:00:00</dcterms:modified>
+        <dcterms:format>
+          <rdf:Description>
+            <dcam:memberOf rdf:resource="http://purl.org/dc/terms/IMT" />
+            <rdf:value rdf:datatype="http://purl.org/dc/terms/IMT">application/epub+zip</rdf:value>
+          </rdf:Description>
+        </dcterms:format>
+      </pgterms:file>
+    </dcterms:hasFormat>
+    <dcterms:hasFormat>
+      <pgterms:file rdf:about="https://www.gutenberg.org/cache/epub/${externalId}/pg${externalId}.cover.medium.jpg">
+        <dcterms:format>
+          <rdf:Description>
+            <dcam:memberOf rdf:resource="http://purl.org/dc/terms/IMT" />
+            <rdf:value rdf:datatype="http://purl.org/dc/terms/IMT">image/jpeg</rdf:value>
+          </rdf:Description>
+        </dcterms:format>
+      </pgterms:file>
+    </dcterms:hasFormat>
   </pgterms:ebook>
 </rdf:RDF>`,
     'utf8',
@@ -170,9 +185,9 @@ describe('Gutenberg RDF parsing', () => {
       {
         format: 'epub',
         url: 'https://www.gutenberg.org/ebooks/1342.epub3.images',
-        mimeType: 'epub',
+        mimeType: 'application/epub+zip',
         sizeBytes: 1234,
-        updatedAt: '2021-05-19',
+        updatedAt: '2021-05-19T10:00:00',
       },
     ]);
     expect(record!.sourceMeta).toMatchObject({
@@ -181,6 +196,45 @@ describe('Gutenberg RDF parsing', () => {
       extra: { issued: '1998-06-01', publisher: 'Project Gutenberg' },
     });
     expect(record!.sourceUpdatedAt).toBeInstanceOf(Date);
+  });
+
+  it('keeps legacy direct pgterms:file entries and a file with a mixed format array', () => {
+    const rdf = Buffer.from(
+      `<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:pgterms="http://www.gutenberg.org/2009/pgterms/">
+  <pgterms:ebook rdf:about="ebooks/777">
+    <dcterms:title>Legacy Files</dcterms:title>
+    <pgterms:file rdf:about="https://www.gutenberg.org/ebooks/777.epub3.images">
+      <dcterms:format><rdf:Description><rdf:value rdf:resource="http://purl.org/dc/terms/epub"/></rdf:Description></dcterms:format>
+      <dcterms:extent>2222</dcterms:extent>
+    </pgterms:file>
+    <pgterms:file rdf:about="https://www.gutenberg.org/ebooks/777.epub.noimages">
+      <dcterms:format>
+        <rdf:Description><rdf:value>application/octet-stream</rdf:value></rdf:Description>
+        <rdf:Description><rdf:value>application/epub+zip</rdf:value></rdf:Description>
+      </dcterms:format>
+    </pgterms:file>
+    <pgterms:file rdf:about="https://www.gutenberg.org/files/777/777-readme.txt">
+      <dcterms:format><rdf:Description><rdf:value>text/plain; charset=utf-8</rdf:value></rdf:Description></dcterms:format>
+    </pgterms:file>
+  </pgterms:ebook>
+</rdf:RDF>`,
+      'utf8',
+    );
+    const record = parseGutenbergRdf(rdf, 'cache/epub/777/pg777.rdf');
+    expect(record!.contentCandidates).toEqual([
+      {
+        format: 'epub',
+        url: 'https://www.gutenberg.org/ebooks/777.epub3.images',
+        mimeType: 'epub',
+        sizeBytes: 2222,
+      },
+      {
+        format: 'epub',
+        url: 'https://www.gutenberg.org/ebooks/777.epub.noimages',
+        mimeType: 'application/epub+zip',
+      },
+    ]);
   });
 
   it('returns null for a non-ebook RDF document', () => {

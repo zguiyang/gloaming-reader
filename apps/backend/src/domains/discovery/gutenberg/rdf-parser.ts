@@ -15,6 +15,10 @@ const ARRAY_TAGS = new Set([
   'dcterms:subject',
   'pgterms:bookshelf',
   'pgterms:file',
+  // Official RDF wraps every pgterms:file in a dcterms:hasFormat block.
+  'dcterms:hasFormat',
+  // One file may declare several format descriptions (mixed arrays).
+  'dcterms:format',
   'dcterms:title',
   'dcterms:description',
 ]);
@@ -135,7 +139,13 @@ function parseFiles(
   const contentCandidates: SourceRecordContentCandidate[] = [];
   let coverUrl: string | null = null;
 
-  for (const fileValue of asArray(ebook['pgterms:file'])) {
+  // Official RDF wraps each file in dcterms:hasFormat; older fixtures place
+  // pgterms:file directly under the ebook. Both shapes must yield files.
+  const fileValues = [
+    ...asArray(ebook['dcterms:hasFormat']).flatMap((value) => asArray(asNode(value)?.['pgterms:file'])),
+    ...asArray(ebook['pgterms:file']),
+  ];
+  for (const fileValue of fileValues) {
     const file = asNode(fileValue);
     if (!file) {
       continue;
@@ -167,6 +177,27 @@ function parseFiles(
 }
 
 function formatMime(value: unknown): string | null {
+  // One file may declare several formats, and a single dcterms:format may hold
+  // several rdf:Description values (both array shapes exist upstream). Expand
+  // every entry and prefer an explicit EPUB MIME so a mixed array can never
+  // mask the real format behind a generic value.
+  const candidates = asArray(value)
+    .flatMap((entry) => {
+      const node = asNode(entry);
+      const descriptions = node ? asArray(node['rdf:Description']) : [];
+      return descriptions.length > 0 ? descriptions : [entry];
+    })
+    .map(singleFormatMime)
+    .filter((mime): mime is string => mime !== null);
+  const epub = candidates.find((mime) => /epub/i.test(mime));
+  if (epub) {
+    return epub;
+  }
+  const concrete = candidates.find((mime) => /^[a-z]+\//i.test(mime));
+  return concrete ?? candidates[0] ?? null;
+}
+
+function singleFormatMime(value: unknown): string | null {
   const node = asNode(value);
   if (!node) {
     return null;
