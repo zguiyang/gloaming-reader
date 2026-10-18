@@ -375,8 +375,11 @@
       "toggleEnableAria": "Enable Project Gutenberg sync source",
       "toggleDisableAria": "Disable Project Gutenberg sync source",
       "syncNow": "Sync now",
+      "queued": "Queued…",
       "syncing": "Syncing…",
+      "queuedHint": "The task is queued and waiting to be processed.",
       "pendingHint": "A sync is already running in the background.",
+      "missingRunDetail": "This task has no detailed run record; tasks created earlier may have no history. New tasks will record their stage and outcome.",
       "disabledSyncHint": "Manual sync is unavailable while this source is disabled.",
       "value": {
         "never": "Never",

@@ -118,6 +118,9 @@ export function DiscoverySourcesPage() {
 
   const isSyncPending = isDiscoverySyncPending(status.syncStatus);
   const isSourceDisabled = !status.enabled;
+  // A pending source with no tracked run means pre-run-tracking or a lost run
+  // row; state that honestly without asserting a failure or a guaranteed age.
+  const hasMissingRunDetail = isSyncPending && status.currentRun.run === null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -181,14 +184,23 @@ export function DiscoverySourcesPage() {
               disabled={isSyncPending || isSourceDisabled || syncMutation.isPending}
             >
               {syncMutation.isPending ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
-              {isSyncPending
-                ? t(locale, 'admin.discoverySources.syncing')
-                : t(locale, 'admin.discoverySources.syncNow')}
+              {status.syncStatus === 'queued'
+                ? t(locale, 'admin.discoverySources.queued')
+                : isSyncPending
+                  ? t(locale, 'admin.discoverySources.syncing')
+                  : t(locale, 'admin.discoverySources.syncNow')}
             </Button>
             {isSourceDisabled ? (
               <p className="text-sm text-muted-foreground">{t(locale, 'admin.discoverySources.disabledSyncHint')}</p>
+            ) : status.syncStatus === 'queued' ? (
+              <p className="text-sm text-muted-foreground">{t(locale, 'admin.discoverySources.queuedHint')}</p>
             ) : isSyncPending ? (
               <p className="text-sm text-muted-foreground">{t(locale, 'admin.discoverySources.pendingHint')}</p>
+            ) : null}
+            {hasMissingRunDetail ? (
+              <p className="text-sm text-muted-foreground" data-testid="missing-run-detail">
+                {t(locale, 'admin.discoverySources.missingRunDetail')}
+              </p>
             ) : null}
           </div>
         </CardContent>
