@@ -50,7 +50,14 @@ function statusFixture(overrides: Partial<DiscoverySourceStatus> = {}): Discover
 }
 
 async function renderPage(status: DiscoverySourceStatus, locale: 'en-US' | 'zh-CN' = 'en-US') {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Seeded data must not be refetched (no network in this wording test).
+  apiRequestMock.mockReset();
+  apiRequestMock.mockImplementation((url: string) =>
+    url.endsWith('/sync/runs') ? Promise.resolve({ runs: [] }) : Promise.resolve(status),
+  );
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
+  });
   // Pure wording test: seed both queries so the page renders immediately;
   // network timing is out of scope here.
   queryClient.setQueryData(discoverySourcesQueryKey, status);
@@ -107,7 +114,7 @@ describe('DiscoverySourcesPage pending wording', () => {
     rendered.cleanup();
   });
 
-  it('leaves the idle/succeeded/failed wording unchanged', async () => {
+  it('leaves the idle wording unchanged', async () => {
     const idle = await renderPage(statusFixture({ syncStatus: 'idle' }));
     expect(idle.container.textContent).toContain('Sync now');
     expect(idle.container.textContent).not.toContain('Queued…');
