@@ -17,6 +17,28 @@ type DiscoverPaginationProps = {
   onLoadMore: () => void;
 };
 
+type PageEntry = number | 'ellipsis-start' | 'ellipsis-end';
+
+/**
+ * Bounded page-window list: first page, last page, the current page with one
+ * neighbor on each side, and non-interactive ellipsis gaps between the windows
+ * (e.g. `1 … 2107 2108 2109 … 4216`), so a huge page count can never render a
+ * button per page. Small counts return every page once.
+ */
+export function discoverPageEntries(page: number, totalPages: number): PageEntry[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+  const entries: PageEntry[] = [1];
+  const windowStart = Math.max(2, page - 1);
+  const windowEnd = Math.min(totalPages - 1, page + 1);
+  if (windowStart > 2) entries.push('ellipsis-start');
+  for (let n = windowStart; n <= windowEnd; n += 1) entries.push(n);
+  if (windowEnd < totalPages - 1) entries.push('ellipsis-end');
+  entries.push(totalPages);
+  return entries;
+}
+
 export function DiscoverPagination({
   page,
   totalPages,
@@ -30,7 +52,7 @@ export function DiscoverPagination({
     return null;
   }
 
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+  const pageEntries = discoverPageEntries(page, totalPages);
 
   return (
     <div className="mt-10 mb-4 md:mt-16 md:mb-8">
@@ -65,20 +87,26 @@ export function DiscoverPagination({
             {t(locale, 'content.discover.prevPage')}
           </button>
           <div className="flex items-center gap-4 text-muted-foreground">
-            {pages.map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => onPageChange(n)}
-                aria-current={n === page ? 'page' : undefined}
-                className={cn(
-                  'pb-1 transition-colors duration-200 ease-out-soft hover:text-primary',
-                  n === page && 'border-b border-primary font-semibold text-primary',
-                )}
-              >
-                {n}
-              </button>
-            ))}
+            {pageEntries.map((entry) =>
+              typeof entry === 'number' ? (
+                <button
+                  key={entry}
+                  type="button"
+                  onClick={() => onPageChange(entry)}
+                  aria-current={entry === page ? 'page' : undefined}
+                  className={cn(
+                    'pb-1 transition-colors duration-200 ease-out-soft hover:text-primary',
+                    entry === page && 'border-b border-primary font-semibold text-primary',
+                  )}
+                >
+                  {entry}
+                </button>
+              ) : (
+                <span key={entry} aria-hidden className="select-none">
+                  …
+                </span>
+              ),
+            )}
           </div>
           <button
             type="button"

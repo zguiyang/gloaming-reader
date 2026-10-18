@@ -270,3 +270,45 @@ describe('DiscoverSourceCard Save Intent', () => {
     view.cleanup();
   });
 });
+
+describe('DiscoverSourceCard layout reservation', () => {
+  it('reserves a one-line author row even when the item has no author', async () => {
+    const view = await renderCard('zh-CN', { ...item, author: '' });
+    const article = view.container.querySelector('article');
+    expect(article?.className).toContain('h-full');
+    // The metadata column stretches so the action area sits at a stable bottom.
+    expect(article?.className).toContain('items-stretch');
+    const meta = article?.querySelector('h3')?.parentElement;
+    expect(meta?.className).toContain('flex-1');
+    // Reserved one-line author row even when the item has no author.
+    const authorRow = meta?.querySelector('p');
+    expect(authorRow?.className).toContain('min-h-[1lh]');
+    view.cleanup();
+  });
+
+  it('keeps the two-line title reservation classes on the heading', async () => {
+    const view = await renderCard('zh-CN', item);
+    const heading = view.container.querySelector('h3');
+    expect(heading?.className).toContain('line-clamp-2');
+    expect(heading?.className).toContain('min-h-[2lh]');
+    view.cleanup();
+  });
+
+  it('pins the action area to the bottom of the card column', async () => {
+    const view = await renderCard('zh-CN', item);
+    // The action area is the last block of the metadata column (its parent may
+    // hold the categories list before it).
+    const meta = view.container.querySelector('article h3')?.parentElement;
+    const actionArea = meta?.lastElementChild;
+    expect(actionArea?.className).toContain('mt-auto');
+    view.cleanup();
+  });
+
+  it('keeps category badges renderable without clipping classes on the list', async () => {
+    const view = await renderCard('zh-CN', item);
+    const list = view.container.querySelector('article ul');
+    expect(list?.className).not.toContain('overflow-hidden');
+    expect(view.container.textContent).toContain('科幻');
+    view.cleanup();
+  });
+});

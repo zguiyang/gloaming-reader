@@ -127,7 +127,7 @@ function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & {
   const cover = <WorkCover title={item.title} coverImageUrl={item.coverImageUrl} className="aspect-[2/3] rounded-sm" />;
 
   return (
-    <article className="flex flex-col gap-3">
+    <article className="flex h-full flex-col items-stretch gap-3">
       {detailHref ? (
         <Link
           href={detailHref}
@@ -144,9 +144,9 @@ function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & {
         cover
       )}
 
-      <div className="flex min-w-0 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <h3
-          className="font-heading line-clamp-2 text-sm leading-snug font-medium text-foreground md:text-base"
+          className="font-heading line-clamp-2 min-h-[2lh] text-sm leading-snug font-medium text-foreground md:text-base"
           title={item.title}
         >
           {detailHref ? (
@@ -160,9 +160,10 @@ function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & {
             item.title
           )}
         </h3>
-        {item.author ? (
-          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground md:text-[13px]">{item.author}</p>
-        ) : null}
+        {/* Reserved one-line author row keeps sibling cards' action areas aligned. */}
+        <p className="mt-1 min-h-[1lh] line-clamp-1 text-xs text-muted-foreground md:text-[13px]">
+          {item.author ?? ''}
+        </p>
 
         {item.categories.length > 0 ? (
           <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={t(locale, 'content.discover.categoriesAria')}>
@@ -176,7 +177,7 @@ function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & {
           </ul>
         ) : null}
 
-        <div className="mt-3">
+        <div className="mt-auto pt-3">
           {isSaving ? (
             <Button type="button" variant="outline" disabled className="h-8 gap-1.5">
               <Loader2Icon className="size-4 animate-spin" aria-hidden />

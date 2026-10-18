@@ -25,7 +25,7 @@ export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
   const detailHref = workDetailHref(item.id, AUTH_ROUTES.discover);
 
   return (
-    <article className="group flex flex-col gap-3">
+    <article className="group flex h-full flex-col items-stretch gap-3">
       <Link
         href={detailHref}
         className={cn(
@@ -38,18 +38,19 @@ export function DiscoverBookCard({ item }: DiscoverBookCardProps) {
         <WorkCover title={item.title} coverImageUrl={item.coverImageUrl} className="aspect-[2/3] rounded-sm" />
       </Link>
 
-      <div className="min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Link href={detailHref} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
           <h3
-            className="font-heading line-clamp-2 text-sm leading-snug font-medium text-foreground transition-colors duration-300 ease-out-soft group-hover:text-primary md:text-base"
+            className="font-heading line-clamp-2 min-h-[2lh] text-sm leading-snug font-medium text-foreground transition-colors duration-300 ease-out-soft group-hover:text-primary md:text-base"
             title={item.title}
           >
             {item.title}
           </h3>
         </Link>
-        {item.author ? (
-          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground md:text-[13px]">{item.author}</p>
-        ) : null}
+        {/* Reserved one-line author row keeps sibling cards' action areas aligned. */}
+        <p className="mt-1 min-h-[1lh] line-clamp-1 text-xs text-muted-foreground md:text-[13px]">
+          {item.author ?? ''}
+        </p>
         <p className="mt-1 text-xs text-muted-foreground/80">
           {t(locale, 'content.discover.chapterCount', { count: item.partCount })}
         </p>
