@@ -19,12 +19,17 @@ import { db, type DbTransaction } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 
 import {
+  advanceDiscoverySyncRunStage,
   ensureDiscoverySource,
+  finishDiscoverySyncRunFailed,
+  finishDiscoverySyncRunSkipped,
+  finishDiscoverySyncRunSucceeded,
   loadClassificationEvidenceByExternalId,
   lockSourceRunOwnership,
   markSourceFailed,
   markSourceSucceeded,
   reconcileUnavailableRecords,
+  recordDiscoverySyncRunBatchProgress,
   releaseSourceQueued,
   type SourceRecordClassificationEvidenceRow,
   SourceRunOwnershipLostError,
@@ -37,13 +42,21 @@ const logger = rootLogger.child({ module: 'DiscoveryGutenbergSync' });
 export { PROJECT_GUTENBERG_UPSERT_BATCH_SIZE };
 
 export type DiscoverySyncResult =
-  | { status: 'not-modified'; lastModified: string | null; seenRecords: 0; unavailableRecords: 0 }
+  | {
+      status: 'not-modified';
+      lastModified: string | null;
+      seenRecords: 0;
+      unavailableRecords: 0;
+      committedRecords: 0;
+      committedBatches: 0;
+    }
   | {
       status: 'succeeded';
       lastModified: string | null;
       seenRecords: number;
       unavailableRecords: number;
       batches: number;
+      committedRecords: number;
     }
   | { status: 'skipped-disabled' }
   | { status: 'skipped-not-queued' }
@@ -67,19 +80,37 @@ export async function syncProjectGutenbergMetadata(options: {
   claimedAt: Date;
 }): Promise<DiscoverySyncResult> {
   const source = await ensureDiscoverySource(PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE);
+  const claimedAt = options.claimedAt;
   const runStartedAt = new Date();
-  const startOutcome = await startSourceSyncing(source.id, options.claimedAt, runStartedAt);
+  // The durable run row is created inside `claimSourceQueued`'s transaction
+  // (and `startSourceSyncing` backfills a pre-migration queued task), so this
+  // executor never fabricates history before genuinely owning the claim.
+  const startOutcome = await startSourceSyncing(source.id, claimedAt, runStartedAt);
   if (startOutcome !== 'started') {
     if (startOutcome === 'disabled') {
       // Disabled between queueing and execution: release only the still-queued
-      // claim without fetching upstream or recording an upstream failure.
-      await releaseSourceQueued(source.id, options.claimedAt);
+      // claim without fetching upstream or recording an upstream failure, and
+      // close that same generation's run row in one transaction.
+      const finishedAt = new Date();
+      await db.transaction(async (tx) => {
+        // Release only the still-owned queued claim; if the source already
+        // moved on (no match) this executor owns nothing, so no run is closed.
+        const released = await releaseSourceQueued(source.id, claimedAt, tx);
+        if (released) {
+          await finishDiscoverySyncRunSkipped({ sourceId: source.id, claimToken: claimedAt, finishedAt, executor: tx });
+        }
+      });
       logger.info({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Gutenberg metadata sync skipped: source disabled');
       return { status: 'skipped-disabled' };
     }
+    // The claim belongs to an older generation: no run row was ever created
+    // for it by this executor, so there is no history to close or fabricate.
     logger.info({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Gutenberg metadata sync skipped: no owned queued claim');
     return { status: 'skipped-not-queued' };
   }
+  // From here on the run is owned by this executor: `claimedAt` identifies the
+  // run row, `runStartedAt` identifies the source-row generation.
+  const runTokens = { sourceId: source.id, claimToken: claimedAt, startToken: runStartedAt };
 
   let snapshot: GutenbergSnapshot | null = null;
   try {
@@ -92,44 +123,56 @@ export async function syncProjectGutenbergMetadata(options: {
     if (!snapshot) {
       // Guard (c): never report success after the run was aborted.
       throwIfRunAborted(options.signal);
-      const persisted = await markSourceSucceeded({
-        sourceId: source.id,
-        lastModified: null,
-        finishedAt: new Date(),
-        runStartedAt,
+      const finishedAt = new Date();
+      await db.transaction(async (tx) => {
+        // A 304 is a successful outcome (nothing to reconcile); the run's
+        // terminal state commits with the source status so history and source
+        // row cannot diverge. `finishDiscoverySyncRunSucceeded` verifies and
+        // locks the source (still `syncing`) first, then the source flips.
+        await finishDiscoverySyncRunSucceeded({
+          ...runTokens,
+          stage: 'not_modified',
+          unavailableRecords: 0,
+          snapshotLastModified: source.snapshotLastModified ?? null,
+          finishedAt,
+          executor: tx,
+        });
+        const succeeded = await markSourceSucceeded({
+          sourceId: source.id,
+          lastModified: null,
+          finishedAt,
+          runStartedAt,
+          executor: tx,
+        });
+        // Losing the source token rolls the run's terminal write back too.
+        if (!succeeded) throw new SourceRunOwnershipLostError();
       });
-      if (!persisted) {
-        // Ownership was lost between claiming and now: never report a terminal
-        // state for a run that no longer owns the source row.
-        logger.warn(
-          { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY },
-          'Gutenberg sync ownership lost; not-modified status not persisted',
-        );
-        throw new SourceRunOwnershipLostError();
-      }
       logger.info({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Gutenberg snapshot not modified (304)');
       return {
         status: 'not-modified',
         lastModified: source.snapshotLastModified ?? null,
         seenRecords: 0,
         unavailableRecords: 0,
+        committedRecords: 0,
+        committedBatches: 0,
       };
     }
 
     const observedAt = new Date();
-    const { seenRecords, batches } = await consumeSnapshot(
-      source.id,
+    const { seenRecords, batches, committedRecords } = await consumeSnapshot({
+      sourceId: source.id,
+      runTokens,
       snapshot,
       observedAt,
-      runStartedAt,
-      options.signal,
-    );
+      signal: options.signal,
+    });
     if (seenRecords === 0) {
       throw new GutenbergSnapshotError('the snapshot archive contained no RDF records');
     }
 
     // Guard (b): no reconciliation (a data write) once the run is aborted.
     throwIfRunAborted(options.signal);
+    await advanceDiscoverySyncRunStage({ ...runTokens, stage: 'reconciling', now: new Date() });
     const lastModified = snapshot.lastModified;
     // Reconcile and the success report commit together under a source-row lock,
     // so a run that already lost its token can neither flip availability nor
@@ -139,6 +182,17 @@ export async function syncProjectGutenbergMetadata(options: {
       // Guard (d): no success report after the run was aborted; rolling the
       // transaction back also undoes the reconciliation above.
       throwIfRunAborted(options.signal);
+      // The run's terminal state is written and the source locked (still
+      // `syncing`) first, then the source flips; losing the source token rolls
+      // the run's terminal write back in the same transaction.
+      await finishDiscoverySyncRunSucceeded({
+        ...runTokens,
+        stage: 'succeeded',
+        unavailableRecords: reconciled,
+        snapshotLastModified: lastModified,
+        finishedAt: new Date(),
+        executor: tx,
+      });
       const persisted = await markSourceSucceeded({
         sourceId: source.id,
         lastModified: lastModified,
@@ -162,6 +216,7 @@ export async function syncProjectGutenbergMetadata(options: {
       seenRecords,
       unavailableRecords,
       batches,
+      committedRecords,
     };
   } catch (error) {
     if (error instanceof SourceRunOwnershipLostError) {
@@ -177,11 +232,32 @@ export async function syncProjectGutenbergMetadata(options: {
     }
     const errorSummary = toSyncErrorSummary(error, options.signal);
     try {
-      const persisted = await markSourceFailed({
-        sourceId: source.id,
-        errorSummary,
-        finishedAt: new Date(),
-        runStartedAt,
+      const finishedAt = new Date();
+      const persisted = await db.transaction(async (tx) => {
+        // Verify the source-row lock and write the run's terminal state first,
+        // then record the source failure in the same transaction: any lost
+        // ownership rolls both writes back together, and sharing `tx` avoids
+        // deadlocking a second connection against the lock this one holds.
+        const runFailed = await finishDiscoverySyncRunFailed({
+          ...runTokens,
+          errorSummary,
+          finishedAt,
+          executor: tx,
+        });
+        if (!runFailed) {
+          return false;
+        }
+        const sourceFailed = await markSourceFailed({
+          sourceId: source.id,
+          errorSummary,
+          finishedAt,
+          runStartedAt,
+          executor: tx,
+        });
+        // Losing the source token rolls the run's terminal write back too, so
+        // history and source status can never diverge into a half-terminal state.
+        if (!sourceFailed) throw new SourceRunOwnershipLostError();
+        return true;
       });
       if (!persisted) {
         logger.warn(
@@ -210,15 +286,18 @@ function throwIfRunAborted(signal?: AbortSignal): void {
   }
 }
 
-async function consumeSnapshot(
-  sourceId: string,
-  snapshot: GutenbergSnapshot,
-  observedAt: Date,
-  runStartedAt: Date,
-  signal?: AbortSignal,
-): Promise<{ seenRecords: number; batches: number }> {
+async function consumeSnapshot(input: {
+  sourceId: string;
+  runTokens: { claimToken: Date; startToken: Date };
+  snapshot: GutenbergSnapshot;
+  observedAt: Date;
+  signal?: AbortSignal;
+}): Promise<{ seenRecords: number; batches: number; committedRecords: number }> {
+  const { sourceId, runTokens, snapshot, observedAt, signal } = input;
+  const runStartedAt = runTokens.startToken;
   let seenRecords = 0;
   let batches = 0;
+  let committedRecords = 0;
   let batch: ParsedSourceRecord[] = [];
 
   const flushBatch = async (): Promise<void> => {
@@ -244,12 +323,34 @@ async function consumeSnapshot(
       throwIfRunAborted(signal);
       await registerIncrementalClassification(records, upserted, previousEvidence, tx);
       throwIfRunAborted(signal);
+      // Progress advances inside the batch transaction: a rolled-back batch
+      // rolls this increment back too, so counters only ever count committed work.
+      await recordDiscoverySyncRunBatchProgress({
+        sourceId,
+        claimToken: runTokens.claimToken,
+        startToken: runTokens.startToken,
+        committedRecords: records.length,
+        now: new Date(),
+        executor: tx,
+      });
     });
     seenRecords += records.length;
+    committedRecords += records.length;
     batches += 1;
   };
 
+  let stageAdvanced = false;
   for await (const record of snapshot.records) {
+    if (!stageAdvanced) {
+      // The first parsed record is the first truthful evidence of processing.
+      await advanceDiscoverySyncRunStage({
+        sourceId,
+        ...runTokens,
+        stage: 'processing',
+        now: new Date(),
+      });
+      stageAdvanced = true;
+    }
     batch.push(record);
     if (batch.length >= PROJECT_GUTENBERG_UPSERT_BATCH_SIZE) {
       await flushBatch();
@@ -257,7 +358,7 @@ async function consumeSnapshot(
   }
   await flushBatch();
 
-  return { seenRecords, batches };
+  return { seenRecords, batches, committedRecords };
 }
 
 function toClassificationEvidence(input: {

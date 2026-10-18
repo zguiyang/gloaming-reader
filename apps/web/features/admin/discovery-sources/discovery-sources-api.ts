@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
 import {
   type DiscoverySourceStatus,
   discoverySourceStatusSchema,
+  type DiscoverySyncRunHistory,
+  discoverySyncRunHistorySchema,
   discoverySyncTriggerResultSchema,
+  isDiscoverySyncRunPending,
 } from '@gloaming/shared/discovery';
 
 import { apiRequest, formatApiError } from '@/lib/api-request';
@@ -12,6 +16,7 @@ import { apiRequest, formatApiError } from '@/lib/api-request';
 const PROJECT_GUTENBERG_SOURCE_PATH = '/api/admin/discovery/sources/project-gutenberg';
 
 export const discoverySourcesQueryKey = ['admin', 'discovery-sources', 'project-gutenberg'] as const;
+export const discoverySyncHistoryQueryKey = [...discoverySourcesQueryKey, 'sync-runs'] as const;
 
 /** True while a background run is queued or executing. */
 export function isDiscoverySyncPending(status: DiscoverySourceStatus['syncStatus']): boolean {
@@ -47,6 +52,39 @@ export function useDiscoverySourceStatusQuery() {
   });
 }
 
+export async function getDiscoverySyncRunHistory(init?: { signal?: AbortSignal }): Promise<DiscoverySyncRunHistory> {
+  return apiRequest(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync/runs`, {
+    schema: discoverySyncRunHistorySchema,
+    signal: init?.signal,
+  });
+}
+
+/**
+ * Bounded recent-run history. Refreshed while the status query reports a
+ * non-terminal run; when the run transitions from pending to a terminal stage,
+ * one final refresh is forced so the history cannot be left showing the stale
+ * pending entry.
+ */
+export function useDiscoverySyncRunHistoryQuery(status?: DiscoverySourceStatus) {
+  const run = status?.currentRun.run;
+  const isRunPending = Boolean(run && isDiscoverySyncRunPending(run.stage));
+  const queryClient = useQueryClient();
+  const wasPending = useRef(false);
+  useEffect(() => {
+    if (wasPending.current && !isRunPending) {
+      // The run just reached a terminal stage: pull the updated history once.
+      void queryClient.invalidateQueries({ queryKey: discoverySyncHistoryQueryKey });
+    }
+    wasPending.current = isRunPending;
+  }, [isRunPending, queryClient]);
+  return useQuery({
+    queryKey: discoverySyncHistoryQueryKey,
+    queryFn: ({ signal }) => getDiscoverySyncRunHistory({ signal }),
+    refetchInterval: isRunPending ? 2000 : false,
+    refetchOnWindowFocus: true,
+  });
+}
+
 export function useSetDiscoverySourceEnabledMutation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -64,6 +102,7 @@ export function useTriggerDiscoverySourceSyncMutation() {
     mutationFn: () => triggerDiscoverySourceSync(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: discoverySourcesQueryKey });
+      void queryClient.invalidateQueries({ queryKey: discoverySyncHistoryQueryKey });
     },
   });
 }

@@ -977,6 +977,25 @@ export const uploadedObject = pgTable(
 export type DiscoverySourceSyncStatus = 'idle' | 'queued' | 'syncing' | 'succeeded' | 'failed';
 
 /**
+ * Observable stage of one discovery sync run. Non-terminal stages mirror the
+ * phases of the sync service; terminal stages are the persisted run outcomes.
+ * `skipped` covers runs that ended without fetching upstream (disabled source,
+ * superseded claim); `not_modified` is a successful 304 outcome and is kept
+ * distinct from `succeeded` so operators can tell a real scan from a no-op.
+ */
+export type DiscoverySyncRunStage =
+  'queued' | 'downloading' | 'processing' | 'reconciling' | 'succeeded' | 'not_modified' | 'skipped' | 'failed';
+
+/** Terminal discovery sync run stages; non-terminal stages stay open for progress writes. */
+export const DISCOVERY_SYNC_RUN_TERMINAL_STAGES = ['succeeded', 'not_modified', 'skipped', 'failed'] as const;
+export function isDiscoverySyncRunTerminalStage(stage: DiscoverySyncRunStage): boolean {
+  return (DISCOVERY_SYNC_RUN_TERMINAL_STAGES as readonly string[]).includes(stage);
+}
+
+/** Bounded number of recent sync runs kept/exposed per source. */
+export const DISCOVERY_SYNC_RUN_HISTORY_LIMIT = 20;
+
+/**
  * External catalog source registry (ADR DS-02).
  * Holds source identity plus the sync run/snapshot state used for conditional refresh.
  * Source credentials are server configuration, never client-visible; not modeled here.
@@ -1121,8 +1140,78 @@ export const sourceRecord = pgTable(
   ],
 );
 
+/**
+ * One durable observability record per manual sync run (ADR DS-02).
+ *
+ * Identity and fencing: a run row is created when an admin trigger claims the
+ * source, keyed by the claim generation token (`claim_token` = the queued
+ * `syncStartedAt`). Every later transition of the same generation re-enters
+ * through `startSourceSyncing`, which writes the executor's `runStartedAt`
+ * (`start_token`); progress and terminal writes verify both tokens under the
+ * source-row lock, so a stale executor from an older generation can never
+ * advance counters or overwrite a terminal result of another run.
+ *
+ * Metrics are current-run facts only: `committed_records`/`committed_batches`
+ * count what THIS run committed (a rolled-back batch increments nothing) and
+ * are distinct from the source-level total `record_count`. No totals,
+ * percentages, or inserted/updated splits are persisted or exposed.
+ */
+export const discoverySyncRun = pgTable(
+  'discovery_sync_run',
+  {
+    id: text('id').primaryKey(),
+    sourceId: text('source_id')
+      .notNull()
+      .references(() => discoverySource.id, { onDelete: 'cascade' }),
+    /** Claim generation token that created this run (source `syncStartedAt` at queue time). */
+    claimToken: timestamp('claim_token').notNull(),
+    /** Execution token written by `startSourceSyncing`; null while the run is still queued. */
+    startToken: timestamp('start_token'),
+    stage: text('stage').$type<DiscoverySyncRunStage>().notNull().default('queued'),
+    /** Records this run committed across its batches (rolled-back batches never count). */
+    committedRecords: integer('committed_records').notNull().default(0),
+    /** Fully committed upsert batches of this run. */
+    committedBatches: integer('committed_batches').notNull().default(0),
+    /** Records reconciled as unavailable by this run's successful reconciliation. */
+    unavailableRecords: integer('unavailable_records').notNull().default(0),
+    queuedAt: timestamp('queued_at').notNull(),
+    startedAt: timestamp('started_at'),
+    /** Truthful last activity: batch commits and phase transitions only — never a worker heartbeat. */
+    lastActivityAt: timestamp('last_activity_at').notNull(),
+    finishedAt: timestamp('finished_at'),
+    /** Sanitized operational error summary; never credentials, URLs, or raw stack traces. */
+    errorSummary: text('error_summary'),
+    /** Upstream snapshot Last-Modified reported by a successful scan (succeeded/not_modified). */
+    snapshotLastModified: text('snapshot_last_modified'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique('discovery_sync_run_source_claim_uidx').on(table.sourceId, table.claimToken),
+    index('discovery_sync_run_source_queued_idx').on(table.sourceId, table.queuedAt),
+    check('discovery_sync_run_committed_records_nonnegative_chk', sql`${table.committedRecords} >= 0`),
+    check('discovery_sync_run_committed_batches_nonnegative_chk', sql`${table.committedBatches} >= 0`),
+    check('discovery_sync_run_unavailable_records_nonnegative_chk', sql`${table.unavailableRecords} >= 0`),
+    check(
+      'discovery_sync_run_stage_check',
+      sql`${table.stage} in ('queued', 'downloading', 'processing', 'reconciling', 'succeeded', 'not_modified', 'skipped', 'failed')`,
+    ),
+  ],
+);
+
 export const discoverySourceRelations = relations(discoverySource, ({ many }) => ({
   records: many(sourceRecord),
+  syncRuns: many(discoverySyncRun),
+}));
+
+export const discoverySyncRunRelations = relations(discoverySyncRun, ({ one }) => ({
+  source: one(discoverySource, {
+    fields: [discoverySyncRun.sourceId],
+    references: [discoverySource.id],
+  }),
 }));
 
 export const sourceRecordRelations = relations(sourceRecord, ({ one }) => ({

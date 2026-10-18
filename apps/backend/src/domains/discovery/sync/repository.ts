@@ -1,14 +1,23 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, count, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 
 import type { SourceRecordAuthor, SourceRecordSourceMeta } from '@gloaming/db/schema';
-import { discoverySource, sourceRecord } from '@gloaming/db/schema';
+import {
+  DISCOVERY_SYNC_RUN_HISTORY_LIMIT,
+  DISCOVERY_SYNC_RUN_TERMINAL_STAGES,
+  discoverySource,
+  discoverySyncRun,
+  type DiscoverySyncRunStage,
+  isDiscoverySyncRunTerminalStage,
+  sourceRecord,
+} from '@gloaming/db/schema';
 
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
 import { db, type DbTransaction } from '@/infra/db';
 
 export type DiscoverySourceRow = typeof discoverySource.$inferSelect;
+export type DiscoverySyncRunRow = typeof discoverySyncRun.$inferSelect;
 
 /** Raised when this run's token no longer owns the source row and no write may proceed. */
 export class SourceRunOwnershipLostError extends Error {
@@ -72,17 +81,23 @@ export async function countSourceRecords(sourceId: string): Promise<number> {
  */
 export async function claimSourceQueued(sourceId: string): Promise<Date | null> {
   const claimedAt = new Date();
-  const result = await db
-    .update(discoverySource)
-    .set({ syncStatus: 'queued', syncStartedAt: claimedAt, lastErrorSummary: null })
-    .where(
-      and(
-        eq(discoverySource.id, sourceId),
-        eq(discoverySource.enabled, true),
-        notInArray(discoverySource.syncStatus, ['queued', 'syncing']),
-      ),
-    );
-  return (result.rowCount ?? 0) > 0 ? claimedAt : null;
+  return db.transaction(async (tx) => {
+    const result = await tx
+      .update(discoverySource)
+      .set({ syncStatus: 'queued', syncStartedAt: claimedAt, lastErrorSummary: null })
+      .where(
+        and(
+          eq(discoverySource.id, sourceId),
+          eq(discoverySource.enabled, true),
+          notInArray(discoverySource.syncStatus, ['queued', 'syncing']),
+        ),
+      );
+    if ((result.rowCount ?? 0) === 0) return null;
+    // The run row commits atomically with the claim so a claimed generation
+    // can never be left without its durable observability record.
+    await createDiscoverySyncRun({ sourceId, claimToken: claimedAt, now: claimedAt, executor: tx });
+    return claimedAt;
+  });
 }
 
 /**
@@ -93,8 +108,12 @@ export async function claimSourceQueued(sourceId: string): Promise<Date | null> 
  * generation cannot release a newer claim. Preserves the previous
  * `syncFinishedAt` so Admin "Last sync" stays meaningful.
  */
-export async function releaseSourceQueued(sourceId: string, claimedAt: Date): Promise<void> {
-  await db
+export async function releaseSourceQueued(
+  sourceId: string,
+  claimedAt: Date,
+  executor: typeof db | DbTransaction = db,
+): Promise<boolean> {
+  const result = await executor
     .update(discoverySource)
     .set({ syncStatus: 'idle', syncStartedAt: null, lastErrorSummary: null })
     .where(
@@ -104,6 +123,7 @@ export async function releaseSourceQueued(sourceId: string, claimedAt: Date): Pr
         eq(discoverySource.syncStartedAt, claimedAt),
       ),
     );
+  return (result.rowCount ?? 0) > 0;
 }
 
 /** Persists the admin enable/disable flag and returns the updated source row. */
@@ -132,27 +152,41 @@ export async function startSourceSyncing(
   claimedAt: Date,
   startedAt: Date,
 ): Promise<StartSourceSyncOutcome> {
-  const result = await db
-    .update(discoverySource)
-    .set({ syncStatus: 'syncing', syncStartedAt: startedAt, lastErrorSummary: null })
-    .where(
-      and(
-        eq(discoverySource.id, sourceId),
-        eq(discoverySource.enabled, true),
-        eq(discoverySource.syncStatus, 'queued'),
-        eq(discoverySource.syncStartedAt, claimedAt),
-      ),
-    );
-  if ((result.rowCount ?? 0) > 0) {
-    return 'started';
-  }
+  return db.transaction(async (tx) => {
+    const result = await tx
+      .update(discoverySource)
+      .set({ syncStatus: 'syncing', syncStartedAt: startedAt, lastErrorSummary: null })
+      .where(
+        and(
+          eq(discoverySource.id, sourceId),
+          eq(discoverySource.enabled, true),
+          eq(discoverySource.syncStatus, 'queued'),
+          eq(discoverySource.syncStartedAt, claimedAt),
+        ),
+      );
+    if ((result.rowCount ?? 0) > 0) {
+      // A pre-migration queued task may have no run row yet: create it now that
+      // the claim is genuinely owned, never for an unknown/old job.
+      await createDiscoverySyncRun({ sourceId, claimToken: claimedAt, now: claimedAt, executor: tx });
+      const startedRun = await markDiscoverySyncRunStarted({
+        sourceId,
+        claimToken: claimedAt,
+        startedAt,
+        executor: tx,
+      });
+      // The run row must advance with the source transition; a fencing failure
+      // here rolls the whole start back so source and run cannot diverge.
+      if (!startedRun) throw new SourceRunOwnershipLostError();
+      return 'started' as const;
+    }
 
-  const [row] = await db
-    .select({ enabled: discoverySource.enabled })
-    .from(discoverySource)
-    .where(eq(discoverySource.id, sourceId))
-    .limit(1);
-  return row && !row.enabled ? 'disabled' : 'not-queued';
+    const [row] = await tx
+      .select({ enabled: discoverySource.enabled })
+      .from(discoverySource)
+      .where(eq(discoverySource.id, sourceId))
+      .limit(1);
+    return (row && !row.enabled ? 'disabled' : 'not-queued') as StartSourceSyncOutcome;
+  });
 }
 
 /**
@@ -201,8 +235,11 @@ export async function markSourceFailed(input: {
   errorSummary: string;
   finishedAt: Date;
   runStartedAt: Date;
+  /** Executor of an open transaction that already holds the source-row lock. */
+  executor?: typeof db | DbTransaction;
 }): Promise<boolean> {
-  const result = await db
+  const executor = input.executor ?? db;
+  const result = await executor
     .update(discoverySource)
     .set({
       syncStatus: 'failed',
@@ -231,8 +268,9 @@ export async function failQueuedClaim(
   claimedAt: Date,
   errorSummary: string,
   finishedAt: Date,
+  executor: typeof db | DbTransaction = db,
 ): Promise<boolean> {
-  const result = await db
+  const result = await executor
     .update(discoverySource)
     .set({
       syncStatus: 'failed',
@@ -255,6 +293,7 @@ export async function failQueuedClaim(
  * bound to the current status plus an age threshold, so a fresh queued claim or
  * a live run that is still within its limits is never misjudged, and the row can
  * be re-claimed only after this recovery has recorded the timeout failure.
+ * `syncStartedAt` is returned because it is the claim/run generation token.
  * Returns the updated row when a stale run was recovered, otherwise null.
  */
 export async function recoverStaleSourceRun(input: {
@@ -264,9 +303,12 @@ export async function recoverStaleSourceRun(input: {
   syncingStaleAfterMs: number;
   queuedErrorSummary: string;
   syncingErrorSummary: string;
-}): Promise<DiscoverySourceRow | null> {
+  /** Executor of an open transaction that already holds the source-row lock. */
+  executor?: typeof db | DbTransaction;
+}): Promise<Pick<DiscoverySourceRow, 'syncStatus' | 'syncStartedAt'> | null> {
+  const executor = input.executor ?? db;
   const queuedBefore = new Date(input.now.getTime() - input.queuedStaleAfterMs);
-  const recoveredQueued = await db
+  const recoveredQueued = await executor
     .update(discoverySource)
     .set({
       syncStatus: 'failed',
@@ -280,13 +322,13 @@ export async function recoverStaleSourceRun(input: {
         lt(discoverySource.updatedAt, queuedBefore),
       ),
     )
-    .returning();
+    .returning({ syncStatus: discoverySource.syncStatus, syncStartedAt: discoverySource.syncStartedAt });
   if (recoveredQueued[0]) {
     return recoveredQueued[0];
   }
 
   const syncingBefore = new Date(input.now.getTime() - input.syncingStaleAfterMs);
-  const recoveredSyncing = await db
+  const recoveredSyncing = await executor
     .update(discoverySource)
     .set({
       syncStatus: 'failed',
@@ -301,7 +343,7 @@ export async function recoverStaleSourceRun(input: {
         lt(discoverySource.syncStartedAt, syncingBefore),
       ),
     )
-    .returning();
+    .returning({ syncStatus: discoverySource.syncStatus, syncStartedAt: discoverySource.syncStartedAt });
   return recoveredSyncing[0] ?? null;
 }
 
@@ -422,4 +464,412 @@ export async function reconcileUnavailableRecords(
       ),
     );
   return result.rowCount ?? 0;
+}
+
+/**
+ * Creates the durable observability row for one claimed sync run. Called right
+ * after `claimSourceQueued` succeeds, so every claimed generation — even one
+ * that never starts — has a truthful `queued` run instead of fabricated
+ * history. Idempotent on the `(source_id, claim_token)` key: a repeated call for
+ * the same claim token returns the existing row without touching it.
+ */
+export async function createDiscoverySyncRun(input: {
+  sourceId: string;
+  claimToken: Date;
+  now: Date;
+  /** Executor of an open transaction so the run row commits atomically with the claim. */
+  executor?: typeof db | DbTransaction;
+}): Promise<DiscoverySyncRunRow> {
+  const executor = input.executor ?? db;
+  const [row] = await executor
+    .insert(discoverySyncRun)
+    .values({
+      id: randomUUID(),
+      sourceId: input.sourceId,
+      claimToken: input.claimToken,
+      stage: 'queued',
+      queuedAt: input.now,
+      lastActivityAt: input.now,
+    })
+    .onConflictDoNothing({ target: [discoverySyncRun.sourceId, discoverySyncRun.claimToken] })
+    .returning();
+  if (row) return row;
+  const [existing] = await executor
+    .select()
+    .from(discoverySyncRun)
+    .where(and(eq(discoverySyncRun.sourceId, input.sourceId), eq(discoverySyncRun.claimToken, input.claimToken)))
+    .limit(1);
+  if (!existing) {
+    throw new Error('Failed to create the discovery sync run record');
+  }
+  return existing;
+}
+
+/**
+ * Returns the latest tracked run for a source, or null when none exists yet.
+ * Old claims recorded before run tracking existed have no row — history is
+ * never fabricated for them.
+ */
+export async function getLatestDiscoverySyncRun(sourceId: string): Promise<DiscoverySyncRunRow | null> {
+  const [row] = await db
+    .select()
+    .from(discoverySyncRun)
+    .where(eq(discoverySyncRun.sourceId, sourceId))
+    .orderBy(desc(discoverySyncRun.queuedAt), desc(discoverySyncRun.claimToken))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Bounded recent-run history, latest first. */
+export async function listDiscoverySyncRuns(
+  sourceId: string,
+  limit: number = DISCOVERY_SYNC_RUN_HISTORY_LIMIT,
+): Promise<DiscoverySyncRunRow[]> {
+  return db
+    .select()
+    .from(discoverySyncRun)
+    .where(eq(discoverySyncRun.sourceId, sourceId))
+    .orderBy(desc(discoverySyncRun.queuedAt), desc(discoverySyncRun.claimToken))
+    .limit(Math.max(1, Math.min(limit, DISCOVERY_SYNC_RUN_HISTORY_LIMIT)));
+}
+
+/**
+ * Locks the run row for the rest of the transaction and verifies it still
+ * belongs to this run generation (`claim_token = claimedAt`). The FOR UPDATE
+ * lock is held to commit, exactly like {@link lockSourceRunOwnership}, so
+ * progress writes of two generations can never interleave.
+ */
+async function lockDiscoverySyncRunOwnership(
+  executor: DbTransaction,
+  sourceId: string,
+  claimToken: Date,
+): Promise<void> {
+  const [row] = await executor
+    .select({ claimToken: discoverySyncRun.claimToken, stage: discoverySyncRun.stage })
+    .from(discoverySyncRun)
+    .where(and(eq(discoverySyncRun.sourceId, sourceId), eq(discoverySyncRun.claimToken, claimToken)))
+    .for('update');
+  if (!row || row.claimToken.getTime() !== claimToken.getTime() || isDiscoverySyncRunTerminalStage(row.stage)) {
+    throw new SourceRunOwnershipLostError();
+  }
+}
+
+/**
+ * Marks the run as executing. Runs inside the same transaction as
+ * `startSourceSyncing`, so the run row's `start_token` becomes the executor's
+ * `runStartedAt` and every later progress write of this generation presents
+ * both tokens. Fenced by the claim token: a superseded queued claim is a no-op
+ * (returns false) instead of resurrecting an old run row.
+ */
+export async function markDiscoverySyncRunStarted(input: {
+  sourceId: string;
+  claimToken: Date;
+  startedAt: Date;
+  executor: DbTransaction;
+}): Promise<boolean> {
+  const result = await input.executor
+    .update(discoverySyncRun)
+    .set({
+      stage: 'downloading',
+      startToken: input.startedAt,
+      startedAt: input.startedAt,
+      lastActivityAt: input.startedAt,
+    })
+    .where(
+      and(
+        eq(discoverySyncRun.sourceId, input.sourceId),
+        eq(discoverySyncRun.claimToken, input.claimToken),
+        eq(discoverySyncRun.stage, 'queued'),
+      ),
+    );
+  return (result.rowCount ?? 0) > 0;
+}
+
+/**
+ * Advances a live run to a new phase. All tokens must match and the run must
+ * still be non-terminal, so a stale executor cannot rewind or re-label another
+ * generation's run. Truthful activity: a phase transition is a real event.
+ */
+export async function advanceDiscoverySyncRunStage(input: {
+  sourceId: string;
+  claimToken: Date;
+  startToken: Date;
+  stage: Extract<DiscoverySyncRunStage, 'processing' | 'reconciling'>;
+  now: Date;
+}): Promise<void> {
+  await db.transaction(async (tx) => {
+    await lockSourceRunOwnership(tx, input.sourceId, input.startToken);
+    await lockDiscoverySyncRunOwnership(tx, input.sourceId, input.claimToken);
+    await tx
+      .update(discoverySyncRun)
+      .set({ stage: input.stage, lastActivityAt: input.now })
+      .where(eq(discoverySyncRun.id, await currentRunId(tx, input.sourceId, input.claimToken)));
+  });
+}
+
+async function currentRunId(executor: DbTransaction, sourceId: string, claimToken: Date): Promise<string> {
+  const [row] = await executor
+    .select({ id: discoverySyncRun.id })
+    .from(discoverySyncRun)
+    .where(and(eq(discoverySyncRun.sourceId, sourceId), eq(discoverySyncRun.claimToken, claimToken)))
+    .limit(1);
+  if (!row) throw new SourceRunOwnershipLostError();
+  return row.id;
+}
+
+/**
+ * Records one committed batch of the current run, inside the caller's already
+ * open batch transaction. Because it shares that transaction, a batch that
+ * rolls back rolls this increment back too — failed batches never advance
+ * progress. Both the source-row lock (already held by the caller's
+ * `lockSourceRunOwnership`) and the run tokens are verified, so a stale
+ * executor from an older generation cannot inflate another run's counters.
+ */
+export async function recordDiscoverySyncRunBatchProgress(input: {
+  sourceId: string;
+  claimToken: Date;
+  startToken: Date;
+  committedRecords: number;
+  now: Date;
+  executor: DbTransaction;
+}): Promise<void> {
+  if (input.committedRecords <= 0) return;
+  await lockDiscoverySyncRunOwnership(input.executor, input.sourceId, input.claimToken);
+  const [row] = await input.executor
+    .select({ startToken: discoverySyncRun.startToken, stage: discoverySyncRun.stage })
+    .from(discoverySyncRun)
+    .where(and(eq(discoverySyncRun.sourceId, input.sourceId), eq(discoverySyncRun.claimToken, input.claimToken)))
+    .limit(1);
+  if (!row || row.startToken?.getTime() !== input.startToken.getTime() || isDiscoverySyncRunTerminalStage(row.stage)) {
+    throw new SourceRunOwnershipLostError();
+  }
+  await input.executor
+    .update(discoverySyncRun)
+    .set({
+      committedRecords: sql`${discoverySyncRun.committedRecords} + ${input.committedRecords}`,
+      committedBatches: sql`${discoverySyncRun.committedBatches} + 1`,
+      lastActivityAt: input.now,
+    })
+    .where(eq(discoverySyncRun.id, await currentRunId(input.executor, input.sourceId, input.claimToken)));
+}
+
+/**
+ * Terminal write for a completed run, executed inside the same transaction as
+ * `markSourceSucceeded` so run history and source status commit together. It
+ * re-verifies the source row's ownership, so losing the generation rolls the
+ * success report back together with the reconciliation.
+ */
+export async function finishDiscoverySyncRunSucceeded(input: {
+  sourceId: string;
+  claimToken: Date;
+  startToken: Date;
+  stage: Extract<DiscoverySyncRunStage, 'succeeded' | 'not_modified'>;
+  unavailableRecords: number;
+  snapshotLastModified: string | null;
+  finishedAt: Date;
+  executor: DbTransaction;
+}): Promise<void> {
+  await lockSourceRunOwnership(input.executor, input.sourceId, input.startToken);
+  await lockDiscoverySyncRunOwnership(input.executor, input.sourceId, input.claimToken);
+  await finishRun(input.executor, {
+    sourceId: input.sourceId,
+    claimToken: input.claimToken,
+    stage: input.stage,
+    unavailableRecords: input.unavailableRecords,
+    snapshotLastModified: input.snapshotLastModified,
+    finishedAt: input.finishedAt,
+  });
+}
+
+/**
+ * Terminal write for a run that failed; fenced by both run tokens. Returns false when ownership was lost.
+ * When `executor` is supplied it must be the caller's already-open transaction
+ * (which may hold the source-row lock): re-entering `db.transaction` on another
+ * connection would deadlock against that lock, so the fenced writes run directly
+ * in the supplied executor and only fall back to their own transaction when no
+ * executor was given.
+ */
+export async function finishDiscoverySyncRunFailed(input: {
+  sourceId: string;
+  claimToken: Date;
+  startToken: Date;
+  errorSummary: string;
+  finishedAt: Date;
+  /** Executor of an open transaction that already holds the source-row lock. */
+  executor?: DbTransaction;
+}): Promise<boolean> {
+  const run = async (tx: DbTransaction): Promise<boolean> => {
+    // A replaced generation must not record a failure for a run it no longer owns.
+    await lockSourceRunOwnership(tx, input.sourceId, input.startToken);
+    await lockDiscoverySyncRunOwnership(tx, input.sourceId, input.claimToken);
+    const [row] = await tx
+      .select({ startToken: discoverySyncRun.startToken, stage: discoverySyncRun.stage })
+      .from(discoverySyncRun)
+      .where(and(eq(discoverySyncRun.sourceId, input.sourceId), eq(discoverySyncRun.claimToken, input.claimToken)))
+      .limit(1);
+    if (
+      !row ||
+      row.startToken?.getTime() !== input.startToken.getTime() ||
+      isDiscoverySyncRunTerminalStage(row.stage)
+    ) {
+      return false;
+    }
+    await finishRun(tx, {
+      sourceId: input.sourceId,
+      claimToken: input.claimToken,
+      stage: 'failed',
+      errorSummary: input.errorSummary,
+      finishedAt: input.finishedAt,
+    });
+    return true;
+  };
+  if (input.executor) {
+    return run(input.executor);
+  }
+  return db.transaction(async (tx) => run(tx));
+}
+
+/**
+ * Closes the run for an enqueue-stage failure, fenced on the still-queued
+ * claim (`stage = 'queued'`) so it can only fail the exact claim that was just
+ * issued and never a run that already started or finished. Returns false when
+ * the run no longer matches (already terminal or a different generation).
+ */
+export async function failDiscoverySyncRunQueued(input: {
+  sourceId: string;
+  claimToken: Date;
+  errorSummary: string;
+  finishedAt: Date;
+  executor: DbTransaction;
+}): Promise<boolean> {
+  const result = await input.executor
+    .update(discoverySyncRun)
+    .set({
+      stage: 'failed',
+      finishedAt: input.finishedAt,
+      lastActivityAt: input.finishedAt,
+      errorSummary: input.errorSummary.slice(0, 500),
+    })
+    .where(
+      and(
+        eq(discoverySyncRun.sourceId, input.sourceId),
+        eq(discoverySyncRun.claimToken, input.claimToken),
+        eq(discoverySyncRun.stage, 'queued'),
+      ),
+    );
+  return (result.rowCount ?? 0) > 0;
+}
+
+/** Terminal write for a run that ended without fetching upstream (disabled or superseded claim). */
+export async function finishDiscoverySyncRunSkipped(input: {
+  sourceId: string;
+  claimToken: Date;
+  finishedAt: Date;
+  /** Executor of an open transaction so the skipped run commits with the source release. */
+  executor?: DbTransaction;
+}): Promise<void> {
+  const run = async (tx: DbTransaction): Promise<void> => {
+    // No-op when the run row is missing (pre-migration legacy) or already
+    // terminal: skipping a superseded claim must never resurrect or throw.
+    const [row] = await tx
+      .select({ id: discoverySyncRun.id, stage: discoverySyncRun.stage })
+      .from(discoverySyncRun)
+      .where(and(eq(discoverySyncRun.sourceId, input.sourceId), eq(discoverySyncRun.claimToken, input.claimToken)))
+      .for('update')
+      .limit(1);
+    if (!row || isDiscoverySyncRunTerminalStage(row.stage)) return;
+    await tx
+      .update(discoverySyncRun)
+      .set({
+        stage: 'skipped',
+        finishedAt: input.finishedAt,
+        lastActivityAt: input.finishedAt,
+        errorSummary: null,
+      })
+      .where(eq(discoverySyncRun.id, row.id));
+  };
+  if (input.executor) {
+    await run(input.executor);
+    return;
+  }
+  await db.transaction(run);
+}
+
+type FinishRunInput = {
+  sourceId: string;
+  claimToken: Date;
+  stage: Extract<DiscoverySyncRunStage, 'succeeded' | 'not_modified' | 'skipped' | 'failed'>;
+  finishedAt: Date;
+  errorSummary?: string;
+  unavailableRecords?: number;
+  snapshotLastModified?: string | null;
+};
+
+async function finishRun(executor: DbTransaction, input: FinishRunInput): Promise<void> {
+  await executor
+    .update(discoverySyncRun)
+    .set({
+      stage: input.stage,
+      finishedAt: input.finishedAt,
+      lastActivityAt: input.finishedAt,
+      errorSummary: input.errorSummary ? input.errorSummary.slice(0, 500) : null,
+      ...(input.unavailableRecords !== undefined ? { unavailableRecords: input.unavailableRecords } : {}),
+      ...(input.snapshotLastModified !== undefined ? { snapshotLastModified: input.snapshotLastModified } : {}),
+    })
+    .where(
+      and(
+        eq(discoverySyncRun.sourceId, input.sourceId),
+        eq(discoverySyncRun.claimToken, input.claimToken),
+        notInArray(discoverySyncRun.stage, [...DISCOVERY_SYNC_RUN_TERMINAL_STAGES]),
+      ),
+    );
+}
+
+/**
+ * Age-bounded recovery for a run row whose claim went stale without a terminal
+ * write (e.g. the worker died mid-run). Fenced to the exact claim token, so a
+ * live or already-finished run is never rewritten. Mirrors the source-row
+ * recovery so run history and source status stay synchronized.
+ */
+export async function recoverStaleDiscoverySyncRun(input: {
+  sourceId: string;
+  /** The stale generation token: a queued claim's token or a syncing run's start token. */
+  claimToken: Date;
+  errorSummary: string;
+  finishedAt: Date;
+  /** Executor of an open transaction that already holds the source-row lock. */
+  executor?: DbTransaction;
+}): Promise<void> {
+  const run = async (tx: DbTransaction): Promise<void> => {
+    // A syncing recovery presents the run's start token, while a queued recovery
+    // presents the claim token; match either so the correct run row is found.
+    const [row] = await tx
+      .select({ id: discoverySyncRun.id, stage: discoverySyncRun.stage })
+      .from(discoverySyncRun)
+      .where(
+        and(
+          eq(discoverySyncRun.sourceId, input.sourceId),
+          or(eq(discoverySyncRun.claimToken, input.claimToken), eq(discoverySyncRun.startToken, input.claimToken)),
+        ),
+      )
+      .for('update')
+      .limit(1);
+    // No run row: a pre-migration untracked task. Return without fabricating
+    // history and without blocking the source-row recovery in the same tx.
+    if (!row || isDiscoverySyncRunTerminalStage(row.stage)) return;
+    await tx
+      .update(discoverySyncRun)
+      .set({
+        stage: 'failed',
+        finishedAt: input.finishedAt,
+        lastActivityAt: input.finishedAt,
+        errorSummary: input.errorSummary.slice(0, 500),
+      })
+      .where(eq(discoverySyncRun.id, row.id));
+  };
+  if (input.executor) {
+    await run(input.executor);
+    return;
+  }
+  await db.transaction(run);
 }

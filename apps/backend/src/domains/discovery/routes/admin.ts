@@ -18,6 +18,7 @@ import {
 } from '@/domains/discovery/routes/validator';
 import {
   getProjectGutenbergSourceStatus,
+  getProjectGutenbergSyncRunHistory,
   requestProjectGutenbergSync,
   setProjectGutenbergSourceEnabled,
 } from '@/domains/discovery/sync/admin';
@@ -47,6 +48,11 @@ discoveryAdminRoutes.patch(PROJECT_GUTENBERG_SOURCE_PATH, requireAdmin, validate
 discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync`, requireAdmin, async (c) => {
   const accepted = await requestProjectGutenbergSync();
   return c.json(accepted, accepted.result === 'queued' ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.OK);
+});
+
+/** Bounded recent-run history (latest 20); admin-only like the status read. */
+discoveryAdminRoutes.get(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync/runs`, requireAdmin, async (c) => {
+  return c.json(await getProjectGutenbergSyncRunHistory());
 });
 
 const SOURCE_RECORDS_PATH = '/api/admin/discovery/source-records';
