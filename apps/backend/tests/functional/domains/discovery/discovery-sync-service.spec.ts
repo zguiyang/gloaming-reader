@@ -288,6 +288,7 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
       seenRecords: 501,
       unavailableRecords: 0,
       batches: 2,
+      committedRecords: 501,
     });
     expect(snapshotMocks.open).toHaveBeenCalledWith(
       expect.objectContaining({ url: PROJECT_GUTENBERG_RDF_SNAPSHOT_URL, ifModifiedSince: null }),

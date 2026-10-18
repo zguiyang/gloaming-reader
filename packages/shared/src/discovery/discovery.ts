@@ -304,6 +304,85 @@ export type DiscoverySourceSyncStatus = (typeof DISCOVERY_SOURCE_SYNC_STATUSES)[
 export const discoverySourceSyncStatusSchema = z.enum(DISCOVERY_SOURCE_SYNC_STATUSES);
 
 /**
+ * Observable stage of one sync run. Non-terminal stages are live progress;
+ * terminal stages are persisted outcomes. `not_modified` (a successful HTTP
+ * 304) is kept distinct from `succeeded` (a completed full scan), and `skipped`
+ * covers runs that ended without fetching upstream (disabled or superseded).
+ */
+export const DISCOVERY_SYNC_RUN_STAGES = [
+  'queued',
+  'downloading',
+  'processing',
+  'reconciling',
+  'succeeded',
+  'not_modified',
+  'skipped',
+  'failed',
+] as const;
+export type DiscoverySyncRunStage = (typeof DISCOVERY_SYNC_RUN_STAGES)[number];
+export const discoverySyncRunStageSchema = z.enum(DISCOVERY_SYNC_RUN_STAGES);
+
+/** True while a run is still progressing (not terminal). */
+export function isDiscoverySyncRunPending(stage: DiscoverySyncRunStage): boolean {
+  return stage === 'queued' || stage === 'downloading' || stage === 'processing' || stage === 'reconciling';
+}
+
+/**
+ * Evidence that a consumer may pick up a waiting queue job. A waiting job alone
+ * is not evidence — only real worker registration on the dedicated queue is.
+ * `unknown` means the queue could not be consulted (e.g. Redis unavailable);
+ * it must never be presented as "no consumer" or as a failed queue.
+ */
+export const DISCOVERY_SYNC_CONSUMER_STATES = ['available', 'unavailable', 'unknown'] as const;
+export type DiscoverySyncConsumerState = (typeof DISCOVERY_SYNC_CONSUMER_STATES)[number];
+export const discoverySyncConsumerStateSchema = z.enum(DISCOVERY_SYNC_CONSUMER_STATES);
+
+/** Latest bounded history size persisted/exposed per source; owned by @gloaming/db. */
+export const DISCOVERY_SYNC_RUN_HISTORY_LIMIT = 20 as const;
+
+/**
+ * One durable sync-run observation for admins. All counts are current-run
+ * committed facts: `committedRecords`/`committedBatches` only advance when a
+ * batch transaction commits, so a rolled-back batch is never counted. There is
+ * deliberately no total, percentage, or inserted/updated split; the source-level
+ * total `recordCount` on {@link discoverySourceStatusSchema} stays distinct.
+ */
+export const discoverySyncRunSummarySchema = z.object({
+  id: z.string(),
+  stage: discoverySyncRunStageSchema,
+  queuedAt: z.union([z.string(), z.date()]),
+  startedAt: z.union([z.string(), z.date()]).nullable(),
+  lastActivityAt: z.union([z.string(), z.date()]),
+  finishedAt: z.union([z.string(), z.date()]).nullable(),
+  /** Records committed by this run so far. */
+  committedRecords: z.number().int().nonnegative(),
+  /** Upsert batches committed by this run so far. */
+  committedBatches: z.number().int().nonnegative(),
+  /** Records this run reconciled as unavailable (only after a full successful scan). */
+  unavailableRecords: z.number().int().nonnegative(),
+  /** Sanitized operational error summary for failed runs; null otherwise. */
+  errorSummary: z.string().nullable(),
+});
+export type DiscoverySyncRunSummary = z.infer<typeof discoverySyncRunSummarySchema>;
+
+/**
+ * Current-run progress embedded in the admin status response. `run` is null
+ * before the first tracked run. `consumer` is only meaningful while the run is
+ * `queued`: it reports real consumer evidence, `unavailable`, or `unknown`.
+ */
+export const discoverySyncRunProgressSchema = z.object({
+  run: discoverySyncRunSummarySchema.nullable(),
+  consumer: discoverySyncConsumerStateSchema,
+});
+export type DiscoverySyncRunProgress = z.infer<typeof discoverySyncRunProgressSchema>;
+
+/** Bounded recent-run history (latest first, capped at {@link DISCOVERY_SYNC_RUN_HISTORY_LIMIT}). */
+export const discoverySyncRunHistorySchema = z.object({
+  runs: z.array(discoverySyncRunSummarySchema),
+});
+export type DiscoverySyncRunHistory = z.infer<typeof discoverySyncRunHistorySchema>;
+
+/**
  * Admin-facing status for a single DiscoverySource. Source-level only: no
  * SourceRecord list, no ReadingWork linkage, no CMS controls.
  */
@@ -325,6 +404,8 @@ export const discoverySourceStatusSchema = z.object({
   recordCount: z.number().int().nonnegative(),
   /** Sanitized operational error summary; null when the last run succeeded. */
   lastErrorSummary: z.string().nullable(),
+  /** Current-run observability: latest tracked run (if any) plus queue-consumer evidence. */
+  currentRun: discoverySyncRunProgressSchema,
 });
 export type DiscoverySourceStatus = z.infer<typeof discoverySourceStatusSchema>;
 

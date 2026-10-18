@@ -379,7 +379,8 @@
       "pendingHint": "已有同步任务在后台运行。",
       "disabledSyncHint": "来源已停用，暂时无法手动同步。",
       "value": {
-        "never": "从未"
+        "never": "从未",
+        "elapsed": "{minutes} 分 {seconds} 秒"
       },
       "enum": {
         "syncStatus": {
@@ -388,12 +389,48 @@
           "syncing": "同步中",
           "succeeded": "成功",
           "failed": "失败"
+        },
+        "runStage": {
+          "queued": "排队中",
+          "downloading": "下载中",
+          "processing": "处理中",
+          "reconciling": "核对中",
+          "succeeded": "已成功",
+          "notModified": "无更新",
+          "skipped": "已跳过",
+          "failed": "已失败"
         }
       },
       "toast": {
         "queued": "已加入后台同步队列。",
         "alreadyRunning": "已有同步任务正在运行。",
         "disabled": "来源已停用，无法手动同步。"
+      },
+      "run": {
+        "title": "同步运行",
+        "empty": "暂无同步运行记录。",
+        "consumer": {
+          "available": "队列工作进程可用。",
+          "unavailable": "等待队列工作进程。",
+          "unknown": "工作进程可用性未知。"
+        },
+        "fields": {
+          "stage": "阶段",
+          "elapsed": "已用时",
+          "committedRecords": "已提交记录",
+          "committedBatches": "已提交批次",
+          "lastActivity": "最后活动",
+          "finished": "完成于"
+        },
+        "committedRecords": "已提交 {count} 条记录",
+        "committedBatches": "已提交 {count} 个批次",
+        "unavailableRecords": "{count} 条已标记为不可用",
+        "recent": {
+          "title": "最近运行",
+          "empty": "暂无最近运行。",
+          "error": "无法加载最近运行",
+          "retry": "重试"
+        }
       }
     },
     "publicCategories": {

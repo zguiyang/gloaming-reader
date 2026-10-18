@@ -365,6 +365,13 @@
       "when": 1791810438819,
       "tag": "0051_remove_business_quotas",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792156516426,
+      "tag": "0052_minor_mandrill",
+      "breakpoints": true
     }
   ]
 }

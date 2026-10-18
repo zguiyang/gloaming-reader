@@ -18,6 +18,7 @@ import {
   formatDiscoverySourcesApiError,
   isDiscoverySyncPending,
   useDiscoverySourceStatusQuery,
+  useDiscoverySyncRunHistoryQuery,
   useSetDiscoverySourceEnabledMutation,
   useTriggerDiscoverySourceSyncMutation,
 } from '@/features/admin/discovery-sources/discovery-sources-api';
@@ -25,6 +26,7 @@ import {
   discoverySyncStatusLabel,
   formatDiscoveryTimestamp,
 } from '@/features/admin/discovery-sources/discovery-sources-format';
+import { DiscoverySyncRunPanel } from '@/features/admin/discovery-sources/discovery-sync-run-panel';
 import { useLocale } from '@/lib/locale-context';
 
 type StatusFieldProps = {
@@ -60,6 +62,7 @@ function PageHeading() {
 export function DiscoverySourcesPage() {
   const { locale } = useLocale();
   const statusQuery = useDiscoverySourceStatusQuery();
+  const historyQuery = useDiscoverySyncRunHistoryQuery(statusQuery.data);
   const enabledMutation = useSetDiscoverySourceEnabledMutation();
   const syncMutation = useTriggerDiscoverySourceSyncMutation();
   const status = statusQuery.data;
@@ -190,6 +193,14 @@ export function DiscoverySourcesPage() {
           </div>
         </CardContent>
       </Card>
+
+      <DiscoverySyncRunPanel
+        progress={status.currentRun}
+        history={historyQuery.data}
+        historyPending={historyQuery.isPending}
+        historyError={historyQuery.isError}
+        onRetryHistory={() => void historyQuery.refetch()}
+      />
     </div>
   );
 }

@@ -379,7 +379,8 @@
       "pendingHint": "A sync is already running in the background.",
       "disabledSyncHint": "Manual sync is unavailable while this source is disabled.",
       "value": {
-        "never": "Never"
+        "never": "Never",
+        "elapsed": "{minutes}m {seconds}s"
       },
       "enum": {
         "syncStatus": {
@@ -388,12 +389,48 @@
           "syncing": "Syncing",
           "succeeded": "Succeeded",
           "failed": "Failed"
+        },
+        "runStage": {
+          "queued": "Queued",
+          "downloading": "Downloading",
+          "processing": "Processing",
+          "reconciling": "Reconciling",
+          "succeeded": "Succeeded",
+          "notModified": "Not modified",
+          "skipped": "Skipped",
+          "failed": "Failed"
         }
       },
       "toast": {
         "queued": "Background sync queued.",
         "alreadyRunning": "A sync is already running.",
         "disabled": "Sync is unavailable while this source is disabled."
+      },
+      "run": {
+        "title": "Sync run",
+        "empty": "No sync run has been recorded yet.",
+        "consumer": {
+          "available": "A queue worker is available.",
+          "unavailable": "Waiting for a queue worker.",
+          "unknown": "Worker availability unknown."
+        },
+        "fields": {
+          "stage": "Stage",
+          "elapsed": "Elapsed",
+          "committedRecords": "Committed records",
+          "committedBatches": "Committed batches",
+          "lastActivity": "Last activity",
+          "finished": "Finished"
+        },
+        "committedRecords": "{count} records committed",
+        "committedBatches": "{count} batches committed",
+        "unavailableRecords": "{count} marked unavailable",
+        "recent": {
+          "title": "Recent runs",
+          "empty": "No recent runs.",
+          "error": "Could not load recent runs",
+          "retry": "Retry"
+        }
       }
     },
     "publicCategories": {
