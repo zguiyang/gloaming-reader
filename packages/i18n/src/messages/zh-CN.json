@@ -375,8 +375,11 @@
       "toggleEnableAria": "启用 Project Gutenberg 同步源",
       "toggleDisableAria": "停用 Project Gutenberg 同步源",
       "syncNow": "立即同步",
+      "queued": "排队中…",
       "syncing": "同步中…",
+      "queuedHint": "任务已排队，等待处理。",
       "pendingHint": "已有同步任务在后台运行。",
+      "missingRunDetail": "当前任务没有详细运行记录，较早创建的任务可能没有历史；后续新任务会记录阶段和结果。",
       "disabledSyncHint": "来源已停用，暂时无法手动同步。",
       "value": {
         "never": "从未",
