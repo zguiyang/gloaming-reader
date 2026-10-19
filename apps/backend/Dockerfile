@@ -13,7 +13,7 @@ COPY apps/backend/package.json ./apps/backend/
 COPY packages/db/package.json ./packages/db/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/i18n/package.json ./packages/i18n/
-# Production entrypoints run compiled JavaScript with plain node.
+# Production entrypoints run compiled JavaScript via the tsx loader kept in the image.
 RUN pnpm install --frozen-lockfile --filter @gloaming/backend...
 
 FROM base AS build
@@ -45,4 +45,6 @@ COPY --from=build /app/apps/backend/package.json ./apps/backend/package.json
 COPY package.json pnpm-workspace.yaml ./
 WORKDIR /app/apps/backend
 EXPOSE 3333
-CMD ["node", "dist/index.js"]
+# Workspace packages ship TypeScript sources (package exports point to src/*.ts),
+# so they are resolved by the tsx loader kept in the runner image.
+CMD ["node", "--import", "tsx", "dist/index.js"]

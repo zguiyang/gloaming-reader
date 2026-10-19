@@ -20,6 +20,8 @@ PostgreSQL, Redis, and S3-compatible object storage are external dependencies. R
    pnpm worker
    ```
 
+   Both commands load the compiled backend through the `tsx` loader (`node --import tsx`), because the workspace packages (`@gloaming/db`, `@gloaming/shared`, `@gloaming/i18n`) publish TypeScript sources — their package exports point to `src/*.ts` with extensionless relative imports that plain Node cannot resolve. The image's default `CMD` already uses this loader, so overriding the command with `pnpm start` / `pnpm worker` behaves identically.
+
 3. Configure private service networking. Set `API_INTERNAL_URL` for `web` to the private `api` address, normally `http://api:3333`. Expose a public domain only for `web`.
 4. Keep `api` and `worker` running with automatic restart. A stopped worker leaves queued jobs pending.
 
@@ -53,7 +55,7 @@ Use [`apps/web/.env.example`](../apps/web/.env.example), [`apps/backend/.env.exa
 - The same `DATABASE_URL`, `REDIS_URL`, `LLM_CONFIG_ENCRYPTION_KEY`, and `S3_*` values as `api`.
 - It does not need frontend, auth, mail, or GitHub OAuth variables.
 
-The API and worker validate their configuration at startup and exit on missing or invalid required values. The worker image retains workspace devDependencies because the current runtime command loads `tsx`.
+The API and worker validate their configuration at startup and exit on missing or invalid required values. The worker image retains workspace devDependencies because the runtime command loads `tsx` (`node --import tsx dist/worker.js`).
 
 If the platform runs Node directly instead of building Docker images, install the full workspace, run `pnpm build`, and supervise these three commands:
 
