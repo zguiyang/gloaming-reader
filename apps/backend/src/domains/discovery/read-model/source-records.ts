@@ -12,6 +12,7 @@ import type {
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
 
 import { loadCategorySummariesByRecordIds } from '@/domains/discovery/categories/repository';
+import { hasSelectableEpubCandidate } from '@/domains/discovery/materialization/epub-candidate';
 import {
   availableRecordFilter,
   enabledSourceFilter,
@@ -96,6 +97,9 @@ function toSourceRecordItem(
     lastSeenAt: record.lastSeenAt,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    // Computed from the selected `content_candidates` row only; the candidates
+    // themselves stay off the list DTO and appear solely on the detail projection.
+    isSaveable: hasSelectableEpubCandidate({ contentCandidates: record.contentCandidates }),
   };
 }
 

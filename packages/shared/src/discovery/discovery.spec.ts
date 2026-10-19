@@ -40,6 +40,7 @@ const sourceRecordBase = {
   lastSeenAt: null,
   createdAt: '2026-10-11T00:00:00.000Z',
   updatedAt: '2026-10-11T00:00:00.000Z',
+  isSaveable: true,
 };
 
 describe('public category contracts', () => {
@@ -150,6 +151,12 @@ describe('public category contracts', () => {
     const linked = sourceRecordItemSchema.parse({ ...sourceRecordBase, linkedWorkId: 'work-42' });
     expect(linked.sourceRecordId).toBe('sr-1');
     expect(linked.linkedWorkId).toBe('work-42');
+  });
+
+  it('requires an explicit saveability marker on every SourceRecord item', () => {
+    const { isSaveable: _omitted, ...missing } = sourceRecordBase;
+    expect(() => sourceRecordItemSchema.parse(missing)).toThrow();
+    expect(sourceRecordItemSchema.parse({ ...sourceRecordBase, isSaveable: false }).isSaveable).toBe(false);
   });
 
   it('keeps SourceRecord categories optional until the read model projects them', () => {

@@ -16,6 +16,12 @@ export type DiscoverItem = {
   coverImageUrl: string | null;
   /** Minimal localized category summaries projected for the request locale. */
   categories: PublicCategorySummary[];
+  /**
+   * Whether a selectable official EPUB candidate exists in synced metadata.
+   * `false` disables saving for now (for example an audio-only source or a
+   * record with no EPUB); the record remains listed in Discover.
+   */
+  isSaveable: boolean;
 };
 
 /**
@@ -50,6 +56,7 @@ export function toDiscoverItem(record: SourceRecordItem): DiscoverItem {
     author: formatSourceRecordAuthors(record),
     coverImageUrl: record.coverUrl ?? null,
     categories: record.categories ?? [],
+    isSaveable: record.isSaveable,
   };
 }
 

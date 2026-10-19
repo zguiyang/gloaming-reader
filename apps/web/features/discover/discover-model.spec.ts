@@ -30,6 +30,7 @@ function sampleRecord(overrides: Partial<SourceRecordItem> = {}): SourceRecordIt
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     categories: [{ id: 'cat-1', name: 'Classics' }],
+    isSaveable: true,
     ...overrides,
   };
 }
@@ -67,6 +68,7 @@ describe('Discover model', () => {
       author: 'Jane Austen',
       coverImageUrl: 'https://example.test/cover.jpg',
       categories: [{ id: 'cat-1', name: 'Classics' }],
+      isSaveable: true,
     });
     expect(item).not.toHaveProperty('workId');
     expect(item).not.toHaveProperty('partCount');
@@ -76,6 +78,11 @@ describe('Discover model', () => {
     const item = toDiscoverItem(sampleRecord({ linkedWorkId: 'work-42' }));
     expect(item.id).toBe('sr-1');
     expect(item.linkedWorkId).toBe('work-42');
+  });
+
+  it('carries the saveability marker through the Discover mapping', () => {
+    expect(toDiscoverItem(sampleRecord({ isSaveable: true })).isSaveable).toBe(true);
+    expect(toDiscoverItem(sampleRecord({ isSaveable: false })).isSaveable).toBe(false);
   });
 
   it('keeps an empty author list readable and drops blank names', () => {

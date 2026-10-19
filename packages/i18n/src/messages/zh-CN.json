@@ -1031,6 +1031,7 @@
       "saveReady": "已加入书库",
       "savePending": "已加入书库，正在准备内容",
       "saveFailed": "加入书库失败，请重试",
+      "noEpubHint": "暂无可读 EPUB，暂时无法加入书库。",
       "legacySectionLabel": "已发布书目",
       "legacySectionDescription": "这些是已发布但尚无来源记录的书目。",
       "chapterCount": "{count} 章",

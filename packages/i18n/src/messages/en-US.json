@@ -1031,6 +1031,7 @@
       "saveReady": "Added to your Library",
       "savePending": "Added to your Library; preparing the content",
       "saveFailed": "Could not add to Library. Please try again.",
+      "noEpubHint": "No readable EPUB is available yet.",
       "legacySectionLabel": "Published catalog",
       "legacySectionDescription": "Titles already published without a source record.",
       "chapterCount": "{count} chapters",

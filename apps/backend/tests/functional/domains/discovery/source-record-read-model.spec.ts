@@ -131,7 +131,9 @@ describe('SourceRecord read model on gloaming_test', () => {
           title: 'Alpha Discovery',
           authors: [{ name: 'Zed Author', role: 'author' }],
           rightsStatement: 'Public domain in the USA.',
-          contentCandidates: [{ format: 'epub', url: `https://example.test/${runId}/1.epub`, sizeBytes: 10 }],
+          contentCandidates: [
+            { format: 'epub', url: 'https://www.gutenberg.org/ebooks/1342.epub.images', sizeBytes: 10 },
+          ],
           sourceMeta: { subjects: ['Fiction'], bookshelves: ['Best Books Ever'] },
           sourceUpdatedAt: new Date('2024-03-01T00:00:00.000Z'),
         }),
@@ -167,6 +169,22 @@ describe('SourceRecord read model on gloaming_test', () => {
     expect(ids).not.toContain(`${runId}-3`);
     expect(data.pagination.total).toBe(3);
     expect(data.pagination.sortBy).toBe('sourceUpdatedAt');
+  });
+
+  it('marks isSaveable from synced EPUB candidates without exposing them on the list', async () => {
+    const data = await listAll();
+    const byExternalId = new Map(data.items.map((item) => [item.externalId, item]));
+
+    // Only `${runId}-1` carries an official Gutenberg EPUB candidate.
+    expect(byExternalId.get(`${runId}-1`)?.isSaveable).toBe(true);
+    expect(byExternalId.get(`${runId}-2`)?.isSaveable).toBe(false);
+    expect(byExternalId.get(`${runId}-4`)?.isSaveable).toBe(false);
+
+    // Candidate data is computed server-side only; it never leaks into the list DTO.
+    for (const item of data.items) {
+      expect(item).not.toHaveProperty('contentCandidates');
+    }
+    expect(sourceRecordListDataSchema.parse(data)).toEqual(data);
   });
 
   it('filters by an explicit language while preserving non-English persisted records', async () => {
@@ -211,9 +229,10 @@ describe('SourceRecord read model on gloaming_test', () => {
       sourceKey,
       externalId: `${runId}-1`,
       rightsStatement: 'Public domain in the USA.',
-      contentCandidates: [{ format: 'epub', url: `https://example.test/${runId}/1.epub`, sizeBytes: 10 }],
+      contentCandidates: [{ format: 'epub', url: 'https://www.gutenberg.org/ebooks/1342.epub.images', sizeBytes: 10 }],
       sourceMeta: { subjects: ['Fiction'], bookshelves: ['Best Books Ever'] },
       availability: 'available',
+      isSaveable: true,
     });
     expect(detail).not.toHaveProperty('readingWorkId');
     expect(detail.linkedWorkId).toBeNull();
