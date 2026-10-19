@@ -83,6 +83,15 @@ function isSelectableEpubCandidate(candidate: SourceRecordContentCandidate): boo
   return EPUB_MIME_PATTERN.test(mimeType);
 }
 
+/**
+ * True when synced metadata contains at least one selectable official Gutenberg
+ * EPUB candidate, i.e. {@link selectGutenbergEpubCandidate} would succeed. A
+ * pure read-model hint: it never downloads, resolves, or mutates anything.
+ */
+export function hasSelectableEpubCandidate(source: EpubCandidateSource): boolean {
+  return source.contentCandidates.some(isSelectableEpubCandidate);
+}
+
 /** Lower is better: standard EPUB (`0`) before EPUB 3 (`1`). */
 function versionRank(pathname: string): number {
   return /\.epub3(?:\.|$)/i.test(pathname) ? 1 : 0;

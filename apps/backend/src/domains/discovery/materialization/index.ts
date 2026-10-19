@@ -1,6 +1,7 @@
 export type { EpubCandidateSource } from './epub-candidate';
 export {
   EpubCandidateSelectionError,
+  hasSelectableEpubCandidate,
   isOfficialGutenbergEpubUrl,
   selectGutenbergEpubCandidate,
 } from './epub-candidate';

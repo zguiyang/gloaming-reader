@@ -5,6 +5,7 @@ import type { SourceRecordContentCandidate } from '@gloaming/db/schema';
 import {
   EpubCandidateSelectionError,
   type EpubCandidateSource,
+  hasSelectableEpubCandidate,
   isOfficialGutenbergEpubUrl,
   selectGutenbergEpubCandidate,
 } from '@/domains/discovery/materialization';
@@ -119,6 +120,42 @@ describe('selectGutenbergEpubCandidate', () => {
   it('fails clearly when synced metadata has no candidates', () => {
     expect(() => selectGutenbergEpubCandidate(source())).toThrow(EpubCandidateSelectionError);
     expect(() => selectGutenbergEpubCandidate(source())).toThrow(/No official Project Gutenberg EPUB candidate/);
+  });
+});
+
+describe('hasSelectableEpubCandidate', () => {
+  it('is true when any synced candidate is a selectable official EPUB', () => {
+    expect(hasSelectableEpubCandidate(source(candidate(`${EBOOKS}.epub.images`)))).toBe(true);
+    expect(hasSelectableEpubCandidate(source(candidate(`${EBOOKS}.epub3.images`)))).toBe(true);
+    expect(
+      hasSelectableEpubCandidate(
+        source(
+          candidate(`${EBOOKS}.html.images`, { format: 'html', mimeType: 'text/html' }),
+          candidate('https://www.gutenberg.org/cache/epub/1342/pg1342.epub', { mimeType: 'application/epub+zip' }),
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('is false for empty, non-official, or non-EPUB candidates', () => {
+    expect(hasSelectableEpubCandidate(source())).toBe(false);
+    expect(hasSelectableEpubCandidate(source(candidate('https://example.test/1342.epub.images')))).toBe(false);
+    expect(hasSelectableEpubCandidate(source(candidate('http://www.gutenberg.org/ebooks/1342.epub.images')))).toBe(
+      false,
+    );
+    expect(hasSelectableEpubCandidate(source(candidate(`${EBOOKS}.epub.images`, { mimeType: 'text/html' })))).toBe(
+      false,
+    );
+    expect(hasSelectableEpubCandidate(source(candidate(`${EBOOKS}.txt.utf-8`, { format: 'txt' })))).toBe(false);
+  });
+
+  it('agrees with selectGutenbergEpubCandidate on the same synced metadata', () => {
+    const saveable = source(candidate(`${EBOOKS}.epub.images`));
+    const unsavable = source(candidate('https://example.test/1342.epub.images'));
+    expect(hasSelectableEpubCandidate(saveable)).toBe(true);
+    expect(() => selectGutenbergEpubCandidate(saveable)).not.toThrow();
+    expect(hasSelectableEpubCandidate(unsavable)).toBe(false);
+    expect(() => selectGutenbergEpubCandidate(unsavable)).toThrow(EpubCandidateSelectionError);
   });
 });
 

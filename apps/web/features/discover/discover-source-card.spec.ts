@@ -49,6 +49,7 @@ const item: DiscoverItem = {
   author: 'Jane Austen',
   coverImageUrl: null,
   categories: [{ id: 'cat-1', name: '科幻' }],
+  isSaveable: true,
 };
 
 async function flush() {
@@ -208,6 +209,27 @@ describe('DiscoverSourceCard Save Intent', () => {
     const view = await renderCard();
     expect(view.container.textContent).toContain('科幻');
     expect(view.container.querySelector('a')).toBeNull();
+    view.cleanup();
+  });
+
+  it('disables saving and explains when no readable EPUB is available yet', async () => {
+    const view = await renderCard('zh-CN', { ...item, isSaveable: false });
+
+    const button = buttonByText(view.container, '加入书库');
+    expect(button).toBeTruthy();
+    expect(button!.disabled).toBe(true);
+    expect(view.container.textContent).toContain('暂无可读 EPUB，暂时无法加入书库。');
+
+    await act(async () => {
+      button!.click();
+    });
+    await flush();
+
+    // The disabled action must never create a Save Intent or seed its cache.
+    expect(mocks.saveSourceRecordToLibrary).not.toHaveBeenCalled();
+    expect(view.client.getQueryData(['discover', 'save-status', 'user-1', 'sr-1'])).toBeUndefined();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+    expect(view.container.textContent).toContain('暂无可读 EPUB，暂时无法加入书库。');
     view.cleanup();
   });
 

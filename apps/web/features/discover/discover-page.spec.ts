@@ -82,6 +82,7 @@ function record(overrides: Partial<SourceRecordItem> = {}): SourceRecordItem {
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     categories: [{ id: 'cat-1', name: '科幻' }],
+    isSaveable: true,
     ...overrides,
   };
 }

@@ -77,7 +77,8 @@ function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & {
   }, [queryClient, serverStatus]);
 
   async function handleSaveIntent() {
-    if (action) {
+    if (action || item.isSaveable === false) {
+      // Unsaveable records (no selectable EPUB yet) never send a Save Intent.
       return;
     }
     setAction('saving');
@@ -242,17 +243,23 @@ function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & {
               <ArrowRightIcon className="size-4" strokeWidth={1.5} aria-hidden />
             </Button>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 gap-1.5"
-              onClick={() => {
-                void handleSaveIntent();
-              }}
-            >
-              <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
-              {t(locale, 'content.discover.addToLibrary')}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 gap-1.5"
+                disabled={item.isSaveable === false}
+                onClick={() => {
+                  void handleSaveIntent();
+                }}
+              >
+                <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
+                {t(locale, 'content.discover.addToLibrary')}
+              </Button>
+              {item.isSaveable === false ? (
+                <p className="mt-1.5 text-xs text-muted-foreground">{t(locale, 'content.discover.noEpubHint')}</p>
+              ) : null}
+            </>
           )}
           {!detailHref && isPreparing ? (
             <p className="mt-1.5 text-xs text-muted-foreground">{t(locale, 'content.discover.preparingHint')}</p>

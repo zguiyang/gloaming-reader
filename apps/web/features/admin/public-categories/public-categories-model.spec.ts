@@ -56,6 +56,7 @@ function sampleRecord(overrides: Partial<SourceRecordItem> = {}): SourceRecordIt
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     categories: [],
+    isSaveable: true,
     ...overrides,
   };
 }

@@ -274,6 +274,13 @@ export const sourceRecordItemSchema = z.object({
   createdAt: z.union([z.string(), z.date()]),
   updatedAt: z.union([z.string(), z.date()]),
   /**
+   * Whether synced metadata currently contains at least one selectable
+   * official EPUB candidate. `false` means the record cannot be saved into the
+   * Library right now (for example an audio-only source or a record with no
+   * EPUB at all); the record stays visible in Discover either way.
+   */
+  isSaveable: z.boolean(),
+  /**
    * Public category display summaries projected for Discover; absent until the
    * read model adds them. Never embeds the full category-management DTO.
    */
