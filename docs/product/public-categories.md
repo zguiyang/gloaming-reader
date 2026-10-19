@@ -35,5 +35,8 @@ Related: [`personal-tags.md`](./personal-tags.md) · [`content-strategy.md`](./c
 
 ## 4. Verification status
 
-- Real classification Worker, real classification/translation AI calls, and the Discover / save-read loop page acceptance remain unverified; the reclassification reconciliation, public-count scope, and Save Intent status read are verified by automated tests only (mocked AI results, isolated test database/Redis). The reported management-page CRUD acceptance does not establish those results.
+- **Admin CRUD accepted (2026-10-14)** as reported acceptance (section 2).
+- **Discover → save → library → detail → read loop page-accepted with the real record Gutenberg 11339 on 2026-10-18.** This is a page acceptance only; it does not establish real AI classification or translation.
+- Real classification Worker, real classification/translation AI calls, and the complete Worker loop remain unverified against a real Provider; the reclassification reconciliation, public-count scope, and Save Intent status read are verified by automated tests only (mocked AI results, isolated test database/Redis).
+- Automated tests prove only the semantics they cover, and neither the reported management-page CRUD acceptance nor the real-record page loop acceptance establishes those AI results.
 - This document records the current boundary and accepted semantics only; it **authorizes no new features**.
