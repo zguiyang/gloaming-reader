@@ -253,8 +253,14 @@ export async function setProjectGutenbergSourceEnabled(enabled: boolean): Promis
  * live queue job — or a stale syncing run — is first recovered as a timed-out
  * failure; that recovery alone does not start a new run — this trigger then
  * claims (issuing a fresh claim generation token) and enqueues one.
+ *
+ * `input.force` (only the literal `true`) marks the job as a full refresh: the
+ * run then skips the conditional `If-Modified-Since` request. Every other input
+ * keeps the job data byte-identical to a pre-force delivery — queue name, job
+ * id rule, and claim semantics are untouched.
  */
-export async function requestProjectGutenbergSync(): Promise<DiscoverySyncAccepted> {
+export async function requestProjectGutenbergSync(input: { force?: boolean } = {}): Promise<DiscoverySyncAccepted> {
+  const force = input.force === true;
   const source = await recoverStaleRun(await loadProjectGutenbergSource());
   if (!source.enabled) {
     return { result: 'disabled' };
@@ -273,7 +279,13 @@ export async function requestProjectGutenbergSync(): Promise<DiscoverySyncAccept
   try {
     await enqueueDiscoverySync(
       JOB_DISCOVERY_SYNC,
-      { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: claimedAt.toISOString() },
+      {
+        sourceKey: PROJECT_GUTENBERG_SOURCE_KEY,
+        claimedAt: claimedAt.toISOString(),
+        // Added only on the explicit opt-in, so a default trigger's job data
+        // stays exactly as before force support existed.
+        ...(force ? { force: true } : {}),
+      },
       { attempts: 1, jobId: discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claimedAt) },
     );
   } catch {

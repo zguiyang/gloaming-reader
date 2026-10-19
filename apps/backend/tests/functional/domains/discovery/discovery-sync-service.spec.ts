@@ -28,6 +28,7 @@ import {
 } from '@/domains/discovery/gutenberg/constants';
 import { GutenbergSnapshotError } from '@/domains/discovery/gutenberg/errors';
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
+import type * as GutenbergSnapshotStream from '@/domains/discovery/gutenberg/snapshot-stream';
 import type * as SyncRepository from '@/domains/discovery/sync/repository';
 import {
   claimSourceQueued,
@@ -141,6 +142,8 @@ vi.mock('@/domains/discovery/categories', async (importOriginal) => {
 
 const runId = randomUUID();
 const TIMEOUT_SUMMARY = 'the Project Gutenberg metadata sync exceeded its time limit';
+/** Stored upstream Last-Modified used to distinguish conditional requests. */
+const STORED_LAST_MODIFIED = 'Tue, 01 Jan 2030 00:00:00 GMT';
 let sourceId = '';
 
 function fixtureRecord(index: number, overrides: Partial<ParsedSourceRecord> = {}): ParsedSourceRecord {
@@ -536,6 +539,78 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
     const source = await sourceRow();
     expect(source?.syncStatus).toBe('failed');
     expect(source?.lastErrorSummary).toBe('an RDF member could not be parsed');
+  });
+
+  it('requests the snapshot without If-Modified-Since when force is set', async () => {
+    const { openGutenbergSnapshot: realOpen } = (await vi.importActual(
+      '@/domains/discovery/gutenberg/snapshot-stream',
+    )) as typeof GutenbergSnapshotStream;
+    snapshotMocks.open.mockImplementation((options: Parameters<typeof realOpen>[0]) => realOpen(options));
+    // Answer with 304 so the real stream opener runs its header logic without
+    // any public Gutenberg access.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 304 }));
+    try {
+      await db
+        .update(discoverySourceTable)
+        .set({ snapshotLastModified: STORED_LAST_MODIFIED })
+        .where(eq(discoverySourceTable.id, sourceId));
+
+      const forcedResult = await syncProjectGutenbergMetadata({ claimedAt: await claimQueued(), force: true });
+      expect(forcedResult).toMatchObject({ status: 'not-modified' });
+      expect(snapshotMocks.open).toHaveBeenLastCalledWith(expect.objectContaining({ ifModifiedSince: null }));
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [, forcedInit] = fetchSpy.mock.calls[0]!;
+      expect(forcedInit?.headers).not.toHaveProperty('If-Modified-Since');
+
+      // Without force the stored date is still revalidated conditionally.
+      await resetSourceItself();
+      await db
+        .update(discoverySourceTable)
+        .set({ snapshotLastModified: STORED_LAST_MODIFIED })
+        .where(eq(discoverySourceTable.id, sourceId));
+      const conditionalResult = await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
+      expect(conditionalResult).toMatchObject({ status: 'not-modified' });
+      expect(snapshotMocks.open).toHaveBeenLastCalledWith(
+        expect.objectContaining({ ifModifiedSince: STORED_LAST_MODIFIED }),
+      );
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      const [, conditionalInit] = fetchSpy.mock.calls[1]!;
+      expect(conditionalInit?.headers).toHaveProperty('If-Modified-Since', STORED_LAST_MODIFIED);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('propagates the job-level force flag into the snapshot request', async () => {
+    snapshotMocks.open.mockImplementation(async () => fakeSnapshot(records(1)));
+    await db
+      .update(discoverySourceTable)
+      .set({ snapshotLastModified: STORED_LAST_MODIFIED })
+      .where(eq(discoverySourceTable.id, sourceId));
+
+    const forcedClaim = await claimQueued();
+    await expect(
+      processDiscoverySync({
+        sourceKey: PROJECT_GUTENBERG_SOURCE_KEY,
+        claimedAt: forcedClaim.toISOString(),
+        force: true,
+      }),
+    ).resolves.toMatchObject({ status: 'succeeded' });
+    expect(snapshotMocks.open).toHaveBeenLastCalledWith(expect.objectContaining({ ifModifiedSince: null }));
+
+    // A job without `force` keeps the conditional request for the same source.
+    await resetSourceItself();
+    await db
+      .update(discoverySourceTable)
+      .set({ snapshotLastModified: STORED_LAST_MODIFIED })
+      .where(eq(discoverySourceTable.id, sourceId));
+    const plainClaim = await claimQueued();
+    await expect(
+      processDiscoverySync({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, claimedAt: plainClaim.toISOString() }),
+    ).resolves.toMatchObject({ status: 'succeeded' });
+    expect(snapshotMocks.open).toHaveBeenLastCalledWith(
+      expect.objectContaining({ ifModifiedSince: STORED_LAST_MODIFIED }),
+    );
   });
 
   it('runs through the worker job and surfaces result and error', async () => {

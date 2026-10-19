@@ -375,6 +375,13 @@
       "toggleEnableAria": "Enable Project Gutenberg sync source",
       "toggleDisableAria": "Disable Project Gutenberg sync source",
       "syncNow": "Sync now",
+      "forceRefresh": {
+        "label": "Force full refresh",
+        "title": "Force a full refresh?",
+        "description": "This re-downloads and re-parses the complete Gutenberg snapshot and may take several minutes.",
+        "confirm": "Start full refresh",
+        "cancel": "Cancel"
+      },
       "queued": "Queued…",
       "syncing": "Syncing…",
       "queuedHint": "The task is queued and waiting to be processed.",

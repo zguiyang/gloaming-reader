@@ -12,6 +12,8 @@ import { db } from '@/infra/db';
 import { closeQueue, getQueueConnection } from '@/infra/queue';
 
 const snapshotMocks = vi.hoisted(() => ({ open: vi.fn() }));
+/** Stored upstream Last-Modified used to distinguish conditional requests. */
+const STORED_LAST_MODIFIED = 'Tue, 01 Jan 2030 00:00:00 GMT';
 
 vi.mock('@/domains/discovery/gutenberg/snapshot-stream', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -57,7 +59,13 @@ describe('discovery-sync-only worker', () => {
     try {
       await db
         .update(discoverySourceTable)
-        .set({ enabled: true, syncStatus: 'idle', syncStartedAt: null, lastErrorSummary: null })
+        .set({
+          enabled: true,
+          syncStatus: 'idle',
+          syncStartedAt: null,
+          lastErrorSummary: null,
+          snapshotLastModified: STORED_LAST_MODIFIED,
+        })
         .where(eq(discoverySourceTable.id, sourceId));
       const claimedAt = await claimSourceQueued(sourceId);
       expect(claimedAt).not.toBeNull();
@@ -84,13 +92,41 @@ describe('discovery-sync-only worker', () => {
         .where(eq(discoverySourceTable.id, sourceId))
         .limit(1);
       expect(source).toEqual({ syncStatus: 'succeeded', lastErrorSummary: null });
+      // A job without `force` reaches the service as a conditional request.
       expect(snapshotMocks.open).toHaveBeenCalledTimes(1);
+      expect(snapshotMocks.open).toHaveBeenLastCalledWith(
+        expect.objectContaining({ ifModifiedSince: STORED_LAST_MODIFIED }),
+      );
       expect(await unrelatedJob.getState()).toBe('waiting');
       expect(await unrelatedQueue.getJobCounts('waiting', 'active', 'completed')).toEqual({
         waiting: 1,
         active: 0,
         completed: 0,
       });
+
+      // A job carrying `force: true` reaches the service as an unconditional
+      // request: the stored Last-Modified is dropped before the fetch.
+      await db
+        .update(discoverySourceTable)
+        .set({
+          syncStatus: 'idle',
+          syncStartedAt: null,
+          syncFinishedAt: null,
+          lastErrorSummary: null,
+          snapshotLastModified: STORED_LAST_MODIFIED,
+        })
+        .where(eq(discoverySourceTable.id, sourceId));
+      const forcedClaim = await claimSourceQueued(sourceId);
+      expect(forcedClaim).not.toBeNull();
+      const forcedPayload = {
+        sourceKey: PROJECT_GUTENBERG_SOURCE_KEY,
+        claimedAt: forcedClaim!.toISOString(),
+        force: true,
+      };
+      const forcedJob = await discoveryQueue.add('discovery-sync', forcedPayload, { jobId: `sync-force-${suffix}` });
+      await expect(forcedJob.waitUntilFinished(queueEvents, 10_000)).resolves.toEqual({ status: 'not-modified' });
+      expect(snapshotMocks.open).toHaveBeenCalledTimes(2);
+      expect(snapshotMocks.open).toHaveBeenLastCalledWith(expect.objectContaining({ ifModifiedSince: null }));
     } finally {
       await discoverySyncWorker?.close();
       await queueEvents.close();

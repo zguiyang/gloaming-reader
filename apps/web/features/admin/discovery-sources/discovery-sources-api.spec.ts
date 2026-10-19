@@ -2,13 +2,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { DiscoverySourceStatus, DiscoverySyncRunProgress } from '@gloaming/shared/discovery';
 
 import { LocaleProvider } from '@/lib/locale-context';
 
-import { useDiscoverySyncRunHistoryQuery } from './discovery-sources-api';
+import { triggerDiscoverySourceSync, useDiscoverySyncRunHistoryQuery } from './discovery-sources-api';
 import { DiscoverySyncRunPanel } from './discovery-sync-run-panel';
 
 const { apiRequestMock } = vi.hoisted(() => ({ apiRequestMock: vi.fn() }));
@@ -58,6 +58,34 @@ function Harness({ status }: { status: DiscoverySourceStatus }) {
     historyPending: historyQuery.isPending,
   });
 }
+
+describe('triggerDiscoverySourceSync force option', () => {
+  // This file shares one apiRequest spy: isolate calls/implementation per test.
+  afterEach(() => {
+    apiRequestMock.mockReset();
+  });
+
+  it('keeps the default trigger body-less and sends a body only for an explicit force', async () => {
+    apiRequestMock.mockReset();
+    apiRequestMock.mockResolvedValue({ result: 'queued' });
+
+    await triggerDiscoverySourceSync();
+    expect(apiRequestMock).toHaveBeenCalledTimes(1);
+    const [plainUrl, plainOptions] = apiRequestMock.mock.calls[0];
+    expect(plainUrl).toBe('/api/admin/discovery/sources/project-gutenberg/sync');
+    expect(plainOptions).toMatchObject({ method: 'POST' });
+    expect(plainOptions).not.toHaveProperty('json');
+
+    await triggerDiscoverySourceSync({ force: true });
+    expect(apiRequestMock).toHaveBeenCalledTimes(2);
+    expect(apiRequestMock.mock.calls[1][1]).toMatchObject({ method: 'POST', json: { force: true } });
+
+    // A non-true flag is not an opt-in: no body is attached either.
+    await triggerDiscoverySourceSync({ force: false });
+    expect(apiRequestMock).toHaveBeenCalledTimes(3);
+    expect(apiRequestMock.mock.calls[2][1]).not.toHaveProperty('json');
+  });
+});
 
 describe('useDiscoverySyncRunHistoryQuery terminal refresh', () => {
   it('refetches history once when the run turns terminal and renders the terminal entry', async () => {

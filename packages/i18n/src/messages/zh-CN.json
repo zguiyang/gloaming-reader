@@ -375,6 +375,13 @@
       "toggleEnableAria": "启用 Project Gutenberg 同步源",
       "toggleDisableAria": "停用 Project Gutenberg 同步源",
       "syncNow": "立即同步",
+      "forceRefresh": {
+        "label": "强制全量刷新",
+        "title": "要强制全量刷新吗？",
+        "description": "会重新下载并解析完整的 Gutenberg 快照，可能需要数分钟。",
+        "confirm": "开始全量刷新",
+        "cancel": "取消"
+      },
       "queued": "排队中…",
       "syncing": "同步中…",
       "queuedHint": "任务已排队，等待处理。",

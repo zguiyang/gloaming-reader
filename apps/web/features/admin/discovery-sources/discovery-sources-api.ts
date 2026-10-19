@@ -35,9 +35,15 @@ export async function setDiscoverySourceEnabled(enabled: boolean): Promise<Disco
   });
 }
 
-export async function triggerDiscoverySourceSync() {
+/**
+ * Triggers the manual background sync. The optional `force` flag is an explicit
+ * full-refresh opt-in: only `{force: true}` attaches a JSON body, so the default
+ * trigger stays byte-identical to the original body-less POST.
+ */
+export async function triggerDiscoverySourceSync(options?: { force?: boolean }) {
   return apiRequest(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync`, {
     method: 'POST',
+    ...(options?.force === true ? { json: { force: true } } : {}),
     schema: discoverySyncTriggerResultSchema,
   });
 }
@@ -99,7 +105,7 @@ export function useSetDiscoverySourceEnabledMutation() {
 export function useTriggerDiscoverySourceSyncMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => triggerDiscoverySourceSync(),
+    mutationFn: (options: { force?: boolean } = {}) => triggerDiscoverySourceSync(options),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: discoverySourcesQueryKey });
       void queryClient.invalidateQueries({ queryKey: discoverySyncHistoryQueryKey });

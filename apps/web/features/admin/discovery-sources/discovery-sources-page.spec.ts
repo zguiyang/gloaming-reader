@@ -16,6 +16,10 @@ vi.mock('@/lib/api-request', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return { ...actual, apiRequest: apiRequestMock };
 });
+// Toasts fire from the sync handlers; wording under test is page copy.
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
+}));
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -119,6 +123,77 @@ describe('DiscoverySourcesPage pending wording', () => {
     expect(idle.container.textContent).toContain('Sync now');
     expect(idle.container.textContent).not.toContain('Queued…');
     idle.cleanup();
+  });
+});
+
+describe('DiscoverySourcesPage force full refresh', () => {
+  function findButton(label: string): HTMLButtonElement | undefined {
+    return Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.trim() === label,
+    );
+  }
+
+  async function click(button: HTMLButtonElement | undefined) {
+    expect(button).toBeDefined();
+    await act(async () => {
+      button!.click();
+      // Flush the mutation's promise chain (react-query) and the re-render.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  it('offers a secondary force action behind a confirmation that explains the full reparse', async () => {
+    const rendered = await renderPage(statusFixture());
+    // The original trigger is preserved next to the new secondary action.
+    expect(findButton('Sync now')).toBeDefined();
+
+    await click(findButton('Force full refresh'));
+    // The confirmation is portaled to the document body.
+    const dialogText = document.body.textContent ?? '';
+    expect(dialogText).toContain('Force a full refresh?');
+    expect(dialogText).toContain('re-downloads and re-parses the complete Gutenberg snapshot');
+    expect(dialogText).toContain('may take several minutes');
+    rendered.cleanup();
+  });
+
+  it('renders the zh-CN force refresh wording from i18n', async () => {
+    const rendered = await renderPage(statusFixture(), 'zh-CN');
+
+    await click(findButton('强制全量刷新'));
+    const dialogText = document.body.textContent ?? '';
+    expect(dialogText).toContain('要强制全量刷新吗？');
+    expect(dialogText).toContain('会重新下载并解析完整的 Gutenberg 快照，可能需要数分钟。');
+    expect(dialogText).toContain('开始全量刷新');
+    rendered.cleanup();
+  });
+
+  it('posts {force:true} only after the confirmation is accepted', async () => {
+    const rendered = await renderPage(statusFixture());
+    apiRequestMock.mockClear();
+
+    await click(findButton('Force full refresh'));
+    await click(findButton('Start full refresh'));
+
+    const syncCall = apiRequestMock.mock.calls.find(
+      ([url, options]) => String(url).endsWith('/sync') && (options as { method?: string })?.method === 'POST',
+    );
+    expect(syncCall).toBeDefined();
+    expect(syncCall![1]).toMatchObject({ method: 'POST', json: { force: true } });
+    rendered.cleanup();
+  });
+
+  it('keeps the original sync trigger body-less', async () => {
+    const rendered = await renderPage(statusFixture());
+    apiRequestMock.mockClear();
+
+    await click(findButton('Sync now'));
+
+    const syncCall = apiRequestMock.mock.calls.find(
+      ([url, options]) => String(url).endsWith('/sync') && (options as { method?: string })?.method === 'POST',
+    );
+    expect(syncCall).toBeDefined();
+    expect(syncCall![1]).not.toHaveProperty('json');
+    rendered.cleanup();
   });
 });
 

@@ -15,6 +15,7 @@ import { PROJECT_GUTENBERG_SOURCE_KEY } from '@/domains/discovery/gutenberg/cons
 import { db } from '@/infra/db';
 import { closeQueue, getDiscoverySyncQueue, getQueueConnection } from '@/infra/queue';
 import { HTTP_STATUS } from '@/shared/constants';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 const { sendAuthMailMock } = vi.hoisted(() => ({ sendAuthMailMock: vi.fn().mockResolvedValue(undefined) }));
 const queueMocks = vi.hoisted(() => ({
@@ -521,10 +522,81 @@ describe('Admin DiscoverySource controls', () => {
       if (!claimedAt) {
         throw new Error('expected the queued claim to persist syncStartedAt');
       }
+    } finally {
+      await removeDiscoverySyncJobs();
+      await resetSourceToIdle();
+    }
+  });
 
-      const job = await getDiscoverySyncQueue().getJob(discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claimedAt));
-      expect(job).not.toBeNull();
-      expect(job?.name).toBe(JOB_DISCOVERY_SYNC);
+  it('enqueues force in the job data only for an explicit force body and rejects invalid bodies', async () => {
+    const syncPath = `${SOURCE_PATH}/sync`;
+    const jsonRequest = (body: unknown, cookie?: string) => ({
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(cookie ? { cookie } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    const lastJobData = (): Record<string, unknown> => {
+      const call = queueMocks.enqueue.mock.calls.at(-1);
+      expect(call).toBeDefined();
+      return call![1] as Record<string, unknown>;
+    };
+
+    try {
+      queueMocks.enqueue.mockClear();
+
+      // A force body never relaxes the admin authorization requirement.
+      const anon = await app.request(syncPath, jsonRequest({ force: true }));
+      expect(anon.status).toBe(HTTP_STATUS.UNAUTHORIZED);
+
+      // Default trigger: the job data stays exactly as before force support.
+      await resetSourceToIdle();
+      const plain = await app.request(syncPath, { method: 'POST', headers: { cookie: adminCookie } });
+      expect(plain.status).toBe(HTTP_STATUS.ACCEPTED);
+      expect(lastJobData()).toEqual({
+        sourceKey: PROJECT_GUTENBERG_SOURCE_KEY,
+        claimedAt: expect.any(String),
+      });
+
+      // Explicit `force: true` is the only opt-in that reaches the job data.
+      await resetSourceToIdle();
+      const forced = await app.request(syncPath, jsonRequest({ force: true }, adminCookie));
+      expect(forced.status).toBe(HTTP_STATUS.ACCEPTED);
+      expect(lastJobData()).toEqual({
+        sourceKey: PROJECT_GUTENBERG_SOURCE_KEY,
+        claimedAt: expect.any(String),
+        force: true,
+      });
+
+      // An explicit non-true flag is not an opt-in: the job data stays plain.
+      await resetSourceToIdle();
+      const notForced = await app.request(syncPath, jsonRequest({ force: false }, adminCookie));
+      expect(notForced.status).toBe(HTTP_STATUS.ACCEPTED);
+      expect(lastJobData()).not.toHaveProperty('force');
+
+      // An invalid body fails with the validation contract and claims nothing.
+      await resetSourceToIdle();
+      queueMocks.enqueue.mockClear();
+      const invalid = await app.request(syncPath, jsonRequest({ force: 'yes' }, adminCookie));
+      expect(invalid.status).toBe(HTTP_STATUS.BAD_REQUEST);
+      const errorBody = (await invalid.json()) as {
+        error: string;
+        code: string;
+        details: { path: string; message: string; code: string }[];
+      };
+      expect(errorBody.code).toBe(ERROR_CODES.VALIDATION_FAILED);
+      expect(errorBody.details).toEqual([
+        { path: 'force', message: expect.any(String), code: ERROR_CODES.VALIDATION_INVALID_INPUT },
+      ]);
+      expect(queueMocks.enqueue).not.toHaveBeenCalled();
+      const [idleRow] = await db
+        .select({ syncStatus: discoverySourceTable.syncStatus })
+        .from(discoverySourceTable)
+        .where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY))
+        .limit(1);
+      expect(idleRow?.syncStatus).toBe('idle');
     } finally {
       await removeDiscoverySyncJobs();
       await resetSourceToIdle();

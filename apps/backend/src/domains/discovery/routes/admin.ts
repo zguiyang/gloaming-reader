@@ -13,6 +13,7 @@ import { listAdminSourceRecords } from '@/domains/discovery/read-model';
 import {
   validateAdminSourceRecordListQuery,
   validateCategorySourceRecordListQuery,
+  validateDiscoverySyncTrigger,
   validateManagedCategoryWrite,
   validateSourceEnabledUpdate,
 } from '@/domains/discovery/routes/validator';
@@ -45,10 +46,22 @@ discoveryAdminRoutes.patch(PROJECT_GUTENBERG_SOURCE_PATH, requireAdmin, validate
   return c.json(await setProjectGutenbergSourceEnabled(enabled));
 });
 
-discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync`, requireAdmin, async (c) => {
-  const accepted = await requestProjectGutenbergSync();
-  return c.json(accepted, accepted.result === 'queued' ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.OK);
-});
+/**
+ * Manual background sync trigger. The optional `{force?: boolean}` body is an
+ * explicit full-refresh opt-in: absent, empty, or non-`true` bodies keep the
+ * original conditional sync; invalid bodies fail with the standard validation
+ * error contract before any claim is taken.
+ */
+discoveryAdminRoutes.post(
+  `${PROJECT_GUTENBERG_SOURCE_PATH}/sync`,
+  requireAdmin,
+  validateDiscoverySyncTrigger,
+  async (c) => {
+    const { force } = c.req.valid('json');
+    const accepted = await requestProjectGutenbergSync({ force });
+    return c.json(accepted, accepted.result === 'queued' ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.OK);
+  },
+);
 
 /** Bounded recent-run history (latest 20); admin-only like the status read. */
 discoveryAdminRoutes.get(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync/runs`, requireAdmin, async (c) => {

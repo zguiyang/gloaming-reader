@@ -40,6 +40,20 @@ export const validateAdminSourceRecordListQuery = validated('query', categorySou
 export const validateSourceEnabledUpdate = validated('json', discoverySourceEnabledUpdateSchema);
 
 /**
+ * Optional body of the manual sync trigger. A request without a JSON body
+ * validates to `{}` and keeps the original conditional behavior; only the
+ * literal `force: true` opts into a full refresh, any other value fails here
+ * with the standard validation-error contract. Unknown keys are stripped,
+ * mirroring the enabled-toggle body handling.
+ */
+const discoverySyncTriggerSchema = z.object({
+  force: z.boolean().optional(),
+});
+
+/** Validates the optional `{force?: boolean}` body of `POST .../sync`. */
+export const validateDiscoverySyncTrigger = validated('json', discoverySyncTriggerSchema);
+
+/**
  * Admin category writes always carry one supported locale: a label belongs to
  * exactly one of the product's supported locales.
  */

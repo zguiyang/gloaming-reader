@@ -66,7 +66,8 @@ export type DiscoverySyncResult =
  * Idempotent Project Gutenberg metadata sync.
  *
  * - metadata only: never creates ReadingWork/ReadingPart/ContentAsset/Library/ReadingState rows
- * - conditional refresh via Last-Modified / 304
+ * - conditional refresh via Last-Modified / 304, unless `force` re-requests the
+ *   snapshot unconditionally (no `If-Modified-Since`) for a full reparse
  * - records are never deleted; absence is reconciled only after the full snapshot succeeds
  * - a run starts only through the atomic enabled+queued transition, guarded by
  *   the claim generation token `claimedAt`; a disabled or no-longer-owned job
@@ -78,6 +79,13 @@ export type DiscoverySyncResult =
 export async function syncProjectGutenbergMetadata(options: {
   signal?: AbortSignal;
   claimedAt: Date;
+  /**
+   * Explicit admin opt-in to a full refresh: request the snapshot with no
+   * `If-Modified-Since` so a fixed parser reprocesses every historical record.
+   * Only the literal `true` enables it; every other value keeps the stored
+   * Last-Modified conditional request.
+   */
+  force?: boolean;
 }): Promise<DiscoverySyncResult> {
   const source = await ensureDiscoverySource(PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE);
   const claimedAt = options.claimedAt;
@@ -114,9 +122,13 @@ export async function syncProjectGutenbergMetadata(options: {
 
   let snapshot: GutenbergSnapshot | null = null;
   try {
+    // `force` drops the conditional header so upstream cannot answer 304 for a
+    // snapshot already stored; reconciliation, run records, and classification
+    // evidence then follow the exact same path as a normal full download.
+    const force = options.force === true;
     snapshot = await openGutenbergSnapshot({
       url: PROJECT_GUTENBERG_RDF_SNAPSHOT_URL,
-      ifModifiedSince: source.snapshotLastModified ?? null,
+      ifModifiedSince: force ? null : (source.snapshotLastModified ?? null),
       signal: options.signal,
     });
 

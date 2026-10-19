@@ -1,13 +1,23 @@
 'use client';
 
-import { RefreshCw } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Download, RefreshCw } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
 import type { DiscoverySourceSyncStatus } from '@gloaming/shared/discovery';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,6 +71,7 @@ function PageHeading() {
 
 export function DiscoverySourcesPage() {
   const { locale } = useLocale();
+  const [isForceRefreshOpen, setIsForceRefreshOpen] = useState(false);
   const statusQuery = useDiscoverySourceStatusQuery();
   const historyQuery = useDiscoverySyncRunHistoryQuery(statusQuery.data);
   const enabledMutation = useSetDiscoverySourceEnabledMutation();
@@ -76,9 +87,9 @@ export function DiscoverySourcesPage() {
     }
   }
 
-  async function runSync() {
+  async function runSync(options: { force?: boolean } = {}) {
     try {
-      const accepted = await syncMutation.mutateAsync();
+      const accepted = await syncMutation.mutateAsync(options);
       if (accepted.result === 'queued') {
         toast.success(t(locale, 'admin.discoverySources.toast.queued'));
         return;
@@ -197,6 +208,15 @@ export function DiscoverySourcesPage() {
             ) : isSyncPending ? (
               <p className="text-sm text-muted-foreground">{t(locale, 'admin.discoverySources.pendingHint')}</p>
             ) : null}
+            <Button
+              variant="outline"
+              onClick={() => setIsForceRefreshOpen(true)}
+              disabled={isSyncPending || isSourceDisabled || syncMutation.isPending}
+              data-testid="force-full-refresh"
+            >
+              <Download data-icon="inline-start" />
+              {t(locale, 'admin.discoverySources.forceRefresh.label')}
+            </Button>
             {hasMissingRunDetail ? (
               <p className="text-sm text-muted-foreground" data-testid="missing-run-detail">
                 {t(locale, 'admin.discoverySources.missingRunDetail')}
@@ -205,6 +225,34 @@ export function DiscoverySourcesPage() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog
+        open={isForceRefreshOpen}
+        onOpenChange={(open) => {
+          setIsForceRefreshOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t(locale, 'admin.discoverySources.forceRefresh.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(locale, 'admin.discoverySources.forceRefresh.description')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t(locale, 'admin.discoverySources.forceRefresh.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="force-full-refresh-confirm"
+              onClick={() => {
+                setIsForceRefreshOpen(false);
+                void runSync({ force: true });
+              }}
+            >
+              {t(locale, 'admin.discoverySources.forceRefresh.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <DiscoverySyncRunPanel
         progress={status.currentRun}

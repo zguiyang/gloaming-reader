@@ -12,6 +12,13 @@ export type DiscoverySyncJobData = {
   sourceKey: string;
   /** ISO timestamp of the queued claim generation that enqueued this job. */
   claimedAt: string;
+  /**
+   * Explicit admin opt-in to a full refresh: the run then requests the snapshot
+   * unconditionally (no `If-Modified-Since`) so a fixed parser can reprocess
+   * historical records. Only the literal `true` enables it; any other value
+   * keeps the default conditional behavior.
+   */
+  force?: boolean;
 };
 
 /** Parses the claim generation token; null when missing or malformed. */
@@ -55,7 +62,11 @@ export async function processDiscoverySync(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? PROJECT_GUTENBERG_SYNC_TIMEOUT_MS);
   try {
-    const result = await syncProjectGutenbergMetadata({ signal: controller.signal, claimedAt });
+    const result = await syncProjectGutenbergMetadata({
+      signal: controller.signal,
+      claimedAt,
+      force: data.force === true,
+    });
     if (result.status === 'failed') {
       throw new Error(result.errorSummary);
     }
