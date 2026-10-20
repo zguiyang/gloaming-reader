@@ -16,14 +16,23 @@ export type GutenbergSnapshot = {
 };
 
 /**
+ * Observability hook invoked once per legally skipped non-ebook RDF member
+ * (e.g. generator/metadata files). Suspected ebook members that fail parsing
+ * are NOT reported through this hook: they throw `GutenbergSnapshotError`
+ * and fail the run.
+ */
+export type NonEbookMemberSkippedHandler = (memberName: string) => void;
+
+/**
  * Bounded streaming pipeline over an already-open bzip2 download stream:
  * bzip2 child process -> incremental tar members -> per-record RDF parse.
  */
 export function parseGutenbergSnapshotCompressedStream(
   compressed: Readable,
   signal?: AbortSignal,
+  onNonEbookMemberSkipped?: NonEbookMemberSkippedHandler,
 ): AsyncGenerator<ParsedSourceRecord> {
-  return parseRecords(createBzip2DecompressStream(compressed, signal));
+  return parseRecords(createBzip2DecompressStream(compressed, signal), onNonEbookMemberSkipped);
 }
 
 /**
@@ -34,6 +43,7 @@ export async function openGutenbergSnapshot(options: {
   url: string;
   ifModifiedSince?: string | null;
   signal?: AbortSignal;
+  onNonEbookMemberSkipped?: NonEbookMemberSkippedHandler;
 }): Promise<GutenbergSnapshot | null> {
   const headers: Record<string, string> = {
     Accept: 'application/x-bzip2, application/octet-stream;q=0.9, */*;q=0.1',
@@ -67,12 +77,15 @@ export async function openGutenbergSnapshot(options: {
 
   return {
     lastModified,
-    records: parseRecords(bzip2),
+    records: parseRecords(bzip2, options.onNonEbookMemberSkipped),
     close: () => bzip2.close(),
   };
 }
 
-async function* parseRecords(bzip2: Bzip2DecompressStream): AsyncGenerator<ParsedSourceRecord> {
+async function* parseRecords(
+  bzip2: Bzip2DecompressStream,
+  onNonEbookMemberSkipped?: NonEbookMemberSkippedHandler,
+): AsyncGenerator<ParsedSourceRecord> {
   try {
     let sawRecord = false;
     try {
@@ -80,8 +93,12 @@ async function* parseRecords(bzip2: Bzip2DecompressStream): AsyncGenerator<Parse
         if (!member.name.toLowerCase().endsWith('.rdf')) {
           continue;
         }
+        // A null parse result is a legitimate non-ebook RDF member (the parser
+        // throws for suspected ebook members it cannot identify), so it is
+        // skipped and counted for observability rather than failing the run.
         const record = parseGutenbergRdf(member.content, member.name);
         if (!record) {
+          onNonEbookMemberSkipped?.(member.name);
           continue;
         }
         sawRecord = true;

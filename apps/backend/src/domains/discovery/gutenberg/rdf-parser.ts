@@ -35,8 +35,11 @@ const parser = new XMLParser({
 
 /**
  * Parses exactly one Project Gutenberg RDF member (one ebook) and maps every
- * supported field onto the current `source_record` schema. Returns `null` when
- * the member is not a Gutenberg ebook document.
+ * supported field onto the current `source_record` schema. Returns `null` only
+ * for a legitimate non-ebook RDF member (e.g. generator or metadata files).
+ * Throws a sanitized `GutenbergSnapshotError` when the member looks like an
+ * ebook (`pgterms:ebook` present) but cannot be resolved to an external
+ * identifier, so a data error fails the run instead of being skipped silently.
  */
 export function parseGutenbergRdf(content: Buffer, memberName: string): ParsedSourceRecord | null {
   let document: unknown;
@@ -59,7 +62,13 @@ export function parseGutenbergRdf(content: Buffer, memberName: string): ParsedSo
 
   const externalId = externalIdFromEbook(ebook) ?? externalIdFromMemberName(memberName);
   if (!externalId) {
-    return null;
+    // An ebook node without a resolvable identifier is an upstream data error,
+    // not a legitimate skip: silently dropping it could later mark real
+    // records unavailable during reconciliation. Fail the run instead. The
+    // message carries only the sanitized member name, never raw XML.
+    throw new GutenbergSnapshotError(
+      `an RDF ebook member was missing an external identifier (member: ${sanitizeMemberName(memberName)})`,
+    );
   }
 
   const titles = asArray(ebook['dcterms:title'])
@@ -245,6 +254,12 @@ function externalIdFromEbook(ebook: XmlNode): string | null {
 function externalIdFromMemberName(memberName: string): string | null {
   const match = /pg(\d+)\.rdf$/i.exec(memberName) ?? /(\d+)\D*$/.exec(memberName);
   return match?.[1] ?? null;
+}
+
+/** Keeps error summaries safe: printable, bounded, and never raw archive/XML content. */
+function sanitizeMemberName(memberName: string): string {
+  const sanitized = memberName.replace(/[^\w./-]/g, '?').slice(0, 120);
+  return sanitized.length > 0 ? sanitized : '(unnamed)';
 }
 
 function parseExtent(value: unknown): number | null {

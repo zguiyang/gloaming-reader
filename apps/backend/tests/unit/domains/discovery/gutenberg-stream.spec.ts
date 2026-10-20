@@ -108,6 +108,27 @@ function bzip2Compress(input: Buffer): Buffer {
   return result.stdout;
 }
 
+/** An ebook node without rdf:about; combined with a digit-less member name no id can be derived. */
+function unidentifiedEbookRdf(): Buffer {
+  return Buffer.from(
+    `<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:pgterms="http://www.gutenberg.org/2009/pgterms/">
+  <pgterms:ebook>
+    <dcterms:title>Missing Identifier</dcterms:title>
+  </pgterms:ebook>
+</rdf:RDF>`,
+    'utf8',
+  );
+}
+
+/** A legitimate non-ebook RDF member such as a generator/metadata file. */
+function nonEbookRdf(): Buffer {
+  return Buffer.from(
+    '<?xml version="1.0"?><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="urn:generator"/></rdf:RDF>',
+    'utf8',
+  );
+}
+
 async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
   const output: T[] = [];
   for await (const item of iterable) {
@@ -244,6 +265,32 @@ describe('Gutenberg RDF parsing', () => {
     );
     expect(parseGutenbergRdf(nonEbook, 'unrelated.rdf')).toBeNull();
   });
+
+  it('throws a sanitized error for an ebook member without a resolvable external id', () => {
+    const unidentified = Buffer.from(
+      `<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:pgterms="http://www.gutenberg.org/2009/pgterms/">
+  <pgterms:ebook>
+    <dcterms:title>Missing Identifier</dcterms:title>
+  </pgterms:ebook>
+</rdf:RDF>`,
+      'utf8',
+    );
+
+    // The member name carries no digits either, so no fallback id can be derived.
+    let thrown: unknown;
+    try {
+      parseGutenbergRdf(unidentified, 'cache/epub/unknown/pgunknown.rdf');
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(GutenbergSnapshotError);
+    expect((thrown as Error).message).toMatch(/missing an external identifier/);
+    expect((thrown as Error).message).toContain('cache/epub/unknown/pgunknown.rdf');
+    // The error summary must never carry raw XML content.
+    expect((thrown as Error).message).not.toContain('pgterms:ebook');
+    expect((thrown as Error).message).not.toContain('dcterms:title');
+  });
 });
 
 describe('Gutenberg compressed snapshot pipeline', () => {
@@ -276,6 +323,45 @@ describe('Gutenberg compressed snapshot pipeline', () => {
     await expect(collect(parseGutenbergSnapshotCompressedStream(Readable.from(bzip2Compress(tar))))).rejects.toThrow(
       /contained no RDF records/,
     );
+  });
+
+  it('fails the stream when an ebook member is missing its external identifier', async () => {
+    const tar = buildTar([
+      {
+        name: 'cache/epub/11/pg11.rdf',
+        content: buildEbookRdf({ externalId: '11', title: 'Alice', agentName: 'Carroll' }),
+      },
+      { name: 'cache/epub/unknown/pgunknown.rdf', content: unidentifiedEbookRdf() },
+    ]);
+
+    await expect(collect(parseGutenbergSnapshotCompressedStream(Readable.from(bzip2Compress(tar))))).rejects.toThrow(
+      /missing an external identifier/,
+    );
+  });
+
+  it('skips non-ebook RDF members legally and reports them through the skip hook', async () => {
+    const tar = buildTar([
+      {
+        name: 'cache/epub/11/pg11.rdf',
+        content: buildEbookRdf({ externalId: '11', title: 'Alice', agentName: 'Carroll' }),
+      },
+      { name: 'cache/epub/22/readme.txt', content: Buffer.from('not rdf') },
+      { name: 'rdf-generator.rdf', content: nonEbookRdf() },
+      {
+        name: 'cache/epub/22/pg22.rdf',
+        content: buildEbookRdf({ externalId: '22', title: 'Beowulf', agentName: 'Anonymous' }),
+      },
+    ]);
+    const skipped: string[] = [];
+
+    const records = await collect(
+      parseGutenbergSnapshotCompressedStream(Readable.from(bzip2Compress(tar)), undefined, (memberName) =>
+        skipped.push(memberName),
+      ),
+    );
+
+    expect(records.map((record) => record.externalId)).toEqual(['11', '22']);
+    expect(skipped).toEqual(['rdf-generator.rdf']);
   });
 
   it('reports a sanitized error when bzip2 cannot decompress the stream', async () => {
