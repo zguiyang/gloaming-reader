@@ -1,5 +1,6 @@
 import type { SourceRecordAuthor, SourceRecordSourceMeta } from '@gloaming/db/schema';
 
+import { coverUrlHost, workCoverRefreshJobId } from '@/application/jobs/work-cover-refresh';
 import {
   computePublicClassificationFingerprint,
   type PublicClassificationEvidence,
@@ -17,6 +18,7 @@ import type { GutenbergSnapshot } from '@/domains/discovery/gutenberg/snapshot-s
 import { openGutenbergSnapshot } from '@/domains/discovery/gutenberg/snapshot-stream';
 import { db, type DbTransaction } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
+import { enqueueWorkCoverRefresh } from '@/infra/queue';
 
 import {
   advanceDiscoverySyncRunStage,
@@ -71,7 +73,9 @@ export type DiscoverySyncResult =
  * - metadata only: never creates ReadingWork/ReadingPart/ContentAsset/Library/ReadingState rows
  * - metadata changes flow back onto already-materialized Works: only title and
  *   description of records whose values actually changed are copied onto the
- *   linked Work, inside the batch transaction (cover/author are out of scope)
+ *   linked Work, inside the batch transaction; a changed source cover is never
+ *   applied inline but queued after commit as a `work-cover-refresh` job
+ *   (see {@link detectCoverRefreshCandidates} / {@link enqueueCoverRefreshJobs})
  * - conditional refresh via Last-Modified / 304, unless `force` re-requests the
  *   snapshot unconditionally (no `If-Modified-Since`) for a full reparse
  * - records are never deleted; absence is reconciled only after the full snapshot succeeds
@@ -184,7 +188,7 @@ export async function syncProjectGutenbergMetadata(options: {
     }
 
     const observedAt = new Date();
-    const { seenRecords, batches, committedRecords, updatedWorkMetadata } = await consumeSnapshot({
+    const { seenRecords, batches, committedRecords, updatedWorkMetadata, coverRefreshJobs } = await consumeSnapshot({
       sourceId: source.id,
       runTokens,
       snapshot,
@@ -239,6 +243,7 @@ export async function syncProjectGutenbergMetadata(options: {
         batches,
         skippedNonEbookMembers,
         updatedWorkMetadata,
+        coverRefreshJobs,
       },
       'Gutenberg metadata sync succeeded',
     );
@@ -327,13 +332,20 @@ async function consumeSnapshot(input: {
   snapshot: GutenbergSnapshot;
   observedAt: Date;
   signal?: AbortSignal;
-}): Promise<{ seenRecords: number; batches: number; committedRecords: number; updatedWorkMetadata: number }> {
+}): Promise<{
+  seenRecords: number;
+  batches: number;
+  committedRecords: number;
+  updatedWorkMetadata: number;
+  coverRefreshJobs: number;
+}> {
   const { sourceId, runTokens, snapshot, observedAt, signal } = input;
   const runStartedAt = runTokens.startToken;
   let seenRecords = 0;
   let batches = 0;
   let committedRecords = 0;
   let updatedWorkMetadata = 0;
+  let coverRefreshJobs = 0;
   let batch: ParsedSourceRecord[] = [];
 
   const flushBatch = async (): Promise<void> => {
@@ -343,6 +355,7 @@ async function consumeSnapshot(input: {
     throwIfRunAborted(signal);
     const records = batch;
     batch = [];
+    let coverRefreshCandidates: CoverRefreshCandidate[] = [];
     // Metadata and its classification decision must commit together. Otherwise
     // an identical retry can mistake lost new/changed evidence for legacy data.
     await db.transaction(async (tx) => {
@@ -363,6 +376,7 @@ async function consumeSnapshot(input: {
       const upserted = await upsertSourceRecords(sourceId, records, observedAt, tx);
       throwIfRunAborted(signal);
       updatedWorkMetadata += await syncLinkedWorkMetadata(records, upserted, previousWorkMetadata, tx);
+      coverRefreshCandidates = detectCoverRefreshCandidates(records, upserted, previousWorkMetadata);
       throwIfRunAborted(signal);
       await registerIncrementalClassification(records, upserted, previousEvidence, tx);
       throwIfRunAborted(signal);
@@ -380,6 +394,10 @@ async function consumeSnapshot(input: {
     seenRecords += records.length;
     committedRecords += records.length;
     batches += 1;
+    // Cover refresh is deliberately post-commit: the download, optimization, and
+    // Work write-back run in the `gloaming` queue, so an enqueue hiccup never
+    // fails or rolls back this batch — the next run re-detects the mismatch.
+    coverRefreshJobs += await enqueueCoverRefreshJobs(coverRefreshCandidates);
   };
 
   let stageAdvanced = false;
@@ -401,7 +419,81 @@ async function consumeSnapshot(input: {
   }
   await flushBatch();
 
-  return { seenRecords, batches, committedRecords, updatedWorkMetadata };
+  return { seenRecords, batches, committedRecords, updatedWorkMetadata, coverRefreshJobs };
+}
+
+/** A linked Work whose recorded source cover no longer matches the synchronized record. */
+type CoverRefreshCandidate = {
+  workId: string;
+  sourceCoverUrl: string;
+};
+
+/**
+ * Detects source-cover changes that must flow back onto already-materialized
+ * Works (product decision 2026-10-20). A record qualifies only when it links to
+ * a Work, carries a non-empty source cover, and that Work's
+ * `origin_meta.sourceCoverUrl` marker differs — a missing marker (covers never
+ * flowed back before) counts as a difference, so the first run after rollout
+ * backfills every linked Work that still has a source cover. Detection is
+ * read-only: no Work row changes until the queued job later succeeds.
+ */
+function detectCoverRefreshCandidates(
+  records: ParsedSourceRecord[],
+  upserted: Array<{ id: string; externalId: string }>,
+  previousByExternalId: Map<string, SourceRecordWorkMetadataBaselineRow>,
+): CoverRefreshCandidate[] {
+  if (upserted.length === 0) return [];
+  const recordByExternalId = new Map(records.map((record) => [record.externalId, record]));
+  const candidates: CoverRefreshCandidate[] = [];
+  for (const row of upserted) {
+    const record = recordByExternalId.get(row.externalId);
+    if (!record) throw new Error(`Missing parsed source record for ${row.externalId}`);
+    const previous = previousByExternalId.get(row.externalId);
+    if (!previous?.workId) continue; // not materialized yet: nothing to refresh
+    const sourceCoverUrl = record.coverUrl?.trim();
+    if (!sourceCoverUrl) continue; // no source cover to fetch
+    if (previous.sourceCoverUrl === sourceCoverUrl) continue; // idempotent no-op
+    candidates.push({ workId: previous.workId, sourceCoverUrl });
+  }
+  return candidates;
+}
+
+/** Retry budget for one cover refresh job; a final failure keeps the stored cover. */
+const COVER_REFRESH_RETRY_DELAY_MS = 15_000;
+
+/**
+ * Queues one deduplicated `work-cover-refresh` job per candidate Work after its
+ * batch committed. Enqueue failures are logged and swallowed: they must not
+ * fail a sync run that already persisted its metadata, and the next run
+ * re-detects the same Work/cover mismatch.
+ */
+async function enqueueCoverRefreshJobs(candidates: CoverRefreshCandidate[]): Promise<number> {
+  if (candidates.length === 0) return 0;
+  let queued = 0;
+  const seenJobIds = new Set<string>();
+  for (const candidate of candidates) {
+    const jobId = workCoverRefreshJobId(candidate.workId, candidate.sourceCoverUrl);
+    if (seenJobIds.has(jobId)) continue;
+    seenJobIds.add(jobId);
+    try {
+      await enqueueWorkCoverRefresh(candidate, {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: COVER_REFRESH_RETRY_DELAY_MS },
+        jobId,
+      });
+      queued += 1;
+    } catch (error) {
+      logger.warn(
+        {
+          err: error,
+          workId: candidate.workId,
+          urlHost: coverUrlHost(candidate.sourceCoverUrl),
+        },
+        'Failed to enqueue work cover refresh',
+      );
+    }
+  }
+  return queued;
 }
 
 /**
@@ -411,7 +503,8 @@ async function consumeSnapshot(input: {
  * Work, the new values are written onto that Work in the same batch
  * transaction. Unlinked records, unchanged values, missing or failed Works are
  * skipped (see `updateLinkedWorkMetadata`); author, cover, parts, reading
- * progress, and user tags are never touched.
+ * progress, and user tags are never touched here — a changed source cover is
+ * detected separately and applied later by the `work-cover-refresh` job.
  */
 async function syncLinkedWorkMetadata(
   records: ParsedSourceRecord[],

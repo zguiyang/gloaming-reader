@@ -32,6 +32,11 @@ import {
   type SourceRecordMaterializeJobData,
 } from '@/application/jobs/source-record-materialize';
 import {
+  JOB_WORK_COVER_REFRESH,
+  processWorkCoverRefresh,
+  type WorkCoverRefreshJobData,
+} from '@/application/jobs/work-cover-refresh';
+import {
   JOB_METADATA_FILL,
   processWorkMetadataFill,
   type WorkMetadataFillJobData,
@@ -91,6 +96,8 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
       return processDiscoverySync(job.data as DiscoverySyncJobData);
     case JOB_SOURCE_RECORD_MATERIALIZE:
       return processSourceRecordMaterialize(job.data as SourceRecordMaterializeJobData);
+    case JOB_WORK_COVER_REFRESH:
+      return processWorkCoverRefresh(job.data as WorkCoverRefreshJobData);
     default:
       throw new Error(`Unknown job name: ${job.name}`);
   }
