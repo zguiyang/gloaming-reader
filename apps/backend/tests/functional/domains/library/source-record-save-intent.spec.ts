@@ -25,6 +25,9 @@ import {
   failPendingSaveIntents,
   fanOutReadySaveIntentsForSourceRecord,
   fanOutReadySaveIntentsForWork,
+  recoverStaleSaveIntents,
+  SAVE_INTENT_REENQUEUE_AFTER_MS,
+  SAVE_INTENT_TIMEOUT_AFTER_MS,
   saveSourceRecordToLibrary,
 } from '@/domains/library/save-intent';
 import { db } from '@/infra/db';
@@ -163,6 +166,22 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
       .from(userLibraryItemTable)
       .where(and(eq(userLibraryItemTable.userId, userId), eq(userLibraryItemTable.workId, workId)));
     return rows.length;
+  }
+
+  /** Backdate a pending intent's timestamps to simulate a lost materialization job. */
+  async function insertStalePendingIntent(userId: string, sourceRecordId: string, ageMs: number) {
+    await db.insert(saveIntentTable).values({
+      id: randomUUID(),
+      userId,
+      sourceRecordId,
+      status: 'pending',
+    });
+    const staleAt = new Date(Date.now() - ageMs);
+    await db
+      .update(saveIntentTable)
+      .set({ createdAt: staleAt, updatedAt: staleAt })
+      .where(and(eq(saveIntentTable.userId, userId), eq(saveIntentTable.sourceRecordId, sourceRecordId)));
+    return staleAt;
   }
 
   async function markWorkReady(workId: string) {
@@ -588,16 +607,18 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
       .update(readingWorkTable)
       .set({
         originMeta: { failedStep: 'parse', lastError: 'EPUB is missing META-INF/container.xml' },
-        updatedAt: new Date('2026-01-02T00:00:00Z'),
+        updatedAt: new Date(Date.now() - 30_000),
       })
       .where(eq(readingWorkTable.id, work.id));
     const record = await createRecord({ workId: work.id, materializationStatus: 'failed' });
 
     await saveSourceRecordToLibrary(learner.userId, record.id);
-    // The failure belongs to this attempt, after its intent was created.
+    // The failure belongs to this attempt, after its intent was created. The
+    // backdates stay inside the recovery re-enqueue window so lazy recovery
+    // leaves the work-failure propagation path under test intact.
     await db
       .update(saveIntentTable)
-      .set({ updatedAt: new Date('2026-01-01T00:00:00Z') })
+      .set({ updatedAt: new Date(Date.now() - 5 * 60_000) })
       .where(and(eq(saveIntentTable.userId, learner.userId), eq(saveIntentTable.sourceRecordId, record.id)));
     const failed = await readSaveStatus(record.id, learner.cookie);
     expect(failed.status).toBe(HTTP_STATUS.OK);
@@ -668,5 +689,106 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
       failureReason: null,
     });
     expect(await intentsFor(record.id)).toHaveLength(1);
+  });
+
+  /** One shared session for the recovery suite keeps the auth rate limit intact. */
+  let recoverySession: Awaited<ReturnType<typeof createSession>> | null = null;
+  async function recoveryUser() {
+    recoverySession ??= track(await createSession());
+    return recoverySession;
+  }
+
+  it('fails the intent with enqueue_failed and rethrows when the enqueue rejects', async () => {
+    const learner = await recoveryUser();
+    const record = await createRecord();
+    enqueueSpy.mockRejectedValueOnce(new Error('connect ECONNREFUSED 127.0.0.1:6380'));
+
+    await expect(saveSourceRecordToLibrary(learner.userId, record.id)).rejects.toThrow('ECONNREFUSED');
+
+    const intents = await intentsFor(record.id);
+    expect(intents).toHaveLength(1);
+    expect(intents[0]).toMatchObject({ status: 'failed', failureCode: 'enqueue_failed' });
+    expect(intents[0]?.failureReason).toBe('connect ECONNREFUSED 127.0.0.1:6380');
+  });
+
+  it('re-enqueues a stale pending intent without a Work on the lazy status read', async () => {
+    const learner = await recoveryUser();
+    const record = await createRecord();
+    const staleAt = await insertStalePendingIntent(learner.userId, record.id, SAVE_INTENT_REENQUEUE_AFTER_MS + 60_000);
+    expect(enqueueSpy).not.toHaveBeenCalled();
+
+    const read = await readSaveStatus(record.id, learner.cookie);
+    expect(read.status).toBe(HTTP_STATUS.OK);
+    expect(read.body).toEqual({ status: 'pending', workId: null, failureReason: null });
+
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueSpy.mock.calls[0]![1]).toEqual({ sourceRecordId: record.id });
+    expect((enqueueSpy.mock.calls[0]![2] as { jobId: string }).jobId).toBe(`source-record-materialize-${record.id}`);
+    const [intent] = await intentsFor(record.id);
+    expect(intent?.status).toBe('pending');
+    // The recovery refresh keeps the next re-enqueue a full window away.
+    expect(intent!.updatedAt.getTime()).toBeGreaterThan(staleAt.getTime());
+  });
+
+  it('times out a stale pending intent past the deadline instead of polling forever', async () => {
+    const learner = await recoveryUser();
+    const record = await createRecord();
+    await insertStalePendingIntent(learner.userId, record.id, SAVE_INTENT_TIMEOUT_AFTER_MS + 60_000);
+
+    const read = await readSaveStatus(record.id, learner.cookie);
+
+    expect(read.body).toEqual({
+      status: 'failed',
+      workId: null,
+      failureReason: 'Content import did not finish in time. Please retry.',
+    });
+    expect(enqueueSpy).not.toHaveBeenCalled();
+    expect((await intentsFor(record.id))[0]).toMatchObject({
+      status: 'failed',
+      failureCode: 'processing_timeout',
+    });
+  });
+
+  it('completes a stale pending intent whose linked Work is already readable', async () => {
+    const learner = await recoveryUser();
+    const work = await createCatalogWorkFixture({ title: 'Stale Intent Ready Work', publishedAt: null });
+    createdWorkIds.push(work.id);
+    const record = await createRecord({ workId: work.id, materializationStatus: 'ready' });
+    await insertStalePendingIntent(learner.userId, record.id, SAVE_INTENT_REENQUEUE_AFTER_MS + 60_000);
+
+    const read = await readSaveStatus(record.id, learner.cookie);
+
+    expect(read.body).toEqual({ status: 'ready', workId: work.id, failureReason: null });
+    expect(enqueueSpy).not.toHaveBeenCalled();
+    expect(await membershipCount(learner.userId, work.id)).toBe(1);
+    expect((await intentsFor(record.id))[0]?.status).toBe('completed');
+  });
+
+  it('recovers stale intents in one bounded periodic pass and leaves fresh ones alone', async () => {
+    const learner = await recoveryUser();
+    const requeuedRecord = await createRecord();
+    const timedOutRecord = await createRecord();
+    const freshRecord = await createRecord();
+    await insertStalePendingIntent(learner.userId, requeuedRecord.id, SAVE_INTENT_REENQUEUE_AFTER_MS + 60_000);
+    await insertStalePendingIntent(learner.userId, timedOutRecord.id, SAVE_INTENT_TIMEOUT_AFTER_MS + 60_000);
+    await insertStalePendingIntent(learner.userId, freshRecord.id, 60_000);
+
+    await recoverStaleSaveIntents();
+
+    const enqueuedFor = (sourceRecordId: string) =>
+      enqueueSpy.mock.calls.filter((call) => (call[1] as { sourceRecordId: string }).sourceRecordId === sourceRecordId);
+    expect(enqueuedFor(requeuedRecord.id)).toHaveLength(1);
+    expect((enqueuedFor(requeuedRecord.id)[0]![2] as { jobId: string }).jobId).toBe(
+      `source-record-materialize-${requeuedRecord.id}`,
+    );
+    expect((await intentsFor(requeuedRecord.id))[0]?.status).toBe('pending');
+    expect(enqueuedFor(timedOutRecord.id)).toHaveLength(0);
+    expect((await intentsFor(timedOutRecord.id))[0]).toMatchObject({
+      status: 'failed',
+      failureCode: 'processing_timeout',
+    });
+    // A fresh pending intent is untouched by the pass.
+    expect(enqueuedFor(freshRecord.id)).toHaveLength(0);
+    expect((await intentsFor(freshRecord.id))[0]?.status).toBe('pending');
   });
 });

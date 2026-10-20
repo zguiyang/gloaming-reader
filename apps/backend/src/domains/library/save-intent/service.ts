@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, lte } from 'drizzle-orm';
+import { and, asc, eq, lt, lte } from 'drizzle-orm';
 
 import {
   discoverySource as discoverySourceTable,
@@ -13,9 +13,12 @@ import type { SourceRecordSaveStatus } from '@gloaming/shared/library';
 import { isWorkParseCompleted } from '@gloaming/shared/works';
 
 import { db } from '@/infra/db';
+import { rootLogger } from '@/infra/logging/logger';
 import { enqueueDiscoveryImport } from '@/infra/queue';
 import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
+
+const saveIntentLogger = rootLogger.child({ module: 'SaveIntent' });
 
 /**
  * SourceRecord "Save intent" lifecycle.
@@ -31,6 +34,31 @@ import { ERROR_CODES } from '@/shared/errors/codes';
 
 /** Job name for the asynchronous SourceRecord-level materialization worker. */
 export const SOURCE_RECORD_MATERIALIZE_JOB = 'source-record-materialize';
+
+/**
+ * Recovery thresholds for a stale `pending` Save Intent (exported for tests).
+ *
+ * A pending intent is re-enqueued once it has been untouched for 10 minutes and
+ * hard-fails once the attempt itself is 30 minutes old. The deadline is measured
+ * from `created_at`, not `updated_at`, because recovery refreshes `updated_at`
+ * on every re-enqueue — measuring the deadline from the refreshed column would
+ * let a lost job re-queue forever and keep the client polling forever.
+ */
+export const SAVE_INTENT_REENQUEUE_AFTER_MS = 10 * 60_000;
+export const SAVE_INTENT_TIMEOUT_AFTER_MS = 30 * 60_000;
+
+/** Upper bound of stale intents handled by one global recovery pass. */
+export const SAVE_INTENT_RECOVERY_SCAN_LIMIT = 100;
+
+/** failureCode written when the materialization job could not be queued. */
+const ENQUEUE_FAILURE_CODE = 'enqueue_failed';
+/** failureCode written when a pending intent outlives its timeout deadline. */
+const TIMEOUT_FAILURE_CODE = 'processing_timeout';
+
+/** Displayable reason for a timed-out intent; never a raw error or stack. */
+const TIMEOUT_FAILURE_REASON = 'Content import did not finish in time. Please retry.';
+/** Fallback reason when a queue error carries no cleanable message. */
+const ENQUEUE_FAILURE_FALLBACK_REASON = 'Could not queue the content import';
 
 export type SourceRecordMaterializeJobData = { sourceRecordId: string };
 
@@ -188,8 +216,157 @@ export async function saveSourceRecordToLibrary(
     }
   }
 
-  await enqueueSourceRecordMaterialization(sourceRecordId);
+  try {
+    await enqueueSourceRecordMaterialization(sourceRecordId);
+  } catch (error) {
+    // A queue that rejects the job would otherwise leave this intent pending
+    // forever: persist the failure for this user so the GET reports `failed`
+    // (and the client stops polling), then rethrow the original error so the
+    // HTTP contract of the Save API is unchanged.
+    const reason =
+      cleanSaveIntentFailureReason(error instanceof Error ? error.message : '') ?? ENQUEUE_FAILURE_FALLBACK_REASON;
+    await failPendingIntentForUser(userId, sourceRecordId, ENQUEUE_FAILURE_CODE, reason);
+    throw error;
+  }
   return { status: 'pending', workId };
+}
+
+/** Persist a failure for exactly one user's still-pending intent. */
+async function failPendingIntentForUser(
+  userId: string,
+  sourceRecordId: string,
+  failureCode: string,
+  failureReason: string | null,
+): Promise<void> {
+  await db
+    .update(saveIntentTable)
+    .set({ status: 'failed', failureCode, failureReason })
+    .where(
+      and(
+        eq(saveIntentTable.userId, userId),
+        eq(saveIntentTable.sourceRecordId, sourceRecordId),
+        eq(saveIntentTable.status, 'pending'),
+      ),
+    );
+}
+
+type StaleSaveIntentCandidate = {
+  readonly userId: string;
+  readonly sourceRecordId: string;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly workId: string | null;
+};
+
+/**
+ * Resolve one stale pending intent: complete it when its linked Work became
+ * readable, hard-fail it once the attempt outlives the timeout deadline, or
+ * re-enqueue the idempotent materialization job and refresh `updated_at` so the
+ * next recovery pass waits a full re-enqueue window. A queue error during
+ * re-enqueue never fails the pass — the timeout deadline still exits later.
+ */
+async function recoverStalePendingIntent(candidate: StaleSaveIntentCandidate, now: Date): Promise<void> {
+  if (now.getTime() - candidate.updatedAt.getTime() < SAVE_INTENT_REENQUEUE_AFTER_MS) {
+    return;
+  }
+  if (candidate.workId) {
+    const completed = await completeIntentIfWorkReadable(candidate.userId, candidate.sourceRecordId, candidate.workId);
+    if (completed) {
+      return;
+    }
+  }
+  if (now.getTime() - candidate.createdAt.getTime() >= SAVE_INTENT_TIMEOUT_AFTER_MS) {
+    await failPendingIntentForUser(
+      candidate.userId,
+      candidate.sourceRecordId,
+      TIMEOUT_FAILURE_CODE,
+      TIMEOUT_FAILURE_REASON,
+    );
+    return;
+  }
+  try {
+    await enqueueSourceRecordMaterialization(candidate.sourceRecordId);
+  } catch (error) {
+    saveIntentLogger.warn(
+      { err: error, sourceRecordId: candidate.sourceRecordId },
+      'Stale Save Intent materialize re-enqueue failed',
+    );
+    return;
+  }
+  await db
+    .update(saveIntentTable)
+    .set({ updatedAt: now })
+    .where(
+      and(
+        eq(saveIntentTable.userId, candidate.userId),
+        eq(saveIntentTable.sourceRecordId, candidate.sourceRecordId),
+        eq(saveIntentTable.status, 'pending'),
+      ),
+    );
+}
+
+function stalePendingIntentConditions(cutoff: Date) {
+  return [eq(saveIntentTable.status, 'pending'), lt(saveIntentTable.updatedAt, cutoff)] as const;
+}
+
+/**
+ * Periodic recovery for stale pending Save Intents whose materialization job was
+ * lost (Redis restart / queue flush), never picked up (worker down), or never
+ * queued. Bounded scan: at most {@link SAVE_INTENT_RECOVERY_SCAN_LIMIT} intents
+ * older than {@link SAVE_INTENT_REENQUEUE_AFTER_MS} per pass, oldest first.
+ * Called from the full worker's dispatch timer.
+ */
+export async function recoverStaleSaveIntents(now = new Date()): Promise<void> {
+  const cutoff = new Date(now.getTime() - SAVE_INTENT_REENQUEUE_AFTER_MS);
+  const candidates = await db
+    .select({
+      userId: saveIntentTable.userId,
+      sourceRecordId: saveIntentTable.sourceRecordId,
+      createdAt: saveIntentTable.createdAt,
+      updatedAt: saveIntentTable.updatedAt,
+      workId: sourceRecordTable.workId,
+    })
+    .from(saveIntentTable)
+    .leftJoin(sourceRecordTable, eq(sourceRecordTable.id, saveIntentTable.sourceRecordId))
+    .where(and(...stalePendingIntentConditions(cutoff)))
+    .orderBy(asc(saveIntentTable.updatedAt))
+    .limit(SAVE_INTENT_RECOVERY_SCAN_LIMIT);
+
+  for (const candidate of candidates) {
+    await recoverStalePendingIntent(candidate, now);
+  }
+}
+
+/**
+ * Lazy recovery for exactly one owner-scoped intent, used by
+ * `GET /api/library/source-records/:id` before the status read. Point lookup on
+ * `(user_id, source_record_id)` — never a table scan — so a fresh, completed, or
+ * absent intent costs one indexed query and stays a no-op.
+ */
+export async function recoverStaleSaveIntent(userId: string, sourceRecordId: string, now = new Date()): Promise<void> {
+  const cutoff = new Date(now.getTime() - SAVE_INTENT_REENQUEUE_AFTER_MS);
+  const [candidate] = await db
+    .select({
+      userId: saveIntentTable.userId,
+      sourceRecordId: saveIntentTable.sourceRecordId,
+      createdAt: saveIntentTable.createdAt,
+      updatedAt: saveIntentTable.updatedAt,
+      workId: sourceRecordTable.workId,
+    })
+    .from(saveIntentTable)
+    .leftJoin(sourceRecordTable, eq(sourceRecordTable.id, saveIntentTable.sourceRecordId))
+    .where(
+      and(
+        eq(saveIntentTable.userId, userId),
+        eq(saveIntentTable.sourceRecordId, sourceRecordId),
+        ...stalePendingIntentConditions(cutoff),
+      ),
+    )
+    .limit(1);
+  if (!candidate) {
+    return;
+  }
+  await recoverStalePendingIntent(candidate, now);
 }
 
 /**
@@ -206,6 +383,11 @@ export async function saveSourceRecordToLibrary(
  * (same idempotent path as POST); a pending intent whose linked Work failed is
  * persisted as failed with a cleaned reason so the existing POST retry can
  * revive it.
+ *
+ * Before the status read, this owner-scoped read runs one lazy recovery pass for
+ * this exact intent: a stale pending row (lost materialization job, stopped
+ * worker, failed enqueue) is re-enqueued, completed, or timed out instead of
+ * reporting `pending` forever to a polling client.
  */
 export async function readSourceRecordSaveStatus(
   userId: string,
@@ -219,6 +401,8 @@ export async function readSourceRecordSaveStatus(
   if (!record) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
   }
+
+  await recoverStaleSaveIntent(userId, sourceRecordId);
 
   const [intent] = await db
     .select({

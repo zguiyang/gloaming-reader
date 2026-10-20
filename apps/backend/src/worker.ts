@@ -37,6 +37,7 @@ import {
   type WorkMetadataFillJobData,
 } from '@/application/jobs/work-metadata-fill';
 import { dispatchDuePublicClassifications } from '@/domains/discovery/categories';
+import { recoverStaleSaveIntents } from '@/domains/library/save-intent';
 import {
   dispatchQueuedPersonalTagRuns,
   finalizeFailedPersonalTagRun,
@@ -273,6 +274,13 @@ async function main(): Promise<void> {
         await dispatchQueuedPersonalTagRuns();
       } catch (error) {
         workerLogger.warn({ err: error }, 'Personal tag outbox recovery pass failed');
+      }
+      try {
+        // Bounded stale Save Intent recovery: re-queue lost materialization
+        // jobs and time out intents whose deadline passed (see save-intent).
+        await recoverStaleSaveIntents();
+      } catch (error) {
+        workerLogger.warn({ err: error }, 'Save intent recovery pass failed');
       }
     }
     try {
