@@ -442,13 +442,17 @@ export type SourceRecordWorkMetadataBaselineRow = {
   workId: string | null;
   title: string;
   description: string | null;
+  /** `reading_work.origin_meta.sourceCoverUrl` of the linked Work, or null when none is recorded. */
+  sourceCoverUrl: string | null;
 };
 
 /**
  * Pre-upsert work metadata baseline for the requested external ids: the stored
- * title/description (to compare against the incoming snapshot) and the optional
- * linked Work. Mirrors {@link loadClassificationEvidenceByExternalId}: one
- * bounded batch read per upsert batch instead of per-row queries.
+ * title/description (to compare against the incoming snapshot), the optional
+ * linked Work, and that Work's recorded source-cover marker (so a changed
+ * source cover is detected in the same bounded read). Mirrors
+ * {@link loadClassificationEvidenceByExternalId}: one bounded batch read per
+ * upsert batch instead of per-row queries.
  */
 export async function loadWorkMetadataBaselineByExternalId(
   sourceId: string,
@@ -462,11 +466,16 @@ export async function loadWorkMetadataBaselineByExternalId(
       workId: sourceRecord.workId,
       title: sourceRecord.title,
       description: sourceRecord.description,
+      sourceCoverUrl: sql<string | null>`${readingWork.originMeta} ->> 'sourceCoverUrl'`,
     })
     .from(sourceRecord)
+    .leftJoin(readingWork, eq(sourceRecord.workId, readingWork.id))
     .where(and(eq(sourceRecord.sourceId, sourceId), inArray(sourceRecord.externalId, externalIds)));
   return new Map(
-    rows.map((row) => [row.externalId, { workId: row.workId, title: row.title, description: row.description }]),
+    rows.map((row) => [
+      row.externalId,
+      { workId: row.workId, title: row.title, description: row.description, sourceCoverUrl: row.sourceCoverUrl },
+    ]),
   );
 }
 

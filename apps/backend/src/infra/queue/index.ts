@@ -3,6 +3,8 @@ import { Redis } from 'ioredis';
 
 import type { PingJobData } from '@/application/jobs/ping';
 import { JOB_PING } from '@/application/jobs/ping';
+import type { WorkCoverRefreshJobData } from '@/application/jobs/work-cover-refresh';
+import { JOB_WORK_COVER_REFRESH } from '@/application/jobs/work-cover-refresh';
 import { commonEnv } from '@/infra/config/env-common';
 import { queueLogger } from '@/infra/logging/logger';
 
@@ -148,6 +150,17 @@ export async function enqueuePublicClassification(
   jobOptions?: EnqueueJobOptions,
 ): Promise<string> {
   return addJob(getPublicClassificationQueue(), name, data, jobOptions);
+}
+
+/**
+ * Source-cover write-back onto an already-materialized Work. Runs on the main
+ * `gloaming` queue so the full worker (never the discovery-only modes) applies it.
+ */
+export async function enqueueWorkCoverRefresh(
+  data: WorkCoverRefreshJobData,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getQueue(), JOB_WORK_COVER_REFRESH, data, jobOptions);
 }
 
 export async function enqueuePing(data?: PingJobData): Promise<string> {
