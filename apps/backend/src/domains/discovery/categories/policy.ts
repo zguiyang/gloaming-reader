@@ -1,3 +1,4 @@
+import { SUPPORTED_LOCALES } from '@gloaming/i18n';
 import {
   PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
   type PublicCategory,
@@ -78,12 +79,25 @@ export function toPublicCategoryListItem(
   return summary === null ? null : { ...summary, recordCount };
 }
 
-/** Admin management projection: the full contract plus the assigned record count. */
+/**
+ * Supported locales that still have no label — exactly the target set of
+ * `translateMissingPublicCategoryLabels`, so the admin "complete translations"
+ * action is enabled only when that operation would actually write something.
+ */
+export function missingPublicCategoryLocales(category: PublicCategory): string[] {
+  const localizedNames = category.localizedNames ?? {};
+  return SUPPORTED_LOCALES.filter((locale) => !localizedNames[locale]);
+}
+
+/**
+ * Admin management projection: the full contract plus the assigned record count
+ * and the missing-locale hint that gates the completion action in the UI.
+ */
 export function toPublicCategoryManagementItem(
   category: PublicCategory,
   recordCount: number,
 ): PublicCategoryManagementItem {
-  return { ...category, recordCount };
+  return { ...category, recordCount, missingLocales: missingPublicCategoryLocales(category) };
 }
 
 export type CategoryAssignmentDecision = 'insert' | 'promote' | 'keep' | 'noop' | 'limit';

@@ -484,6 +484,12 @@
         "saved": "Name saved.",
         "nameExists": "A category with that name already exists for this language."
       },
+      "translate": {
+        "action": "Complete translations",
+        "actionAria": "Complete missing translations for {name}",
+        "completed": "Filled in: {locales}",
+        "nothing": "No missing translations."
+      },
       "detail": {
         "idLabel": "Category ID",
         "meaning": "Meaning",
@@ -1429,7 +1435,8 @@
       "discovery": {
         "publicCategoryNameExists": "A category with that name already exists for this language",
         "publicCategoryLimitExceeded": "A source record can have at most {limit} categories",
-        "publicCategoryHasAssignments": "This category is still assigned to {count} source record(s). Remove those assignments before deleting it."
+        "publicCategoryHasAssignments": "This category is still assigned to {count} source record(s). Remove those assignments before deleting it.",
+        "publicCategoryTranslationBusy": "Another classification or translation task is running. Try again in a moment."
       }
     }
   }

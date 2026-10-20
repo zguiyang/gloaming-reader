@@ -4,6 +4,7 @@ import type { PublicCategoryManagementItem, SourceRecordItem } from '@gloaming/s
 
 import {
   canAssignCategoryToRecord,
+  canCompleteCategoryTranslations,
   categoryDisplayName,
   categoryLocaleLabelEntries,
   categoryProvenanceKey,
@@ -177,6 +178,32 @@ describe('localized label state', () => {
     const category = sampleCategory({ localizedNames: { 'zh-CN': '科幻', 'en-US': 'Science Fiction' } });
     expect(missingCategoryLocales(category)).toEqual([]);
     expect(isCategoryFullyLocalized(category)).toBe(true);
+  });
+
+  it('prefers the server-projected missingLocales on the admin DTO', () => {
+    const category = sampleCategory({
+      localizedNames: { 'zh-CN': '科幻' },
+      missingLocales: ['en-US'],
+    });
+    expect(missingCategoryLocales(category)).toEqual(['en-US']);
+    expect(canCompleteCategoryTranslations(category)).toBe(true);
+    expect(isCategoryFullyLocalized(category)).toBe(false);
+  });
+
+  it('gates the completion action on a real supported-locale gap', () => {
+    const complete = sampleCategory({
+      localizedNames: { 'zh-CN': '科幻', 'en-US': 'Science Fiction' },
+      missingLocales: [],
+    });
+    expect(canCompleteCategoryTranslations(complete)).toBe(false);
+
+    // Unknown tags from the projection are not completion targets.
+    const foreignGap = sampleCategory({
+      localizedNames: { 'zh-CN': '科幻', 'en-US': 'Science Fiction' },
+      missingLocales: ['fr-FR'],
+    });
+    expect(missingCategoryLocales(foreignGap)).toEqual([]);
+    expect(canCompleteCategoryTranslations(foreignGap)).toBe(false);
   });
 });
 

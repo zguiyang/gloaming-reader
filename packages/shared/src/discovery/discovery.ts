@@ -189,6 +189,13 @@ export type PublicCategoryDetail = z.infer<typeof publicCategoryDetailSchema>;
  */
 export const publicCategoryManagementItemSchema = publicCategorySchema.extend({
   recordCount: z.number().int().nonnegative(),
+  /**
+   * Supported locales that still have no label, projected by the admin list so
+   * the "complete translations" action can be enabled per category without
+   * client-side recomputation. Optional so older payloads degrade gracefully;
+   * clients fall back to `localizedNames` when it is absent.
+   */
+  missingLocales: z.array(z.string()).optional(),
 });
 export type PublicCategoryManagementItem = z.infer<typeof publicCategoryManagementItemSchema>;
 

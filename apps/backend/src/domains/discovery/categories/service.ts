@@ -10,6 +10,8 @@ import {
   type SourceRecordListData,
 } from '@gloaming/shared/discovery';
 
+import { translateMissingPublicCategoryLabels } from '@/domains/discovery/categories/classification';
+import type { PublicClassificationDeferredReason } from '@/domains/discovery/categories/classification-contract';
 import {
   buildPublicCategory,
   decideCategoryAssignment,
@@ -63,6 +65,18 @@ function categoryLimitExceeded(): AppError {
 
 function categoryHasAssignments(count: number): AppError {
   return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_HAS_ASSIGNMENTS, { count });
+}
+
+/**
+ * Admin-facing error contract for a deferred translation pass: the instance
+ * lock is held by another classification/translation run (409, retry shortly),
+ * while a missing provider or an exhausted transient retry is a 503.
+ */
+function translationDeferredError(reason: PublicClassificationDeferredReason): AppError {
+  if (reason === 'busy') {
+    return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_TRANSLATION_BUSY);
+  }
+  return new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -249,6 +263,34 @@ export async function updateManagedCategoryLabel(
     throw error;
   }
   return loadManagedCategory(categoryId);
+}
+
+/**
+ * Admin-triggered completion of a category's missing localized labels (PC-05).
+ *
+ * Calls the existing instance-only translation operation exactly once per
+ * explicit click — it never runs automatically for the whole list and it never
+ * touches an already-persisted locale, so manually edited labels are preserved
+ * by the same `edited_by = 'manual'` guard the translator already applies.
+ * Returns the locales actually written this pass; an empty array is the
+ * no-op result when nothing is missing. A missing category is 404 and a
+ * deferred pass surfaces through the standard admin error contract.
+ */
+export async function completeManagedCategoryTranslations(
+  categoryId: string,
+): Promise<{ translatedLocales: string[] }> {
+  const result = await translateMissingPublicCategoryLabels(categoryId);
+  switch (result.status) {
+    case 'completed':
+      return { translatedLocales: result.translatedLocales };
+    case 'skipped':
+      if (result.reason === 'category_not_found') {
+        throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
+      }
+      return { translatedLocales: [] };
+    case 'deferred':
+      throw translationDeferredError(result.reason);
+  }
 }
 
 /**

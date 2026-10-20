@@ -131,6 +131,8 @@ export const ERROR_CODES = {
     PUBLIC_CATEGORY_NAME_EXISTS: 'api.errors.discovery.publicCategoryNameExists',
     PUBLIC_CATEGORY_LIMIT_EXCEEDED: 'api.errors.discovery.publicCategoryLimitExceeded',
     PUBLIC_CATEGORY_HAS_ASSIGNMENTS: 'api.errors.discovery.publicCategoryHasAssignments',
+    /** Admin "complete translations" clicked while the instance lock is held. */
+    PUBLIC_CATEGORY_TRANSLATION_BUSY: 'api.errors.discovery.publicCategoryTranslationBusy',
   },
 } as const;
 

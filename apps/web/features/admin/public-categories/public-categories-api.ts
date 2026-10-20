@@ -34,6 +34,12 @@ const ADMIN_SOURCE_RECORDS_PATH = '/api/admin/discovery/source-records';
 
 const managedCategoryListSchema = z.array(publicCategoryManagementItemSchema);
 
+/** Admin completion outcome: the locales actually written by that pass. */
+const categoryTranslationCompleteSchema = z.object({
+  translatedLocales: z.array(z.string()),
+});
+export type CategoryTranslationCompleteResult = z.infer<typeof categoryTranslationCompleteSchema>;
+
 export type CategoryRecordListParams = {
   page: number;
   pageSize?: number;
@@ -100,6 +106,19 @@ export async function updateManagedCategoryLabel(
     method: 'PATCH',
     schema: publicCategoryManagementItemSchema,
     json: input,
+  });
+}
+
+/**
+ * `POST /api/admin/discovery/categories/:categoryId/translations/complete` —
+ * fill only the missing supported locales of one category on an explicit admin
+ * click. The instance model is resolved server-side for this request only;
+ * already-persisted (including manually edited) labels are never overwritten.
+ */
+export async function completeCategoryTranslations(categoryId: string): Promise<CategoryTranslationCompleteResult> {
+  return apiRequest(`${CATEGORIES_PATH}/${encodeURIComponent(categoryId)}/translations/complete`, {
+    method: 'POST',
+    schema: categoryTranslationCompleteSchema,
   });
 }
 
@@ -211,6 +230,17 @@ export function useUpdateManagedCategoryLabelMutation() {
   return useMutation({
     mutationFn: (input: { categoryId: string; name: string; locale: Locale }) =>
       updateManagedCategoryLabel(input.categoryId, { name: input.name, locale: input.locale }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.list() });
+    },
+  });
+}
+
+/** Refreshes the list so `missingLocales` reflects what the pass just wrote. */
+export function useCompleteCategoryTranslationsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (categoryId: string) => completeCategoryTranslations(categoryId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.list() });
     },
