@@ -1,5 +1,3 @@
-import { LIBRARY_ITEMS_LIMIT } from '@gloaming/shared/library';
-
 import { AUTH_ROUTES } from '@/constants';
 
 /** Library source groups are organization views over one Library, never separate libraries. */
@@ -75,14 +73,6 @@ export function normalizeLibraryFilterSearch(
 export function libraryFilterHref(filters: LibraryFilters): string {
   const query = buildLibraryFilterQuery(filters);
   return query ? `${AUTH_ROUTES.library}?${query}` : AUTH_ROUTES.library;
-}
-
-/**
- * The Library API caps items below the true Library size, so a full page of items cannot prove that
- * a filtered empty result is authoritative.
- */
-export function mayBeTruncated(itemCount: number): boolean {
-  return itemCount >= LIBRARY_ITEMS_LIMIT;
 }
 
 const APP_ORIGIN = 'https://gloaming.invalid';

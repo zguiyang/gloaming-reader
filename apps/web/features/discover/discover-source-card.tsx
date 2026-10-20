@@ -20,7 +20,7 @@ import {
 } from '@/features/discover/discover-api';
 import { categoryDisplayName, type DiscoverItem } from '@/features/discover/discover-model';
 import { WorkCover } from '@/features/work-cover';
-import { isUnauthorizedError } from '@/lib/api-request';
+import { ApiRequestError, isUnauthorizedError } from '@/lib/api-request';
 import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { workDetailHref } from '@/lib/navigation/work-detail-return';
@@ -31,6 +31,9 @@ type DiscoverSourceCardProps = {
 };
 
 type SaveActionState = 'saving' | null;
+
+/** Server 409 code for a source record without a readable EPUB candidate; it doubles as its i18n key. */
+const SOURCE_RECORD_NO_EPUB_CANDIDATE_CODE = 'api.errors.library.sourceRecordNoEpubCandidate';
 
 /**
  * SourceRecord Discover card.
@@ -106,7 +109,13 @@ function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & {
         openLogin();
         return;
       }
-      toast.error(t(locale, 'content.discover.saveFailed'));
+      // A 409 rejection (no selectable EPUB candidate) carries the server's own
+      // localized explanation; every other failure keeps the generic copy.
+      const messageKey =
+        error instanceof ApiRequestError && error.code === SOURCE_RECORD_NO_EPUB_CANDIDATE_CODE
+          ? SOURCE_RECORD_NO_EPUB_CANDIDATE_CODE
+          : 'content.discover.saveFailed';
+      toast.error(t(locale, messageKey));
     } finally {
       setAction(null);
     }

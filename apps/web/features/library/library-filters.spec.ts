@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildLibraryFilterQuery,
-  mayBeTruncated,
   normalizeLibraryFilterSearch,
   parseLibraryFilters,
   resolveLibraryReturnTo,
@@ -49,12 +48,6 @@ describe('library filters', () => {
     // Unknown unrelated params are left alone, even while normalizing a filter.
     expect(normalizeLibraryFilterSearch({ source: 'all', tagId: null }, params('utm=x'), [])).toBeNull();
     expect(normalizeLibraryFilterSearch({ source: 'all', tagId: null }, params('utm=x&source=all'), [])).toBe('utm=x');
-  });
-
-  it('treats a capped Library list as possibly truncated', () => {
-    expect(mayBeTruncated(0)).toBe(false);
-    expect(mayBeTruncated(47)).toBe(false);
-    expect(mayBeTruncated(48)).toBe(true);
   });
 
   it('accepts only in-app Library return targets', () => {

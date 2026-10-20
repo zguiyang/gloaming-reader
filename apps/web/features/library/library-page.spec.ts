@@ -1620,7 +1620,7 @@ describe('LibraryPage', () => {
     english.cleanup();
   });
 
-  it('distinguishes a filtered empty result and warns when results may be truncated', async () => {
+  it('distinguishes a filtered empty result and warns only about a server-truncated Library', async () => {
     const favorite = { id: 'tag-favorite', name: '喜欢', bookCount: 0 };
     mocks.useUserTagsQuery.mockReturnValue({ data: [favorite] });
 
@@ -1635,17 +1635,40 @@ describe('LibraryPage', () => {
     expect(buttonByLabel(small.container, '查看全部书籍')).toBeFalsy();
     small.cleanup();
 
+    // A full 48-item page with isTruncated=false is authoritative: the empty
+    // filter result must not claim that the loaded books were cut off.
+    const complete = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: {
+        current: null,
+        items: Array.from({ length: 48 }, (_, index) => item(`book-${index}`, false)),
+        isTruncated: false,
+      },
+    });
+    await complete.navigate('?source=saved');
+    expect(complete.container.textContent).toContain('还没有已保存的书');
+    expect(complete.container.textContent).not.toContain('当前已加载的书籍中没有符合条件的结果');
+    expect(complete.container.textContent).not.toContain('书库仅显示前 48 本书');
+    await complete.navigate('?tag=tag-favorite');
+    expect(complete.container.textContent).toContain('当前分类下没有匹配的书籍');
+    expect(complete.container.textContent).not.toContain('当前已加载的书籍中没有符合条件的结果');
+    complete.cleanup();
+
+    // Only the server may declare truncation.
     const capped = await renderLibrary({
       isPending: false,
       isError: false,
       data: {
         current: null,
         items: Array.from({ length: 48 }, (_, index) => item(`book-${index}`, false)),
+        isTruncated: true,
       },
     });
     await capped.navigate('?source=saved');
     expect(capped.container.textContent).toContain('当前已加载的书籍中没有符合条件的结果');
     expect(capped.container.textContent).not.toContain('还没有已保存的书');
+    expect(capped.container.textContent).toContain('书库仅显示前 48 本书');
 
     await capped.navigate('?tag=tag-favorite');
     expect(capped.container.textContent).toContain('当前已加载的书籍中没有符合条件的结果');
