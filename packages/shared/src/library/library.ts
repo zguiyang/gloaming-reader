@@ -15,6 +15,8 @@ export const userTagSchema = z.object({
   localizedNames: z.record(z.string(), z.string()).default({}),
   sourceLocale: z.string().nullable().default(null),
   userEditedLocales: z.array(z.string()).default([]),
+  /** Label provenance; `manual` default keeps older payloads and clients compatible. */
+  createdBy: z.enum(['ai', 'manual']).default('manual'),
 });
 
 export const userTagManagementItemSchema = userTagSchema.extend({

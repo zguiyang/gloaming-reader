@@ -72,6 +72,11 @@
         "completed": "Last tagging run completed",
         "skipped": "Last tagging run skipped",
         "failed": "Last tagging run failed"
+      },
+      "runError": {
+        "generic": "Tagging did not complete. Please try again later.",
+        "attempts_exhausted": "Tagging did not complete after repeated attempts.",
+        "worker_attempts_exhausted": "The tagging run was interrupted and did not complete."
       }
     },
     "serviceMode": "Service source",
@@ -1128,7 +1133,8 @@
       "progressRead": "{ratio}% read",
       "statusCompleted": "Finished",
       "statusNotStarted": "Not started",
-      "statusReadProgress": "{ratio}% read"
+      "statusReadProgress": "{ratio}% read",
+      "aiTagBadge": "AI"
     },
     "history": {
       "title": "Reading history",

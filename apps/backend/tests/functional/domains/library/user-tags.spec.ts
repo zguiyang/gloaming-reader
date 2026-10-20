@@ -465,6 +465,7 @@ describe('User Tag API', () => {
         localizedNames: { 'zh-CN': 'Favorite' },
         sourceLocale: 'zh-CN',
         userEditedLocales: ['zh-CN'],
+        createdBy: 'manual',
         bookCount: 1,
       },
     ]);
@@ -656,5 +657,35 @@ describe('User Tag API', () => {
     expect(userTagRow).toBeDefined();
     await db.delete(userTable).where(eq(userTable.id, owner.userId));
     expect(await db.select().from(userTagTable).where(eq(userTagTable.id, tag!.id))).toHaveLength(0);
+  });
+
+  it('reports tag provenance so AI-created labels are distinguishable from manual ones', async () => {
+    const owner = await createSession();
+    emails.push(owner.email);
+
+    const created = await app.request('/api/library/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', cookie: owner.cookie },
+      body: JSON.stringify({ name: 'Manual Label' }),
+    });
+    expect(created.status).toBe(201);
+
+    await db.insert(userTagTable).values({
+      id: randomUUID(),
+      userId: owner.userId,
+      name: 'AI Label',
+      normalizedName: 'ai label',
+      createdBy: 'ai',
+      sourceLocale: 'en-US',
+      localizedNames: { 'en-US': 'AI Label' },
+      userEditedLocales: [],
+    });
+
+    const list = (await (
+      await app.request('/api/library/tags', { headers: { cookie: owner.cookie } })
+    ).json()) as Array<{ id: string; name: string; createdBy: string }>;
+    expect(list).toHaveLength(2);
+    expect(list.find((tag) => tag.name === 'Manual Label')?.createdBy).toBe('manual');
+    expect(list.find((tag) => tag.name === 'AI Label')?.createdBy).toBe('ai');
   });
 });

@@ -469,6 +469,57 @@ describe('LibraryPage', () => {
     view.cleanup();
   });
 
+  it('marks AI-created tags with a badge and leaves manual tags unmarked', async () => {
+    const view = await renderTagManagement([
+      {
+        id: 'tag-ai',
+        name: '太空歌剧',
+        localizedNames: { 'zh-CN': '太空歌剧' },
+        sourceLocale: 'zh-CN',
+        userEditedLocales: ['zh-CN'],
+        createdBy: 'ai',
+        bookCount: 1,
+      },
+      {
+        id: 'tag-manual',
+        name: '喜欢',
+        localizedNames: { 'zh-CN': '喜欢' },
+        sourceLocale: 'zh-CN',
+        userEditedLocales: ['zh-CN'],
+        createdBy: 'manual',
+        bookCount: 2,
+      },
+    ]);
+    const itemFor = (name: string) =>
+      Array.from(view.container.querySelectorAll('li')).find((entry) => entry.textContent?.includes(name));
+
+    expect(itemFor('太空歌剧')?.textContent).toContain('AI 生成');
+    expect(itemFor('喜欢')?.textContent).not.toContain('AI 生成');
+    view.cleanup();
+  });
+
+  it('shows the AI badge in the tag assignment dialog only for AI-created tags', async () => {
+    mocks.useUserTagsQuery.mockReturnValue({
+      data: [
+        { id: 'tag-ai', name: '太空歌剧', bookCount: 1, createdBy: 'ai' },
+        { id: 'tag-manual', name: '喜欢', bookCount: 0, createdBy: 'manual' },
+      ],
+    });
+    const view = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('book', false)] },
+    });
+    await openTagAssignmentDialog(view);
+    const labels = Array.from(document.querySelectorAll('[role="dialog"] label'));
+    const aiLabel = labels.find((label) => label.textContent?.includes('太空歌剧'));
+    const manualLabel = labels.find((label) => label.textContent?.includes('喜欢'));
+
+    expect(aiLabel?.textContent).toContain('AI 生成');
+    expect(manualLabel?.textContent).not.toContain('AI 生成');
+    view.cleanup();
+  });
+
   it('creates and renames tags from the management page', async () => {
     const view = await renderTagManagement([{ id: 'tag-one', name: '喜欢', bookCount: 1 }]);
     const invalidateQueries = vi.spyOn(view.client, 'invalidateQueries');

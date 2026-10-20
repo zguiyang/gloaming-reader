@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { t } from '@gloaming/i18n';
 import { type LibraryItem, resolveUserTagName, type UserTagManagementItem } from '@gloaming/shared/library';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -169,6 +170,11 @@ function LibraryTagAssignmentContent({
                 }}
               />
               <span className="min-w-0 flex-1 truncate">{resolveUserTagName(tag, locale)}</span>
+              {tag.createdBy === 'ai' ? (
+                <Badge variant="secondary" className="shrink-0 rounded-full px-1.5 font-normal">
+                  {t(locale, 'content.library.aiTagBadge')}
+                </Badge>
+              ) : null}
               <span className="text-xs text-muted-foreground">{tag.bookCount}</span>
             </label>
           ))}

@@ -72,6 +72,11 @@
         "completed": "上次标签整理已完成",
         "skipped": "上次标签整理已跳过",
         "failed": "上次标签整理失败"
+      },
+      "runError": {
+        "generic": "标签整理未能完成，请稍后重试。",
+        "attempts_exhausted": "标签整理多次尝试后仍未完成。",
+        "worker_attempts_exhausted": "标签整理运行被中断，未能完成。"
       }
     },
     "serviceMode": "服务来源",
@@ -1128,7 +1133,8 @@
       "progressRead": "已读 {ratio}%",
       "statusCompleted": "已读完",
       "statusNotStarted": "未开始",
-      "statusReadProgress": "已读 {ratio}%"
+      "statusReadProgress": "已读 {ratio}%",
+      "aiTagBadge": "AI 生成"
     },
     "history": {
       "title": "阅读历史",

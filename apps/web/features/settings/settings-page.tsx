@@ -30,6 +30,7 @@ import {
   listUserLlmModels,
   listUserLlmProviders,
   listUserLlmSettings,
+  personalTaggingRunErrorKey,
   putPersonalTaggingPreference,
   putUserLlmSetting,
   testUserLlmModel,
@@ -469,7 +470,9 @@ export function SettingsPage() {
             personalTaggingQuery.data.providerAvailable &&
             personalTaggingQuery.data.latestRunState ? (
               <p role="status" className="mt-2 text-sm text-muted-foreground">
-                {t(locale, `settings.personalTagging.runState.${personalTaggingQuery.data.latestRunState}`)}
+                {personalTaggingQuery.data.latestRunState === 'failed'
+                  ? t(locale, personalTaggingRunErrorKey(personalTaggingQuery.data.latestRunErrorCode))
+                  : t(locale, `settings.personalTagging.runState.${personalTaggingQuery.data.latestRunState}`)}
               </p>
             ) : null}
             {personalTaggingQuery.error ? (
