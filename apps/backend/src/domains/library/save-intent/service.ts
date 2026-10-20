@@ -12,10 +12,12 @@ import {
 import type { SourceRecordSaveStatus } from '@gloaming/shared/library';
 import { isWorkParseCompleted } from '@gloaming/shared/works';
 
+import { hasSelectableEpubCandidate } from '@/domains/discovery/materialization';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 import { enqueueDiscoveryImport } from '@/infra/queue';
-import { NotFoundError } from '@/shared/errors/app-error';
+import { HTTP_STATUS } from '@/shared/constants';
+import { AppError, NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 const saveIntentLogger = rootLogger.child({ module: 'SaveIntent' });
@@ -81,9 +83,13 @@ type SavableSourceRecord = {
 };
 
 /**
- * Save accepts only an enabled source's currently available record. Disabled
- * sources and unavailable records are rejected as not found, matching the
- * Discover read model.
+ * Save accepts only an enabled source's currently available record, and only
+ * when its synced metadata still offers a selectable EPUB candidate — the same
+ * rule the Discover read model's `isSaveable` flag applies. Disabled sources,
+ * unavailable records, and records without an EPUB candidate are rejected
+ * before any Save Intent is created or revived and before anything is queued.
+ * A later candidate sync needs no cached failure: the next POST re-reads the
+ * record and passes this gate.
  */
 async function loadSavableSourceRecord(sourceRecordId: string): Promise<SavableSourceRecord> {
   const [row] = await db
@@ -91,6 +97,7 @@ async function loadSavableSourceRecord(sourceRecordId: string): Promise<SavableS
       id: sourceRecordTable.id,
       workId: sourceRecordTable.workId,
       availability: sourceRecordTable.availability,
+      contentCandidates: sourceRecordTable.contentCandidates,
       enabled: discoverySourceTable.enabled,
     })
     .from(sourceRecordTable)
@@ -100,6 +107,9 @@ async function loadSavableSourceRecord(sourceRecordId: string): Promise<SavableS
 
   if (!row || !row.enabled || row.availability !== 'available') {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
+  }
+  if (!hasSelectableEpubCandidate({ contentCandidates: row.contentCandidates })) {
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LIBRARY.SOURCE_RECORD_NO_EPUB_CANDIDATE);
   }
   return { id: row.id, workId: row.workId };
 }
@@ -192,16 +202,18 @@ async function loadCurrentSourceRecordWorkId(sourceRecordId: string): Promise<st
 
 /**
  * Authenticated Save API entry point. Rejects disabled sources / unavailable
- * records, then either completes immediately (readable Work already present) or
- * returns `pending` and enqueues the shared materialization job. Re-reading the
- * record after upserting the intent closes the late-intent race: an intent created
- * during a fan-out still sees the committed link and completes.
+ * records / records without a selectable EPUB candidate, then either completes
+ * immediately (readable Work already present) or returns `pending` and enqueues
+ * the shared materialization job. Re-reading the record after upserting the
+ * intent closes the late-intent race: an intent created during a fan-out still
+ * sees the committed link and completes.
  */
 export async function saveSourceRecordToLibrary(
   userId: string,
   sourceRecordId: string,
 ): Promise<SaveSourceRecordResult> {
-  // Validate enabled source + available record before creating the intent.
+  // Validate enabled source + available record + selectable EPUB candidate
+  // before creating the intent.
   await loadSavableSourceRecord(sourceRecordId);
   await ensurePendingIntent(userId, sourceRecordId);
 

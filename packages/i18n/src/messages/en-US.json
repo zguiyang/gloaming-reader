@@ -1431,7 +1431,8 @@
         "unsupportedAction": "Unsupported action"
       },
       "library": {
-        "userTagNameExists": "You already have a tag with that name"
+        "userTagNameExists": "You already have a tag with that name",
+        "sourceRecordNoEpubCandidate": "No readable EPUB is available for this source yet, so it cannot be saved to your library"
       },
       "discovery": {
         "publicCategoryNameExists": "A category with that name already exists for this language",

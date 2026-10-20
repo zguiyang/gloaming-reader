@@ -1434,7 +1434,8 @@
         "unsupportedAction": "不支持的操作"
       },
       "library": {
-        "userTagNameExists": "你已经有一个同名标签"
+        "userTagNameExists": "你已经有一个同名标签",
+        "sourceRecordNoEpubCandidate": "该来源暂无可读 EPUB，暂时无法加入书库"
       },
       "discovery": {
         "publicCategoryNameExists": "该语言下已存在同名分类",

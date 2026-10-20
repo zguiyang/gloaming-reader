@@ -125,6 +125,7 @@ export const ERROR_CODES = {
 
   LIBRARY: {
     USER_TAG_NAME_EXISTS: 'api.errors.library.userTagNameExists',
+    SOURCE_RECORD_NO_EPUB_CANDIDATE: 'api.errors.library.sourceRecordNoEpubCandidate',
   },
 
   DISCOVERY: {

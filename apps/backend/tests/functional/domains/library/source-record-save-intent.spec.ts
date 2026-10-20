@@ -34,6 +34,7 @@ import { removeFromLibrary } from '@/domains/library/service';
 import { db } from '@/infra/db';
 import * as queueLib from '@/infra/queue';
 import { HTTP_STATUS } from '@/shared/constants';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 import { createCatalogWorkFixture } from '../../../helpers/catalog-work-fixture';
 
@@ -336,6 +337,79 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
     expect(await intentsFor(unavailable.id)).toHaveLength(0);
     expect(enqueueSpy).not.toHaveBeenCalled();
     await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, disabledSourceId));
+  });
+
+  it('rejects a record with no selectable EPUB candidate before creating, reviving, or enqueueing anything', async () => {
+    const learner = track(await createSession());
+    // Synced but unusable metadata: HTML and a third-party EPUB URL are both
+    // rejected by the same pure predicate behind Discover's `isSaveable` flag.
+    const noCandidate = await createRecord({
+      contentCandidates: [
+        { format: 'html', url: 'https://www.gutenberg.org/ebooks/1342.html' },
+        { format: 'epub', url: 'https://example.test/1342.epub' },
+      ],
+    });
+    // A pre-existing failed intent must not be rewritten by the rejected POST.
+    await db.insert(saveIntentTable).values({
+      id: randomUUID(),
+      userId: learner.userId,
+      sourceRecordId: noCandidate.id,
+      status: 'failed',
+      failureCode: 'download_http_error',
+      failureReason: 'upstream returned an error page',
+    });
+
+    const response = await app.request(`/api/library/source-records/${noCandidate.id}`, {
+      method: 'POST',
+      headers: { cookie: learner.cookie },
+    });
+    expect(response.status).toBe(HTTP_STATUS.CONFLICT);
+    expect(((await response.json()) as { code: string }).code).toBe(
+      ERROR_CODES.LIBRARY.SOURCE_RECORD_NO_EPUB_CANDIDATE,
+    );
+
+    await expect(saveSourceRecordToLibrary(learner.userId, noCandidate.id)).rejects.toMatchObject({
+      statusCode: HTTP_STATUS.CONFLICT,
+      code: ERROR_CODES.LIBRARY.SOURCE_RECORD_NO_EPUB_CANDIDATE,
+    });
+
+    // No intent was created, and the failed one keeps its recorded failure.
+    const intents = await intentsFor(noCandidate.id);
+    expect(intents).toHaveLength(1);
+    expect(intents[0]).toMatchObject({
+      status: 'failed',
+      failureCode: 'download_http_error',
+      failureReason: 'upstream returned an error page',
+    });
+    expect(enqueueSpy).not.toHaveBeenCalled();
+  });
+
+  it('saves on a later POST once the record gains a selectable EPUB candidate', async () => {
+    const learner = track(await createSession());
+    const record = await createRecord({ contentCandidates: [] });
+
+    await expect(saveSourceRecordToLibrary(learner.userId, record.id)).rejects.toMatchObject({
+      statusCode: HTTP_STATUS.CONFLICT,
+    });
+    expect(await intentsFor(record.id)).toHaveLength(0);
+    expect(enqueueSpy).not.toHaveBeenCalled();
+
+    // A metadata sync adds a selectable candidate; the failure was never cached.
+    await db
+      .update(sourceRecordTable)
+      .set({
+        contentCandidates: [{ format: 'epub', url: 'https://www.gutenberg.org/cache/epub/1/pg1.epub.images' }],
+      })
+      .where(eq(sourceRecordTable.id, record.id));
+
+    expect(await saveSourceRecordToLibrary(learner.userId, record.id)).toEqual({
+      status: 'pending',
+      workId: null,
+    });
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+    const intents = await intentsFor(record.id);
+    expect(intents).toHaveLength(1);
+    expect(intents[0]).toMatchObject({ userId: learner.userId, status: 'pending' });
   });
 
   it('completes immediately with membership when the linked Work is already readable', async () => {
