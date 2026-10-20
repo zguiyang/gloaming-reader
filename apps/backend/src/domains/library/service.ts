@@ -8,6 +8,7 @@ import {
   userLibraryItem as userLibraryItemTable,
   userWorkTag as userWorkTagTable,
 } from '@gloaming/db';
+import { sourceRecord as sourceRecordTable, sourceRecordSaveIntent as saveIntentTable } from '@gloaming/db/schema';
 import { LIBRARY_ITEMS_LIMIT, type LibraryData, type LibraryItem } from '@gloaming/shared/library';
 import { workAvailability } from '@gloaming/shared/works';
 
@@ -140,7 +141,16 @@ export async function addToLibrary(userId: string, workId: string): Promise<void
   });
 }
 
-/** Remove Catalog membership and its private organization labels, preserving reading facts. */
+/**
+ * Remove Catalog membership and its private organization labels, preserving reading facts.
+ *
+ * Removal is also an un-save for Discover-sourced Works: the same transaction
+ * drops this user's Save Intent for the Work's linked SourceRecord, so
+ * `GET /api/library/source-records/:id` reports `none` and Discover offers
+ * "Add to Library" again. Personal Works have no SourceRecord link, so they
+ * fall through untouched; other users' intents, reading progress, and the Work
+ * itself are never deleted here.
+ */
 export async function removeFromLibrary(userId: string, workId: string): Promise<void> {
   await db.transaction(async (tx) => {
     const removed = await tx
@@ -151,5 +161,17 @@ export async function removeFromLibrary(userId: string, workId: string): Promise
     await tx
       .delete(userWorkTagTable)
       .where(and(eq(userWorkTagTable.userId, userId), eq(userWorkTagTable.workId, workId)));
+
+    // At most one SourceRecord links to a Work (`source_record_work_uidx`), and
+    // Personal Works link none, so an unlinked Work leaves no intent behind.
+    const [record] = await tx
+      .select({ id: sourceRecordTable.id })
+      .from(sourceRecordTable)
+      .where(eq(sourceRecordTable.workId, workId))
+      .limit(1);
+    if (!record) return;
+    await tx
+      .delete(saveIntentTable)
+      .where(and(eq(saveIntentTable.userId, userId), eq(saveIntentTable.sourceRecordId, record.id)));
   });
 }

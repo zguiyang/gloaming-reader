@@ -30,6 +30,7 @@ import {
   SAVE_INTENT_TIMEOUT_AFTER_MS,
   saveSourceRecordToLibrary,
 } from '@/domains/library/save-intent';
+import { removeFromLibrary } from '@/domains/library/service';
 import { db } from '@/infra/db';
 import * as queueLib from '@/infra/queue';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -55,12 +56,30 @@ function cookieHeader(response: Response): string {
   return single ? single.split(';')[0]! : '';
 }
 
+/**
+ * Unique TEST-NET-2 client IP per session: without it every signup/login of
+ * this spec shares the guest API limiter's single `unknown` bucket
+ * (60 requests / 60s / IP) and the file rate-limits itself past ~27 sessions.
+ */
+let sessionIpCursor = 0;
+function uniqueClientIp(): string {
+  sessionIpCursor = (sessionIpCursor % 254) + 1;
+  return `198.51.100.${sessionIpCursor}`;
+}
+
 async function createSession(role: 'user' | 'admin' = 'user') {
   const email = uniqueEmail(role);
   const username = `${role}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  const clientIp = uniqueClientIp();
+  const clientHeaders = {
+    'Content-Type': 'application/json',
+    Origin: 'http://localhost:3000',
+    'x-real-ip': clientIp,
+    'x-forwarded-for': clientIp,
+  };
   const signup = await app.request('/api/auth/sign-up/email', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
+    headers: clientHeaders,
     body: JSON.stringify({ email, password, name: role, username }),
   });
   expect(signup.status).toBe(200);
@@ -70,7 +89,7 @@ async function createSession(role: 'user' | 'admin' = 'user') {
   }
   const login = await app.request('/api/auth/sign-in/email', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
+    headers: clientHeaders,
     body: JSON.stringify({ email, password }),
   });
   expect(login.status).toBe(200);
@@ -689,6 +708,112 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
       failureReason: null,
     });
     expect(await intentsFor(record.id)).toHaveLength(1);
+  });
+
+  it("drops only the removing user's Save Intent on removeFromLibrary so Discover re-offers saving", async () => {
+    const learner = track(await createSession());
+    const other = track(await createSession());
+    const work = await createCatalogWorkFixture({ title: 'Removed From Library Work', publishedAt: null });
+    createdWorkIds.push(work.id);
+    const record = await createRecord({ workId: work.id, materializationStatus: 'ready' });
+
+    // Both users save the shared SourceRecord into a ready membership.
+    expect(await saveSourceRecordToLibrary(learner.userId, record.id)).toEqual({
+      status: 'ready',
+      workId: work.id,
+    });
+    expect(await saveSourceRecordToLibrary(other.userId, record.id)).toEqual({
+      status: 'ready',
+      workId: work.id,
+    });
+
+    // Reading progress must survive the removal.
+    await db.insert(readingStateTable).values({
+      id: randomUUID(),
+      userId: learner.userId,
+      workId: work.id,
+      status: 'in_progress',
+      anchorKind: 'part',
+      anchorValue: 'fixture',
+    });
+
+    await removeFromLibrary(learner.userId, work.id);
+
+    // The removing user's intent and membership are gone; the other user and
+    // the reading state are untouched, and the Work itself still exists.
+    const intents = await intentsFor(record.id);
+    expect(intents).toHaveLength(1);
+    expect(intents[0]).toMatchObject({ userId: other.userId, status: 'completed' });
+    expect(await membershipCount(learner.userId, work.id)).toBe(0);
+    expect(await membershipCount(other.userId, work.id)).toBe(1);
+    const states = await db
+      .select({ id: readingStateTable.id })
+      .from(readingStateTable)
+      .where(and(eq(readingStateTable.userId, learner.userId), eq(readingStateTable.workId, work.id)));
+    expect(states).toHaveLength(1);
+    expect(
+      await db.select({ id: readingWorkTable.id }).from(readingWorkTable).where(eq(readingWorkTable.id, work.id)),
+    ).toHaveLength(1);
+
+    // Discover reports `none` again instead of a stale `ready`.
+    expect((await readSaveStatus(record.id, learner.cookie)).body).toEqual({
+      status: 'none',
+      workId: work.id,
+      failureReason: null,
+    });
+    expect((await readSaveStatus(record.id, other.cookie)).body).toEqual({
+      status: 'ready',
+      workId: work.id,
+      failureReason: null,
+    });
+
+    // Re-saving rebuilds the intent and completes immediately on the ready Work.
+    expect(await saveSourceRecordToLibrary(learner.userId, record.id)).toEqual({
+      status: 'ready',
+      workId: work.id,
+    });
+    expect(await membershipCount(learner.userId, work.id)).toBe(1);
+    const rebuilt = await intentsFor(record.id);
+    expect(rebuilt.map((intent) => intent.userId).sort()).toEqual([other.userId, learner.userId].sort());
+    expect(rebuilt.every((intent) => intent.status === 'completed')).toBe(true);
+  });
+
+  it("never touches another user's intent when removing a Personal Work with no SourceRecord", async () => {
+    const owner = track(await createSession());
+    const saver = track(await createSession());
+    const personalWorkId = randomUUID();
+    createdWorkIds.push(personalWorkId);
+    await db.insert(readingWorkTable).values({
+      id: personalWorkId,
+      title: 'Personal Remove Guard',
+      ownerUserId: owner.userId,
+      visibility: 'private',
+      originKind: 'user_epub',
+      processingStatus: 'ready',
+    });
+    const work = await createCatalogWorkFixture({ title: 'Other User Saved Work', publishedAt: null });
+    createdWorkIds.push(work.id);
+    const record = await createRecord({ workId: work.id, materializationStatus: 'ready' });
+    expect(await saveSourceRecordToLibrary(saver.userId, record.id)).toEqual({
+      status: 'ready',
+      workId: work.id,
+    });
+
+    await removeFromLibrary(owner.userId, personalWorkId);
+
+    // The Personal Work links no SourceRecord, so its removal is a no-op for
+    // Save Intents, memberships, and the Work row itself.
+    const intents = await intentsFor(record.id);
+    expect(intents).toHaveLength(1);
+    expect(intents[0]).toMatchObject({ userId: saver.userId, status: 'completed' });
+    expect(await membershipCount(saver.userId, work.id)).toBe(1);
+    expect(await membershipCount(owner.userId, work.id)).toBe(0);
+    expect(
+      await db
+        .select({ id: readingWorkTable.id })
+        .from(readingWorkTable)
+        .where(eq(readingWorkTable.id, personalWorkId)),
+    ).toHaveLength(1);
   });
 
   /** One shared session for the recovery suite keeps the auth rate limit intact. */

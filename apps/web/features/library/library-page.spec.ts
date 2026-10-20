@@ -69,6 +69,14 @@ vi.mock('next/navigation', async (importOriginal) => {
   };
 });
 vi.mock('sonner', () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError, info: mocks.toastInfo } }));
+vi.mock('@/features/discover/discover-api', () => ({
+  discoverQueryKey: {
+    all: ['discover'] as const,
+    records: (params: unknown) => ['discover', 'records', params] as const,
+    saveStatus: (sourceRecordId: string, userId: string | null) =>
+      ['discover', 'save-status', userId, sourceRecordId] as const,
+  },
+}));
 
 beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -1286,9 +1294,15 @@ describe('LibraryPage', () => {
     await act(async () => (removeMenuItem as HTMLElement).click());
     expect(document.body.textContent).toContain('此书将从书库移除，阅读进度和历史记录会保留。');
     const confirm = Array.from(document.querySelectorAll('button')).find((button) => button.textContent === '移出书库');
+    const invalidateQueries = vi.spyOn(view.client, 'invalidateQueries');
     await act(async () => confirm?.click());
     expect(mocks.removeFromLibrary).toHaveBeenCalledWith('catalog');
     expect(mocks.toastSuccess).toHaveBeenCalledWith('已移出书库');
+    // Removal also drops the Save Intent, so Discover must re-read both the
+    // records projection and the owner-scoped save status.
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['library'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['discover', 'records'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['discover', 'save-status'] });
     view.cleanup();
   });
 
