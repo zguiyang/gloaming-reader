@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, count, desc, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 
 import type { SourceRecordAuthor, SourceRecordSourceMeta } from '@gloaming/db/schema';
 import {
@@ -10,6 +10,7 @@ import {
   discoverySyncRun,
   type DiscoverySyncRunStage,
   isDiscoverySyncRunTerminalStage,
+  readingWork,
   sourceRecord,
 } from '@gloaming/db/schema';
 
@@ -435,6 +436,72 @@ export async function loadClassificationEvidenceByExternalId(
     .from(sourceRecord)
     .where(and(eq(sourceRecord.sourceId, sourceId), inArray(sourceRecord.externalId, externalIds)));
   return new Map(rows.map((row) => [row.externalId, row]));
+}
+
+export type SourceRecordWorkMetadataBaselineRow = {
+  workId: string | null;
+  title: string;
+  description: string | null;
+};
+
+/**
+ * Pre-upsert work metadata baseline for the requested external ids: the stored
+ * title/description (to compare against the incoming snapshot) and the optional
+ * linked Work. Mirrors {@link loadClassificationEvidenceByExternalId}: one
+ * bounded batch read per upsert batch instead of per-row queries.
+ */
+export async function loadWorkMetadataBaselineByExternalId(
+  sourceId: string,
+  externalIds: string[],
+  executor: typeof db | DbTransaction = db,
+): Promise<Map<string, SourceRecordWorkMetadataBaselineRow>> {
+  if (externalIds.length === 0) return new Map();
+  const rows = await executor
+    .select({
+      externalId: sourceRecord.externalId,
+      workId: sourceRecord.workId,
+      title: sourceRecord.title,
+      description: sourceRecord.description,
+    })
+    .from(sourceRecord)
+    .where(and(eq(sourceRecord.sourceId, sourceId), inArray(sourceRecord.externalId, externalIds)));
+  return new Map(
+    rows.map((row) => [row.externalId, { workId: row.workId, title: row.title, description: row.description }]),
+  );
+}
+
+/**
+ * Copies synchronized title/description onto already-materialized Works inside
+ * the caller's batch transaction (product decision 2026-10-20). Only title and
+ * description are written — author, cover, parts, reading progress, and user
+ * tags are never touched. Bounded by the upsert batch: one guarded UPDATE per
+ * changed linked record.
+ *
+ * - same value → no write (the WHERE clause keeps `updated_at` untouched)
+ * - a missing Work row (dangling/deleted link) matches nothing and is skipped
+ * - a Work in `processing_status = 'failed'` is never force-written
+ *
+ * Returns how many Work rows were actually updated.
+ */
+export async function updateLinkedWorkMetadata(
+  updates: Array<{ workId: string; title: string; description: string }>,
+  executor: DbTransaction,
+): Promise<number> {
+  let updated = 0;
+  for (const update of updates) {
+    const result = await executor
+      .update(readingWork)
+      .set({ title: update.title, description: update.description })
+      .where(
+        and(
+          eq(readingWork.id, update.workId),
+          ne(readingWork.processingStatus, 'failed'),
+          or(ne(readingWork.title, update.title), ne(readingWork.description, update.description)),
+        ),
+      );
+    updated += result.rowCount ?? 0;
+  }
+  return updated;
 }
 
 /**
