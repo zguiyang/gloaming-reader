@@ -25,6 +25,7 @@ import {
   finishDiscoverySyncRunSkipped,
   finishDiscoverySyncRunSucceeded,
   loadClassificationEvidenceByExternalId,
+  loadWorkMetadataBaselineByExternalId,
   lockSourceRunOwnership,
   markSourceFailed,
   markSourceSucceeded,
@@ -32,8 +33,10 @@ import {
   recordDiscoverySyncRunBatchProgress,
   releaseSourceQueued,
   type SourceRecordClassificationEvidenceRow,
+  type SourceRecordWorkMetadataBaselineRow,
   SourceRunOwnershipLostError,
   startSourceSyncing,
+  updateLinkedWorkMetadata,
   upsertSourceRecords,
 } from './repository';
 
@@ -66,6 +69,9 @@ export type DiscoverySyncResult =
  * Idempotent Project Gutenberg metadata sync.
  *
  * - metadata only: never creates ReadingWork/ReadingPart/ContentAsset/Library/ReadingState rows
+ * - metadata changes flow back onto already-materialized Works: only title and
+ *   description of records whose values actually changed are copied onto the
+ *   linked Work, inside the batch transaction (cover/author are out of scope)
  * - conditional refresh via Last-Modified / 304, unless `force` re-requests the
  *   snapshot unconditionally (no `If-Modified-Since`) for a full reparse
  * - records are never deleted; absence is reconciled only after the full snapshot succeeds
@@ -178,7 +184,7 @@ export async function syncProjectGutenbergMetadata(options: {
     }
 
     const observedAt = new Date();
-    const { seenRecords, batches, committedRecords } = await consumeSnapshot({
+    const { seenRecords, batches, committedRecords, updatedWorkMetadata } = await consumeSnapshot({
       sourceId: source.id,
       runTokens,
       snapshot,
@@ -226,7 +232,14 @@ export async function syncProjectGutenbergMetadata(options: {
     });
 
     logger.info(
-      { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, seenRecords, unavailableRecords, batches, skippedNonEbookMembers },
+      {
+        sourceKey: PROJECT_GUTENBERG_SOURCE_KEY,
+        seenRecords,
+        unavailableRecords,
+        batches,
+        skippedNonEbookMembers,
+        updatedWorkMetadata,
+      },
       'Gutenberg metadata sync succeeded',
     );
     return {
@@ -314,12 +327,13 @@ async function consumeSnapshot(input: {
   snapshot: GutenbergSnapshot;
   observedAt: Date;
   signal?: AbortSignal;
-}): Promise<{ seenRecords: number; batches: number; committedRecords: number }> {
+}): Promise<{ seenRecords: number; batches: number; committedRecords: number; updatedWorkMetadata: number }> {
   const { sourceId, runTokens, snapshot, observedAt, signal } = input;
   const runStartedAt = runTokens.startToken;
   let seenRecords = 0;
   let batches = 0;
   let committedRecords = 0;
+  let updatedWorkMetadata = 0;
   let batch: ParsedSourceRecord[] = [];
 
   const flushBatch = async (): Promise<void> => {
@@ -337,11 +351,18 @@ async function consumeSnapshot(input: {
         records.map((record) => record.externalId),
         tx,
       );
+      const previousWorkMetadata = await loadWorkMetadataBaselineByExternalId(
+        sourceId,
+        records.map((record) => record.externalId),
+        tx,
+      );
       throwIfRunAborted(signal);
       // Lock the source row before any write and hold it to commit: a run whose
       // token was replaced must not persist metadata or classification state.
       await lockSourceRunOwnership(tx, sourceId, runStartedAt);
       const upserted = await upsertSourceRecords(sourceId, records, observedAt, tx);
+      throwIfRunAborted(signal);
+      updatedWorkMetadata += await syncLinkedWorkMetadata(records, upserted, previousWorkMetadata, tx);
       throwIfRunAborted(signal);
       await registerIncrementalClassification(records, upserted, previousEvidence, tx);
       throwIfRunAborted(signal);
@@ -380,7 +401,40 @@ async function consumeSnapshot(input: {
   }
   await flushBatch();
 
-  return { seenRecords, batches, committedRecords };
+  return { seenRecords, batches, committedRecords, updatedWorkMetadata };
+}
+
+/**
+ * Flows synchronized metadata changes back onto already-materialized Works
+ * (product decision 2026-10-20): for each upserted record whose incoming
+ * title/description differs from the pre-upsert source row and that links to a
+ * Work, the new values are written onto that Work in the same batch
+ * transaction. Unlinked records, unchanged values, missing or failed Works are
+ * skipped (see `updateLinkedWorkMetadata`); author, cover, parts, reading
+ * progress, and user tags are never touched.
+ */
+async function syncLinkedWorkMetadata(
+  records: ParsedSourceRecord[],
+  upserted: Array<{ id: string; externalId: string }>,
+  previousByExternalId: Map<string, SourceRecordWorkMetadataBaselineRow>,
+  executor: DbTransaction,
+): Promise<number> {
+  if (upserted.length === 0) return 0;
+  const recordByExternalId = new Map(records.map((record) => [record.externalId, record]));
+  const updates: Array<{ workId: string; title: string; description: string }> = [];
+  for (const row of upserted) {
+    const record = recordByExternalId.get(row.externalId);
+    if (!record) throw new Error(`Missing parsed source record for ${row.externalId}`);
+    const previous = previousByExternalId.get(row.externalId);
+    if (!previous?.workId) continue; // not materialized yet: nothing to update
+    if (record.title === previous.title && record.description === previous.description) continue; // idempotent no-op
+    updates.push({
+      workId: previous.workId,
+      title: record.title,
+      description: record.description ?? '',
+    });
+  }
+  return updateLinkedWorkMetadata(updates, executor);
 }
 
 function toClassificationEvidence(input: {
