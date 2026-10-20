@@ -47,6 +47,7 @@ export {
 } from './policy';
 export {
   assignCategoryToSourceRecord,
+  completeManagedCategoryTranslations,
   createManagedCategory,
   deleteManagedCategory,
   getPublicCategory,

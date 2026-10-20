@@ -489,6 +489,12 @@
         "saved": "名称已保存。",
         "nameExists": "该语言下已存在同名分类。"
       },
+      "translate": {
+        "action": "补齐翻译",
+        "actionAria": "补齐 {name} 的缺失翻译",
+        "completed": "已补齐：{locales}",
+        "nothing": "没有需要补齐的翻译。"
+      },
       "detail": {
         "idLabel": "分类 ID",
         "meaning": "含义",
@@ -1440,7 +1446,8 @@
       "discovery": {
         "publicCategoryNameExists": "该语言下已存在同名分类",
         "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类",
-        "publicCategoryHasAssignments": "该分类仍关联着 {count} 条来源记录，请先解除关联后再删除。"
+        "publicCategoryHasAssignments": "该分类仍关联着 {count} 条来源记录，请先解除关联后再删除。",
+        "publicCategoryTranslationBusy": "另一项分类或翻译任务正在执行，请稍后重试。"
       }
     }
   }

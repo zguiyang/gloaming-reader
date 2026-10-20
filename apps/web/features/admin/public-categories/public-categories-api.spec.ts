@@ -17,6 +17,7 @@ import {
   assignCategoryToSourceRecord,
   buildAssignmentCandidateQuery,
   buildCategoryRecordListQuery,
+  completeCategoryTranslations,
   createManagedCategory,
   deleteManagedCategory,
   isCategoryAssignmentLimitError,
@@ -99,6 +100,19 @@ describe('category API clients', () => {
     expect(path).toBe('/api/admin/discovery/categories/cat%2F1/labels');
     expect(options.method).toBe('PATCH');
     expect(options.json).toEqual({ name: 'Science Fiction', locale: 'en-US' });
+  });
+
+  it('requests translation completion for exactly one category through the admin route', async () => {
+    mocks.apiRequest.mockResolvedValue({ translatedLocales: ['en-US'] });
+    await expect(completeCategoryTranslations('cat/1')).resolves.toEqual({ translatedLocales: ['en-US'] });
+    const [path, options] = callArgs();
+    expect(path).toBe('/api/admin/discovery/categories/cat%2F1/translations/complete');
+    expect(options.method).toBe('POST');
+    expect(options.json).toBeUndefined();
+    // The response contract is exactly { translatedLocales } — no provider detail leaks to the client.
+    const schema = options.schema as { parse: (value: unknown) => unknown };
+    expect(schema.parse({ translatedLocales: ['en-US'] })).toEqual({ translatedLocales: ['en-US'] });
+    expect(() => schema.parse({})).toThrow();
   });
 
   it('lists one category’s assigned source records with search and pagination', async () => {
@@ -196,7 +210,7 @@ describe('provider independence and deferred AI translation', () => {
     .map((file) => readFileSync(resolve(featureDirectory, file), 'utf8'))
     .join('\n');
 
-  it('never imports or calls an AI provider or the deferred PC-03 translation action', () => {
+  it('never imports an AI provider directly — completion is requested from the admin backend', () => {
     expect(source).not.toMatch(
       /invokeAi|provider-scope|providerScope|@gloaming\/shared\/llm|ai-config|translateMissingPublicCategoryLabels/,
     );
