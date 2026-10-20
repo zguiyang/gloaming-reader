@@ -13,9 +13,9 @@ import type { WorkProcessingStatus } from '@gloaming/shared/works';
 import { releaseUploadedObject } from '@/domains/assets/uploads';
 import { joinAuthors } from '@/domains/ingest/epub';
 import {
+  canonicalEpubMimeType,
   createEpubIngestWork,
   enqueueCoreEpubParse,
-  EPUB_UPLOAD_SPEC,
   storeEpubSource,
 } from '@/domains/ingest/epub/work-upload';
 import { db } from '@/infra/db';
@@ -36,9 +36,6 @@ const materializationLogger = rootLogger.child({ module: 'SourceRecordMaterializ
  * the stored bytes are still the ones the SourceRecord points at.
  */
 const SOURCE_CANDIDATE_URL_KEY = 'sourceCandidateUrl';
-
-/** Canonical MIME persisted on origin assets; the parser registry selects by this exact value. */
-const EPUB_ORIGIN_MIME_TYPE = 'application/epub+zip';
 
 /** Caller-owned transaction; lets a retry join the same atomic unit it decides in. */
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -168,12 +165,6 @@ async function recordSourceCandidateUrl(executor: DbExecutor, workId: string, ca
       })}::jsonb`,
     })
     .where(eq(readingWorkTable.id, workId));
-}
-
-/** Persist the canonical EPUB MIME so the parser registry keeps selecting this asset. */
-function canonicalEpubAssetMimeType(mimeType: string): string {
-  const normalized = mimeType.trim().toLowerCase();
-  return EPUB_UPLOAD_SPEC.allowedMimeTypes.includes(normalized) ? EPUB_ORIGIN_MIME_TYPE : normalized;
 }
 
 function isFailedAtParse(work: LinkedWorkRow): boolean {
@@ -418,7 +409,7 @@ async function replaceOriginFileForRetry(input: {
       kind: 'origin_file',
       status: 'ready',
       storageKey: stored.meta.storageKey,
-      mimeType: canonicalEpubAssetMimeType(stored.meta.mimeType),
+      mimeType: canonicalEpubMimeType(stored.meta.mimeType),
       contentHash: stored.meta.contentHash,
       meta: { size: stored.meta.size, originalFileName: fileName, reused: stored.duplicated },
     });

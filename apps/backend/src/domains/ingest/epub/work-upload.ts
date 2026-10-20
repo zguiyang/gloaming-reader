@@ -41,7 +41,7 @@ export const EPUB_UPLOAD_SPEC: UploadSpec = {
  * registry selects by exact contentType. Persist the canonical EPUB MIME on the origin asset
  * while leaving validation of the original accepted input untouched.
  */
-function canonicalEpubMimeType(mimeType: string): string {
+export function canonicalEpubMimeType(mimeType: string): string {
   const normalized = mimeType.trim().toLowerCase();
   return EPUB_UPLOAD_SPEC.allowedMimeTypes.includes(normalized) ? EPUB_ORIGIN_MIME_TYPE : normalized;
 }

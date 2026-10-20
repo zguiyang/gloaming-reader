@@ -990,4 +990,111 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
     expect(enqueuedFor(freshRecord.id)).toHaveLength(0);
     expect((await intentsFor(freshRecord.id))[0]?.status).toBe('pending');
   });
+
+  it('fails a stale pending intent on first recovery when the record lost its EPUB candidate', async () => {
+    const learner = await recoveryUser();
+    const lazyRecord = await createRecord({ contentCandidates: [] });
+    const periodicRecord = await createRecord({ contentCandidates: [] });
+    await insertStalePendingIntent(learner.userId, lazyRecord.id, SAVE_INTENT_REENQUEUE_AFTER_MS + 60_000);
+    await insertStalePendingIntent(learner.userId, periodicRecord.id, SAVE_INTENT_REENQUEUE_AFTER_MS + 60_000);
+    const enqueuedFor = (sourceRecordId: string) =>
+      enqueueSpy.mock.calls.filter((call) => (call[1] as { sourceRecordId: string }).sourceRecordId === sourceRecordId);
+
+    // Lazy recovery on the status read: no candidate means nothing could ever
+    // succeed, so the intent fails immediately instead of re-enqueueing until timeout.
+    const read = await readSaveStatus(lazyRecord.id, learner.cookie);
+    expect(read.body).toEqual({
+      status: 'failed',
+      workId: null,
+      failureReason: 'No downloadable EPUB is available for this item.',
+    });
+    expect((await intentsFor(lazyRecord.id))[0]).toMatchObject({
+      status: 'failed',
+      failureCode: 'no_epub_candidate',
+    });
+    expect(enqueuedFor(lazyRecord.id)).toHaveLength(0);
+
+    // The periodic pass resolves the same state identically.
+    await recoverStaleSaveIntents();
+    expect((await intentsFor(periodicRecord.id))[0]).toMatchObject({
+      status: 'failed',
+      failureCode: 'no_epub_candidate',
+    });
+    expect(enqueuedFor(periodicRecord.id)).toHaveLength(0);
+
+    // A linked record keeps re-enqueueing without candidates: materialization
+    // resolves its existing Work without one (same rule as the save gate).
+    const linkedWork = await createCatalogWorkFixture({
+      title: 'Stale Linked No Candidate',
+      processingStatus: 'processing',
+      publishedAt: null,
+    });
+    createdWorkIds.push(linkedWork.id);
+    const linkedRecord = await createRecord({
+      workId: linkedWork.id,
+      materializationStatus: 'processing',
+      contentCandidates: [],
+    });
+    await insertStalePendingIntent(learner.userId, linkedRecord.id, SAVE_INTENT_REENQUEUE_AFTER_MS + 60_000);
+
+    await recoverStaleSaveIntents();
+    expect(enqueuedFor(linkedRecord.id)).toHaveLength(1);
+    expect((await intentsFor(linkedRecord.id))[0]?.status).toBe('pending');
+  });
+
+  it('accepts a re-save of an already-linked Work whose candidates were cleared after sync', async () => {
+    const learner = track(await createSession());
+    const readyWork = await createCatalogWorkFixture({ title: 'Linked Cleared Candidates', publishedAt: null });
+    createdWorkIds.push(readyWork.id);
+    const readyRecord = await createRecord({
+      workId: readyWork.id,
+      materializationStatus: 'ready',
+      contentCandidates: [],
+    });
+
+    // The Work is already linked and readable: the candidate gate must not turn
+    // a saved item into a 409 when a sync clears its candidates afterwards.
+    const response = await app.request(`/api/library/source-records/${readyRecord.id}`, {
+      method: 'POST',
+      headers: { cookie: learner.cookie },
+    });
+    expect(response.status).toBe(HTTP_STATUS.OK);
+    expect(((await response.json()) as { status: string }).status).toBe('ready');
+    expect(enqueueSpy).not.toHaveBeenCalled();
+    expect(await membershipCount(learner.userId, readyWork.id)).toBe(1);
+    expect((await intentsFor(readyRecord.id))[0]?.status).toBe('completed');
+
+    // A linked Work that is still importing keeps the materialize reuse/retry
+    // semantics: pending + enqueue instead of a conflict.
+    const processingWork = await createCatalogWorkFixture({
+      title: 'Linked Processing Cleared Candidates',
+      processingStatus: 'processing',
+      publishedAt: null,
+    });
+    createdWorkIds.push(processingWork.id);
+    const processingRecord = await createRecord({
+      workId: processingWork.id,
+      materializationStatus: 'processing',
+      contentCandidates: [],
+    });
+    const pending = await app.request(`/api/library/source-records/${processingRecord.id}`, {
+      method: 'POST',
+      headers: { cookie: learner.cookie },
+    });
+    expect(pending.status).toBe(HTTP_STATUS.OK);
+    expect(((await pending.json()) as { status: string }).status).toBe('pending');
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+
+    // An unlinked record with no candidate keeps the 409 gate.
+    const unlinked = await createRecord({ contentCandidates: [] });
+    const conflict = await app.request(`/api/library/source-records/${unlinked.id}`, {
+      method: 'POST',
+      headers: { cookie: learner.cookie },
+    });
+    expect(conflict.status).toBe(HTTP_STATUS.CONFLICT);
+    expect(((await conflict.json()) as { code: string }).code).toBe(
+      ERROR_CODES.LIBRARY.SOURCE_RECORD_NO_EPUB_CANDIDATE,
+    );
+    expect(await intentsFor(unlinked.id)).toHaveLength(0);
+  });
 });

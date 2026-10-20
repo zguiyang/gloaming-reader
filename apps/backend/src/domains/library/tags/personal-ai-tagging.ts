@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, asc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -172,9 +172,27 @@ async function enqueueRun(run: typeof runTable.$inferSelect): Promise<void> {
  * Small feature-specific outbox recovery pass; safe to call at startup and periodically.
  * Besides queued rows it re-enqueues `processing` runs whose `updated_at` stopped advancing
  * (lost worker) while attempts remain; the claim already accepts a `processing` re-entry.
+ * A stale `processing` run whose attempts are exhausted is finalized as `failed` instead
+ * of being re-enqueued, because no BullMQ failure event will ever arrive for it.
  */
 export async function dispatchQueuedPersonalTagRuns(): Promise<void> {
   const staleProcessingBefore = new Date(Date.now() - PERSONAL_TAG_STALE_PROCESSING_MS);
+  // A stale `processing` run with no deliveries left has no other terminal path:
+  // its worker died without a BullMQ `failed` event, so finalize it here. The CAS
+  // on `state = 'processing'` loses gracefully to a live worker that finishes first.
+  const exhausted = await db
+    .update(runTable)
+    .set({ state: 'failed', errorCode: 'worker_attempts_exhausted', updatedAt: new Date() })
+    .where(
+      and(eq(runTable.state, 'processing'), lt(runTable.updatedAt, staleProcessingBefore), gte(runTable.attempts, 2)),
+    )
+    .returning({ id: runTable.id });
+  for (const run of exhausted) {
+    personalTaggingLogger.warn(
+      { runId: run.id },
+      'Personal tag run failed: stale processing run exhausted its worker attempts',
+    );
+  }
   const runs = await db
     .select()
     .from(runTable)
@@ -387,7 +405,9 @@ export async function processPersonalTaggingJob(
     // Another run for the same user is tagging: complete this job as deferred instead of
     // failing it toward a `failed` run. Advancing `updated_at` gives the next dispatcher
     // pass a fresh jobId, because BullMQ deduplicates an add whose retained job id still
-    // exists; the run itself stays `queued`.
+    // exists; without it a busy hit by a stale-`processing` re-dispatch would complete
+    // under the old id and poison every later dispatch. Both non-terminal states advance
+    // (`queued` stays queued, `processing` stays processing); terminal states never move.
     personalTaggingLogger.warn(
       { runId: data.runId, userId: data.userId, workId: data.workId },
       'Personal tag run deferred: user tagging lock is busy',
@@ -395,7 +415,7 @@ export async function processPersonalTaggingJob(
     await db
       .update(runTable)
       .set({ updatedAt: new Date() })
-      .where(and(eq(runTable.id, data.runId), eq(runTable.state, 'queued')));
+      .where(and(eq(runTable.id, data.runId), inArray(runTable.state, ['queued', 'processing'])));
     return { ok: true, workId: data.workId, deferred: true };
   }
   let leaseLost = false;
@@ -424,7 +444,13 @@ export async function processPersonalTaggingJob(
       )
       .returning({ id: runTable.id, attempts: runTable.attempts });
     if (!claimed) {
-      await markRun(data.runId, 'failed', 'attempts_exhausted');
+      // CAS: the claim lost — either the row ran out of deliveries or a concurrent
+      // worker already finished it. Only a still-`queued`/`processing` row may be
+      // failed here; a concurrently completed run must never be flipped to failed.
+      await db
+        .update(runTable)
+        .set({ state: 'failed', errorCode: 'attempts_exhausted', updatedAt: new Date() })
+        .where(and(eq(runTable.id, data.runId), inArray(runTable.state, ['queued', 'processing'])));
       return { ok: true, workId: data.workId };
     }
     runAttempt = claimed.attempts;
@@ -534,28 +560,45 @@ export async function processPersonalTaggingJob(
 }
 
 export async function finalizeFailedPersonalTagRun(data: PersonalTaggingJobData): Promise<void> {
-  // Only a run that actually claimed the work (`processing`) may be forced into the
-  // `failed` terminal state. A run that never claimed — a deferred busy lock or a
-  // pre-claim error — stays `queued` and gets a fresh jobId so the next dispatcher
-  // pass re-enqueues it instead of losing it to a retained failed job's dedup key.
+  // A run that actually claimed the work (`processing`) fails immediately. A run
+  // that never claimed — a deferred busy lock or a pre-claim error — is counted
+  // instead: its attempts increment (CAS on `queued`) so a persistent pre-claim
+  // error terminates after two deliveries rather than retrying forever, while a
+  // run with deliveries left stays `queued` with a fresh jobId for the next
+  // dispatcher pass instead of losing it to a retained failed job's dedup key.
   const [finalized] = await db
     .update(runTable)
     .set({ state: 'failed', errorCode: 'worker_attempts_exhausted', updatedAt: new Date() })
     .where(and(eq(runTable.id, data.runId), eq(runTable.state, 'processing')))
     .returning({ id: runTable.id });
-  if (!finalized) {
-    const touched = await db
+  if (finalized) return;
+  // Never claimed — count this failed delivery (CAS on `queued`) so a persistent
+  // pre-claim error retries at most twice instead of forever, then keeps the run
+  // queued for the next dispatch pass with a fresh updatedAt.
+  const [counted] = await db
+    .update(runTable)
+    .set({ attempts: sql`${runTable.attempts} + 1`, updatedAt: new Date() })
+    .where(and(eq(runTable.id, data.runId), eq(runTable.state, 'queued')))
+    .returning({ id: runTable.id, attempts: runTable.attempts });
+  if (!counted) return;
+  if (counted.attempts >= 2) {
+    const [exhausted] = await db
       .update(runTable)
-      .set({ updatedAt: new Date() })
-      .where(and(eq(runTable.id, data.runId), eq(runTable.state, 'queued')))
+      .set({ state: 'failed', errorCode: 'worker_attempts_exhausted', updatedAt: new Date() })
+      .where(and(eq(runTable.id, data.runId), eq(runTable.state, 'queued'), gte(runTable.attempts, 2)))
       .returning({ id: runTable.id });
-    if (touched.length > 0) {
+    if (exhausted) {
       personalTaggingLogger.warn(
-        { runId: data.runId },
-        'Personal tag run never claimed; kept queued for the next dispatch pass',
+        { runId: data.runId, attempts: counted.attempts },
+        'Personal tag run failed: pre-claim failures exhausted its deliveries',
       );
     }
+    return;
   }
+  personalTaggingLogger.warn(
+    { runId: data.runId, attempts: counted.attempts },
+    'Personal tag run never claimed; kept queued for the next dispatch pass',
+  );
 }
 
 async function persistDecision(

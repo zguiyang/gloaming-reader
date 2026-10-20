@@ -5,9 +5,10 @@ import type * as queueModule from '@/infra/queue';
 const mocks = vi.hoisted(() => ({
   enqueuePersonalTagging: vi.fn(async (_name: string, _data: unknown, _options?: { jobId?: string }) => 'job-id'),
   select: vi.fn(),
+  update: vi.fn(),
 }));
 
-vi.mock('@/infra/db', () => ({ db: { select: mocks.select } }));
+vi.mock('@/infra/db', () => ({ db: { select: mocks.select, update: mocks.update } }));
 
 vi.mock('@/infra/queue', async (importOriginal) => {
   const actual = await importOriginal<typeof queueModule>();
@@ -161,6 +162,11 @@ describe('dispatchQueuedPersonalTagRuns enqueue identity', () => {
     mocks.enqueuePersonalTagging.mockReset();
     mocks.enqueuePersonalTagging.mockResolvedValue('job-id');
     mocks.select.mockReset();
+    mocks.update.mockReset();
+    // The exhausted-`processing` finalize pass runs before the queued scan.
+    mocks.update.mockReturnValue({
+      set: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) }),
+    });
     const limit = vi.fn().mockResolvedValue([row]);
     const orderBy = vi.fn().mockReturnValue({ limit });
     const where = vi.fn().mockReturnValue({ orderBy });
@@ -180,5 +186,24 @@ describe('dispatchQueuedPersonalTagRuns enqueue identity', () => {
       expect(options?.jobId).toBe(expectedJobId);
       expect(options?.jobId).not.toContain(':');
     }
+  });
+
+  it('terminates stale exhausted processing runs in the pass instead of re-enqueueing them', async () => {
+    const finalizeSet = vi
+      .fn()
+      .mockReturnValue({ where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([{ id: runId }]) }) });
+    mocks.update.mockReturnValue({ set: finalizeSet });
+    const limit = vi.fn().mockResolvedValue([]);
+    const orderBy = vi.fn().mockReturnValue({ limit });
+    const where = vi.fn().mockReturnValue({ orderBy });
+    const from = vi.fn().mockReturnValue({ where });
+    mocks.select.mockReturnValue({ from });
+
+    await dispatchQueuedPersonalTagRuns();
+
+    expect(finalizeSet).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'failed', errorCode: 'worker_attempts_exhausted' }),
+    );
+    expect(mocks.enqueuePersonalTagging).not.toHaveBeenCalled();
   });
 });
