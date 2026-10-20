@@ -120,6 +120,10 @@ export async function syncProjectGutenbergMetadata(options: {
   // run row, `runStartedAt` identifies the source-row generation.
   const runTokens = { sourceId: source.id, claimToken: claimedAt, startToken: runStartedAt };
 
+  // Observability counter for legitimately skipped non-ebook RDF members
+  // (generator/metadata files). Suspected ebook members that fail parsing
+  // throw and fail the run before reconciliation.
+  let skippedNonEbookMembers = 0;
   let snapshot: GutenbergSnapshot | null = null;
   try {
     // `force` drops the conditional header so upstream cannot answer 304 for a
@@ -130,6 +134,9 @@ export async function syncProjectGutenbergMetadata(options: {
       url: PROJECT_GUTENBERG_RDF_SNAPSHOT_URL,
       ifModifiedSince: force ? null : (source.snapshotLastModified ?? null),
       signal: options.signal,
+      onNonEbookMemberSkipped: () => {
+        skippedNonEbookMembers += 1;
+      },
     });
 
     if (!snapshot) {
@@ -219,7 +226,7 @@ export async function syncProjectGutenbergMetadata(options: {
     });
 
     logger.info(
-      { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, seenRecords, unavailableRecords, batches },
+      { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, seenRecords, unavailableRecords, batches, skippedNonEbookMembers },
       'Gutenberg metadata sync succeeded',
     );
     return {
@@ -280,7 +287,10 @@ export async function syncProjectGutenbergMetadata(options: {
     } catch {
       logger.warn({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Failed to persist Gutenberg sync failure status');
     }
-    logger.warn({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, errorSummary }, 'Gutenberg metadata sync failed');
+    logger.warn(
+      { sourceKey: PROJECT_GUTENBERG_SOURCE_KEY, errorSummary, skippedNonEbookMembers },
+      'Gutenberg metadata sync failed',
+    );
     return { status: 'failed', errorSummary };
   } finally {
     snapshot?.close();

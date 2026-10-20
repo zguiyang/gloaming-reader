@@ -13,6 +13,7 @@ import {
 } from '@gloaming/db';
 import {
   discoverySource as discoverySourceTable,
+  discoverySyncRun as discoverySyncRunTable,
   sourceRecord as sourceRecordTable,
   sourceRecordPublicClassificationState as stateTable,
 } from '@gloaming/db/schema';
@@ -539,6 +540,60 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
     const source = await sourceRow();
     expect(source?.syncStatus).toBe('failed');
     expect(source?.lastErrorSummary).toBe('an RDF member could not be parsed');
+  });
+
+  it('fails the run without reconciliation when an ebook member lacks its external identifier', async () => {
+    // A previous successful generation whose records reconciliation would flip.
+    snapshotMocks.open.mockResolvedValue(fakeSnapshot(records(3)));
+    await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
+    expect(await availableOwnedRecordCount()).toBe(3);
+    flushGate.reset();
+    await resetSourceItself();
+
+    // The real parser raises this exact error for a pgterms:ebook member it
+    // cannot resolve to an external id; the run must fail before reconciliation.
+    const parserError = new GutenbergSnapshotError(
+      'an RDF ebook member was missing an external identifier (member: cache/epub/unknown/pgunknown.rdf)',
+    );
+    snapshotMocks.open.mockResolvedValue(failingSnapshot(parserError));
+    const claimedAt = await claimQueued();
+    const result = await syncProjectGutenbergMetadata({ claimedAt });
+
+    expect(result).toEqual({ status: 'failed', errorSummary: parserError.message });
+    // No reconciliation: the real records from the earlier run stay available.
+    expect(flushGate.reconcileCalls).toBe(0);
+    expect(await ownedRecordCount()).toBe(3);
+    expect(await availableOwnedRecordCount()).toBe(3);
+    const source = await sourceRow();
+    expect(source?.syncStatus).toBe('failed');
+    expect(source?.lastErrorSummary).toContain('missing an external identifier');
+    const [runRow] = await db
+      .select()
+      .from(discoverySyncRunTable)
+      .where(and(eq(discoverySyncRunTable.sourceId, sourceId), eq(discoverySyncRunTable.claimToken, claimedAt)))
+      .limit(1);
+    expect(runRow?.stage).toBe('failed');
+    expect(runRow?.errorSummary).toContain('missing an external identifier');
+  });
+
+  it('succeeds when non-ebook RDF members are legally skipped and counts them', async () => {
+    snapshotMocks.open.mockImplementation((options: { onNonEbookMemberSkipped?: (memberName: string) => void }) => {
+      // The real stream reports each legitimately skipped non-ebook member
+      // (generator/metadata files) through this hook instead of failing.
+      options.onNonEbookMemberSkipped?.('rdf-generator.rdf');
+      options.onNonEbookMemberSkipped?.('cache/epub/metadata.rdf');
+      return fakeSnapshot(records(2));
+    });
+
+    const result = await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
+
+    expect(result).toMatchObject({ status: 'succeeded', seenRecords: 2 });
+    expect(snapshotMocks.open).toHaveBeenCalledWith(
+      expect.objectContaining({ onNonEbookMemberSkipped: expect.any(Function) }),
+    );
+    expect(await availableOwnedRecordCount()).toBe(2);
+    const source = await sourceRow();
+    expect(source?.syncStatus).toBe('succeeded');
   });
 
   it('requests the snapshot without If-Modified-Since when force is set', async () => {
