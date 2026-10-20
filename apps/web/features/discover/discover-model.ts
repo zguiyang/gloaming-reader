@@ -10,6 +10,13 @@ export type DiscoverItem = {
   id: string;
   /** Linked readable `reading_work.id`, or null before materialization. */
   linkedWorkId: string | null;
+  /**
+   * Server decision: can this viewer open the linked Work's detail page?
+   * Only `true` may render a detail entry; anything missing or falsy (older
+   * payloads, stale caches) is treated as `false` so Discover never links to a
+   * 404. Saving/pending/failed states are gated separately by the card.
+   */
+  detailAvailable: boolean;
   title: string;
   author: string;
   /** Upstream cover URL, or null when the SourceRecord has no cover. */
@@ -52,6 +59,8 @@ export function toDiscoverItem(record: SourceRecordItem): DiscoverItem {
   return {
     id: record.sourceRecordId,
     linkedWorkId: record.linkedWorkId,
+    // Defensive: a payload that predates the field must never open an entry.
+    detailAvailable: record.detailAvailable === true,
     title: record.title,
     author: formatSourceRecordAuthors(record),
     coverImageUrl: record.coverUrl ?? null,

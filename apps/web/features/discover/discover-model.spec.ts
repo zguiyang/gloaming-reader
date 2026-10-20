@@ -31,6 +31,7 @@ function sampleRecord(overrides: Partial<SourceRecordItem> = {}): SourceRecordIt
     updatedAt: '2026-01-01T00:00:00.000Z',
     categories: [{ id: 'cat-1', name: 'Classics' }],
     isSaveable: true,
+    detailAvailable: false,
     ...overrides,
   };
 }
@@ -69,6 +70,7 @@ describe('Discover model', () => {
       coverImageUrl: 'https://example.test/cover.jpg',
       categories: [{ id: 'cat-1', name: 'Classics' }],
       isSaveable: true,
+      detailAvailable: false,
     });
     expect(item).not.toHaveProperty('workId');
     expect(item).not.toHaveProperty('partCount');
@@ -78,6 +80,21 @@ describe('Discover model', () => {
     const item = toDiscoverItem(sampleRecord({ linkedWorkId: 'work-42' }));
     expect(item.id).toBe('sr-1');
     expect(item.linkedWorkId).toBe('work-42');
+    // A linked id alone never opens the detail entry.
+    expect(item.detailAvailable).toBe(false);
+  });
+
+  it('carries the server detail-availability decision through the Discover mapping', () => {
+    expect(toDiscoverItem(sampleRecord({ detailAvailable: true })).detailAvailable).toBe(true);
+    expect(toDiscoverItem(sampleRecord({ detailAvailable: false })).detailAvailable).toBe(false);
+  });
+
+  it('treats a payload without detailAvailable as no detail entry', () => {
+    const legacyRecord: Partial<SourceRecordItem> = { ...sampleRecord({ detailAvailable: true }) };
+    // Older servers/caches may not carry the field: that must read as `false`,
+    // never as an implicit entry.
+    delete legacyRecord.detailAvailable;
+    expect(toDiscoverItem(legacyRecord as SourceRecordItem).detailAvailable).toBe(false);
   });
 
   it('carries the saveability marker through the Discover mapping', () => {

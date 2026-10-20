@@ -45,6 +45,7 @@ beforeAll(() => {
 const item: DiscoverItem = {
   id: 'sr-1',
   linkedWorkId: null,
+  detailAvailable: false,
   title: 'Pride and Prejudice',
   author: 'Jane Austen',
   coverImageUrl: null,
@@ -233,23 +234,40 @@ describe('DiscoverSourceCard Save Intent', () => {
     view.cleanup();
   });
 
-  it('keeps the existing Work-detail entry for a materialized SourceRecord', async () => {
-    const view = await renderCard('zh-CN', { ...item, linkedWorkId: 'work-77' });
+  it('keeps the existing Work-detail entry for a materialized SourceRecord the server opened', async () => {
+    const view = await renderCard('zh-CN', { ...item, linkedWorkId: 'work-77', detailAvailable: true });
 
     expect(view.container.querySelector('a[href^="/works/work-77"]')).toBeTruthy();
+    // Both the cover and the title carry the detail link.
+    expect(view.container.querySelector('h3 a[href^="/works/work-77"]')).toBeTruthy();
     expect(view.container.textContent).toContain('查看详情');
     expect(view.container.textContent).not.toContain('加入书库');
     expect(mocks.saveSourceRecordToLibrary).not.toHaveBeenCalled();
     view.cleanup();
   });
 
+  it('never exposes a detail link when the server reports the Work unreadable', async () => {
+    const view = await renderCard('zh-CN', { ...item, linkedWorkId: 'work-77', detailAvailable: false });
+
+    // A linked Work the viewer may not open must not produce any detail entry:
+    // neither the cover nor the title becomes a link (they would 404).
+    expect(view.container.querySelector('a[href^="/works/work-77"]')).toBeNull();
+    expect(view.container.querySelector('h3 a')).toBeNull();
+    expect(view.container.querySelector('a')).toBeNull();
+    expect(view.container.textContent).not.toContain('查看详情');
+    // The record keeps its normal save affordance instead.
+    expect(view.container.textContent).toContain('加入书库');
+    view.cleanup();
+  });
+
   it('recovers pending state from the server even when a Work is already linked', async () => {
     // Materialization links the Work first and keeps parsing: linkedWorkId must
-    // not claim completion or expose a premature detail entry.
+    // not claim completion or expose a premature detail entry, even when the
+    // list projection already marks an eventual entry available.
     mocks.useSourceRecordSaveStatusQuery.mockReturnValue({
       data: { status: 'pending', workId: 'work-9', failureReason: null },
     });
-    const view = await renderCard('zh-CN', { ...item, linkedWorkId: 'work-9' });
+    const view = await renderCard('zh-CN', { ...item, linkedWorkId: 'work-9', detailAvailable: true });
 
     expect(view.container.textContent).toContain('正在准备…');
     expect(view.container.textContent).toContain('下载与解析完成后会出现在书库');
@@ -262,7 +280,9 @@ describe('DiscoverSourceCard Save Intent', () => {
     mocks.useSourceRecordSaveStatusQuery.mockReturnValue({
       data: { status: 'ready', workId: 'work-5', failureReason: null },
     });
-    const view = await renderCard();
+    // A refreshed `ready` state pairs with a refreshed list that reports the
+    // entry available for this member, so the detail entry reappears.
+    const view = await renderCard('zh-CN', { ...item, detailAvailable: true });
 
     expect(view.container.textContent).toContain('已在书库');
     expect(view.container.querySelector('a[href^="/works/work-5"]')).toBeTruthy();
@@ -271,12 +291,25 @@ describe('DiscoverSourceCard Save Intent', () => {
     view.cleanup();
   });
 
+  it('keeps a saved-and-ready card without a detail entry when the Work is not openable', async () => {
+    mocks.useSourceRecordSaveStatusQuery.mockReturnValue({
+      data: { status: 'ready', workId: 'work-5', failureReason: null },
+    });
+    const view = await renderCard('zh-CN', { ...item, detailAvailable: false });
+
+    expect(view.container.textContent).toContain('已在书库');
+    expect(view.container.querySelector('a[href^="/works/work-5"]')).toBeNull();
+    expect(view.container.textContent).not.toContain('查看详情');
+    expect(view.container.querySelector('a[href="/library"]')).toBeTruthy();
+    view.cleanup();
+  });
+
   it('shows the failed server state with its reason and retries through the Save Intent', async () => {
     mocks.useSourceRecordSaveStatusQuery.mockReturnValue({
       data: { status: 'failed', workId: 'work-3', failureReason: 'HTTP 502 for EPUB' },
     });
     mocks.saveSourceRecordToLibrary.mockResolvedValue({ status: 'pending', workId: 'work-3' });
-    const view = await renderCard('zh-CN', { ...item, linkedWorkId: 'work-3' });
+    const view = await renderCard('zh-CN', { ...item, linkedWorkId: 'work-3', detailAvailable: true });
 
     expect(view.container.textContent).toContain('HTTP 502 for EPUB');
     expect(view.container.textContent).not.toContain('查看详情');

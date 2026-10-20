@@ -67,6 +67,7 @@ function record(overrides: Partial<SourceRecordItem> = {}): SourceRecordItem {
   return {
     sourceRecordId: 'sr-1',
     linkedWorkId: null,
+    detailAvailable: false,
     sourceId: 'source-1',
     sourceKey: 'gutenberg',
     sourceType: 'gutenberg',
@@ -298,13 +299,26 @@ describe('DiscoverPage', () => {
 
   it('links a materialized SourceRecord to its existing Work detail entry', async () => {
     mocks.fetchDiscoverRecords.mockResolvedValue(
-      recordsData([record({ sourceRecordId: 'sr-linked', linkedWorkId: 'work-77' })]),
+      recordsData([record({ sourceRecordId: 'sr-linked', linkedWorkId: 'work-77', detailAvailable: true })]),
     );
     const view = await renderDiscover();
 
     expect(view.container.querySelector('a[href^="/works/work-77"]')).toBeTruthy();
     expect(view.container.textContent).toContain('查看详情');
     expect(view.container.textContent).not.toContain('加入书库');
+    view.cleanup();
+  });
+
+  it('withholds every Work detail link when the server reports detailAvailable=false', async () => {
+    mocks.fetchDiscoverRecords.mockResolvedValue(
+      recordsData([record({ sourceRecordId: 'sr-locked', linkedWorkId: 'work-77', detailAvailable: false })]),
+    );
+    const view = await renderDiscover();
+
+    // linkedWorkId alone must not expose an entry that would 404 for this viewer.
+    expect(view.container.querySelector('a[href^="/works/work-77"]')).toBeNull();
+    expect(view.container.textContent).not.toContain('查看详情');
+    expect(view.container.textContent).toContain('加入书库');
     view.cleanup();
   });
 
