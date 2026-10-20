@@ -248,7 +248,8 @@ export type CategorySourceRecordListQuery = z.infer<typeof categorySourceRecordL
  * List row for the discovery read model.
  * The stable Discover identity is `sourceRecordId`; it is never a ReadingWork id.
  * `linkedWorkId` is the explicit Reader identity: the readable `reading_work.id`
- * once the SourceRecord has been materialized, or null before that.
+ * once the SourceRecord has been materialized, or null before that. A linked id
+ * alone never implies the viewer may open it — see `detailAvailable`.
  */
 export const sourceRecordItemSchema = z.object({
   sourceRecordId: z.string(),
@@ -280,6 +281,20 @@ export const sourceRecordItemSchema = z.object({
    * EPUB at all); the record stays visible in Discover either way.
    */
   isSaveable: z.boolean(),
+  /**
+   * Whether the current viewer can actually open the linked Work's detail page
+   * right now: the linked Work is parse-completed and the backend's central
+   * Work Access Policy grants this viewer read access (published Catalog Work,
+   * the viewer's own personal Work, or the viewer's own Library membership for
+   * an unpublished source-linked Work). `false` for unlinked records and for
+   * Works still importing, so Discover never exposes a 404 detail entry.
+   *
+   * Every server projection must set it explicitly (required `boolean` in the
+   * output type); `.default(false)` only tolerates payloads from before the
+   * field existed so older responses degrade to "no entry" instead of failing
+   * schema validation.
+   */
+  detailAvailable: z.boolean().default(false),
   /**
    * Public category display summaries projected for Discover; absent until the
    * read model adds them. Never embeds the full category-management DTO.

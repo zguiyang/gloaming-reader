@@ -38,8 +38,10 @@ type SaveActionState = 'saving' | null;
  * Save feedback is driven by the server-side Save Intent status, not by the
  * linked `linkedWorkId`: materialization links the Work first and keeps
  * parsing, so only `ready` (readable Work + membership) may claim completion
- * or expose the Work entry. An unmaterialized SourceRecord has no readable Work
- * yet, so its action is an explicit Save Intent that materializes on demand.
+ * or expose the Work entry, and the entry itself exists only when the server
+ * reports `detailAvailable: true` for this viewer. An unmaterialized
+ * SourceRecord has no readable Work yet, so its action is an explicit Save
+ * Intent that materializes on demand.
  */
 export function DiscoverSourceCard({ item }: DiscoverSourceCardProps) {
   const { data } = authClient.useSession();
@@ -121,8 +123,14 @@ function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & {
   const entryWorkId = isSaved
     ? (postedResult?.workId ?? statusQuery.data?.workId ?? item.linkedWorkId)
     : item.linkedWorkId;
+  // Detail links (cover, title, and the explicit buttons) exist only when the
+  // server confirmed this viewer may open the linked Work; a missing/older
+  // payload reports `false` and keeps the card on its save/action affordances.
+  const canOpenDetail = item.detailAvailable === true;
   const detailHref =
-    !isPreparing && !isFailed && !isSaving && entryWorkId ? workDetailHref(entryWorkId, AUTH_ROUTES.discover) : null;
+    canOpenDetail && !isPreparing && !isFailed && !isSaving && entryWorkId
+      ? workDetailHref(entryWorkId, AUTH_ROUTES.discover)
+      : null;
   const failureReason = isFailed ? (statusQuery.data?.failureReason ?? null) : null;
 
   const cover = <WorkCover title={item.title} coverImageUrl={item.coverImageUrl} className="aspect-[2/3] rounded-sm" />;

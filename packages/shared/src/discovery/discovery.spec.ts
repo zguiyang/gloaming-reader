@@ -41,6 +41,7 @@ const sourceRecordBase = {
   createdAt: '2026-10-11T00:00:00.000Z',
   updatedAt: '2026-10-11T00:00:00.000Z',
   isSaveable: true,
+  detailAvailable: false,
 };
 
 describe('public category contracts', () => {
@@ -157,6 +158,18 @@ describe('public category contracts', () => {
     const { isSaveable: _omitted, ...missing } = sourceRecordBase;
     expect(() => sourceRecordItemSchema.parse(missing)).toThrow();
     expect(sourceRecordItemSchema.parse({ ...sourceRecordBase, isSaveable: false }).isSaveable).toBe(false);
+  });
+
+  it('keeps detailAvailable a required boolean that degrades payloads predating it to false', () => {
+    // Every current server projection carries the field…
+    expect(sourceRecordItemSchema.parse(sourceRecordBase).detailAvailable).toBe(false);
+    expect(sourceRecordItemSchema.parse({ ...sourceRecordBase, detailAvailable: true }).detailAvailable).toBe(true);
+    // …but a payload from before the field existed must parse as "no detail
+    // entry" instead of failing validation.
+    const { detailAvailable: _omitted, ...legacy } = sourceRecordBase;
+    expect(sourceRecordItemSchema.parse(legacy).detailAvailable).toBe(false);
+    // Non-boolean values are never accepted as an availability claim.
+    expect(() => sourceRecordItemSchema.parse({ ...sourceRecordBase, detailAvailable: 'yes' })).toThrow();
   });
 
   it('keeps SourceRecord categories optional until the read model projects them', () => {

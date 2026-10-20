@@ -10,6 +10,7 @@ import type {
   SourceRecordListQuery,
 } from '@gloaming/shared/discovery';
 import { buildPaginationMeta } from '@gloaming/shared/pagination';
+import { WORK_PARSE_COMPLETED_STATUSES } from '@gloaming/shared/works';
 
 import { loadCategorySummariesByRecordIds } from '@/domains/discovery/categories/repository';
 import { hasSelectableEpubCandidate } from '@/domains/discovery/materialization/epub-candidate';
@@ -78,7 +79,8 @@ function listOrderBy(query: Pick<SourceRecordListQuery, 'sortBy' | 'sortOrder'>)
 function toSourceRecordItem(
   record: SourceRecordRow,
   source: DiscoverySourceRow,
-  viewerCoverUrl: string | null = null,
+  viewerCoverUrl: string | null,
+  detailAvailable: boolean,
 ): SourceRecordItem {
   return {
     sourceRecordId: record.id,
@@ -100,16 +102,19 @@ function toSourceRecordItem(
     // Computed from the selected `content_candidates` row only; the candidates
     // themselves stay off the list DTO and appear solely on the detail projection.
     isSaveable: hasSelectableEpubCandidate({ contentCandidates: record.contentCandidates }),
+    // Viewer-specific read-model gate; never derived from `linkedWorkId` alone.
+    detailAvailable,
   };
 }
 
 function toSourceRecordDetail(
   record: SourceRecordRow,
   source: DiscoverySourceRow,
-  viewerCoverUrl: string | null = null,
+  viewerCoverUrl: string | null,
+  detailAvailable: boolean,
 ): SourceRecordDetail {
   return {
-    ...toSourceRecordItem(record, source, viewerCoverUrl),
+    ...toSourceRecordItem(record, source, viewerCoverUrl, detailAvailable),
     rightsStatement: record.rightsStatement,
     contentCandidates: record.contentCandidates,
     sourceMeta: record.sourceMeta,
@@ -138,12 +143,42 @@ async function loadViewerCoverUrls(workIds: Array<string | null>, actor: WorkRea
   return new Map(rows.map((row) => [row.id, `/api/assets/${row.coverAssetId}`]));
 }
 
+/**
+ * Linked Works this viewer can open right now: parse completed **and** the
+ * central Work Access Policy grants this actor read access (the predicate is
+ * reused unchanged — no new permission semantics). Unlinked records and Works
+ * still importing/failed are absent from the set, so `detailAvailable` stays
+ * `false` for them.
+ */
+async function loadViewerDetailAvailability(workIds: Array<string | null>, actor: WorkReadActor): Promise<Set<string>> {
+  const ids = [...new Set(workIds.filter((id): id is string => Boolean(id)))];
+  if (ids.length === 0) {
+    return new Set();
+  }
+  const access = workReadAccessSql(actor);
+  if (!access) {
+    return new Set();
+  }
+  const rows = await db
+    .select({ id: readingWork.id })
+    .from(readingWork)
+    .where(
+      and(
+        inArray(readingWork.id, ids),
+        inArray(readingWork.processingStatus, [...WORK_PARSE_COMPLETED_STATUSES]),
+        access,
+      ),
+    );
+  return new Set(rows.map((row) => row.id));
+}
+
 export type SourceRecordReadOptions = {
   /** Locale for the public category display summaries; defaults to the product locale. */
   locale?: string;
   /**
    * Viewer whose Work access decides whether a linked Work's local cover asset
-   * replaces the source cover URL. Defaults to anonymous (public-only covers).
+   * replaces the source cover URL and whether `detailAvailable` is true.
+   * Defaults to anonymous (public-only covers, no unpublished detail entry).
    */
   actor?: WorkReadActor;
 };
@@ -157,12 +192,20 @@ type SourceRecordPageQuery = Pick<SourceRecordListQuery, 'page' | 'pageSize' | '
  */
 export type AdminSourceRecordListQuery = SourceRecordPageQuery & Pick<SourceRecordListQuery, 'q'>;
 
+/** Viewer-scoped Work access inputs shared by every SourceRecord list surface. */
+type ListViewerAccess = {
+  /** Viewer whose Work access decides covers and detail availability. */
+  actor: WorkReadActor;
+  /** Whether viewer-local cover assets are projected (public Discover only). */
+  viewerCovers: boolean;
+};
+
 /** Shared page query for the public, category, and admin SourceRecord list surfaces. */
 async function listSourceRecordPage(
   where: SQL,
   query: SourceRecordPageQuery,
   locale: string,
-  coverActor?: WorkReadActor | null,
+  access: ListViewerAccess,
 ): Promise<SourceRecordListData> {
   const offset = (query.page - 1) * query.pageSize;
 
@@ -184,16 +227,18 @@ async function listSourceRecordPage(
 
   const recordIds = rows.map((row) => row.record.id);
   const categoriesByRecord = await loadCategorySummariesByRecordIds(recordIds, locale);
-  const coverUrls = coverActor
-    ? await loadViewerCoverUrls(
-        rows.map((row) => row.record.workId),
-        coverActor,
-      )
-    : null;
+  const workIds = rows.map((row) => row.record.workId);
+  const detailIds = await loadViewerDetailAvailability(workIds, access.actor);
+  const coverUrls = access.viewerCovers ? await loadViewerCoverUrls(workIds, access.actor) : null;
 
   return {
     items: rows.map((row) => ({
-      ...toSourceRecordItem(row.record, row.source, coverUrls?.get(row.record.workId ?? '') ?? null),
+      ...toSourceRecordItem(
+        row.record,
+        row.source,
+        coverUrls?.get(row.record.workId ?? '') ?? null,
+        detailIds.has(row.record.workId ?? ''),
+      ),
       categories: categoriesByRecord.get(row.record.id) ?? [],
     })),
     pagination: buildPaginationMeta({
@@ -211,7 +256,10 @@ export async function listSourceRecords(
   options: SourceRecordReadOptions = {},
 ): Promise<SourceRecordListData> {
   const actor = options.actor ?? anonymousWorkReadActor();
-  return listSourceRecordPage(listWhere(query), query, options.locale ?? DEFAULT_LOCALE, actor);
+  return listSourceRecordPage(listWhere(query), query, options.locale ?? DEFAULT_LOCALE, {
+    actor,
+    viewerCovers: true,
+  });
 }
 
 /** Admin search has no public visibility or language constraint; only `q` narrows it. */
@@ -232,7 +280,12 @@ export async function listAdminSourceRecords(
   query: AdminSourceRecordListQuery,
   options: SourceRecordReadOptions = {},
 ): Promise<SourceRecordListData> {
-  return listSourceRecordPage(adminListWhere(query), query, options.locale ?? DEFAULT_LOCALE);
+  // Admin search never renders viewer-local covers; `detailAvailable` still
+  // follows this actor's Work access (the Admin role grants none by itself).
+  return listSourceRecordPage(adminListWhere(query), query, options.locale ?? DEFAULT_LOCALE, {
+    actor: options.actor ?? anonymousWorkReadActor(),
+    viewerCovers: false,
+  });
 }
 
 export async function getSourceRecord(
@@ -251,10 +304,17 @@ export async function getSourceRecord(
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
   }
 
+  const actor = options.actor ?? anonymousWorkReadActor();
   const categoriesByRecord = await loadCategorySummariesByRecordIds([row.record.id], locale);
-  const coverUrls = await loadViewerCoverUrls([row.record.workId], options.actor ?? anonymousWorkReadActor());
+  const coverUrls = await loadViewerCoverUrls([row.record.workId], actor);
+  const detailIds = await loadViewerDetailAvailability([row.record.workId], actor);
   return {
-    ...toSourceRecordDetail(row.record, row.source, coverUrls.get(row.record.workId ?? '') ?? null),
+    ...toSourceRecordDetail(
+      row.record,
+      row.source,
+      coverUrls.get(row.record.workId ?? '') ?? null,
+      detailIds.has(row.record.workId ?? ''),
+    ),
     categories: categoriesByRecord.get(row.record.id) ?? [],
   };
 }
@@ -274,5 +334,8 @@ export async function listCategorySourceRecords(
   if (query.q) {
     parts.push(searchFilter(query.q));
   }
-  return listSourceRecordPage(and(...parts)!, query, options.locale ?? DEFAULT_LOCALE);
+  return listSourceRecordPage(and(...parts)!, query, options.locale ?? DEFAULT_LOCALE, {
+    actor: options.actor ?? anonymousWorkReadActor(),
+    viewerCovers: false,
+  });
 }

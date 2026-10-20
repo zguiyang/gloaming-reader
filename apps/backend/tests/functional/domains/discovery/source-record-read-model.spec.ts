@@ -257,6 +257,64 @@ describe('SourceRecord read model on gloaming_test', () => {
     }
   });
 
+  it('projects detailAvailable from the Work Access Policy for anonymous, member, and non-member viewers', async () => {
+    const row = await recordRow(`${runId}-1`);
+    const workId = await createLinkedWorkFixture('Gated Detail Work');
+    await db.update(sourceRecordTable).set({ workId }).where(eq(sourceRecordTable.id, row!.id));
+    const member = await createUserSession();
+    const outsider = await createUserSession();
+    await db.insert(userLibraryItemTable).values({ id: randomUUID(), userId: member.userId, workId });
+
+    type AvailabilityPayload = { detailAvailable?: boolean; linkedWorkId?: string | null };
+    const readList = async (cookie?: string): Promise<AvailabilityPayload | undefined> => {
+      const response = await app.request(`/api/discover/records?q=${encodeURIComponent(`${runId}-1`)}`, {
+        headers: cookie ? { cookie } : {},
+      });
+      expect(response.status).toBe(200);
+      const data = (await response.json()) as { items: AvailabilityPayload[] };
+      return data.items[0];
+    };
+    const readDetail = async (cookie?: string): Promise<AvailabilityPayload> => {
+      const response = await app.request(`/api/discover/records/${row!.id}`, {
+        headers: cookie ? { cookie } : {},
+      });
+      expect(response.status).toBe(200);
+      return (await response.json()) as AvailabilityPayload;
+    };
+
+    try {
+      // Anonymous viewer: an unpublished ownerless source-linked Work stays closed,
+      // and the list and detail projections agree.
+      expect(await readList()).toMatchObject({ linkedWorkId: workId, detailAvailable: false });
+      expect(await readDetail()).toMatchObject({ linkedWorkId: workId, detailAvailable: false });
+
+      // The Work's own Library member may open the detail page.
+      expect(await readList(member.cookie)).toMatchObject({ detailAvailable: true });
+      expect(await readDetail(member.cookie)).toMatchObject({ detailAvailable: true });
+
+      // Another signed-in viewer without a membership inherits nothing.
+      expect(await readList(outsider.cookie)).toMatchObject({ detailAvailable: false });
+      expect(await readDetail(outsider.cookie)).toMatchObject({ detailAvailable: false });
+
+      // Parse not completed: even the member loses the entry (read-model gate).
+      await db.update(readingWorkTable).set({ processingStatus: 'processing' }).where(eq(readingWorkTable.id, workId));
+      expect(await readList(member.cookie)).toMatchObject({ detailAvailable: false });
+      expect(await readDetail(member.cookie)).toMatchObject({ detailAvailable: false });
+      await db.update(readingWorkTable).set({ processingStatus: 'ready' }).where(eq(readingWorkTable.id, workId));
+
+      // A published ownerless Catalog Work is readable by every viewer.
+      await db.update(readingWorkTable).set({ publishedAt: new Date() }).where(eq(readingWorkTable.id, workId));
+      expect(await readList()).toMatchObject({ detailAvailable: true });
+      expect(await readDetail()).toMatchObject({ detailAvailable: true });
+    } finally {
+      await db.delete(userLibraryItemTable).where(eq(userLibraryItemTable.workId, workId));
+      await db.delete(userTable).where(eq(userTable.id, member.userId));
+      await db.delete(userTable).where(eq(userTable.id, outsider.userId));
+      await db.update(sourceRecordTable).set({ workId: null }).where(eq(sourceRecordTable.id, row!.id));
+      await db.delete(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    }
+  });
+
   it('admin candidate search surfaces records hidden from public Discover', async () => {
     const anonymous = await app.request(`/api/admin/discovery/source-records?q=${runId}`);
     expect(anonymous.status).toBe(401);
