@@ -83,6 +83,8 @@ export type ContinueReadingItem = z.infer<typeof continueReadingItemSchema>;
 export const libraryDataSchema = z.object({
   current: continueReadingItemSchema.nullable(),
   items: z.array(libraryItemSchema).max(LIBRARY_ITEMS_LIMIT),
+  /** True only when the owner's Library holds more memberships than `items` returned. */
+  isTruncated: z.boolean().default(false),
 });
 
 export type LibraryData = z.infer<typeof libraryDataSchema>;

@@ -1120,6 +1120,7 @@
       "noMatchTruncated": "当前已加载的书籍中没有符合条件的结果",
       "noSavedBooks": "还没有已保存的书",
       "noUploadedBooks": "还没有上传的书",
+      "truncatedHint": "书库仅显示前 {count} 本书，可用标签或来源筛选查看其余书籍。",
       "viewAllBooks": "查看全部书籍",
       "clearFilter": "清除筛选",
       "removeFromLibrary": "移出书库",

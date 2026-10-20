@@ -264,6 +264,32 @@ describe('LibraryPage', () => {
     error.cleanup();
   });
 
+  it('shows the Library truncation hint only when the response is truncated', async () => {
+    const data = { current: null, items: [item('book', false)] };
+
+    const truncated = await renderLibrary({ isPending: false, isError: false, data: { ...data, isTruncated: true } });
+    expect(truncated.container.textContent).toContain('书库仅显示前 48 本书');
+    expect(truncated.container.textContent).toContain('可用标签或来源筛选查看其余书籍');
+    // The hint is advisory copy: the grid still renders underneath it.
+    expect(truncated.container.querySelector('a[href="/works/book?returnTo=%2Flibrary"]')).toBeTruthy();
+    truncated.cleanup();
+
+    const complete = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { ...data, isTruncated: false },
+    });
+    expect(complete.container.textContent).not.toContain('书库仅显示前 48 本书');
+    complete.cleanup();
+
+    const english = await renderLibrary(
+      { isPending: false, isError: false, data: { ...data, isTruncated: true } },
+      'en-US',
+    );
+    expect(english.container.textContent).toContain('Only the first 48 books are shown');
+    english.cleanup();
+  });
+
   it('opens the existing login dialog and exits loading after an unauthenticated Library response', async () => {
     const view = await renderLibrary({
       isPending: false,

@@ -14,6 +14,7 @@ import {
   userWorkTag as userWorkTagTable,
 } from '@gloaming/db';
 import type { LibraryData } from '@gloaming/shared/library';
+import { LIBRARY_ITEMS_LIMIT } from '@gloaming/shared/library';
 
 import app from '@/app';
 import { db } from '@/infra/db';
@@ -275,5 +276,88 @@ describe('Library HTTP', () => {
       ).status,
     ).toBe(404);
     expect((await app.request('/api/library', { headers: { cookie: learner.cookie } })).status).toBe(200);
+  });
+
+  it('flags isTruncated only when Personal plus saved memberships exceed the returned page', async () => {
+    const small = await createSession();
+    const exact = await createSession();
+    const over = await createSession();
+    createdEmails.push(small.email, exact.email, over.email);
+
+    const makeIds = (count: number) => Array.from({ length: count }, () => randomUUID());
+    const personalWork = (id: string, ownerUserId: string) => ({
+      id,
+      title: `Truncation personal ${id}`,
+      ownerUserId,
+      visibility: 'private' as const,
+      originKind: 'user_epub' as const,
+      processingStatus: 'ready',
+    });
+    const smallPersonal = makeIds(12);
+    const exactPersonal = makeIds(40);
+    const overPersonal = makeIds(40);
+    const smallSaved = makeIds(10);
+    const exactSaved = makeIds(8);
+    const overSaved = makeIds(9);
+    createdWorkIds.push(
+      ...smallPersonal,
+      ...exactPersonal,
+      ...overPersonal,
+      ...smallSaved,
+      ...exactSaved,
+      ...overSaved,
+    );
+
+    await db.insert(readingWorkTable).values([
+      ...smallPersonal.map((id) => personalWork(id, small.userId)),
+      ...exactPersonal.map((id) => personalWork(id, exact.userId)),
+      ...overPersonal.map((id) => personalWork(id, over.userId)),
+      ...[...smallSaved, ...exactSaved, ...overSaved].map((id) => ({
+        id,
+        title: `Truncation catalog ${id}`,
+        ownerUserId: null,
+        visibility: 'catalog' as const,
+        publishedAt: new Date(),
+        processingStatus: 'ready',
+      })),
+    ]);
+    await db
+      .insert(userLibraryItemTable)
+      .values([
+        ...smallSaved.map((workId) => ({ id: randomUUID(), userId: small.userId, workId })),
+        ...exactSaved.map((workId) => ({ id: randomUUID(), userId: exact.userId, workId })),
+        ...overSaved.map((workId) => ({ id: randomUUID(), userId: over.userId, workId })),
+      ]);
+
+    const fetchLibrary = async (session: { cookie: string }) => {
+      const response = await app.request('/api/library', { headers: { cookie: session.cookie } });
+      expect(response.status).toBe(200);
+      return (await response.json()) as LibraryData;
+    };
+
+    // 12 Personal + 10 saved memberships: every membership is returned, so nothing is hidden.
+    const smallLibrary = await fetchLibrary(small);
+    expect(smallLibrary.isTruncated).toBe(false);
+    expect(smallLibrary.items).toHaveLength(22);
+    expect(smallLibrary.items.filter((item) => item.libraryItemKind === 'personal')).toHaveLength(12);
+    expect(smallLibrary.items.filter((item) => item.libraryItemKind === 'saved_catalog')).toHaveLength(10);
+
+    // Exactly at the ceiling: the mixed total still equals the page size.
+    const exactLibrary = await fetchLibrary(exact);
+    expect(exactLibrary.isTruncated).toBe(false);
+    expect(exactLibrary.items).toHaveLength(LIBRARY_ITEMS_LIMIT);
+
+    // One membership past the ceiling: the page stays capped and only the marker flips.
+    const overLibrary = await fetchLibrary(over);
+    expect(overLibrary.isTruncated).toBe(true);
+    expect(overLibrary.items).toHaveLength(LIBRARY_ITEMS_LIMIT);
+    const overPersonalCount = overLibrary.items.filter((item) => item.libraryItemKind === 'personal').length;
+    const overSavedCount = overLibrary.items.filter((item) => item.libraryItemKind === 'saved_catalog').length;
+    // Exactly one of the 49 memberships is hidden; which one depends only on the sort order.
+    expect(overPersonalCount + overSavedCount).toBe(LIBRARY_ITEMS_LIMIT);
+    expect([
+      [40, 8],
+      [39, 9],
+    ]).toContainEqual([overPersonalCount, overSavedCount]);
   });
 });

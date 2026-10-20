@@ -45,10 +45,11 @@ describe('personal EPUB upload', () => {
 
   it('refreshes while Library contains processing items only', () => {
     expect(libraryRefetchInterval()).toBe(false);
-    expect(libraryRefetchInterval({ items: [], current: null })).toBe(false);
+    expect(libraryRefetchInterval({ items: [], current: null, isTruncated: false })).toBe(false);
     expect(
       libraryRefetchInterval({
         current: null,
+        isTruncated: false,
         items: [
           {
             work: { id: 'work-1' },

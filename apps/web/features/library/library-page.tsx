@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
 import { t } from '@gloaming/i18n';
-import { resolveUserTagName } from '@gloaming/shared/library';
+import { LIBRARY_ITEMS_LIMIT, resolveUserTagName } from '@gloaming/shared/library';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
@@ -288,6 +288,11 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
               </div>
             }
           />
+          {data.isTruncated ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              {t(locale, 'content.library.truncatedHint', { count: LIBRARY_ITEMS_LIMIT })}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

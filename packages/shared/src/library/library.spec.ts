@@ -115,6 +115,14 @@ describe('Library contracts', () => {
     expect(LIBRARY_ITEMS_LIMIT).toBe(48);
   });
 
+  it('defaults the truncation marker to false and keeps an explicit true', () => {
+    const legacyPayload = { current: null, items: [] };
+    expect(libraryDataSchema.parse(legacyPayload)).toEqual({ current: null, items: [], isTruncated: false });
+    expect(libraryDataSchema.parse({ ...legacyPayload, isTruncated: true }).isTruncated).toBe(true);
+    expect(libraryDataSchema.parse({ ...legacyPayload, isTruncated: false }).isTruncated).toBe(false);
+    expect(() => libraryDataSchema.parse({ ...legacyPayload, isTruncated: 'yes' })).toThrow();
+  });
+
   it('limits item readiness to processing, readable, or failed', () => {
     const base = {
       work,
