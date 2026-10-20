@@ -228,13 +228,24 @@ export function isPublicCategoryTranslationMissing(category: PublicCategory, loc
 }
 
 /**
+ * Shared Discover content-language query value so every surface that filters by
+ * content language (record list, public category list/detail) validates
+ * `language` identically: absent or blank falls back to the shared Discover
+ * language default, while an over-long token is rejected by the same bound.
+ */
+export const discoveryLanguageQuerySchema = z.preprocess(
+  emptyToUndefined,
+  z.string().trim().min(1).max(35).default(DISCOVERY_DEFAULT_LANGUAGE),
+);
+
+/**
  * Query for `GET /api/discover/records`.
  * `language` defaults to English-first while all upstream languages stay stored.
  */
 export const sourceRecordListQuerySchema = paginationQuerySchema.extend({
   sortBy: createSortByQuerySchema(SOURCE_RECORD_SORT_FIELDS, DEFAULT_SOURCE_RECORD_SORT_BY),
   q: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(SOURCE_RECORD_SEARCH_MAX_CHARS).optional()),
-  language: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(35).default(DISCOVERY_DEFAULT_LANGUAGE)),
+  language: discoveryLanguageQuerySchema,
   /** Optional public category filter; the owning read model applies it. */
   categoryId: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
 });
@@ -250,6 +261,18 @@ export const categorySourceRecordListQuerySchema = sourceRecordListQuerySchema.o
   language: true,
 });
 export type CategorySourceRecordListQuery = z.infer<typeof categorySourceRecordListQuerySchema>;
+
+/**
+ * Query for `GET /api/discover/categories` and `GET /api/discover/categories/:categoryId`.
+ * `language` scopes the public `recordCount` with the exact validation and
+ * shared default of the record list, so a category count always describes the
+ * same record set `GET /api/discover/records` would list for that language.
+ * Optional: omitting it keeps the shared Discover language default.
+ */
+export const publicCategoryListQuerySchema = z.object({
+  language: discoveryLanguageQuerySchema,
+});
+export type PublicCategoryListQuery = z.infer<typeof publicCategoryListQuerySchema>;
 
 /**
  * List row for the discovery read model.

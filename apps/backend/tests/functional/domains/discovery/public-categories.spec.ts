@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -13,8 +13,10 @@ import {
   sourceRecordPublicCategory as sourceRecordPublicCategoryTable,
   sourceRecordPublicCategorySuppression as sourceRecordPublicCategorySuppressionTable,
 } from '@gloaming/db/schema';
+import type { PublicCategoryListData } from '@gloaming/shared/discovery';
 import { categorySourceRecordListQuerySchema, sourceRecordListQuerySchema } from '@gloaming/shared/discovery';
 
+import app from '@/app';
 import {
   assignCategoryToSourceRecord,
   createManagedCategory,
@@ -102,6 +104,26 @@ async function createCategory(name: string, locale = 'en-US') {
   const category = await createManagedCategory({ name, locale });
   createdCategoryIds.add(category.id);
   return category;
+}
+
+type LanguageFixture = { index: number; languages: string[] };
+
+/** Inserts test-owned Discover records with explicit content languages; returns their ids. */
+async function insertLanguageRecords(fixtures: LanguageFixture[]): Promise<string[]> {
+  await upsertSourceRecords(
+    sourceId,
+    fixtures.map((fixture) => ({ ...fixtureRecord(fixture.index), languages: fixture.languages })),
+    new Date('2026-01-04T00:00:00.000Z'),
+  );
+  const externalIds = fixtures.map((fixture) => `${runId}-${fixture.index}`);
+  const rows = await db
+    .select({ id: sourceRecordTable.id, externalId: sourceRecordTable.externalId })
+    .from(sourceRecordTable)
+    .where(and(eq(sourceRecordTable.sourceId, sourceId), inArray(sourceRecordTable.externalId, externalIds)));
+  const idByExternalId = new Map(rows.map((row) => [row.externalId, row.id]));
+  const ids = externalIds.map((externalId) => idByExternalId.get(externalId)!);
+  recordIds.push(...ids);
+  return ids;
 }
 
 describe('public category service on gloaming_test', () => {
@@ -321,6 +343,91 @@ describe('public category service on gloaming_test', () => {
       { locale: 'en-US' },
     );
     expect(records.items.map((item) => item.sourceRecordId)).toEqual([englishRecordId]);
+  });
+
+  it('scopes public category counts and detail to the requested language like the record list', async (ctx) => {
+    if (!schemaReady) return ctx.skip();
+
+    const category = await createCategory(`Language Scope ${suffix}`);
+    const [frenchA, frenchB, english] = await insertLanguageRecords([
+      { index: RECORD_COUNT + 2, languages: ['fr'] },
+      { index: RECORD_COUNT + 3, languages: ['fr'] },
+      { index: RECORD_COUNT + 4, languages: ['en'] },
+    ]);
+    for (const recordId of [frenchA, frenchB, english]) {
+      await assignCategoryToSourceRecord(recordId, category.id, 'manual');
+    }
+
+    // An explicit language makes the category count describe the exact record
+    // set the Discover list returns for that language.
+    const frenchRecords = await listSourceRecords(
+      sourceRecordListQuerySchema.parse({ categoryId: category.id, language: 'fr', pageSize: 50 }),
+      { locale: 'en-US' },
+    );
+    expect(frenchRecords.pagination.total).toBe(2);
+    const frenchList = await listPublicCategories('en-US', 'fr');
+    expect(frenchList.items.find((item) => item.id === category.id)?.recordCount).toBe(frenchRecords.pagination.total);
+    const frenchDetail = await getPublicCategory(category.id, 'en-US', 'fr');
+    expect(frenchDetail).toEqual({ id: category.id, name: `Language Scope ${suffix}`, recordCount: 2 });
+
+    // Omitting the language keeps the existing default (`en`) behavior.
+    const englishRecords = await listSourceRecords(
+      sourceRecordListQuerySchema.parse({ categoryId: category.id, pageSize: 50 }),
+      { locale: 'en-US' },
+    );
+    expect(englishRecords.pagination.total).toBe(1);
+    const defaultList = await listPublicCategories('en-US');
+    expect(defaultList).toEqual(await listPublicCategories('en-US', 'en'));
+    expect(defaultList.items.find((item) => item.id === category.id)?.recordCount).toBe(
+      englishRecords.pagination.total,
+    );
+    expect((await getPublicCategory(category.id, 'en-US')).recordCount).toBe(1);
+  });
+
+  it('accepts the optional language on the public category routes and rejects invalid values', async (ctx) => {
+    if (!schemaReady) return ctx.skip();
+
+    const category = await createCategory(`Language Routes ${suffix}`);
+    const recordIdsForCategory = await insertLanguageRecords([
+      { index: RECORD_COUNT + 5, languages: ['fr'] },
+      { index: RECORD_COUNT + 6, languages: ['fr'] },
+      { index: RECORD_COUNT + 7, languages: ['en'] },
+    ]);
+    for (const recordId of recordIdsForCategory) {
+      await assignCategoryToSourceRecord(recordId, category.id, 'manual');
+    }
+
+    const frenchList = await app.request('/api/discover/categories?language=fr');
+    expect(frenchList.status).toBe(200);
+    const frenchBody = (await frenchList.json()) as PublicCategoryListData;
+    expect(frenchBody.items.find((item) => item.id === category.id)?.recordCount).toBe(2);
+
+    const defaultList = await app.request('/api/discover/categories');
+    expect(defaultList.status).toBe(200);
+    const defaultBody = (await defaultList.json()) as PublicCategoryListData;
+    expect(defaultBody.items.find((item) => item.id === category.id)?.recordCount).toBe(1);
+
+    const frenchDetail = await app.request(`/api/discover/categories/${category.id}?language=fr`);
+    expect(frenchDetail.status).toBe(200);
+    await expect(frenchDetail.json()).resolves.toEqual({
+      id: category.id,
+      name: `Language Routes ${suffix}`,
+      recordCount: 2,
+    });
+
+    // An invalid language keeps the existing validation error contract.
+    const overLong = 'x'.repeat(36);
+    for (const path of [
+      `/api/discover/categories?language=${overLong}`,
+      `/api/discover/categories/${category.id}?language=${overLong}`,
+    ]) {
+      const invalid = await app.request(path);
+      expect(invalid.status).toBe(400);
+      await expect(invalid.json()).resolves.toMatchObject({
+        code: ERROR_CODES.VALIDATION_FAILED,
+        details: [{ path: 'language', message: expect.any(String), code: ERROR_CODES.VALIDATION_INVALID_INPUT }],
+      });
+    }
   });
 
   it('serves a paginated admin view of one category assignments, including hidden records', async (ctx) => {

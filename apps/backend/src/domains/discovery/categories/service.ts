@@ -1,6 +1,7 @@
 import {
   canonicalizePublicCategoryName,
   type CategorySourceRecordListQuery,
+  DISCOVERY_DEFAULT_LANGUAGE,
   normalizePublicCategoryName,
   PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
   type PublicCategoryListData,
@@ -124,14 +125,25 @@ function groupByCategoryId<T extends { categoryId: string }>(rows: T[]): Map<str
  * Public Discover category list: stable id + locale-resolved display name + the
  * count of publicly discoverable records. Internal management fields are never
  * projected here.
+ *
+ * `language` is the Discover content language: it scopes the counts with the
+ * exact predicate the record list uses, so a category count never disagrees
+ * with `GET /api/discover/records` for the same language. It defaults to the
+ * shared Discover language default.
  */
-export async function listPublicCategories(locale: string): Promise<PublicCategoryListData> {
+export async function listPublicCategories(
+  locale: string,
+  language: string = DISCOVERY_DEFAULT_LANGUAGE,
+): Promise<PublicCategoryListData> {
   const categories = await listCategoryRows();
   if (categories.length === 0) return { items: [] };
 
   const [labels, counts] = await Promise.all([
     listAllLabelRows(),
-    countPublicRecordsByCategoryIds(categories.map((category) => category.id)),
+    countPublicRecordsByCategoryIds(
+      categories.map((category) => category.id),
+      language,
+    ),
   ]);
   const labelsByCategory = groupByCategoryId(labels);
 
@@ -148,14 +160,21 @@ export async function listPublicCategories(locale: string): Promise<PublicCatego
   return { items };
 }
 
-/** Public category detail. A label-less category cannot be rendered, so it 404s. */
-export async function getPublicCategory(categoryId: string, locale: string): Promise<PublicCategoryListItem> {
+/**
+ * Public category detail. A label-less category cannot be rendered, so it 404s.
+ * `language` scopes `recordCount` with the same predicate as the list.
+ */
+export async function getPublicCategory(
+  categoryId: string,
+  locale: string,
+  language: string = DISCOVERY_DEFAULT_LANGUAGE,
+): Promise<PublicCategoryListItem> {
   const row = await getCategoryRow(categoryId);
   if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
 
   const [labels, counts] = await Promise.all([
     listLabelRowsByCategoryIds([categoryId]),
-    countPublicRecordsByCategoryIds([categoryId]),
+    countPublicRecordsByCategoryIds([categoryId], language),
   ]);
   const item = toPublicCategoryListItem(toPublicCategory(row, labels, []), locale, counts.get(categoryId) ?? 0);
   if (!item) throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
