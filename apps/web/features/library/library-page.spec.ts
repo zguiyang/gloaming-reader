@@ -264,6 +264,32 @@ describe('LibraryPage', () => {
     error.cleanup();
   });
 
+  it('shows the Library truncation hint only when the response is truncated', async () => {
+    const data = { current: null, items: [item('book', false)] };
+
+    const truncated = await renderLibrary({ isPending: false, isError: false, data: { ...data, isTruncated: true } });
+    expect(truncated.container.textContent).toContain('书库仅显示前 48 本书');
+    expect(truncated.container.textContent).toContain('可用标签或来源筛选查看其余书籍');
+    // The hint is advisory copy: the grid still renders underneath it.
+    expect(truncated.container.querySelector('a[href="/works/book?returnTo=%2Flibrary"]')).toBeTruthy();
+    truncated.cleanup();
+
+    const complete = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { ...data, isTruncated: false },
+    });
+    expect(complete.container.textContent).not.toContain('书库仅显示前 48 本书');
+    complete.cleanup();
+
+    const english = await renderLibrary(
+      { isPending: false, isError: false, data: { ...data, isTruncated: true } },
+      'en-US',
+    );
+    expect(english.container.textContent).toContain('Only the first 48 books are shown');
+    english.cleanup();
+  });
+
   it('opens the existing login dialog and exits loading after an unauthenticated Library response', async () => {
     const view = await renderLibrary({
       isPending: false,
@@ -466,6 +492,57 @@ describe('LibraryPage', () => {
     await act(async () => confirm?.click());
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(mocks.deleteUserTag).toHaveBeenCalledWith('tag-one');
+    view.cleanup();
+  });
+
+  it('marks AI-created tags with a badge and leaves manual tags unmarked', async () => {
+    const view = await renderTagManagement([
+      {
+        id: 'tag-ai',
+        name: '太空歌剧',
+        localizedNames: { 'zh-CN': '太空歌剧' },
+        sourceLocale: 'zh-CN',
+        userEditedLocales: ['zh-CN'],
+        createdBy: 'ai',
+        bookCount: 1,
+      },
+      {
+        id: 'tag-manual',
+        name: '喜欢',
+        localizedNames: { 'zh-CN': '喜欢' },
+        sourceLocale: 'zh-CN',
+        userEditedLocales: ['zh-CN'],
+        createdBy: 'manual',
+        bookCount: 2,
+      },
+    ]);
+    const itemFor = (name: string) =>
+      Array.from(view.container.querySelectorAll('li')).find((entry) => entry.textContent?.includes(name));
+
+    expect(itemFor('太空歌剧')?.textContent).toContain('AI 生成');
+    expect(itemFor('喜欢')?.textContent).not.toContain('AI 生成');
+    view.cleanup();
+  });
+
+  it('shows the AI badge in the tag assignment dialog only for AI-created tags', async () => {
+    mocks.useUserTagsQuery.mockReturnValue({
+      data: [
+        { id: 'tag-ai', name: '太空歌剧', bookCount: 1, createdBy: 'ai' },
+        { id: 'tag-manual', name: '喜欢', bookCount: 0, createdBy: 'manual' },
+      ],
+    });
+    const view = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: { current: null, items: [item('book', false)] },
+    });
+    await openTagAssignmentDialog(view);
+    const labels = Array.from(document.querySelectorAll('[role="dialog"] label'));
+    const aiLabel = labels.find((label) => label.textContent?.includes('太空歌剧'));
+    const manualLabel = labels.find((label) => label.textContent?.includes('喜欢'));
+
+    expect(aiLabel?.textContent).toContain('AI 生成');
+    expect(manualLabel?.textContent).not.toContain('AI 生成');
     view.cleanup();
   });
 
@@ -1543,7 +1620,7 @@ describe('LibraryPage', () => {
     english.cleanup();
   });
 
-  it('distinguishes a filtered empty result and warns when results may be truncated', async () => {
+  it('distinguishes a filtered empty result and warns only about a server-truncated Library', async () => {
     const favorite = { id: 'tag-favorite', name: '喜欢', bookCount: 0 };
     mocks.useUserTagsQuery.mockReturnValue({ data: [favorite] });
 
@@ -1558,17 +1635,40 @@ describe('LibraryPage', () => {
     expect(buttonByLabel(small.container, '查看全部书籍')).toBeFalsy();
     small.cleanup();
 
+    // A full 48-item page with isTruncated=false is authoritative: the empty
+    // filter result must not claim that the loaded books were cut off.
+    const complete = await renderLibrary({
+      isPending: false,
+      isError: false,
+      data: {
+        current: null,
+        items: Array.from({ length: 48 }, (_, index) => item(`book-${index}`, false)),
+        isTruncated: false,
+      },
+    });
+    await complete.navigate('?source=saved');
+    expect(complete.container.textContent).toContain('还没有已保存的书');
+    expect(complete.container.textContent).not.toContain('当前已加载的书籍中没有符合条件的结果');
+    expect(complete.container.textContent).not.toContain('书库仅显示前 48 本书');
+    await complete.navigate('?tag=tag-favorite');
+    expect(complete.container.textContent).toContain('当前分类下没有匹配的书籍');
+    expect(complete.container.textContent).not.toContain('当前已加载的书籍中没有符合条件的结果');
+    complete.cleanup();
+
+    // Only the server may declare truncation.
     const capped = await renderLibrary({
       isPending: false,
       isError: false,
       data: {
         current: null,
         items: Array.from({ length: 48 }, (_, index) => item(`book-${index}`, false)),
+        isTruncated: true,
       },
     });
     await capped.navigate('?source=saved');
     expect(capped.container.textContent).toContain('当前已加载的书籍中没有符合条件的结果');
     expect(capped.container.textContent).not.toContain('还没有已保存的书');
+    expect(capped.container.textContent).toContain('书库仅显示前 48 本书');
 
     await capped.navigate('?tag=tag-favorite');
     expect(capped.container.textContent).toContain('当前已加载的书籍中没有符合条件的结果');

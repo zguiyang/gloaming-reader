@@ -1,6 +1,7 @@
 import {
   canonicalizePublicCategoryName,
   type CategorySourceRecordListQuery,
+  DISCOVERY_DEFAULT_LANGUAGE,
   normalizePublicCategoryName,
   PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
   type PublicCategoryListData,
@@ -10,6 +11,8 @@ import {
   type SourceRecordListData,
 } from '@gloaming/shared/discovery';
 
+import { translateMissingPublicCategoryLabels } from '@/domains/discovery/categories/classification';
+import type { PublicClassificationDeferredReason } from '@/domains/discovery/categories/classification-contract';
 import {
   buildPublicCategory,
   decideCategoryAssignment,
@@ -65,6 +68,18 @@ function categoryHasAssignments(count: number): AppError {
   return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_HAS_ASSIGNMENTS, { count });
 }
 
+/**
+ * Admin-facing error contract for a deferred translation pass: the instance
+ * lock is held by another classification/translation run (409, retry shortly),
+ * while a missing provider or an exhausted transient retry is a 503.
+ */
+function translationDeferredError(reason: PublicClassificationDeferredReason): AppError {
+  if (reason === 'busy') {
+    return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_TRANSLATION_BUSY);
+  }
+  return new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
+}
+
 function isUniqueViolation(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
   if ('code' in error && error.code === '23505') return true;
@@ -110,14 +125,25 @@ function groupByCategoryId<T extends { categoryId: string }>(rows: T[]): Map<str
  * Public Discover category list: stable id + locale-resolved display name + the
  * count of publicly discoverable records. Internal management fields are never
  * projected here.
+ *
+ * `language` is the Discover content language: it scopes the counts with the
+ * exact predicate the record list uses, so a category count never disagrees
+ * with `GET /api/discover/records` for the same language. It defaults to the
+ * shared Discover language default.
  */
-export async function listPublicCategories(locale: string): Promise<PublicCategoryListData> {
+export async function listPublicCategories(
+  locale: string,
+  language: string = DISCOVERY_DEFAULT_LANGUAGE,
+): Promise<PublicCategoryListData> {
   const categories = await listCategoryRows();
   if (categories.length === 0) return { items: [] };
 
   const [labels, counts] = await Promise.all([
     listAllLabelRows(),
-    countPublicRecordsByCategoryIds(categories.map((category) => category.id)),
+    countPublicRecordsByCategoryIds(
+      categories.map((category) => category.id),
+      language,
+    ),
   ]);
   const labelsByCategory = groupByCategoryId(labels);
 
@@ -134,14 +160,21 @@ export async function listPublicCategories(locale: string): Promise<PublicCatego
   return { items };
 }
 
-/** Public category detail. A label-less category cannot be rendered, so it 404s. */
-export async function getPublicCategory(categoryId: string, locale: string): Promise<PublicCategoryListItem> {
+/**
+ * Public category detail. A label-less category cannot be rendered, so it 404s.
+ * `language` scopes `recordCount` with the same predicate as the list.
+ */
+export async function getPublicCategory(
+  categoryId: string,
+  locale: string,
+  language: string = DISCOVERY_DEFAULT_LANGUAGE,
+): Promise<PublicCategoryListItem> {
   const row = await getCategoryRow(categoryId);
   if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
 
   const [labels, counts] = await Promise.all([
     listLabelRowsByCategoryIds([categoryId]),
-    countPublicRecordsByCategoryIds([categoryId]),
+    countPublicRecordsByCategoryIds([categoryId], language),
   ]);
   const item = toPublicCategoryListItem(toPublicCategory(row, labels, []), locale, counts.get(categoryId) ?? 0);
   if (!item) throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
@@ -249,6 +282,34 @@ export async function updateManagedCategoryLabel(
     throw error;
   }
   return loadManagedCategory(categoryId);
+}
+
+/**
+ * Admin-triggered completion of a category's missing localized labels (PC-05).
+ *
+ * Calls the existing instance-only translation operation exactly once per
+ * explicit click — it never runs automatically for the whole list and it never
+ * touches an already-persisted locale, so manually edited labels are preserved
+ * by the same `edited_by = 'manual'` guard the translator already applies.
+ * Returns the locales actually written this pass; an empty array is the
+ * no-op result when nothing is missing. A missing category is 404 and a
+ * deferred pass surfaces through the standard admin error contract.
+ */
+export async function completeManagedCategoryTranslations(
+  categoryId: string,
+): Promise<{ translatedLocales: string[] }> {
+  const result = await translateMissingPublicCategoryLabels(categoryId);
+  switch (result.status) {
+    case 'completed':
+      return { translatedLocales: result.translatedLocales };
+    case 'skipped':
+      if (result.reason === 'category_not_found') {
+        throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
+      }
+      return { translatedLocales: [] };
+    case 'deferred':
+      throw translationDeferredError(result.reason);
+  }
 }
 
 /**

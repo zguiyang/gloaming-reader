@@ -15,6 +15,8 @@ export const userTagSchema = z.object({
   localizedNames: z.record(z.string(), z.string()).default({}),
   sourceLocale: z.string().nullable().default(null),
   userEditedLocales: z.array(z.string()).default([]),
+  /** Label provenance; `manual` default keeps older payloads and clients compatible. */
+  createdBy: z.enum(['ai', 'manual']).default('manual'),
 });
 
 export const userTagManagementItemSchema = userTagSchema.extend({
@@ -81,6 +83,8 @@ export type ContinueReadingItem = z.infer<typeof continueReadingItemSchema>;
 export const libraryDataSchema = z.object({
   current: continueReadingItemSchema.nullable(),
   items: z.array(libraryItemSchema).max(LIBRARY_ITEMS_LIMIT),
+  /** True only when the owner's Library holds more memberships than `items` returned. */
+  isTruncated: z.boolean().default(false),
 });
 
 export type LibraryData = z.infer<typeof libraryDataSchema>;

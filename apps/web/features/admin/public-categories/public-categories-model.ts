@@ -170,8 +170,18 @@ export function categoryLocaleLabelEntries(category: PublicCategoryManagementIte
   }));
 }
 
-/** Supported locales with no stored label yet. */
+/**
+ * Supported locales with no stored label yet. Prefers the server-projected
+ * `missingLocales` on the admin DTO (computed from the same label rows the
+ * completion endpoint targets) and falls back to the local projection for
+ * payloads that predate the field.
+ */
 export function missingCategoryLocales(category: PublicCategoryManagementItem): Locale[] {
+  const projected = category.missingLocales;
+  if (projected) {
+    const supported = new Set<string>(SUPPORTED_LOCALES);
+    return projected.filter((target): target is Locale => supported.has(target));
+  }
   return categoryLocaleLabelEntries(category)
     .filter((entry) => entry.isMissing)
     .map((entry) => entry.locale);
@@ -179,6 +189,11 @@ export function missingCategoryLocales(category: PublicCategoryManagementItem): 
 
 export function isCategoryFullyLocalized(category: PublicCategoryManagementItem): boolean {
   return missingCategoryLocales(category).length === 0;
+}
+
+/** The per-row "complete translations" action is enabled only when something is missing. */
+export function canCompleteCategoryTranslations(category: PublicCategoryManagementItem): boolean {
+  return missingCategoryLocales(category).length > 0;
 }
 
 /** Comma-joined author names; empty string when the source has no authors. */

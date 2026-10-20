@@ -28,8 +28,22 @@ const personalTaggingPreferenceSchema = z.object({
   generation: z.number().int().nonnegative(),
   providerAvailable: z.boolean(),
   latestRunState: z.enum(['queued', 'processing', 'completed', 'skipped', 'failed']).nullable(),
+  /** Optional so an older backend payload without the field still validates. */
+  latestRunErrorCode: z.string().nullable().optional(),
 });
 export type PersonalTaggingPreference = z.infer<typeof personalTaggingPreferenceSchema>;
+
+const personalTaggingRunErrorKeys: Record<string, string> = {
+  attempts_exhausted: 'settings.personalTagging.runError.attempts_exhausted',
+  worker_attempts_exhausted: 'settings.personalTagging.runError.worker_attempts_exhausted',
+};
+
+/** Known failure reasons get their own copy; unknown or missing codes fall back to the generic failure text. */
+export function personalTaggingRunErrorKey(errorCode: string | null | undefined): string {
+  return (
+    (errorCode ? personalTaggingRunErrorKeys[errorCode] : undefined) ?? 'settings.personalTagging.runError.generic'
+  );
+}
 
 export const userSettingsQueryKey = {
   all: ['user-settings'] as const,

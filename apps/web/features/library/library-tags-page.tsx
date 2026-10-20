@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AUTH_ROUTES } from '@/constants';
@@ -276,7 +277,16 @@ function LibraryTagsPageContent() {
                         href={tagHref(tag.id)}
                         className="flex min-h-8 items-center justify-between gap-3 rounded-md text-left focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                       >
-                        <span className="min-w-0 truncate text-sm font-medium">{resolveUserTagName(tag, locale)}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="min-w-0 truncate text-sm font-medium">
+                            {resolveUserTagName(tag, locale)}
+                          </span>
+                          {tag.createdBy === 'ai' ? (
+                            <Badge variant="secondary" className="shrink-0 rounded-full px-1.5 font-normal">
+                              {t(locale, 'content.library.aiTagBadge')}
+                            </Badge>
+                          ) : null}
+                        </span>
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {t(locale, 'content.library.usedInBooks', { count: tag.bookCount })}
                         </span>

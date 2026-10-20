@@ -4,6 +4,7 @@ import {
   canonicalizePublicCategoryName,
   categorySourceRecordListQuerySchema,
   DEFAULT_SOURCE_RECORD_SORT_BY,
+  DISCOVERY_DEFAULT_LANGUAGE,
   isPublicCategoryTranslationMissing,
   normalizePublicCategoryName,
   PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
@@ -12,6 +13,7 @@ import {
   publicCategoryLabelSchema,
   publicCategoryListDataSchema,
   publicCategoryListItemSchema,
+  publicCategoryListQuerySchema,
   publicCategoryManagementItemSchema,
   publicCategoryNameSchema,
   publicCategorySchema,
@@ -229,6 +231,20 @@ describe('public category contracts', () => {
     expect(query.q).toBe('alpha');
     expect(query.sortBy).toBe(DEFAULT_SOURCE_RECORD_SORT_BY);
     expect(query.page).toBe(1);
+  });
+
+  it('validates the optional category list content language like the record list', () => {
+    // Optional: absent or blank falls back to the shared Discover default.
+    expect(publicCategoryListQuerySchema.parse({})).toEqual({ language: DISCOVERY_DEFAULT_LANGUAGE });
+    expect(publicCategoryListQuerySchema.parse({ language: '' })).toEqual({ language: DISCOVERY_DEFAULT_LANGUAGE });
+    expect(publicCategoryListQuerySchema.parse({ language: ' fr ' })).toEqual({ language: 'fr' });
+
+    // Same validation bound as the record list query.
+    expect(sourceRecordListQuerySchema.parse({}).language).toBe(DISCOVERY_DEFAULT_LANGUAGE);
+    expect(sourceRecordListQuerySchema.parse({ language: 'fr' }).language).toBe('fr');
+    const overLong = 'x'.repeat(36);
+    expect(() => publicCategoryListQuerySchema.parse({ language: overLong })).toThrow();
+    expect(() => sourceRecordListQuerySchema.parse({ language: overLong })).toThrow();
   });
 
   it('keeps public list/detail items to id, localized name, and a nonnegative count', () => {

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 
 import {
   readingState as readingStateTable,
@@ -52,7 +52,7 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
     .orderBy(desc(readingStateTable.lastReadAt), desc(readingStateTable.id))
     .limit(1);
 
-  const [ownedRows, savedRows] = await Promise.all([
+  const [ownedRows, savedRows, [ownedCount], [savedCount]] = await Promise.all([
     db
       .select({
         work: readingWorkTable,
@@ -86,11 +86,18 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
       .where(eq(userLibraryItemTable.userId, userId))
       .orderBy(desc(userLibraryItemTable.createdAt), desc(readingWorkTable.id))
       .limit(LIBRARY_ITEMS_LIMIT),
+    // Aggregate counts instead of row fetches keep the truncation check bounded.
+    db.select({ value: count() }).from(readingWorkTable).where(eq(readingWorkTable.ownerUserId, userId)),
+    db.select({ value: count() }).from(userLibraryItemTable).where(eq(userLibraryItemTable.userId, userId)),
   ]);
 
   const orderedRows = [...ownedRows, ...savedRows]
     .sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime() || b.work.id.localeCompare(a.work.id))
     .slice(0, LIBRARY_ITEMS_LIMIT);
+  // Saved membership requires an unowned Catalog Work (`publicCatalogWorkSql`), so Personal
+  // ownership and saved membership are disjoint and the union size is the plain sum.
+  const totalMemberCount = Number(ownedCount?.value ?? 0) + Number(savedCount?.value ?? 0);
+  const isTruncated = totalMemberCount > orderedRows.length;
   const workIds = [...(currentRow ? [currentRow.work.id] : []), ...orderedRows.map((row) => row.work.id)];
   const [partsByWork, userTagsByWork] = await Promise.all([
     loadPartSortOrdersByWorkIds(workIds),
@@ -118,6 +125,7 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
         }
       : null,
     items: orderedRows.map(toItem),
+    isTruncated,
   };
 }
 

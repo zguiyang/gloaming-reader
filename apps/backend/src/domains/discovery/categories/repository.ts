@@ -12,6 +12,7 @@ import {
   sourceRecordPublicCategorySuppression as sourceRecordPublicCategorySuppressionTable,
 } from '@gloaming/db/schema';
 import type { PublicCategoryProvenance, PublicCategorySummary } from '@gloaming/shared/discovery';
+import { DISCOVERY_DEFAULT_LANGUAGE } from '@gloaming/shared/discovery';
 
 import { buildPublicCategory, toPublicCategorySummary } from '@/domains/discovery/categories/policy';
 import { publicDiscoverableRecordWhere } from '@/domains/discovery/read-model/visibility';
@@ -98,17 +99,23 @@ export async function countAssignmentsByCategoryIds(categoryIds: string[]): Prom
 /**
  * Publicly discoverable SourceRecord count per category. Uses the same shared
  * visibility predicate as the Discover record list (available record on an
- * enabled source, in the default Discover content language), so a category
- * count never exceeds what the filtered record list can actually show.
+ * enabled source, in the requested Discover content language — defaulting to
+ * the shared Discover language default), so a category count never exceeds
+ * what the filtered record list can actually show for that language.
  */
-export async function countPublicRecordsByCategoryIds(categoryIds: string[]): Promise<Map<string, number>> {
+export async function countPublicRecordsByCategoryIds(
+  categoryIds: string[],
+  language: string = DISCOVERY_DEFAULT_LANGUAGE,
+): Promise<Map<string, number>> {
   if (categoryIds.length === 0) return new Map();
   const rows = await db
     .select({ categoryId: sourceRecordPublicCategoryTable.categoryId, value: count() })
     .from(sourceRecordPublicCategoryTable)
     .innerJoin(sourceRecordTable, eq(sourceRecordTable.id, sourceRecordPublicCategoryTable.sourceRecordId))
     .innerJoin(discoverySourceTable, eq(discoverySourceTable.id, sourceRecordTable.sourceId))
-    .where(and(inArray(sourceRecordPublicCategoryTable.categoryId, categoryIds), publicDiscoverableRecordWhere()))
+    .where(
+      and(inArray(sourceRecordPublicCategoryTable.categoryId, categoryIds), publicDiscoverableRecordWhere(language)),
+    )
     .groupBy(sourceRecordPublicCategoryTable.categoryId);
   return new Map(rows.map((row) => [row.categoryId, Number(row.value)]));
 }

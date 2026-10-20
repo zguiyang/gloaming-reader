@@ -1,6 +1,6 @@
 'use client';
 
-import { PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { LanguagesIcon, Loader2Icon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -27,11 +27,13 @@ import {
   formatPublicCategoriesApiError,
   isCategoryHasAssignmentsError,
   isCategoryNameCollisionError,
+  useCompleteCategoryTranslationsMutation,
   useCreateManagedCategoryMutation,
   useDeleteManagedCategoryMutation,
   useManagedCategoriesQuery,
 } from '@/features/admin/public-categories/public-categories-api';
 import {
+  canCompleteCategoryTranslations,
   categoryDisplayName,
   categoryProvenanceKey,
   filterPublicCategories,
@@ -48,8 +50,9 @@ import { cn } from '@/lib/utils';
 
 /**
  * Instance-level Public Category management. Manual creation and localized label
- * edits never require an AI Provider; the optional AI translation action is
- * deferred until PC-03 is integrated. Assignment/removal are explicit, single
+ * edits never require a model; each row also offers the admin-triggered
+ * "complete translations" action that fills only missing locales through the
+ * instance model on an explicit click. Assignment/removal are explicit, single
  * record/category actions against the existing PC-02 admin endpoints.
  */
 export function PublicCategoriesPage() {
@@ -57,6 +60,7 @@ export function PublicCategoriesPage() {
   const categoriesQuery = useManagedCategoriesQuery();
   const createMutation = useCreateManagedCategoryMutation();
   const deleteMutation = useDeleteManagedCategoryMutation();
+  const completeMutation = useCompleteCategoryTranslationsMutation();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -114,6 +118,24 @@ export function PublicCategoriesPage() {
       }
       setIsDeleting(false);
       setDeleteReason(null);
+      toast.error(formatPublicCategoriesApiError(error));
+    }
+  }
+
+  async function completeTranslations(categoryId: string) {
+    try {
+      const result = await completeMutation.mutateAsync(categoryId);
+      const locales = result?.translatedLocales ?? [];
+      if (locales.length === 0) {
+        toast.info(t(locale, 'admin.publicCategories.translate.nothing'));
+        return;
+      }
+      toast.success(
+        t(locale, 'admin.publicCategories.translate.completed', {
+          locales: locales.map((target) => localeDisplayLabel(target, locale)).join(' / '),
+        }),
+      );
+    } catch (error) {
       toast.error(formatPublicCategoriesApiError(error));
     }
   }
@@ -208,14 +230,16 @@ export function PublicCategoriesPage() {
               <ul className="flex flex-col gap-1">
                 {pageItems.map((category) => {
                   const isActive = category.id === selectedId;
+                  const canComplete = canCompleteCategoryTranslations(category);
+                  const isCompleting = completeMutation.isPending && completeMutation.variables === category.id;
                   return (
-                    <li key={category.id}>
+                    <li key={category.id} className="flex items-center gap-1">
                       <button
                         type="button"
                         aria-pressed={isActive}
                         onClick={() => setSelectedId(category.id)}
                         className={cn(
-                          'flex w-full flex-col gap-1 rounded-xl px-3 py-2 text-left transition-colors duration-200 ease-out-soft',
+                          'flex min-w-0 flex-1 flex-col gap-1 rounded-xl px-3 py-2 text-left transition-colors duration-200 ease-out-soft',
                           'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                           isActive
                             ? 'bg-sidebar-accent text-sidebar-accent-foreground'
@@ -237,6 +261,24 @@ export function PublicCategoriesPage() {
                           ) : null}
                         </span>
                       </button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        disabled={!canComplete || completeMutation.isPending}
+                        aria-label={t(locale, 'admin.publicCategories.translate.actionAria', {
+                          name: categoryDisplayName(category, locale),
+                        })}
+                        onClick={() => void completeTranslations(category.id)}
+                      >
+                        {isCompleting ? (
+                          <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                        ) : (
+                          <LanguagesIcon data-icon="inline-start" aria-hidden />
+                        )}
+                        {t(locale, 'admin.publicCategories.translate.action')}
+                      </Button>
                     </li>
                   );
                 })}

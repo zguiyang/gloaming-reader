@@ -6,16 +6,19 @@ import {
   discoverySource as discoverySourceTable,
   readingWork as readingWorkTable,
   sourceRecord as sourceRecordTable,
+  type SourceRecordContentCandidate,
   sourceRecordSaveIntent as saveIntentTable,
   userLibraryItem as userLibraryItemTable,
 } from '@gloaming/db/schema';
 import type { SourceRecordSaveStatus } from '@gloaming/shared/library';
 import { isWorkParseCompleted } from '@gloaming/shared/works';
 
+import { hasSelectableEpubCandidate } from '@/domains/discovery/materialization';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
 import { enqueueDiscoveryImport } from '@/infra/queue';
-import { NotFoundError } from '@/shared/errors/app-error';
+import { HTTP_STATUS } from '@/shared/constants';
+import { AppError, NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 const saveIntentLogger = rootLogger.child({ module: 'SaveIntent' });
@@ -54,6 +57,14 @@ export const SAVE_INTENT_RECOVERY_SCAN_LIMIT = 100;
 const ENQUEUE_FAILURE_CODE = 'enqueue_failed';
 /** failureCode written when a pending intent outlives its timeout deadline. */
 const TIMEOUT_FAILURE_CODE = 'processing_timeout';
+/**
+ * failureCode written when recovery finds no selectable EPUB candidate to
+ * enqueue — same stable code the materialization failure classifier writes.
+ */
+const NO_CANDIDATE_FAILURE_CODE = 'no_epub_candidate';
+
+/** Displayable reason for an intent whose record lost its EPUB candidate. */
+const NO_CANDIDATE_FAILURE_REASON = 'No downloadable EPUB is available for this item.';
 
 /** Displayable reason for a timed-out intent; never a raw error or stack. */
 const TIMEOUT_FAILURE_REASON = 'Content import did not finish in time. Please retry.';
@@ -81,9 +92,17 @@ type SavableSourceRecord = {
 };
 
 /**
- * Save accepts only an enabled source's currently available record. Disabled
- * sources and unavailable records are rejected as not found, matching the
- * Discover read model.
+ * Save accepts only an enabled source's currently available record, and only
+ * when its synced metadata still offers a selectable EPUB candidate — the same
+ * rule the Discover read model's `isSaveable` flag applies. Disabled sources
+ * and unavailable records are rejected before any Save Intent is created or
+ * revived and before anything is queued. A record already linked to a Work
+ * skips the candidate gate: the Work is already materialized (or retrying),
+ * so the existing materialize-reuse/retry semantics apply and a saved item
+ * must never be re-rejected with 409 after a sync clears its candidates.
+ * For an unlinked record, records without an EPUB candidate are rejected
+ * before anything is created. A later candidate sync needs no cached failure:
+ * the next POST re-reads the record and passes this gate.
  */
 async function loadSavableSourceRecord(sourceRecordId: string): Promise<SavableSourceRecord> {
   const [row] = await db
@@ -91,6 +110,7 @@ async function loadSavableSourceRecord(sourceRecordId: string): Promise<SavableS
       id: sourceRecordTable.id,
       workId: sourceRecordTable.workId,
       availability: sourceRecordTable.availability,
+      contentCandidates: sourceRecordTable.contentCandidates,
       enabled: discoverySourceTable.enabled,
     })
     .from(sourceRecordTable)
@@ -100,6 +120,9 @@ async function loadSavableSourceRecord(sourceRecordId: string): Promise<SavableS
 
   if (!row || !row.enabled || row.availability !== 'available') {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
+  }
+  if (row.workId === null && !hasSelectableEpubCandidate({ contentCandidates: row.contentCandidates })) {
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LIBRARY.SOURCE_RECORD_NO_EPUB_CANDIDATE);
   }
   return { id: row.id, workId: row.workId };
 }
@@ -192,16 +215,18 @@ async function loadCurrentSourceRecordWorkId(sourceRecordId: string): Promise<st
 
 /**
  * Authenticated Save API entry point. Rejects disabled sources / unavailable
- * records, then either completes immediately (readable Work already present) or
- * returns `pending` and enqueues the shared materialization job. Re-reading the
- * record after upserting the intent closes the late-intent race: an intent created
- * during a fan-out still sees the committed link and completes.
+ * records / records without a selectable EPUB candidate, then either completes
+ * immediately (readable Work already present) or returns `pending` and enqueues
+ * the shared materialization job. Re-reading the record after upserting the
+ * intent closes the late-intent race: an intent created during a fan-out still
+ * sees the committed link and completes.
  */
 export async function saveSourceRecordToLibrary(
   userId: string,
   sourceRecordId: string,
 ): Promise<SaveSourceRecordResult> {
-  // Validate enabled source + available record before creating the intent.
+  // Validate enabled source + available record + selectable EPUB candidate
+  // before creating the intent.
   await loadSavableSourceRecord(sourceRecordId);
   await ensurePendingIntent(userId, sourceRecordId);
 
@@ -256,13 +281,17 @@ type StaleSaveIntentCandidate = {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly workId: string | null;
+  /** Left-joined record row: null when the SourceRecord disappeared. */
+  readonly contentCandidates: SourceRecordContentCandidate[] | null;
 };
 
 /**
  * Resolve one stale pending intent: complete it when its linked Work became
- * readable, hard-fail it once the attempt outlives the timeout deadline, or
- * re-enqueue the idempotent materialization job and refresh `updated_at` so the
- * next recovery pass waits a full re-enqueue window. A queue error during
+ * readable, hard-fail it when an unlinked record no longer offers a selectable
+ * EPUB candidate (re-enqueueing would fail the same way until the timeout),
+ * hard-fail it once the attempt outlives the timeout deadline, or re-enqueue
+ * the idempotent materialization job and refresh `updated_at` so the next
+ * recovery pass waits a full re-enqueue window. A queue error during
  * re-enqueue never fails the pass — the timeout deadline still exits later.
  */
 async function recoverStalePendingIntent(candidate: StaleSaveIntentCandidate, now: Date): Promise<void> {
@@ -274,6 +303,19 @@ async function recoverStalePendingIntent(candidate: StaleSaveIntentCandidate, no
     if (completed) {
       return;
     }
+  }
+  // Re-check the candidate before enqueueing an unlinked record: without a
+  // selectable EPUB the job would fail identically on every recovery pass until
+  // the 30-minute timeout. A linked record skips this gate — materialization
+  // resolves the existing Work without candidates (same rule as the save gate).
+  if (!candidate.workId && !hasSelectableEpubCandidate({ contentCandidates: candidate.contentCandidates ?? [] })) {
+    await failPendingIntentForUser(
+      candidate.userId,
+      candidate.sourceRecordId,
+      NO_CANDIDATE_FAILURE_CODE,
+      NO_CANDIDATE_FAILURE_REASON,
+    );
+    return;
   }
   if (now.getTime() - candidate.createdAt.getTime() >= SAVE_INTENT_TIMEOUT_AFTER_MS) {
     await failPendingIntentForUser(
@@ -325,6 +367,7 @@ export async function recoverStaleSaveIntents(now = new Date()): Promise<void> {
       createdAt: saveIntentTable.createdAt,
       updatedAt: saveIntentTable.updatedAt,
       workId: sourceRecordTable.workId,
+      contentCandidates: sourceRecordTable.contentCandidates,
     })
     .from(saveIntentTable)
     .leftJoin(sourceRecordTable, eq(sourceRecordTable.id, saveIntentTable.sourceRecordId))
@@ -352,6 +395,7 @@ export async function recoverStaleSaveIntent(userId: string, sourceRecordId: str
       createdAt: saveIntentTable.createdAt,
       updatedAt: saveIntentTable.updatedAt,
       workId: sourceRecordTable.workId,
+      contentCandidates: sourceRecordTable.contentCandidates,
     })
     .from(saveIntentTable)
     .leftJoin(sourceRecordTable, eq(sourceRecordTable.id, saveIntentTable.sourceRecordId))

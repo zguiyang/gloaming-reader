@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
 import { t } from '@gloaming/i18n';
-import { resolveUserTagName } from '@gloaming/shared/library';
+import { LIBRARY_ITEMS_LIMIT, resolveUserTagName } from '@gloaming/shared/library';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
@@ -23,7 +23,6 @@ import {
   isLibraryFilterActive,
   libraryFilterHref,
   type LibraryFilters,
-  mayBeTruncated,
   normalizeLibraryFilterSearch,
   parseLibraryFilters,
 } from '@/features/library/library-filters';
@@ -186,7 +185,9 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
   const items = data.items;
   const activeTag = effectiveFilters.tagId ? (tags.find((tag) => tag.id === effectiveFilters.tagId) ?? null) : null;
   const isFilterActive = isLibraryFilterActive(effectiveFilters);
-  const isTruncated = mayBeTruncated(items.length);
+  // Only the server may declare truncation (`data.isTruncated`); a full page of
+  // items is exactly what the 48-item cap returns even when nothing was cut.
+  const isTruncated = data.isTruncated === true;
   const filteredItems = items.filter((item) => {
     const isSourceMatch =
       effectiveFilters.source === 'all' ||
@@ -288,6 +289,11 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
               </div>
             }
           />
+          {isTruncated ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              {t(locale, 'content.library.truncatedHint', { count: LIBRARY_ITEMS_LIMIT })}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

@@ -34,6 +34,7 @@ import { removeFromLibrary } from '@/domains/library/service';
 import { db } from '@/infra/db';
 import * as queueLib from '@/infra/queue';
 import { HTTP_STATUS } from '@/shared/constants';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 import { createCatalogWorkFixture } from '../../../helpers/catalog-work-fixture';
 
@@ -336,6 +337,79 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
     expect(await intentsFor(unavailable.id)).toHaveLength(0);
     expect(enqueueSpy).not.toHaveBeenCalled();
     await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, disabledSourceId));
+  });
+
+  it('rejects a record with no selectable EPUB candidate before creating, reviving, or enqueueing anything', async () => {
+    const learner = track(await createSession());
+    // Synced but unusable metadata: HTML and a third-party EPUB URL are both
+    // rejected by the same pure predicate behind Discover's `isSaveable` flag.
+    const noCandidate = await createRecord({
+      contentCandidates: [
+        { format: 'html', url: 'https://www.gutenberg.org/ebooks/1342.html' },
+        { format: 'epub', url: 'https://example.test/1342.epub' },
+      ],
+    });
+    // A pre-existing failed intent must not be rewritten by the rejected POST.
+    await db.insert(saveIntentTable).values({
+      id: randomUUID(),
+      userId: learner.userId,
+      sourceRecordId: noCandidate.id,
+      status: 'failed',
+      failureCode: 'download_http_error',
+      failureReason: 'upstream returned an error page',
+    });
+
+    const response = await app.request(`/api/library/source-records/${noCandidate.id}`, {
+      method: 'POST',
+      headers: { cookie: learner.cookie },
+    });
+    expect(response.status).toBe(HTTP_STATUS.CONFLICT);
+    expect(((await response.json()) as { code: string }).code).toBe(
+      ERROR_CODES.LIBRARY.SOURCE_RECORD_NO_EPUB_CANDIDATE,
+    );
+
+    await expect(saveSourceRecordToLibrary(learner.userId, noCandidate.id)).rejects.toMatchObject({
+      statusCode: HTTP_STATUS.CONFLICT,
+      code: ERROR_CODES.LIBRARY.SOURCE_RECORD_NO_EPUB_CANDIDATE,
+    });
+
+    // No intent was created, and the failed one keeps its recorded failure.
+    const intents = await intentsFor(noCandidate.id);
+    expect(intents).toHaveLength(1);
+    expect(intents[0]).toMatchObject({
+      status: 'failed',
+      failureCode: 'download_http_error',
+      failureReason: 'upstream returned an error page',
+    });
+    expect(enqueueSpy).not.toHaveBeenCalled();
+  });
+
+  it('saves on a later POST once the record gains a selectable EPUB candidate', async () => {
+    const learner = track(await createSession());
+    const record = await createRecord({ contentCandidates: [] });
+
+    await expect(saveSourceRecordToLibrary(learner.userId, record.id)).rejects.toMatchObject({
+      statusCode: HTTP_STATUS.CONFLICT,
+    });
+    expect(await intentsFor(record.id)).toHaveLength(0);
+    expect(enqueueSpy).not.toHaveBeenCalled();
+
+    // A metadata sync adds a selectable candidate; the failure was never cached.
+    await db
+      .update(sourceRecordTable)
+      .set({
+        contentCandidates: [{ format: 'epub', url: 'https://www.gutenberg.org/cache/epub/1/pg1.epub.images' }],
+      })
+      .where(eq(sourceRecordTable.id, record.id));
+
+    expect(await saveSourceRecordToLibrary(learner.userId, record.id)).toEqual({
+      status: 'pending',
+      workId: null,
+    });
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+    const intents = await intentsFor(record.id);
+    expect(intents).toHaveLength(1);
+    expect(intents[0]).toMatchObject({ userId: learner.userId, status: 'pending' });
   });
 
   it('completes immediately with membership when the linked Work is already readable', async () => {
@@ -915,5 +989,112 @@ describe('SourceRecord save intent + lazy materialization on gloaming_test', () 
     // A fresh pending intent is untouched by the pass.
     expect(enqueuedFor(freshRecord.id)).toHaveLength(0);
     expect((await intentsFor(freshRecord.id))[0]?.status).toBe('pending');
+  });
+
+  it('fails a stale pending intent on first recovery when the record lost its EPUB candidate', async () => {
+    const learner = await recoveryUser();
+    const lazyRecord = await createRecord({ contentCandidates: [] });
+    const periodicRecord = await createRecord({ contentCandidates: [] });
+    await insertStalePendingIntent(learner.userId, lazyRecord.id, SAVE_INTENT_REENQUEUE_AFTER_MS + 60_000);
+    await insertStalePendingIntent(learner.userId, periodicRecord.id, SAVE_INTENT_REENQUEUE_AFTER_MS + 60_000);
+    const enqueuedFor = (sourceRecordId: string) =>
+      enqueueSpy.mock.calls.filter((call) => (call[1] as { sourceRecordId: string }).sourceRecordId === sourceRecordId);
+
+    // Lazy recovery on the status read: no candidate means nothing could ever
+    // succeed, so the intent fails immediately instead of re-enqueueing until timeout.
+    const read = await readSaveStatus(lazyRecord.id, learner.cookie);
+    expect(read.body).toEqual({
+      status: 'failed',
+      workId: null,
+      failureReason: 'No downloadable EPUB is available for this item.',
+    });
+    expect((await intentsFor(lazyRecord.id))[0]).toMatchObject({
+      status: 'failed',
+      failureCode: 'no_epub_candidate',
+    });
+    expect(enqueuedFor(lazyRecord.id)).toHaveLength(0);
+
+    // The periodic pass resolves the same state identically.
+    await recoverStaleSaveIntents();
+    expect((await intentsFor(periodicRecord.id))[0]).toMatchObject({
+      status: 'failed',
+      failureCode: 'no_epub_candidate',
+    });
+    expect(enqueuedFor(periodicRecord.id)).toHaveLength(0);
+
+    // A linked record keeps re-enqueueing without candidates: materialization
+    // resolves its existing Work without one (same rule as the save gate).
+    const linkedWork = await createCatalogWorkFixture({
+      title: 'Stale Linked No Candidate',
+      processingStatus: 'processing',
+      publishedAt: null,
+    });
+    createdWorkIds.push(linkedWork.id);
+    const linkedRecord = await createRecord({
+      workId: linkedWork.id,
+      materializationStatus: 'processing',
+      contentCandidates: [],
+    });
+    await insertStalePendingIntent(learner.userId, linkedRecord.id, SAVE_INTENT_REENQUEUE_AFTER_MS + 60_000);
+
+    await recoverStaleSaveIntents();
+    expect(enqueuedFor(linkedRecord.id)).toHaveLength(1);
+    expect((await intentsFor(linkedRecord.id))[0]?.status).toBe('pending');
+  });
+
+  it('accepts a re-save of an already-linked Work whose candidates were cleared after sync', async () => {
+    const learner = track(await createSession());
+    const readyWork = await createCatalogWorkFixture({ title: 'Linked Cleared Candidates', publishedAt: null });
+    createdWorkIds.push(readyWork.id);
+    const readyRecord = await createRecord({
+      workId: readyWork.id,
+      materializationStatus: 'ready',
+      contentCandidates: [],
+    });
+
+    // The Work is already linked and readable: the candidate gate must not turn
+    // a saved item into a 409 when a sync clears its candidates afterwards.
+    const response = await app.request(`/api/library/source-records/${readyRecord.id}`, {
+      method: 'POST',
+      headers: { cookie: learner.cookie },
+    });
+    expect(response.status).toBe(HTTP_STATUS.OK);
+    expect(((await response.json()) as { status: string }).status).toBe('ready');
+    expect(enqueueSpy).not.toHaveBeenCalled();
+    expect(await membershipCount(learner.userId, readyWork.id)).toBe(1);
+    expect((await intentsFor(readyRecord.id))[0]?.status).toBe('completed');
+
+    // A linked Work that is still importing keeps the materialize reuse/retry
+    // semantics: pending + enqueue instead of a conflict.
+    const processingWork = await createCatalogWorkFixture({
+      title: 'Linked Processing Cleared Candidates',
+      processingStatus: 'processing',
+      publishedAt: null,
+    });
+    createdWorkIds.push(processingWork.id);
+    const processingRecord = await createRecord({
+      workId: processingWork.id,
+      materializationStatus: 'processing',
+      contentCandidates: [],
+    });
+    const pending = await app.request(`/api/library/source-records/${processingRecord.id}`, {
+      method: 'POST',
+      headers: { cookie: learner.cookie },
+    });
+    expect(pending.status).toBe(HTTP_STATUS.OK);
+    expect(((await pending.json()) as { status: string }).status).toBe('pending');
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+
+    // An unlinked record with no candidate keeps the 409 gate.
+    const unlinked = await createRecord({ contentCandidates: [] });
+    const conflict = await app.request(`/api/library/source-records/${unlinked.id}`, {
+      method: 'POST',
+      headers: { cookie: learner.cookie },
+    });
+    expect(conflict.status).toBe(HTTP_STATUS.CONFLICT);
+    expect(((await conflict.json()) as { code: string }).code).toBe(
+      ERROR_CODES.LIBRARY.SOURCE_RECORD_NO_EPUB_CANDIDATE,
+    );
+    expect(await intentsFor(unlinked.id)).toHaveLength(0);
   });
 });

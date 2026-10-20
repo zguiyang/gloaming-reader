@@ -6,6 +6,7 @@ import { SUPPORTED_LOCALES } from '@gloaming/i18n';
 import {
   categorySourceRecordListQuerySchema,
   discoverySourceEnabledUpdateSchema,
+  publicCategoryListQuerySchema,
   publicCategoryWriteSchema,
   sourceRecordListQuerySchema,
 } from '@gloaming/shared/discovery';
@@ -27,6 +28,13 @@ function validated<T extends ZodType, Target extends keyof ValidationTargets>(ta
 }
 
 export const validateSourceRecordListQuery = validated('query', sourceRecordListQuerySchema);
+
+/**
+ * Public Discover category list/detail query: the optional content language
+ * that scopes `recordCount`, validated with the same shared rule as the
+ * record list so both surfaces always agree on the record set.
+ */
+export const validatePublicCategoryListQuery = validated('query', publicCategoryListQuerySchema);
 
 export const validateCategorySourceRecordListQuery = validated('query', categorySourceRecordListQuerySchema);
 

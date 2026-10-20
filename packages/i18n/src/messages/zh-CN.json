@@ -72,6 +72,11 @@
         "completed": "上次标签整理已完成",
         "skipped": "上次标签整理已跳过",
         "failed": "上次标签整理失败"
+      },
+      "runError": {
+        "generic": "标签整理未能完成，请稍后重试。",
+        "attempts_exhausted": "标签整理多次尝试后仍未完成。",
+        "worker_attempts_exhausted": "标签整理运行被中断，未能完成。"
       }
     },
     "serviceMode": "服务来源",
@@ -483,6 +488,12 @@
         "save": "保存 {locale} 名称",
         "saved": "名称已保存。",
         "nameExists": "该语言下已存在同名分类。"
+      },
+      "translate": {
+        "action": "补齐翻译",
+        "actionAria": "补齐 {name} 的缺失翻译",
+        "completed": "已补齐：{locales}",
+        "nothing": "没有需要补齐的翻译。"
       },
       "detail": {
         "idLabel": "分类 ID",
@@ -1115,6 +1126,7 @@
       "noMatchTruncated": "当前已加载的书籍中没有符合条件的结果",
       "noSavedBooks": "还没有已保存的书",
       "noUploadedBooks": "还没有上传的书",
+      "truncatedHint": "书库仅显示前 {count} 本书，可用标签或来源筛选查看其余书籍。",
       "viewAllBooks": "查看全部书籍",
       "clearFilter": "清除筛选",
       "removeFromLibrary": "移出书库",
@@ -1128,7 +1140,8 @@
       "progressRead": "已读 {ratio}%",
       "statusCompleted": "已读完",
       "statusNotStarted": "未开始",
-      "statusReadProgress": "已读 {ratio}%"
+      "statusReadProgress": "已读 {ratio}%",
+      "aiTagBadge": "AI 生成"
     },
     "history": {
       "title": "阅读历史",
@@ -1427,12 +1440,14 @@
         "unsupportedAction": "不支持的操作"
       },
       "library": {
-        "userTagNameExists": "你已经有一个同名标签"
+        "userTagNameExists": "你已经有一个同名标签",
+        "sourceRecordNoEpubCandidate": "该来源暂无可读 EPUB，暂时无法加入书库"
       },
       "discovery": {
         "publicCategoryNameExists": "该语言下已存在同名分类",
         "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类",
-        "publicCategoryHasAssignments": "该分类仍关联着 {count} 条来源记录，请先解除关联后再删除。"
+        "publicCategoryHasAssignments": "该分类仍关联着 {count} 条来源记录，请先解除关联后再删除。",
+        "publicCategoryTranslationBusy": "另一项分类或翻译任务正在执行，请稍后重试。"
       }
     }
   }

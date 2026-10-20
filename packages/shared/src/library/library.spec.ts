@@ -48,6 +48,12 @@ describe('Library contracts', () => {
     });
   });
 
+  it('defaults tag provenance to manual and keeps an explicit AI origin', () => {
+    expect(userTagSchema.parse({ id: 'old-tag', name: 'Legacy payload' }).createdBy).toBe('manual');
+    expect(userTagSchema.parse({ id: 'ai-tag', name: 'AI label', createdBy: 'ai' }).createdBy).toBe('ai');
+    expect(userTagSchema.safeParse({ id: 'x', name: 'x', createdBy: 'robot' }).success).toBe(false);
+  });
+
   it('keeps SourceRecord Save Intent results pending or ready with an explicit work id', () => {
     expect(sourceRecordSaveResultSchema.parse({ status: 'pending', workId: null })).toEqual({
       status: 'pending',
@@ -102,10 +108,19 @@ describe('Library contracts', () => {
         localizedNames: {},
         sourceLocale: null,
         userEditedLocales: [],
+        createdBy: 'manual',
       },
     ]);
     expect(parsed.current?.state).toEqual(state);
     expect(LIBRARY_ITEMS_LIMIT).toBe(48);
+  });
+
+  it('defaults the truncation marker to false and keeps an explicit true', () => {
+    const legacyPayload = { current: null, items: [] };
+    expect(libraryDataSchema.parse(legacyPayload)).toEqual({ current: null, items: [], isTruncated: false });
+    expect(libraryDataSchema.parse({ ...legacyPayload, isTruncated: true }).isTruncated).toBe(true);
+    expect(libraryDataSchema.parse({ ...legacyPayload, isTruncated: false }).isTruncated).toBe(false);
+    expect(() => libraryDataSchema.parse({ ...legacyPayload, isTruncated: 'yes' })).toThrow();
   });
 
   it('limits item readiness to processing, readable, or failed', () => {

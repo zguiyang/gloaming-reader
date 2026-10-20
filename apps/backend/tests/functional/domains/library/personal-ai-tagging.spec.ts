@@ -17,6 +17,11 @@ import {
 
 import app from '@/app';
 import {
+  dispatchQueuedPersonalTagRuns,
+  finalizeFailedPersonalTagRun,
+  getPersonalTaggingPreference,
+  JOB_PERSONAL_TAGGING,
+  personalTaggingJobId,
   processPersonalTaggingJob,
   recordPersonalTagRunOnParseReady,
   setPersonalTaggingPreference,
@@ -31,12 +36,15 @@ import { startLockRenewal } from '@/infra/cache/lock';
 import { db } from '@/infra/db';
 
 const password = 'password123';
-const { invokeAiMock, userProviderMock, acquireLockMock, lockHeldMock } = vi.hoisted(() => ({
-  invokeAiMock: vi.fn(),
-  userProviderMock: vi.fn(),
-  acquireLockMock: vi.fn(),
-  lockHeldMock: vi.fn(),
-}));
+const { invokeAiMock, userProviderMock, acquireLockMock, lockHeldMock, enqueuePersonalTaggingMock } = vi.hoisted(
+  () => ({
+    invokeAiMock: vi.fn(),
+    userProviderMock: vi.fn(),
+    acquireLockMock: vi.fn(),
+    lockHeldMock: vi.fn(),
+    enqueuePersonalTaggingMock: vi.fn(),
+  }),
+);
 
 vi.mock('@/infra/auth/mail', () => ({
   buildVerificationUrl: (token: string) => `http://localhost:3000/verify-email?token=${encodeURIComponent(token)}`,
@@ -63,6 +71,12 @@ vi.mock('@/infra/cache/lock', async (importOriginal) => {
     releaseLock: vi.fn().mockResolvedValue(undefined),
     startLockRenewal: vi.fn(() => ({ stop: vi.fn() })),
   };
+});
+
+// Dispatcher assertions must never write jobs into the shared test Redis.
+vi.mock('@/infra/queue', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, enqueuePersonalTagging: (...args: unknown[]) => enqueuePersonalTaggingMock(...args) };
 });
 
 function uniqueEmail() {
@@ -104,6 +118,7 @@ describe('Personal AI Tagging', () => {
     userProviderMock.mockReset().mockResolvedValue('user-owned-model');
     acquireLockMock.mockReset().mockResolvedValue(true);
     lockHeldMock.mockReset().mockResolvedValue(true);
+    enqueuePersonalTaggingMock.mockReset().mockResolvedValue('job-id');
     vi.mocked(startLockRenewal)
       .mockReset()
       .mockImplementation(() => ({ stop: vi.fn() }));
@@ -761,5 +776,213 @@ describe('Personal AI Tagging', () => {
     expect(invokeAiMock).not.toHaveBeenCalled();
     const [saved] = await db.select().from(tagTable).where(eq(tagTable.id, tagId));
     expect(saved?.localizedNames).not.toHaveProperty('zh-CN');
+  });
+
+  it('defers a busy same-user run instead of failing it and re-enqueues it on the next dispatch pass', async () => {
+    const owner = await createSession();
+    emails.push(owner.email);
+    await setPersonalTaggingPreference(owner.userId, true);
+    const work = await createWork(owner.userId);
+    const run = await createRun(owner.userId, work);
+    const enqueuedAt = new Date(Date.now() - 60_000);
+    await db.update(runTable).set({ updatedAt: enqueuedAt }).where(eq(runTable.id, run!.id));
+    acquireLockMock.mockResolvedValueOnce(false);
+
+    const job = { runId: run!.id, userId: owner.userId, workId: work, generation: run!.generation };
+    const result = await processPersonalTaggingJob(job);
+
+    // The busy lock is a deferral, not a failure: no AI call, no BullMQ failure path.
+    expect(result).toMatchObject({ ok: true, deferred: true });
+    expect(invokeAiMock).not.toHaveBeenCalled();
+    const [deferred] = await db.select().from(runTable).where(eq(runTable.id, run!.id));
+    expect(deferred).toMatchObject({ state: 'queued', attempts: 0, errorCode: null });
+    expect(personalTaggingJobId({ id: run!.id, updatedAt: deferred!.updatedAt })).not.toBe(
+      personalTaggingJobId({ id: run!.id, updatedAt: enqueuedAt }),
+    );
+
+    // The worker's failed-terminal finalize must not turn a never-claimed run into a failure.
+    await finalizeFailedPersonalTagRun(job);
+    const [afterFinalize] = await db.select().from(runTable).where(eq(runTable.id, run!.id));
+    expect(afterFinalize).toMatchObject({ state: 'queued', errorCode: null });
+
+    await dispatchQueuedPersonalTagRuns();
+    const call = enqueuePersonalTaggingMock.mock.calls.find(
+      ([, data]) => (data as { runId: string }).runId === run!.id,
+    );
+    expect(call).toBeDefined();
+    expect(call![0]).toBe(JOB_PERSONAL_TAGGING);
+    expect(call![1]).toEqual({ runId: run!.id, userId: owner.userId, workId: work, generation: run!.generation });
+    expect(call![2]).toMatchObject({
+      jobId: personalTaggingJobId({ id: run!.id, updatedAt: afterFinalize!.updatedAt }),
+    });
+  });
+
+  it('finalizes a stale exhausted processing run instead of re-enqueueing it, and recovers live ones', async () => {
+    const owner = await createSession();
+    emails.push(owner.email);
+    await setPersonalTaggingPreference(owner.userId, true);
+    const stale = await createRun(owner.userId, await createWork(owner.userId));
+    const fresh = await createRun(owner.userId, await createWork(owner.userId));
+    const exhausted = await createRun(owner.userId, await createWork(owner.userId));
+    const staleAt = new Date(Date.now() - 11 * 60_000);
+    await db
+      .update(runTable)
+      .set({ state: 'processing', attempts: 1, updatedAt: staleAt })
+      .where(eq(runTable.id, stale!.id));
+    await db
+      .update(runTable)
+      .set({ state: 'processing', attempts: 1, updatedAt: new Date() })
+      .where(eq(runTable.id, fresh!.id));
+    await db
+      .update(runTable)
+      .set({ state: 'processing', attempts: 2, updatedAt: staleAt })
+      .where(eq(runTable.id, exhausted!.id));
+
+    await dispatchQueuedPersonalTagRuns();
+
+    const ids = [stale!.id, fresh!.id, exhausted!.id];
+    const dispatched = enqueuePersonalTaggingMock.mock.calls
+      .filter(([, data]) => ids.includes((data as { runId: string }).runId))
+      .map(([, data]) => (data as { runId: string }).runId);
+    expect(dispatched).toEqual([stale!.id]);
+    const [call] = enqueuePersonalTaggingMock.mock.calls.filter(
+      ([, data]) => (data as { runId: string }).runId === stale!.id,
+    );
+    expect(call![0]).toBe(JOB_PERSONAL_TAGGING);
+    // The claim already accepts a processing re-entry, so the stable id keeps the recovery idempotent.
+    expect(call![2]).toMatchObject({ jobId: personalTaggingJobId({ id: stale!.id, updatedAt: staleAt }) });
+
+    // A stale `processing` row with no deliveries left has no BullMQ failed event
+    // coming: one dispatch pass must terminate it instead of leaving it processing forever.
+    const [finalized] = await db.select().from(runTable).where(eq(runTable.id, exhausted!.id));
+    expect(finalized).toMatchObject({ state: 'failed', errorCode: 'worker_attempts_exhausted' });
+    const [recovered] = await db.select().from(runTable).where(eq(runTable.id, stale!.id));
+    expect(recovered?.state).toBe('processing');
+    const [untouched] = await db.select().from(runTable).where(eq(runTable.id, fresh!.id));
+    expect(untouched).toMatchObject({ state: 'processing', attempts: 1 });
+  });
+
+  it('advances updatedAt when a stale processing run hits a busy lock so dispatch gets a fresh job id', async () => {
+    const owner = await createSession();
+    emails.push(owner.email);
+    await setPersonalTaggingPreference(owner.userId, true);
+    const work = await createWork(owner.userId);
+    const run = await createRun(owner.userId, work);
+    const dispatchedAt = new Date(Date.now() - 11 * 60_000);
+    await db
+      .update(runTable)
+      .set({ state: 'processing', attempts: 1, updatedAt: dispatchedAt })
+      .where(eq(runTable.id, run!.id));
+    // The re-dispatched job for the stale processing run loses the user lock.
+    acquireLockMock.mockResolvedValueOnce(false);
+
+    const job = { runId: run!.id, userId: owner.userId, workId: work, generation: run!.generation };
+    const result = await processPersonalTaggingJob(job);
+
+    expect(result).toMatchObject({ ok: true, deferred: true });
+    const [deferred] = await db.select().from(runTable).where(eq(runTable.id, run!.id));
+    // The busy hit must advance `updatedAt` for a processing row too — otherwise the
+    // retained completed job id dedupes every future dispatch and the run stays
+    // processing forever.
+    expect(deferred?.state).toBe('processing');
+    expect(deferred!.updatedAt.getTime()).toBeGreaterThan(dispatchedAt.getTime());
+    const poisonedJobId = personalTaggingJobId({ id: run!.id, updatedAt: dispatchedAt });
+    const freshJobId = personalTaggingJobId({ id: run!.id, updatedAt: deferred!.updatedAt });
+    expect(freshJobId).not.toBe(poisonedJobId);
+
+    // Simulate the next dispatcher pass after the advanced timestamp goes stale
+    // (only the clock moves, not the row).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.now() + 11 * 60_000);
+      await dispatchQueuedPersonalTagRuns();
+    } finally {
+      vi.useRealTimers();
+    }
+    const [call] = enqueuePersonalTaggingMock.mock.calls.filter(
+      ([, data]) => (data as { runId: string }).runId === run!.id,
+    );
+    expect(call).toBeDefined();
+    expect(call![2]).toMatchObject({ jobId: freshJobId });
+    expect((call![2] as { jobId: string }).jobId).not.toBe(poisonedJobId);
+  });
+
+  it('never rewrites an already-failed run when a late delivery loses the claim', async () => {
+    const owner = await createSession();
+    emails.push(owner.email);
+    await setPersonalTaggingPreference(owner.userId, true);
+    const work = await createWork(owner.userId);
+    const run = await createRun(owner.userId, work);
+    // A concurrent finalize already terminated the run after its second lost
+    // delivery; a straggler job for the same run must not touch it.
+    const finalizedAt = new Date(Date.now() - 60_000);
+    await db
+      .update(runTable)
+      .set({ state: 'failed', errorCode: 'worker_attempts_exhausted', updatedAt: finalizedAt })
+      .where(eq(runTable.id, run!.id));
+
+    await processPersonalTaggingJob({
+      runId: run!.id,
+      userId: owner.userId,
+      workId: work,
+      generation: run!.generation,
+    });
+
+    expect(invokeAiMock).not.toHaveBeenCalled();
+    const [late] = await db.select().from(runTable).where(eq(runTable.id, run!.id));
+    expect(late).toMatchObject({ state: 'failed', errorCode: 'worker_attempts_exhausted' });
+    expect(late!.updatedAt.getTime()).toBe(finalizedAt.getTime());
+  });
+
+  it('fails a never-claimed queued run after two failed deliveries instead of retrying forever', async () => {
+    const owner = await createSession();
+    emails.push(owner.email);
+    await setPersonalTaggingPreference(owner.userId, true);
+    const work = await createWork(owner.userId);
+    const run = await createRun(owner.userId, work);
+    const job = { runId: run!.id, userId: owner.userId, workId: work, generation: run!.generation };
+
+    await finalizeFailedPersonalTagRun(job);
+    const [once] = await db.select().from(runTable).where(eq(runTable.id, run!.id));
+    expect(once).toMatchObject({ state: 'queued', attempts: 1, errorCode: null });
+
+    await finalizeFailedPersonalTagRun(job);
+    const [twice] = await db.select().from(runTable).where(eq(runTable.id, run!.id));
+    expect(twice).toMatchObject({ state: 'failed', attempts: 2, errorCode: 'worker_attempts_exhausted' });
+
+    await dispatchQueuedPersonalTagRuns();
+    expect(
+      enqueuePersonalTaggingMock.mock.calls.filter(([, data]) => (data as { runId: string }).runId === run!.id),
+    ).toHaveLength(0);
+  });
+
+  it('exposes the latest run state and error code on the personal tagging settings DTO', async () => {
+    const owner = await createSession();
+    emails.push(owner.email);
+
+    const before = (await (
+      await app.request('/api/settings/personal-tagging', { headers: { cookie: owner.cookie } })
+    ).json()) as Record<string, unknown>;
+    expect(before).toMatchObject({ enabled: false, latestRunState: null, latestRunErrorCode: null });
+
+    await setPersonalTaggingPreference(owner.userId, true);
+    const work = await createWork(owner.userId);
+    const run = await createRun(owner.userId, work);
+    await db
+      .update(runTable)
+      .set({ state: 'failed', errorCode: 'attempts_exhausted', updatedAt: new Date() })
+      .where(eq(runTable.id, run!.id));
+
+    const after = (await (
+      await app.request('/api/settings/personal-tagging', { headers: { cookie: owner.cookie } })
+    ).json()) as Record<string, unknown>;
+    expect(after).toMatchObject({
+      enabled: true,
+      latestRunState: 'failed',
+      latestRunErrorCode: 'attempts_exhausted',
+    });
+
+    const preference = await getPersonalTaggingPreference(owner.userId);
+    expect(preference.latestRunErrorCode).toBe('attempts_exhausted');
   });
 });

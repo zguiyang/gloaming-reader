@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 
 import {
   assignCategoryToSourceRecord,
+  completeManagedCategoryTranslations,
   createManagedCategory,
   deleteManagedCategory,
   listManagedCategories,
@@ -104,6 +105,15 @@ discoveryAdminRoutes.patch(
     return c.json(await updateManagedCategoryLabel(c.req.param('categoryId'), c.req.valid('json')));
   },
 );
+
+/**
+ * Admin-triggered completion of one category's missing label translations. The
+ * instance Provider is used only on this explicit click and only missing
+ * locales are written; the response reports the locales actually filled in.
+ */
+discoveryAdminRoutes.post(`${CATEGORIES_PATH}/:categoryId/translations/complete`, requireAdmin, async (c) => {
+  return c.json(await completeManagedCategoryTranslations(c.req.param('categoryId')));
+});
 
 const RECORD_CATEGORY_PATH = '/api/admin/discovery/source-records/:sourceRecordId/categories/:categoryId';
 

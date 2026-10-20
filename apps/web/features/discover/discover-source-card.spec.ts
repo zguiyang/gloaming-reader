@@ -206,6 +206,46 @@ describe('DiscoverSourceCard Save Intent', () => {
     view.cleanup();
   });
 
+  it('shows the server-provided explanation when the source record has no EPUB candidate', async () => {
+    // 409 rejection: the server explains why the record cannot be saved.
+    mocks.saveSourceRecordToLibrary.mockRejectedValue(
+      new ApiRequestError({
+        message: '该来源暂无可读 EPUB，暂时无法加入书库',
+        status: 409,
+        code: 'api.errors.library.sourceRecordNoEpubCandidate',
+      }),
+    );
+    const view = await renderCard();
+
+    await act(async () => {
+      buttonByText(view.container, '加入书库')?.click();
+    });
+    await flush();
+
+    expect(mocks.toastError).toHaveBeenCalledWith('该来源暂无可读 EPUB，暂时无法加入书库');
+    expect(mocks.toastError).not.toHaveBeenCalledWith('加入书库失败，请重试');
+    // It is a rejection, not an authentication problem.
+    expect(mocks.openLogin).not.toHaveBeenCalled();
+    expect(view.container.textContent).toContain('加入书库');
+    view.cleanup();
+  });
+
+  it('keeps the generic failure copy for other API error codes', async () => {
+    mocks.saveSourceRecordToLibrary.mockRejectedValue(
+      new ApiRequestError({ message: '服务暂时不可用', status: 503, code: 'api.errors.common.internal' }),
+    );
+    const view = await renderCard();
+
+    await act(async () => {
+      buttonByText(view.container, '加入书库')?.click();
+    });
+    await flush();
+
+    expect(mocks.toastError).toHaveBeenCalledWith('加入书库失败，请重试');
+    expect(mocks.openLogin).not.toHaveBeenCalled();
+    view.cleanup();
+  });
+
   it('renders localized category chips without a Work-detail link', async () => {
     const view = await renderCard();
     expect(view.container.textContent).toContain('科幻');

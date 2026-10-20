@@ -72,6 +72,11 @@
         "completed": "Last tagging run completed",
         "skipped": "Last tagging run skipped",
         "failed": "Last tagging run failed"
+      },
+      "runError": {
+        "generic": "Tagging did not complete. Please try again later.",
+        "attempts_exhausted": "Tagging did not complete after repeated attempts.",
+        "worker_attempts_exhausted": "The tagging run was interrupted and did not complete."
       }
     },
     "serviceMode": "Service source",
@@ -483,6 +488,12 @@
         "save": "Save {locale} name",
         "saved": "Name saved.",
         "nameExists": "A category with that name already exists for this language."
+      },
+      "translate": {
+        "action": "Complete translations",
+        "actionAria": "Complete missing translations for {name}",
+        "completed": "Filled in: {locales}",
+        "nothing": "No missing translations."
       },
       "detail": {
         "idLabel": "Category ID",
@@ -1115,6 +1126,7 @@
       "noMatchTruncated": "No matches in the currently loaded books",
       "noSavedBooks": "No saved books yet",
       "noUploadedBooks": "No uploads yet",
+      "truncatedHint": "Only the first {count} books are shown. Use a tag or source filter to see the rest.",
       "viewAllBooks": "View all books",
       "clearFilter": "Clear filters",
       "removeFromLibrary": "Remove from Library",
@@ -1128,7 +1140,8 @@
       "progressRead": "{ratio}% read",
       "statusCompleted": "Finished",
       "statusNotStarted": "Not started",
-      "statusReadProgress": "{ratio}% read"
+      "statusReadProgress": "{ratio}% read",
+      "aiTagBadge": "AI"
     },
     "history": {
       "title": "Reading history",
@@ -1424,12 +1437,14 @@
         "unsupportedAction": "Unsupported action"
       },
       "library": {
-        "userTagNameExists": "You already have a tag with that name"
+        "userTagNameExists": "You already have a tag with that name",
+        "sourceRecordNoEpubCandidate": "No readable EPUB is available for this source yet, so it cannot be saved to your library"
       },
       "discovery": {
         "publicCategoryNameExists": "A category with that name already exists for this language",
         "publicCategoryLimitExceeded": "A source record can have at most {limit} categories",
-        "publicCategoryHasAssignments": "This category is still assigned to {count} source record(s). Remove those assignments before deleting it."
+        "publicCategoryHasAssignments": "This category is still assigned to {count} source record(s). Remove those assignments before deleting it.",
+        "publicCategoryTranslationBusy": "Another classification or translation task is running. Try again in a moment."
       }
     }
   }

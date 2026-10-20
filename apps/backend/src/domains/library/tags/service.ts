@@ -43,6 +43,7 @@ function toUserTag(row: {
   localizedNames: Record<string, string>;
   sourceLocale: string | null;
   userEditedLocales: string[];
+  createdBy: 'ai' | 'manual';
 }): UserTag {
   return {
     id: row.id,
@@ -50,6 +51,7 @@ function toUserTag(row: {
     localizedNames: row.localizedNames ?? {},
     sourceLocale: row.sourceLocale,
     userEditedLocales: row.userEditedLocales ?? [],
+    createdBy: row.createdBy ?? 'manual',
   };
 }
 
@@ -61,6 +63,7 @@ export async function listUserTags(userId: string): Promise<UserTagManagementIte
       localizedNames: userTagTable.localizedNames,
       sourceLocale: userTagTable.sourceLocale,
       userEditedLocales: userTagTable.userEditedLocales,
+      createdBy: userTagTable.createdBy,
       bookCount: sql<number>`count(${userWorkTagTable.workId})::int`,
     })
     .from(userTagTable)
@@ -102,6 +105,7 @@ export async function createUserTag(userId: string, rawName: string, locale: Loc
         localizedNames: userTagTable.localizedNames,
         sourceLocale: userTagTable.sourceLocale,
         userEditedLocales: userTagTable.userEditedLocales,
+        createdBy: userTagTable.createdBy,
       });
     return toUserTag(row!);
   } catch (error) {
@@ -134,6 +138,7 @@ export async function createAiUserTag(userId: string, rawName: string, locale: L
         localizedNames: userTagTable.localizedNames,
         sourceLocale: userTagTable.sourceLocale,
         userEditedLocales: userTagTable.userEditedLocales,
+        createdBy: userTagTable.createdBy,
       });
     if (row) return toUserTag(row);
     const [existing] = await db
@@ -143,6 +148,7 @@ export async function createAiUserTag(userId: string, rawName: string, locale: L
         localizedNames: userTagTable.localizedNames,
         sourceLocale: userTagTable.sourceLocale,
         userEditedLocales: userTagTable.userEditedLocales,
+        createdBy: userTagTable.createdBy,
       })
       .from(userTagTable)
       .where(and(eq(userTagTable.userId, userId), eq(userTagTable.normalizedName, normalizedName)))
@@ -214,6 +220,7 @@ export async function renameUserTag(userId: string, tagId: string, rawName: stri
         localizedNames: userTagTable.localizedNames,
         sourceLocale: userTagTable.sourceLocale,
         userEditedLocales: userTagTable.userEditedLocales,
+        createdBy: userTagTable.createdBy,
       });
     if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.USER_TAG);
     return toUserTag(row);
@@ -242,6 +249,7 @@ async function getOwnedTag(userId: string, tagId: string) {
       sourceLocale: userTagTable.sourceLocale,
       localizedNames: userTagTable.localizedNames,
       userEditedLocales: userTagTable.userEditedLocales,
+      createdBy: userTagTable.createdBy,
     })
     .from(userTagTable)
     .where(and(eq(userTagTable.id, tagId), eq(userTagTable.userId, userId)))
@@ -488,6 +496,7 @@ export async function loadUserTagsByWorkIds(userId: string, workIds: string[]): 
       localizedNames: userTagTable.localizedNames,
       sourceLocale: userTagTable.sourceLocale,
       userEditedLocales: userTagTable.userEditedLocales,
+      createdBy: userTagTable.createdBy,
     })
     .from(userWorkTagTable)
     .innerJoin(userTagTable, and(eq(userTagTable.id, userWorkTagTable.tagId), eq(userTagTable.userId, userId)))

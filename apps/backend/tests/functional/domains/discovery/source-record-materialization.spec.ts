@@ -23,7 +23,7 @@ import { db } from '@/infra/db';
 import * as queueLib from '@/infra/queue';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 
-import { buildSampleEpubBytes } from '../../../helpers/epub-builder';
+import { buildEpubBytes, buildSampleEpubBytes } from '../../../helpers/epub-builder';
 import { createMemoryObjectStore } from '../../../helpers/memory-oss';
 
 const memory = createMemoryObjectStore();
@@ -65,6 +65,38 @@ async function createRecord(overrides: Partial<typeof sourceRecordTable.$inferIn
 async function sourceRow(id: string) {
   const [row] = await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.id, id)).limit(1);
   return row;
+}
+
+async function originAssetsOf(workId: string) {
+  const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, workId));
+  return assets.filter((candidate) => candidate.kind === 'origin_file');
+}
+
+/**
+ * Materialize a fresh available record, then corrupt its stored origin file so the
+ * linked Work really fails at the parse step (failedStep = 'parse').
+ */
+async function materializeThenFailParse(): Promise<{
+  recordId: string;
+  workId: string;
+  asset: typeof contentAssetTable.$inferSelect;
+  bytes: Buffer;
+}> {
+  const record = await createRecord();
+  const bytes = await buildSampleEpubBytes();
+  createdHashes.push(hashFileContent(bytes));
+  fetchMock.mockImplementation(async () => epubResponse(bytes));
+
+  const created = await materializeSourceRecord(record.id);
+  createdWorkIds.push(created.workId);
+  expect((await sourceRow(record.id))?.materializationStatus).toBe('processing');
+
+  const [asset] = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, created.workId));
+  memory.store.set(asset!.storageKey!, { body: Buffer.from('not an epub'), contentType: 'application/epub+zip' });
+  await expect(runContentParseWorkflow(created.workId)).rejects.toThrow();
+  expect((await sourceRow(record.id))?.materializationStatus).toBe('failed');
+
+  return { recordId: record.id, workId: created.workId, asset: asset!, bytes };
 }
 
 describe('SourceRecord materialization on gloaming_test', () => {
@@ -146,6 +178,9 @@ describe('SourceRecord materialization on gloaming_test', () => {
 
     const preserved = await sourceRow(record.id);
     expect(preserved).toMatchObject({ workId: result.workId, materializationStatus: 'processing' });
+
+    // The candidate whose download produced this Work is recorded for later retries.
+    expect(work?.originMeta.sourceCandidateUrl).toBe(PREFERRED_URL);
 
     const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, result.workId));
     expect(assets).toHaveLength(1);
@@ -512,5 +547,228 @@ describe('SourceRecord materialization on gloaming_test', () => {
     );
     expect(memory.store.has(`epub/${hash}.epub`)).toBe(false);
     expect(await db.select().from(contentAssetTable).where(eq(contentAssetTable.contentHash, hash))).toHaveLength(0);
+  });
+
+  it('re-downloads the updated candidate URL and swaps the origin asset on a failed-parse retry', async () => {
+    const { recordId, workId, asset: previousAsset } = await materializeThenFailParse();
+    const staleHash = previousAsset.contentHash;
+
+    // The metadata sync replaced the candidate list (e.g. .epub3 → canonical mirror).
+    const updatedUrl = 'https://www.gutenberg.org/cache/epub/1342/pg1342-images.epub';
+    await db
+      .update(sourceRecordTable)
+      .set({ contentCandidates: [{ format: 'epub', url: updatedUrl }] })
+      .where(eq(sourceRecordTable.id, recordId));
+
+    const freshBytes = await buildEpubBytes({
+      title: 'Re-downloaded Book',
+      authors: ['Retry Author'],
+      chapters: [
+        {
+          href: 'chapter-1.xhtml',
+          tocLabel: 'Chapter 1',
+          content: `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter 1</title></head>
+<body><h1>Chapter 1</h1><p>Freshly re-downloaded content.</p></body></html>`,
+        },
+      ],
+    });
+    const freshHash = hashFileContent(freshBytes);
+    createdHashes.push(freshHash);
+    fetchMock.mockClear();
+    enqueueSpy.mockClear();
+    fetchMock.mockImplementation(async () => epubResponse(freshBytes));
+
+    const retried = await materializeSourceRecord(recordId);
+    expect(retried.workId).toBe(workId);
+    expect(retried.reused).toBe(true);
+    expect(retried.materializationStatus).toBe('processing');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe(updatedUrl);
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueSpy.mock.calls[0]![0]).toBe('content-parse');
+    expect(enqueueSpy.mock.calls[0]![1]).toMatchObject({ processingLane: 'discovery' });
+
+    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    expect(work?.originMeta.sourceCandidateUrl).toBe(updatedUrl);
+
+    const originAssets = await originAssetsOf(workId);
+    expect(originAssets).toHaveLength(1);
+    expect(originAssets[0]).toMatchObject({
+      status: 'ready',
+      contentHash: freshHash,
+      mimeType: 'application/epub+zip',
+    });
+    expect(originAssets[0]!.storageKey).not.toBe(previousAsset.storageKey);
+    expect(memory.store.has(originAssets[0]!.storageKey!)).toBe(true);
+
+    // The replaced origin loses its upload reference, so asset cleanup can reclaim it.
+    expect(memory.store.has(previousAsset.storageKey!)).toBe(false);
+    expect(
+      await db.select().from(uploadedObjectTable).where(eq(uploadedObjectTable.contentHash, staleHash)),
+    ).toHaveLength(0);
+    const [freshUpload] = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, freshHash));
+    expect(freshUpload?.refCount).toBe(1);
+
+    // A repeat retry with the now-matching marker only re-enqueues: no second download.
+    const repeat = await materializeSourceRecord(recordId);
+    expect(repeat.workId).toBe(workId);
+    expect(repeat.materializationStatus).toBe('processing');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+    expect(await originAssetsOf(workId)).toHaveLength(1);
+
+    // The re-downloaded origin is what the next parse actually reads.
+    await expect(runContentParseWorkflow(workId)).resolves.toBe(true);
+    const [parsed] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    expect(parsed?.processingStatus).toBe('parsed');
+    expect((await sourceRow(recordId))?.materializationStatus).toBe('ready');
+  });
+
+  it('re-downloads when the stored origin object is missing, keeping a single upload reference', async () => {
+    const { recordId, workId, asset, bytes } = await materializeThenFailParse();
+
+    // The registry row survives but the object itself was lost externally.
+    await memory.store.delete(asset.storageKey!);
+    fetchMock.mockClear();
+    enqueueSpy.mockClear();
+    fetchMock.mockImplementation(async () => epubResponse(bytes));
+
+    const retried = await materializeSourceRecord(recordId);
+    expect(retried.workId).toBe(workId);
+    expect(retried.materializationStatus).toBe('processing');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe(PREFERRED_URL);
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+
+    const originAssets = await originAssetsOf(workId);
+    expect(originAssets).toHaveLength(1);
+    // Same bytes dedupe onto the same content-addressed key, restored in storage.
+    expect(originAssets[0]!.storageKey).toBe(asset.storageKey);
+    expect(memory.store.has(asset.storageKey!)).toBe(true);
+    const [uploaded] = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, asset.contentHash));
+    expect(uploaded?.refCount).toBe(1);
+    expect((await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId))).length).toBe(1);
+  });
+
+  it('marks the linked retry failed without downloading when no candidate remains', async () => {
+    const { recordId, workId, asset } = await materializeThenFailParse();
+
+    await db
+      .update(sourceRecordTable)
+      .set({ contentCandidates: [{ format: 'html', url: 'https://www.gutenberg.org/ebooks/1342.html' }] })
+      .where(eq(sourceRecordTable.id, recordId));
+    fetchMock.mockClear();
+    enqueueSpy.mockClear();
+
+    await expect(materializeSourceRecord(recordId)).rejects.toBeInstanceOf(EpubCandidateSelectionError);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(enqueueSpy).not.toHaveBeenCalled();
+    expect((await sourceRow(recordId))?.materializationStatus).toBe('failed');
+    // Nothing about the linked Work or its origin changed.
+    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    expect(work?.processingStatus).toBe('failed');
+    expect(work?.originMeta.sourceCandidateUrl).toBe(PREFERRED_URL);
+    const originAssets = await originAssetsOf(workId);
+    expect(originAssets).toHaveLength(1);
+    expect(originAssets[0]!.storageKey).toBe(asset.storageKey);
+  });
+
+  it('re-downloads for a legacy Work without a recorded candidate marker', async () => {
+    const { recordId, workId, asset, bytes } = await materializeThenFailParse();
+
+    // Simulate a Work materialized before the marker existed.
+    const [before] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    const legacyMeta = { ...before!.originMeta };
+    delete legacyMeta.sourceCandidateUrl;
+    await db.update(readingWorkTable).set({ originMeta: legacyMeta }).where(eq(readingWorkTable.id, workId));
+
+    fetchMock.mockClear();
+    enqueueSpy.mockClear();
+    fetchMock.mockImplementation(async () => epubResponse(bytes));
+
+    const retried = await materializeSourceRecord(recordId);
+    expect(retried.workId).toBe(workId);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]![0]).toBe(PREFERRED_URL);
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+
+    const originAssets = await originAssetsOf(workId);
+    expect(originAssets).toHaveLength(1);
+    expect(originAssets[0]!.storageKey).toBe(asset.storageKey);
+    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    expect(work?.originMeta.sourceCandidateUrl).toBe(PREFERRED_URL);
+    const [uploaded] = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, asset.contentHash));
+    expect(uploaded?.refCount).toBe(1);
+  });
+
+  it('serializes concurrent redownload retries onto one origin_file asset', async () => {
+    const { recordId, workId, asset: previousAsset } = await materializeThenFailParse();
+    const staleHash = previousAsset.contentHash;
+
+    const updatedUrl = 'https://www.gutenberg.org/cache/epub/1342/pg1342-images.epub';
+    await db
+      .update(sourceRecordTable)
+      .set({ contentCandidates: [{ format: 'epub', url: updatedUrl }] })
+      .where(eq(sourceRecordTable.id, recordId));
+
+    const freshBytes = await buildEpubBytes({
+      title: 'Concurrent Retry Book',
+      authors: ['Retry Author'],
+      chapters: [
+        {
+          href: 'chapter-1.xhtml',
+          tocLabel: 'Chapter 1',
+          content: `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter 1</title></head>
+<body><h1>Chapter 1</h1><p>Concurrency content.</p></body></html>`,
+        },
+      ],
+    });
+    const freshHash = hashFileContent(freshBytes);
+    createdHashes.push(freshHash);
+    fetchMock.mockClear();
+    enqueueSpy.mockClear();
+    fetchMock.mockImplementation(async () => epubResponse(freshBytes));
+
+    const [first, second] = await Promise.all([materializeSourceRecord(recordId), materializeSourceRecord(recordId)]);
+
+    expect(first.workId).toBe(workId);
+    expect(second.workId).toBe(workId);
+    // Every download this race performed used the updated candidate.
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+    for (const [url] of fetchMock.mock.calls) {
+      expect(url).toBe(updatedUrl);
+    }
+    // The parse reservation still admits exactly one queue job.
+    expect(enqueueSpy).toHaveBeenCalledTimes(1);
+
+    const originAssets = await originAssetsOf(workId);
+    expect(originAssets).toHaveLength(1);
+    expect(originAssets[0]!.contentHash).toBe(freshHash);
+
+    // The replaced origin is reclaimed and the losing upload reference released.
+    expect(
+      await db.select().from(uploadedObjectTable).where(eq(uploadedObjectTable.contentHash, staleHash)),
+    ).toHaveLength(0);
+    const [freshUpload] = await db
+      .select()
+      .from(uploadedObjectTable)
+      .where(eq(uploadedObjectTable.contentHash, freshHash));
+    expect(freshUpload?.refCount).toBe(1);
+
+    const [work] = await db.select().from(readingWorkTable).where(eq(readingWorkTable.id, workId));
+    expect(work?.originMeta.sourceCandidateUrl).toBe(updatedUrl);
   });
 });
