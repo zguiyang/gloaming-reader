@@ -112,14 +112,6 @@ export const readerWorkSummarySchema = workSchema.pick({
 
 export type ReaderWorkSummary = z.infer<typeof readerWorkSummarySchema>;
 
-/** @deprecated Whole-chapter audio availability; superseded by lazy per-segment reader audio. */
-export const readerAudioAvailabilitySchema = z.object({
-  us: z.boolean(),
-  uk: z.boolean(),
-});
-
-export type ReaderAudioAvailability = z.infer<typeof readerAudioAvailabilitySchema>;
-
 export const readerCurrentPartSchema = z.object({
   id: z.string(),
   workId: z.string(),
@@ -152,26 +144,6 @@ export const readingStateDataSchema = z.object({
 });
 
 export type ReadingStateData = z.infer<typeof readingStateDataSchema>;
-
-export const readerPartAudioQuerySchema = z.object({
-  role: z.enum(ttsVoiceRoleValues),
-});
-
-export type ReaderPartAudioQuery = z.infer<typeof readerPartAudioQuerySchema>;
-
-/** @deprecated Whole-chapter audio track; superseded by lazy per-segment reader audio. */
-export const readerAudioTrackSchema = z.object({
-  role: z.enum(ttsVoiceRoleValues),
-  mimeType: z.string().min(1),
-  voice: z.string().min(1),
-  /** Gateway URL — `/api/assets/:assetId`. */
-  audioUrl: z.string().min(1),
-  assetId: z.string().min(1),
-  durationMs: z.number().int().nonnegative().nullable(),
-  wordTimings: z.array(ttsWordTimingSchema),
-});
-
-export type ReaderAudioTrack = z.infer<typeof readerAudioTrackSchema>;
 
 /** Lazy per-paragraph audio: manifest lists derived segments without triggering synthesis. */
 export const readerAudioManifestQuerySchema = z.object({

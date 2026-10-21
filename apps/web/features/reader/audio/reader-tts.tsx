@@ -3,7 +3,6 @@
 import { Loader2Icon, PauseIcon, PlayIcon } from 'lucide-react';
 
 import { t } from '@gloaming/i18n';
-import type { ReaderAudioAvailability } from '@gloaming/shared/reader';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -21,7 +20,6 @@ type ReaderTtsProps = {
   tocOpen: boolean;
   aiDrawerOpen: boolean;
   audioRole: ReaderAudioRole;
-  audioAvailable: ReaderAudioAvailability;
   onToggle: () => void;
   onCyclePlaybackRate: () => void;
   onSelectRole: (role: ReaderAudioRole) => void;
@@ -34,17 +32,21 @@ export function ReaderTts({
   tocOpen,
   aiDrawerOpen,
   audioRole,
-  audioAvailable,
   onToggle,
   onCyclePlaybackRate,
   onSelectRole,
 }: ReaderTtsProps) {
   const { locale } = useLocale();
-  const isActive = status === 'playing' || status === 'paused' || status === 'loading';
+  const isActive = status === 'playing' || status === 'paused' || status === 'loading' || status === 'error';
   if (!isActive) return null;
 
-  const hasBothAccents = audioAvailable.us && audioAvailable.uk;
   const rateLabel = formatPlaybackRate(playbackRate);
+  const toggleLabel =
+    status === 'playing'
+      ? t(locale, 'content.reader.tts.pause')
+      : status === 'error'
+        ? t(locale, 'content.reader.tts.retry')
+        : t(locale, 'content.reader.tts.play');
 
   return (
     <div
@@ -63,9 +65,7 @@ export function ReaderTts({
           type="button"
           size="icon"
           className="size-10 shrink-0 rounded-full hover:bg-brand-deep"
-          aria-label={
-            status === 'playing' ? t(locale, 'content.reader.tts.pause') : t(locale, 'content.reader.tts.play')
-          }
+          aria-label={toggleLabel}
           disabled={status === 'loading'}
           onClick={onToggle}
         >
@@ -90,30 +90,13 @@ export function ReaderTts({
         >
           {rateLabel}
         </button>
-        {hasBothAccents ? (
-          <AccentSegment
-            role={audioRole}
-            available={audioAvailable}
-            disabled={status === 'loading'}
-            onSelect={onSelectRole}
-          />
-        ) : null}
+        <AccentSegment role={audioRole} onSelect={onSelectRole} />
       </div>
     </div>
   );
 }
 
-function AccentSegment({
-  role,
-  available,
-  disabled,
-  onSelect,
-}: {
-  role: ReaderAudioRole;
-  available: ReaderAudioAvailability;
-  disabled: boolean;
-  onSelect: (role: ReaderAudioRole) => void;
-}) {
+function AccentSegment({ role, onSelect }: { role: ReaderAudioRole; onSelect: (role: ReaderAudioRole) => void }) {
   const { locale } = useLocale();
 
   return (
@@ -123,21 +106,15 @@ function AccentSegment({
       className="flex shrink-0 rounded-full bg-surface-container-high/80 p-0.5"
     >
       <AccentOption
-        role="us"
         label={t(locale, 'content.reader.tts.usShort')}
         ariaLabel={t(locale, 'content.reader.tts.usAria')}
         selected={role === 'us'}
-        enabled={available.us}
-        disabled={disabled}
         onClick={() => onSelect('us')}
       />
       <AccentOption
-        role="uk"
         label={t(locale, 'content.reader.tts.ukShort')}
         ariaLabel={t(locale, 'content.reader.tts.ukAria')}
         selected={role === 'uk'}
-        enabled={available.uk}
-        disabled={disabled}
         onClick={() => onSelect('uk')}
       />
     </div>
@@ -148,30 +125,22 @@ function AccentOption({
   label,
   ariaLabel,
   selected,
-  enabled,
-  disabled,
   onClick,
 }: {
-  role: ReaderAudioRole;
   label: string;
   ariaLabel: string;
   selected: boolean;
-  enabled: boolean;
-  disabled: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      disabled={disabled || !enabled}
       aria-pressed={selected}
       aria-label={ariaLabel}
       onClick={onClick}
       className={cn(
         'min-w-8 rounded-full px-2.5 py-1 text-xs font-medium transition-colors duration-200 ease-out-soft',
-        selected && enabled && 'bg-brand-soft text-brand-deep',
-        !selected && enabled && 'text-muted-foreground hover:text-foreground',
-        !enabled && 'cursor-not-allowed text-muted-foreground/40',
+        selected ? 'bg-brand-soft text-brand-deep' : 'text-muted-foreground hover:text-foreground',
       )}
     >
       {label}

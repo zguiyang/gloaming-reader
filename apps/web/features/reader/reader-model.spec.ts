@@ -21,7 +21,6 @@ import {
   releaseAnchorRestoreMarkers,
   resolveAnchorFlushRatio,
   resolveAnchorRatio,
-  resolveAudioRole,
   scrollPositionRatio,
   scrollTopForRatio,
   shouldPersistAnchor,
@@ -32,27 +31,6 @@ describe('isCurrentChapter', () => {
   it('matches only the open part id', () => {
     expect(isCurrentChapter('a', 'a')).toBe(true);
     expect(isCurrentChapter('a', 'b')).toBe(false);
-  });
-});
-
-describe('resolveAudioRole', () => {
-  it('prefers us then uk when no preference', () => {
-    expect(resolveAudioRole({ us: true, uk: true })).toBe('us');
-    expect(resolveAudioRole({ us: false, uk: true })).toBe('uk');
-    expect(resolveAudioRole({ us: false, uk: false })).toBeNull();
-  });
-
-  it('honors preference when available, otherwise falls back', () => {
-    expect(resolveAudioRole({ us: true, uk: true }, 'uk')).toBe('uk');
-    expect(resolveAudioRole({ us: true, uk: false }, 'uk')).toBe('us');
-  });
-
-  /** ReaderTts shows the US/UK segment only when both roles are API-available. */
-  it('requires both accents available before accent switching is offered', () => {
-    const shouldOfferAccentSwitch = (available: { us: boolean; uk: boolean }) => available.us && available.uk;
-    expect(shouldOfferAccentSwitch({ us: true, uk: true })).toBe(true);
-    expect(shouldOfferAccentSwitch({ us: true, uk: false })).toBe(false);
-    expect(shouldOfferAccentSwitch({ us: false, uk: false })).toBe(false);
   });
 });
 

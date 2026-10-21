@@ -879,7 +879,6 @@
           "metadataEnrich": "元数据完善"
         },
         "ttsSource": {
-          "adminPartAudio": "章节音频",
           "adminArticleAudio": "章节音频",
           "adminTtsTest": "连通测试"
         },
@@ -1248,16 +1247,15 @@
       },
       "toast": {
         "stateRefreshed": "阅读进度已同步，请从当前章节继续",
-        "noUsAudio": "暂无美音",
-        "noUkAudio": "暂无英音",
-        "noAudio": "暂无音频",
         "loginForBilingual": "登录后使用双语对照",
-        "sessionExpired": "登录已过期，请重新登录",
-        "audioPlayFailed": "音频播放失败，请重试"
+        "sessionExpired": "登录已过期，请重新登录"
       },
       "tts": {
         "play": "播放",
         "pause": "暂停",
+        "retry": "重试",
+        "unavailable": "语音未配置",
+        "segmentFailed": "本段播放失败，请重试",
         "playbackRate": "播放速度 {rate}，点击切换",
         "accentGroup": "口音",
         "usShort": "美",
@@ -1343,7 +1341,6 @@
         "readingState": "未找到阅读状态",
         "llmProvider": "未找到 LLM 服务商",
         "llmModel": "未找到 LLM 模型",
-        "partAudio": "未找到章节音频",
         "cleanupJob": "未找到清理任务",
         "wordDefinition": "未找到单词「{word}」的词典释义",
         "userTag": "未找到标签",

@@ -2,9 +2,12 @@
 
 import { type RefObject, useCallback, useLayoutEffect, useRef } from 'react';
 
-import type { TtsWordTiming } from '@gloaming/shared/tts';
-
-import { activeWordSyncKey, buildTimingRanges, findActiveWordTiming } from '@/features/reader/audio/reader-audio-sync';
+import type { ReaderAudioSegmentView } from '@/features/reader/audio/reader-audio-controller';
+import {
+  activeWordSyncKey,
+  buildSegmentTimingRanges,
+  findActiveWordTiming,
+} from '@/features/reader/audio/reader-audio-sync';
 import type { ReaderAudioStatus } from '@/features/reader/reader-model';
 
 /** Attribute marking temporary listen-highlight wrappers. */
@@ -165,7 +168,8 @@ export type UseReaderListenHighlightArgs = {
   contentRef: RefObject<HTMLDivElement | null>;
   partId: string | null;
   html: string | null;
-  wordTimings: readonly TtsWordTiming[] | null;
+  /** Active segment payload — timings scoped to one paragraph chunk. */
+  segment: ReaderAudioSegmentView | null;
   audioStatus: ReaderAudioStatus;
   /** When true, skip applying highlight (selection assist in progress). */
   selectionActive: boolean;
@@ -174,14 +178,14 @@ export type UseReaderListenHighlightArgs = {
 };
 
 /**
- * Paints the active spoken word while listening.
- * Rebuilds timing→Range after each clear — wraps invalidate stored Ranges.
+ * Paints the active spoken word while listening, scoped to the active segment's
+ * paragraph. Rebuilds timing→Range after each clear — wraps invalidate stored Ranges.
  */
 export function useReaderListenHighlight({
   contentRef,
   partId,
   html,
-  wordTimings,
+  segment,
   audioStatus,
   selectionActive,
   audioRef,
@@ -200,19 +204,21 @@ export function useReaderListenHighlight({
 
   useLayoutEffect(() => {
     if (audioStatus !== 'playing' && audioStatus !== 'paused') {
-      if (audioStatus === 'idle' || audioStatus === 'ready' || audioStatus === 'failed') {
+      if (audioStatus === 'idle' || audioStatus === 'error' || audioStatus === 'loading') {
         clearListenHighlight();
       }
       return;
     }
 
-    if (!wordTimings?.length) {
+    if (!segment?.wordTimings.length) {
       return;
     }
 
     function paintFromAudio(force = false) {
       const audio = audioRef.current;
-      if (!audio || !wordTimings?.length) return;
+      if (!audio || !segment) return;
+      const wordTimings = segment.wordTimings;
+      if (!wordTimings.length) return;
       if (selectionActive) return;
 
       const timeMs = audio.currentTime * 1000;
@@ -230,7 +236,7 @@ export function useReaderListenHighlight({
         return;
       }
       // Rebuild after clear — previous wraps invalidate Range boundaries.
-      const range = buildTimingRanges(body, wordTimings).get(key) ?? null;
+      const range = buildSegmentTimingRanges(body, segment).get(key) ?? null;
       const highlightResult = applyReaderAudioHighlight(body, range);
       if (highlightResult.applied && highlightResult.anchor) {
         const sentenceEl = highlightResult.anchor.closest('[data-sentence-index]');
@@ -261,7 +267,7 @@ export function useReaderListenHighlight({
       audio.removeEventListener('timeupdate', onTimeUpdate);
       window.clearInterval(intervalId);
     };
-  }, [audioStatus, wordTimings, audioRef, contentRef, selectionActive, onActiveSentenceChange, clearListenHighlight]);
+  }, [audioStatus, segment, audioRef, contentRef, selectionActive, onActiveSentenceChange, clearListenHighlight]);
 
   return { clearListenHighlight };
 }
