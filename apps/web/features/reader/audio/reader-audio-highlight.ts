@@ -11,13 +11,13 @@ import {
 import type { ReaderAudioStatus } from '@/features/reader/reader-model';
 
 /** Attribute marking temporary listen-highlight wrappers. */
-export const READER_AUDIO_WORD_ATTR = 'data-reader-audio-word';
+const READER_AUDIO_WORD_ATTR = 'data-reader-audio-word';
 
 /**
  * Visual parity with Learning Room AudioWordLine active state —
  * soft wash + inset underline without layout jitter.
  */
-export const READER_AUDIO_WORD_ACTIVE_CLASS =
+const READER_AUDIO_WORD_ACTIVE_CLASS =
   'box-decoration-clone rounded-[0.2em] px-[0.12em] -mx-[0.12em] transition-[color,background-color,box-shadow] duration-300 ease-out-soft bg-primary/20 text-brand-deep shadow-[inset_0_-0.12em_0_0_color-mix(in_oklab,var(--brand)_40%,transparent)]';
 
 function unwrapHighlightSpans(root: ParentNode): void {
@@ -123,7 +123,7 @@ export type ApplyReaderAudioHighlightResult = {
 };
 
 /** Remove any active listen-highlight wrappers under `root`. */
-export function clearReaderAudioHighlight(root: ParentNode | null): void {
+function clearReaderAudioHighlight(root: ParentNode | null): void {
   if (!root) return;
   unwrapHighlightSpans(root);
 }

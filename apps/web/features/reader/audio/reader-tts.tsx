@@ -18,7 +18,6 @@ type ReaderTtsProps = {
   status: ReaderAudioStatus;
   playbackRate: ReaderPlaybackRate;
   tocOpen: boolean;
-  aiDrawerOpen: boolean;
   audioRole: ReaderAudioRole;
   onToggle: () => void;
   onCyclePlaybackRate: () => void;
@@ -30,7 +29,6 @@ export function ReaderTts({
   status,
   playbackRate,
   tocOpen,
-  aiDrawerOpen,
   audioRole,
   onToggle,
   onCyclePlaybackRate,
@@ -56,7 +54,6 @@ export function ReaderTts({
         'bottom-6 right-6',
         'md:bottom-8 md:right-auto',
         tocOpen ? 'md:left-[350px]' : 'md:left-8',
-        aiDrawerOpen && 'max-md:right-6',
         tocOpen && 'max-md:pointer-events-none max-md:opacity-0',
       )}
     >

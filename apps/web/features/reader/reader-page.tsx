@@ -639,7 +639,10 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         isListening={
           readerAudio.state.status === 'playing' ||
           readerAudio.state.status === 'paused' ||
-          readerAudio.state.status === 'loading'
+          readerAudio.state.status === 'loading' ||
+          // Error keeps the mini player open with Retry — the headphones
+          // toggle must stay pressed so both affordances agree.
+          readerAudio.state.status === 'error'
         }
         isBilingual={translate.isActive}
         isBilingualLoading={translate.isLoading}
@@ -832,7 +835,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         status={readerAudio.state.status}
         playbackRate={playbackRate}
         tocOpen={isTocOpen}
-        aiDrawerOpen={isDrawerOpen}
         audioRole={readerAudio.state.role}
         onToggle={readerAudio.toggle}
         onCyclePlaybackRate={handleCyclePlaybackRate}

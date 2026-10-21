@@ -53,8 +53,9 @@ export type ReaderAudioControllerDeps = {
 
 /**
  * Pick the paragraph driving playback start: the `[data-p]` element containing
- * the viewport center, else the topmost visible one, else the last paragraph
- * above the fold. Returns its anchor (`data-p` value) or null when none exist.
+ * the viewport center, else the first visible one, else the last paragraph
+ * above the fold, else (all content below the fold) the first paragraph.
+ * Returns its anchor (`data-p` value) or null when none exist.
  */
 export function resolveVisibleParagraphAnchor(root: ParentNode, viewportHeight: number): string | null {
   const paragraphs = Array.from(root.querySelectorAll('[data-p]'));
@@ -63,19 +64,19 @@ export function resolveVisibleParagraphAnchor(root: ParentNode, viewportHeight: 
   }
   const center = viewportHeight / 2;
   let firstVisible: Element | null = null;
+  let lastAboveFold: Element | null = null;
   for (const element of paragraphs) {
     const rect = element.getBoundingClientRect();
-    if (rect.bottom <= 0) {
-      continue;
-    }
     if (rect.top <= center && center < rect.bottom) {
       return element.getAttribute('data-p');
     }
-    if (!firstVisible) {
-      firstVisible = element;
+    if (rect.bottom > 0 && rect.top < viewportHeight) {
+      firstVisible ??= element;
+    } else if (rect.bottom <= 0) {
+      lastAboveFold = element;
     }
   }
-  const target = firstVisible ?? paragraphs[paragraphs.length - 1]!;
+  const target = firstVisible ?? lastAboveFold ?? paragraphs[0]!;
   return target.getAttribute('data-p');
 }
 
@@ -91,8 +92,8 @@ type InflightSegmentRequest = {
   role: ReaderAudioRole;
   index: number;
   abort: AbortController;
-  /** Catch-wrapped twin that never rejects — safe for adopters. */
-  promise: Promise<ReaderAudioSegment | null>;
+  /** Never-rejecting twin carrying the real outcome — adopters must not confuse a failure with an abort. */
+  promise: Promise<SegmentRequestResult>;
 };
 
 type SegmentRequestResult =
@@ -136,7 +137,9 @@ export class ReaderAudioController {
 
   /** Chapter/part changes tear the player down; TTS availability follows the open part. */
   setContext(input: { partId: string | null; ttsConfigured: boolean }): void {
-    if (input.partId !== this.partId) {
+    // Losing TTS availability mid-listen (e.g. an admin disables the voice)
+    // must stop playback and drop the cached manifest/segments.
+    if (input.partId !== this.partId || (this.ttsConfigured && !input.ttsConfigured)) {
       this.stop();
     }
     this.partId = input.partId;
@@ -301,12 +304,30 @@ export class ReaderAudioController {
     await this.loadSegment(this.resolveSegmentIndex(manifest, anchor));
   }
 
-  /** First segment belonging to `anchor`; index 0 when the anchor is gone. */
+  /**
+   * Map a paragraph anchor to its playback start segment: the first segment of
+   * that paragraph, else the first segment whose paragraph comes at-or-after it
+   * in document order (`data-p` ordinals are document-order numbers, and
+   * manifest segments are in ascending order), so an image-only or
+   * punctuation-only visible paragraph starts at the next playable one. When
+   * nothing follows (e.g. a trailing image), start from the last playable
+   * segment — nearest to the reader's position — and fall back to index 0 for
+   * a missing or non-ordinal anchor.
+   */
   private resolveSegmentIndex(manifest: ReaderAudioManifest, anchor: string | null): number {
     if (anchor == null) {
       return 0;
     }
-    return manifest.segments.find((segment) => segment.paragraphAnchor === anchor)?.index ?? 0;
+    const exact = manifest.segments.find((segment) => segment.paragraphAnchor === anchor);
+    if (exact) {
+      return exact.index;
+    }
+    const ordinal = Number(anchor);
+    if (!Number.isFinite(ordinal)) {
+      return 0;
+    }
+    const next = manifest.segments.find((segment) => Number(segment.paragraphAnchor) >= ordinal);
+    return next?.index ?? manifest.segments[manifest.segments.length - 1]?.index ?? 0;
   }
 
   private async ensureManifest(role: ReaderAudioRole): Promise<ReaderAudioManifest | null> {
@@ -367,6 +388,13 @@ export class ReaderAudioController {
         this.failSegment();
         return;
       }
+      // The server regenerated the chapter: every cached payload and any
+      // in-flight request carries an old hash whose stream URL would 404 —
+      // drop them all so the replay after the manifest refresh cannot hit
+      // the stale cache. The replayed request reads the new expectedHash
+      // from the refreshed manifest.
+      this.abortSegment();
+      this.segmentCache.clear();
       this.manifests.delete(this.role);
       const anchor = manifest.segments[index]?.paragraphAnchor ?? null;
       const refreshed = await this.ensureManifest(this.role);
@@ -399,49 +427,45 @@ export class ReaderAudioController {
     if (cached) {
       return { kind: 'payload', payload: cached };
     }
+    const session = this.session;
     const existing = this.inflight;
     if (existing && existing.role === role && existing.index === index) {
-      const payload = await existing.promise;
-      return payload ? { kind: 'payload', payload } : { kind: 'aborted' };
+      // Reused requests report the real outcome — a network/server failure must
+      // surface as `error` (retryable), never masquerade as an abort.
+      const result = await existing.promise;
+      return session === this.session ? result : { kind: 'aborted' };
     }
     this.abortSegment();
     const abort = new AbortController();
-    const session = this.session;
-    const promise = this.deps
-      .fetchSegment(partId, role, index, meta.segmentHash, { signal: abort.signal })
-      .then((payload) => {
-        if (session === this.session) {
-          this.segmentCache.set(cacheKey, payload);
+    const promise = (async (): Promise<SegmentRequestResult> => {
+      try {
+        const payload = await this.deps.fetchSegment(partId, role, index, meta.segmentHash, {
+          signal: abort.signal,
+        });
+        if (session !== this.session) {
+          return { kind: 'aborted' };
         }
-        return payload;
-      })
-      .finally(() => {
+        this.segmentCache.set(cacheKey, payload);
+        return { kind: 'payload', payload };
+      } catch (error) {
+        // Only a caller abort / session change counts as aborted; anything
+        // else is a real failure the playback path must observe.
+        if (session !== this.session || isAbortError(error)) {
+          return { kind: 'aborted' };
+        }
+        if (isManifestStaleError(error)) {
+          return { kind: 'stale' };
+        }
+        return { kind: 'error' };
+      } finally {
         if (this.inflight?.abort === abort) {
           this.inflight = null;
         }
-      });
-    const record: InflightSegmentRequest = {
-      role,
-      index,
-      abort,
-      promise: promise.catch(() => null),
-    };
-    this.inflight = record;
-    try {
-      const payload = await promise;
-      if (session !== this.session) {
-        return { kind: 'aborted' };
       }
-      return { kind: 'payload', payload };
-    } catch (error) {
-      if (session !== this.session || isAbortError(error)) {
-        return { kind: 'aborted' };
-      }
-      if (isManifestStaleError(error)) {
-        return { kind: 'stale' };
-      }
-      return { kind: 'error' };
-    }
+    })();
+    this.inflight = { role, index, abort, promise };
+    const result = await promise;
+    return session === this.session ? result : { kind: 'aborted' };
   }
 
   /** Silent next-1 prefetch — one page ahead, never blocks playback. */

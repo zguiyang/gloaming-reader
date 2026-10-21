@@ -372,7 +372,12 @@ describe('ReaderPage lazy audio', () => {
     await flushMicrotasks();
 
     expect(mocks.toastError).toHaveBeenCalledWith("Couldn't play this segment. Try again.");
-    // Error state keeps the mini player open with a retry affordance.
+    // Error state keeps the mini player open with a retry affordance, and the
+    // chrome headphones toggle stays pressed so both affordances agree.
+    const headphones = Array.from(container.querySelectorAll('button')).find(
+      (element) => element.getAttribute('aria-label') === 'Listen',
+    );
+    expect(headphones?.getAttribute('aria-pressed')).toBe('true');
     clickButton(container, 'Retry');
     await flushMicrotasks();
 
