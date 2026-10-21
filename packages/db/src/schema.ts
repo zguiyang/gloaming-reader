@@ -146,6 +146,7 @@ export const readingWork = pgTable(
   },
   (table) => [
     index('reading_work_processing_status_idx').on(table.processingStatus),
+    index('reading_work_owner_user_id_idx').on(table.ownerUserId),
     index('reading_work_published_at_idx').on(table.publishedAt),
     check('reading_work_origin_kind_check', sql`${table.originKind} IS NULL OR ${table.originKind} = 'user_epub'`),
   ],
