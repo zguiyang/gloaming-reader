@@ -123,6 +123,11 @@ export const ERROR_CODES = {
     UNSUPPORTED_ACTION: 'api.errors.reader.unsupportedAction',
   },
 
+  READER_AUDIO: {
+    /** Caller manifest hash no longer matches the derived segment — refetch manifest. */
+    MANIFEST_STALE: 'api.errors.readerAudio.manifestStale',
+  },
+
   LIBRARY: {
     USER_TAG_NAME_EXISTS: 'api.errors.library.userTagNameExists',
     SOURCE_RECORD_NO_EPUB_CANDIDATE: 'api.errors.library.sourceRecordNoEpubCandidate',

@@ -171,6 +171,56 @@ export const readerAudioTrackSchema = z.object({
 
 export type ReaderAudioTrack = z.infer<typeof readerAudioTrackSchema>;
 
+/** Lazy per-paragraph audio: manifest lists derived segments without triggering synthesis. */
+export const readerAudioManifestQuerySchema = z.object({
+  role: z.enum(ttsVoiceRoleValues),
+});
+
+export type ReaderAudioManifestQuery = z.infer<typeof readerAudioManifestQuerySchema>;
+
+export const readerAudioManifestSegmentSchema = z.object({
+  index: z.number().int().min(0),
+  key: z.string().min(1),
+  segmentHash: z.string().min(1),
+  paragraphAnchor: z.string(),
+  paragraphTextOffset: z.number().int().min(0),
+  textLength: z.number().int().min(0),
+});
+
+export type ReaderAudioManifestSegment = z.infer<typeof readerAudioManifestSegmentSchema>;
+
+export const readerAudioManifestSchema = z.object({
+  role: z.enum(ttsVoiceRoleValues),
+  ttsConfigured: z.boolean(),
+  configFingerprint: z.string().nullable(),
+  segments: z.array(readerAudioManifestSegmentSchema),
+});
+
+export type ReaderAudioManifest = z.infer<typeof readerAudioManifestSchema>;
+
+export const readerAudioSegmentQuerySchema = readerAudioManifestQuerySchema.extend({
+  /** Stale-manifest guard: the caller's segment hash must still match the derived one. */
+  expectedHash: z.string().min(16).max(128).optional(),
+});
+
+export type ReaderAudioSegmentQuery = z.infer<typeof readerAudioSegmentQuerySchema>;
+
+export const readerAudioSegmentSchema = z.object({
+  index: z.number().int().min(0),
+  role: z.enum(ttsVoiceRoleValues),
+  voice: z.string().min(1),
+  mimeType: z.string().min(1),
+  durationMs: z.number().int().min(0).nullable(),
+  wordTimings: z.array(ttsWordTimingSchema),
+  paragraphAnchor: z.string(),
+  paragraphTextOffset: z.number().int().min(0),
+  segmentHash: z.string().min(1),
+  /** Auth-checked segment stream route — `/api/reader/parts/:partId/audio/segments/:index/audio`. */
+  audioUrl: z.string().min(1),
+});
+
+export type ReaderAudioSegment = z.infer<typeof readerAudioSegmentSchema>;
+
 export const updateReadingStateBodySchema = z
   .object({
     action: z.enum(READING_STATE_ACTIONS),
