@@ -500,7 +500,11 @@ export async function updateLinkedWorkMetadata(
   for (const update of updates) {
     const result = await executor
       .update(readingWork)
-      .set({ title: update.title, description: update.description })
+      // updatedAt uses the DB clock (`now()`), the same source as the column's
+      // defaultNow(), so an updated timestamp can never precede the old value;
+      // relying on drizzle's $onUpdate would use the Node clock and can skew
+      // milliseconds behind the DB.
+      .set({ title: update.title, description: update.description, updatedAt: sql`now()` })
       .where(
         and(
           eq(readingWork.id, update.workId),
