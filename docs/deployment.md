@@ -2,11 +2,11 @@
 
 Gloaming can run on a VPS or a PaaS that supports Docker services or supervised Node processes. The production application has three independent services:
 
-| Service  | Image / entrypoint                        | Public access    | Role                                  |
-| -------- | ----------------------------------------- | ---------------- | ------------------------------------- |
-| `web`    | `apps/web/Dockerfile`                     | Yes, port `3000` | Next.js app and `/api/*` proxy        |
-| `api`    | `apps/backend/Dockerfile` + `pnpm start`  | No, port `3333`  | Hono API, auth, and job enqueueing    |
-| `worker` | `apps/backend/Dockerfile` + `pnpm worker` | No               | BullMQ jobs, TTS, ingest, and cleanup |
+| Service  | Image / entrypoint                        | Public access    | Role                               |
+| -------- | ----------------------------------------- | ---------------- | ---------------------------------- |
+| `web`    | `apps/web/Dockerfile`                     | Yes, port `3000` | Next.js app and `/api/*` proxy     |
+| `api`    | `apps/backend/Dockerfile` + `pnpm start`  | No, port `3333`  | Hono API, auth, and job enqueueing |
+| `worker` | `apps/backend/Dockerfile` + `pnpm worker` | No               | BullMQ jobs, ingest, and cleanup   |
 
 PostgreSQL, Redis, and S3-compatible object storage are external dependencies. Resend is used for transactional email and Azure Speech is used for TTS.
 
@@ -96,8 +96,8 @@ Run these steps from a trusted operator environment or the platform's one-off ta
    - `GET /api/health/ready` returns `200` and Postgres/Redis are reachable.
    - Sign-in and reader flows work through the public web origin.
    - An authenticated admin ping job is enqueued and processed by `worker`.
-   - A real email, object-storage upload/read, and TTS job succeed.
-   - A publish smoke test passes with ready default-US audio for synthesizable parts.
+   - A real email and object-storage upload/read succeed.
+   - A publish smoke test passes; reader audio is synthesized lazily per segment on first listen (there is no publish-time audio generation).
 
 Registration should remain closed or restricted until these checks pass.
 

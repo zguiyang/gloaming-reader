@@ -94,11 +94,13 @@ TTS is a **workflow step** (`origin_meta` / worker), not a `processing_status` v
 
 ### ContentAsset (`content_asset`)
 
-**Responsibility:** Unified storage for EPUB originals, covers, TTS audio, future derivatives.
+**Responsibility:** Unified storage for EPUB originals, covers, images, future derivatives.
 
 **Key fields:** `id`, `work_id?`, `part_id?`, `kind`, `storage_key`, `mime_type`, `content_hash`, `meta`, `status`, timestamps.
 
-**MVP `kind`:** `origin_file`, `audio_us`, `audio_uk`.
+**MVP `kind`:** `origin_file`, `cover`, `image`. The historical whole-chapter
+audio kinds were retired: reader audio is synthesized lazily per part and
+stored as `part_audio_segment` rows, not `content_asset` rows.
 
 ### Conversation (unchanged shape)
 

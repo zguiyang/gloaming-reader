@@ -66,7 +66,7 @@ New sources, content replacement, and cross-source identity merging require sepa
 | **ReadingState**    | Per user × work progress only; never membership                |
 | **UserLibraryItem** | Explicit catalog membership; membership ≠ progress             |
 | **SourceRecord**    | Local source bibliography; not readable                        |
-| **ContentAsset**    | EPUB file, cover, TTS audio                                    |
+| **ContentAsset**    | EPUB file, cover, images                                       |
 | **Conversation**    | Thread scoped to `reading_work`                                |
 
 **Library** = owned personal works ∪ explicit saved membership. Saving does not start progress; removing membership retains progress. Forbidden on Work: `level`, `seriesId`, single `body` blob.
