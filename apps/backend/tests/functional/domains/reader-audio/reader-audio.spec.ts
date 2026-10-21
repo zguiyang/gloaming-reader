@@ -291,6 +291,18 @@ describe('Reader lazy audio runtime', () => {
     expect(synthesizeAzureTts).not.toHaveBeenCalled();
   });
 
+  it('never registers the retired whole-chapter audio endpoint', async () => {
+    const learner = await createSession('lazylegacy');
+    createdEmails.push(learner.email);
+    const part = await createCatalogPart(TWO_PARAGRAPHS);
+
+    const legacy = await app.request(`/api/reader/parts/${part.id}/audio`, {
+      headers: { Cookie: learner.cookie },
+    });
+    expect(legacy.status).toBe(404);
+    expect(synthesizeAzureTts).not.toHaveBeenCalled();
+  });
+
   it('synthesizes a contested segment exactly once and serves both requesters the same asset', async () => {
     const learner = await createSession('lazy3');
     createdEmails.push(learner.email);

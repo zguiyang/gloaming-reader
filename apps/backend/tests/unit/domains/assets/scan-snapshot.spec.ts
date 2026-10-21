@@ -37,8 +37,6 @@ const report: AssetScanReport = {
   referencedBytes: 10,
   orphanCount: 2,
   orphanBytes: 20,
-  legacyDuplicateCount: 0,
-  legacyDuplicateBytes: 0,
   missingCount: 0,
   durationMs: 5,
   categories: [{ category: 'other', objectCount: 3, bytes: 30 }],
@@ -69,10 +67,9 @@ describe('scan snapshots', () => {
         objects: [
           { key: 'private/file.epub', status: 'referenced', size: 10 },
           { key: 'orphan/a.bin', status: 'orphan', size: 20 },
-          { key: 'part-audio/old/seg/0.mp3', status: 'legacy_duplicate_audio', size: 5 },
+          { key: 'orphan/old-seg.mp3', status: 'orphan', size: 5 },
         ],
-        orphanKeys: ['orphan/a.bin'],
-        legacyDuplicateKeys: ['part-audio/old/seg/0.mp3'],
+        orphanKeys: ['orphan/a.bin', 'orphan/old-seg.mp3'],
       }),
     );
 

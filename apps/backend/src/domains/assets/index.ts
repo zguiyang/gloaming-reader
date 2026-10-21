@@ -16,7 +16,6 @@ export type { ReferencedKeyIndex } from '@/domains/assets/management/referenced-
 export {
   collectFormalKeysFromContentAssetRow,
   collectKeysFromOriginMeta,
-  collectLegacySegmentKeysFromContentAssetRow,
   collectReferencedStorageKeys,
 } from '@/domains/assets/management/referenced-keys';
 export { assetManagementRoutes } from '@/domains/assets/routes/asset-management';

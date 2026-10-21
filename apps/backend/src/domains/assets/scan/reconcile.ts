@@ -6,21 +6,14 @@ import {
   type AssetCategorySummary,
   type AssetScanReport,
   classifyAssetKey,
-  isLegacyAudioSegmentKey,
 } from '@gloaming/shared/assets';
 
 import type { ReferencedKeyIndex } from '@/domains/assets/management/referenced-keys';
 import type { ObjectListItem } from '@/infra/storage';
 
-function classifyListedObjectStatus(
-  key: string,
-  referenced: ReferencedKeyIndex,
-): 'referenced' | 'orphan' | 'legacy_duplicate_audio' {
+function classifyListedObjectStatus(key: string, referenced: ReferencedKeyIndex): 'referenced' | 'orphan' {
   if (referenced.formalKeys.has(key) || referenced.externalReferencedKeys.has(key)) {
     return 'referenced';
-  }
-  if (referenced.legacyAudioSegmentKeys.has(key) || isLegacyAudioSegmentKey(key)) {
-    return 'legacy_duplicate_audio';
   }
   return 'orphan';
 }
@@ -50,8 +43,6 @@ export function reconcileObjects(input: {
   let referencedBytes = 0;
   let orphanCount = 0;
   let orphanBytes = 0;
-  let legacyDuplicateCount = 0;
-  let legacyDuplicateBytes = 0;
 
   const categoryTotals = new Map<AssetCategory, { objectCount: number; bytes: number }>();
   for (const category of ASSET_CATEGORIES) {
@@ -72,9 +63,6 @@ export function reconcileObjects(input: {
     if (referenced) {
       referencedObjectCount += 1;
       referencedBytes += listed.size;
-    } else if (status === 'legacy_duplicate_audio') {
-      legacyDuplicateCount += 1;
-      legacyDuplicateBytes += listed.size;
     } else {
       orphanCount += 1;
       orphanBytes += listed.size;
@@ -103,8 +91,6 @@ export function reconcileObjects(input: {
     referencedBytes,
     orphanCount,
     orphanBytes,
-    legacyDuplicateCount,
-    legacyDuplicateBytes,
     missingCount,
     durationMs,
     categories,

@@ -985,7 +985,6 @@
       },
       "enum": {
         "category": {
-          "audio": "音频",
           "cover": "封面",
           "image": "插图",
           "origin": "原始文件",

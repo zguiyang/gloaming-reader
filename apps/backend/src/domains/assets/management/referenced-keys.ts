@@ -1,50 +1,29 @@
 import {
   contentAsset as contentAssetTable,
   type ContentAssetMeta,
+  partAudioSegment as partAudioSegmentTable,
   readingWork as readingWorkTable,
   uploadedObject as uploadedObjectTable,
 } from '@gloaming/db';
-import { isLegacyAudioSegmentKey } from '@gloaming/shared/assets';
 
 import { db } from '@/infra/db';
+
+/**
+ * ContentAsset kinds whose stored objects are reference-protected. Legacy
+ * `audio_*` rows are deliberately absent: they are retired and no longer read,
+ * and their objects may be reclaimed by the orphan-cleanup job.
+ */
+const PROTECTED_ASSET_KINDS = new Set(['cover', 'image', 'origin_file']);
 
 type ParseArtifactManifest = {
   attemptToken: string;
   keys: string[];
 };
 
-/**
- * Formal stored objects for a legacy audio-kind asset row: the chapter object
- * plus non-segment `meta.objectKeys`. Historical rows only — the legacy
- * whole-chapter audio chain no longer writes or reads these rows.
- */
-function formalAudioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
-  const keys = [asset.storageKey, ...(asset.meta.objectKeys ?? []).filter((key) => !isLegacyAudioSegmentKey(key))];
-  return [...new Set(keys.filter((key): key is string => Boolean(key)))];
-}
-
-/** Segment keys still recorded in legacy audio metadata (objectKeys or timeline.storageKey). */
-function collectLegacyAudioSegmentKeysFromAsset(asset: { meta: ContentAssetMeta }): string[] {
-  const keys: string[] = [];
-  for (const key of asset.meta.objectKeys ?? []) {
-    if (isLegacyAudioSegmentKey(key)) {
-      keys.push(key);
-    }
-  }
-  for (const segment of asset.meta.timeline ?? []) {
-    if (segment.storageKey && isLegacyAudioSegmentKey(segment.storageKey)) {
-      keys.push(segment.storageKey);
-    }
-  }
-  return [...new Set(keys)];
-}
-
 export type ReferencedKeyIndex = {
-  /** Formal chapter, cover, image, origin, and non-segment audio objects. */
+  /** Formal cover, image, and origin-file objects, plus live reader-audio segment objects. */
   formalKeys: Set<string>;
-  /** Segment keys referenced only via legacy audio metadata fields. */
-  legacyAudioSegmentKeys: Set<string>;
-  /** Keys from uploaded_object, workflow artifacts, and other non-audio sources. */
+  /** Keys from uploaded_object, workflow artifacts, and other external sources. */
   externalReferencedKeys: Set<string>;
   /** Union of all reference sources. */
   allReferencedKeys: Set<string>;
@@ -54,28 +33,22 @@ export type ReferencedKeyIndex = {
 export function createEmptyReferencedKeyIndex(): ReferencedKeyIndex {
   return {
     formalKeys: new Set(),
-    legacyAudioSegmentKeys: new Set(),
     externalReferencedKeys: new Set(),
     allReferencedKeys: new Set(),
     kindByKey: new Map(),
   };
 }
 
-/** Test helper — treats every key as a formal reference unless marked legacy/external. */
+/** Test helper — treats every key as a formal reference unless marked external. */
 export function referencedKeyIndexFromKeys(
   keys: string[],
-  options: { kinds?: Record<string, string>; legacySegments?: string[]; external?: string[] } = {},
+  options: { kinds?: Record<string, string>; external?: string[] } = {},
 ): ReferencedKeyIndex {
   const index = createEmptyReferencedKeyIndex();
-  const legacySet = new Set(options.legacySegments ?? []);
   const externalSet = new Set(options.external ?? []);
   for (const key of keys) {
     if (externalSet.has(key)) {
       addExternalReferencedKey(index, key);
-      continue;
-    }
-    if (legacySet.has(key) || isLegacyAudioSegmentKey(key)) {
-      addLegacyAudioSegmentKey(index, key);
       continue;
     }
     addFormalReferencedKey(index, key, options.kinds?.[key]);
@@ -90,12 +63,6 @@ function addFormalReferencedKey(index: ReferencedKeyIndex, key: string | null | 
   if (kind && !index.kindByKey.has(key)) {
     index.kindByKey.set(key, kind);
   }
-}
-
-function addLegacyAudioSegmentKey(index: ReferencedKeyIndex, key: string | null | undefined): void {
-  if (!key) return;
-  index.legacyAudioSegmentKeys.add(key);
-  index.allReferencedKeys.add(key);
 }
 
 function addExternalReferencedKey(index: ReferencedKeyIndex, key: string | null | undefined): void {
@@ -135,20 +102,18 @@ export async function collectReferencedStorageKeys(): Promise<ReferencedKeyIndex
     .from(contentAssetTable);
 
   for (const asset of assets) {
+    if (!PROTECTED_ASSET_KINDS.has(asset.kind)) continue;
     const meta = asset.meta as ContentAssetMeta;
-    if (asset.kind.startsWith('audio_')) {
-      for (const key of formalAudioObjectKeys({ storageKey: asset.storageKey, meta })) {
-        addFormalReferencedKey(index, key, asset.kind);
-      }
-      for (const key of collectLegacyAudioSegmentKeysFromAsset({ meta })) {
-        addLegacyAudioSegmentKey(index, key);
-      }
-      continue;
-    }
-    addFormalReferencedKey(index, asset.storageKey, asset.kind);
-    for (const key of meta.objectKeys ?? []) {
+    for (const key of new Set([asset.storageKey, ...(meta.objectKeys ?? [])])) {
       addFormalReferencedKey(index, key, asset.kind);
     }
+  }
+
+  // Live lazy reader-audio segments are protected until their rows cascade
+  // away (ingest reset and personal-work deletion collect their objects).
+  const segments = await db.select({ storageKey: partAudioSegmentTable.storageKey }).from(partAudioSegmentTable);
+  for (const row of segments) {
+    addFormalReferencedKey(index, row.storageKey);
   }
 
   const uploaded = await db.select({ storageKey: uploadedObjectTable.storageKey }).from(uploadedObjectTable);
@@ -174,15 +139,9 @@ export function collectFormalKeysFromContentAssetRow(asset: {
   kind: string;
   meta: ContentAssetMeta;
 }): string[] {
-  if (asset.kind.startsWith('audio_')) {
-    return formalAudioObjectKeys({ storageKey: asset.storageKey, meta: asset.meta });
-  }
-  return [asset.storageKey, ...(asset.meta.objectKeys ?? [])].filter((key): key is string => Boolean(key));
-}
-
-/** Pure helper — legacy segment keys from audio metadata (unit-testable). */
-export function collectLegacySegmentKeysFromContentAssetRow(asset: { meta: ContentAssetMeta }): string[] {
-  return collectLegacyAudioSegmentKeysFromAsset(asset);
+  return [
+    ...new Set([asset.storageKey, ...(asset.meta.objectKeys ?? [])].filter((key): key is string => Boolean(key))),
+  ];
 }
 
 export function collectKeysFromOriginMeta(originMeta: unknown): string[] {

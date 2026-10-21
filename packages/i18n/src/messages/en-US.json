@@ -985,7 +985,6 @@
       },
       "enum": {
         "category": {
-          "audio": "Audio",
           "cover": "Cover",
           "image": "Illustration",
           "origin": "Original file",

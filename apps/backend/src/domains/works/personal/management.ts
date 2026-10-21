@@ -16,7 +16,6 @@ import type { PersonalWorkUpdate } from '@gloaming/shared/works';
 import {
   collectFormalKeysFromContentAssetRow,
   collectKeysFromOriginMeta,
-  collectLegacySegmentKeysFromContentAssetRow,
   collectReferencedStorageKeys,
 } from '@/domains/assets/management/referenced-keys';
 import { acquireLockWithWait, releaseLock, startLockRenewal } from '@/infra/cache/lock';
@@ -157,8 +156,6 @@ export async function deletePersonalWork(userId: string, workId: string): Promis
           kind: asset.kind,
           meta: asset.meta as ContentAssetMeta,
         }))
-          keys.add(key);
-        for (const key of collectLegacySegmentKeysFromContentAssetRow({ meta: asset.meta as ContentAssetMeta }))
           keys.add(key);
       }
       // Lazy reader-audio segment objects cascade away with their parts below;
