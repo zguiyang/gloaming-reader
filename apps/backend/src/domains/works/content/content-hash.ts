@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto';
 
-import { buildPartAudioText } from '@gloaming/shared/content-assets';
-
 import { htmlToPlainText, normalizePartText } from '@/domains/works/content/part-text';
 
 /**
@@ -19,14 +17,4 @@ export function normalizePartContent(title: string, body: string): string {
 /** SSOT source-content hash for translate / non-audio derived projections. */
 export function hashPartContent(title: string, body: string): string {
   return createHash('sha256').update(normalizePartContent(title, body), 'utf8').digest('hex');
-}
-
-/**
- * Hash of the exact TTS synth string for a part (body plain only).
- * Distinct from {@link hashPartContent} so title-only edits do not force audio
- * regen, and so a body-only synth formula change invalidates old title+body audio.
- */
-export function hashPartAudioContent(bodyHtml: string): string {
-  const synthText = buildPartAudioText(htmlToPlainText(bodyHtml));
-  return createHash('sha256').update(synthText, 'utf8').digest('hex');
 }

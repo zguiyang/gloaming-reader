@@ -5,7 +5,7 @@ import { readingState as readingStateTable } from '@gloaming/db';
 import { type ReaderPartData, type ReaderPartsData, type ReadingState } from '@gloaming/shared/reader';
 import { estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
 
-import { getPartAudioAvailability } from '@/domains/assets';
+import { resolveReaderAudioConfig } from '@/domains/reader-audio';
 import { toReadingState } from '@/domains/reading/reader/reading-state';
 import type { WorkReadActor } from '@/domains/works/access';
 import { requireReadablePart, requireReadableWorkWithParts } from '@/domains/works/access';
@@ -60,7 +60,8 @@ export async function getReaderParts(actor: WorkReadActor, workId: string): Prom
 
 export async function getReaderPart(actor: WorkReadActor, partId: string): Promise<ReaderPartData> {
   const access = await requireReadablePart(actor, partId);
-  const audioAvailable = await getPartAudioAvailability(access.partId, access.partTitle, access.body);
+  // Config-only check — never triggers synthesis on the reader path.
+  const ttsConfigured = (await resolveReaderAudioConfig(actor, 'us')) !== null;
   return {
     work: {
       id: access.workId,
@@ -75,7 +76,7 @@ export async function getReaderPart(actor: WorkReadActor, partId: string): Promi
       title: access.partTitle,
       body: reindexLeafParagraphOrdinals(access.body),
     },
-    audioAvailable,
+    ttsConfigured,
   };
 }
 

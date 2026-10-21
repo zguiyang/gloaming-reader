@@ -1,15 +1,12 @@
 import type { MetadataFieldId } from '@/domains/metadata/enrich/fields';
-import { completeWorkflowStep, TTS_STEP_ENABLED, workflowLeaseExpiresAt } from '@/domains/works/lifecycle';
+import { completeWorkflowStep } from '@/domains/works/lifecycle';
 
 export type CompleteMetadataStepResult = {
   completed: boolean;
-  enqueueTts: boolean;
 };
 
 /**
- * Complete the `metadata` step. Default (`TTS_STEP_ENABLED=false`): → `ready`.
- * When the TTS pipeline flag is on: stays `ready` with enqueue lease metadata
- * (audio enqueue is orchestrated by the application job).
+ * Complete the `metadata` step → `ready`.
  * `gaps` records AI targets that stayed empty/weak so the admin UI can show
  * partial completion instead of a false "done".
  */
@@ -26,25 +23,7 @@ export async function completeMetadataStep(
   };
   const completed =
     retryJobToken && attemptToken
-      ? await completeWorkflowStep(
-          workId,
-          'ready',
-          TTS_STEP_ENABLED
-            ? {
-                ...metaPatch,
-                workflowEnqueueStep: 'tts',
-                workflowEnqueueAttempt: attemptToken,
-                workflowEnqueueLeaseExpiresAt: workflowLeaseExpiresAt(),
-              }
-            : metaPatch,
-          'metadata',
-          retryJobToken,
-          'metadata',
-          attemptToken,
-        )
+      ? await completeWorkflowStep(workId, 'ready', metaPatch, 'metadata', retryJobToken, 'metadata', attemptToken)
       : await completeWorkflowStep(workId, 'ready', metaPatch, 'metadata');
-  if (!completed) {
-    return { completed: false, enqueueTts: false };
-  }
-  return { completed: true, enqueueTts: TTS_STEP_ENABLED };
+  return { completed };
 }

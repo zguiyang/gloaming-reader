@@ -6,13 +6,38 @@ import {
 } from '@gloaming/db';
 import { isLegacyAudioSegmentKey } from '@gloaming/shared/assets';
 
-import { collectLegacyAudioSegmentKeysFromAsset, formalAudioObjectKeys } from '@/domains/assets/audio/keys';
 import { db } from '@/infra/db';
 
 type ParseArtifactManifest = {
   attemptToken: string;
   keys: string[];
 };
+
+/**
+ * Formal stored objects for a legacy audio-kind asset row: the chapter object
+ * plus non-segment `meta.objectKeys`. Historical rows only — the legacy
+ * whole-chapter audio chain no longer writes or reads these rows.
+ */
+function formalAudioObjectKeys(asset: { storageKey: string | null; meta: ContentAssetMeta }): string[] {
+  const keys = [asset.storageKey, ...(asset.meta.objectKeys ?? []).filter((key) => !isLegacyAudioSegmentKey(key))];
+  return [...new Set(keys.filter((key): key is string => Boolean(key)))];
+}
+
+/** Segment keys still recorded in legacy audio metadata (objectKeys or timeline.storageKey). */
+function collectLegacyAudioSegmentKeysFromAsset(asset: { meta: ContentAssetMeta }): string[] {
+  const keys: string[] = [];
+  for (const key of asset.meta.objectKeys ?? []) {
+    if (isLegacyAudioSegmentKey(key)) {
+      keys.push(key);
+    }
+  }
+  for (const segment of asset.meta.timeline ?? []) {
+    if (segment.storageKey && isLegacyAudioSegmentKey(segment.storageKey)) {
+      keys.push(segment.storageKey);
+    }
+  }
+  return [...new Set(keys)];
+}
 
 export type ReferencedKeyIndex = {
   /** Formal chapter, cover, image, origin, and non-segment audio objects. */

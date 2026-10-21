@@ -112,7 +112,7 @@ export const readerWorkSummarySchema = workSchema.pick({
 
 export type ReaderWorkSummary = z.infer<typeof readerWorkSummarySchema>;
 
-/** DB-derived: ready asset for current part content hash — not a live object-store existence check. */
+/** @deprecated Whole-chapter audio availability; superseded by lazy per-segment reader audio. */
 export const readerAudioAvailabilitySchema = z.object({
   us: z.boolean(),
   uk: z.boolean(),
@@ -141,7 +141,8 @@ export type ReaderPartsData = z.infer<typeof readerPartsDataSchema>;
 export const readerPartDataSchema = z.object({
   work: readerWorkSummarySchema.pick({ id: true, title: true, coverAssetId: true }),
   part: readerCurrentPartSchema,
-  audioAvailable: readerAudioAvailabilitySchema,
+  /** Whether this actor has a usable TTS configuration (config check only — no synthesis). */
+  ttsConfigured: z.boolean(),
 });
 
 export type ReaderPartData = z.infer<typeof readerPartDataSchema>;
@@ -158,6 +159,7 @@ export const readerPartAudioQuerySchema = z.object({
 
 export type ReaderPartAudioQuery = z.infer<typeof readerPartAudioQuerySchema>;
 
+/** @deprecated Whole-chapter audio track; superseded by lazy per-segment reader audio. */
 export const readerAudioTrackSchema = z.object({
   role: z.enum(ttsVoiceRoleValues),
   mimeType: z.string().min(1),

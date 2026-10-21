@@ -14,11 +14,6 @@ import {
   type MetadataEnrichJobData,
   processMetadataEnrich,
 } from '@/application/jobs/metadata-enrich';
-import {
-  JOB_PART_AUDIO_GENERATE,
-  type PartAudioGenerateJobData,
-  processPartAudioGenerate,
-} from '@/application/jobs/part-audio-generate';
 import type { PingJobData } from '@/application/jobs/ping';
 import { JOB_PING, processPing } from '@/application/jobs/ping';
 import {
@@ -90,8 +85,6 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
       return processWorkMetadataFill(job.data as WorkMetadataFillJobData);
     case JOB_METADATA_ENRICH:
       return processMetadataEnrich(job.data as MetadataEnrichJobData);
-    case JOB_PART_AUDIO_GENERATE:
-      return processPartAudioGenerate(job.data as PartAudioGenerateJobData);
     case JOB_DISCOVERY_SYNC:
       return processDiscoverySync(job.data as DiscoverySyncJobData);
     case JOB_SOURCE_RECORD_MATERIALIZE:

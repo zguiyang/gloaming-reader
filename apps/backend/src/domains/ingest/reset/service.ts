@@ -1,12 +1,12 @@
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import {
   contentAsset as contentAssetTable,
+  partAudioSegment as partAudioSegmentTable,
   readingPart as readingPartTable,
   readingWork as readingWorkTable,
 } from '@gloaming/db';
 
-import { deleteAudioAssetObjects } from '@/domains/assets';
 import { workflowClaimWhere } from '@/domains/works/lifecycle';
 import { db } from '@/infra/db';
 import { rootLogger } from '@/infra/logging/logger';
@@ -23,7 +23,8 @@ type ParseClaim = {
 };
 type DerivedAssetsForCleanup = {
   storageKeys: string[];
-  audio: (typeof contentAssetTable.$inferSelect)[];
+  /** `part_audio_segment.storage_key` values whose rows cascade away with their parts. */
+  segmentStorageKeys: string[];
 };
 
 /** Remove derived asset rows and return their objects for post-commit cleanup. */
@@ -50,25 +51,18 @@ async function removeDerivedAssetRows(client: DbClient, workId: string): Promise
       .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'cover')));
   }
 
-  const audio = await client
-    .select()
-    .from(contentAssetTable)
-    .where(
-      and(
-        eq(contentAssetTable.workId, workId),
-        or(eq(contentAssetTable.kind, 'audio_us'), eq(contentAssetTable.kind, 'audio_uk')),
-      ),
-    );
-  if (audio.length > 0) {
-    await client.delete(contentAssetTable).where(
-      inArray(
-        contentAssetTable.id,
-        audio.map((row) => row.id),
-      ),
-    );
-  }
+  // Lazy per-segment audio: part deletion below cascades these rows away; the
+  // objects are deleted best-effort after the transaction commits.
+  const segments = await client
+    .select({ storageKey: partAudioSegmentTable.storageKey })
+    .from(partAudioSegmentTable)
+    .innerJoin(readingPartTable, eq(partAudioSegmentTable.partId, readingPartTable.id))
+    .where(eq(readingPartTable.workId, workId));
 
-  return { storageKeys: [...rows, ...cover].map((row) => row.storageKey), audio };
+  return {
+    storageKeys: [...rows, ...cover].map((row) => row.storageKey),
+    segmentStorageKeys: segments.map((row) => row.storageKey),
+  };
 }
 
 /** Object deletion happens only after the asset-row transaction has committed. */
@@ -87,11 +81,11 @@ async function clearDerivedAssetObjects(workId: string, cleanup: DerivedAssetsFo
       ingestLogger.warn({ err: error, workId, storageKey }, 'Failed to delete derived asset object');
     }
   }
-  for (const asset of cleanup.audio) {
+  for (const storageKey of cleanup.segmentStorageKeys) {
     try {
-      await deleteAudioAssetObjects(asset);
+      await deleteObject(storageKey);
     } catch (error) {
-      ingestLogger.warn({ err: error, workId, assetId: asset.id }, 'Failed to delete derived audio objects');
+      ingestLogger.warn({ err: error, workId, storageKey }, 'Failed to delete reader audio segment object');
     }
   }
 }

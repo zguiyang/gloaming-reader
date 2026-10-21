@@ -184,12 +184,12 @@ export async function streamReaderAudioSegment(
   const access = await requireReadablePart(actor, partId);
   const derived = requireDerivedSegment(access.body, index);
   if (derived.segmentHash !== hash) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART_AUDIO);
+    throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
 
   const config = await resolveReaderAudioConfig(actor, role);
   if (!config) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART_AUDIO);
+    throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
 
   const identity = buildIdentity(config, partId, role, derived.segmentHash);
@@ -200,12 +200,12 @@ export async function streamReaderAudioSegment(
     row.scopeKey !== identity.scopeKey ||
     row.ownerUserId !== identity.ownerUserId
   ) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART_AUDIO);
+    throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
 
   const object = await getObjectStream(row.storageKey, range);
   if (!object) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART_AUDIO);
+    throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
   return {
     stream: object.stream,
@@ -218,11 +218,11 @@ export async function streamReaderAudioSegment(
 
 function requireDerivedSegment(body: string, index: number): ReaderAudioDerivedSegment {
   if (!Number.isInteger(index) || index < 0) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART_AUDIO);
+    throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
   const segment = deriveReaderAudioSegments(body)[index];
   if (!segment) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.PART_AUDIO);
+    throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
   return segment;
 }

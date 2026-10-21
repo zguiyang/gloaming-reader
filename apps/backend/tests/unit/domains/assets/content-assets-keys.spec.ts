@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  allAudioObjectKeysForLegacyCleanup,
-  collectLegacyAudioSegmentKeysFromAsset,
-  formalAudioObjectKeys,
-} from '@/domains/assets/audio/keys';
+  collectFormalKeysFromContentAssetRow,
+  collectLegacySegmentKeysFromContentAssetRow,
+} from '@/domains/assets/management/referenced-keys';
 
-describe('formalAudioObjectKeys', () => {
+describe('collectFormalKeysFromContentAssetRow (legacy audio-kind rows)', () => {
   it('returns only chapter and non-segment objectKeys from legacy metadata', () => {
     expect(
-      formalAudioObjectKeys({
+      collectFormalKeysFromContentAssetRow({
         storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
+        kind: 'audio_us',
         meta: {
           objectKeys: [
             'part-audio/p1/audio_us/h/chapter.mp3',
@@ -31,77 +31,22 @@ describe('formalAudioObjectKeys', () => {
       }),
     ).toEqual(['part-audio/p1/audio_us/h/chapter.mp3']);
   });
-});
 
-describe('allAudioObjectKeysForLegacyCleanup', () => {
-  it('collects storageKey, objectKeys, and timeline keys without duplicates', () => {
+  it('keeps non-segment objectKeys for non-audio kinds', () => {
     expect(
-      allAudioObjectKeysForLegacyCleanup({
-        storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
-        meta: {
-          objectKeys: ['part-audio/p1/audio_us/h/seg/0000.mp3', 'part-audio/p1/audio_us/h/chapter.mp3', ''],
-          timeline: [
-            {
-              index: 0,
-              textHash: 't0',
-              startMs: 0,
-              durationMs: 1000,
-              storageKey: 'part-audio/p1/audio_us/h/seg/0000.mp3',
-              wordTimings: [],
-            },
-            {
-              index: 1,
-              textHash: 't1',
-              startMs: 1000,
-              durationMs: 800,
-              storageKey: 'part-audio/p1/audio_us/h/seg/0001.mp3',
-              wordTimings: [],
-            },
-          ],
-        },
-      }).toSorted(),
-    ).toEqual([
-      'part-audio/p1/audio_us/h/chapter.mp3',
-      'part-audio/p1/audio_us/h/seg/0000.mp3',
-      'part-audio/p1/audio_us/h/seg/0001.mp3',
-    ]);
-  });
-
-  it('returns a timeline segment key that is absent from objectKeys and storageKey', () => {
-    expect(
-      allAudioObjectKeysForLegacyCleanup({
-        storageKey: 'part-audio/p1/audio_us/old/chapter.mp3',
-        meta: {
-          objectKeys: ['part-audio/p1/audio_us/old/chapter.mp3'],
-          timeline: [
-            {
-              index: 0,
-              textHash: 'legacy',
-              startMs: 0,
-              durationMs: 1200,
-              storageKey: 'part-audio/p1/audio_us/old/seg/0000.mp3',
-              wordTimings: [],
-            },
-          ],
-        },
-      }).toSorted(),
-    ).toEqual(['part-audio/p1/audio_us/old/chapter.mp3', 'part-audio/p1/audio_us/old/seg/0000.mp3']);
-  });
-
-  it('handles empty objectKeys and a missing timeline', () => {
-    expect(
-      allAudioObjectKeysForLegacyCleanup({
-        storageKey: 'part-audio/p1/audio_us/h/chapter.mp3',
-        meta: { objectKeys: [] },
+      collectFormalKeysFromContentAssetRow({
+        storageKey: 'book-images/p1/a.webp',
+        kind: 'image',
+        meta: { objectKeys: ['book-images/p1/a.webp'] },
       }),
-    ).toEqual(['part-audio/p1/audio_us/h/chapter.mp3']);
+    ).toEqual(['book-images/p1/a.webp', 'book-images/p1/a.webp']);
   });
 });
 
-describe('collectLegacyAudioSegmentKeysFromAsset', () => {
+describe('collectLegacySegmentKeysFromContentAssetRow', () => {
   it('collects segment keys from objectKeys and timeline only', () => {
     expect(
-      collectLegacyAudioSegmentKeysFromAsset({
+      collectLegacySegmentKeysFromContentAssetRow({
         meta: {
           objectKeys: ['part-audio/p1/audio_us/h/chapter.mp3', 'part-audio/p1/audio_us/h/seg/0000.mp3'],
           timeline: [

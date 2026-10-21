@@ -1,3 +1,2 @@
-/** Backend-owned workflow switches. Manual pipeline and TTS-off remain the defaults. */
+/** Backend-owned workflow switches. Manual pipeline remains the default. */
 export const WORKFLOW_AUTO_CHAIN = false;
-export const TTS_STEP_ENABLED = false;

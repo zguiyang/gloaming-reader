@@ -33,14 +33,14 @@ function sampleCleanupJob(overrides: Record<string, unknown> = {}) {
 
 describe('classifyAssetKey', () => {
   it('prefers kind over key prefix', () => {
-    expect(classifyAssetKey('weird/path.bin', 'audio_us')).toBe('audio');
+    expect(classifyAssetKey('weird/path.bin', 'audio_test')).toBe('audio');
     expect(classifyAssetKey('weird/path.bin', 'cover')).toBe('cover');
     expect(classifyAssetKey('weird/path.bin', 'image')).toBe('image');
     expect(classifyAssetKey('weird/path.bin', 'origin_file')).toBe('origin');
   });
 
   it('falls back to key prefixes', () => {
-    expect(classifyAssetKey('part-audio/p1/audio_us/h/chapter.mp3')).toBe('audio');
+    expect(classifyAssetKey('part-audio/p1/audio_test/h/chapter.mp3')).toBe('audio');
     expect(classifyAssetKey('covers/w1/a.jpg')).toBe('cover');
     expect(classifyAssetKey('book-images/w1/a/h.png')).toBe('image');
     expect(classifyAssetKey('epub/abc.epub')).toBe('origin');
@@ -50,16 +50,16 @@ describe('classifyAssetKey', () => {
 
 describe('legacy audio segment key helpers', () => {
   it('detects and parses part-audio segment paths', () => {
-    const key = 'part-audio/p1/audio_us/h/seg/0000.mp3';
+    const key = 'part-audio/p1/audio_test/h/seg/0000.mp3';
     expect(isLegacyAudioSegmentKey(key)).toBe(true);
-    expect(isLegacyAudioSegmentKey('part-audio/p1/audio_us/h/chapter.mp3')).toBe(false);
+    expect(isLegacyAudioSegmentKey('part-audio/p1/audio_test/h/chapter.mp3')).toBe(false);
     expect(parseLegacyAudioSegmentKey(key)).toEqual({
       partId: 'p1',
-      kind: 'audio_us',
+      kind: 'audio_test',
       contentHash: 'h',
       segmentFile: '0000.mp3',
     });
-    expect(siblingChapterKeyForSegment(key)).toBe('part-audio/p1/audio_us/h/chapter.mp3');
+    expect(siblingChapterKeyForSegment(key)).toBe('part-audio/p1/audio_test/h/chapter.mp3');
   });
 });
 

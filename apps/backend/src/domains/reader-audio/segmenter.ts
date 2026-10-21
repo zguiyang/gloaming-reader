@@ -12,7 +12,7 @@ export const SEGMENT_MAX_CHARS = 600;
 /** Bump when segmentation / text normalization changes so stored segment identities invalidate. */
 export const SEGMENT_PIPELINE_VERSION = 'reader-audio-v1';
 
-/** Sentence boundary — migrated from the legacy whole-chapter `splitForTts` splitter. */
+/** Sentence boundary — kept from the legacy whole-chapter splitter. */
 const SENTENCE_END = /[.!?。？！]+["'")\]]*\s+|\n+/g;
 
 /** Elements whose text must never reach TTS (footnote markers, styles, injected translations). */
