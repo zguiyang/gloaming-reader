@@ -2,9 +2,11 @@ import type {
   ObjectDeleteFailure,
   ObjectDeleteManyResult,
   ObjectGetStreamResult,
+  ObjectHeadResult,
   ObjectRange,
   ObjectStore,
 } from '@/infra/storage';
+import { RangeNotSatisfiableError } from '@/infra/storage';
 
 /** In-memory ObjectStore for functional tests. */
 export function createMemoryObjectStore(): ObjectStore & { store: Map<string, { body: Buffer; contentType: string }> } {
@@ -33,6 +35,10 @@ export function createMemoryObjectStore(): ObjectStore & { store: Map<string, { 
       }
       const total = value.body.length;
       const start = range?.start ?? 0;
+      if (start >= total) {
+        // Mirror S3: a Range starting at/beyond the object size is 416 InvalidRange.
+        throw new RangeNotSatisfiableError(total);
+      }
       const end = Math.min(range?.end ?? total - 1, total - 1);
       const slice = value.body.subarray(start, end + 1);
       const partial = start !== 0 || end !== total - 1;
@@ -46,6 +52,13 @@ export function createMemoryObjectStore(): ObjectStore & { store: Map<string, { 
     },
     async exists(key) {
       return store.has(key);
+    },
+    async head(key): Promise<ObjectHeadResult | null> {
+      const value = store.get(key);
+      if (!value) {
+        return null;
+      }
+      return { size: value.body.length, contentType: value.contentType };
     },
     async delete(key) {
       await deleteKey(key);

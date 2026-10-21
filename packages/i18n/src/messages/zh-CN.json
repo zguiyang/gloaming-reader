@@ -879,8 +879,8 @@
           "metadataEnrich": "元数据完善"
         },
         "ttsSource": {
-          "adminArticleAudio": "章节音频",
-          "adminTtsTest": "连通测试"
+          "adminTtsTest": "连通测试",
+          "readerSegment": "阅读分段"
         },
         "ttsRole": {
           "default": "默认",
@@ -1398,7 +1398,8 @@
       },
       "oss": {
         "notConfigured": "对象存储未配置",
-        "unavailable": "对象存储不可用"
+        "unavailable": "对象存储不可用",
+        "rangeNotSatisfiable": "请求的字节范围无效"
       },
       "dictionary": {
         "providerNotImplemented": "词典 Provider「{providerId}」尚未实现或不支持",

@@ -80,6 +80,8 @@ export const ERROR_CODES = {
   OSS: {
     NOT_CONFIGURED: 'api.errors.oss.notConfigured',
     UNAVAILABLE: 'api.errors.oss.unavailable',
+    /** Requested Range lies outside the object (S3 416 InvalidRange). */
+    RANGE_NOT_SATISFIABLE: 'api.errors.oss.rangeNotSatisfiable',
   },
 
   DICTIONARY: {

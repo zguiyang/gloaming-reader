@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { type TtsWordTiming, validateAzureWordTimings } from '@gloaming/shared/tts';
 
 import type { TtsConfigRow } from '@/domains/provider-scope';
@@ -21,7 +19,7 @@ function intMs(n: number): number {
 }
 
 /** Segment duration when word timings are missing — migrated from the legacy whole-chapter pipeline. */
-export function estimateSegmentDurationMs(wordTimings: readonly TtsWordTiming[], audioByteLength: number): number {
+function estimateSegmentDurationMs(wordTimings: readonly TtsWordTiming[], audioByteLength: number): number {
   return intMs(
     wordTimings.length > 0
       ? Math.max(...wordTimings.map((w) => w.audioOffsetMs + w.durationMs), 0)
@@ -133,9 +131,4 @@ export async function synthesizeReaderAudioSegment(
     wordTimings,
     durationMs,
   };
-}
-
-/** Re-export for identity/debug tooling — segment identity is the sha256 of synth text. */
-export function hashSynthText(synthText: string): string {
-  return createHash('sha256').update(synthText, 'utf8').digest('hex');
 }

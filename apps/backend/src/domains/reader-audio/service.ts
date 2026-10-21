@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { ReaderAudioManifest, ReaderAudioManifestSegment, ReaderAudioSegment } from '@gloaming/shared/reader';
 import type { TtsVoiceRole } from '@gloaming/shared/tts';
 
@@ -9,6 +11,7 @@ import {
   failSegmentGeneration,
   finalizeSegmentReady,
   findSegmentByIdentity,
+  MAX_CLAIM_RETRIES,
   waitForSegmentReady,
 } from '@/domains/reader-audio/repository';
 import { deriveReaderAudioSegments, type ReaderAudioDerivedSegment } from '@/domains/reader-audio/segmenter';
@@ -16,7 +19,7 @@ import { putSegmentObject } from '@/domains/reader-audio/storage';
 import { synthesizeReaderAudioSegment } from '@/domains/reader-audio/synthesis';
 import type { WorkReadActor } from '@/domains/works/access';
 import { requireReadablePart } from '@/domains/works/access';
-import { getObjectStream } from '@/infra/storage';
+import { getObjectSize, getObjectStream, RangeNotSatisfiableError } from '@/infra/storage';
 import { HTTP_STATUS } from '@/shared/constants';
 import { AppError, NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
@@ -50,6 +53,41 @@ function buildIdentity(config: ReaderAudioConfig, partId: string, role: TtsVoice
 }
 
 /**
+ * Process-local LRU memo for {@link deriveReaderAudioSegments}. Keyed by
+ * `partId` + sha256(body), so every manifest/segment/stream request for the
+ * same part reuses one cheerio derivation instead of re-parsing the chapter.
+ * Pure: the cached value is exactly what the uncached call would return.
+ */
+const DERIVE_CACHE_LIMIT = 32;
+const deriveCache = new Map<string, ReaderAudioDerivedSegment[]>();
+
+export function deriveReaderAudioSegmentsForPart(partId: string, bodyHtml: string): ReaderAudioDerivedSegment[] {
+  const cacheKey = `${partId}:${createHash('sha256').update(bodyHtml, 'utf8').digest('hex')}`;
+  const cached = deriveCache.get(cacheKey);
+  if (cached) {
+    // Refresh recency — re-insert so the oldest entry is always the first key.
+    deriveCache.delete(cacheKey);
+    deriveCache.set(cacheKey, cached);
+    return cached;
+  }
+  const derived = deriveReaderAudioSegments(bodyHtml);
+  deriveCache.set(cacheKey, derived);
+  while (deriveCache.size > DERIVE_CACHE_LIMIT) {
+    const oldest = deriveCache.keys().next().value;
+    if (oldest === undefined) {
+      break;
+    }
+    deriveCache.delete(oldest);
+  }
+  return derived;
+}
+
+/** Test seam — clears the in-process segment-derivation cache. */
+export function resetReaderAudioDeriveCache(): void {
+  deriveCache.clear();
+}
+
+/**
  * Lazy audio manifest: derived segments + config fingerprint, no synthesis.
  * `ttsConfigured:false` when this actor has no usable TTS configuration.
  */
@@ -63,7 +101,7 @@ export async function getReaderAudioManifest(
   if (!config) {
     return { role, ttsConfigured: false, configFingerprint: null, segments: [] };
   }
-  const segments = deriveReaderAudioSegments(access.body).map(toManifestSegment);
+  const segments = deriveReaderAudioSegmentsForPart(partId, access.body).map(toManifestSegment);
   return {
     role,
     ttsConfigured: true,
@@ -88,7 +126,7 @@ export async function getReaderAudioSegment(
   expectedHash?: string,
 ): Promise<ReaderAudioSegment> {
   const access = await requireReadablePart(actor, partId);
-  const derived = requireDerivedSegment(access.body, index);
+  const derived = requireDerivedSegment(partId, access.body, index);
 
   if (expectedHash && expectedHash !== derived.segmentHash) {
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.READER_AUDIO.MANIFEST_STALE);
@@ -106,57 +144,74 @@ export async function getReaderAudioSegment(
     return toSegmentPayload(partId, role, derived, existing);
   }
 
-  const claim = await claimSegmentGeneration(identity, {
+  const claimMeta = {
     segmentIndex: derived.index,
     segmentKey: derived.key,
     paragraphAnchor: derived.paragraphAnchor,
     paragraphTextOffset: derived.paragraphTextOffset,
     textLength: derived.textLength,
     voice: config.voice,
-  });
+  };
 
-  if (claim.kind === 'ready') {
-    return toSegmentPayload(partId, role, derived, claim.row);
-  }
-
-  if (claim.kind === 'wait') {
-    const row = await waitForSegmentReady(identity);
-    return toSegmentPayload(partId, role, derived, row);
-  }
-
-  try {
-    const synthesized = await synthesizeReaderAudioSegment({
-      row: config.row,
-      voice: config.voice,
-      synthText: derived.synthText,
-      userId: actor.userId,
-      workId: access.workId,
-      partId,
-      role,
-    });
-    await putSegmentObject(identity.storageKey, synthesized.audio);
-    const published = await finalizeSegmentReady(claim.id, claim.token, {
-      storageKey: identity.storageKey,
-      voice: synthesized.voice,
-      mimeType: synthesized.mimeType,
-      durationMs: synthesized.durationMs,
-      wordTimings: synthesized.wordTimings,
-    });
-    if (!published) {
-      // Lease was taken over while synthesizing — serve the winner's row.
-      const row = await waitForSegmentReady(identity);
-      return toSegmentPayload(partId, role, derived, row);
+  // Bounded claim loop: each wait that ends without a ready row (row failed,
+  // holder lease expired, or wait budget exhausted) triggers at most
+  // MAX_CLAIM_RETRIES re-claims — never an infinite wait or duplicate synthesis.
+  let claim = await claimSegmentGeneration(identity, claimMeta);
+  for (let retries = 0; ;) {
+    if (claim.kind === 'ready') {
+      return toSegmentPayload(partId, role, derived, claim.row);
     }
-    return toSegmentPayload(partId, role, derived, {
-      voice: synthesized.voice,
-      mimeType: synthesized.mimeType,
-      durationMs: synthesized.durationMs,
-      wordTimings: synthesized.wordTimings,
-    });
-  } catch (error) {
-    const errorCode = error instanceof AppError ? error.code : ERROR_CODES.TTS.SYNTHESIS_FAILED;
-    await failSegmentGeneration(claim.id, claim.token, errorCode);
-    throw error;
+
+    if (claim.kind === 'wait') {
+      const waited = await waitForSegmentReady(identity);
+      if (waited.kind === 'ready') {
+        return toSegmentPayload(partId, role, derived, waited.row);
+      }
+      if (retries >= MAX_CLAIM_RETRIES) {
+        throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
+      }
+      retries += 1;
+      claim = await claimSegmentGeneration(identity, claimMeta);
+      continue;
+    }
+
+    // We hold the lease — synthesize exactly once for this claim.
+    const activeClaim = claim;
+    try {
+      const synthesized = await synthesizeReaderAudioSegment({
+        row: config.row,
+        voice: config.voice,
+        synthText: derived.synthText,
+        userId: actor.userId,
+        workId: access.workId,
+        partId,
+        role,
+      });
+      await putSegmentObject(identity.storageKey, synthesized.audio);
+      const published = await finalizeSegmentReady(activeClaim.id, activeClaim.token, {
+        storageKey: identity.storageKey,
+        voice: synthesized.voice,
+        mimeType: synthesized.mimeType,
+        durationMs: synthesized.durationMs,
+        wordTimings: synthesized.wordTimings,
+      });
+      if (!published) {
+        // Lease was taken over while synthesizing — wait for the winner's row,
+        // or re-claim (bounded) if that winner failed as well.
+        claim = { kind: 'wait' };
+        continue;
+      }
+      return toSegmentPayload(partId, role, derived, {
+        voice: synthesized.voice,
+        mimeType: synthesized.mimeType,
+        durationMs: synthesized.durationMs,
+        wordTimings: synthesized.wordTimings,
+      });
+    } catch (error) {
+      const errorCode = error instanceof AppError ? error.code : ERROR_CODES.TTS.SYNTHESIS_FAILED;
+      await failSegmentGeneration(activeClaim.id, activeClaim.token, errorCode);
+      throw error;
+    }
   }
 }
 
@@ -182,7 +237,7 @@ export async function streamReaderAudioSegment(
   range?: { start: number; end?: number },
 ): Promise<ReaderAudioStreamResult> {
   const access = await requireReadablePart(actor, partId);
-  const derived = requireDerivedSegment(access.body, index);
+  const derived = requireDerivedSegment(partId, access.body, index);
   if (derived.segmentHash !== hash) {
     throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
@@ -203,7 +258,17 @@ export async function streamReaderAudioSegment(
     throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
 
-  const object = await getObjectStream(row.storageKey, range);
+  let object;
+  try {
+    object = await getObjectStream(row.storageKey, range);
+  } catch (error) {
+    if (error instanceof RangeNotSatisfiableError && error.objectSize == null) {
+      // S3 reports 416 without a body size — fetch it so the route can answer
+      // with `Content-Range: bytes */<size>` (best effort).
+      throw new RangeNotSatisfiableError(await getObjectSize(row.storageKey));
+    }
+    throw error;
+  }
   if (!object) {
     throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
@@ -216,11 +281,11 @@ export async function streamReaderAudioSegment(
   };
 }
 
-function requireDerivedSegment(body: string, index: number): ReaderAudioDerivedSegment {
+function requireDerivedSegment(partId: string, body: string, index: number): ReaderAudioDerivedSegment {
   if (!Number.isInteger(index) || index < 0) {
     throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }
-  const segment = deriveReaderAudioSegments(body)[index];
+  const segment = deriveReaderAudioSegmentsForPart(partId, body)[index];
   if (!segment) {
     throw new NotFoundError(ERROR_CODES.READER_AUDIO.SEGMENT_NOT_FOUND);
   }

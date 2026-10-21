@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -14,6 +14,10 @@ import {
 import type { ReaderAudioManifest, ReaderAudioSegment } from '@gloaming/shared/reader';
 
 import app from '@/app';
+import { buildReaderAudioIdentity, type ReaderAudioIdentity } from '@/domains/reader-audio/identity';
+import { SEGMENT_LEASE_MS, WAIT_TIMEOUT_MS, waitForSegmentReady } from '@/domains/reader-audio/repository';
+import { deriveReaderAudioSegments, type ReaderAudioDerivedSegment } from '@/domains/reader-audio/segmenter';
+import { deriveReaderAudioSegmentsForPart, resetReaderAudioDeriveCache } from '@/domains/reader-audio/service';
 import { db } from '@/infra/db';
 import { encryptApiKey } from '@/infra/llm';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
@@ -171,6 +175,54 @@ describe('Reader lazy audio runtime', () => {
     return part;
   }
 
+  /** Instance-scope identity + derived segment for a test part (mirrors `buildIdentity` in service). */
+  function instanceIdentityFor(partId: string, role: 'us' | 'uk', index = 0) {
+    const derived = deriveReaderAudioSegments(TWO_PARAGRAPHS)[index]!;
+    const identity = buildReaderAudioIdentity({
+      partId,
+      role,
+      scopeKey: 'instance',
+      ownerUserId: null,
+      provider: instanceTtsValues.provider,
+      region: instanceTtsValues.region,
+      voice: role === 'us' ? instanceTtsValues.usVoice : instanceTtsValues.ukVoice,
+      segmentHash: derived.segmentHash,
+    });
+    return { identity, derived };
+  }
+
+  /** Insert a `part_audio_segment` row directly (constructed lease rows for wait/takeover tests). */
+  async function insertLeaseRow(
+    partId: string,
+    role: 'us' | 'uk',
+    identity: ReaderAudioIdentity,
+    derived: ReaderAudioDerivedSegment,
+    overrides: Partial<typeof partAudioSegmentTable.$inferInsert> = {},
+  ) {
+    const [row] = await db
+      .insert(partAudioSegmentTable)
+      .values({
+        id: randomUUID(),
+        partId,
+        role,
+        scopeKey: 'instance',
+        ownerUserId: null,
+        configFingerprint: identity.configFingerprint,
+        segmentIndex: derived.index,
+        segmentKey: derived.key,
+        segmentHash: derived.segmentHash,
+        paragraphAnchor: derived.paragraphAnchor,
+        paragraphTextOffset: derived.paragraphTextOffset,
+        textLength: derived.textLength,
+        voice: role === 'us' ? instanceTtsValues.usVoice : instanceTtsValues.ukVoice,
+        mimeType: 'audio/mpeg',
+        storageKey: identity.storageKey,
+        ...overrides,
+      })
+      .returning();
+    return row!;
+  }
+
   it('reports ttsConfigured=false and serves no segments when no configuration exists', async () => {
     const learner = await createSession('lazy0');
     createdEmails.push(learner.email);
@@ -270,6 +322,8 @@ describe('Reader lazy audio runtime', () => {
     expect(audioRes.status).toBe(200);
     expect(Buffer.from(await audioRes.arrayBuffer()).toString()).toBe(FAKE_MP3.toString());
     expect(audioRes.headers.get('accept-ranges')).toBe('bytes');
+    // L7: the URL carries an immutable segmentHash — privately cacheable, never no-store.
+    expect(audioRes.headers.get('cache-control')).toBe('private, max-age=86400, immutable');
   });
 
   it('rejects a stale manifest hash with 409 and an out-of-range index with 404', async () => {
@@ -476,5 +530,186 @@ describe('Reader lazy audio runtime', () => {
     });
     expect(logs[0]!.latencyMs).toBeGreaterThanOrEqual(0);
     expect(logs[0]!.textLength).toBeGreaterThan(0);
+  });
+
+  it('keeps the wait budget above the lease so a slow winner never fails the waiter early (H2)', async () => {
+    // Regression guard: WAIT_TIMEOUT_MS must be SEGMENT_LEASE_MS + 30s — the
+    // old 30s budget was shorter than the 60s lease and 503'd losing waiters
+    // while the winner was still synthesizing legally.
+    expect(WAIT_TIMEOUT_MS).toBe(SEGMENT_LEASE_MS + 30_000);
+    expect(WAIT_TIMEOUT_MS).toBeGreaterThan(SEGMENT_LEASE_MS);
+
+    const learner = await createSession('lazyh2');
+    createdEmails.push(learner.email);
+    const part = await createCatalogPart(TWO_PARAGRAPHS);
+    const { identity, derived } = instanceIdentityFor(part.id, 'us', 0);
+
+    // Constructed lease row: holder is still inside a valid lease (slow winner).
+    await insertLeaseRow(part.id, 'us', identity, derived, {
+      status: 'generating',
+      generationToken: randomUUID(),
+      leaseExpiresAt: new Date(Date.now() + 1_500),
+    });
+
+    // An exhausted budget yields a takeover signal — never a thrown 503 (the
+    // old implementation threw here). Injected short poll budget.
+    const early = await waitForSegmentReady(identity, 200, 50);
+    expect(early.kind).toBe('retry');
+
+    // Winner publishes while a fresh waiter polls: the waiter observes ready.
+    const winnerPublishes = (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await db
+        .update(partAudioSegmentTable)
+        .set({ status: 'ready', generationToken: null, leaseExpiresAt: null, errorCode: null })
+        .where(
+          and(eq(partAudioSegmentTable.partId, part.id), eq(partAudioSegmentTable.segmentHash, identity.segmentHash)),
+        );
+    })();
+
+    // Scaled-down injection of the production relationship (lease + margin).
+    const waited = await waitForSegmentReady(identity, 1_500 + 1_000, 50);
+    await winnerPublishes;
+    expect(waited.kind).toBe('ready');
+    if (waited.kind === 'ready') {
+      expect(waited.row.status).toBe('ready');
+      expect(waited.row.storageKey).toBe(identity.storageKey);
+    }
+  });
+
+  it('signals takeover instead of idling when the holder lease expires or the row failed (M3)', async () => {
+    const learner = await createSession('lazym3');
+    createdEmails.push(learner.email);
+    const part = await createCatalogPart(TWO_PARAGRAPHS);
+    const { identity, derived } = instanceIdentityFor(part.id, 'us', 0);
+
+    // Holder crashed: lease expired, status never changed.
+    await insertLeaseRow(part.id, 'us', identity, derived, {
+      status: 'generating',
+      generationToken: randomUUID(),
+      leaseExpiresAt: new Date(Date.now() - 1_000),
+    });
+    const startedAt = Date.now();
+    const expired = await waitForSegmentReady(identity, 10_000, 50);
+    expect(expired.kind).toBe('retry');
+    expect(Date.now() - startedAt).toBeLessThan(3_000); // prompt retry, no dead polling
+
+    // Holder reported failure — waiter re-claims instead of waiting forever.
+    await db
+      .update(partAudioSegmentTable)
+      .set({
+        status: 'failed',
+        generationToken: null,
+        leaseExpiresAt: null,
+        errorCode: 'api.errors.tts.synthesisFailed',
+      })
+      .where(
+        and(eq(partAudioSegmentTable.partId, part.id), eq(partAudioSegmentTable.segmentHash, identity.segmentHash)),
+      );
+    const failed = await waitForSegmentReady(identity, 10_000, 50);
+    expect(failed.kind).toBe('retry');
+  });
+
+  it('takes an expired lease over and synthesizes exactly once under concurrency (M3)', async () => {
+    const learner = await createSession('lazytake');
+    createdEmails.push(learner.email);
+    const part = await createCatalogPart(TWO_PARAGRAPHS);
+    const { identity, derived } = instanceIdentityFor(part.id, 'us', 0);
+
+    // Holder crashed mid-generation: expired lease, stale token.
+    await insertLeaseRow(part.id, 'us', identity, derived, {
+      status: 'generating',
+      generationToken: `stale-${randomUUID()}`,
+      leaseExpiresAt: new Date(Date.now() - 5_000),
+    });
+
+    let inFlight = 0;
+    let maxInFlight = 0;
+    vi.mocked(synthesizeAzureTts).mockImplementation(async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      inFlight -= 1;
+      return okSynthesis();
+    });
+
+    const [a, b] = await Promise.all([
+      app.request(`/api/reader/parts/${part.id}/audio/segments/0?role=us`, { headers: { Cookie: learner.cookie } }),
+      app.request(`/api/reader/parts/${part.id}/audio/segments/0?role=us`, { headers: { Cookie: learner.cookie } }),
+    ]);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(synthesizeAzureTts).toHaveBeenCalledTimes(1);
+    expect(maxInFlight).toBe(1);
+
+    const rows = await db.select().from(partAudioSegmentTable).where(eq(partAudioSegmentTable.partId, part.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ status: 'ready', errorCode: null, generationToken: null });
+  });
+
+  it('answers an out-of-range audio request with 416 and never 500 (M6)', async () => {
+    const learner = await createSession('lazyrange');
+    createdEmails.push(learner.email);
+    const part = await createCatalogPart(TWO_PARAGRAPHS);
+
+    const segmentRes = await app.request(`/api/reader/parts/${part.id}/audio/segments/0?role=us`, {
+      headers: { Cookie: learner.cookie },
+    });
+    expect(segmentRes.status).toBe(200);
+    const segment = (await segmentRes.json()) as ReaderAudioSegment;
+
+    // Start at/beyond object size → 416 with the wildcard Content-Range.
+    const beyond = await app.request(segment.audioUrl, {
+      headers: { Cookie: learner.cookie, Range: `bytes=${FAKE_MP3.length}-` },
+    });
+    expect(beyond.status).toBe(416);
+    expect(beyond.headers.get('content-range')).toBe(`bytes */${FAKE_MP3.length}`);
+    expect(beyond.headers.get('accept-ranges')).toBe('bytes');
+    expect(await beyond.text()).toBe('');
+
+    const farBeyond = await app.request(segment.audioUrl, {
+      headers: { Cookie: learner.cookie, Range: 'bytes=1000-2000' },
+    });
+    expect(farBeyond.status).toBe(416);
+
+    // Inverted bounds (end < start) are ignored — full body, 200.
+    const inverted = await app.request(segment.audioUrl, {
+      headers: { Cookie: learner.cookie, Range: 'bytes=10-2' },
+    });
+    expect(inverted.status).toBe(200);
+    expect(Buffer.from(await inverted.arrayBuffer()).toString()).toBe(FAKE_MP3.toString());
+
+    // A legal last-byte range still works.
+    const lastByte = await app.request(segment.audioUrl, {
+      headers: { Cookie: learner.cookie, Range: `bytes=${FAKE_MP3.length - 1}-` },
+    });
+    expect(lastByte.status).toBe(206);
+    expect(lastByte.headers.get('content-range')).toBe(
+      `bytes ${FAKE_MP3.length - 1}-${FAKE_MP3.length - 1}/${FAKE_MP3.length}`,
+    );
+  });
+
+  it('memoizes segment derivation per part and body hash instead of re-parsing (M4)', () => {
+    resetReaderAudioDeriveCache();
+    try {
+      const first = deriveReaderAudioSegmentsForPart('m4-part', TWO_PARAGRAPHS);
+      const second = deriveReaderAudioSegmentsForPart('m4-part', TWO_PARAGRAPHS);
+      // Same part + same body → derived once (same array instance).
+      expect(second).toBe(first);
+      expect(first.length).toBeGreaterThan(0);
+      // Different body or different part → separate entries, same pure results.
+      expect(deriveReaderAudioSegmentsForPart('m4-part', `${TWO_PARAGRAPHS}<p data-p="2">More.</p>`)).not.toBe(first);
+      expect(deriveReaderAudioSegmentsForPart('m4-other', TWO_PARAGRAPHS)).not.toBe(first);
+
+      // LRU bound of 32: the least-recently-used entry is evicted, refreshed ones survive.
+      resetReaderAudioDeriveCache();
+      const entries = Array.from({ length: 32 }, (_, i) => deriveReaderAudioSegmentsForPart(`p${i}`, TWO_PARAGRAPHS));
+      deriveReaderAudioSegmentsForPart('p31', TWO_PARAGRAPHS); // refresh recency of p31
+      deriveReaderAudioSegmentsForPart('p32', TWO_PARAGRAPHS); // 33rd entry → evict p0 (LRU)
+      expect(deriveReaderAudioSegmentsForPart('p0', TWO_PARAGRAPHS)).not.toBe(entries[0]);
+      expect(deriveReaderAudioSegmentsForPart('p31', TWO_PARAGRAPHS)).toBe(entries[31]);
+    } finally {
+      resetReaderAudioDeriveCache();
+    }
   });
 });

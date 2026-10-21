@@ -61,6 +61,39 @@ describe('deriveReaderAudioSegments', () => {
     expect(segments.map((s) => s.paragraphTextOffset)).toEqual([0, SEGMENT_MAX_CHARS, SEGMENT_MAX_CHARS * 2]);
   });
 
+  it('hard-cuts only when the over-long window contains no whitespace at all', () => {
+    // No spaces anywhere — every chunk lands exactly on the budget.
+    const noSpaces = 'z'.repeat(SEGMENT_MAX_CHARS + 1);
+    const segments = deriveReaderAudioSegments(paragraph(noSpaces));
+    expect(segments.map((s) => s.textLength)).toEqual([SEGMENT_MAX_CHARS, 1]);
+    expect(segments.map((s) => s.text)).toEqual(['z'.repeat(SEGMENT_MAX_CHARS), 'z']);
+  });
+
+  it('splits a long sentenceless run at whitespace inside the budget instead of mid-word', () => {
+    // 61-char words: a hard cut at 600 would land inside a word.
+    const words = Array.from({ length: 40 }, (_, i) => `word${i}${'x'.repeat(57 - String(i).length)}`);
+    const paragraphText = words.join(' ');
+    expect(words[0]!.length).toBe(61);
+    expect(paragraphText.length).toBeGreaterThan(SEGMENT_MAX_CHARS);
+
+    const segments = deriveReaderAudioSegments(paragraph(paragraphText));
+    expect(segments.length).toBeGreaterThan(1);
+    for (const segment of segments) {
+      expect(segment.textLength).toBeLessThanOrEqual(SEGMENT_MAX_CHARS);
+      // Chunks are slices of the source at their recorded offsets.
+      expect(paragraphText.slice(segment.paragraphTextOffset, segment.paragraphTextOffset + segment.textLength)).toBe(
+        segment.text,
+      );
+      // Never starts or ends mid-word: boundaries sit on whitespace gaps.
+      expect(segment.text).not.toMatch(/^\s|\s$/);
+      if (segment.paragraphTextOffset > 0) {
+        expect(paragraphText[segment.paragraphTextOffset - 1]).toBe(' ');
+      }
+    }
+    // All words survive intact and in order.
+    expect(segments.map((s) => s.text).join(' ')).toBe(paragraphText);
+  });
+
   it('excludes sup/sub and bilingual translation injections from synth text', () => {
     const body =
       '<p data-p="0">Visible words<sup>12</sup> stay<sub>2</sub> here.' +

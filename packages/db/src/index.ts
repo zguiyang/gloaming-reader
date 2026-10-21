@@ -2,7 +2,6 @@ export type {
   AiInvocationRequestSummary,
   AiInvocationResponseSummary,
   ContentAssetMeta,
-  ContentAssetWordTiming,
   ConversationMessageMetadata,
   DiscoverySyncRunStage,
   PartAudioSegmentRole,

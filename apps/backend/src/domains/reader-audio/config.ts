@@ -26,10 +26,15 @@ export async function resolveReaderAudioConfig(
   if (!row) {
     return null;
   }
+  const voice = role === 'us' ? row.usVoice : row.ukVoice;
+  // A role without a usable voice is an unconfigured TTS — never call Azure with it.
+  if (!voice || !voice.trim()) {
+    return null;
+  }
   return {
     row,
     scopeKey: readerAudioScopeKey(row.ownerUserId),
     ownerUserId: row.ownerUserId,
-    voice: role === 'us' ? row.usVoice : row.ukVoice,
+    voice,
   };
 }

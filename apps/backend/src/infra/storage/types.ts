@@ -10,6 +10,12 @@ export type ObjectGetResult = {
   contentType: string;
 };
 
+/** Object metadata from a HEAD read — used to answer out-of-range requests. */
+export type ObjectHeadResult = {
+  size: number;
+  contentType: string;
+};
+
 /** Optional byte range for streamed reads (end is inclusive). */
 export type ObjectRange = {
   start: number;
@@ -54,6 +60,8 @@ export type ObjectStore = {
   /** Streamed read with optional byte range (used by the asset gateway). */
   getStream(key: string, range?: ObjectRange): Promise<ObjectGetStreamResult | null>;
   exists(key: string): Promise<boolean>;
+  /** Optional metadata read (size/content type) without downloading the body. */
+  head?(key: string): Promise<ObjectHeadResult | null>;
   delete(key: string): Promise<void>;
   /** Optional batch delete. The storage facade falls back to bounded per-key deletes when absent. */
   deleteMany?(keys: string[]): Promise<ObjectDeleteManyResult>;

@@ -48,10 +48,42 @@ function trimRange(text: string, start: number, end: number): ChunkRange | null 
   return e > s ? { start: s, end: e } : null;
 }
 
-function chunkByLength(range: ChunkRange, maxChars: number): ChunkRange[] {
+/**
+ * Split one over-long sentenceless run inside the character budget, preferring
+ * the last whitespace within the budget so words are never cut in half; a hard
+ * cut at the budget happens only when the window contains no whitespace at all.
+ */
+function chunkByLength(text: string, range: ChunkRange, maxChars: number): ChunkRange[] {
   const out: ChunkRange[] = [];
-  for (let start = range.start; start < range.end; start += maxChars) {
-    out.push({ start, end: Math.min(start + maxChars, range.end) });
+  let start = range.start;
+  while (start < range.end) {
+    const hardEnd = Math.min(start + maxChars, range.end);
+    if (hardEnd >= range.end) {
+      out.push({ start, end: hardEnd });
+      break;
+    }
+    // Walk back from the budget limit to the nearest whitespace boundary.
+    let boundary = hardEnd;
+    while (boundary > start && !/\s/.test(text[boundary - 1]!)) {
+      boundary -= 1;
+    }
+    if (boundary <= start) {
+      // No whitespace anywhere inside the window — unavoidable hard cut.
+      out.push({ start, end: hardEnd });
+      start = hardEnd;
+      continue;
+    }
+    // `text[boundary - 1]` is whitespace — end the chunk before it…
+    let end = boundary;
+    while (end > start && /\s/.test(text[end - 1]!)) {
+      end -= 1;
+    }
+    out.push({ start, end: Math.max(end, start) });
+    // …and resume the next chunk after it, so the gap is exactly that space.
+    start = boundary;
+    while (start < range.end && /\s/.test(text[start]!)) {
+      start += 1;
+    }
   }
   return out;
 }
@@ -84,7 +116,7 @@ function splitParagraphChunks(text: string, maxChars: number): ChunkRange[] {
     pieces.push(tail);
   }
   if (pieces.length === 0) {
-    return chunkByLength({ start: 0, end: text.length }, maxChars);
+    return chunkByLength(text, { start: 0, end: text.length }, maxChars);
   }
 
   const chunks: ChunkRange[] = [];
@@ -96,7 +128,7 @@ function splitParagraphChunks(text: string, maxChars: number): ChunkRange[] {
         chunks.push(current);
         current = null;
       }
-      chunks.push(...chunkByLength(piece, maxChars));
+      chunks.push(...chunkByLength(text, piece, maxChars));
       continue;
     }
     if (!current) {

@@ -6,7 +6,7 @@ export {
   buildReaderAudioIdentity,
   readerAudioScopeKey,
 } from '@/domains/reader-audio/identity';
-export type { SegmentClaim, SegmentRow } from '@/domains/reader-audio/repository';
+export type { SegmentClaim, SegmentRow,SegmentWaitResult } from '@/domains/reader-audio/repository';
 export {
   claimSegmentGeneration,
   failSegmentGeneration,

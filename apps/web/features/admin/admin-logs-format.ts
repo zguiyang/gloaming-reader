@@ -20,8 +20,8 @@ const AI_PURPOSE_KEYS: Record<string, string> = {
 };
 
 const TTS_SOURCE_KEYS: Record<string, string> = {
-  'admin.article_audio': 'adminArticleAudio',
   'admin.tts_test': 'adminTtsTest',
+  reader_segment: 'readerSegment',
 };
 
 const TTS_ROLE_KEYS: Record<string, string> = {

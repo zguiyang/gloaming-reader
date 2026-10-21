@@ -595,35 +595,11 @@ export const dictionaryEntry = pgTable(
   (table) => [unique('dictionary_entry_word_uidx').on(table.word), index('dictionary_entry_word_idx').on(table.word)],
 );
 
-/** Word boundary timings for part audio (mirrors TTS wordTimings). */
-export type ContentAssetWordTiming = {
-  text: string;
-  audioOffsetMs: number;
-  durationMs: number;
-  textOffset: number;
-};
-
-/** One TTS segment inside a part audio timeline (audio_* kinds). */
-export type ContentAssetAudioTimelineSegment = {
-  index: number;
-  textHash: string;
-  startMs: number;
-  durationMs: number;
-  /**
-   * Legacy segment object key. New chapter-only assets omit this and keep
-   * timing fields only; historical rows may still include it.
-   */
-  storageKey?: string;
-  wordTimings: ContentAssetWordTiming[];
-};
-
 export type ContentAssetMeta = {
   voice?: string;
   durationMs?: number;
   lastError?: string;
   generatedAt?: string;
-  /** audio_* — word-timing segments (`storageKey` optional / timing-only). */
-  timeline?: ContentAssetAudioTimelineSegment[];
   /**
    * Formal persisted object-storage keys only (e.g. chapter.mp3).
    * Do not list ephemeral or never-persisted segment keys.
@@ -646,7 +622,7 @@ export type ContentAssetMeta = {
   reused?: boolean;
 };
 
-/** Unified storage for origin files, covers, TTS audio, future derivatives (ADR-001). */
+/** Unified storage for origin files, covers, and future derivatives (ADR-001). */
 export const contentAsset = pgTable(
   'content_asset',
   {

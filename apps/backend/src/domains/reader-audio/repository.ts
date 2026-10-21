@@ -16,9 +16,16 @@ export type SegmentRow = typeof partAudioSegmentTable.$inferSelect;
 /** Claim lease — long enough for one ≤600-char Azure call, short enough for crash recovery. */
 export const SEGMENT_LEASE_MS = 60_000;
 
-/** Default poll budget for a waiter that lost the claim race. */
-const SEGMENT_WAIT_TIMEOUT_MS = 30_000;
+/**
+ * Wait budget for a waiter that lost the claim race. Must outlive the lease by
+ * a margin: a slow-but-legal synthesis can consume the whole lease, and a
+ * waiter must never fail (503) while the holder still has a valid claim.
+ */
+export const WAIT_TIMEOUT_MS = SEGMENT_LEASE_MS + 30_000;
 const SEGMENT_WAIT_INTERVAL_MS = 150;
+
+/** Max re-claim attempts after a wait ends without a ready row (bounded, no infinite loop). */
+export const MAX_CLAIM_RETRIES = 2;
 
 export type SegmentClaimMeta = {
   segmentIndex: number;
@@ -31,6 +38,12 @@ export type SegmentClaimMeta = {
 
 export type SegmentClaim =
   { kind: 'claimed'; id: string; token: string } | { kind: 'ready'; row: SegmentRow } | { kind: 'wait' };
+
+/**
+ * Wait outcome: `ready` serves directly; `retry` means the waiter should
+ * re-claim (take over a failed row or an expired lease) instead of waiting on.
+ */
+export type SegmentWaitResult = { kind: 'ready'; row: SegmentRow } | { kind: 'retry' };
 
 function identityWhere(identity: ReaderAudioIdentity) {
   return and(
@@ -111,6 +124,10 @@ export async function claimSegmentGeneration(
     }
 
     // failed, or generating with an expired lease — take over only if still claimable.
+    // NOTE: the lease comparison must use the same serialization convention as every
+    // drizzle-written lease value (`.set/.values` store Dates as UTC ISO strings, and
+    // `timestamp` columns silently drop offsets). Passing a raw Date here would make
+    // the driver send local wall time and let a non-UTC client take over a valid lease.
     const taken = await tx
       .update(partAudioSegmentTable)
       .set({
@@ -124,7 +141,10 @@ export async function claimSegmentGeneration(
           eq(partAudioSegmentTable.id, existing.id),
           or(
             eq(partAudioSegmentTable.status, 'failed'),
-            and(eq(partAudioSegmentTable.status, 'generating'), sql`${partAudioSegmentTable.leaseExpiresAt} < ${now}`),
+            and(
+              eq(partAudioSegmentTable.status, 'generating'),
+              sql`${partAudioSegmentTable.leaseExpiresAt} < ${now.toISOString()}`,
+            ),
           ),
         ),
       )
@@ -199,25 +219,30 @@ export async function failSegmentGeneration(id: string, token: string, errorCode
 }
 
 /**
- * Poll until the segment is ready. Throws when the row fails or the wait budget
- * is exhausted; never triggers synthesis itself.
+ * Poll until the segment is ready. Returns `retry` when the row failed, the
+ * holder's lease expired (takeover needed), or the wait budget ran out — the
+ * caller decides whether to re-claim. Never triggers synthesis itself.
  */
 export async function waitForSegmentReady(
   identity: ReaderAudioIdentity,
-  timeoutMs = SEGMENT_WAIT_TIMEOUT_MS,
+  timeoutMs = WAIT_TIMEOUT_MS,
   intervalMs = SEGMENT_WAIT_INTERVAL_MS,
-): Promise<SegmentRow> {
+): Promise<SegmentWaitResult> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const row = await findSegmentByIdentity(identity);
     if (row?.status === 'ready') {
-      return row;
+      return { kind: 'ready', row };
     }
     if (row?.status === 'failed') {
-      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, row.errorCode ?? ERROR_CODES.TTS.SYNTHESIS_FAILED);
+      return { kind: 'retry' };
+    }
+    if (row?.status === 'generating' && row.leaseExpiresAt && row.leaseExpiresAt <= new Date()) {
+      // Holder crashed or overran its lease — do not keep idling, let the caller take over.
+      return { kind: 'retry' };
     }
     if (Date.now() >= deadline) {
-      throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
+      return { kind: 'retry' };
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }

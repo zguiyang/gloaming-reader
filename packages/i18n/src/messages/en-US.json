@@ -879,8 +879,8 @@
           "metadataEnrich": "Metadata enrichment"
         },
         "ttsSource": {
-          "adminArticleAudio": "Chapter audio",
-          "adminTtsTest": "Connectivity test"
+          "adminTtsTest": "Connectivity test",
+          "readerSegment": "Reader segment"
         },
         "ttsRole": {
           "default": "Default",
@@ -1395,7 +1395,8 @@
       },
       "oss": {
         "notConfigured": "Object storage is not configured",
-        "unavailable": "Object storage is unavailable"
+        "unavailable": "Object storage is unavailable",
+        "rangeNotSatisfiable": "Requested range is not satisfiable"
       },
       "dictionary": {
         "providerNotImplemented": "Dictionary provider \"{providerId}\" is not implemented or supported",
