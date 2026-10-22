@@ -39,9 +39,18 @@ export type ReaderAudioSegmentFetcher = (
   init?: { signal?: AbortSignal },
 ) => Promise<ReaderAudioSegment>;
 
+/** Fetches buffered segment audio bytes; defaults to a credentialed same-origin fetch. */
+export type ReaderAudioByteFetcher = (url: string, init?: { signal?: AbortSignal }) => Promise<Blob>;
+
 export type ReaderAudioControllerDeps = {
   fetchManifest: ReaderAudioManifestFetcher;
   fetchSegment: ReaderAudioSegmentFetcher;
+  /** Defaults to `fetch(url, { credentials: 'include' })` + an ok check. */
+  fetchAudioBytes?: ReaderAudioByteFetcher;
+  /** Blob URL creation for buffered bytes; defaults to `URL.createObjectURL`. */
+  createBlobUrl?: (blob: Blob) => string;
+  /** Blob URL release; defaults to `URL.revokeObjectURL`. */
+  revokeBlobUrl?: (url: string) => void;
   /** Defaults to `new Audio()`; tests inject a fake element. */
   createAudio?: () => HTMLAudioElement;
   onStateChange: (state: ReaderAudioControllerState) => void;
@@ -87,6 +96,30 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
 
+/** Keep this much real-duration audio buffered ahead of the playhead. */
+const BUFFER_AHEAD_MS = 10_000;
+/** Hard cap on buffered segments ahead of the playhead. */
+const BUFFER_MAX_SEGMENTS = 3;
+/** Concurrent segment preparations (metadata + byte download) while buffering. */
+const BUFFER_CONCURRENCY = 2;
+/** English TTS speaks roughly 15 characters per second — duration estimate fallback. */
+const BUFFER_DURATION_CHARS_PER_SECOND = 15;
+
+async function defaultFetchAudioBytes(url: string, init?: { signal?: AbortSignal }): Promise<Blob> {
+  const response = await fetch(url, { credentials: 'include', signal: init?.signal });
+  if (!response.ok) {
+    throw new Error(`Failed to buffer reader audio bytes: ${response.status}`);
+  }
+  return response.blob();
+}
+
+/** A synthesized segment whose bytes are already in memory behind a blob URL. */
+type BufferedSegment = {
+  payload: ReaderAudioSegment;
+  blobUrl: string;
+  durationMs: number;
+};
+
 function isManifestStaleError(error: unknown): boolean {
   return error instanceof ApiRequestError && error.status === 409 && error.code === READER_AUDIO_MANIFEST_STALE_CODE;
 }
@@ -103,10 +136,13 @@ type SegmentRequestResult =
   { kind: 'payload'; payload: ReaderAudioSegment } | { kind: 'aborted' } | { kind: 'stale' } | { kind: 'error' };
 
 /**
- * Lazy per-segment listen player. One audio element, one in-flight segment
- * request, silent next-1 prefetch, abort-on-switch lifecycle. Pure logic —
- * DOM access is limited to the reading container passed into `toggle`, and
- * every external effect (toasts, state) goes through injected deps.
+ * Lazy per-segment listen player with a video-style look-ahead buffer. One
+ * audio element; ahead of the playhead up to 10s / 3 segments of audio are
+ * synthesized and downloaded into blob URLs, so segment boundaries play from
+ * memory instead of the network. Abort-on-switch lifecycle. Pure logic — DOM
+ * access is limited to the reading container passed into `toggle`, and every
+ * external effect (toasts, state, network, blob URLs) goes through injected
+ * deps.
  */
 export class ReaderAudioController {
   private readonly deps: ReaderAudioControllerDeps;
@@ -118,7 +154,21 @@ export class ReaderAudioController {
   private currentSegment: ReaderAudioSegmentView | null = null;
   private readonly manifests = new Map<ReaderAudioRole, ReaderAudioManifest>();
   private readonly segmentCache = new Map<string, ReaderAudioSegment>();
-  private inflight: InflightSegmentRequest | null = null;
+  /** Keyed metadata requests — playback plus up to `BUFFER_CONCURRENCY` buffer fills. */
+  private readonly inflight = new Map<string, InflightSegmentRequest>();
+  /** Look-ahead buffer: synthesized + downloaded segments keyed by index. */
+  private readonly buffer = new Map<number, BufferedSegment>();
+  /** In-flight buffer preparations (metadata and/or byte download) keyed by index. */
+  private readonly preparing = new Map<
+    number,
+    { abort: AbortController; promise: Promise<void>; durationMs: number | null }
+  >();
+  /** Indexes whose buffer fill failed — retried when playback reaches them, not in a loop. */
+  private readonly bufferFailed = new Set<number>();
+  /** Bumped whenever the buffer is invalidated by manifest_stale — kills running fill loops. */
+  private bufferEpoch = 0;
+  /** Identity of the running fill loop — one per session+epoch at most. */
+  private bufferRun: { session: number; epoch: number } | null = null;
   private manifestAbort: AbortController | null = null;
   private audio: HTMLAudioElement | null = null;
   private playbackRate = 1;
@@ -230,6 +280,7 @@ export class ReaderAudioController {
     this.abortRequests();
     this.audio?.pause();
     this.segmentCache.clear();
+    this.bufferFailed.clear();
     this.role = role;
     if (!shouldRestart) {
       this.setCurrent(-1, null);
@@ -254,6 +305,7 @@ export class ReaderAudioController {
     }
     this.segmentCache.clear();
     this.manifests.clear();
+    this.bufferFailed.clear();
     this.setCurrent(-1, null);
     this.setStatus('idle');
   }
@@ -282,7 +334,7 @@ export class ReaderAudioController {
     }
     if (session !== this.session) return;
     this.setStatus('playing');
-    void this.prefetchSegment(this.currentIndex + 1);
+    void this.fillBuffer();
   }
 
   private async retryCurrent(container: ParentNode | null): Promise<void> {
@@ -397,7 +449,11 @@ export class ReaderAudioController {
       // the stale cache. The replayed request reads the new expectedHash
       // from the refreshed manifest.
       this.abortSegment();
+      this.abortBufferSegments();
       this.segmentCache.clear();
+      this.bufferFailed.clear();
+      this.clearBuffer();
+      this.bufferEpoch += 1;
       this.manifests.delete(this.role);
       const anchor = manifest.segments[index]?.paragraphAnchor ?? null;
       const refreshed = await this.ensureManifest(this.role);
@@ -415,8 +471,9 @@ export class ReaderAudioController {
   }
 
   /**
-   * Single in-flight segment slot: reuse a matching request, otherwise abort
-   * the previous one. Ready results land in the per-role cache.
+   * Keyed single-flight per segment: reuse a matching request, never abort a
+   * different one (playback and buffer fills coexist). Ready results land in
+   * the per-role cache.
    */
   private async requestSegment(index: number): Promise<SegmentRequestResult> {
     const partId = this.partId;
@@ -431,14 +488,13 @@ export class ReaderAudioController {
       return { kind: 'payload', payload: cached };
     }
     const session = this.session;
-    const existing = this.inflight;
-    if (existing && existing.role === role && existing.index === index) {
+    const existing = this.inflight.get(cacheKey);
+    if (existing) {
       // Reused requests report the real outcome — a network/server failure must
       // surface as `error` (retryable), never masquerade as an abort.
       const result = await existing.promise;
       return session === this.session ? result : { kind: 'aborted' };
     }
-    this.abortSegment();
     const abort = new AbortController();
     const promise = (async (): Promise<SegmentRequestResult> => {
       try {
@@ -461,40 +517,222 @@ export class ReaderAudioController {
         }
         return { kind: 'error' };
       } finally {
-        if (this.inflight?.abort === abort) {
-          this.inflight = null;
+        if (this.inflight.get(cacheKey)?.abort === abort) {
+          this.inflight.delete(cacheKey);
         }
       }
     })();
-    this.inflight = { role, index, abort, promise };
+    this.inflight.set(cacheKey, { role, index, abort, promise });
     const result = await promise;
     return session === this.session ? result : { kind: 'aborted' };
   }
 
-  /** Silent next-1 prefetch — one page ahead, never blocks playback. */
-  private async prefetchSegment(index: number): Promise<void> {
-    const manifest = this.manifests.get(this.role);
-    if (!manifest || index < 0 || index >= manifest.segments.length) {
+  /**
+   * Keep up to `BUFFER_AHEAD_MS` / `BUFFER_MAX_SEGMENTS` of synthesized,
+   * downloaded audio ahead of the playhead. One loop per session; each
+   * segment preparation (metadata + bytes) runs concurrently up to
+   * `BUFFER_CONCURRENCY` and stops at chapter end. Failures are silent —
+   * playback re-requests when it reaches the failed segment.
+   */
+  private fillBuffer(): void {
+    const session = this.session;
+    const epoch = this.bufferEpoch;
+    const current = this.bufferRun;
+    if (current && current.session === session && current.epoch === epoch) {
       return;
     }
-    if (this.inflight) {
+    this.bufferRun = { session, epoch };
+    void (async () => {
+      try {
+        await this.fillLoop(session, epoch);
+      } finally {
+        if (this.bufferRun && this.bufferRun.session === session && this.bufferRun.epoch === epoch) {
+          this.bufferRun = null;
+        }
+      }
+    })();
+  }
+
+  private async fillLoop(session: number, epoch: number): Promise<void> {
+    while (session === this.session && epoch === this.bufferEpoch) {
+      const manifest = this.manifests.get(this.role);
+      if (!manifest) {
+        return;
+      }
+      // Consecutive buffered duration/segments from the next index onward.
+      let aheadMs = 0;
+      let aheadCount = 0;
+      let scan = this.currentIndex + 1;
+      while (this.buffer.has(scan)) {
+        aheadMs += this.buffer.get(scan)!.durationMs;
+        aheadCount += 1;
+        scan += 1;
+      }
+      // In-flight fills with known durations count toward the budget so a
+      // burst of short segments cannot overshoot the 10s ceiling.
+      let pendingMs = 0;
+      for (const entry of this.preparing.values()) {
+        pendingMs += entry.durationMs ?? 0;
+      }
+      if (aheadMs + pendingMs >= BUFFER_AHEAD_MS || aheadCount >= BUFFER_MAX_SEGMENTS) {
+        return;
+      }
+      let started = 0;
+      for (let index = scan; index < manifest.segments.length && index <= scan + 1; index++) {
+        if (this.buffer.has(index) || this.bufferFailed.has(index) || this.preparing.has(index)) {
+          continue;
+        }
+        if (this.preparing.size >= BUFFER_CONCURRENCY || this.futureBufferCount() >= BUFFER_MAX_SEGMENTS) {
+          break;
+        }
+        this.startBufferSegment(index, session);
+        started += 1;
+      }
+      if (started === 0) {
+        if (this.preparing.size === 0) {
+          // Chapter end, a failed index nothing can advance past, or limits met.
+          return;
+        }
+        await Promise.race([...this.preparing.values()].map((entry) => entry.promise));
+      }
+    }
+  }
+
+  /** Buffered + in-flight segments ahead of the playhead — feeds the 3-segment cap. */
+  private futureBufferCount(): number {
+    let count = this.preparing.size;
+    for (const index of this.buffer.keys()) {
+      if (index > this.currentIndex) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  private startBufferSegment(index: number, session: number): void {
+    const abort = new AbortController();
+    const entry: { abort: AbortController; promise: Promise<void>; durationMs: number | null } = {
+      abort,
+      durationMs: null,
+      promise: Promise.resolve(),
+    };
+    this.preparing.set(index, entry);
+    entry.promise = this.bufferSegment(index, abort, session).finally(() => {
+      if (this.preparing.get(index)?.abort === abort) {
+        this.preparing.delete(index);
+      }
+    });
+  }
+
+  /** Synthesize one segment, download its bytes and park them behind a blob URL. */
+  private async bufferSegment(index: number, abort: AbortController, session: number): Promise<void> {
+    try {
+      const result = await this.requestSegment(index);
+      if (session !== this.session || abort.signal.aborted) {
+        return;
+      }
+      if (result.kind === 'stale') {
+        // The server regenerated the chapter: drop buffered bytes and warm
+        // caches so no stale-generation payload can be served, block an
+        // immediate retry loop, and let playback hit the manifest_stale
+        // recovery when it reaches this index. Only buffer-side work is
+        // aborted here — aborting the shared metadata slot could cancel the
+        // playback request and strand it in `loading`.
+        this.abortBufferSegments();
+        this.segmentCache.clear();
+        this.clearBuffer();
+        this.bufferEpoch += 1;
+        this.bufferFailed.add(index);
+        return;
+      }
+      if (result.kind !== 'payload') {
+        if (result.kind === 'error') {
+          this.bufferFailed.add(index);
+        }
+        return;
+      }
+      if (index <= this.currentIndex) {
+        return; // playback already passed it — no bytes needed
+      }
+      const payload = result.payload;
+      const durationMs = this.resolveDurationMs(payload, index);
+      const pending = this.preparing.get(index);
+      if (pending?.abort === abort) {
+        pending.durationMs = durationMs; // feeds the fill budget while bytes download
+      }
+      const fetchBytes = this.deps.fetchAudioBytes ?? defaultFetchAudioBytes;
+      const blob = await fetchBytes(payload.audioUrl, { signal: abort.signal });
+      if (session !== this.session || abort.signal.aborted || index <= this.currentIndex) {
+        return;
+      }
+      const blobUrl = this.createBlobUrl(blob);
+      if (session !== this.session || abort.signal.aborted) {
+        this.revokeBlobUrl(blobUrl);
+        return;
+      }
+      this.buffer.set(index, { payload, blobUrl, durationMs });
+    } catch (error) {
+      // Silent: playback re-requests when it reaches the segment. Aborts are
+      // lifecycle noise, not failures worth retrying.
+      if (session === this.session && !abort.signal.aborted && !isAbortError(error)) {
+        this.bufferFailed.add(index);
+      }
+    }
+  }
+
+  private resolveDurationMs(payload: ReaderAudioSegment, index: number): number {
+    if (payload.durationMs != null) {
+      return payload.durationMs;
+    }
+    const textLength = this.manifests.get(this.role)?.segments[index]?.textLength ?? 0;
+    return Math.round((textLength / BUFFER_DURATION_CHARS_PER_SECOND) * 1000);
+  }
+
+  private createBlobUrl(blob: Blob): string {
+    return this.deps.createBlobUrl ? this.deps.createBlobUrl(blob) : URL.createObjectURL(blob);
+  }
+
+  private revokeBlobUrl(url: string): void {
+    if (this.deps.revokeBlobUrl) {
+      this.deps.revokeBlobUrl(url);
       return;
     }
-    // Failures stay silent; playback re-requests when it reaches the segment.
-    await this.requestSegment(index);
+    if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  /** Release buffered blobs outside `[centerIndex, centerIndex + BUFFER_MAX_SEGMENTS]`. */
+  private pruneBuffer(centerIndex: number): void {
+    for (const [index, entry] of this.buffer) {
+      if (index < centerIndex || index > centerIndex + BUFFER_MAX_SEGMENTS) {
+        this.revokeBlobUrl(entry.blobUrl);
+        this.buffer.delete(index);
+      }
+    }
+    for (const index of this.bufferFailed) {
+      if (index < centerIndex || index > centerIndex + BUFFER_MAX_SEGMENTS) {
+        this.bufferFailed.delete(index);
+      }
+    }
+  }
+
+  private clearBuffer(): void {
+    for (const entry of this.buffer.values()) {
+      this.revokeBlobUrl(entry.blobUrl);
+    }
+    this.buffer.clear();
   }
 
   private async playSegment(payload: ReaderAudioSegment, index: number, session: number): Promise<void> {
     const audio = this.ensureAudio();
     audio.src = payload.audioUrl;
     audio.playbackRate = this.playbackRate;
-    this.setCurrent(index, {
-      index,
-      paragraphAnchor: payload.paragraphAnchor,
-      paragraphTextOffset: payload.paragraphTextOffset,
-      textLength: this.manifests.get(this.role)?.segments[index]?.textLength ?? 0,
-      wordTimings: payload.wordTimings,
-    });
+    this.setCurrent(index, this.toSegmentView(payload, index));
+    this.pruneBuffer(index);
+    // Start buffering the look-ahead immediately — it fills while the first
+    // segment's audio still downloads/plays.
+    void this.fillBuffer();
     try {
       await audio.play();
     } catch {
@@ -504,7 +742,36 @@ export class ReaderAudioController {
     }
     if (session !== this.session) return;
     this.setStatus('playing');
-    void this.prefetchSegment(index + 1);
+  }
+
+  /** Advance from the look-ahead buffer: blob src, no network on the boundary. */
+  private async playFromBuffer(index: number, entry: BufferedSegment, session: number): Promise<void> {
+    const audio = this.ensureAudio();
+    audio.src = entry.blobUrl;
+    audio.playbackRate = this.playbackRate;
+    this.setCurrent(index, this.toSegmentView(entry.payload, index));
+    // The old segment's blob is spent and out-of-window ones are dead weight.
+    this.pruneBuffer(index);
+    void this.fillBuffer();
+    try {
+      await audio.play();
+    } catch {
+      if (session !== this.session) return;
+      this.failSegment();
+      return;
+    }
+    if (session !== this.session) return;
+    this.setStatus('playing');
+  }
+
+  private toSegmentView(payload: ReaderAudioSegment, index: number): ReaderAudioSegmentView {
+    return {
+      index,
+      paragraphAnchor: payload.paragraphAnchor,
+      paragraphTextOffset: payload.paragraphTextOffset,
+      textLength: this.manifests.get(this.role)?.segments[index]?.textLength ?? 0,
+      wordTimings: payload.wordTimings,
+    };
   }
 
   private ensureAudio(): HTMLAudioElement {
@@ -518,7 +785,7 @@ export class ReaderAudioController {
     return audio;
   }
 
-  /** `ended` advances one segment; the chapter's last segment stops playback. */
+  /** `ended` advances one segment — from memory when buffered, else via load. */
   private readonly handleEnded = (): void => {
     if (this.status !== 'playing') {
       return;
@@ -526,6 +793,11 @@ export class ReaderAudioController {
     const next = this.currentIndex + 1;
     const manifest = this.manifests.get(this.role);
     if (manifest && next < manifest.segments.length) {
+      const buffered = this.buffer.get(next);
+      if (buffered) {
+        void this.playFromBuffer(next, buffered, this.session);
+        return;
+      }
       void this.loadSegment(next);
       return;
     }
@@ -547,11 +819,23 @@ export class ReaderAudioController {
   private abortRequests(): void {
     this.abortSegment();
     this.abortManifest();
+    this.abortBufferSegments();
+    this.clearBuffer();
+    this.bufferFailed.clear();
   }
 
   private abortSegment(): void {
-    this.inflight?.abort.abort();
-    this.inflight = null;
+    for (const entry of this.inflight.values()) {
+      entry.abort.abort();
+    }
+    this.inflight.clear();
+  }
+
+  /** Abort in-flight buffer fills — byte fetches observe their signal. */
+  private abortBufferSegments(): void {
+    for (const entry of this.preparing.values()) {
+      entry.abort.abort();
+    }
   }
 
   private abortManifest(): void {

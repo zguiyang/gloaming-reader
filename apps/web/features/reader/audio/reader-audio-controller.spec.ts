@@ -74,7 +74,7 @@ function buildManifest(role: TestRole, count = 4, generation = ''): ReaderAudioM
 }
 
 function buildSegmentPayload(role: TestRole, index: number, generation = ''): ReaderAudioSegment {
-  const meta = buildManifest(role, 4, generation).segments[index]!;
+  const meta = buildManifest(role, 8, generation).segments[index]!;
   return {
     index,
     role,
@@ -87,6 +87,19 @@ function buildSegmentPayload(role: TestRole, index: number, generation = ''): Re
     segmentHash: meta.segmentHash,
     audioUrl: generation ? `/audio/${generation}/${role}/${index}` : `/audio/${role}/${index}`,
   };
+}
+
+/** Segment bytes stand-in carrying its source URL so blob URLs stay deterministic. */
+function audioBytesBlob(url: string): Blob {
+  const blob = new Blob([`audio-bytes:${url}`], { type: 'audio/mpeg' });
+  (blob as Blob & { sourceUrl?: string }).sourceUrl = url;
+  return blob;
+}
+
+function abortError(): Error {
+  const error = new Error('aborted');
+  error.name = 'AbortError';
+  return error;
 }
 
 function stubRect(element: Element, top: number, bottom: number): void {
@@ -146,6 +159,7 @@ function renderParagraphs(rects: Array<{ top: number; bottom: number }>): HTMLDi
 function createHarness(overrides?: {
   fetchManifest?: ReturnType<typeof vi.fn>;
   fetchSegment?: ReturnType<typeof vi.fn>;
+  fetchAudioBytes?: ReturnType<typeof vi.fn>;
 }) {
   const states: ReaderAudioControllerState[] = [];
   const audio = new FakeAudio();
@@ -154,18 +168,35 @@ function createHarness(overrides?: {
   const fetchSegment =
     overrides?.fetchSegment ??
     vi.fn(async (_partId: string, role: TestRole, index: number) => buildSegmentPayload(role, index));
+  const fetchAudioBytes = overrides?.fetchAudioBytes ?? vi.fn(async (url: string) => audioBytesBlob(url));
+  const createBlobUrl = vi.fn((blob: Blob) => `blob:${(blob as Blob & { sourceUrl?: string }).sourceUrl ?? 'unknown'}`);
+  const revokeBlobUrl = vi.fn();
   const onUnavailable = vi.fn();
   const onSegmentFailed = vi.fn();
   const controller = new ReaderAudioController({
     fetchManifest,
     fetchSegment,
+    fetchAudioBytes,
+    createBlobUrl,
+    revokeBlobUrl,
     createAudio: () => audio as unknown as HTMLAudioElement,
     onStateChange: (state) => states.push(state),
     onUnavailable,
     onSegmentFailed,
   });
   controller.setContext({ partId: 'part-1', ttsConfigured: true });
-  return { controller, audio, fetchManifest, fetchSegment, onUnavailable, onSegmentFailed, states };
+  return {
+    controller,
+    audio,
+    fetchManifest,
+    fetchSegment,
+    fetchAudioBytes,
+    createBlobUrl,
+    revokeBlobUrl,
+    onUnavailable,
+    onSegmentFailed,
+    states,
+  };
 }
 
 describe('ReaderAudioController', () => {
@@ -198,21 +229,24 @@ describe('ReaderAudioController', () => {
     expect(harness.fetchSegment.mock.calls[0]!.slice(0, 4)).toEqual(['part-1', 'us', 0, 'us-hash-0']);
   });
 
-  it('advances on ended and plays the prefetched next segment without refetching', async () => {
+  it('advances on ended from the look-ahead buffer without new metadata or byte requests', async () => {
     const harness = createHarness();
     const container = renderContainer(1);
 
     await harness.controller.startFromVisibleParagraph(container);
-    await flush(); // next-1 prefetch for index 3
+    await flush(); // look-ahead fill for index 3
     expect(harness.fetchSegment.mock.calls.filter((call) => call[2] === 3)).toHaveLength(1);
+    expect(harness.fetchAudioBytes.mock.calls.map((call) => call[0])).toEqual(['/audio/us/3']);
 
     harness.audio.dispatch('ended');
     await flush();
 
-    expect(harness.audio.src).toBe('/audio/us/3');
+    // Segment boundary plays straight from the in-memory blob — no network.
+    expect(harness.audio.src).toBe('blob:/audio/us/3');
     expect(harness.controller.getState().status).toBe('playing');
-    // Prefetched once, served from cache on ended.
+    // Buffered once, served from memory on ended.
     expect(harness.fetchSegment.mock.calls.filter((call) => call[2] === 3)).toHaveLength(1);
+    expect(harness.fetchAudioBytes.mock.calls).toHaveLength(1);
   });
 
   it('stops at the last segment without requesting beyond the manifest', async () => {
@@ -221,15 +255,17 @@ describe('ReaderAudioController', () => {
 
     await harness.controller.startFromVisibleParagraph(container);
     await flush();
-    harness.audio.dispatch('ended'); // → index 3 (last)
+    harness.audio.dispatch('ended'); // → index 3 (last, from the buffer)
     await flush();
     expect(harness.controller.getState().status).toBe('playing');
+    expect(harness.audio.src).toBe('blob:/audio/us/3');
 
     harness.audio.dispatch('ended'); // last segment finished
     await flush();
 
     expect(harness.controller.getState()).toMatchObject({ status: 'idle', currentIndex: -1, segment: null });
     expect(harness.fetchSegment.mock.calls.some((call) => call[2] === 4)).toBe(false);
+    expect(harness.fetchAudioBytes.mock.calls.some((call) => String(call[0]).includes('/4'))).toBe(false);
   });
 
   it('stop aborts the in-flight segment request', async () => {
@@ -413,11 +449,10 @@ describe('ReaderAudioController', () => {
     await harness.controller.startFromVisibleParagraph(container);
     await flush();
     expect(harness.audio.src).toBe('/audio/us/0');
-
-    // Advance into the cached segment 1; its next-1 prefetch for segment 2 hangs.
+    // Advance into the buffered segment 1; its next fill for segment 2 hangs.
     harness.audio.dispatch('ended');
     await flush();
-    expect(harness.audio.src).toBe('/audio/us/1');
+    expect(harness.audio.src).toBe('blob:/audio/us/1');
 
     // Advance again — the load joins the in-flight segment 2 request, which
     // fails with manifest_stale; the manifest is refetched with new hashes.
@@ -668,6 +703,185 @@ describe('ReaderAudioController', () => {
     // Nothing follows the visible paragraph → nearest playable is the last segment.
     expect(harness.fetchSegment.mock.calls[0]!.slice(0, 4)).toEqual(['part-1', 'us', 1, 'us-hash-1']);
     expect(harness.audio.src).toBe('/audio/us/1');
+  });
+});
+
+describe('ReaderAudioController look-ahead buffer', () => {
+  it('fills up to three segments after playback starts, each behind a blob URL', async () => {
+    const harness = createHarness({
+      fetchManifest: vi.fn(async (_partId: string, role: TestRole) => buildManifest(role, 6)),
+    });
+    const container = renderContainer(0);
+
+    await harness.controller.startFromVisibleParagraph(container);
+    await flush();
+
+    expect(harness.fetchSegment.mock.calls.map((call) => call[2]).sort()).toEqual([0, 1, 2, 3]);
+    expect(harness.fetchAudioBytes.mock.calls.map((call) => String(call[0])).sort()).toEqual([
+      '/audio/us/1',
+      '/audio/us/2',
+      '/audio/us/3',
+    ]);
+    expect(harness.createBlobUrl).toHaveBeenCalledTimes(3);
+    // The 3-segment cap stops the fill before the chapter tail.
+    expect(harness.fetchSegment.mock.calls.some((call) => call[2] >= 4)).toBe(false);
+  });
+
+  it('stops filling once buffered plus in-flight duration covers the 10s budget', async () => {
+    const harness = createHarness({
+      fetchSegment: vi.fn(async (_partId: string, role: TestRole, index: number) => ({
+        ...buildSegmentPayload(role, index),
+        durationMs: 6000,
+      })),
+    });
+    const container = renderContainer(0);
+
+    await harness.controller.startFromVisibleParagraph(container);
+    await flush();
+
+    // Two 6s segments already cover the 10s look-ahead — a third would overshoot it.
+    expect(harness.fetchAudioBytes.mock.calls.map((call) => String(call[0])).sort()).toEqual([
+      '/audio/us/1',
+      '/audio/us/2',
+    ]);
+  });
+
+  it('completes the buffer during a short segment even when the next synthesis is slower', async () => {
+    const nextSegment = createDeferred<ReaderAudioSegment>();
+    let hasServedNext = false;
+    const harness = createHarness({
+      fetchSegment: vi.fn(async (_partId: string, role: TestRole, index: number) => {
+        if (index === 1 && !hasServedNext) {
+          hasServedNext = true;
+          return nextSegment.promise; // synthesis slower than segment 0's playback
+        }
+        return buildSegmentPayload(role, index);
+      }),
+    });
+    const container = renderContainer(0);
+
+    await harness.controller.startFromVisibleParagraph(container);
+    await flush();
+    expect(harness.audio.src).toBe('/audio/us/0');
+    expect(harness.audio.playCalls).toBe(1);
+    expect(harness.fetchAudioBytes.mock.calls.map((call) => String(call[0]))).not.toContain('/audio/us/1');
+
+    // Synthesis resolves "mid-playback" of the short segment.
+    nextSegment.resolve(buildSegmentPayload('us', 1));
+    await flush();
+
+    // Still on segment 0 — but segment 1's bytes are already in memory.
+    expect(harness.audio.playCalls).toBe(1);
+    expect(harness.fetchAudioBytes.mock.calls.map((call) => String(call[0]))).toContain('/audio/us/1');
+
+    harness.audio.dispatch('ended');
+    await flush();
+
+    expect(harness.audio.src).toBe('blob:/audio/us/1');
+    // The boundary did not re-request the buffered segment's bytes.
+    expect(harness.fetchAudioBytes.mock.calls.filter((call) => call[0] === '/audio/us/1')).toHaveLength(1);
+  });
+
+  it('stop revokes every buffered blob and aborts in-flight byte fetches', async () => {
+    const byteSignals = new Map<string, AbortSignal | undefined>();
+    const fetchAudioBytes = vi.fn((url: string, init?: { signal?: AbortSignal }) => {
+      byteSignals.set(url, init?.signal);
+      if (url.endsWith('/3')) {
+        return new Promise<Blob>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(abortError()));
+        });
+      }
+      return Promise.resolve(audioBytesBlob(url));
+    });
+    const harness = createHarness({
+      fetchManifest: vi.fn(async (_partId: string, role: TestRole) => buildManifest(role, 6)),
+      fetchAudioBytes,
+    });
+    const container = renderContainer(0);
+
+    await harness.controller.startFromVisibleParagraph(container);
+    await flush();
+    const createdBlobUrls = harness.createBlobUrl.mock.results.map((result) => result.value);
+    expect(createdBlobUrls).toHaveLength(2); // segments 1–2 buffered; segment 3 still downloading
+    const callsBeforeStop = harness.fetchAudioBytes.mock.calls.length;
+
+    harness.controller.stop();
+
+    expect(harness.revokeBlobUrl.mock.calls.map((call) => call[0]).sort()).toEqual([...createdBlobUrls].sort());
+    expect(byteSignals.get('/audio/us/3')!.aborted).toBe(true);
+    await flush();
+    expect(harness.fetchAudioBytes.mock.calls.length).toBe(callsBeforeStop); // nothing refilled after stop
+    harness.audio.dispatch('ended');
+    await flush();
+    expect(harness.fetchAudioBytes.mock.calls.length).toBe(callsBeforeStop);
+    expect(harness.controller.getState()).toMatchObject({ status: 'idle', currentIndex: -1 });
+  });
+
+  it('role switching revokes every buffered blob and buffers only the new role afterwards', async () => {
+    const harness = createHarness();
+    const container = renderContainer(0);
+
+    await harness.controller.startFromVisibleParagraph(container);
+    await flush();
+    const usBlobUrls = harness.createBlobUrl.mock.results.map((result) => result.value);
+    expect(usBlobUrls).toHaveLength(3);
+    const byteCallsBeforeSwitch = harness.fetchAudioBytes.mock.calls.length;
+
+    harness.controller.selectRole('uk');
+    await flush();
+
+    expect(harness.revokeBlobUrl.mock.calls.map((call) => call[0]).sort()).toEqual([...usBlobUrls].sort());
+    const newByteCalls = harness.fetchAudioBytes.mock.calls.slice(byteCallsBeforeSwitch).map((call) => String(call[0]));
+    expect(newByteCalls.length).toBeGreaterThan(0);
+    expect(newByteCalls.every((url) => url.startsWith('/audio/uk/'))).toBe(true);
+  });
+
+  it('a failed byte fetch does not block playback — the boundary falls back to a network load', async () => {
+    const harness = createHarness({
+      fetchAudioBytes: vi.fn(async (url: string) => {
+        if (url.endsWith('/1')) {
+          throw new Error('boom');
+        }
+        return audioBytesBlob(url);
+      }),
+    });
+    const container = renderContainer(0);
+
+    await harness.controller.startFromVisibleParagraph(container);
+    await flush();
+    // /1's bytes failed (no blob); the gap also stops the fill at /2.
+    expect(harness.createBlobUrl).toHaveBeenCalledTimes(1);
+
+    harness.audio.dispatch('ended'); // buffer miss for index 1 → fallback load
+    await flush();
+
+    expect(harness.audio.src).toBe('/audio/us/1');
+    expect(harness.controller.getState().status).toBe('playing');
+    expect(harness.onSegmentFailed).not.toHaveBeenCalled();
+
+    // Buffering resumed past the failed index.
+    expect(harness.fetchAudioBytes.mock.calls.map((call) => String(call[0]))).toContain('/audio/us/3');
+  });
+
+  it('never prefetches beyond the chapter end while filling or advancing', async () => {
+    const harness = createHarness(); // 4 segments
+    const container = renderContainer(0);
+
+    await harness.controller.startFromVisibleParagraph(container);
+    await flush();
+
+    const overChapterEnd = () =>
+      harness.fetchSegment.mock.calls.some((call) => call[2] >= 4) ||
+      harness.fetchAudioBytes.mock.calls.some((call) => String(call[0]).endsWith('/4'));
+    expect(overChapterEnd()).toBe(false);
+
+    for (let advance = 0; advance < 4; advance++) {
+      harness.audio.dispatch('ended');
+      await flush();
+    }
+
+    expect(harness.controller.getState().status).toBe('idle'); // last segment done
+    expect(overChapterEnd()).toBe(false);
   });
 });
 
