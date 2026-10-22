@@ -94,8 +94,8 @@ function stubRect(element: Element, top: number, bottom: number): void {
     ({ top, bottom, left: 0, right: 100, width: 100, height: bottom - top, x: 0, y: top }) as DOMRect;
 }
 
-/** Reading container whose viewport center lands in `centerParagraph` (0 or 1). */
-function renderContainer(centerParagraph: 0 | 1): HTMLDivElement {
+/** Reading container whose topmost visible paragraph is `anchorParagraph` (0 or 1). */
+function renderContainer(anchorParagraph: 0 | 1): HTMLDivElement {
   const container = document.createElement('div');
   container.innerHTML = `
     <div class="reading-body">
@@ -105,12 +105,13 @@ function renderContainer(centerParagraph: 0 | 1): HTMLDivElement {
   `;
   document.body.appendChild(container);
   const paragraphs = container.querySelectorAll('[data-p]');
-  if (centerParagraph === 0) {
+  if (anchorParagraph === 0) {
     stubRect(paragraphs[0]!, 0, 900);
     stubRect(paragraphs[1]!, 900, 1200);
   } else {
-    stubRect(paragraphs[0]!, 0, 300);
-    stubRect(paragraphs[1]!, 300, 900);
+    // Scrolled into the chapter: paragraph 0 is fully above the viewport.
+    stubRect(paragraphs[0]!, -400, -50);
+    stubRect(paragraphs[1]!, 100, 900);
   }
   return container;
 }
@@ -521,6 +522,57 @@ describe('ReaderAudioController', () => {
     expect(harness.controller.getState().status).toBe('playing');
   });
 
+  it('starts at the chapter opening (paragraph 0) when the topmost visible is a short title', async () => {
+    // One segment per paragraph — unlike buildManifest, which chunks two per paragraph.
+    const manifest: ReaderAudioManifest = {
+      role: 'us',
+      ttsConfigured: true,
+      configFingerprint: 'fp-us',
+      segments: [
+        {
+          index: 0,
+          key: '0:c0',
+          segmentHash: 'us-hash-0',
+          paragraphAnchor: '0',
+          paragraphTextOffset: 0,
+          textLength: 10,
+        },
+        {
+          index: 1,
+          key: '1:c0',
+          segmentHash: 'us-hash-1',
+          paragraphAnchor: '1',
+          paragraphTextOffset: 0,
+          textLength: 10,
+        },
+      ],
+    };
+    const harness = createHarness({
+      fetchManifest: vi.fn(async () => manifest),
+      fetchSegment: vi.fn(async (_partId, _role, index) => ({
+        ...buildSegmentPayload('us', index),
+        paragraphAnchor: String(index),
+      })),
+    });
+    // Chapter start after switching chapters: p0 is a short title (32–76), the
+    // body p1 starts at 92. The viewport center lands in p1, but the topmost
+    // visible paragraph is p0 — playback must open the chapter, not its second paragraph.
+    const container = renderParagraphs([
+      { top: 32, bottom: 76 },
+      { top: 92, bottom: 560 },
+    ]);
+
+    await harness.controller.startFromVisibleParagraph(container);
+
+    expect(harness.fetchSegment.mock.calls[0]!.slice(0, 4)).toEqual(['part-1', 'us', 0, 'us-hash-0']);
+    expect(harness.audio.src).toBe('/audio/us/0');
+    expect(harness.controller.getState()).toMatchObject({
+      status: 'playing',
+      currentIndex: 0,
+      segment: { paragraphAnchor: '0' },
+    });
+  });
+
   it('starts from the next playable paragraph when the visible one has no audio segment', async () => {
     // Paragraph 1 is image-only (no segments); playable paragraphs are 0 and 2.
     const manifest: ReaderAudioManifest = {
@@ -553,9 +605,9 @@ describe('ReaderAudioController', () => {
         paragraphAnchor: index === 1 ? '2' : '0',
       })),
     });
-    // Viewport center lands in paragraph 1 (no audio segment).
+    // Topmost visible paragraph is 1 (no audio segment); paragraph 0 is above the fold.
     const container = renderParagraphs([
-      { top: 0, bottom: 100 },
+      { top: -200, bottom: -50 },
       { top: 100, bottom: 700 },
       { top: 700, bottom: 900 },
     ]);
@@ -604,10 +656,10 @@ describe('ReaderAudioController', () => {
         paragraphAnchor: String(index),
       })),
     });
-    // Viewport center lands in paragraph 2 (past every segment).
+    // Topmost visible paragraph is 2 (a trailing image past every segment).
     const container = renderParagraphs([
-      { top: 0, bottom: 100 },
-      { top: 100, bottom: 200 },
+      { top: -300, bottom: -200 },
+      { top: -100, bottom: -50 },
       { top: 300, bottom: 700 },
     ]);
 
@@ -620,24 +672,26 @@ describe('ReaderAudioController', () => {
 });
 
 describe('resolveVisibleParagraphAnchor', () => {
-  it('returns the paragraph containing the viewport center', () => {
+  it('returns the topmost visible paragraph, not the one containing the viewport center', () => {
+    // Chapter opening: short title p0, body p1 below. Center = 384 lands in
+    // p1, but the anchor must be the chapter's first paragraph.
     const container = renderParagraphs([
-      { top: 0, bottom: 300 },
-      { top: 300, bottom: 900 },
+      { top: 32, bottom: 76 },
+      { top: 92, bottom: 560 },
     ]);
-    // center = 384 → inside paragraph 1.
+    expect(resolveVisibleParagraphAnchor(container, 768)).toBe('0');
+  });
+
+  it('returns the first paragraph whose top is visible when scrolled mid-chapter', () => {
+    const container = renderParagraphs([
+      { top: -500, bottom: -100 }, // fully above the viewport
+      { top: -40, bottom: 400 }, // only its top sliver shows
+      { top: 500, bottom: 900 }, // below the fold
+    ]);
     expect(resolveVisibleParagraphAnchor(container, 768)).toBe('1');
   });
 
-  it('falls back to the first visible paragraph when the center falls in a gap', () => {
-    const container = renderParagraphs([
-      { top: -400, bottom: -100 }, // above the viewport
-      { top: 500, bottom: 900 }, // only visible paragraph
-    ]);
-    expect(resolveVisibleParagraphAnchor(container, 768)).toBe('1');
-  });
-
-  it('falls back to the last paragraph above the fold when none are visible', () => {
+  it('falls back to the last paragraph above the fold when all content is scrolled past', () => {
     const container = renderParagraphs([
       { top: -800, bottom: -400 },
       { top: -300, bottom: -50 },
