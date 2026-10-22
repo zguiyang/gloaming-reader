@@ -90,7 +90,15 @@
   --ease-out-soft: var(--ease-out);
   --animate-loading-soft-ring: loading-soft-ring 2.2s var(--ease-out) infinite;
   --animate-loading-page: loading-page 1.15s ease-in-out infinite;
+  --animate-reader-disc-spin: reader-disc-spin 16s linear infinite;
+  --drop-shadow-icon: 0 1px 2px rgb(0 0 0 / 0.65);
   --max-width-reading-column: var(--reading-column);
+}
+
+@keyframes reader-disc-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes loading-soft-ring {

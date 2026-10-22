@@ -60,6 +60,7 @@ import { ReaderTocSidebar } from '@/features/reader/reader-toc-sidebar';
 import { ReaderUnavailable } from '@/features/reader/reader-unavailable';
 import { useReaderTranslate } from '@/features/reader/translate/use-reader-translate';
 import { isReadingStateRevisionConflict, saveReadingAnchor } from '@/features/reading-state/reading-state-api';
+import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 
@@ -863,15 +864,21 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         }}
       />
 
-      <ReaderTts
-        status={readerAudio.state.status}
-        playbackRate={playbackRate}
-        tocOpen={isTocOpen}
-        audioRole={readerAudio.state.role}
-        onToggle={readerAudio.toggle}
-        onCyclePlaybackRate={handleCyclePlaybackRate}
-        onSelectRole={readerAudio.selectRole}
-      />
+      {/* Mounted only while listening so the collapsed/expanded state resets on stop. */}
+      {readerAudio.state.status !== 'idle' && (
+        <ReaderTts
+          status={readerAudio.state.status}
+          playbackRate={playbackRate}
+          tocOpen={isTocOpen}
+          audioRole={readerAudio.state.role}
+          coverUrl={coverUrlFromAssetId(reader.coverAssetId)}
+          workTitle={reader.workTitle}
+          getChapterProgress={readerAudio.getChapterProgress}
+          onToggle={readerAudio.toggle}
+          onCyclePlaybackRate={handleCyclePlaybackRate}
+          onSelectRole={readerAudio.selectRole}
+        />
+      )}
     </div>
   );
 }

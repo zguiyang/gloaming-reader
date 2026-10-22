@@ -353,7 +353,7 @@ function clickButton(container: HTMLElement, ariaLabel: string): HTMLElement {
     throw new Error(`No button with aria-label "${ariaLabel}"`);
   }
   act(() => {
-    button.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
   });
   return button;
 }
@@ -415,6 +415,10 @@ describe('ReaderPage lazy audio', () => {
 
     clickButton(container, 'Listen');
     await flushMicrotasks();
+    // Accent controls live in the expanded pill; the collapsed avatar only
+    // carries play/pause and the expand trigger.
+    clickButton(container, 'Expand playback controls');
+    await flushMicrotasks();
     clickButton(container, 'UK accent');
     await flushMicrotasks();
 
@@ -423,6 +427,30 @@ describe('ReaderPage lazy audio', () => {
     expect(mocks.getReaderAudioSegment.mock.calls.some((call) => call[1] === 'uk' && call[2] === 0)).toBe(true);
     const audio = FakeAudio.instances.at(-1)!;
     expect(audio.src).toBe('/audio/uk/0');
+  });
+
+  it('collapses speed and accent behind the expand trigger until it is pressed', async () => {
+    const { container } = await renderReaderPage();
+
+    clickButton(container, 'Listen');
+    await flushMicrotasks();
+
+    const accentButton = Array.from(container.querySelectorAll('button')).find(
+      (element) => element.getAttribute('aria-label') === 'UK accent',
+    );
+    expect(accentButton).toBeDefined();
+    // Collapsed pill content is inert, so the avatar stays the only reachable control.
+    expect(accentButton!.closest('[inert]')).not.toBeNull();
+
+    clickButton(container, 'Expand playback controls');
+    await flushMicrotasks();
+    expect(accentButton!.closest('[inert]')).toBeNull();
+
+    // A press outside the player folds it back to the avatar.
+    act(() => {
+      document.body.dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
+    });
+    expect(accentButton!.closest('[inert]')).not.toBeNull();
   });
 
   it('toasts a segment failure and retries the current segment from the play button', async () => {
