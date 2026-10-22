@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, createElement, type ReactElement } from 'react';
+import { act, createElement, type ReactElement, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => ({
   getReaderAudioSegment: vi.fn(),
   routerReplace: vi.fn(),
   routerPush: vi.fn(),
+  searchParamsQuery: '',
+  stateMutateAsync: vi.fn(),
+  partQueryPartIds: [] as Array<string | null>,
 }));
 
 const fixtures = vi.hoisted(() => {
@@ -35,6 +38,19 @@ const fixtures = vi.hoisted(() => {
     ttsConfigured: true,
   };
 
+  const partDataP2 = {
+    work: { id: 'w1', title: 'Work', coverAssetId: null },
+    part: {
+      id: 'p2',
+      workId: 'w1',
+      sortOrder: 1,
+      kind: 'chapter' as const,
+      title: 'Chapter 2',
+      body: '<p data-p="0">Chapter two paragraph.</p>',
+    },
+    ttsConfigured: true,
+  };
+
   const partsData = {
     work: { id: 'w1', title: 'Work', description: null, coverAssetId: null, publishedAt: null },
     parts: [
@@ -47,6 +63,17 @@ const fixtures = vi.hoisted(() => {
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
         wordCount: 2,
+        estimatedMinutes: 1,
+      },
+      {
+        id: 'p2',
+        workId: 'w1',
+        sortOrder: 1,
+        kind: 'chapter' as const,
+        title: 'Chapter 2',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        wordCount: 1,
         estimatedMinutes: 1,
       },
     ],
@@ -94,14 +121,14 @@ const fixtures = vi.hoisted(() => {
     };
   }
 
-  return { partData, partsData, buildManifest, buildSegmentPayload };
+  return { partData, partDataP2, partsData, buildManifest, buildSegmentPayload };
 });
 
-const { partData, partsData, buildManifest, buildSegmentPayload } = fixtures;
+const { partData, partDataP2, partsData, buildManifest, buildSegmentPayload } = fixtures;
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.routerReplace, push: mocks.routerPush, back: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(mocks.searchParamsQuery),
 }));
 vi.mock('@/lib/auth', () => ({
   authClient: { useSession: () => ({ data: { user: { id: 'user-1' } }, isPending: false, error: null }) },
@@ -213,12 +240,21 @@ class FakeAudio {
 
 vi.mock('@/features/reader/reader-api', async (importOriginal) => {
   const actual = await importOriginal<typeof ReaderApiModule>();
+  const stateMutation = { mutateAsync: mocks.stateMutateAsync };
   return {
     ...actual,
     getReaderAudioManifest: mocks.getReaderAudioManifest,
     getReaderAudioSegment: mocks.getReaderAudioSegment,
     useReaderPartsQuery: () => ({ data: partsData, isPending: false, isError: false, refetch: vi.fn() }),
-    useReaderPartQuery: () => ({ data: partData, isPending: false, isError: false, refetch: vi.fn() }),
+    useReaderPartQuery: (partId: string | null) => {
+      mocks.partQueryPartIds.push(partId);
+      return {
+        data: partId === 'p2' ? partDataP2 : partData,
+        isPending: false,
+        isError: false,
+        refetch: vi.fn(),
+      };
+    },
     useReadingStateQuery: () => ({
       data: null,
       isPending: false,
@@ -226,19 +262,7 @@ vi.mock('@/features/reader/reader-api', async (importOriginal) => {
       isSuccess: true,
       refetch: vi.fn(),
     }),
-    useReaderStateMutation: () => ({
-      mutateAsync: async () => ({
-        status: 'in_progress',
-        currentPartId: 'p1',
-        completedThroughSortOrder: -1,
-        anchor: null,
-        revision: 1,
-        progressRatio: 10,
-        totalPartCount: 1,
-        lastReadAt: '2026-01-01T00:00:00.000Z',
-        completedAt: null,
-      }),
-    }),
+    useReaderStateMutation: () => stateMutation,
   };
 });
 
@@ -251,6 +275,21 @@ beforeEach(() => {
   FakeAudio.instances = [];
   vi.stubGlobal('Audio', FakeAudio);
   partData.ttsConfigured = true;
+  mocks.searchParamsQuery = '';
+  mocks.partQueryPartIds = [];
+  mocks.stateMutateAsync.mockImplementation(
+    async (command: { action: string; partId?: string; nextPartId?: string }) => ({
+      status: 'in_progress',
+      currentPartId: command.partId ?? command.nextPartId ?? 'p1',
+      completedThroughSortOrder: -1,
+      anchor: null,
+      revision: 1,
+      progressRatio: 10,
+      totalPartCount: 2,
+      lastReadAt: '2026-01-01T00:00:00.000Z',
+      completedAt: null,
+    }),
+  );
   mocks.getReaderAudioManifest.mockImplementation(async (_partId: string, role: 'us' | 'uk') => buildManifest(role));
   mocks.getReaderAudioSegment.mockImplementation(async (_partId: string, role: 'us' | 'uk', index: number) =>
     buildSegmentPayload(role, index),
@@ -282,7 +321,13 @@ async function renderReaderPage() {
   document.body.appendChild(container);
   const root = createRoot(container);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  await act(async () => root.render(withProviders(createElement(ReaderPage, { workId: 'w1' }), client)));
+  let rerenderReader: () => void = () => {};
+  function Harness() {
+    const [, setTick] = useState(0);
+    rerenderReader = () => setTick((tick) => tick + 1);
+    return createElement(ReaderPage, { workId: 'w1' });
+  }
+  await act(async () => root.render(withProviders(createElement(Harness), client)));
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
   let isCleaned = false;
   const cleanup = () => {
@@ -292,7 +337,12 @@ async function renderReaderPage() {
     container.remove();
   };
   renderedRoots.push(cleanup);
-  return { container, cleanup };
+  // Re-render without remounting so mocked useSearchParams can return a new URL.
+  const rerender = async () => {
+    await act(async () => rerenderReader());
+    await flushMicrotasks();
+  };
+  return { container, cleanup, rerender };
 }
 
 function clickButton(container: HTMLElement, ariaLabel: string): HTMLElement {
@@ -306,6 +356,18 @@ function clickButton(container: HTMLElement, ariaLabel: string): HTMLElement {
     button.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
   });
   return button;
+}
+
+function clickButtonByText(container: HTMLElement, text: string): void {
+  const button = Array.from(container.querySelectorAll('button')).find((element) =>
+    element.textContent?.includes(text),
+  );
+  if (!button) {
+    throw new Error(`No button with text "${text}"`);
+  }
+  act(() => {
+    button.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+  });
 }
 
 async function flushMicrotasks() {
@@ -403,5 +465,57 @@ describe('ReaderPage lazy audio', () => {
     expect(mocks.getReaderAudioSegment.mock.calls.some((call) => call[2] === 2)).toBe(false);
     // Mini player (the fixed overlay) collapses back to idle.
     expect(container.querySelector('[data-reader-ui].fixed')).toBeNull();
+  });
+});
+
+describe('ReaderPage browser history navigation', () => {
+  it('creates a history entry for chapter navigation (push, not replace)', async () => {
+    const { container } = await renderReaderPage();
+
+    clickButtonByText(container, 'Next chapter');
+    await flushMicrotasks();
+
+    expect(mocks.stateMutateAsync).toHaveBeenCalledWith({ action: 'complete_chapter', nextPartId: 'p2' });
+    expect(mocks.routerPush).toHaveBeenCalledWith('/read/w1?part=p2', { scroll: false });
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
+  });
+
+  it('follows a browser back/forward ?part= change: switches chapter, stops audio, next listen starts at segment 0', async () => {
+    const { container, rerender } = await renderReaderPage();
+
+    clickButton(container, 'Listen');
+    await flushMicrotasks();
+    expect(mocks.getReaderAudioManifest).toHaveBeenCalledWith('p1', 'us', expect.anything());
+    const playing = FakeAudio.instances.at(-1)!;
+    expect(playing.playCalls).toBe(1);
+
+    // Browser back/forward: the URL part changes without navigateToPart.
+    mocks.searchParamsQuery = 'part=p2';
+    await rerender();
+
+    // The URL part became the open chapter and reading state was synced.
+    expect(container.textContent).toContain('Chapter 2');
+    expect(mocks.stateMutateAsync).toHaveBeenCalledWith({ action: 'navigate', partId: 'p2' });
+    // The old chapter's audio was stopped.
+    expect(playing.pauseCalls).toBeGreaterThanOrEqual(1);
+    expect(container.querySelector('[data-reader-ui].fixed')).toBeNull();
+
+    // The next listen opens the new chapter from segment 0.
+    clickButton(container, 'Listen');
+    await flushMicrotasks();
+    expect(mocks.getReaderAudioManifest).toHaveBeenCalledWith('p2', 'us', expect.anything());
+    expect(mocks.getReaderAudioSegment.mock.calls.some((call) => call[0] === 'p2' && call[2] === 0)).toBe(true);
+  });
+
+  it('keeps bootstrap in charge of the first screen even when the URL has ?part=', async () => {
+    mocks.searchParamsQuery = 'part=p2';
+    const { container } = await renderReaderPage();
+
+    // Bootstrap opened the preferred part exactly once; the URL-sync effect
+    // never fired a duplicate navigate or flipped through other chapters.
+    expect(mocks.stateMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mocks.stateMutateAsync).toHaveBeenCalledWith({ action: 'open', partId: 'p2' });
+    expect(mocks.partQueryPartIds.filter((partId) => partId !== null).every((partId) => partId === 'p2')).toBe(true);
+    expect(container.textContent).toContain('Chapter 2');
   });
 });
