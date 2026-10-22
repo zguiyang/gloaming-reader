@@ -169,6 +169,12 @@ export class ReaderAudioController {
   private bufferEpoch = 0;
   /** Identity of the running fill loop — one per session+epoch at most. */
   private bufferRun: { session: number; epoch: number } | null = null;
+  /**
+   * Set when the chapter changes (or while its replacement is still loading):
+   * the next successful start plays segment 0 instead of the visible
+   * paragraph. Consumed only on a start that actually reaches its manifest.
+   */
+  private startAtChapterBeginning = false;
   private manifestAbort: AbortController | null = null;
   private audio: HTMLAudioElement | null = null;
   private playbackRate = 1;
@@ -190,6 +196,16 @@ export class ReaderAudioController {
 
   /** Chapter/part changes tear the player down; TTS availability follows the open part. */
   setContext(input: { partId: string | null; ttsConfigured: boolean }): void {
+    // Any change away from an established part is a chapter switch — including
+    // the transient null while the next part (React Query key change) is still
+    // loading. After a switch the next play must open the new chapter at its
+    // beginning, not resume from the reader's scroll position. A fresh
+    // controller's first acquisition (null → id) is not a switch, so first
+    // open keeps the visible-paragraph start.
+    const hasPartChanged = this.partId !== null && input.partId !== this.partId;
+    if (hasPartChanged) {
+      this.startAtChapterBeginning = true;
+    }
     // Losing TTS availability mid-listen (e.g. an admin disables the voice)
     // must stop playback and drop the cached manifest/segments.
     if (input.partId !== this.partId || (this.ttsConfigured && !input.ttsConfigured)) {
@@ -251,6 +267,14 @@ export class ReaderAudioController {
       this.deps.onUnavailable?.();
       return;
     }
+    if (this.startAtChapterBeginning) {
+      // Chapter switch: open the new chapter from its first segment, whatever
+      // the reader's scroll position shows. Consumed here — an earlier return
+      // (TTS unconfigured, manifest fetch failure) keeps it for the next try.
+      this.startAtChapterBeginning = false;
+      await this.loadSegment(0);
+      return;
+    }
     await this.loadSegment(this.resolveSegmentIndex(manifest, anchor));
   }
 
@@ -264,18 +288,15 @@ export class ReaderAudioController {
 
   /**
    * Switch voice role. Aborts the in-flight request, drops cached segments and
-   * restarts from the first segment of the paragraph being listened to — the
-   * new role's index/anchor mapping comes from its own manifest.
+   * restarts from the chapter's first segment — a voice change re-speaks the
+   * chapter from the top with the new voice, independent of the listening
+   * position.
    */
   selectRole(role: ReaderAudioRole): void {
     if (role === this.role) {
       return;
     }
     const shouldRestart = this.status !== 'idle';
-    const anchor =
-      this.currentSegment?.paragraphAnchor ??
-      this.manifests.get(this.role)?.segments[this.currentIndex]?.paragraphAnchor ??
-      null;
     this.session++;
     this.abortRequests();
     this.audio?.pause();
@@ -287,7 +308,10 @@ export class ReaderAudioController {
       this.setStatus('idle');
       return;
     }
-    void this.restartFromAnchor(anchor);
+    // Playing/paused/loading/error: restart immediately from segment 0 — this
+    // start supersedes any pending chapter-beginning flag.
+    this.startAtChapterBeginning = false;
+    void this.restartFromAnchor(null);
   }
 
   /** Abort every request, drop caches, release highlight state. Idempotent. */

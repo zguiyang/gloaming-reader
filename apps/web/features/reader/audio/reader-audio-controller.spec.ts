@@ -297,27 +297,32 @@ describe('ReaderAudioController', () => {
     expect(controller.getState()).toMatchObject({ status: 'idle', currentIndex: -1 });
   });
 
-  it('switching role aborts, clears the cache and replays from the current paragraph', async () => {
+  it('switching role aborts, clears the cache and replays from the chapter beginning (segment 0)', async () => {
     const harness = createHarness();
     const container = renderContainer(1);
 
     await harness.controller.startFromVisibleParagraph(container);
     expect(harness.audio.src).toBe('/audio/us/2');
+    const usCallsBeforeSwitch = harness.fetchSegment.mock.calls.filter((call) => call[1] === 'us').length;
+    // Segment 3 was prefetched in flight — the switch must abort it.
+    const inflightUsIndex3 = harness.fetchSegment.mock.calls.find((call) => call[1] === 'us' && call[2] === 3);
+    expect(inflightUsIndex3).toBeDefined();
 
-    const inFlightBefore = harness.fetchSegment.mock.calls.length;
     harness.controller.selectRole('uk');
     await flush();
 
     expect(harness.fetchManifest.mock.calls.at(-1)!.slice(0, 2)).toEqual(['part-1', 'uk']);
-    const ukCallsForIndex2 = harness.fetchSegment.mock.calls.filter((call) => call[1] === 'uk' && call[2] === 2);
-    expect(ukCallsForIndex2).toHaveLength(1);
-    expect(ukCallsForIndex2[0]!.slice(0, 4)).toEqual(['part-1', 'uk', 2, 'uk-hash-2']);
-    expect(harness.audio.src).toBe('/audio/uk/2');
-    expect(harness.controller.getState()).toMatchObject({ status: 'playing', role: 'uk', currentIndex: 2 });
-    expect(harness.fetchSegment.mock.calls.length).toBeGreaterThan(inFlightBefore);
+    const ukCalls = harness.fetchSegment.mock.calls.filter((call) => call[1] === 'uk');
+    // Voice switch restarts from the chapter's first segment, not the current paragraph.
+    expect(ukCalls[0]!.slice(0, 4)).toEqual(['part-1', 'uk', 0, 'uk-hash-0']);
+    expect(harness.audio.src).toBe('/audio/uk/0');
+    expect(harness.controller.getState()).toMatchObject({ status: 'playing', role: 'uk', currentIndex: 0 });
+    expect(harness.fetchSegment.mock.calls.length).toBeGreaterThan(usCallsBeforeSwitch);
 
-    // Segment cache was dropped — switching back re-requests the US payload.
+    // Segment cache was dropped — switching back re-requests the US payload
+    // (initially fetched for the start at index 2, now again after the reset).
     harness.controller.selectRole('us');
+    await flush();
     await flush();
     expect(harness.fetchSegment.mock.calls.filter((call) => call[1] === 'us' && call[2] === 2)).toHaveLength(2);
   });
@@ -703,6 +708,169 @@ describe('ReaderAudioController', () => {
     // Nothing follows the visible paragraph → nearest playable is the last segment.
     expect(harness.fetchSegment.mock.calls[0]!.slice(0, 4)).toEqual(['part-1', 'us', 1, 'us-hash-1']);
     expect(harness.audio.src).toBe('/audio/us/1');
+  });
+});
+
+describe('ReaderAudioController chapter-switch restart semantics', () => {
+  /** One segment per paragraph — segment index equals its paragraph anchor. */
+  function buildParagraphManifest(role: TestRole, count = 6): ReaderAudioManifest {
+    return {
+      role,
+      ttsConfigured: true,
+      configFingerprint: `fp-${role}`,
+      segments: Array.from({ length: count }, (_, index) => ({
+        index,
+        key: `${index}:c0`,
+        segmentHash: `${role}-hash-${index}`,
+        paragraphAnchor: String(index),
+        paragraphTextOffset: 0,
+        textLength: 10,
+      })),
+    };
+  }
+
+  /** Mid-chapter reading position: paragraphs 0–2 scrolled past, paragraph 3 visible. */
+  function renderMidChapter(): HTMLDivElement {
+    return renderParagraphs([
+      { top: -800, bottom: -600 },
+      { top: -500, bottom: -300 },
+      { top: -200, bottom: -50 },
+      { top: 100, bottom: 700 },
+    ]);
+  }
+
+  function createParagraphHarness() {
+    return createHarness({
+      fetchManifest: vi.fn(async (_partId: string, role: TestRole) => buildParagraphManifest(role)),
+      fetchSegment: vi.fn(async (_partId: string, role: TestRole, index: number) => ({
+        ...buildSegmentPayload(role, index),
+        paragraphAnchor: String(index),
+      })),
+    });
+  }
+
+  it('first acquisition of a part (null → id) still starts from the visible paragraph (anchor 3 → segment 3)', async () => {
+    const harness = createParagraphHarness(); // setContext(null → 'part-1') inside
+    const container = renderMidChapter();
+
+    await harness.controller.startFromVisibleParagraph(container);
+
+    expect(harness.fetchSegment.mock.calls[0]!.slice(0, 4)).toEqual(['part-1', 'us', 3, 'us-hash-3']);
+    expect(harness.controller.getState()).toMatchObject({ status: 'playing', currentIndex: 3 });
+  });
+
+  it('after a chapter switch while playing, the next play starts at segment 0 despite the visible paragraph', async () => {
+    const harness = createParagraphHarness();
+    const container = renderMidChapter();
+
+    await harness.controller.startFromVisibleParagraph(container);
+    expect(harness.controller.getState().currentIndex).toBe(3);
+
+    harness.controller.setContext({ partId: 'part-2', ttsConfigured: true });
+    expect(harness.controller.getState()).toMatchObject({ status: 'idle', currentIndex: -1 });
+
+    harness.controller.toggle(container);
+    await flush();
+
+    expect(harness.fetchManifest.mock.calls.at(-1)!.slice(0, 2)).toEqual(['part-2', 'us']);
+    const part2Calls = harness.fetchSegment.mock.calls.filter((call) => call[0] === 'part-2');
+    expect(part2Calls[0]!.slice(0, 4)).toEqual(['part-2', 'us', 0, 'us-hash-0']);
+    expect(harness.audio.src).toBe('/audio/us/0');
+    expect(harness.controller.getState()).toMatchObject({ status: 'playing', currentIndex: 0 });
+  });
+
+  it('a chapter switch observed through a transient null part (React Query key change) still starts at segment 0', async () => {
+    const harness = createParagraphHarness();
+    const container = renderMidChapter();
+
+    await harness.controller.startFromVisibleParagraph(container);
+    expect(harness.controller.getState().currentIndex).toBe(3);
+
+    // The page drops to a loading state between parts: reader?.partId goes null
+    // before the next part's data arrives.
+    harness.controller.setContext({ partId: null, ttsConfigured: false });
+    harness.controller.setContext({ partId: 'part-2', ttsConfigured: true });
+
+    harness.controller.toggle(container);
+    await flush();
+
+    const part2Calls = harness.fetchSegment.mock.calls.filter((call) => call[0] === 'part-2');
+    expect(part2Calls[0]!.slice(0, 4)).toEqual(['part-2', 'us', 0, 'us-hash-0']);
+    expect(harness.controller.getState()).toMatchObject({ status: 'playing', currentIndex: 0 });
+  });
+
+  it('a chapter switch while idle also starts the next play at segment 0', async () => {
+    const harness = createParagraphHarness(); // idle — never played in part-1
+    const container = renderMidChapter();
+
+    harness.controller.setContext({ partId: 'part-2', ttsConfigured: true });
+    harness.controller.toggle(container);
+    await flush();
+
+    const part2Calls = harness.fetchSegment.mock.calls.filter((call) => call[0] === 'part-2');
+    expect(part2Calls[0]!.slice(0, 4)).toEqual(['part-2', 'us', 0, 'us-hash-0']);
+    expect(harness.controller.getState()).toMatchObject({ status: 'playing', currentIndex: 0 });
+  });
+
+  it('switching voice mid-playback aborts in-flight requests and restarts the new role at segment 0', async () => {
+    const inflightSignals = new Map<string, AbortSignal | undefined>();
+    const harness = createHarness({
+      fetchManifest: vi.fn(async (_partId: string, role: TestRole) => buildParagraphManifest(role, 6)),
+      fetchSegment: vi.fn(
+        async (
+          _partId: string,
+          role: TestRole,
+          index: number,
+          _hash: string | undefined,
+          init?: { signal?: AbortSignal },
+        ) => {
+          if (role === 'us' && index === 4) {
+            inflightSignals.set('us-4', init?.signal);
+            return new Promise<ReaderAudioSegment>(() => {
+              /* never settles — simulates slow synthesis of the look-ahead fill */
+            });
+          }
+          return { ...buildSegmentPayload(role, index), paragraphAnchor: String(index) };
+        },
+      ),
+    });
+    const container = renderMidChapter();
+
+    await harness.controller.startFromVisibleParagraph(container); // segment 3
+    await flush();
+    expect(inflightSignals.get('us-4')).toBeDefined(); // look-ahead fill in flight
+
+    harness.controller.selectRole('uk');
+    await flush();
+
+    expect(inflightSignals.get('us-4')!.aborted).toBe(true);
+    const ukCalls = harness.fetchSegment.mock.calls.filter((call) => call[1] === 'uk');
+    expect(ukCalls[0]!.slice(0, 4)).toEqual(['part-1', 'uk', 0, 'uk-hash-0']);
+    expect(harness.audio.src).toBe('/audio/uk/0');
+    expect(harness.controller.getState()).toMatchObject({ status: 'playing', role: 'uk', currentIndex: 0 });
+  });
+
+  it('does not consume the chapter-beginning flag while TTS is unavailable', async () => {
+    const harness = createParagraphHarness();
+    const container = renderMidChapter();
+
+    await harness.controller.startFromVisibleParagraph(container); // part-1, segment 3
+
+    harness.controller.setContext({ partId: 'part-2', ttsConfigured: false });
+    harness.controller.toggle(container);
+    await flush();
+
+    expect(harness.onUnavailable).toHaveBeenCalledTimes(1);
+    expect(harness.fetchSegment.mock.calls.some((call) => call[0] === 'part-2')).toBe(false);
+
+    // TTS becomes available again — the flag survived: play still opens at segment 0.
+    harness.controller.setContext({ partId: 'part-2', ttsConfigured: true });
+    harness.controller.toggle(container);
+    await flush();
+
+    const part2Calls = harness.fetchSegment.mock.calls.filter((call) => call[0] === 'part-2');
+    expect(part2Calls[0]!.slice(0, 4)).toEqual(['part-2', 'us', 0, 'us-hash-0']);
+    expect(harness.controller.getState()).toMatchObject({ status: 'playing', currentIndex: 0 });
   });
 });
 
