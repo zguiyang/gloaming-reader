@@ -1,4 +1,4 @@
-export { TTS_STEP_ENABLED, WORKFLOW_AUTO_CHAIN } from '@/domains/works/lifecycle/policy';
+export { WORKFLOW_AUTO_CHAIN } from '@/domains/works/lifecycle/policy';
 export {
   claimWorkflowStep,
   completeWorkflowStep,

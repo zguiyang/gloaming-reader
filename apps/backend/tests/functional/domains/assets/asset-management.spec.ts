@@ -193,32 +193,22 @@ describe('asset management admin APIs', () => {
     expect(response.status).toBe(HTTP_STATUS.NOT_FOUND);
   });
 
-  it('scans referenced, orphan, and missing objects including audio segments', async () => {
+  it('scans referenced, orphan, and missing objects, treating retired audio objects as orphans', async () => {
     const workId = await insertWork();
-    const chapter = `part-audio/${workId}/audio_us/h/chapter.mp3`;
-    const segment = `part-audio/${workId}/audio_us/h/seg/0000.mp3`;
+    const chapter = `part-audio/${workId}/probe/chapter.mp3`;
+    const segment = `part-audio/${workId}/probe/seg/0000.mp3`;
     const cover = `covers/${workId}/cover.jpg`;
     const orphan = `orphan/${workId}/leftover.mp3`;
     const missing = `covers/${workId}/gone.jpg`;
 
+    // Legacy whole-chapter audio rows are retired and no longer protected.
     await insertAsset({
       workId,
-      kind: 'audio_us',
+      kind: 'audio_probe',
       storageKey: chapter,
-      meta: {
-        objectKeys: [segment, chapter],
-        timeline: [
-          {
-            index: 0,
-            textHash: 't0',
-            startMs: 0,
-            durationMs: 1000,
-            storageKey: segment,
-            wordTimings: [],
-          },
-        ],
-      },
+      meta: { objectKeys: [segment, chapter] },
     });
+    await insertAsset({ workId, kind: 'cover', storageKey: cover });
     await insertAsset({ workId, kind: 'cover', storageKey: missing });
 
     await putObject(chapter, 100);
@@ -232,61 +222,26 @@ describe('asset management admin APIs', () => {
     });
     expect(scan.status).toBe(200);
     const report = assetScanReportSchema.parse(await scan.json());
-    expect(report.orphanCount).toBeGreaterThanOrEqual(2);
+    expect(report.orphanCount).toBeGreaterThanOrEqual(3);
     expect(report.missingCount).toBeGreaterThanOrEqual(1);
     expect(report.referencedObjectCount).toBeGreaterThanOrEqual(1);
-    expect(report.legacyDuplicateCount).toBeGreaterThanOrEqual(1);
     expect(report.durationMs).toBeGreaterThanOrEqual(0);
     expect(report.scanComplete).toBe(true);
     expect(report).not.toHaveProperty('largestObjects');
+    expect(report).not.toHaveProperty('legacyDuplicateCount');
     expect(JSON.stringify(report)).not.toContain(orphan);
     expect(JSON.stringify(report)).not.toContain(missing);
   });
 
-  it('classifies timeline-only legacy audio segments as legacy_duplicate_audio', async () => {
+  it('reclaims unprotected legacy audio objects during orphan cleanup', async () => {
     const workId = await insertWork();
-    const chapter = `part-audio/${workId}/audio_us/legacy/chapter.mp3`;
-    const timelineOnly = `part-audio/${workId}/audio_us/legacy/seg/0000.mp3`;
-    await insertAsset({
-      workId,
-      kind: 'audio_us',
-      storageKey: chapter,
-      meta: {
-        objectKeys: [chapter],
-        timeline: [
-          {
-            index: 0,
-            textHash: 'legacy',
-            startMs: 0,
-            durationMs: 900,
-            storageKey: timelineOnly,
-            wordTimings: [],
-          },
-        ],
-      },
-    });
-    await putObject(chapter, 80);
-    await putObject(timelineOnly, 20);
-
-    const scan = await app.request('/api/admin/assets/scan', {
-      method: 'POST',
-      headers: { Cookie: adminCookie },
-    });
-    const report = assetScanReportSchema.parse(await scan.json());
-    expect(report.orphanCount).toBe(0);
-    expect(report.legacyDuplicateCount).toBeGreaterThanOrEqual(1);
-    expect(JSON.stringify(report)).not.toContain(timelineOnly);
-  });
-
-  it('classifies unreferenced historical segments as legacy_duplicate_audio and excludes them from orphan cleanup', async () => {
-    const workId = await insertWork();
-    const chapter = `part-audio/${workId}/audio_us/new/chapter.mp3`;
-    const staleSeg = `part-audio/${workId}/audio_us/old/seg/0000.mp3`;
+    const chapter = `part-audio/${workId}/probe/new/chapter.mp3`;
+    const staleSeg = `part-audio/${workId}/probe/old/seg/0000.mp3`;
     const plainOrphan = `orphan/${workId}/leftover.bin`;
 
     await insertAsset({
       workId,
-      kind: 'audio_us',
+      kind: 'audio_probe',
       storageKey: chapter,
       meta: { objectKeys: [chapter] },
     });
@@ -299,11 +254,11 @@ describe('asset management admin APIs', () => {
       headers: { Cookie: adminCookie },
     });
     const report = assetScanReportSchema.parse(await scan.json());
-    expect(report.legacyDuplicateCount).toBeGreaterThanOrEqual(1);
-    expect(report.orphanCount).toBeGreaterThanOrEqual(1);
+    expect(report.orphanCount).toBeGreaterThanOrEqual(3);
     const accepted = await enqueueCleanup(report.scanId);
     await processAssetCleanup({ jobId: accepted.jobId, scanId: accepted.scanId });
-    expect(memory.store.has(staleSeg)).toBe(true);
+    expect(memory.store.has(chapter)).toBe(false);
+    expect(memory.store.has(staleSeg)).toBe(false);
     expect(memory.store.has(plainOrphan)).toBe(false);
   });
 
@@ -483,8 +438,6 @@ describe('asset management admin APIs', () => {
           referencedBytes: 0,
           orphanCount: 1,
           orphanBytes: 1,
-          legacyDuplicateCount: 0,
-          legacyDuplicateBytes: 0,
           missingCount: 0,
           durationMs: 8,
           categories: [],

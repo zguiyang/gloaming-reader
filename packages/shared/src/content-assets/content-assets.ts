@@ -1,121 +1,15 @@
 import { z } from 'zod';
 
-import { ttsVoiceRoleValues, ttsWordTimingSchema } from '../tts/index.ts';
-
-export const CONTENT_ASSET_AUDIO_KINDS = ['audio_us', 'audio_uk'] as const;
-export type ContentAssetAudioKind = (typeof CONTENT_ASSET_AUDIO_KINDS)[number];
-
-/** Stable identity for one part/audio-role/source-content generation. */
-export function buildContentAssetGenerationKey(input: {
-  partId: string;
-  kind: ContentAssetAudioKind;
-  contentHash: string;
-}): string {
-  return `${input.partId}:${input.kind}:${input.contentHash}`;
-}
-
-/** Backend handoff facts for one DB-backed generation claim; not a learner response. */
-export const contentAssetGenerationClaimSchema = z.object({
-  generationKey: z.string().min(1),
-  generationToken: z.string().min(1),
-  generationClaimedAt: z.union([z.string(), z.date()]),
-  generationLeaseExpiresAt: z.union([z.string(), z.date()]),
-});
-
-export type ContentAssetGenerationClaim = z.infer<typeof contentAssetGenerationClaimSchema>;
-
-/** Map TTS voice role to content_asset.kind. */
-export function audioKindForRole(role: (typeof ttsVoiceRoleValues)[number]): ContentAssetAudioKind {
-  return role === 'us' ? 'audio_us' : 'audio_uk';
-}
-
-export function roleForAudioKind(kind: ContentAssetAudioKind): (typeof ttsVoiceRoleValues)[number] {
-  return kind === 'audio_us' ? 'us' : 'uk';
-}
-
-export const CONTENT_ASSET_STATUSES = ['generating', 'ready', 'failed'] as const;
-export type ContentAssetStatus = (typeof CONTENT_ASSET_STATUSES)[number];
-
-/** Collapse whitespace the same way Azure synth text is built (SSOT for offsets). */
-export function normalizePartAudioWhitespace(text: string): string {
-  return text.trim().replace(/\s+/g, ' ');
-}
-
 /**
- * Exact string passed to TTS for a part. `textOffset` in wordTimings indexes this string.
- * Body-only SSOT — chapter `title` is navigation metadata and must not be prepended
- * (keeps audio aligned with the reading HTML surface).
- */
-export function buildPartAudioText(bodyPlain: string): string {
-  return normalizePartAudioWhitespace(bodyPlain);
-}
-
-/** True when TTS would synthesize non-empty text for this part body. */
-export function partHasSynthAudioText(bodyPlain: string): boolean {
-  return buildPartAudioText(bodyPlain).length > 0;
-}
-
-type AudioTrackAssetFacts = {
-  status: string;
-  contentHash: string;
-};
-
-/** Map DB asset facts to Reader track status (includes derived `stale`). */
-export function deriveAudioTrackStatus(
-  asset: AudioTrackAssetFacts | null,
-  currentContentHash: string,
-): ContentAssetTrack['status'] {
-  if (!asset) {
-    return 'none';
-  }
-  const contentStale = asset.contentHash !== currentContentHash;
-  if (asset.status === 'generating') {
-    return 'generating';
-  }
-  if (asset.status === 'failed') {
-    return 'failed';
-  }
-  if (asset.status === 'ready' && contentStale) {
-    return 'stale';
-  }
-  if (asset.status === 'ready') {
-    return 'ready';
-  }
-  return 'failed';
-}
-
-/**
- * One timeline segment for part audio.
- * New writes are timing-only (no `storageKey`); legacy rows may still include a
- * segment object key during the chapter-only migration window.
- */
-export const audioTimelineSegmentSchema = z.object({
-  index: z.number().int().nonnegative(),
-  textHash: z.string().min(1),
-  startMs: z.number().int().nonnegative(),
-  durationMs: z.number().int().nonnegative(),
-  /** @deprecated Legacy segment object key; omit for timing-only / chapter-only assets. */
-  storageKey: z.string().min(1).optional(),
-  wordTimings: z.array(ttsWordTimingSchema),
-});
-
-export type AudioTimelineSegment = z.infer<typeof audioTimelineSegmentSchema>;
-
-/**
- * JSON `content_asset.meta` contract (audio and non-audio kinds).
- * Unknown legacy keys pass through so old rows do not fail whole-asset parsing.
+ * JSON `content_asset.meta` contract for non-audio kinds (image / cover /
+ * origin_file). Unknown legacy keys pass through so historical rows do not
+ * fail whole-asset parsing.
  */
 export const contentAssetMetaSchema = z
   .object({
-    voice: z.string().optional(),
-    durationMs: z.number().nonnegative().optional(),
-    lastError: z.string().optional(),
-    generatedAt: z.string().optional(),
-    /** audio_* — word-timing segments (storageKey optional / timing-only). */
-    timeline: z.array(audioTimelineSegmentSchema).optional(),
     /**
-     * Formal persisted object-storage keys only (e.g. chapter.mp3).
-     * Do not list ephemeral or never-persisted segment keys.
+     * Formal persisted object-storage keys only (e.g. optimized images).
+     * Do not list ephemeral or never-persisted keys.
      */
     objectKeys: z.array(z.string()).optional(),
     /** Origin file uploads (kind = origin_file). */
@@ -129,24 +23,3 @@ export const contentAssetMetaSchema = z
   .passthrough();
 
 export type ContentAssetMeta = z.infer<typeof contentAssetMetaSchema>;
-
-/** UI track status — `stale` is ready + contentHash mismatch (not a DB status). */
-export const contentAssetTrackSchema = z.object({
-  role: z.enum(ttsVoiceRoleValues),
-  status: z.enum(['none', 'generating', 'ready', 'failed', 'stale']),
-  voice: z.string().nullable(),
-  contentHash: z.string().nullable(),
-  contentStale: z.boolean(),
-  mimeType: z.string().nullable(),
-  lastError: z.string().nullable(),
-  generatedAt: z.union([z.string(), z.date()]).nullable(),
-  updatedAt: z.union([z.string(), z.date()]).nullable(),
-  audioAvailable: z.boolean(),
-  /** Asset id for `/api/assets/:id` when playable. */
-  assetId: z.string().nullable(),
-  audioUrl: z.string().nullable(),
-  durationMs: z.number().int().nonnegative().nullable(),
-  timeline: z.array(audioTimelineSegmentSchema).optional(),
-});
-
-export type ContentAssetTrack = z.infer<typeof contentAssetTrackSchema>;

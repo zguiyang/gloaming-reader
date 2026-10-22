@@ -43,7 +43,7 @@ describe('toReaderViewModel anchor mapping', () => {
   const partData: ReaderPartData = {
     work: { id: 'w1', title: 'Work', coverAssetId: null },
     part: { id: 'p1', workId: 'w1', sortOrder: 0, kind: 'chapter', title: 'Chapter 1', body: '<p>hi</p>' },
-    audioAvailable: { us: false, uk: false },
+    ttsConfigured: false,
   };
   const state: ReadingState = {
     status: 'in_progress',

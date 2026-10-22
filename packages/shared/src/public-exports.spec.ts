@@ -71,6 +71,5 @@ describe('works public entrypoint boundary', () => {
     );
     expect(adminOrLifecycleExports).toEqual([]);
     expect(works).not.toHaveProperty('WORKFLOW_AUTO_CHAIN');
-    expect(works).not.toHaveProperty('TTS_STEP_ENABLED');
   });
 });

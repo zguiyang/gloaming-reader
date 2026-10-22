@@ -11,11 +11,13 @@ import {
   type S3ClientConfig,
 } from '@aws-sdk/client-s3';
 
+import { RangeNotSatisfiableError } from '@/infra/storage/errors';
 import type {
   ObjectDeleteFailure,
   ObjectDeleteManyResult,
   ObjectGetResult,
   ObjectGetStreamResult,
+  ObjectHeadResult,
   ObjectListResult,
   ObjectPutInput,
   ObjectRange,
@@ -64,6 +66,18 @@ function isNotFoundError(error: unknown): boolean {
     return true;
   }
   return record.$metadata?.httpStatusCode === 404;
+}
+
+/** S3 answers an out-of-bounds Range with `416 InvalidRange`. */
+function isRangeNotSatisfiableError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const record = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+  if (record.name === 'InvalidRange' || record.name === 'RangeNotSatisfiable') {
+    return true;
+  }
+  return record.$metadata?.httpStatusCode === 416;
 }
 
 function chunkKeys(keys: string[], size: number): string[][] {
@@ -194,6 +208,7 @@ export function createS3ObjectStore(config: S3ObjectStoreConfig): ObjectStore {
         };
       } catch (error) {
         if (isNotFoundError(error)) return null;
+        if (isRangeNotSatisfiableError(error)) throw new RangeNotSatisfiableError();
         throw error;
       }
     },
@@ -204,6 +219,20 @@ export function createS3ObjectStore(config: S3ObjectStoreConfig): ObjectStore {
         return true;
       } catch (error) {
         if (isNotFoundError(error)) return false;
+        throw error;
+      }
+    },
+
+    async head(key: string): Promise<ObjectHeadResult | null> {
+      try {
+        const response = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+        return {
+          size: typeof response.ContentLength === 'number' ? response.ContentLength : 0,
+          contentType: response.ContentType?.trim() || 'application/octet-stream',
+        };
+      } catch (error) {
+        if (isNotFoundError(error)) return null;
+        if (isRangeNotSatisfiableError(error)) throw new RangeNotSatisfiableError();
         throw error;
       }
     },

@@ -22,7 +22,13 @@ describe('admin-logs-format', () => {
   });
 
   it('formats TTS source and role labels per locale', () => {
-    expect(formatAdminTtsSource('admin.part_audio', 'zh-CN')).toBe('章节音频');
+    expect(formatAdminTtsSource('reader_segment', 'zh-CN')).toBe('阅读分段');
+    expect(formatAdminTtsSource('reader_segment', 'en-US')).toBe('Reader segment');
+    expect(formatAdminTtsSource('admin.tts_test', 'zh-CN')).toBe('连通测试');
+    // Retired `admin.article_audio` producer — rows fall back to the raw value.
+    expect(formatAdminTtsSource('admin.article_audio', 'zh-CN')).toBe('admin.article_audio');
+    // Legacy `admin.part_audio` rows have no label mapping and fall back to the raw value.
+    expect(formatAdminTtsSource('admin.part_audio', 'zh-CN')).toBe('admin.part_audio');
     expect(formatAdminTtsRole('us', 'en-US')).toBe('US English');
     expect(formatAdminTtsRole(null, 'zh-CN')).toBe('默认');
   });

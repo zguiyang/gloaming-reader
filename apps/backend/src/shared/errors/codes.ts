@@ -14,7 +14,6 @@ export const ERROR_CODES = {
     READING_STATE: 'api.errors.notFound.readingState',
     LLM_PROVIDER: 'api.errors.notFound.llmProvider',
     LLM_MODEL: 'api.errors.notFound.llmModel',
-    PART_AUDIO: 'api.errors.notFound.partAudio',
     CLEANUP_JOB: 'api.errors.notFound.cleanupJob',
     WORD_DEFINITION: 'api.errors.notFound.wordDefinition',
     USER_TAG: 'api.errors.notFound.userTag',
@@ -81,6 +80,8 @@ export const ERROR_CODES = {
   OSS: {
     NOT_CONFIGURED: 'api.errors.oss.notConfigured',
     UNAVAILABLE: 'api.errors.oss.unavailable',
+    /** Requested Range lies outside the object (S3 416 InvalidRange). */
+    RANGE_NOT_SATISFIABLE: 'api.errors.oss.rangeNotSatisfiable',
   },
 
   DICTIONARY: {
@@ -121,6 +122,13 @@ export const ERROR_CODES = {
     REVISION_CONFLICT: 'api.errors.reader.revisionConflict',
     NO_NEXT_CHAPTER: 'api.errors.reader.noNextChapter',
     UNSUPPORTED_ACTION: 'api.errors.reader.unsupportedAction',
+  },
+
+  READER_AUDIO: {
+    /** No stored segment row matches the derived identity — the segment does not exist yet. */
+    SEGMENT_NOT_FOUND: 'api.errors.readerAudio.segmentNotFound',
+    /** Caller manifest hash no longer matches the derived segment — refetch manifest. */
+    MANIFEST_STALE: 'api.errors.readerAudio.manifestStale',
   },
 
   LIBRARY: {

@@ -135,13 +135,13 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
 
-  it('serves published work audio to logged-in users', async () => {
+  it('denies retired audio-kind assets to logged-in non-owner readers', async () => {
     const workId = await seedWork('published');
     const id = `a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     await db.insert(contentAssetTable).values({
       id,
       workId,
-      kind: 'audio_us',
+      kind: 'audio_probe',
       storageKey: `assets-test/${id}.mp3`,
       mimeType: 'audio/mpeg',
       contentHash: 'content-hash',
@@ -150,9 +150,10 @@ describe('GET /api/assets/:assetId (unified asset gateway)', () => {
     assetIds.push(id);
     memory.store.set(`assets-test/${id}.mp3`, { body: Buffer.from('mp3'), contentType: 'audio/mpeg' });
 
+    // Legacy whole-chapter audio kinds are retired; learner audio flows through
+    // the reader-audio endpoints, not the generic asset gateway.
     const response = await app.request(`/api/assets/${id}`, { headers: { Cookie: userCookie } });
-    expect(response.status).toBe(200);
-    expect(await response.text()).toBe('mp3');
+    expect(response.status).toBe(403);
   });
 
   it('denies draft work images to anonymous, ordinary, and admin without membership', async () => {

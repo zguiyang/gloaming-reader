@@ -6,6 +6,7 @@ import {
   contentAsset as contentAssetTable,
   type ContentAssetMeta,
   conversation as conversationTable,
+  partAudioSegment as partAudioSegmentTable,
   readingPart as readingPartTable,
   readingWork as readingWorkTable,
   uploadedObject as uploadedObjectTable,
@@ -15,7 +16,6 @@ import type { PersonalWorkUpdate } from '@gloaming/shared/works';
 import {
   collectFormalKeysFromContentAssetRow,
   collectKeysFromOriginMeta,
-  collectLegacySegmentKeysFromContentAssetRow,
   collectReferencedStorageKeys,
 } from '@/domains/assets/management/referenced-keys';
 import { acquireLockWithWait, releaseLock, startLockRenewal } from '@/infra/cache/lock';
@@ -157,8 +157,17 @@ export async function deletePersonalWork(userId: string, workId: string): Promis
           meta: asset.meta as ContentAssetMeta,
         }))
           keys.add(key);
-        for (const key of collectLegacySegmentKeysFromContentAssetRow({ meta: asset.meta as ContentAssetMeta }))
-          keys.add(key);
+      }
+      // Lazy reader-audio segment objects cascade away with their parts below;
+      // the reference-checked cleanup job removes the objects after commit.
+      if (partIds.length) {
+        const segmentRows = await tx
+          .select({ storageKey: partAudioSegmentTable.storageKey })
+          .from(partAudioSegmentTable)
+          .where(inArray(partAudioSegmentTable.partId, partIds));
+        for (const row of segmentRows) {
+          keys.add(row.storageKey);
+        }
       }
 
       if (uploadContentHash) {

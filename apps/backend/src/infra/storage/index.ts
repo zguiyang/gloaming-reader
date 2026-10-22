@@ -1,8 +1,10 @@
 export { createObjectStoreFromEnv } from '@/infra/storage/create-store';
+export { RangeNotSatisfiableError } from '@/infra/storage/errors';
 export {
   deleteManyObjects,
   deleteObject,
   getObject,
+  getObjectSize,
   getObjectStream,
   listObjects,
   objectExists,
@@ -17,6 +19,7 @@ export type {
   ObjectDeleteManyResult,
   ObjectGetResult,
   ObjectGetStreamResult,
+  ObjectHeadResult,
   ObjectListItem,
   ObjectListResult,
   ObjectPutInput,

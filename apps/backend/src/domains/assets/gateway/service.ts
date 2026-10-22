@@ -10,13 +10,13 @@ import { getObjectStream } from '@/infra/storage';
 
 /**
  * Unified asset gateway — the single entry for every object-storage read
- * (images, covers, TTS audio, origin files, future derivatives). New asset
- * kinds only register here; never open another proxy route.
+ * (images, covers, origin files, future derivatives). New asset kinds only
+ * register here; never open another proxy route.
  */
 
 /** Asset kinds served to learners once the owning work is readable. */
 function isPublicAssetKind(kind: string): boolean {
-  return kind === 'image' || kind === 'cover' || kind.startsWith('audio_');
+  return kind === 'image' || kind === 'cover';
 }
 
 export type ResolvedAsset = {

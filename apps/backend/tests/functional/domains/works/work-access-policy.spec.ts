@@ -12,13 +12,10 @@ import {
 } from '@gloaming/db';
 import { ASSIST_SSE_EVENT } from '@gloaming/shared/assist';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
-import { audioKindForRole } from '@gloaming/shared/content-assets';
 import { TRANSLATE_SSE_EVENT } from '@gloaming/shared/translate';
 
 import app from '@/app';
 import * as aiService from '@/domains/ai';
-import { partAudioObjectKey } from '@/domains/assets/audio/keys';
-import { hashPartAudioContent } from '@/domains/works/content';
 import { db } from '@/infra/db';
 import { resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -94,7 +91,6 @@ type SeededWork = {
   workId: string;
   partId: string;
   coverAssetId: string;
-  audioAssetId: string;
   partBody: string;
 };
 
@@ -107,14 +103,9 @@ async function seedWork(input: {
   const workId = randomUUID();
   const partId = randomUUID();
   const coverAssetId = randomUUID();
-  const audioAssetId = randomUUID();
   const partBody = '<p>Readable body for policy tests.</p>';
-  const contentHash = hashPartAudioContent(partBody);
-  const audioKind = audioKindForRole('us');
   const coverKey = `test/cover/${coverAssetId}.png`;
-  const audioKey = partAudioObjectKey(partId, audioKind, contentHash);
   memory.store.set(coverKey, { body: Buffer.from('cover-png'), contentType: 'image/png' });
-  memory.store.set(audioKey, { body: Buffer.from('audio-bytes'), contentType: 'audio/mpeg' });
 
   await db.insert(readingWorkTable).values({
     id: workId,
@@ -142,18 +133,7 @@ async function seedWork(input: {
     storageKey: coverKey,
     contentHash: 'test-cover-hash',
   });
-  await db.insert(contentAssetTable).values({
-    id: audioAssetId,
-    workId,
-    partId,
-    kind: audioKind,
-    status: 'ready',
-    mimeType: 'audio/mpeg',
-    storageKey: audioKey,
-    contentHash,
-    meta: {},
-  });
-  return { workId, partId, coverAssetId, audioAssetId, partBody };
+  return { workId, partId, coverAssetId, partBody };
 }
 
 async function* translateStream(): AsyncGenerator<aiService.AiStreamEvent> {
@@ -256,25 +236,15 @@ describe('Work read access policy', () => {
       (await app.request(`/api/reader/parts/${ownerPrivate.partId}`, { headers: { Cookie: admin.cookie } })).status,
     ).toBe(404);
 
-    const ownerAudio = await app.request(`/api/reader/parts/${ownerPrivate.partId}/audio?role=us`, {
-      headers: { Cookie: owner.cookie },
-    });
-    expect(ownerAudio.status).toBe(200);
+    // The legacy whole-chapter audio endpoint was removed; the route is gone.
+    expect(
+      (
+        await app.request(`/api/reader/parts/${ownerPrivate.partId}/audio?role=us`, {
+          headers: { Cookie: owner.cookie },
+        })
+      ).status,
+    ).toBe(404);
     expect((await app.request(`/api/reader/parts/${ownerPrivate.partId}/audio?role=us`)).status).toBe(404);
-    expect(
-      (
-        await app.request(`/api/reader/parts/${ownerPrivate.partId}/audio?role=us`, {
-          headers: { Cookie: other.cookie },
-        })
-      ).status,
-    ).toBe(404);
-    expect(
-      (
-        await app.request(`/api/reader/parts/${ownerPrivate.partId}/audio?role=us`, {
-          headers: { Cookie: admin.cookie },
-        })
-      ).status,
-    ).toBe(404);
 
     const coverOwner = await app.request(`/api/assets/${ownerPrivate.coverAssetId}`, {
       headers: { Cookie: owner.cookie },

@@ -879,9 +879,8 @@
           "metadataEnrich": "Metadata enrichment"
         },
         "ttsSource": {
-          "adminPartAudio": "Chapter audio",
-          "adminArticleAudio": "Chapter audio",
-          "adminTtsTest": "Connectivity test"
+          "adminTtsTest": "Connectivity test",
+          "readerSegment": "Reader segment"
         },
         "ttsRole": {
           "default": "Default",
@@ -986,7 +985,6 @@
       },
       "enum": {
         "category": {
-          "audio": "Audio",
           "cover": "Cover",
           "image": "Illustration",
           "origin": "Original file",
@@ -1248,16 +1246,15 @@
       },
       "toast": {
         "stateRefreshed": "Reading progress synced. Continue from the current chapter.",
-        "noUsAudio": "US accent unavailable",
-        "noUkAudio": "UK accent unavailable",
-        "noAudio": "No audio available",
         "loginForBilingual": "Sign in to use bilingual view",
-        "sessionExpired": "Session expired — please sign in again",
-        "audioPlayFailed": "Audio playback failed. Try again."
+        "sessionExpired": "Session expired — please sign in again"
       },
       "tts": {
         "play": "Play",
         "pause": "Pause",
+        "retry": "Retry",
+        "unavailable": "Read-aloud is not configured yet",
+        "segmentFailed": "Couldn't play this segment. Try again.",
         "playbackRate": "Playback speed {rate}, tap to change",
         "accentGroup": "Accent",
         "usShort": "US",
@@ -1340,7 +1337,6 @@
         "readingState": "Reading state not found",
         "llmProvider": "LLM provider not found",
         "llmModel": "LLM model not found",
-        "partAudio": "Part audio not found",
         "cleanupJob": "Cleanup job not found",
         "wordDefinition": "No dictionary definition found for \"{word}\"",
         "userTag": "Tag not found",
@@ -1399,7 +1395,8 @@
       },
       "oss": {
         "notConfigured": "Object storage is not configured",
-        "unavailable": "Object storage is unavailable"
+        "unavailable": "Object storage is unavailable",
+        "rangeNotSatisfiable": "Requested range is not satisfiable"
       },
       "dictionary": {
         "providerNotImplemented": "Dictionary provider \"{providerId}\" is not implemented or supported",

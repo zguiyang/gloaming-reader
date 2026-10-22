@@ -44,7 +44,7 @@ function isZeroWidthOrInvisibleControl(codePoint: number): boolean {
   return false;
 }
 
-/** Same whitespace rules as `normalizePartAudioWhitespace` / `buildPartAudioText` (part-audio offset SSOT). */
+/** Same whitespace rules as the legacy part-audio offset SSOT (`trim` + collapse runs). */
 export function normalizeTtsSourceWhitespace(text: string): string {
   return text.trim().replace(/\s+/g, ' ');
 }

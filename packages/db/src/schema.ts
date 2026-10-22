@@ -595,35 +595,11 @@ export const dictionaryEntry = pgTable(
   (table) => [unique('dictionary_entry_word_uidx').on(table.word), index('dictionary_entry_word_idx').on(table.word)],
 );
 
-/** Word boundary timings for part audio (mirrors TTS wordTimings). */
-export type ContentAssetWordTiming = {
-  text: string;
-  audioOffsetMs: number;
-  durationMs: number;
-  textOffset: number;
-};
-
-/** One TTS segment inside a part audio timeline (audio_* kinds). */
-export type ContentAssetAudioTimelineSegment = {
-  index: number;
-  textHash: string;
-  startMs: number;
-  durationMs: number;
-  /**
-   * Legacy segment object key. New chapter-only assets omit this and keep
-   * timing fields only; historical rows may still include it.
-   */
-  storageKey?: string;
-  wordTimings: ContentAssetWordTiming[];
-};
-
 export type ContentAssetMeta = {
   voice?: string;
   durationMs?: number;
   lastError?: string;
   generatedAt?: string;
-  /** audio_* — word-timing segments (`storageKey` optional / timing-only). */
-  timeline?: ContentAssetAudioTimelineSegment[];
   /**
    * Formal persisted object-storage keys only (e.g. chapter.mp3).
    * Do not list ephemeral or never-persisted segment keys.
@@ -646,7 +622,7 @@ export type ContentAssetMeta = {
   reused?: boolean;
 };
 
-/** Unified storage for origin files, covers, TTS audio, future derivatives (ADR-001). */
+/** Unified storage for origin files, covers, and future derivatives (ADR-001). */
 export const contentAsset = pgTable(
   'content_asset',
   {
@@ -703,6 +679,75 @@ export const contentAssetRelations = relations(contentAsset, ({ one }) => ({
     references: [readingPart.id],
   }),
 }));
+
+/** Word timing of one synthesized part-audio segment (local shape — no shared import). */
+export type PartAudioSegmentWordTiming = {
+  text: string;
+  audioOffsetMs: number;
+  durationMs: number;
+  textOffset: number;
+};
+
+/** Voice role of a part-audio segment. */
+export type PartAudioSegmentRole = 'us' | 'uk';
+
+/** Lifecycle state of a part-audio segment row. */
+export type PartAudioSegmentStatus = 'generating' | 'ready' | 'failed';
+
+/** One TTS audio segment of a reading part, keyed by voice role + scope + config + content. */
+export const partAudioSegment = pgTable(
+  'part_audio_segment',
+  {
+    id: text('id').primaryKey(),
+    partId: text('part_id')
+      .notNull()
+      .references(() => readingPart.id, { onDelete: 'cascade' }),
+    role: text('role').$type<PartAudioSegmentRole>().notNull(),
+    /** Scope discriminator — `instance` or `user:<id>`; scope is never NULL. */
+    scopeKey: text('scope_key').notNull(),
+    ownerUserId: text('owner_user_id').references(() => user.id, { onDelete: 'cascade' }),
+    configFingerprint: text('config_fingerprint').notNull(),
+    segmentIndex: integer('segment_index').notNull(),
+    segmentKey: text('segment_key').notNull(),
+    segmentHash: text('segment_hash').notNull(),
+    paragraphAnchor: text('paragraph_anchor').notNull(),
+    paragraphTextOffset: integer('paragraph_text_offset').notNull().default(0),
+    textLength: integer('text_length').notNull(),
+    voice: text('voice').notNull(),
+    mimeType: text('mime_type').notNull().default('audio/mpeg'),
+    durationMs: integer('duration_ms'),
+    wordTimings: jsonb('word_timings').$type<PartAudioSegmentWordTiming[]>().notNull().default([]),
+    storageKey: text('storage_key').notNull(),
+    status: text('status').$type<PartAudioSegmentStatus>().notNull().default('generating'),
+    /** Opaque backend-owned claim token; never expose through learner APIs. */
+    generationToken: text('generation_token'),
+    leaseExpiresAt: timestamp('lease_expires_at'),
+    errorCode: text('error_code'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex('part_audio_segment_identity_uidx').on(
+      table.partId,
+      table.role,
+      table.scopeKey,
+      table.configFingerprint,
+      table.segmentHash,
+    ),
+    index('part_audio_segment_part_segment_idx').on(table.partId, table.role, table.segmentIndex),
+    index('part_audio_segment_lease_idx').on(table.leaseExpiresAt),
+    uniqueIndex('part_audio_segment_token_uidx')
+      .on(table.generationToken)
+      .where(sql`${table.generationToken} is not null`),
+    check('part_audio_segment_role_check', sql`${table.role} in ('us', 'uk')`),
+    check('part_audio_segment_status_check', sql`${table.status} in ('generating', 'ready', 'failed')`),
+    check('part_audio_segment_segment_hash_nonempty_chk', sql`length(${table.segmentHash}) > 0`),
+    check('part_audio_segment_scope_key_nonempty_chk', sql`length(${table.scopeKey}) > 0`),
+  ],
+);
 
 /** Append-only TTS synthesis audit log (part generate / admin test). */
 export const ttsInvocationLog = pgTable(

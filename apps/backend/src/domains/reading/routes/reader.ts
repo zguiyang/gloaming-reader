@@ -1,8 +1,5 @@
 import { Hono } from 'hono';
 
-import { readerPartAudioQuerySchema } from '@gloaming/shared/reader';
-
-import { getPartAudioTrackForActor } from '@/domains/assets';
 import {
   getReaderPart,
   getReaderParts,
@@ -39,11 +36,4 @@ readerRoutes.get('/api/reader/parts/:partId', async (c) => {
   const actor = workReadActorFromIdentity(c.get('user'));
   const data = await getReaderPart(actor, c.req.param('partId'));
   return c.json(data);
-});
-
-readerRoutes.get('/api/reader/parts/:partId/audio', async (c) => {
-  const query = readerPartAudioQuerySchema.parse({ role: c.req.query('role') });
-  const actor = workReadActorFromIdentity(c.get('user'));
-  const track = await getPartAudioTrackForActor(actor, c.req.param('partId'), query.role);
-  return c.json(track);
 });

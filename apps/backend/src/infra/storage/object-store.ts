@@ -66,6 +66,25 @@ export async function getObjectStream(key: string, range?: ObjectRange): Promise
   return resolveStore().getStream(key, range);
 }
 
+/**
+ * Object size via an optional HEAD read — best effort, `null` when the store
+ * has no `head` support or the lookup fails. Used to answer 416 responses with
+ * the wildcard `Content-Range` (`bytes *` … `<size>`).
+ */
+export async function getObjectSize(key: string): Promise<number | null> {
+  try {
+    const store = resolveStore();
+    const head = store.head?.bind(store);
+    if (!head) {
+      return null;
+    }
+    const meta = await head(key);
+    return meta ? meta.size : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function objectExists(key: string): Promise<boolean> {
   return resolveStore().exists(key);
 }

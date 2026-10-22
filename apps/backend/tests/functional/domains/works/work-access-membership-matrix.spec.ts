@@ -68,7 +68,7 @@ type SeededWork = {
   workId: string;
   partId: string;
   coverAssetId: string;
-  audioAssetId: string;
+  imageAssetId: string;
   originAssetId: string;
 };
 
@@ -81,7 +81,7 @@ async function seedWork(input: {
   const workId = randomUUID();
   const partId = randomUUID();
   const coverAssetId = randomUUID();
-  const audioAssetId = randomUUID();
+  const imageAssetId = randomUUID();
   const originAssetId = randomUUID();
 
   await db.insert(readingWorkTable).values({
@@ -103,10 +103,10 @@ async function seedWork(input: {
   });
 
   const coverKey = `matrix/cover/${coverAssetId}.png`;
-  const audioKey = `matrix/audio/${audioAssetId}.mp3`;
+  const imageKey = `matrix/image/${imageAssetId}.png`;
   const originKey = `matrix/origin/${originAssetId}.epub`;
   memory.store.set(coverKey, { body: Buffer.from('cover-bytes'), contentType: 'image/png' });
-  memory.store.set(audioKey, { body: Buffer.from('audio-bytes'), contentType: 'audio/mpeg' });
+  memory.store.set(imageKey, { body: Buffer.from('image-bytes'), contentType: 'image/png' });
   memory.store.set(originKey, { body: Buffer.from('origin-bytes'), contentType: 'application/epub+zip' });
 
   await db.insert(contentAssetTable).values([
@@ -122,14 +122,14 @@ async function seedWork(input: {
       meta: {},
     },
     {
-      id: audioAssetId,
+      id: imageAssetId,
       workId,
       partId,
-      kind: 'audio_us',
+      kind: 'image',
       status: 'ready',
-      mimeType: 'audio/mpeg',
-      storageKey: audioKey,
-      contentHash: `audio-${audioAssetId}`,
+      mimeType: 'image/png',
+      storageKey: imageKey,
+      contentHash: `image-${imageAssetId}`,
       meta: {},
     },
     {
@@ -145,7 +145,7 @@ async function seedWork(input: {
     },
   ]);
 
-  return { workId, partId, coverAssetId, audioAssetId, originAssetId };
+  return { workId, partId, coverAssetId, imageAssetId, originAssetId };
 }
 
 describe('Work Access Policy matrix on gloaming_test', () => {
@@ -207,13 +207,13 @@ describe('Work Access Policy matrix on gloaming_test', () => {
 
     expect((await partsRequest(work.workId, owner.cookie)).status).toBe(200);
     expect((await assetRequest(work.coverAssetId, owner.cookie)).status).toBe(200);
-    expect((await assetRequest(work.audioAssetId, owner.cookie)).status).toBe(200);
+    expect((await assetRequest(work.imageAssetId, owner.cookie)).status).toBe(200);
     expect((await assetRequest(work.originAssetId, owner.cookie)).status).toBe(200);
 
     for (const cookie of [other.cookie, admin.cookie]) {
       expect((await partsRequest(work.workId, cookie)).status).toBe(HTTP_STATUS.NOT_FOUND);
       expect((await assetRequest(work.coverAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
-      expect((await assetRequest(work.audioAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
+      expect((await assetRequest(work.imageAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
       expect((await assetRequest(work.originAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
     }
     expect((await partsRequest(work.workId)).status).toBe(HTTP_STATUS.NOT_FOUND);
@@ -235,7 +235,7 @@ describe('Work Access Policy matrix on gloaming_test', () => {
     for (const cookie of [undefined, other.cookie, admin.cookie]) {
       expect((await partsRequest(work.workId, cookie)).status).toBe(200);
       expect((await assetRequest(work.coverAssetId, cookie)).status).toBe(200);
-      expect((await assetRequest(work.audioAssetId, cookie)).status).toBe(200);
+      expect((await assetRequest(work.imageAssetId, cookie)).status).toBe(200);
       expect((await assetRequest(work.originAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
     }
   });
@@ -271,7 +271,7 @@ describe('Work Access Policy matrix on gloaming_test', () => {
       for (const cookie of [member.cookie, admin.cookie]) {
         expect((await partsRequest(work.workId, cookie)).status).toBe(HTTP_STATUS.NOT_FOUND);
         expect((await assetRequest(work.coverAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
-        expect((await assetRequest(work.audioAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
+        expect((await assetRequest(work.imageAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
       }
     }
   });
@@ -306,19 +306,19 @@ describe('Work Access Policy matrix on gloaming_test', () => {
     // Saved user: readable Work, learner-facing assets only.
     expect((await partsRequest(work.workId, member.cookie)).status).toBe(200);
     expect((await assetRequest(work.coverAssetId, member.cookie)).status).toBe(200);
-    expect((await assetRequest(work.audioAssetId, member.cookie)).status).toBe(200);
+    expect((await assetRequest(work.imageAssetId, member.cookie)).status).toBe(200);
     expect((await assetRequest(work.originAssetId, member.cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
 
     // Unsaved user and Admin without membership: denied.
     for (const cookie of [unsaved.cookie, admin.cookie]) {
       expect((await partsRequest(work.workId, cookie)).status).toBe(HTTP_STATUS.NOT_FOUND);
       expect((await assetRequest(work.coverAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
-      expect((await assetRequest(work.audioAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
+      expect((await assetRequest(work.imageAssetId, cookie)).status).toBe(HTTP_STATUS.FORBIDDEN);
     }
 
     // Admin with its own membership follows ordinary membership and is allowed.
     expect((await partsRequest(work.workId, memberAdmin.cookie)).status).toBe(200);
     expect((await assetRequest(work.coverAssetId, memberAdmin.cookie)).status).toBe(200);
-    expect((await assetRequest(work.audioAssetId, memberAdmin.cookie)).status).toBe(200);
+    expect((await assetRequest(work.imageAssetId, memberAdmin.cookie)).status).toBe(200);
   });
 });

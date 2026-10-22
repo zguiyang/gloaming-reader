@@ -2,7 +2,6 @@ import { type Locale, t } from '@gloaming/i18n';
 import type { AssetCategory, AssetCategorySummary, AssetCleanupJobStatus } from '@gloaming/shared/assets';
 
 const CATEGORY_KEYS: Record<AssetCategory, string> = {
-  audio: 'audio',
   cover: 'cover',
   image: 'image',
   origin: 'origin',

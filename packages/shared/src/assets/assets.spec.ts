@@ -9,9 +9,6 @@ import {
   assetCleanupRetryRequestSchema,
   assetScanReportSchema,
   classifyAssetKey,
-  isLegacyAudioSegmentKey,
-  parseLegacyAudioSegmentKey,
-  siblingChapterKeyForSegment,
 } from './assets.ts';
 
 function sampleCleanupJob(overrides: Record<string, unknown> = {}) {
@@ -33,33 +30,17 @@ function sampleCleanupJob(overrides: Record<string, unknown> = {}) {
 
 describe('classifyAssetKey', () => {
   it('prefers kind over key prefix', () => {
-    expect(classifyAssetKey('weird/path.bin', 'audio_us')).toBe('audio');
     expect(classifyAssetKey('weird/path.bin', 'cover')).toBe('cover');
     expect(classifyAssetKey('weird/path.bin', 'image')).toBe('image');
     expect(classifyAssetKey('weird/path.bin', 'origin_file')).toBe('origin');
+    expect(classifyAssetKey('weird/path.bin', 'unknown_kind')).toBe('other');
   });
 
   it('falls back to key prefixes', () => {
-    expect(classifyAssetKey('part-audio/p1/audio_us/h/chapter.mp3')).toBe('audio');
     expect(classifyAssetKey('covers/w1/a.jpg')).toBe('cover');
     expect(classifyAssetKey('book-images/w1/a/h.png')).toBe('image');
     expect(classifyAssetKey('epub/abc.epub')).toBe('origin');
     expect(classifyAssetKey('misc/unknown.bin')).toBe('other');
-  });
-});
-
-describe('legacy audio segment key helpers', () => {
-  it('detects and parses part-audio segment paths', () => {
-    const key = 'part-audio/p1/audio_us/h/seg/0000.mp3';
-    expect(isLegacyAudioSegmentKey(key)).toBe(true);
-    expect(isLegacyAudioSegmentKey('part-audio/p1/audio_us/h/chapter.mp3')).toBe(false);
-    expect(parseLegacyAudioSegmentKey(key)).toEqual({
-      partId: 'p1',
-      kind: 'audio_us',
-      contentHash: 'h',
-      segmentFile: '0000.mp3',
-    });
-    expect(siblingChapterKeyForSegment(key)).toBe('part-audio/p1/audio_us/h/chapter.mp3');
   });
 });
 
@@ -75,11 +56,9 @@ describe('assetScanReportSchema', () => {
       referencedBytes: 40,
       orphanCount: 1,
       orphanBytes: 60,
-      legacyDuplicateCount: 0,
-      legacyDuplicateBytes: 0,
       missingCount: 0,
       durationMs: 12,
-      categories: [{ category: 'audio', objectCount: 2, bytes: 100 }],
+      categories: [{ category: 'other', objectCount: 2, bytes: 100 }],
     });
     expect(report.orphanCount).toBe(1);
     expect(report).not.toHaveProperty('largestObjects');

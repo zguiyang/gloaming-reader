@@ -22,7 +22,6 @@ const mocks = vi.hoisted(() => {
     saveCleanupJob: vi.fn(async () => true),
     collectReferencedStorageKeys: vi.fn(async () => ({
       formalKeys: new Set<string>(),
-      legacyAudioSegmentKeys: new Set<string>(),
       externalReferencedKeys: new Set<string>(),
       allReferencedKeys: new Set<string>(),
       kindByKey: new Map<string, string>(),
@@ -148,7 +147,6 @@ describe('runAssetCleanupJob lock fencing', () => {
     mocks.collectReferencedStorageKeys.mockReset();
     mocks.collectReferencedStorageKeys.mockResolvedValue({
       formalKeys: new Set(),
-      legacyAudioSegmentKeys: new Set(),
       externalReferencedKeys: new Set(),
       allReferencedKeys: new Set(),
       kindByKey: new Map(),
@@ -381,7 +379,6 @@ describe('runAssetCleanupJob verification and resume', () => {
     mocks.collectReferencedStorageKeys.mockReset();
     mocks.collectReferencedStorageKeys.mockResolvedValue({
       formalKeys: new Set(),
-      legacyAudioSegmentKeys: new Set(),
       externalReferencedKeys: new Set(),
       allReferencedKeys: new Set(),
       kindByKey: new Map(),

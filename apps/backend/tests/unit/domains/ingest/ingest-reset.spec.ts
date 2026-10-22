@@ -3,16 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   deleteObject: vi.fn(),
-  deleteAudioAssetObjects: vi.fn(),
 }));
 
 vi.mock('@/infra/db', () => ({
   db: { transaction: mocks.transaction },
 }));
 vi.mock('@/infra/storage', () => ({ deleteObject: mocks.deleteObject }));
-vi.mock('@/domains/assets/content/audio/object-lifecycle', () => ({
-  deleteAudioAssetObjects: mocks.deleteAudioAssetObjects,
-}));
 
 import { resetParseStepOutputs } from '@/domains/ingest/reset';
 
@@ -27,6 +23,5 @@ describe('resetParseStepOutputs', () => {
     ).rejects.toThrow('database reset failed');
 
     expect(mocks.deleteObject).not.toHaveBeenCalled();
-    expect(mocks.deleteAudioAssetObjects).not.toHaveBeenCalled();
   });
 });

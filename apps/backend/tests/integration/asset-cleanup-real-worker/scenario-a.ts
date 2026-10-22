@@ -27,29 +27,18 @@ export async function runScenarioA(harness: RealWorkerHarness, adminCookie: stri
 
   try {
     const workId = await harness.insertWork();
-    const chapter = `${prefix}part-audio/${workId}/audio_us/h/chapter.mp3`;
-    const segment = `${prefix}part-audio/${workId}/audio_us/h/seg/0000.mp3`;
+    const chapter = `${prefix}part-audio/${workId}/probe/h/chapter.mp3`;
+    const segment = `${prefix}part-audio/${workId}/probe/h/seg/0000.mp3`;
     const cover = `${prefix}covers/${workId}/cover.jpg`;
     const uploadedKey = `${prefix}epub/${workId}.epub`;
     const orphan = `${prefix}orphan/${workId}/leftover.bin`;
 
+    // Retired legacy audio rows are unprotected: their objects count as orphans.
     await harness.insertAsset({
       workId,
-      kind: 'audio_us',
+      kind: 'audio_probe',
       storageKey: chapter,
-      meta: {
-        objectKeys: [segment, chapter],
-        timeline: [
-          {
-            index: 0,
-            textHash: 't0',
-            startMs: 0,
-            durationMs: 1000,
-            storageKey: segment,
-            wordTimings: [],
-          },
-        ],
-      },
+      meta: { objectKeys: [segment, chapter] },
     });
     await harness.insertAsset({ workId, kind: 'cover', storageKey: cover });
     await harness.insertUploaded(uploadedKey, 16);
@@ -166,11 +155,14 @@ export async function runScenarioA(harness: RealWorkerHarness, adminCookie: stri
     const coverExists = await objectExists(cover);
     const uploadedExists = await objectExists(uploadedKey);
     if (orphanExists) throw new Error('orphan still present in S3');
-    if (!chapterExists || !segmentExists || !coverExists || !uploadedExists) {
+    if (chapterExists || segmentExists) {
+      throw new Error('retired audio objects were not reclaimed as orphans');
+    }
+    if (!coverExists || !uploadedExists) {
       throw new Error('referenced object deleted unexpectedly');
     }
     report.realS3Deletes = true;
-    report.workerDeletedObjectKeys.push(orphan);
+    report.workerDeletedObjectKeys.push(orphan, chapter, segment);
     scenarioA.status = 'PASS';
   } catch (error) {
     scenarioA.status = 'FAIL';

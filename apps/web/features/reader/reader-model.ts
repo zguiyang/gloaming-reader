@@ -1,7 +1,7 @@
 /** Reader UI types — aligned with split reader APIs. */
 
 import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
-import type { ReaderAudioAvailability, ReadingAnchor, ReadingStateStatus } from '@gloaming/shared/reader';
+import type { ReadingAnchor, ReadingStateStatus } from '@gloaming/shared/reader';
 import type { PartSummary } from '@gloaming/shared/works';
 
 export type ReaderInlineAssistKind = 'explain' | 'translate' | 'ask';
@@ -10,7 +10,8 @@ export type ReaderFontSize = 'sm' | 'md' | 'lg';
 
 export type ReaderAiMode = 'closed' | 'inline' | 'drawer';
 
-export type ReaderAudioStatus = 'idle' | 'loading' | 'ready' | 'playing' | 'paused' | 'failed';
+/** Lazy per-segment listen player lifecycle — driven by ReaderAudioController. */
+export type ReaderAudioStatus = 'idle' | 'loading' | 'playing' | 'paused' | 'error';
 
 export type ReaderAiMessageSource = 'inline' | 'drawer';
 
@@ -44,7 +45,8 @@ export type ReaderViewModel = {
   sortOrder: number;
   html: string;
   state: ReaderProgressState | null;
-  audioAvailable: ReaderAudioAvailability;
+  /** Whether this actor has a usable TTS configuration (config check only). */
+  ttsConfigured: boolean;
 };
 
 /** @deprecated Use ReaderViewModel */
@@ -303,22 +305,7 @@ export function isReaderScrollIntentKey(input: {
 
 export type ReaderAudioRole = 'us' | 'uk';
 
-/** Prefer `preferred` when available; else us → uk. */
-export function resolveAudioRole(
-  available: ReaderAudioAvailability,
-  preferred: ReaderAudioRole | null = null,
-): ReaderAudioRole | null {
-  if (preferred && available[preferred]) {
-    return preferred;
-  }
-  if (available.us) {
-    return 'us';
-  }
-  if (available.uk) {
-    return 'uk';
-  }
-  return null;
-}
+export const DEFAULT_READER_AUDIO_ROLE: ReaderAudioRole = 'us';
 
 /** TTS mini-player playback rates — click cycles in this order. */
 export const READER_PLAYBACK_RATES = [0.5, 1, 1.5, 2] as const;

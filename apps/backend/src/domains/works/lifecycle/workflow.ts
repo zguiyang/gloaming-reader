@@ -5,12 +5,11 @@ import type { WorkProcessingStatus } from '@gloaming/shared/works';
 
 import { db } from '@/infra/db';
 
-type WorkflowStep = 'parse' | 'metadata' | 'tts';
+type WorkflowStep = 'parse' | 'metadata';
 
 const STEP_RUNNING_STATUS: Record<WorkflowStep, WorkProcessingStatus> = {
   parse: 'processing',
   metadata: 'metadata',
-  tts: 'ready',
 };
 
 const WORKFLOW_LEASE_MS = 15 * 60 * 1000;

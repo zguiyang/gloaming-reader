@@ -1,171 +1,33 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  audioTimelineSegmentSchema,
-  buildContentAssetGenerationKey,
-  buildPartAudioText,
-  contentAssetGenerationClaimSchema,
-  contentAssetMetaSchema,
-  contentAssetTrackSchema,
-  deriveAudioTrackStatus,
-  normalizePartAudioWhitespace,
-  partHasSynthAudioText,
-} from './content-assets.ts';
-
-describe('buildContentAssetGenerationKey', () => {
-  it('is stable for the same part, role, and source content', () => {
-    expect(buildContentAssetGenerationKey({ partId: 'part-1', kind: 'audio_us', contentHash: 'hash-1' })).toBe(
-      'part-1:audio_us:hash-1',
-    );
-  });
-});
-
-describe('contentAssetGenerationClaimSchema', () => {
-  it('requires the DB-backed claim and lease facts', () => {
-    expect(
-      contentAssetGenerationClaimSchema.parse({
-        generationKey: 'part-1:audio_us:hash-1',
-        generationToken: 'claim-1',
-        generationClaimedAt: '2026-09-05T00:00:00.000Z',
-        generationLeaseExpiresAt: '2026-09-05T00:05:00.000Z',
-      }),
-    ).toMatchObject({ generationKey: 'part-1:audio_us:hash-1', generationToken: 'claim-1' });
-  });
-});
-
-describe('buildPartAudioText', () => {
-  it('normalizes body plain text for TTS (body-only SSOT)', () => {
-    expect(buildPartAudioText('  Hello   world  ')).toBe('Hello world');
-    expect(buildPartAudioText('')).toBe('');
-  });
-
-  it('does not incorporate a chapter title', () => {
-    const body = normalizePartAudioWhitespace('A Wolf resolved to disguise himself.');
-    expect(buildPartAudioText(body)).toBe(body);
-    expect(buildPartAudioText(body)).not.toContain('THE WOLF');
-  });
-});
-
-describe('partHasSynthAudioText', () => {
-  it('treats whitespace-only body as empty', () => {
-    expect(partHasSynthAudioText('   ')).toBe(false);
-    expect(partHasSynthAudioText('Hello')).toBe(true);
-  });
-});
-
-describe('deriveAudioTrackStatus', () => {
-  it('maps DB facts to track status including stale', () => {
-    expect(deriveAudioTrackStatus(null, 'hash-a')).toBe('none');
-    expect(deriveAudioTrackStatus({ status: 'generating', contentHash: 'hash-a' }, 'hash-a')).toBe('generating');
-    expect(deriveAudioTrackStatus({ status: 'failed', contentHash: 'hash-a' }, 'hash-a')).toBe('failed');
-    expect(deriveAudioTrackStatus({ status: 'ready', contentHash: 'hash-a' }, 'hash-a')).toBe('ready');
-    expect(deriveAudioTrackStatus({ status: 'ready', contentHash: 'old' }, 'hash-a')).toBe('stale');
-  });
-});
-
-const wordTiming = {
-  text: 'Hello',
-  audioOffsetMs: 0,
-  durationMs: 120,
-  textOffset: 0,
-};
-
-describe('audioTimelineSegmentSchema', () => {
-  it('accepts a timing-only segment without storageKey', () => {
-    const parsed = audioTimelineSegmentSchema.parse({
-      index: 0,
-      textHash: 'seg-hash',
-      startMs: 0,
-      durationMs: 500,
-      wordTimings: [wordTiming],
-    });
-    expect(parsed.storageKey).toBeUndefined();
-    expect(parsed.wordTimings).toHaveLength(1);
-  });
-
-  it('still reads a legacy segment that includes storageKey', () => {
-    const parsed = audioTimelineSegmentSchema.parse({
-      index: 0,
-      textHash: 'seg-hash',
-      startMs: 0,
-      durationMs: 500,
-      storageKey: 'part-audio/p1/audio_us/h/seg/0000.mp3',
-      wordTimings: [wordTiming],
-    });
-    expect(parsed.storageKey).toBe('part-audio/p1/audio_us/h/seg/0000.mp3');
-  });
-});
+import { contentAssetMetaSchema } from './content-assets.ts';
 
 describe('contentAssetMetaSchema', () => {
-  it('accepts chapter-only metadata (formal chapter key + timing-only timeline)', () => {
+  it('accepts image/cover/origin metadata', () => {
     const parsed = contentAssetMetaSchema.parse({
-      voice: 'en-US-JennyNeural',
-      durationMs: 500,
-      generatedAt: '2026-09-10T00:00:00.000Z',
-      objectKeys: ['part-audio/p1/audio_us/h/chapter.mp3'],
-      timeline: [
-        {
-          index: 0,
-          textHash: 'seg-hash',
-          startMs: 0,
-          durationMs: 500,
-          wordTimings: [wordTiming],
-        },
-      ],
+      objectKeys: ['book-images/p1/a.webp'],
+      originalFileName: 'chapter1.html',
+      size: 1234,
+      originalPath: 'OEBPS/chapter1.html',
+      reused: true,
     });
-    expect(parsed.objectKeys).toEqual(['part-audio/p1/audio_us/h/chapter.mp3']);
-    expect(parsed.timeline?.[0]?.storageKey).toBeUndefined();
+    expect(parsed.objectKeys).toEqual(['book-images/p1/a.webp']);
+    expect(parsed.originalFileName).toBe('chapter1.html');
+    expect(parsed.size).toBe(1234);
+    expect(parsed.originalPath).toBe('OEBPS/chapter1.html');
+    expect(parsed.reused).toBe(true);
   });
 
-  it('does not fail whole-asset parsing when legacy metadata includes extra fields', () => {
+  it('does not fail whole-asset parsing when historical metadata includes legacy fields', () => {
     const parsed = contentAssetMetaSchema.parse({
+      objectKeys: ['book-images/p1/a.webp'],
+      // Legacy whole-chapter audio keys may still appear on old rows; they pass
+      // through so the schema stays tolerant of historical metadata.
       voice: 'en-US-JennyNeural',
       durationMs: 900,
-      objectKeys: ['part-audio/p1/audio_us/old/seg/0000.mp3', 'part-audio/p1/audio_us/old/chapter.mp3'],
-      timeline: [
-        {
-          index: 0,
-          textHash: 'seg-hash',
-          startMs: 0,
-          durationMs: 900,
-          storageKey: 'part-audio/p1/audio_us/old/seg/0000.mp3',
-          wordTimings: [wordTiming],
-        },
-      ],
       legacySegmentCount: 1,
       unknownOpsFlag: true,
     });
-    expect(parsed.timeline?.[0]?.storageKey).toBe('part-audio/p1/audio_us/old/seg/0000.mp3');
     expect(parsed).toMatchObject({ legacySegmentCount: 1, unknownOpsFlag: true });
-  });
-});
-
-describe('contentAssetTrackSchema', () => {
-  it('accepts a ready track whose timeline is timing-only', () => {
-    const parsed = contentAssetTrackSchema.parse({
-      role: 'us',
-      status: 'ready',
-      voice: 'en-US-JennyNeural',
-      contentHash: 'hash-1',
-      contentStale: false,
-      mimeType: 'audio/mpeg',
-      lastError: null,
-      generatedAt: '2026-09-10T00:00:00.000Z',
-      updatedAt: '2026-09-10T00:00:00.000Z',
-      audioAvailable: true,
-      assetId: 'asset-1',
-      audioUrl: '/api/assets/asset-1',
-      durationMs: 500,
-      timeline: [
-        {
-          index: 0,
-          textHash: 'seg-hash',
-          startMs: 0,
-          durationMs: 500,
-          wordTimings: [wordTiming],
-        },
-      ],
-    });
-    expect(parsed.timeline?.[0]?.storageKey).toBeUndefined();
   });
 });

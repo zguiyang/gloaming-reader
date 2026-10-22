@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import { enqueueWorkAudio } from '@/domains/assets';
 import { enrichWorkMetadata } from '@/domains/metadata';
-import { claimWorkflowStep, failWorkflowEnqueue, failWorkflowStep } from '@/domains/works/lifecycle';
+import { claimWorkflowStep, failWorkflowStep } from '@/domains/works/lifecycle';
 import { rootLogger } from '@/infra/logging/logger';
 
 export const JOB_METADATA_ENRICH = 'metadata-enrich';
@@ -28,15 +27,7 @@ export async function processMetadataEnrich(
     return { ok: true, workId: data.workId };
   }
   try {
-    const { enqueueTts } = await enrichWorkMetadata(data.workId, data.retryJobToken, attemptToken);
-    if (enqueueTts) {
-      try {
-        await enqueueWorkAudio(data.workId, { force: false, roles: ['us', 'uk'] });
-      } catch (error) {
-        await failWorkflowEnqueue(data.workId, 'tts', data.retryJobToken, 'ready', attemptToken, error);
-        throw error;
-      }
-    }
+    await enrichWorkMetadata(data.workId, data.retryJobToken, attemptToken);
   } catch (error) {
     enrichJobLogger.error({ err: error, workId: data.workId }, 'Metadata enrich failed');
     await failWorkflowStep(data.workId, 'metadata', data.retryJobToken, attemptToken, error);

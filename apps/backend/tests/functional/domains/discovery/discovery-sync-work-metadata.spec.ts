@@ -250,7 +250,11 @@ describe('Discovery sync work metadata write-back on gloaming_test', () => {
       wordCount: before?.wordCount,
       descriptionProvenance: before?.descriptionProvenance,
     });
-    expect(work?.updatedAt?.getTime()).toBeGreaterThan(before!.updatedAt.getTime());
+    // Postgres timestamps are truncated to milliseconds, so an update within
+    // the same millisecond as the old value may leave updatedAt equal, not
+    // strictly greater. title/description assertions above stay strict to
+    // prove the row was actually written.
+    expect(work?.updatedAt?.getTime()).toBeGreaterThanOrEqual(before!.updatedAt.getTime());
 
     expect(await partRow(partId)).toEqual(partBefore);
     expect(await stateRow(stateId)).toEqual(stateBefore);

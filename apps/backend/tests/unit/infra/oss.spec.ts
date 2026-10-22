@@ -12,7 +12,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { type CommonEnv, commonEnv, isS3ObjectStorageConfigured } from '@/infra/config/env-common';
 import { createObjectStoreFromEnv, createS3ObjectStore, type ObjectStore } from '@/infra/storage';
-import { deleteManyObjects, putObject, resetObjectStoreCache, setObjectStoreForTests } from '@/infra/storage';
+import {
+  deleteManyObjects,
+  getObjectSize,
+  putObject,
+  RangeNotSatisfiableError,
+  resetObjectStoreCache,
+  setObjectStoreForTests,
+} from '@/infra/storage';
 import { AppError } from '@/shared/errors/app-error';
 
 import { createMemoryObjectStore } from '../../helpers/memory-oss';
@@ -129,6 +136,48 @@ describe('createS3ObjectStore', () => {
     });
     await expect(store.get('missing.mp3')).resolves.toBeNull();
     await expect(store.exists('missing.mp3')).resolves.toBe(false);
+  });
+
+  it('maps S3 InvalidRange to RangeNotSatisfiableError and reads sizes via head', async () => {
+    const send = vi.fn(async (command: unknown) => {
+      if (command instanceof GetObjectCommand) {
+        const error = new Error('The requested range is not satisfiable');
+        (error as { name?: string }).name = 'InvalidRange';
+        (error as { $metadata?: unknown }).$metadata = { httpStatusCode: 416 };
+        throw error;
+      }
+      if (command instanceof HeadObjectCommand) {
+        return { ContentLength: 32, ContentType: 'audio/mpeg' };
+      }
+      throw new Error('unexpected command');
+    });
+    const store = createS3ObjectStore({
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+    await expect(store.getStream('k.mp3', { start: 999 })).rejects.toThrow(RangeNotSatisfiableError);
+    await expect(store.head?.('k.mp3')).resolves.toEqual({ size: 32, contentType: 'audio/mpeg' });
+  });
+
+  it('maps a bare S3 416 status code to RangeNotSatisfiableError', async () => {
+    const send = vi.fn(async () => {
+      const error = new Error('unsatisfiable');
+      (error as { $metadata?: unknown }).$metadata = { httpStatusCode: 416 };
+      throw error;
+    });
+    const store = createS3ObjectStore({
+      region: 'auto',
+      bucket: 'my-bucket',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+      client: { send } as never,
+    });
+    await expect(store.getStream('k.mp3', { start: 999 })).rejects.toSatisfy(
+      (error: unknown) => error instanceof RangeNotSatisfiableError && error.statusCode === 416,
+    );
   });
 
   it('uses DeleteObjectsCommand for deleteMany and reports partial Errors', async () => {
@@ -253,6 +302,27 @@ describe('oss facade', () => {
     resetObjectStoreCache();
     setObjectStoreForTests(null);
     await expect(deleteManyObjects([])).resolves.toEqual({ deleted: [], failed: [] });
+    resetObjectStoreCache();
+  });
+
+  it('getObjectSize reads the size via head and degrades to null without head support', async () => {
+    resetObjectStoreCache();
+    const memory = createMemoryObjectStore();
+    await memory.put({ key: 'a', body: Buffer.alloc(9), contentType: 'text/plain' });
+    setObjectStoreForTests(memory);
+    await expect(getObjectSize('a')).resolves.toBe(9);
+    await expect(getObjectSize('missing')).resolves.toBeNull();
+
+    const withoutHead: ObjectStore = {
+      put: async () => {},
+      get: async () => null,
+      getStream: async () => null,
+      exists: async () => false,
+      delete: async () => {},
+      list: async () => ({ objects: [], nextCursor: null, hasMore: false }),
+    };
+    setObjectStoreForTests(withoutHead);
+    await expect(getObjectSize('a')).resolves.toBeNull();
     resetObjectStoreCache();
   });
 

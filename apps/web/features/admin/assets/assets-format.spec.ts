@@ -22,14 +22,14 @@ describe('buildCategoryChartData', () => {
   it('drops zero-byte categories and assigns chart colors', () => {
     const data = buildCategoryChartData(
       [
-        { category: 'audio', objectCount: 2, bytes: 100 },
+        { category: 'image', objectCount: 2, bytes: 100 },
         { category: 'cover', objectCount: 0, bytes: 0 },
         { category: 'origin', objectCount: 1, bytes: 50 },
       ],
       'zh-CN',
     );
     expect(data).toHaveLength(2);
-    expect(data[0]).toMatchObject({ category: 'audio', label: '音频', fill: 'var(--chart-1)' });
+    expect(data[0]).toMatchObject({ category: 'image', label: '插图', fill: 'var(--chart-1)' });
     expect(data[1]).toMatchObject({ category: 'origin', label: '原始文件' });
   });
 });

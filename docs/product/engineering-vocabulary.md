@@ -30,9 +30,8 @@ UI copy may still say **书 / Book / 封面 / 章节** — intentional user meta
 | -------------------- | ------------------- | ---------------------------------------------------------------------- |
 | Pipeline progress    | `processing_status` | `uploaded`, `processing`, `parsed`, `metadata`, `ready`, `failed` only |
 | Published to catalog | `published_at`      | non-null timestamp = catalog eligible; Discover filters this field     |
-| TTS in flight        | workflow metadata   | workflow step `tts` while `processing_status` may stay `ready`         |
 
-Do **not** use `published` or `tts` as `processing_status` values.
+Do **not** use `published` as a `processing_status` value.
 
 ### Provider / settings scope
 
@@ -53,7 +52,7 @@ Do **not** use `published` or `tts` as `processing_status` values.
 | **History**  | `/reading-history` | `GET /api/reading-history`                                     | Calm overview of reading activity                              |
 | Work detail  | `/works/[workId]`  | shared detail route                                            | Title/cover/meta; Read → `/read/[id]`                          |
 
-Part-scoped APIs: TTS / translate / assist use `partId` (+ `workId` for thread scope).
+Part-scoped APIs: TTS / translate / assist use `partId` (+ `workId` for thread scope). Lazy reader audio is Part-scoped too: `GET /api/reader/parts/:partId/audio/manifest`, `GET /api/reader/parts/:partId/audio/segments/:index`, and `GET /api/reader/parts/:partId/audio/segments/:index/audio` synthesize and serve per-segment audio on demand.
 
 **Library filter:** source + tag combined (AND), reflected in the URL; today it operates on a client-loaded subset, not full pagination.
 
@@ -69,7 +68,7 @@ Supply policy SSOT: [`content-strategy.md`](./content-strategy.md). Accepted dir
 
 `@gloaming/shared` has no root public entrypoint; the only public entrypoints are `@gloaming/shared/<module>` owning-module subpaths (ADR-003). Deep imports such as `@gloaming/shared/src/...` are forbidden. Shared exposes cross-layer DTOs, schemas, types, and pure functions; it does not own backend queue, retry, lease, or workflow runtime policy.
 
-`apps/backend` owns workflow policy and preserves auto-chaining / auto-TTS **off** defaults (`WORKFLOW_AUTO_CHAIN = false`, `TTS_STEP_ENABLED = false`). Reader audio may degrade gracefully when an existing asset is temporarily unavailable.
+`apps/backend` owns workflow policy and preserves auto-chaining **off** defaults (`WORKFLOW_AUTO_CHAIN = false`). Reader audio is generated lazily per segment at read time (no pre-generated whole-chapter audio assets, no workflow `tts` step) and degrades gracefully, for example when the speech provider is unavailable.
 
 ---
 

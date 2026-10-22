@@ -14,7 +14,6 @@ const enrichLogger = rootLogger.child({ module: 'MetadataEnrich' });
 
 export type EnrichWorkMetadataResult = {
   ok: boolean;
-  enqueueTts: boolean;
 };
 
 /** Fill only a weak description; never replace a stronger or manually edited value. */
@@ -28,13 +27,13 @@ export async function enrichWorkMetadata(
     throw new Error(`Work ${workId} not found`);
   }
   if (work.ownerUserId !== null || work.visibility !== 'catalog' || work.processingStatus !== 'metadata') {
-    return { ok: true, enqueueTts: false };
+    return { ok: true };
   }
 
   const needed = selectFieldsNeedingAi(work.description);
   if (needed.size === 0) {
     const step = await completeMetadataStep(workId, retryJobToken, attemptToken);
-    return { ok: step.completed, enqueueTts: step.enqueueTts };
+    return { ok: step.completed };
   }
 
   try {
@@ -50,7 +49,7 @@ export async function enrichWorkMetadata(
   } catch (error) {
     if (isModelNotConfigured(error)) {
       const step = await completeMetadataStep(workId, retryJobToken, attemptToken, [...needed]);
-      return { ok: step.completed, enqueueTts: step.enqueueTts };
+      return { ok: step.completed };
     }
     throw error;
   }
@@ -65,5 +64,5 @@ export async function enrichWorkMetadata(
   if (step.completed && gaps.length > 0) {
     enrichLogger.warn({ workId, missingFields: gaps }, 'Metadata enrich completed with fields left unfilled');
   }
-  return { ok: step.completed, enqueueTts: step.enqueueTts };
+  return { ok: step.completed };
 }

@@ -8,7 +8,6 @@ export type {
   AssetCleanupRequest,
   AssetCleanupRetryRequest,
   AssetScanReport,
-  LegacyAudioSegmentKeyParts,
 } from './assets.ts';
 export {
   ASSET_CATEGORIES,
@@ -22,7 +21,4 @@ export {
   assetCleanupRetryRequestSchema,
   assetScanReportSchema,
   classifyAssetKey,
-  isLegacyAudioSegmentKey,
-  parseLegacyAudioSegmentKey,
-  siblingChapterKeyForSegment,
 } from './assets.ts';

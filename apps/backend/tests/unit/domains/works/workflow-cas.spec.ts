@@ -62,8 +62,8 @@ describe('workflow CAS helpers', () => {
   it('rejects stale completion and failure updates when no row is affected', async () => {
     mocks.returning.mockResolvedValue([]);
 
-    await expect(completeWorkflowStep('work-1', 'ready', undefined, 'tts')).resolves.toBe(false);
-    await expect(failWorkflowStep('work-1', 'tts', 'retry-a', 'attempt-a', new Error('stale'))).resolves.toBe(false);
+    await expect(completeWorkflowStep('work-1', 'ready', undefined, 'parsed')).resolves.toBe(false);
+    await expect(failWorkflowStep('work-1', 'parse', 'retry-a', 'attempt-a', new Error('stale'))).resolves.toBe(false);
     expect(mocks.where).toHaveBeenCalledTimes(2);
     expect(mocks.returning).toHaveBeenCalledTimes(2);
   });

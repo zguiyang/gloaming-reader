@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
-import type { TtsWordTiming } from '@gloaming/shared/tts';
 
 import { useAuthDialog } from '@/features/auth';
 import { ReaderAiDrawer } from '@/features/reader/assist/reader-ai-drawer';
@@ -13,11 +12,11 @@ import { ReaderAiInline } from '@/features/reader/assist/reader-ai-inline';
 import { useReaderAssist } from '@/features/reader/assist/use-reader-assist';
 import { useReaderListenHighlight } from '@/features/reader/audio/reader-audio-highlight';
 import { ReaderTts } from '@/features/reader/audio/reader-tts';
+import { useReaderAudio } from '@/features/reader/audio/use-reader-audio';
 import { useDictionaryLookupQuery } from '@/features/reader/dictionary/reader-dictionary-api';
 import { ReaderDictionaryView } from '@/features/reader/dictionary/reader-dictionary-view';
 import {
   formatReaderApiError,
-  getReaderAudioTrack,
   getReaderBootstrapCommand,
   resolvePartId,
   toReaderViewModel,
@@ -31,8 +30,6 @@ import { ReaderChrome } from '@/features/reader/reader-chrome';
 import { useReadingHeartbeat } from '@/features/reader/reader-heartbeat';
 import type {
   ReaderAnchorRestore,
-  ReaderAudioRole,
-  ReaderAudioStatus,
   ReaderFontSize,
   ReaderPlaybackRate,
   ReaderSelection,
@@ -53,7 +50,6 @@ import {
   releaseAnchorRestoreMarkers,
   resolveAnchorFlushRatio,
   resolveAnchorRatio,
-  resolveAudioRole,
   scrollPositionRatio,
   shouldPersistAnchor,
   startAnchorRestore,
@@ -117,16 +113,12 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     top: number;
     left: number;
   } | null>(null);
-  const [audioStatus, setAudioStatus] = useState<ReaderAudioStatus>('idle');
   const [playbackRate, setPlaybackRate] = useState<ReaderPlaybackRate>(DEFAULT_READER_PLAYBACK_RATE);
-  const [preferredAudioRole, setPreferredAudioRole] = useState<ReaderAudioRole | null>(null);
-  const [wordTimings, setWordTimings] = useState<TtsWordTiming[] | null>(null);
   const [listeningSentenceIndex, setListeningSentenceIndex] = useState<number | null>(null);
   const [selectedSentenceIndex, setSelectedSentenceIndex] = useState<number | null>(null);
   const [tappedSentenceIndex, setTappedSentenceIndex] = useState<number | null>(null);
 
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const restoredPartRef = useRef<string | null>(null);
   const anchorRestoreRef = useRef<ReaderAnchorRestore | null>(null);
   const anchorSaveRef = useRef<{
@@ -180,14 +172,21 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   const reader: ReaderViewModel | null =
     partsData && partQuery.data ? toReaderViewModel(partsData, partQuery.data, stateQuery.data ?? null) : null;
 
-  const { clearListenHighlight } = useReaderListenHighlight({
+  const readerAudio = useReaderAudio({
+    contentRef,
+    partId: reader?.partId ?? null,
+    ttsConfigured: reader?.ttsConfigured ?? false,
+  });
+  const stopAudio = readerAudio.stop;
+
+  useReaderListenHighlight({
     contentRef,
     partId: reader?.partId ?? null,
     html: reader?.html ?? null,
-    wordTimings,
-    audioStatus,
+    segment: readerAudio.state.segment,
+    audioStatus: readerAudio.state.status,
     selectionActive: Boolean(selection),
-    audioRef,
+    audioRef: readerAudio.audioRef,
     onActiveSentenceChange: setListeningSentenceIndex,
   });
 
@@ -486,21 +485,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     };
   }, [flushAnchorSave, isAuthenticated]);
 
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-    };
-  }, []);
-
-  const resetAudioPlayback = useCallback(() => {
-    audioRef.current?.pause();
-    audioRef.current = null;
-    setWordTimings(null);
-    setListeningSentenceIndex(null);
-    clearListenHighlight();
-    setAudioStatus('idle');
-  }, [clearListenHighlight]);
-
   const navigateToPart = useCallback(
     async (partId: string, mode: 'navigate' | 'complete_chapter', nextPartId?: string) => {
       if (!isAuthenticated) {
@@ -514,7 +498,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
             ? await stateMutation.mutateAsync({ action: 'navigate', partId })
             : await stateMutation.mutateAsync({ action: 'complete_chapter', nextPartId });
         setLocalProgressRatio(updated.progressRatio);
-        resetAudioPlayback();
+        stopAudio();
         setActivePartId(updated.currentPartId ?? partId);
         router.replace(`/read/${workId}?part=${encodeURIComponent(updated.currentPartId ?? partId)}`, {
           scroll: false,
@@ -525,7 +509,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           const recovered = refreshed.data;
           if (recovered) {
             setLocalProgressRatio(recovered.progressRatio);
-            resetAudioPlayback();
+            stopAudio();
             const recoveredPartId = recovered.currentPartId ?? partId;
             setActivePartId(recoveredPartId);
             router.replace(`/read/${workId}?part=${encodeURIComponent(recoveredPartId)}`, { scroll: false });
@@ -536,17 +520,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         toast.error(formatReaderApiError(error));
       }
     },
-    [
-      flushAnchorSave,
-      isAuthenticated,
-      locale,
-      openLogin,
-      refetchState,
-      resetAudioPlayback,
-      router,
-      stateMutation,
-      workId,
-    ],
+    [flushAnchorSave, isAuthenticated, locale, openLogin, refetchState, router, stateMutation, stopAudio, workId],
   );
 
   function clearSelectionUi() {
@@ -561,87 +535,10 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     void assist.runInlineAssist(kind, selection);
   }
 
-  async function playPartAudio(role: ReaderAudioRole) {
-    if (!reader) return;
-    if (!reader.audioAvailable[role]) {
-      toast.error(
-        role === 'us' ? t(locale, 'content.reader.toast.noUsAudio') : t(locale, 'content.reader.toast.noUkAudio'),
-      );
-      return;
-    }
-
-    setAudioStatus('loading');
-    try {
-      const track = await getReaderAudioTrack(reader.partId, role);
-      audioRef.current?.pause();
-      const audio = new Audio(track.audioUrl);
-      audio.playbackRate = playbackRate;
-      audioRef.current = audio;
-      setWordTimings(track.wordTimings.length > 0 ? track.wordTimings : null);
-      audio.onended = () => {
-        clearListenHighlight();
-        setAudioStatus('ready');
-      };
-      audio.onerror = () => {
-        clearListenHighlight();
-        setAudioStatus('failed');
-        toast.error(t(locale, 'content.reader.toast.audioPlayFailed'));
-      };
-      await audio.play();
-      setAudioStatus('playing');
-    } catch {
-      setWordTimings(null);
-      clearListenHighlight();
-      setAudioStatus('failed');
-      toast.error(t(locale, 'content.reader.toast.audioPlayFailed'));
-    }
-  }
-
   function handleCyclePlaybackRate() {
     const next = nextPlaybackRate(playbackRate);
     setPlaybackRate(next);
-    if (audioRef.current) {
-      audioRef.current.playbackRate = next;
-    }
-  }
-
-  async function handleTtsToggle() {
-    if (!reader) return;
-
-    if (audioStatus === 'playing') {
-      audioRef.current?.pause();
-      setAudioStatus('paused');
-      return;
-    }
-
-    if (audioStatus === 'paused') {
-      await audioRef.current?.play();
-      setAudioStatus('playing');
-      return;
-    }
-
-    const role = resolveAudioRole(reader.audioAvailable, preferredAudioRole);
-    if (!role) {
-      toast.error(t(locale, 'content.reader.toast.noAudio'));
-      return;
-    }
-
-    await playPartAudio(role);
-  }
-
-  async function handleAccentSelect(role: ReaderAudioRole) {
-    if (!reader) return;
-    if (!reader.audioAvailable[role]) {
-      toast.error(
-        role === 'us' ? t(locale, 'content.reader.toast.noUsAudio') : t(locale, 'content.reader.toast.noUkAudio'),
-      );
-      return;
-    }
-    if (role === resolveAudioRole(reader.audioAvailable, preferredAudioRole)) {
-      return;
-    }
-    setPreferredAudioRole(role);
-    await playPartAudio(role);
+    readerAudio.setPlaybackRate(next);
   }
 
   async function handleFinish() {
@@ -717,7 +614,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   const progressRatio = localProgressRatio ?? stateData?.progressRatio ?? reader.state?.progressRatio ?? 0;
   const chapterLabel =
     reader.parts.length > 1 && currentIndex >= 0 ? `${currentIndex + 1} / ${reader.parts.length}` : null;
-  const audioRole = resolveAudioRole(reader.audioAvailable, preferredAudioRole) ?? 'us';
   const isDrawerOpen = assist.aiMode === 'drawer';
   const isInlineOpen = assist.aiMode === 'inline' && Boolean(assist.inlineSession);
 
@@ -740,7 +636,14 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         fontSize={fontSize}
         aiOpen={isDrawerOpen}
         tocOpen={isTocOpen}
-        isListening={audioStatus === 'playing' || audioStatus === 'paused' || audioStatus === 'loading'}
+        isListening={
+          readerAudio.state.status === 'playing' ||
+          readerAudio.state.status === 'paused' ||
+          readerAudio.state.status === 'loading' ||
+          // Error keeps the mini player open with Retry — the headphones
+          // toggle must stay pressed so both affordances agree.
+          readerAudio.state.status === 'error'
+        }
         isBilingual={translate.isActive}
         isBilingualLoading={translate.isLoading}
         onToggleToc={() => {
@@ -757,7 +660,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           setIsChromeVisible(true);
         }}
         onToggleTts={() => {
-          void handleTtsToggle();
+          readerAudio.toggle();
           setIsChromeVisible(true);
         }}
         onToggleBilingual={() => {
@@ -929,15 +832,13 @@ export function ReaderPage({ workId }: ReaderPageProps) {
       />
 
       <ReaderTts
-        status={audioStatus}
+        status={readerAudio.state.status}
         playbackRate={playbackRate}
         tocOpen={isTocOpen}
-        aiDrawerOpen={isDrawerOpen}
-        audioRole={audioRole}
-        audioAvailable={reader.audioAvailable}
-        onToggle={() => void handleTtsToggle()}
+        audioRole={readerAudio.state.role}
+        onToggle={readerAudio.toggle}
         onCyclePlaybackRate={handleCyclePlaybackRate}
-        onSelectRole={(role) => void handleAccentSelect(role)}
+        onSelectRole={readerAudio.selectRole}
       />
     </div>
   );

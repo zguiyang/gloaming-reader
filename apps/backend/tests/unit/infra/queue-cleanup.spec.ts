@@ -83,11 +83,6 @@ vi.mock('@/application/jobs/metadata-enrich', () => ({
   processMetadataEnrich: vi.fn(),
 }));
 
-vi.mock('@/application/jobs/part-audio-generate', () => ({
-  JOB_PART_AUDIO_GENERATE: 'part-audio-generate',
-  processPartAudioGenerate: vi.fn(),
-}));
-
 vi.mock('@/application/jobs/work-metadata-fill', () => ({
   JOB_METADATA_FILL: 'metadata-fill',
   processWorkMetadataFill: vi.fn(),

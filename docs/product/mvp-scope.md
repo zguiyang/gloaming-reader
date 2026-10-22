@@ -16,7 +16,7 @@ This document is the **capability** target (must / must-not).
 2. **Read** in a calm, book-like surface (resume via **ReadingState** on the current **ReadingPart**)
 3. **Unstick** with on-demand, **passage-grounded** AI
 4. **Translate** a sentence or passage when needed
-5. **Listen** to the current part (TTS; degrades if audio is unavailable)
+5. **Listen** to the current part with on-demand segmented TTS (starts at the current segment, prefetches ahead, degrades gracefully)
 6. **Organize** their Library with personal tags (CRUD + name translation) and browse admin-defined public categories
 7. **Keep reading** — no quiz, no review homework, no streak to protect
 
@@ -32,18 +32,18 @@ User: **Library, Discover, Reader, History, Settings, Account**. Admin: **instan
 
 ## 3. Must include
 
-| Capability         | Notes                                                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------- |
-| Auth session       | Better Auth cookie session; first-party session via Next `/api` proxy                                    |
-| Library            | Owned personal works ∪ explicit saved catalog membership (`UserLibraryItem`)                             |
-| Discover           | Browse catalog; explicit save creates membership, not progress                                           |
-| Reading experience | Typography; part navigation; resume part + anchor via **ReadingState**                                   |
-| AI reading assist  | Selection → explain in **this passage**; thread scoped to `reading_work`                                 |
-| Translation        | Sentence or passage; bilingual view never replaces English as default                                    |
-| TTS                | Listen to current part; degrade if audio unavailable                                                     |
-| Personal tags      | Per-user tag CRUD, localized name translation, assignment (see [`personal-tags.md`](./personal-tags.md)) |
-| Public categories  | Admin CRUD + user browse (see [`public-categories.md`](./public-categories.md))                          |
-| Personal EPUB      | User-owned, private; shared parser → private Work (see [`content-strategy.md`](./content-strategy.md))   |
+| Capability         | Notes                                                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Auth session       | Better Auth cookie session; first-party session via Next `/api` proxy                                               |
+| Library            | Owned personal works ∪ explicit saved catalog membership (`UserLibraryItem`)                                        |
+| Discover           | Browse catalog; explicit save creates membership, not progress                                                      |
+| Reading experience | Typography; part navigation; resume part + anchor via **ReadingState**                                              |
+| AI reading assist  | Selection → explain in **this passage**; thread scoped to `reading_work`                                            |
+| Translation        | Sentence or passage; bilingual view never replaces English as default                                               |
+| TTS                | On-demand segmented TTS for the current part — starts at the current segment, prefetches ahead, degrades gracefully |
+| Personal tags      | Per-user tag CRUD, localized name translation, assignment (see [`personal-tags.md`](./personal-tags.md))            |
+| Public categories  | Admin CRUD + user browse (see [`public-categories.md`](./public-categories.md))                                     |
+| Personal EPUB      | User-owned, private; shared parser → private Work (see [`content-strategy.md`](./content-strategy.md))              |
 
 ---
 

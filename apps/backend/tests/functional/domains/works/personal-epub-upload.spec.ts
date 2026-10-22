@@ -181,7 +181,7 @@ describe('POST /api/works (Personal EPUB)', () => {
     const parts = await db.select().from(readingPartTable).where(eq(readingPartTable.workId, workId));
     expect(parts.length).toBeGreaterThan(0);
     const assets = await db.select().from(contentAssetTable).where(eq(contentAssetTable.workId, workId));
-    expect(assets.some((asset) => asset.kind === 'audio_us' || asset.kind === 'audio_uk')).toBe(false);
+    expect(assets.every((asset) => ['origin_file', 'image', 'cover'].includes(asset.kind))).toBe(true);
     expect(enqueueSpy.mock.calls.map(([name]) => name)).toEqual(['content-parse']);
 
     expect((await app.request(`/api/reader/works/${workId}/parts`, { headers: { Cookie: owner.cookie } })).status).toBe(
