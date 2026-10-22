@@ -348,7 +348,7 @@ describe('ReaderPage lazy audio', () => {
     expect(mocks.getReaderAudioSegment.mock.calls.filter((call) => call[2] === 1)).toHaveLength(1);
   });
 
-  it('switches voice role through the mini player accent control', async () => {
+  it('switches voice role through the mini player accent control, restarting from segment 0', async () => {
     const { container } = await renderReaderPage();
 
     clickButton(container, 'Listen');
@@ -357,9 +357,10 @@ describe('ReaderPage lazy audio', () => {
     await flushMicrotasks();
 
     expect(mocks.getReaderAudioManifest).toHaveBeenCalledWith('p1', 'uk', expect.anything());
-    expect(mocks.getReaderAudioSegment.mock.calls.some((call) => call[1] === 'uk' && call[2] === 1)).toBe(true);
+    // Voice change re-speaks the chapter from its first segment with the new role.
+    expect(mocks.getReaderAudioSegment.mock.calls.some((call) => call[1] === 'uk' && call[2] === 0)).toBe(true);
     const audio = FakeAudio.instances.at(-1)!;
-    expect(audio.src).toBe('/audio/uk/1');
+    expect(audio.src).toBe('/audio/uk/0');
   });
 
   it('toasts a segment failure and retries the current segment from the play button', async () => {
