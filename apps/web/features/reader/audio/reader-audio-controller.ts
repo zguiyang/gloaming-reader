@@ -52,31 +52,34 @@ export type ReaderAudioControllerDeps = {
 };
 
 /**
- * Pick the paragraph driving playback start: the `[data-p]` element containing
- * the viewport center, else the first visible one, else the last paragraph
- * above the fold, else (all content below the fold) the first paragraph.
- * Returns its anchor (`data-p` value) or null when none exist.
+ * Pick the paragraph driving playback start: the topmost visible `[data-p]`
+ * element — the first one intersecting the viewport from the top (partially
+ * visible counts). The viewport center is deliberately not used: a chapter's
+ * opening is often a short title paragraph, so the center would land in the
+ * second paragraph and skip the chapter's beginning. When nothing is visible,
+ * content below the fold starts at the first paragraph, and content scrolled
+ * past (end of chapter) starts at the last. Returns its anchor (`data-p`
+ * value) or null when none exist.
  */
 export function resolveVisibleParagraphAnchor(root: ParentNode, viewportHeight: number): string | null {
   const paragraphs = Array.from(root.querySelectorAll('[data-p]'));
   if (paragraphs.length === 0) {
     return null;
   }
-  const center = viewportHeight / 2;
-  let firstVisible: Element | null = null;
+  let firstBelowFold: Element | null = null;
   let lastAboveFold: Element | null = null;
   for (const element of paragraphs) {
     const rect = element.getBoundingClientRect();
-    if (rect.top <= center && center < rect.bottom) {
+    if (rect.bottom > 0 && rect.top < viewportHeight) {
       return element.getAttribute('data-p');
     }
-    if (rect.bottom > 0 && rect.top < viewportHeight) {
-      firstVisible ??= element;
-    } else if (rect.bottom <= 0) {
+    if (rect.bottom <= 0) {
       lastAboveFold = element;
+    } else {
+      firstBelowFold ??= element;
     }
   }
-  const target = firstVisible ?? lastAboveFold ?? paragraphs[0]!;
+  const target = firstBelowFold ?? lastAboveFold ?? paragraphs[0]!;
   return target.getAttribute('data-p');
 }
 
