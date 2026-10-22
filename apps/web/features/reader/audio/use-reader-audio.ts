@@ -42,6 +42,8 @@ export function useReaderAudio({ contentRef, partId, ttsConfigured }: UseReaderA
   stop: () => void;
   selectRole: (role: ReaderAudioRole) => void;
   setPlaybackRate: (rate: ReaderPlaybackRate) => void;
+  /** Chapter listening progress, 0–1 — sampled periodically by the mini player. */
+  getChapterProgress: () => number;
 } {
   const { locale } = useLocale();
   const [state, setState] = useState<ReaderAudioControllerState>(INITIAL_STATE);
@@ -92,6 +94,7 @@ export function useReaderAudio({ contentRef, partId, ttsConfigured }: UseReaderA
   const stop = useCallback(() => controller.stop(), [controller]);
   const selectRole = useCallback((role: ReaderAudioRole) => controller.selectRole(role), [controller]);
   const setPlaybackRate = useCallback((rate: ReaderPlaybackRate) => controller.setPlaybackRate(rate), [controller]);
+  const getChapterProgress = useCallback(() => controller.getChapterProgress(), [controller]);
 
-  return { state, audioRef, toggle, stop, selectRole, setPlaybackRate };
+  return { state, audioRef, toggle, stop, selectRole, setPlaybackRate, getChapterProgress };
 }

@@ -14,6 +14,8 @@ export const READER_AUDIO_MANIFEST_STALE_CODE = 'api.errors.readerAudio.manifest
 /** Active segment payload for word-level highlight, scoped to one paragraph chunk. */
 export type ReaderAudioSegmentView = SegmentTimingInput & {
   index: number;
+  /** Segment audio duration when the synthesis payload carried one — progress fallback. */
+  durationMs: number | null;
 };
 
 export type ReaderAudioControllerState = {
@@ -225,6 +227,34 @@ export class ReaderAudioController {
   /** Live audio element backing playback — null until the first segment plays. */
   getAudioElement(): HTMLAudioElement | null {
     return this.audio;
+  }
+
+  /**
+   * Fraction of the chapter already spoken, 0–1. Chapters are synthesized
+   * lazily per paragraph, so there is no precomputed total duration; segment
+   * text length is the stable weight, and the live audio clock supplies the
+   * position inside the current segment. Callers may sample this on a timer —
+   * it reads state without emitting React updates.
+   */
+  getChapterProgress(): number {
+    const manifest = this.manifests.get(this.role);
+    if (!manifest || this.currentIndex < 0) {
+      return 0;
+    }
+    const totalTextLength = manifest.segments.reduce((sum, segment) => sum + segment.textLength, 0);
+    if (totalTextLength <= 0) {
+      return 0;
+    }
+    let spokenTextLength = 0;
+    for (const segment of manifest.segments) {
+      if (segment.index < this.currentIndex) {
+        spokenTextLength += segment.textLength;
+      } else if (segment.index === this.currentIndex) {
+        spokenTextLength += segment.textLength * this.currentSegmentFraction();
+        break;
+      }
+    }
+    return Math.min(1, Math.max(0, spokenTextLength / totalTextLength));
   }
 
   toggle(container: ParentNode | null): void {
@@ -794,8 +824,53 @@ export class ReaderAudioController {
       paragraphAnchor: payload.paragraphAnchor,
       paragraphTextOffset: payload.paragraphTextOffset,
       textLength: this.manifests.get(this.role)?.segments[index]?.textLength ?? 0,
+      durationMs: payload.durationMs,
       wordTimings: payload.wordTimings,
     };
+  }
+
+  /**
+   * Position inside the active segment, 0–1, from the live audio clock.
+   * Returns 0 while the next segment is still loading: the element then still
+   * holds the previous segment's media, and reading its clock would count the
+   * new segment as complete and make the bar jump a whole segment forward.
+   */
+  private currentSegmentFraction(): number {
+    const audio = this.audio;
+    const segment = this.currentSegment;
+    if (!audio || !segment || this.currentIndex < 0) {
+      return 0;
+    }
+    const durationMs = this.currentSegmentDurationMs();
+    if (durationMs <= 0) {
+      return 0;
+    }
+    const currentTimeMs = (Number.isFinite(audio.currentTime) ? audio.currentTime : 0) * 1000;
+    return Math.min(1, Math.max(0, currentTimeMs / durationMs));
+  }
+
+  /**
+   * Real duration when the element knows it, else the synthesis payload, else
+   * word timings, else a text-length estimate — segments without a usable
+   * duration must not freeze the bar inside the segment.
+   */
+  private currentSegmentDurationMs(): number {
+    const segment = this.currentSegment;
+    if (!segment) {
+      return 0;
+    }
+    const audio = this.audio;
+    if (audio && typeof audio.duration === 'number' && Number.isFinite(audio.duration) && audio.duration > 0) {
+      return audio.duration * 1000;
+    }
+    if (segment.durationMs != null && segment.durationMs > 0) {
+      return segment.durationMs;
+    }
+    const lastTiming = segment.wordTimings[segment.wordTimings.length - 1];
+    if (lastTiming) {
+      return lastTiming.audioOffsetMs + lastTiming.durationMs;
+    }
+    return segment.textLength > 0 ? Math.round((segment.textLength / BUFFER_DURATION_CHARS_PER_SECOND) * 1000) : 0;
   }
 
   private ensureAudio(): HTMLAudioElement {

@@ -1053,6 +1053,83 @@ describe('ReaderAudioController look-ahead buffer', () => {
   });
 });
 
+describe('ReaderAudioController chapter progress', () => {
+  it('reports zero before playback starts', () => {
+    const harness = createHarness();
+
+    expect(harness.controller.getChapterProgress()).toBe(0);
+  });
+
+  it('weights completed segments by text length and adds the live segment fraction', async () => {
+    const harness = createHarness();
+    // Paragraph 1's first segment is index 2 of 4 — 20 of 40 characters are behind it.
+    await harness.controller.startFromVisibleParagraph(renderContainer(1));
+    await flush();
+
+    expect(harness.controller.getChapterProgress()).toBeCloseTo(0.5, 5);
+
+    // Halfway through the active segment (payload durationMs = 1000): 20 + 5 of 40.
+    harness.audio.currentTime = 0.5;
+    expect(harness.controller.getChapterProgress()).toBeCloseTo(0.625, 5);
+
+    harness.audio.dispatch('ended');
+    await flush();
+    // The final segment completes the chapter, so the hairline fills up.
+    harness.audio.currentTime = 1;
+    expect(harness.controller.getChapterProgress()).toBeCloseTo(1, 5);
+  });
+
+  it('holds the completed boundary while the next segment is still loading', async () => {
+    // Segment 1 never arrives, so no look-ahead buffer can hide the loading window.
+    const harness = createHarness({
+      fetchSegment: vi.fn(async (_partId: string, role: TestRole, index: number) => {
+        if (index === 0) {
+          return buildSegmentPayload(role, index);
+        }
+        return new Promise<never>(() => {});
+      }),
+    });
+    await harness.controller.startFromVisibleParagraph(renderContainer(0));
+
+    // Give the element a real media clock like a browser would report.
+    Object.defineProperty(harness.audio, 'duration', { value: 1, configurable: true });
+    harness.audio.currentTime = 0.5;
+    expect(harness.controller.getChapterProgress()).toBeCloseTo(0.125, 5); // 5 of 40 characters
+
+    // handleEnded starts loading index 1 synchronously; the element still holds
+    // segment 0's media, so progress must not count segment 1 as complete.
+    harness.audio.dispatch('ended');
+    expect(harness.controller.getState()).toMatchObject({ status: 'loading', currentIndex: 1, segment: null });
+    expect(harness.controller.getChapterProgress()).toBeCloseTo(0.25, 5); // 10 of 40 characters
+  });
+
+  it('restarts progress from zero when the voice switches', async () => {
+    const harness = createHarness();
+    await harness.controller.startFromVisibleParagraph(renderContainer(0));
+    await flush();
+    harness.audio.currentTime = 0.5;
+    expect(harness.controller.getChapterProgress()).toBeGreaterThan(0);
+
+    harness.controller.selectRole('uk');
+
+    // The new role's manifest is not loaded yet, so no stale position leaks in.
+    expect(harness.controller.getChapterProgress()).toBe(0);
+  });
+
+  it('resets to zero when the player stops', async () => {
+    const harness = createHarness();
+    // Starting at paragraph 1 means 20 of 40 characters are already behind the playhead.
+    await harness.controller.startFromVisibleParagraph(renderContainer(1));
+    await flush();
+    harness.audio.currentTime += 0.25;
+    expect(harness.controller.getChapterProgress()).toBeGreaterThan(0);
+
+    harness.controller.stop();
+
+    expect(harness.controller.getChapterProgress()).toBe(0);
+  });
+});
+
 describe('resolveVisibleParagraphAnchor', () => {
   it('returns the topmost visible paragraph, not the one containing the viewport center', () => {
     // Chapter opening: short title p0, body p1 below. Center = 384 lands in
