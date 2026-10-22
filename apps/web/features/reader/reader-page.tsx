@@ -485,6 +485,36 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     };
   }, [flushAnchorSave, isAuthenticated]);
 
+  // Browser history navigation (back/forward) changes ?part= without going
+  // through navigateToPart. After the first-screen bootstrap, follow the URL:
+  // switch the open chapter and sync reading state, mirroring chapter
+  // navigation. Guards keep bootstrap in ownership of the first screen
+  // (activePartId still null) and prevent loops when navigateToPart already
+  // setActivePartId before pushing the new URL (preferredPartId === active).
+  useEffect(() => {
+    if (!bootstrapStartedRef.current) return;
+    const currentPartId = activePartIdRef.current;
+    if (!currentPartId || !preferredPartId || preferredPartId === currentPartId) return;
+    if (!partsData?.parts.some((part) => part.id === preferredPartId)) return;
+    void flushAnchorSave();
+    stopAudio();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- subscribing to an external system (the URL): history navigation must adopt the ?part= value as the open chapter.
+    setActivePartId(preferredPartId);
+    if (!isAuthenticated) return;
+    void stateMutation
+      .mutateAsync({ action: 'navigate', partId: preferredPartId })
+      .then((updated) => {
+        // Ignore a stale response if the reader moved on in the meantime.
+        if (activePartIdRef.current === preferredPartId) {
+          setLocalProgressRatio(updated.progressRatio);
+        }
+      })
+      .catch(() => {
+        // History navigation must not surface errors; the chapter already
+        // switched locally.
+      });
+  }, [preferredPartId, partsData, isAuthenticated, flushAnchorSave, stopAudio, stateMutation]);
+
   const navigateToPart = useCallback(
     async (partId: string, mode: 'navigate' | 'complete_chapter', nextPartId?: string) => {
       if (!isAuthenticated) {
@@ -500,7 +530,9 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         setLocalProgressRatio(updated.progressRatio);
         stopAudio();
         setActivePartId(updated.currentPartId ?? partId);
-        router.replace(`/read/${workId}?part=${encodeURIComponent(updated.currentPartId ?? partId)}`, {
+        // push (not replace): chapter navigation must create history entries so
+        // browser back/forward walks through chapters.
+        router.push(`/read/${workId}?part=${encodeURIComponent(updated.currentPartId ?? partId)}`, {
           scroll: false,
         });
       } catch (error) {
@@ -512,7 +544,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
             stopAudio();
             const recoveredPartId = recovered.currentPartId ?? partId;
             setActivePartId(recoveredPartId);
-            router.replace(`/read/${workId}?part=${encodeURIComponent(recoveredPartId)}`, { scroll: false });
+            router.push(`/read/${workId}?part=${encodeURIComponent(recoveredPartId)}`, { scroll: false });
           }
           toast.info(t(locale, 'content.reader.toast.stateRefreshed'));
           return;
