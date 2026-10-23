@@ -5,7 +5,11 @@ import type { TtsVoiceRole } from '@gloaming/shared/tts';
 
 import type { ReaderAudioConfig } from '@/domains/reader-audio/config';
 import { resolveReaderAudioConfig } from '@/domains/reader-audio/config';
-import { buildReaderAudioConfigFingerprint, buildReaderAudioIdentity } from '@/domains/reader-audio/identity';
+import {
+  buildReaderAudioAttemptStorageKey,
+  buildReaderAudioConfigFingerprint,
+  buildReaderAudioIdentity,
+} from '@/domains/reader-audio/identity';
 import {
   claimSegmentGeneration,
   failSegmentGeneration,
@@ -24,8 +28,9 @@ import { HTTP_STATUS } from '@/shared/constants';
 import { AppError, NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
+// Version the URL to bypass immutable responses cached before the no-store policy.
 function segmentAudioUrl(partId: string, index: number, role: TtsVoiceRole, segmentHash: string): string {
-  return `/api/reader/parts/${partId}/audio/segments/${index}/audio?role=${role}&hash=${segmentHash}`;
+  return `/api/reader/parts/${partId}/audio/segments/${index}/audio?v=2&role=${role}&hash=${segmentHash}`;
 }
 
 function toManifestSegment(segment: ReaderAudioDerivedSegment): ReaderAudioManifestSegment {
@@ -187,15 +192,18 @@ export async function getReaderAudioSegment(
         partId,
         role,
       });
-      await putSegmentObject(identity.storageKey, synthesized.audio);
+      // Each claim writes its own object; an expired holder cannot overwrite the winner.
+      const storageKey = buildReaderAudioAttemptStorageKey(identity.storageKey, activeClaim.token);
+      await putSegmentObject(storageKey, synthesized.audio);
       const published = await finalizeSegmentReady(activeClaim.id, activeClaim.token, {
-        storageKey: identity.storageKey,
+        storageKey,
         voice: synthesized.voice,
         mimeType: synthesized.mimeType,
         durationMs: synthesized.durationMs,
         wordTimings: synthesized.wordTimings,
       });
       if (!published) {
+        // The unreferenced losing object is eligible for existing orphan cleanup.
         // Lease was taken over while synthesizing — wait for the winner's row,
         // or re-claim (bounded) if that winner failed as well.
         claim = { kind: 'wait' };

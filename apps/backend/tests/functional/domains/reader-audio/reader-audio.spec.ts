@@ -293,7 +293,7 @@ describe('Reader lazy audio runtime', () => {
       durationMs: 120,
       paragraphAnchor: '0',
       segmentHash: manifest.segments[0]!.segmentHash,
-      audioUrl: `/api/reader/parts/${part.id}/audio/segments/0/audio?role=us&hash=${segment.segmentHash}`,
+      audioUrl: `/api/reader/parts/${part.id}/audio/segments/0/audio?v=2&role=us&hash=${segment.segmentHash}`,
     });
     expect(segment.wordTimings).toEqual([{ text: 'Listen', audioOffsetMs: 0, durationMs: 120, textOffset: 0 }]);
 
@@ -322,8 +322,8 @@ describe('Reader lazy audio runtime', () => {
     expect(audioRes.status).toBe(200);
     expect(Buffer.from(await audioRes.arrayBuffer()).toString()).toBe(FAKE_MP3.toString());
     expect(audioRes.headers.get('accept-ranges')).toBe('bytes');
-    // L7: the URL carries an immutable segmentHash — privately cacheable, never no-store.
-    expect(audioRes.headers.get('cache-control')).toBe('private, max-age=86400, immutable');
+    // Voice and provider scope can change independently of the text hash.
+    expect(audioRes.headers.get('cache-control')).toBe('private, no-store');
   });
 
   it('rejects a stale manifest hash with 409 and an out-of-range index with 404', async () => {

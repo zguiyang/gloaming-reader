@@ -65,3 +65,8 @@ export function buildReaderAudioIdentity(input: ReaderAudioIdentityInput): Reade
     storageKey,
   };
 }
+
+/** Claim-scoped objects keep stale synthesis uploads separate from the published winner. */
+export function buildReaderAudioAttemptStorageKey(storageKey: string, token: string): string {
+  return `${storageKey.slice(0, -4)}/${token}.mp3`;
+}

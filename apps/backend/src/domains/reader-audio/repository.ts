@@ -5,7 +5,7 @@ import { and, eq, or, sql } from 'drizzle-orm';
 import type { PartAudioSegmentWordTiming } from '@gloaming/db';
 import { partAudioSegment as partAudioSegmentTable } from '@gloaming/db';
 
-import type { ReaderAudioIdentity } from '@/domains/reader-audio/identity';
+import { buildReaderAudioAttemptStorageKey, type ReaderAudioIdentity } from '@/domains/reader-audio/identity';
 import { db } from '@/infra/db';
 import { HTTP_STATUS } from '@/shared/constants';
 import { AppError } from '@/shared/errors/app-error';
@@ -92,7 +92,7 @@ export async function claimSegmentGeneration(
         textLength: meta.textLength,
         voice: meta.voice,
         mimeType: 'audio/mpeg',
-        storageKey: identity.storageKey,
+        storageKey: buildReaderAudioAttemptStorageKey(identity.storageKey, token),
         status: 'generating',
         generationToken: token,
         leaseExpiresAt,
@@ -132,6 +132,7 @@ export async function claimSegmentGeneration(
       .update(partAudioSegmentTable)
       .set({
         generationToken: token,
+        storageKey: buildReaderAudioAttemptStorageKey(identity.storageKey, token),
         leaseExpiresAt,
         status: 'generating',
         errorCode: null,

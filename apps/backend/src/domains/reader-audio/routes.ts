@@ -92,8 +92,9 @@ readerAudioRoutes.get('/api/reader/parts/:partId/audio/segments/:index/audio', a
   const headers = new Headers();
   headers.set('Content-Type', result.contentType);
   headers.set('Accept-Ranges', 'bytes');
-  // The URL carries an immutable segmentHash — safe to cache privately (BYOK stays private).
-  headers.set('Cache-Control', 'private, max-age=86400, immutable');
+  // The resolved voice, provider scope, and access can change at the same URL.
+  // The player already buffers bytes in memory; always recheck authorization here.
+  headers.set('Cache-Control', 'private, no-store');
   headers.set('X-Content-Type-Options', 'nosniff');
   if (result.etag) {
     headers.set('ETag', result.etag);
