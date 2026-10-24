@@ -8,12 +8,15 @@ import { t } from '@gloaming/i18n';
 import { DEFAULT_TTS_VOICES, TTS_VOICE_PRESETS, type TtsConfigView } from '@gloaming/shared/tts';
 
 import { Button } from '@/components/ui/button';
+import { nativeSelectFilledClasses } from '@/components/ui/control-appearance';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { SecretField } from '@/components/ui/secret-field';
 import { formatUserSettingsApiError, putUserTtsConfig, userSettingsQueryKey } from '@/features/settings/settings-api';
 import { useLocale } from '@/lib/locale-context';
+import { cn } from '@/lib/utils';
 
-export function SettingsTtsSection({ config }: { config: TtsConfigView }) {
+export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsConfigView; hideTitle?: boolean }) {
   const { locale } = useLocale();
   const queryClient = useQueryClient();
   const [region, setRegion] = useState(config.region);
@@ -22,6 +25,7 @@ export function SettingsTtsSection({ config }: { config: TtsConfigView }) {
   const [usVoice, setUsVoice] = useState(config.usVoice || DEFAULT_TTS_VOICES.usVoice);
   const [ukVoice, setUkVoice] = useState(config.ukVoice || DEFAULT_TTS_VOICES.ukVoice);
   const [enabled, setEnabled] = useState(config.configured ? config.isEnabled : false);
+  const [isReplacingKey, setIsReplacingKey] = useState(false);
   const [regionError, setRegionError] = useState('');
 
   const saveMutation = useMutation({
@@ -41,33 +45,26 @@ export function SettingsTtsSection({ config }: { config: TtsConfigView }) {
       queryClient.setQueryData(userSettingsQueryKey.tts(), next);
       await queryClient.invalidateQueries({ queryKey: userSettingsQueryKey.tts() });
       setApiKey('');
+      setIsReplacingKey(false);
       toast.success(t(locale, 'settings.saved'));
     },
     onError: (error) => toast.error(formatUserSettingsApiError(error)),
   });
 
   function chooseDefault() {
-    if (!config.configured || !config.isEnabled) return;
+    // Local mode selection only; the payload shape and persistence stay unchanged.
     setEnabled(false);
   }
 
   return (
     <section className="flex flex-col gap-5">
       <div>
-        <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.tts.title')}</h2>
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t(locale, 'settings.serviceMode')}>
-          <Button
-            type="button"
-            variant={!config.configured || !enabled ? 'default' : 'outline'}
-            onClick={chooseDefault}
-          >
+        {!hideTitle ? <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.tts.title')}</h2> : null}
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t(locale, 'settings.serviceMode')}>
+          <Button type="button" variant={!enabled ? 'default' : 'outline'} onClick={chooseDefault}>
             {t(locale, 'settings.defaultService')}
           </Button>
-          <Button
-            type="button"
-            variant={config.configured && enabled ? 'default' : 'outline'}
-            onClick={() => setEnabled(true)}
-          >
+          <Button type="button" variant={enabled ? 'default' : 'outline'} onClick={() => setEnabled(true)}>
             {t(locale, 'settings.ownApi')}
           </Button>
         </div>
@@ -91,23 +88,40 @@ export function SettingsTtsSection({ config }: { config: TtsConfigView }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field data-invalid={Boolean(regionError) || undefined}>
                 <FieldLabel htmlFor="settings-tts-region">{t(locale, 'settings.tts.region')}</FieldLabel>
-                <Input id="settings-tts-region" value={region} onChange={(e) => setRegion(e.target.value)} />
-                <FieldError>{regionError}</FieldError>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="settings-tts-key">
-                  {t(locale, 'settings.ai.apiKey')}
-                  {config.apiKeySet ? ` · ${config.apiKeyMasked ?? t(locale, 'settings.secret.saved')}` : ''}
-                </FieldLabel>
                 <Input
-                  id="settings-tts-key"
-                  type="password"
-                  autoComplete="new-password"
-                  value={apiKey}
-                  placeholder={config.apiKeySet ? t(locale, 'settings.secret.leaveBlank') : ''}
-                  onChange={(e) => setApiKey(e.target.value)}
+                  id="settings-tts-region"
+                  appearance="filled"
+                  className="h-11"
+                  aria-invalid={Boolean(regionError) || undefined}
+                  aria-describedby={regionError ? 'settings-tts-region-error' : undefined}
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
                 />
+                <FieldError id="settings-tts-region-error">{regionError}</FieldError>
               </Field>
+              <SecretField
+                id="settings-tts-key"
+                label={t(locale, 'settings.ai.apiKey')}
+                isSet={config.apiKeySet}
+                masked={config.apiKeyMasked}
+                value={apiKey}
+                onChange={setApiKey}
+                disabled={saveMutation.isPending}
+                replacing={isReplacingKey}
+                onReplace={() => setIsReplacingKey(true)}
+                onCancelReplace={() => {
+                  setApiKey('');
+                  setIsReplacingKey(false);
+                }}
+                placeholderWhenSet={t(locale, 'settings.secret.leaveBlank')}
+                copy={{
+                  replaceLabel: t(locale, 'common.secret.newKey'),
+                  replaceAction: t(locale, 'common.secret.replace'),
+                  cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
+                  keepHint: t(locale, 'common.secret.keepHint'),
+                  configuredLabel: t(locale, 'common.secret.configured'),
+                }}
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               {(
@@ -121,7 +135,10 @@ export function SettingsTtsSection({ config }: { config: TtsConfigView }) {
                   <FieldLabel htmlFor={`settings-tts-${key}`}>{t(locale, `settings.tts.voice.${key}`)}</FieldLabel>
                   <select
                     id={`settings-tts-${key}`}
-                    className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className={cn(
+                      'h-11 w-full px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                      nativeSelectFilledClasses,
+                    )}
                     value={value}
                     onChange={(event) => setter(event.target.value)}
                   >

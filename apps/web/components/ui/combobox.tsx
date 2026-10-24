@@ -46,13 +46,16 @@ function ComboboxInput({
   disabled = false,
   showTrigger = true,
   showClear = false,
+  appearance = 'default',
   ...props
 }: ComboboxPrimitive.Input.Props & {
   showTrigger?: boolean;
   showClear?: boolean;
+  /** Opt-in tonal filled styling; default keeps the existing outline look. */
+  appearance?: 'default' | 'filled';
 }) {
   return (
-    <InputGroup className={cn('w-auto', className)}>
+    <InputGroup appearance={appearance} className={cn('w-auto', className)}>
       <ComboboxPrimitive.Input render={<InputGroupInput disabled={disabled} />} {...props} />
       <InputGroupAddon align="inline-end">
         {showTrigger && (

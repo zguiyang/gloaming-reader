@@ -15,7 +15,14 @@
     "paginationNext": "Next",
     "paginationGoToPrevious": "Go to previous page",
     "paginationGoToNext": "Go to next page",
-    "paginationMorePages": "More pages"
+    "paginationMorePages": "More pages",
+    "secret": {
+      "replace": "Replace key",
+      "cancelReplace": "Cancel replacement",
+      "newKey": "New key",
+      "keepHint": "Leave blank to keep the current key",
+      "configured": "Configured"
+    }
   },
   "nav": {
     "wordmark": "Gloaming",
@@ -88,7 +95,10 @@
     },
     "secret": {
       "saved": "Configured",
-      "leaveBlank": "Leave blank to keep the saved key"
+      "leaveBlank": "Leave blank to keep the saved key",
+      "replace": "Replace key",
+      "newKey": "New key",
+      "cancelReplace": "Cancel replacement"
     },
     "ai": {
       "title": "AI",
@@ -127,7 +137,16 @@
       },
       "notSet": "Choose a model",
       "unavailableModel": "This model is unavailable. Choose another one.",
-      "defaultOnUnset": "Capabilities without a personal model use the default service."
+      "defaultOnUnset": "Capabilities without a personal model use the default service.",
+      "defaultSummary": "Covers reading assistance, translation, and work details.",
+      "ownSummary": "Your own providers and models are enabled.",
+      "disabled": "Disabled",
+      "addProviderEntry": "Add and enable provider",
+      "addModelEntry": "Add and enable model",
+      "saveModel": "Save model",
+      "cancelChanges": "Discard changes",
+      "editProvider": "Edit provider",
+      "replaceKey": "Replace key"
     },
     "tts": {
       "title": "Read aloud",
@@ -137,7 +156,21 @@
         "default": "Default voice",
         "us": "US English",
         "uk": "UK English"
-      }
+      },
+      "defaultSummary": "Read-aloud voices provided by the platform; no setup needed.",
+      "ownSummary": "Your own read-aloud service is configured and applies after saving."
+    },
+    "readingServices": {
+      "title": "Reading services"
+    },
+    "current": "Current: {source}",
+    "change": "Change",
+    "ownAi": {
+      "title": "Own AI service",
+      "description": "Connect a provider → choose models → assign purposes.",
+      "enter": "Configure own AI service",
+      "empty": "No providers or models added yet",
+      "back": "Back to settings"
     }
   },
   "auth": {
@@ -541,7 +574,11 @@
     "config": {
       "tabAi": "AI",
       "tabTts": "Speech",
-      "tabDictionary": "Dictionary"
+      "tabDictionary": "Dictionary",
+      "subAi": "AI config",
+      "subTts": "Speech",
+      "subDictionary": "Dictionary",
+      "subnavAria": "Config sections"
     },
     "ai": {
       "title": "AI configuration",
@@ -585,7 +622,8 @@
         "currentBindingUnavailable": "Current binding (unavailable)",
         "noBindableModels": "No bindable models",
         "searchOrSelectModel": "Search or select a model",
-        "noMatchingModels": "No matching models"
+        "noMatchingModels": "No matching models",
+        "notSetRow": "Not set"
       },
       "provider": {
         "filterAll": "All",
@@ -633,7 +671,11 @@
           "disabled": "Disabled",
           "editAria": "Edit {label}",
           "deleteAria": "Delete {label}"
-        }
+        },
+        "listTitle": "Providers",
+        "testConnectivity": "Test connectivity",
+        "queryBalance": "Query balance",
+        "savedConfigOnly": "Connectivity tests and balance queries always use the saved configuration."
       },
       "model": {
         "platformModel": "Platform model",
@@ -679,8 +721,8 @@
       }
     },
     "tts": {
-      "title": "Speech configuration",
-      "subtitle": "Keys are encrypted and only masked values appear here.",
+      "title": "Speech service",
+      "subtitle": "Text-to-speech for read-aloud.",
       "loadFailed": "Failed to load configuration",
       "audioPlayFailed": "Could not play audio — check browser permissions",
       "toast": {
@@ -691,7 +733,8 @@
         "title": "Service settings",
         "configured": "Configured · Key {masked}",
         "notConfigured": "Not configured — Subscription Key required on first save",
-        "enableAria": "Enable speech service"
+        "enableAria": "Enable speech service",
+        "saveWithConfig": "Applies after saving"
       },
       "fields": {
         "region": "Region",
@@ -706,16 +749,18 @@
         "ukVoicePlaceholder": "Select UK voice"
       },
       "test": {
-        "sectionTitle": "Connectivity test",
+        "sectionTitle": "Test saved configuration",
         "testText": "Test text",
         "role": "Role",
         "roleDefaultVoice": "Default voice",
         "rolePlaceholder": "Select role",
         "run": "Test connectivity",
         "running": "Testing…",
-        "lastLatency": "Last run {latencyMs} ms"
+        "lastLatency": "Last run {latencyMs} ms",
+        "draftNotice": "Unsaved changes above: tests use the saved configuration and never submit these changes.",
+        "sectionDescription": "Tests use the saved speech configuration and never submit draft changes above."
       },
-      "saveConfig": "Save settings"
+      "saveConfig": "Save speech settings"
     },
     "dictionary": {
       "title": "Dictionary configuration",
@@ -729,7 +774,8 @@
         "title": "Service",
         "configured": "Persistent settings configured",
         "notConfigured": "Using defaults",
-        "enableAria": "Enable dictionary service"
+        "enableAria": "Enable dictionary service",
+        "saveWithConfig": "Applies after saving"
       },
       "provider": {
         "label": "Provider",
@@ -760,7 +806,7 @@
         "cacheTtlDays": "Entry cache TTL (days, Redis & DB)"
       },
       "test": {
-        "sectionTitle": "Connectivity & lookup test",
+        "sectionTitle": "Test saved configuration",
         "sectionDescription": "Verify provider connectivity, phonetics/audio parsing, and AI Chinese gloss enrichment.",
         "word": "Test word",
         "wordPlaceholder": "Enter an English word, e.g. serendipity",
@@ -774,10 +820,12 @@
         "playPronunciation": "Play pronunciation",
         "ipaFallback": "IPA",
         "contextExamplesHeading": "Context examples:",
-        "readingNote": "Reading note: {note}"
+        "readingNote": "Reading note: {note}",
+        "draftNotice": "Unsaved changes above: tests use the saved configuration and never submit these changes."
       },
-      "saveConfig": "Save settings",
-      "saving": "Saving…"
+      "saveConfig": "Save dictionary settings",
+      "saving": "Saving…",
+      "subtitle": "Provides definitions and examples for word lookup."
     },
     "logs": {
       "centerTabAi": "AI logs",
@@ -918,7 +966,9 @@
         "noData": "No data yet",
         "select": "Select…",
         "searchExisting": "Search existing options…",
-        "unused": "Unused"
+        "unused": "Unused",
+        "cancelChanges": "Discard changes",
+        "draftUnsaved": "Unsaved changes"
       },
       "provenance": {
         "extracted": "Extracted",

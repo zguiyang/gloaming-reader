@@ -42,6 +42,8 @@ type AiModelFormProps = {
   model: LlmModel | null;
   onSubmit: (values: ModelFormValues) => void;
   onCancel: () => void;
+  /** Object-save pending; disables actions during the current save. */
+  pending?: boolean;
 };
 
 function emptyValues(apiFamily: LlmApiFamily): ModelFormValues {
@@ -70,7 +72,7 @@ function fromModel(model: LlmModel): ModelFormValues {
   };
 }
 
-export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiModelFormProps) {
+export function AiModelForm({ formId, provider, model, onSubmit, onCancel, pending = false }: AiModelFormProps) {
   const { locale } = useLocale();
   const familyDef = getWireFamilyDefinition(provider.apiFamily);
   const isEdit = model != null;
@@ -173,12 +175,14 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
                 >
                   <ComboboxInput
                     id={`${formId}-platform-model`}
+                    aria-label={t(locale, 'admin.ai.model.platformModel')}
+                    appearance="filled"
                     placeholder={
                       candidates?.length
                         ? t(locale, 'admin.ai.model.searchOrSelectPlatform')
                         : t(locale, 'admin.ai.model.refreshThenSelect')
                     }
-                    className="h-10 w-full rounded-xl"
+                    className="h-11 w-full"
                   />
                   <ComboboxContent>
                     <ComboboxEmpty>{t(locale, 'admin.ai.model.noMatchingModels')}</ComboboxEmpty>
@@ -199,7 +203,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
                 type="button"
                 variant="outline"
                 size="icon"
-                className="size-10 shrink-0 rounded-xl"
+                className="size-11 shrink-0 rounded-lg"
                 disabled={isFetching}
                 aria-label={
                   isFetching
@@ -220,20 +224,27 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
             <FieldLabel htmlFor={`${formId}-label`}>{t(locale, 'admin.ai.model.displayName')}</FieldLabel>
             <Input
               id={`${formId}-label`}
+              appearance="filled"
+              className="h-11"
+              aria-invalid={Boolean(errors.label) || undefined}
+              aria-describedby={errors.label ? `${formId}-label-error` : undefined}
               value={values.label}
               onChange={(e) => setValues((p) => ({ ...p, label: e.target.value }))}
             />
-            <FieldError>{errors.label}</FieldError>
+            <FieldError id={`${formId}-label-error`}>{errors.label}</FieldError>
           </Field>
           <Field data-invalid={Boolean(errors.modelId) || undefined}>
             <FieldLabel htmlFor={`${formId}-model-id`}>{t(locale, 'admin.ai.model.modelId')}</FieldLabel>
             <Input
               id={`${formId}-model-id`}
-              className="font-mono text-sm"
+              appearance="filled"
+              className="h-11 font-mono text-sm"
+              aria-invalid={Boolean(errors.modelId) || undefined}
+              aria-describedby={errors.modelId ? `${formId}-model-id-error` : undefined}
               value={values.modelId}
               onChange={(e) => setValues((p) => ({ ...p, modelId: e.target.value }))}
             />
-            <FieldError>{errors.modelId}</FieldError>
+            <FieldError id={`${formId}-model-id-error`}>{errors.modelId}</FieldError>
           </Field>
         </div>
 
@@ -251,7 +262,13 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
               }
             }}
           >
-            <SelectTrigger id={`${formId}-wire-variant`} className="h-10 w-full rounded-xl">
+            <SelectTrigger
+              id={`${formId}-wire-variant`}
+              appearance="filled"
+              aria-invalid={Boolean(errors.wireVariant) || undefined}
+              aria-describedby={errors.wireVariant ? `${formId}-wire-variant-error` : undefined}
+              className="h-11 w-full"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -265,7 +282,7 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
               </SelectGroup>
             </SelectContent>
           </Select>
-          <FieldError>{errors.wireVariant}</FieldError>
+          <FieldError id={`${formId}-wire-variant-error`}>{errors.wireVariant}</FieldError>
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -273,6 +290,8 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
             <FieldLabel htmlFor={`${formId}-temperature`}>{t(locale, 'admin.ai.model.temperature')}</FieldLabel>
             <Input
               id={`${formId}-temperature`}
+              appearance="filled"
+              className="h-11"
               value={values.temperature}
               onChange={(e) => setValues((p) => ({ ...p, temperature: e.target.value }))}
             />
@@ -281,6 +300,8 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
             <FieldLabel htmlFor={`${formId}-max-tokens`}>{t(locale, 'admin.ai.model.maxTokens')}</FieldLabel>
             <Input
               id={`${formId}-max-tokens`}
+              appearance="filled"
+              className="h-11"
               value={values.maxTokens}
               onChange={(e) => setValues((p) => ({ ...p, maxTokens: e.target.value }))}
             />
@@ -298,10 +319,20 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel }: AiM
       </FieldGroup>
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" className="rounded-xl hover:bg-brand-deep">
-          {isEdit ? t(locale, 'admin.ai.model.saveModel') : t(locale, 'admin.ai.model.addModel')}
+        <Button type="submit" className="h-11 rounded-[8px] px-6 hover:bg-brand-deep" disabled={pending}>
+          {pending
+            ? t(locale, 'admin.content.common.saving')
+            : isEdit
+              ? t(locale, 'admin.ai.model.saveModel')
+              : t(locale, 'admin.ai.model.addModel')}
         </Button>
-        <Button type="button" variant="outline" className="rounded-xl" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 rounded-[8px] px-6"
+          disabled={pending}
+          onClick={onCancel}
+        >
           {t(locale, 'admin.content.common.cancel')}
         </Button>
       </div>

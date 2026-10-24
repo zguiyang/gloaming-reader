@@ -2,8 +2,8 @@
 
 import { ArrowLeft, Globe, HardDrive, Menu, ScrollText, Settings, Tags } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { type ReactNode, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Fragment, type ReactNode, Suspense, useState } from 'react';
 
 import { type Locale, t } from '@gloaming/i18n';
 import { isAdminRole } from '@gloaming/shared/auth';
@@ -62,6 +62,55 @@ function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
       isActive: pathname === ADMIN_ROUTES.logs || pathname.startsWith(`${ADMIN_ROUTES.logs}/`),
     },
   ];
+}
+
+type ConfigTabId = 'ai' | 'tts' | 'dictionary';
+
+function parseConfigTab(raw: string | null): ConfigTabId {
+  return raw === 'tts' || raw === 'dictionary' ? raw : 'ai';
+}
+
+const CONFIG_SUBTABS: Array<{ id: ConfigTabId; labelKey: string }> = [
+  { id: 'ai', labelKey: 'admin.config.subAi' },
+  { id: 'tts', labelKey: 'admin.config.subTts' },
+  { id: 'dictionary', labelKey: 'admin.config.subDictionary' },
+];
+
+/** Sidebar sub-navigation for the config area; uses the existing query routes. */
+function AdminConfigSubnav({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { locale } = useLocale();
+  const activeTab = parseConfigTab(searchParams.get('tab'));
+  const isConfigArea = pathname === ADMIN_ROUTES.config || pathname.startsWith(`${ADMIN_ROUTES.config}/`);
+  if (!isConfigArea) {
+    return null;
+  }
+  return (
+    <nav className="mt-1 flex flex-col gap-1 pl-10" aria-label={t(locale, 'admin.config.subnavAria')}>
+      {CONFIG_SUBTABS.map((tab) => (
+        <Button
+          key={tab.id}
+          variant="ghost"
+          nativeButton={false}
+          className={cn(
+            'h-auto justify-start gap-2 rounded-lg px-3 py-2 text-sm transition-colors duration-300 ease-out-soft',
+            activeTab === tab.id
+              ? 'bg-brand-soft/60 font-medium text-primary hover:bg-brand-soft/60 hover:text-primary'
+              : 'text-muted-foreground hover:bg-surface-container-high hover:text-foreground',
+          )}
+          aria-current={activeTab === tab.id ? 'page' : undefined}
+          render={
+            <Link href={ADMIN_ROUTES.configTab(tab.id)} onClick={onNavigate}>
+              {t(locale, tab.labelKey)}
+            </Link>
+          }
+        >
+          {t(locale, tab.labelKey)}
+        </Button>
+      ))}
+    </nav>
+  );
 }
 
 function AdminNavButton({ item, onNavigate }: { item: AdminNavItem; onNavigate?: () => void }) {
@@ -171,7 +220,14 @@ export function AdminShell({ children }: AdminShellProps) {
                 />
                 <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                   {navItems.map((item) => (
-                    <AdminNavButton key={item.href} item={item} onNavigate={() => setIsNavOpen(false)} />
+                    <Fragment key={item.href}>
+                      <AdminNavButton item={item} onNavigate={() => setIsNavOpen(false)} />
+                      {item.href === ADMIN_ROUTES.config ? (
+                        <Suspense fallback={null}>
+                          <AdminConfigSubnav onNavigate={() => setIsNavOpen(false)} />
+                        </Suspense>
+                      ) : null}
+                    </Fragment>
                   ))}
                 </nav>
                 <Button
@@ -221,7 +277,14 @@ export function AdminShell({ children }: AdminShellProps) {
 
           <nav className="flex flex-col gap-2">
             {navItems.map((item) => (
-              <AdminNavButton key={item.href} item={item} />
+              <Fragment key={item.href}>
+                <AdminNavButton item={item} />
+                {item.href === ADMIN_ROUTES.config ? (
+                  <Suspense fallback={null}>
+                    <AdminConfigSubnav />
+                  </Suspense>
+                ) : null}
+              </Fragment>
             ))}
           </nav>
         </div>
@@ -237,7 +300,9 @@ export function AdminShell({ children }: AdminShellProps) {
         </Button>
       </aside>
 
-      <main className="min-h-0 flex-1 overflow-y-auto p-6 md:p-12">{children}</main>
+      <main className="min-h-0 flex-1 overflow-y-auto p-6 md:p-12">
+        <div className="mx-auto w-full max-w-6xl md:mx-0">{children}</div>
+      </main>
     </div>
   );
 }

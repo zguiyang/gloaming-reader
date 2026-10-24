@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { SecretField } from '@/components/ui/secret-field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -92,6 +93,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
   const [enableAiEnrichment, setEnableAiEnrichment] = useState(config.enableAiEnrichment);
   const [customEndpoint, setCustomEndpoint] = useState(config.customEndpoint || '');
   const [apiKey, setApiKey] = useState('');
+  const [isReplacingKey, setIsReplacingKey] = useState(false);
   const [timeoutMs, setTimeoutMs] = useState(config.timeoutMs || 5000);
   const [cacheTtlDays, setCacheTtlDays] = useState(config.cacheTtlDays || 30);
 
@@ -106,6 +108,26 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
     const options = supportedProviderOptions(locale);
     return isSupportedProvider ? options : [...options, legacyUnsupportedProviderOption(provider, locale)];
   }, [locale, isSupportedProvider, provider]);
+
+  const hasUnsavedChanges =
+    apiKey.trim().length > 0 ||
+    provider !== (config.provider || DICTIONARY_PROVIDER_YOUDAO) ||
+    isEnabled !== config.isEnabled ||
+    enableAiEnrichment !== config.enableAiEnrichment ||
+    customEndpoint !== (config.customEndpoint || '') ||
+    timeoutMs !== (config.timeoutMs || 5000) ||
+    cacheTtlDays !== (config.cacheTtlDays || 30);
+
+  function resetDraft() {
+    setProvider(config.provider || DICTIONARY_PROVIDER_YOUDAO);
+    setIsEnabled(config.isEnabled);
+    setEnableAiEnrichment(config.enableAiEnrichment);
+    setCustomEndpoint(config.customEndpoint || '');
+    setApiKey('');
+    setIsReplacingKey(false);
+    setTimeoutMs(config.timeoutMs || 5000);
+    setCacheTtlDays(config.cacheTtlDays || 30);
+  }
 
   function playAudioUrl(url: string) {
     const audio = new Audio(url);
@@ -128,6 +150,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: adminDictionaryQueryKey.config() });
       setApiKey('');
+      setIsReplacingKey(false);
       toast.success(t(locale, 'admin.dictionary.toast.saved'));
     },
     onError: (error) => {
@@ -173,33 +196,39 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
   const isTestSourceUnknown = testResult != null && testActualSource.length === 0;
 
   return (
-    <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto flex w-full max-w-3xl flex-col gap-10">
+    <div className="flex w-full max-w-[680px] flex-col gap-10">
       <header className="flex flex-col gap-2">
         <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
           {t(locale, 'admin.dictionary.title')}
         </h1>
+        <p className="text-sm leading-6 text-muted-foreground">{t(locale, 'admin.dictionary.subtitle')}</p>
       </header>
 
-      <section className="rounded-2xl border border-border bg-card px-6 py-6">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-base font-medium text-foreground">{t(locale, 'admin.dictionary.service.title')}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+      <section className="flex flex-col gap-6">
+        <div className="flex items-center justify-between gap-4 border-b border-border/60 pb-3">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-semibold text-foreground">{t(locale, 'admin.dictionary.service.title')}</h2>
+            <p className="text-sm text-muted-foreground">
               {config.configured
                 ? t(locale, 'admin.dictionary.service.configured')
                 : t(locale, 'admin.dictionary.service.notConfigured')}
             </p>
           </div>
-          <Switch
-            checked={isEnabled}
-            onCheckedChange={setIsEnabled}
-            aria-label={t(locale, 'admin.dictionary.service.enableAria')}
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {t(locale, 'admin.dictionary.service.saveWithConfig')}
+            </span>
+            <Switch
+              checked={isEnabled}
+              onCheckedChange={setIsEnabled}
+              aria-label={t(locale, 'admin.dictionary.service.enableAria')}
+            />
+          </div>
         </div>
 
-        <FieldGroup className="gap-5">
+        <FieldGroup className="gap-6">
           <Field>
-            <FieldLabel>{t(locale, 'admin.dictionary.provider.label')}</FieldLabel>
+            <FieldLabel htmlFor="dict-provider">{t(locale, 'admin.dictionary.provider.label')}</FieldLabel>
             <Select
               items={providerSelectOptions}
               value={provider}
@@ -209,7 +238,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
                 }
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="dict-provider" appearance="filled" className="h-11 w-full">
                 <SelectValue placeholder={t(locale, 'admin.dictionary.provider.placeholder')} />
               </SelectTrigger>
               <SelectContent>
@@ -223,18 +252,18 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               </SelectContent>
             </Select>
             {!isSupportedProvider ? (
-              <p className="mt-2 text-sm text-destructive">
+              <p className="text-sm text-destructive">
                 {t(locale, 'admin.dictionary.provider.unsupportedHint', { id: provider })}
               </p>
             ) : null}
           </Field>
 
-          <div className="flex items-center justify-between rounded-xl border border-border/60 bg-surface-container-lowest p-4">
-            <div className="space-y-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-surface-container-low px-4 py-3">
+            <div className="flex flex-col gap-1">
               <span className="text-sm font-medium text-foreground">
                 {t(locale, 'admin.dictionary.aiEnrichment.title')}
               </span>
-              <p className="text-xs text-muted-foreground">{t(locale, 'admin.dictionary.aiEnrichment.description')}</p>
+              <p className="text-sm text-muted-foreground">{t(locale, 'admin.dictionary.aiEnrichment.description')}</p>
             </div>
             <Switch
               checked={enableAiEnrichment}
@@ -247,6 +276,8 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
             <FieldLabel htmlFor="dict-endpoint">{t(locale, 'admin.dictionary.fields.customEndpoint')}</FieldLabel>
             <Input
               id="dict-endpoint"
+              appearance="filled"
+              className="h-11"
               value={customEndpoint}
               onChange={(e) => setCustomEndpoint(e.target.value)}
               placeholder={t(locale, 'admin.dictionary.fields.customEndpointPlaceholder')}
@@ -254,29 +285,39 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
             />
           </Field>
 
-          <Field>
-            <FieldLabel htmlFor="dict-api-key">{t(locale, 'admin.dictionary.fields.apiKey')}</FieldLabel>
-            <Input
-              id="dict-api-key"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={
-                config.apiKeySet
-                  ? t(locale, 'admin.dictionary.fields.apiKeyPlaceholderKeep', {
-                      masked: config.apiKeyMasked ?? '****',
-                    })
-                  : t(locale, 'admin.dictionary.fields.apiKeyPlaceholderOptional')
-              }
-              autoComplete="new-password"
-            />
-          </Field>
+          <SecretField
+            id="dict-api-key"
+            label={t(locale, 'admin.dictionary.fields.apiKey')}
+            isSet={config.apiKeySet}
+            masked={config.apiKeyMasked}
+            value={apiKey}
+            onChange={setApiKey}
+            disabled={saveMutation.isPending}
+            replacing={isReplacingKey}
+            onReplace={() => setIsReplacingKey(true)}
+            onCancelReplace={() => {
+              setApiKey('');
+              setIsReplacingKey(false);
+            }}
+            placeholderWhenSet={t(locale, 'admin.dictionary.fields.apiKeyPlaceholderKeep', {
+              masked: config.apiKeyMasked ?? '****',
+            })}
+            copy={{
+              replaceLabel: t(locale, 'common.secret.newKey'),
+              replaceAction: t(locale, 'common.secret.replace'),
+              cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
+              keepHint: t(locale, 'common.secret.keepHint'),
+              configuredLabel: t(locale, 'common.secret.configured'),
+            }}
+          />
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="dict-timeout">{t(locale, 'admin.dictionary.fields.timeoutMs')}</FieldLabel>
               <Input
                 id="dict-timeout"
+                appearance="filled"
+                className="h-11"
                 type="number"
                 min={1000}
                 max={60000}
@@ -290,6 +331,8 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               <FieldLabel htmlFor="dict-ttl">{t(locale, 'admin.dictionary.fields.cacheTtlDays')}</FieldLabel>
               <Input
                 id="dict-ttl"
+                appearance="filled"
+                className="h-11"
                 type="number"
                 min={1}
                 max={365}
@@ -298,31 +341,51 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               />
             </Field>
           </div>
-
-          <div className="flex justify-end pt-2">
-            <Button
-              type="button"
-              className="rounded-full px-6"
-              disabled={saveMutation.isPending || !isSupportedProvider}
-              onClick={() => saveMutation.mutate()}
-            >
-              {saveMutation.isPending ? t(locale, 'admin.dictionary.saving') : t(locale, 'admin.dictionary.saveConfig')}
-            </Button>
-          </div>
         </FieldGroup>
+
+        <div className="flex justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 rounded-[8px] px-6"
+            disabled={saveMutation.isPending}
+            onClick={resetDraft}
+          >
+            {t(locale, 'admin.content.common.cancelChanges')}
+          </Button>
+          <Button
+            type="button"
+            className="h-11 rounded-[8px] px-6 hover:bg-brand-deep"
+            disabled={saveMutation.isPending || !isSupportedProvider}
+            onClick={() => saveMutation.mutate()}
+          >
+            {saveMutation.isPending ? t(locale, 'admin.dictionary.saving') : t(locale, 'admin.dictionary.saveConfig')}
+          </Button>
+        </div>
       </section>
 
-      <section className="rounded-2xl border border-border bg-card px-6 py-6">
-        <header className="mb-4">
-          <h2 className="text-base font-medium text-foreground">{t(locale, 'admin.dictionary.test.sectionTitle')}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'admin.dictionary.test.sectionDescription')}</p>
-        </header>
+      <section className="flex flex-col gap-6">
+        <div className="flex flex-col gap-1 border-b border-border/60 pb-3">
+          <h2 className="text-base font-semibold text-foreground">{t(locale, 'admin.dictionary.test.sectionTitle')}</h2>
+          <p className="text-sm text-muted-foreground">{t(locale, 'admin.dictionary.test.sectionDescription')}</p>
+        </div>
 
-        <div className="space-y-4">
+        {hasUnsavedChanges ? (
+          <p
+            role="status"
+            className="rounded-lg border border-border/60 bg-surface-container-low px-4 py-3 text-sm text-muted-foreground"
+          >
+            {t(locale, 'admin.dictionary.test.draftNotice')}
+          </p>
+        ) : null}
+
+        <FieldGroup className="gap-5">
           <Field>
             <FieldLabel htmlFor="test-word">{t(locale, 'admin.dictionary.test.word')}</FieldLabel>
             <Input
               id="test-word"
+              appearance="filled"
+              className="h-11"
               value={testWord}
               onChange={(e) => setTestWord(e.target.value)}
               placeholder={t(locale, 'admin.dictionary.test.wordPlaceholder')}
@@ -333,9 +396,10 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
             <FieldLabel htmlFor="test-sentence">{t(locale, 'admin.dictionary.test.contextSentence')}</FieldLabel>
             <Textarea
               id="test-sentence"
+              appearance="filled"
+              rows={2}
               value={testContextSentence}
               onChange={(e) => setTestContextSentence(e.target.value)}
-              rows={2}
               placeholder={t(locale, 'admin.dictionary.test.contextPlaceholder')}
             />
           </Field>
@@ -343,8 +407,8 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
           <div className="flex justify-end">
             <Button
               type="button"
-              variant="secondary"
-              className="rounded-full px-5"
+              variant="outline"
+              className="h-11 rounded-[8px] px-6"
               disabled={testMutation.isPending || !testWord.trim()}
               onClick={() => testMutation.mutate()}
             >
@@ -355,7 +419,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
           </div>
 
           {testResult ? (
-            <div className="mt-6 rounded-xl border border-border/80 bg-surface-container-lowest p-5 space-y-4">
+            <div className="mt-2 flex flex-col gap-4 rounded-xl border border-border/80 bg-surface-container-low p-5">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="font-heading text-xl font-bold text-foreground">{testResult.entry.word}</span>
@@ -411,9 +475,9 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
                 </div>
               ) : null}
 
-              <div className="space-y-3 pt-2">
+              <div className="flex flex-col gap-3 pt-2">
                 {testResult.entry.meanings.map((m, mIdx) => (
-                  <div key={mIdx} className="space-y-1.5">
+                  <div key={mIdx} className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
                       <span className="rounded-md bg-primary/10 px-2 py-0.5 font-mono text-xs font-medium text-primary">
                         {m.partOfSpeech}
@@ -434,12 +498,12 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               </div>
 
               {testResult.entry.contextExamples && testResult.entry.contextExamples.length > 0 ? (
-                <div className="rounded-lg border-l-2 border-primary/60 bg-surface-container-high/40 p-3 space-y-1.5">
+                <div className="flex flex-col gap-1.5 rounded-lg border-l-2 border-primary/60 bg-surface-container-high/40 p-3">
                   <span className="text-xs font-semibold text-muted-foreground">
                     {t(locale, 'admin.dictionary.test.contextExamplesHeading')}
                   </span>
                   {testResult.entry.contextExamples.map((ex, exIdx) => (
-                    <div key={exIdx} className="text-xs space-y-1">
+                    <div key={exIdx} className="flex flex-col gap-1 text-xs">
                       <p className="italic text-foreground">{ex.sentence}</p>
                       {ex.sentenceZh ? <p className="text-muted-foreground">{ex.sentenceZh}</p> : null}
                       {ex.note ? (
@@ -453,7 +517,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               ) : null}
             </div>
           ) : null}
-        </div>
+        </FieldGroup>
       </section>
     </div>
   );
@@ -467,14 +531,14 @@ export function DictionaryConfigPage() {
 
   if (isPending) {
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-10">
+      <div className="flex w-full max-w-[680px] flex-col gap-10">
         <header className="flex flex-col gap-2">
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="h-5 w-96" />
+          <Skeleton className="h-9 w-48 rounded-xl" />
+          <Skeleton className="h-5 w-96 rounded-xl" />
         </header>
-        <div className="space-y-4 rounded-2xl border border-border bg-card p-6">
-          <Skeleton className="h-8 w-full" />
-          <Skeleton className="h-24 w-full" />
+        <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6">
+          <Skeleton className="h-8 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -482,7 +546,7 @@ export function DictionaryConfigPage() {
 
   if (error || !data) {
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-4 py-16 text-center">
+      <div className="flex w-full max-w-[680px] flex-col items-center justify-center gap-4 py-16 text-center">
         <p className="text-sm text-destructive">{formatAdminDictionaryApiError(error)}</p>
       </div>
     );

@@ -15,7 +15,14 @@
     "paginationNext": "下一页",
     "paginationGoToPrevious": "转到上一页",
     "paginationGoToNext": "转到下一页",
-    "paginationMorePages": "更多页"
+    "paginationMorePages": "更多页",
+    "secret": {
+      "replace": "更换密钥",
+      "cancelReplace": "取消更换",
+      "newKey": "新密钥",
+      "keepHint": "留空保留原密钥",
+      "configured": "已配置"
+    }
   },
   "nav": {
     "wordmark": "Gloaming",
@@ -88,7 +95,10 @@
     },
     "secret": {
       "saved": "已配置",
-      "leaveBlank": "留空以保留已保存的密钥"
+      "leaveBlank": "留空以保留已保存的密钥",
+      "replace": "更换密钥",
+      "newKey": "新密钥",
+      "cancelReplace": "取消更换"
     },
     "ai": {
       "title": "AI",
@@ -127,7 +137,16 @@
       },
       "notSet": "选择模型",
       "unavailableModel": "当前模型不可用，请重新选择。",
-      "defaultOnUnset": "未设置个人模型的能力会使用默认服务。"
+      "defaultOnUnset": "未设置个人模型的能力会使用默认服务。",
+      "defaultSummary": "覆盖阅读辅助、翻译与作品信息整理。",
+      "ownSummary": "已启用自有服务商与模型。",
+      "disabled": "已停用",
+      "addProviderEntry": "添加并启用服务商",
+      "addModelEntry": "添加并启用模型",
+      "saveModel": "保存模型",
+      "cancelChanges": "取消修改",
+      "editProvider": "编辑服务商",
+      "replaceKey": "更换密钥"
     },
     "tts": {
       "title": "朗读",
@@ -137,7 +156,21 @@
         "default": "默认声音",
         "us": "美式英语",
         "uk": "英式英语"
-      }
+      },
+      "defaultSummary": "平台提供的朗读声音，无需配置。",
+      "ownSummary": "已配置自有朗读服务，保存后生效。"
+    },
+    "readingServices": {
+      "title": "阅读服务"
+    },
+    "current": "当前：{source}",
+    "change": "更改",
+    "ownAi": {
+      "title": "自有 AI 服务",
+      "description": "连接服务商 → 选择模型 → 分配用途。",
+      "enter": "配置自有 AI 服务",
+      "empty": "尚未添加服务商与模型",
+      "back": "返回设置"
     }
   },
   "auth": {
@@ -541,7 +574,11 @@
     "config": {
       "tabAi": "AI",
       "tabTts": "语音",
-      "tabDictionary": "词典"
+      "tabDictionary": "词典",
+      "subAi": "AI 配置",
+      "subTts": "语音",
+      "subDictionary": "词典",
+      "subnavAria": "配置分区"
     },
     "ai": {
       "title": "AI 配置",
@@ -585,7 +622,8 @@
         "currentBindingUnavailable": "当前绑定（不可用）",
         "noBindableModels": "暂无可绑定模型",
         "searchOrSelectModel": "搜索或选择模型",
-        "noMatchingModels": "没有匹配的模型"
+        "noMatchingModels": "没有匹配的模型",
+        "notSetRow": "未设置"
       },
       "provider": {
         "filterAll": "全部",
@@ -633,7 +671,11 @@
           "disabled": "停用",
           "editAria": "编辑 {label}",
           "deleteAria": "删除 {label}"
-        }
+        },
+        "listTitle": "服务商",
+        "testConnectivity": "测试连通",
+        "queryBalance": "查询余额",
+        "savedConfigOnly": "测试与余额查询均针对已保存配置。"
       },
       "model": {
         "platformModel": "平台模型",
@@ -679,8 +721,8 @@
       }
     },
     "tts": {
-      "title": "语音配置",
-      "subtitle": "密钥加密存储，页面仅显示脱敏信息。",
+      "title": "语音服务",
+      "subtitle": "为朗读功能提供语音合成。",
       "loadFailed": "配置加载失败",
       "audioPlayFailed": "音频播放失败，请检查浏览器权限",
       "toast": {
@@ -691,7 +733,8 @@
         "title": "服务配置",
         "configured": "已配置 · Key {masked}",
         "notConfigured": "尚未配置，首次保存需填写 Subscription Key",
-        "enableAria": "启用语音服务"
+        "enableAria": "启用语音服务",
+        "saveWithConfig": "保存后生效"
       },
       "fields": {
         "region": "Region",
@@ -706,16 +749,18 @@
         "ukVoicePlaceholder": "选择英音"
       },
       "test": {
-        "sectionTitle": "连通性测试",
+        "sectionTitle": "测试已保存配置",
         "testText": "测试文本",
         "role": "角色",
         "roleDefaultVoice": "默认音色",
         "rolePlaceholder": "选择角色",
         "run": "测试连通",
         "running": "测试中…",
-        "lastLatency": "最近耗时 {latencyMs} ms"
+        "lastLatency": "最近耗时 {latencyMs} ms",
+        "draftNotice": "上方配置有未保存修改：测试使用已保存的配置，不会提交这些修改。",
+        "sectionDescription": "测试只使用已保存的语音配置，不会提交上方的草稿修改。"
       },
-      "saveConfig": "保存配置"
+      "saveConfig": "保存语音配置"
     },
     "dictionary": {
       "title": "词典配置",
@@ -729,7 +774,8 @@
         "title": "服务",
         "configured": "已配置持久化设置",
         "notConfigured": "使用默认配置",
-        "enableAria": "启用词典服务"
+        "enableAria": "启用词典服务",
+        "saveWithConfig": "保存后生效"
       },
       "provider": {
         "label": "服务商",
@@ -760,7 +806,7 @@
         "cacheTtlDays": "词条缓存天数 (Redis & DB)"
       },
       "test": {
-        "sectionTitle": "连通性与查词测试",
+        "sectionTitle": "测试已保存配置",
         "sectionDescription": "验证词典接口连通性、音标与音频解析，以及 AI 中文释义补充。",
         "word": "测试单词",
         "wordPlaceholder": "输入英文单词，如 serendipity",
@@ -774,10 +820,12 @@
         "playPronunciation": "播放读音",
         "ipaFallback": "IPA",
         "contextExamplesHeading": "语境例句：",
-        "readingNote": "阅读提示：{note}"
+        "readingNote": "阅读提示：{note}",
+        "draftNotice": "上方配置有未保存修改：测试使用已保存的配置，不会提交这些修改。"
       },
-      "saveConfig": "保存配置",
-      "saving": "保存中..."
+      "saveConfig": "保存词典配置",
+      "saving": "保存中...",
+      "subtitle": "为查词提供释义与例句。"
     },
     "logs": {
       "centerTabAi": "AI 日志",
@@ -918,7 +966,9 @@
         "noData": "暂无数据",
         "select": "选择…",
         "searchExisting": "搜索已有选项…",
-        "unused": "未使用"
+        "unused": "未使用",
+        "cancelChanges": "取消修改",
+        "draftUnsaved": "有未保存修改"
       },
       "provenance": {
         "extracted": "提取",

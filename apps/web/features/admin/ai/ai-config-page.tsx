@@ -309,7 +309,7 @@ export function AiConfigPage() {
   });
 
   return (
-    <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto max-w-6xl">
+    <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 max-w-6xl">
       <div className="min-w-0">
         <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.ai.title')}</h1>
       </div>

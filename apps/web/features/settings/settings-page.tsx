@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useMemo, useState } from 'react';
+import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
@@ -15,9 +15,10 @@ import {
 } from '@gloaming/shared/llm';
 
 import { Button } from '@/components/ui/button';
+import { nativeSelectFilledClasses } from '@/components/ui/control-appearance';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SecretField } from '@/components/ui/secret-field';
 import { useAuthDialog } from '@/features/auth';
 import {
   createUserLlmModel,
@@ -41,6 +42,7 @@ import {
 import { SettingsTtsSection } from '@/features/settings/tts/settings-tts-section';
 import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
+import { cn } from '@/lib/utils';
 
 type ProviderDraft = {
   apiFamily: LlmApiFamily;
@@ -52,6 +54,9 @@ type ProviderDraft = {
 };
 type ModelDraft = { modelId: string; label: string; wireVariant: string };
 type ModelTestResult = { status: 'success'; latencyMs: number } | { status: 'error'; message: string };
+
+/** One inline editing context on the settings page at a time. */
+type EditingContext = 'tts' | 'ai-mode' | 'provider' | 'model' | 'model-add' | 'purpose' | null;
 
 const EMPTY_PROVIDER: ProviderDraft = {
   apiFamily: 'openai',
@@ -79,14 +84,47 @@ function SettingHeader() {
   );
 }
 
+function SummaryRow({
+  label,
+  value,
+  description,
+  actionLabel,
+  onAction,
+}: {
+  label: string;
+  value: string;
+  description?: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  const { locale } = useLocale();
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/50 py-4">
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+        <p className="text-sm text-foreground">{t(locale, 'settings.current', { source: value })}</p>
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+      </div>
+      <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg px-4" onClick={onAction}>
+        {actionLabel}
+      </Button>
+    </div>
+  );
+}
+
 function ProviderForm({
   provider,
   onSave,
+  onCancel,
   pending,
+  startReplacingKey = false,
 }: {
   provider: LlmProvider | null;
   onSave: (draft: ProviderDraft) => void;
+  onCancel: () => void;
   pending: boolean;
+  /** Open the replacement input immediately (e.g. from a "replace key" summary action). */
+  startReplacingKey?: boolean;
 }) {
   const { locale } = useLocale();
   const [draft, setDraft] = useState<ProviderDraft>(() =>
@@ -102,6 +140,7 @@ function ProviderForm({
       : EMPTY_PROVIDER,
   );
   const [errors, setErrors] = useState<Partial<Record<keyof ProviderDraft, string>>>({});
+  const [isReplacingKey, setIsReplacingKey] = useState(startReplacingKey && Boolean(provider?.apiKeySet));
 
   const family = LLM_WIRE_REGISTRY[draft.apiFamily];
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -126,7 +165,10 @@ function ProviderForm({
             <FieldLabel htmlFor="settings-provider-family">{t(locale, 'settings.ai.serviceType')}</FieldLabel>
             <select
               id="settings-provider-family"
-              className="h-11 rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              className={cn(
+                'h-11 w-full px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                nativeSelectFilledClasses,
+              )}
               value={draft.apiFamily}
               onChange={(event) => {
                 const apiFamily = event.target.value as LlmApiFamily;
@@ -149,38 +191,55 @@ function ProviderForm({
             <FieldLabel htmlFor="settings-provider-name">{t(locale, 'settings.ai.providerName')}</FieldLabel>
             <Input
               id="settings-provider-name"
+              appearance="filled"
+              className="h-11"
+              aria-invalid={Boolean(errors.name) || undefined}
+              aria-describedby={errors.name ? 'settings-provider-name-error' : undefined}
               value={draft.name}
               onChange={(e) => setDraft((v) => ({ ...v, name: e.target.value }))}
             />
-            <FieldError>{errors.name}</FieldError>
+            <FieldError id="settings-provider-name-error">{errors.name}</FieldError>
           </Field>
           <Field data-invalid={Boolean(errors.baseUrl) || undefined}>
             <FieldLabel htmlFor="settings-provider-url">{t(locale, 'settings.ai.baseUrl')}</FieldLabel>
             <Input
               id="settings-provider-url"
               type="url"
+              appearance="filled"
+              className="h-11"
+              aria-invalid={Boolean(errors.baseUrl) || undefined}
+              aria-describedby={errors.baseUrl ? 'settings-provider-url-error' : undefined}
               placeholder={family.provider.baseUrlPlaceholder}
               value={draft.baseUrl}
               onChange={(e) => setDraft((v) => ({ ...v, baseUrl: e.target.value }))}
             />
-            <FieldError>{errors.baseUrl}</FieldError>
+            <FieldError id="settings-provider-url-error">{errors.baseUrl}</FieldError>
           </Field>
         </div>
-        <Field data-invalid={Boolean(errors.apiKey) || undefined}>
-          <FieldLabel htmlFor="settings-provider-key">
-            {t(locale, 'settings.ai.apiKey')}
-            {provider?.apiKeySet ? ` · ${provider.apiKeyMasked ?? t(locale, 'settings.secret.saved')}` : ''}
-          </FieldLabel>
-          <Input
-            id="settings-provider-key"
-            type="password"
-            autoComplete="new-password"
-            value={draft.apiKey}
-            placeholder={provider?.apiKeySet ? t(locale, 'settings.secret.leaveBlank') : ''}
-            onChange={(e) => setDraft((v) => ({ ...v, apiKey: e.target.value }))}
-          />
-          <FieldError>{errors.apiKey}</FieldError>
-        </Field>
+        <SecretField
+          id="settings-provider-key"
+          label={t(locale, 'settings.ai.apiKey')}
+          isSet={Boolean(provider?.apiKeySet)}
+          masked={provider?.apiKeyMasked}
+          value={draft.apiKey}
+          onChange={(value) => setDraft((v) => ({ ...v, apiKey: value }))}
+          replacing={isReplacingKey}
+          onReplace={() => setIsReplacingKey(true)}
+          onCancelReplace={() => {
+            setDraft((v) => ({ ...v, apiKey: '' }));
+            setIsReplacingKey(false);
+          }}
+          error={errors.apiKey}
+          disabled={pending}
+          placeholderWhenSet={t(locale, 'settings.secret.leaveBlank')}
+          copy={{
+            replaceLabel: t(locale, 'common.secret.newKey'),
+            replaceAction: t(locale, 'common.secret.replace'),
+            cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
+            keepHint: t(locale, 'common.secret.keepHint'),
+            configuredLabel: t(locale, 'common.secret.configured'),
+          }}
+        />
         <details className="border-t border-border/50 pt-3">
           <summary className="cursor-pointer text-sm text-muted-foreground">
             {t(locale, 'settings.ai.advanced')}
@@ -191,6 +250,8 @@ function ProviderForm({
               <Input
                 id="settings-provider-proxy"
                 type="url"
+                appearance="filled"
+                className="h-11"
                 value={draft.proxyUrl}
                 onChange={(e) => setDraft((v) => ({ ...v, proxyUrl: e.target.value }))}
               />
@@ -202,6 +263,8 @@ function ProviderForm({
                 </FieldLabel>
                 <Input
                   id="settings-provider-thinking-param"
+                  appearance="filled"
+                  className="h-11"
                   value={draft.thinkingParam}
                   onChange={(e) => setDraft((v) => ({ ...v, thinkingParam: e.target.value }))}
                 />
@@ -210,8 +273,17 @@ function ProviderForm({
           </div>
         </details>
       </FieldGroup>
-      <div>
-        <Button type="submit" disabled={pending}>
+      <div className="flex justify-end gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 rounded-[8px] px-6"
+          disabled={pending}
+          onClick={onCancel}
+        >
+          {t(locale, 'settings.cancel')}
+        </Button>
+        <Button type="submit" className="h-11 rounded-[8px] px-6" disabled={pending}>
           {pending ? t(locale, 'settings.saving') : t(locale, 'settings.save')}
         </Button>
       </div>
@@ -257,15 +329,22 @@ export function SettingsPage() {
     })),
   });
   const models = useMemo(() => modelsQueries.flatMap((query) => query.data ?? []), [modelsQueries]);
-  const [isProviderFormOpen, setIsProviderFormOpen] = useState(false);
+  const [editingContext, setEditingContext] = useState<EditingContext>(null);
+  // Default summary view vs focused own-AI advanced view (accepted board).
+  const [view, setView] = useState<'summary' | 'advanced'>('summary');
   const [editingProvider, setEditingProvider] = useState<LlmProvider | null>(null);
+  const [shouldOpenKeyReplacement, setProviderStartReplacingKey] = useState(false);
   const [modelDraft, setModelDraft] = useState<ModelDraft>(EMPTY_MODEL);
   const [editingModelId, setEditingModelId] = useState('');
   const [aiModeDraft, setAiModeDraft] = useState<'default' | 'own' | null>(null);
   const [purposeDraft, setPurposeDraft] = useState<Partial<Record<AiSettingKey, string>>>({});
+  const [editingPurposeKey, setEditingPurposeKey] = useState<AiSettingKey | null>(null);
   const isOwnMode = providers.some((provider) => provider.isEnabled);
   const settings = settingsQuery.data ?? [];
-  const loadError = providersQuery.error ?? settingsQuery.error ?? ttsQuery.error;
+  // Independent domains: an AI query failure must not hide TTS, and vice versa.
+  const aiLoadError = providersQuery.error ?? settingsQuery.error;
+  const ttsLoadError = ttsQuery.error;
+  const isAiDataReady = !providersQuery.isPending && !settingsQuery.isPending && !aiLoadError;
 
   useEffect(() => {
     if (!session.isPending && session.error?.status === 401) openLogin();
@@ -274,6 +353,32 @@ export function SettingsPage() {
   async function refreshLlm() {
     await queryClient.invalidateQueries({ queryKey: [...userSettingsQueryKey.all, 'llm'] });
   }
+
+  function openContext(context: Exclude<EditingContext, null>) {
+    setEditingContext(context);
+  }
+
+  function closeContext() {
+    setEditingContext(null);
+    setAiModeDraft(null);
+    setEditingProvider(null);
+    setProviderStartReplacingKey(false);
+    setEditingModelId('');
+    setModelDraft(EMPTY_MODEL);
+  }
+
+  // Latest local editor identity, so a slow save closing a stale editor can
+  // never reset a newer draft the user has since opened (local guard only).
+  const editingContextRef = useRef<EditingContext>(null);
+  const editingProviderRef = useRef<LlmProvider | null>(null);
+  const editingModelIdRef = useRef('');
+  const editingPurposeKeyRef = useRef<AiSettingKey | null>(null);
+  useEffect(() => {
+    editingContextRef.current = editingContext;
+    editingProviderRef.current = editingProvider;
+    editingModelIdRef.current = editingModelId;
+    editingPurposeKeyRef.current = editingPurposeKey;
+  });
 
   const providerMutation = useMutation({
     mutationFn: async ({ draft, current }: { draft: ProviderDraft; current: LlmProvider | null }) =>
@@ -297,11 +402,16 @@ export function SettingsPage() {
             balanceCurrencyPath: null,
             isEnabled: true,
           }),
-    onSuccess: async () => {
+    onSuccess: async (_data, { current }) => {
       await refreshLlm();
       setModelTestResults({});
-      setIsProviderFormOpen(false);
-      setEditingProvider(null);
+      // Only close the editor if it is still the one this save belongs to.
+      if (
+        editingContextRef.current === 'provider' &&
+        (editingProviderRef.current?.id ?? null) === (current?.id ?? null)
+      ) {
+        closeContext();
+      }
       toast.success(t(locale, 'settings.saved'));
     },
     onError: (error) => toast.error(formatUserSettingsApiError(error)),
@@ -335,8 +445,16 @@ export function SettingsPage() {
           return next;
         });
       }
-      setModelDraft(EMPTY_MODEL);
-      setEditingModelId('');
+      // Only reset the editor if it still shows the saved model (or the same
+      // add context); a stale completion must not clobber a newer draft.
+      const isSameEditor = model
+        ? editingContextRef.current === 'model' && editingModelIdRef.current === model.id
+        : editingContextRef.current === 'model-add';
+      if (isSameEditor) {
+        setModelDraft(EMPTY_MODEL);
+        setEditingModelId('');
+        setEditingContext(null);
+      }
       toast.success(t(locale, 'settings.saved'));
     },
     onError: (error) => toast.error(formatUserSettingsApiError(error)),
@@ -373,7 +491,11 @@ export function SettingsPage() {
     },
     onSuccess: async () => {
       await refreshLlm();
-      setAiModeDraft(null);
+      // Only close the mode editor if it is still the open context.
+      if (editingContextRef.current === 'ai-mode') {
+        setAiModeDraft(null);
+        setEditingContext(null);
+      }
       toast.success(t(locale, 'settings.saved'));
     },
     onError: (error) => toast.error(formatUserSettingsApiError(error)),
@@ -381,8 +503,17 @@ export function SettingsPage() {
 
   const settingMutation = useMutation({
     mutationFn: ({ key, modelId }: { key: AiSettingKey; modelId: string }) => putUserLlmSetting(key, { modelId }),
-    onSuccess: async () => {
+    onSuccess: async (_setting, { key }) => {
       await queryClient.invalidateQueries({ queryKey: userSettingsQueryKey.settings() });
+      setPurposeDraft((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+      if (editingContextRef.current === 'purpose' && editingPurposeKeyRef.current === key) {
+        setEditingPurposeKey(null);
+        setEditingContext(null);
+      }
       toast.success(t(locale, 'settings.saved'));
     },
     onError: (error) => toast.error(formatUserSettingsApiError(error)),
@@ -427,365 +558,398 @@ export function SettingsPage() {
   const modelsByProvider = models.filter((model) => model.providerId === activeProviderId);
   const currentProvider = editingProvider;
   const ttsConfig = ttsQuery.data;
+  const ttsSourceLabel =
+    ttsConfig?.configured && ttsConfig.isEnabled ? t(locale, 'settings.ownApi') : t(locale, 'settings.defaultService');
+  const aiSourceLabel = isOwnMode ? t(locale, 'settings.ownApi') : t(locale, 'settings.defaultService');
+  const activeModels = models.filter((model) => {
+    const provider = providers.find((item) => item.id === model.providerId);
+    return model.isEnabled && provider?.isEnabled && LLM_WIRE_REGISTRY[provider.apiFamily].runtimeImplemented;
+  });
 
-  return (
-    <div className="mx-auto w-full max-w-3xl pb-8">
-      <SettingHeader />
-      <Tabs defaultValue="ai">
-        <TabsList aria-label={t(locale, 'settings.tabsAria')}>
-          <TabsTrigger value="ai">{t(locale, 'settings.ai.title')}</TabsTrigger>
-          <TabsTrigger value="tts">{t(locale, 'settings.tts.title')}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="ai" className="pt-6">
-          {providersQuery.isPending || settingsQuery.isPending ? (
-            <p className="text-sm text-muted-foreground">{t(locale, 'settings.loading')}</p>
-          ) : null}
-          {loadError ? (
-            <p role="alert" className="text-sm text-destructive">
-              {formatUserSettingsApiError(loadError)}
-            </p>
-          ) : null}
-          <section className="mb-6 border-b border-border/60 pb-5">
-            <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.personalTagging.title')}</h2>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-              <label htmlFor="settings-personal-tagging" className="text-sm text-foreground">
-                {t(locale, 'settings.personalTagging.toggle')}
-              </label>
-              <input
-                id="settings-personal-tagging"
-                type="checkbox"
-                className="size-5 accent-primary"
-                checked={personalTaggingQuery.data?.enabled ?? false}
-                disabled={personalTaggingQuery.isPending || personalTaggingMutation.isPending}
-                onChange={(event) => personalTaggingMutation.mutate(event.target.checked)}
-              />
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">{t(locale, 'settings.personalTagging.description')}</p>
-            {personalTaggingQuery.data?.enabled && !personalTaggingQuery.data.providerAvailable ? (
-              <p role="status" className="mt-2 text-sm text-muted-foreground">
-                {t(locale, 'settings.personalTagging.providerUnavailable')}
-              </p>
-            ) : null}
-            {personalTaggingQuery.data?.enabled &&
-            personalTaggingQuery.data.providerAvailable &&
-            personalTaggingQuery.data.latestRunState ? (
-              <p role="status" className="mt-2 text-sm text-muted-foreground">
-                {personalTaggingQuery.data.latestRunState === 'failed'
-                  ? t(locale, personalTaggingRunErrorKey(personalTaggingQuery.data.latestRunErrorCode))
-                  : t(locale, `settings.personalTagging.runState.${personalTaggingQuery.data.latestRunState}`)}
-              </p>
-            ) : null}
-            {personalTaggingQuery.error ? (
-              <p role="alert" className="mt-2 text-sm text-destructive">
-                {formatUserSettingsApiError(personalTaggingQuery.error)}
-              </p>
-            ) : null}
-          </section>
-          {!providersQuery.isPending && !settingsQuery.isPending && !loadError ? (
-            <div className="flex flex-col gap-6">
-              <section>
-                <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.ai.service')}</h2>
-                <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t(locale, 'settings.serviceMode')}>
+  // Focused advanced view replaces the default body (accepted board), same route.
+  if (view === 'advanced') {
+    return (
+      <div className="mx-auto w-full max-w-3xl pb-8">
+        <header className="mb-6 border-b border-border/40 pb-4">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="-ml-2 mb-3"
+            onClick={() => {
+              closeContext();
+              setView('summary');
+            }}
+          >
+            {t(locale, 'settings.ownAi.back')}
+          </Button>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">
+            {t(locale, 'settings.ownAi.title')}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'settings.ownAi.description')}</p>
+        </header>
+
+        {(providersQuery.isPending || settingsQuery.isPending) && (
+          <p className="mb-6 text-sm text-muted-foreground">{t(locale, 'settings.loading')}</p>
+        )}
+        {aiLoadError && (
+          <p role="alert" className="mb-6 text-sm text-destructive">
+            {formatUserSettingsApiError(aiLoadError)}
+          </p>
+        )}
+
+        {isAiDataReady ? (
+          <div className="flex flex-col gap-8">
+            {/* Providers: summary rows + explicit edit; one editing context at a time */}
+            <section>
+              <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-2">
+                <h2 className="text-base font-semibold text-foreground">{t(locale, 'settings.ai.providers')}</h2>
+                {editingContext !== 'provider' ? (
                   <Button
                     type="button"
-                    variant={!isOwnMode ? 'default' : 'outline'}
-                    onClick={() => setAiModeDraft('default')}
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-lg px-4"
+                    onClick={() => {
+                      setEditingProvider(null);
+                      setProviderStartReplacingKey(false);
+                      openContext('provider');
+                    }}
                   >
-                    {t(locale, 'settings.defaultService')}
+                    {t(locale, 'settings.ai.addProviderEntry')}
                   </Button>
-                  <Button
-                    type="button"
-                    variant={isOwnMode ? 'default' : 'outline'}
-                    onClick={() => setAiModeDraft('own')}
-                  >
-                    {t(locale, 'settings.ownApi')}
-                  </Button>
+                ) : null}
+              </div>
+
+              {providers.map((provider) => (
+                <div key={provider.id} className="border-b border-border/50 py-3">
+                  {editingContext === 'provider' && currentProvider?.id === provider.id ? (
+                    <div className="mt-1">
+                      <ProviderForm
+                        key={currentProvider.id}
+                        provider={currentProvider}
+                        pending={providerMutation.isPending}
+                        startReplacingKey={shouldOpenKeyReplacement}
+                        onSave={(draft) => providerMutation.mutate({ draft, current: currentProvider })}
+                        onCancel={closeContext}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="min-w-32 font-medium">{provider.name}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {LLM_WIRE_REGISTRY[provider.apiFamily].label}
+                      </span>
+                      {!LLM_WIRE_REGISTRY[provider.apiFamily].runtimeImplemented ? (
+                        <span className="text-sm text-muted-foreground">
+                          {t(locale, 'settings.ai.notAvailableYet')}
+                        </span>
+                      ) : null}
+                      {provider.apiKeySet ? (
+                        <span className="text-sm text-foreground">
+                          {t(locale, 'common.secret.configured')} · {provider.apiKeyMasked ?? '••••'}
+                        </span>
+                      ) : null}
+                      {provider.apiKeySet ? (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="px-0"
+                          onClick={() => {
+                            setEditingProvider(provider);
+                            setProviderStartReplacingKey(true);
+                            openContext('provider');
+                          }}
+                        >
+                          {t(locale, 'settings.ai.replaceKey')}
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingProvider(provider);
+                          setProviderStartReplacingKey(false);
+                          openContext('provider');
+                        }}
+                      >
+                        {t(locale, 'settings.edit')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        disabled={deleteMutation.isPending}
+                        onClick={() => deleteMutation.mutate({ kind: 'provider', id: provider.id })}
+                      >
+                        {t(locale, 'settings.delete')}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                {!providers.length ? (
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <p className="text-sm text-muted-foreground">{t(locale, 'settings.ai.noProviders')}</p>
+              ))}
+              {!providers.length ? (
+                <p className="py-3 text-sm text-muted-foreground">{t(locale, 'settings.ai.noProviders')}</p>
+              ) : null}
+              {editingContext === 'provider' && !currentProvider ? (
+                <div className="mt-3">
+                  <ProviderForm
+                    key="new-provider"
+                    provider={null}
+                    pending={providerMutation.isPending}
+                    onSave={(draft) => providerMutation.mutate({ draft, current: null })}
+                    onCancel={closeContext}
+                  />
+                </div>
+              ) : null}
+            </section>
+
+            {/* Models: single editor well (680px) + summary rows + collapsed add entry */}
+            <section>
+              <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-2">
+                <div className="flex items-baseline gap-2">
+                  <h2 className="text-base font-semibold text-foreground">{t(locale, 'settings.ai.models')}</h2>
+                  <span className="text-xs text-muted-foreground">{t(locale, 'settings.ai.testCostNotice')}</span>
+                </div>
+                {editingContext !== 'model-add' && editingContext !== 'model' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-lg px-4"
+                    onClick={() => {
+                      setModelDraft(EMPTY_MODEL);
+                      openContext('model-add');
+                    }}
+                  >
+                    {t(locale, 'settings.ai.addModelEntry')}
+                  </Button>
+                ) : null}
+              </div>
+
+              {providers.length ? (
+                <Field className="my-3 max-w-sm">
+                  <FieldLabel htmlFor="settings-model-provider">{t(locale, 'settings.ai.provider')}</FieldLabel>
+                  <select
+                    id="settings-model-provider"
+                    className={cn(
+                      'h-11 w-full px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                      nativeSelectFilledClasses,
+                    )}
+                    value={activeProviderId}
+                    onChange={(event) => setSelectedProviderId(event.target.value)}
+                  >
+                    {providers.map((provider) => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+
+              <div className="flex flex-col">
+                {modelsByProvider.map((model) => {
+                  const modelProvider = providers.find((provider) => provider.id === model.providerId);
+                  const isRuntimeImplemented = modelProvider
+                    ? LLM_WIRE_REGISTRY[modelProvider.apiFamily].runtimeImplemented
+                    : false;
+                  const testResult = modelTestResults[model.id];
+                  const isTesting = modelTestMutation.isPending && modelTestMutation.variables === model.id;
+                  const isEditingThis = editingContext === 'model' && editingModelId === model.id;
+                  return (
+                    <div key={model.id} className="border-b border-border/50 py-3">
+                      {isEditingThis ? (
+                        <div className="flex max-w-[680px] flex-col gap-4 rounded-2xl border border-border bg-card p-5">
+                          <p className="text-sm font-semibold text-foreground">
+                            {t(locale, 'settings.ai.saveModel')} · {model.label}
+                          </p>
+                          <ModelFields
+                            draft={modelDraft}
+                            setDraft={setModelDraft}
+                            family={modelProvider?.apiFamily ?? 'openai'}
+                            locale={locale}
+                          />
+                          <div className="flex justify-end gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-11 rounded-[8px] px-6"
+                              disabled={modelMutation.isPending}
+                              onClick={closeContext}
+                            >
+                              {t(locale, 'settings.ai.cancelChanges')}
+                            </Button>
+                            <Button
+                              type="button"
+                              className="h-11 rounded-[8px] px-6"
+                              disabled={modelMutation.isPending}
+                              onClick={() => modelMutation.mutate({ draft: modelDraft, model })}
+                            >
+                              {modelMutation.isPending
+                                ? t(locale, 'settings.saving')
+                                : t(locale, 'settings.ai.saveModel')}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="min-w-32 font-medium">{model.label}</span>
+                          <span className="font-mono text-sm text-muted-foreground">{model.modelId}</span>
+                          {!model.isEnabled ? (
+                            <span className="text-sm text-muted-foreground">{t(locale, 'settings.ai.disabled')}</span>
+                          ) : null}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                              modelTestMutation.isPending ||
+                              !model.isEnabled ||
+                              !modelProvider?.isEnabled ||
+                              !isRuntimeImplemented
+                            }
+                            onClick={() => modelTestMutation.mutate(model.id)}
+                          >
+                            {isTesting
+                              ? t(locale, 'settings.ai.testingConnection')
+                              : t(locale, 'settings.ai.testConnection')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingModelId(model.id);
+                              setModelDraft({
+                                modelId: model.modelId,
+                                label: model.label,
+                                wireVariant: model.wireVariant,
+                              });
+                              openContext('model');
+                            }}
+                          >
+                            {t(locale, 'settings.edit')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => deleteMutation.mutate({ kind: 'model', id: model.id })}
+                          >
+                            {t(locale, 'settings.delete')}
+                          </Button>
+                        </div>
+                      )}
+                      {testResult?.status === 'success' ? (
+                        <p role="status" className="mt-2 text-sm text-muted-foreground">
+                          {t(locale, 'settings.ai.testSucceeded', { latencyMs: String(testResult.latencyMs) })}
+                        </p>
+                      ) : null}
+                      {testResult?.status === 'error' ? (
+                        <p role="alert" className="mt-2 text-sm text-destructive">
+                          {t(locale, 'settings.ai.testFailed', { message: testResult.message })}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+                {!modelsByProvider.length ? (
+                  <p className="py-3 text-sm text-muted-foreground">{t(locale, 'settings.ai.noModels')}</p>
+                ) : null}
+              </div>
+
+              {editingContext === 'model-add' && providers.length ? (
+                <form
+                  className="mt-3 flex max-w-[680px] flex-col gap-4 rounded-2xl border border-border bg-card p-5"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    modelMutation.mutate({ draft: modelDraft, model: null });
+                  }}
+                >
+                  <ModelFields
+                    draft={modelDraft}
+                    setDraft={setModelDraft}
+                    family={providers.find((p) => p.id === activeProviderId)?.apiFamily ?? 'openai'}
+                    locale={locale}
+                  />
+                  <div className="flex justify-end gap-3">
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setEditingProvider(null);
-                        setIsProviderFormOpen(true);
-                      }}
+                      className="h-11 rounded-[8px] px-6"
+                      disabled={modelMutation.isPending}
+                      onClick={closeContext}
                     >
-                      {t(locale, 'settings.ai.addProvider')}
+                      {t(locale, 'settings.ai.cancelChanges')}
+                    </Button>
+                    <Button type="submit" className="h-11 rounded-[8px] px-6" disabled={modelMutation.isPending}>
+                      {modelMutation.isPending ? t(locale, 'settings.saving') : t(locale, 'settings.ai.addModelEntry')}
                     </Button>
                   </div>
-                ) : null}
-                {!providers.length && isProviderFormOpen ? (
-                  <div className="mt-4">
-                    <ProviderForm
-                      key="new-provider"
-                      provider={null}
-                      pending={providerMutation.isPending}
-                      onSave={(draft) => providerMutation.mutate({ draft, current: null })}
-                    />
-                  </div>
-                ) : null}
-                {aiModeDraft ? (
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      {t(locale, aiModeDraft === 'default' ? 'settings.ai.confirmDefault' : 'settings.ai.confirmOwn')}
-                    </p>
-                    <Button
-                      type="button"
-                      disabled={modeMutation.isPending || providers.length === 0}
-                      onClick={() => modeMutation.mutate(aiModeDraft)}
-                    >
-                      {t(locale, 'settings.save')}
-                    </Button>
-                    <Button type="button" variant="ghost" onClick={() => setAiModeDraft(null)}>
-                      {t(locale, 'settings.cancel')}
-                    </Button>
-                  </div>
-                ) : null}
-              </section>
-
-              {isOwnMode ? (
-                <section className="border-t border-border/60 pt-5">
-                  <div className="flex flex-wrap items-baseline justify-between gap-3">
-                    <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.ai.providers')}</h2>
-                    {!isProviderFormOpen ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingProvider(null);
-                          setIsProviderFormOpen(true);
-                        }}
-                      >
-                        {t(locale, 'settings.ai.addProvider')}
-                      </Button>
-                    ) : null}
-                  </div>
-                  {providers.length ? (
-                    <div className="mt-4 flex flex-col gap-4">
-                      {providers.map((provider) => (
-                        <div key={provider.id} className="border-b border-border/50 pb-4 last:border-0">
-                          <div className="mb-3 flex flex-wrap items-center gap-3">
-                            <h3 className="font-medium">{provider.name}</h3>
-                            <span className="text-sm text-muted-foreground">
-                              {LLM_WIRE_REGISTRY[provider.apiFamily].label}
-                            </span>
-                            {!LLM_WIRE_REGISTRY[provider.apiFamily].runtimeImplemented ? (
-                              <span className="text-sm text-muted-foreground">
-                                {t(locale, 'settings.ai.notAvailableYet')}
-                              </span>
-                            ) : null}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingProvider(provider);
-                                setIsProviderFormOpen(true);
-                              }}
-                            >
-                              {t(locale, 'settings.edit')}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              disabled={deleteMutation.isPending}
-                              onClick={() => deleteMutation.mutate({ kind: 'provider', id: provider.id })}
-                            >
-                              {t(locale, 'settings.delete')}
-                            </Button>
-                          </div>
-                          {isProviderFormOpen && currentProvider?.id === provider.id ? (
-                            <ProviderForm
-                              key={currentProvider.id}
-                              provider={currentProvider}
-                              pending={providerMutation.isPending}
-                              onSave={(draft) => providerMutation.mutate({ draft, current: currentProvider })}
-                            />
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                  {isProviderFormOpen &&
-                  (!currentProvider || !providers.some((provider) => provider.id === currentProvider.id)) ? (
-                    <div className="mt-4">
-                      <ProviderForm
-                        key="new-provider"
-                        provider={null}
-                        pending={providerMutation.isPending}
-                        onSave={(draft) => providerMutation.mutate({ draft, current: null })}
-                      />
-                    </div>
-                  ) : null}
-                </section>
+                </form>
               ) : null}
+            </section>
 
-              {isOwnMode ? (
-                <section className="border-t border-border/60 pt-5">
-                  <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.ai.models')}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'settings.ai.testCostNotice')}</p>
-                  <Field className="mt-4 max-w-sm">
-                    <FieldLabel htmlFor="settings-model-provider">{t(locale, 'settings.ai.provider')}</FieldLabel>
-                    <select
-                      id="settings-model-provider"
-                      className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
-                      value={activeProviderId}
-                      onChange={(event) => setSelectedProviderId(event.target.value)}
-                    >
-                      {providers.map((provider) => (
-                        <option key={provider.id} value={provider.id}>
-                          {provider.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <div className="mt-4 flex flex-col gap-3">
-                    {modelsByProvider.map((model) => {
-                      const modelProvider = providers.find((provider) => provider.id === model.providerId);
-                      const isRuntimeImplemented = modelProvider
-                        ? LLM_WIRE_REGISTRY[modelProvider.apiFamily].runtimeImplemented
-                        : false;
-                      const testResult = modelTestResults[model.id];
-                      const isTesting = modelTestMutation.isPending && modelTestMutation.variables === model.id;
-                      return (
-                        <div key={model.id} className="border-b border-border/50 pb-3">
-                          <div className="flex flex-wrap items-center gap-3">
-                            {editingModelId === model.id ? (
-                              <ModelFields
-                                draft={modelDraft}
-                                setDraft={setModelDraft}
-                                family={providers.find((p) => p.id === model.providerId)?.apiFamily ?? 'openai'}
-                                locale={locale}
-                              />
-                            ) : (
-                              <span className="min-w-32 font-medium">{model.label}</span>
-                            )}
-                            {editingModelId === model.id ? (
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={modelMutation.isPending}
-                                onClick={() => modelMutation.mutate({ draft: modelDraft, model })}
-                              >
-                                {t(locale, 'settings.save')}
-                              </Button>
-                            ) : (
-                              <>
-                                <span className="text-sm text-muted-foreground">{model.modelId}</span>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  disabled={
-                                    modelTestMutation.isPending ||
-                                    !model.isEnabled ||
-                                    !modelProvider?.isEnabled ||
-                                    !isRuntimeImplemented
-                                  }
-                                  onClick={() => modelTestMutation.mutate(model.id)}
-                                >
-                                  {isTesting
-                                    ? t(locale, 'settings.ai.testingConnection')
-                                    : t(locale, 'settings.ai.testConnection')}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingModelId(model.id);
-                                    setModelDraft({
-                                      modelId: model.modelId,
-                                      label: model.label,
-                                      wireVariant: model.wireVariant,
-                                    });
-                                  }}
-                                >
-                                  {t(locale, 'settings.edit')}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteMutation.mutate({ kind: 'model', id: model.id })}
-                                >
-                                  {t(locale, 'settings.delete')}
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                          {testResult?.status === 'success' ? (
-                            <p role="status" className="mt-2 text-sm text-muted-foreground">
-                              {t(locale, 'settings.ai.testSucceeded', { latencyMs: String(testResult.latencyMs) })}
-                            </p>
-                          ) : null}
-                          {testResult?.status === 'error' ? (
-                            <p role="alert" className="mt-2 text-sm text-destructive">
-                              {t(locale, 'settings.ai.testFailed', { message: testResult.message })}
-                            </p>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                    {!modelsByProvider.length ? (
-                      <p className="text-sm text-muted-foreground">{t(locale, 'settings.ai.noModels')}</p>
-                    ) : null}
-                  </div>
-                  {providers.length ? (
-                    <form
-                      className="mt-4 flex flex-col gap-3 border-t border-border/50 pt-4"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        modelMutation.mutate({ draft: modelDraft, model: null });
-                      }}
-                    >
-                      <h3 className="font-medium">{t(locale, 'settings.ai.addModel')}</h3>
-                      <ModelFields
-                        draft={modelDraft}
-                        setDraft={setModelDraft}
-                        family={providers.find((p) => p.id === activeProviderId)?.apiFamily ?? 'openai'}
-                        locale={locale}
-                      />
-                      <div>
-                        <Button type="submit" variant="outline" disabled={modelMutation.isPending}>
-                          {t(locale, 'settings.ai.addModel')}
-                        </Button>
-                      </div>
-                    </form>
-                  ) : null}
-                </section>
-              ) : null}
-
-              {isOwnMode ? (
-                <section className="border-t border-border/60 pt-5">
-                  <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.ai.capabilities')}</h2>
-                  <div className="mt-3 flex flex-col">
-                    {PURPOSES.map(({ key, labelKey }) => {
-                      const setting = settings.find((item) => item.key === key);
-                      const selected = purposeDraft[key] ?? setting?.modelId ?? '';
-                      const saved = setting?.modelId ?? '';
-                      const activeModels = models.filter((model) => {
-                        const provider = providers.find((item) => item.id === model.providerId);
-                        return (
-                          model.isEnabled &&
-                          provider?.isEnabled &&
-                          LLM_WIRE_REGISTRY[provider.apiFamily].runtimeImplemented
-                        );
-                      });
-                      return (
-                        <Field
-                          key={key}
-                          className="grid gap-2 border-b border-border/50 py-4 sm:grid-cols-[minmax(10rem,1fr)_2fr] sm:items-center"
-                        >
-                          <FieldLabel htmlFor={`purpose-${key}`}>
+            {/* Purposes: read-only summary + per-row Change, independent save/cancel, keep unavailable hints */}
+            <section>
+              <div className="flex items-baseline justify-between gap-3 border-b border-border/50 pb-2">
+                <h2 className="text-base font-semibold text-foreground">{t(locale, 'settings.ai.capabilities')}</h2>
+                <span className="text-xs text-muted-foreground">{t(locale, 'settings.ai.defaultOnUnset')}</span>
+              </div>
+              <div className="flex flex-col">
+                {PURPOSES.map(({ key, labelKey }) => {
+                  const setting = settings.find((item) => item.key === key);
+                  const selected = purposeDraft[key] ?? setting?.modelId ?? '';
+                  const saved = setting?.modelId ?? '';
+                  const savedModel = models.find((model) => model.id === saved);
+                  const isEditingThis = editingContext === 'purpose' && editingPurposeKey === key;
+                  return (
+                    <div key={key} className="flex flex-col gap-2 border-b border-border/50 py-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <p className="text-sm font-semibold text-foreground">
                             {t(locale, `settings.ai.purpose.${labelKey}`)}
-                          </FieldLabel>
+                          </p>
+                          <p className="text-sm text-foreground">
+                            {saved
+                              ? (setting?.modelLabel ?? savedModel?.label ?? saved)
+                              : t(locale, 'settings.ai.notSet')}
+                          </p>
+                          {setting?.modelId && !activeModels.some((model) => model.id === setting.modelId) ? (
+                            <p className="text-sm text-muted-foreground">
+                              {setting.modelLabel ?? t(locale, 'settings.ai.unavailableModel')}
+                            </p>
+                          ) : null}
+                        </div>
+                        {!isEditingThis ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 rounded-lg px-4"
+                            onClick={() => {
+                              setEditingPurposeKey(key);
+                              openContext('purpose');
+                            }}
+                          >
+                            {t(locale, 'settings.change')}
+                          </Button>
+                        ) : null}
+                      </div>
+                      {isEditingThis ? (
+                        <div className="flex flex-wrap items-center gap-3">
                           <select
                             id={`purpose-${key}`}
-                            className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+                            aria-label={t(locale, `settings.ai.purpose.${labelKey}`)}
+                            className={cn(
+                              'h-11 w-full max-w-sm px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                              nativeSelectFilledClasses,
+                            )}
                             value={selected}
                             disabled={!activeModels.some((model) => model.id === selected) && Boolean(selected)}
                             onChange={(event) =>
@@ -799,41 +963,190 @@ export function SettingsPage() {
                               </option>
                             ))}
                           </select>
-                          <div className="sm:col-start-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={!selected || selected === saved || settingMutation.isPending}
-                              onClick={() => settingMutation.mutate({ key, modelId: selected })}
-                            >
-                              {settingMutation.isPending ? t(locale, 'settings.saving') : t(locale, 'settings.save')}
-                            </Button>
-                          </div>
-                          {setting?.modelId && !activeModels.some((model) => model.id === setting.modelId) ? (
-                            <p className="text-sm text-muted-foreground sm:col-start-2">
-                              {setting.modelLabel ?? t(locale, 'settings.ai.unavailableModel')}
-                            </p>
-                          ) : null}
-                        </Field>
-                      );
-                    })}
-                    <p className="mt-3 text-sm text-muted-foreground">{t(locale, 'settings.ai.defaultOnUnset')}</p>
-                  </div>
-                </section>
-              ) : null}
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-9"
+                            disabled={!selected || selected === saved || settingMutation.isPending}
+                            onClick={() => settingMutation.mutate({ key, modelId: selected })}
+                          >
+                            {settingMutation.isPending ? t(locale, 'settings.saving') : t(locale, 'settings.save')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              // Local cancel discards only this row's draft.
+                              setPurposeDraft((current) => {
+                                const next = { ...current };
+                                delete next[key];
+                                return next;
+                              });
+                              setEditingPurposeKey(null);
+                              setEditingContext(null);
+                            }}
+                          >
+                            {t(locale, 'settings.cancel')}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-3xl pb-8">
+      <SettingHeader />
+
+      {(providersQuery.isPending || settingsQuery.isPending) && (
+        <p className="mb-6 text-sm text-muted-foreground">{t(locale, 'settings.loading')}</p>
+      )}
+      {aiLoadError && (
+        <p role="alert" className="mb-6 text-sm text-destructive">
+          {formatUserSettingsApiError(aiLoadError)}
+        </p>
+      )}
+      {ttsLoadError && (
+        <p role="alert" className="mb-6 text-sm text-destructive">
+          {formatUserSettingsApiError(ttsLoadError)}
+        </p>
+      )}
+
+      {/* Reading services: read-only summaries + explicit Change; one editing context at a time */}
+      <section className="mb-8">
+        <h2 className="font-heading mb-2 text-xl font-semibold">{t(locale, 'settings.readingServices.title')}</h2>
+        <SummaryRow
+          label={t(locale, 'settings.tts.title')}
+          value={ttsSourceLabel}
+          description={
+            ttsConfig?.configured && ttsConfig.isEnabled
+              ? t(locale, 'settings.tts.ownSummary')
+              : t(locale, 'settings.tts.defaultSummary')
+          }
+          actionLabel={t(locale, 'settings.change')}
+          onAction={() => openContext('tts')}
+        />
+        {editingContext === 'tts' && ttsConfig ? (
+          <div className="border-b border-border/50 py-4">
+            <SettingsTtsSection key={String(ttsConfig.updatedAt)} config={ttsConfig} hideTitle />
+            <div className="mt-3">
+              <Button type="button" variant="ghost" size="sm" onClick={closeContext}>
+                {t(locale, 'settings.cancel')}
+              </Button>
             </div>
-          ) : null}
-        </TabsContent>
-        <TabsContent value="tts" className="pt-6">
-          {ttsQuery.isPending ? <p className="text-sm text-muted-foreground">{t(locale, 'settings.loading')}</p> : null}
-          {ttsQuery.error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {formatUserSettingsApiError(ttsQuery.error)}
-            </p>
-          ) : null}
-          {ttsConfig ? <SettingsTtsSection key={String(ttsConfig.updatedAt)} config={ttsConfig} /> : null}
-        </TabsContent>
-      </Tabs>
+          </div>
+        ) : null}
+
+        <SummaryRow
+          label={t(locale, 'settings.ai.service')}
+          value={aiSourceLabel}
+          description={isOwnMode ? t(locale, 'settings.ai.ownSummary') : t(locale, 'settings.ai.defaultSummary')}
+          actionLabel={t(locale, 'settings.change')}
+          onAction={() => openContext('ai-mode')}
+        />
+        {editingContext === 'ai-mode' ? (
+          <div className="border-b border-border/50 py-4">
+            <div className="flex flex-wrap gap-2" role="group" aria-label={t(locale, 'settings.serviceMode')}>
+              <Button
+                type="button"
+                variant={(aiModeDraft ?? (isOwnMode ? 'own' : 'default')) === 'default' ? 'default' : 'outline'}
+                onClick={() => setAiModeDraft('default')}
+              >
+                {t(locale, 'settings.defaultService')}
+              </Button>
+              <Button
+                type="button"
+                variant={(aiModeDraft ?? (isOwnMode ? 'own' : 'default')) === 'own' ? 'default' : 'outline'}
+                onClick={() => setAiModeDraft('own')}
+              >
+                {t(locale, 'settings.ownApi')}
+              </Button>
+            </div>
+            {aiModeDraft ? (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {t(locale, aiModeDraft === 'default' ? 'settings.ai.confirmDefault' : 'settings.ai.confirmOwn')}
+                </p>
+                <Button
+                  type="button"
+                  disabled={modeMutation.isPending || providers.length === 0}
+                  onClick={() => modeMutation.mutate(aiModeDraft)}
+                >
+                  {t(locale, 'settings.save')}
+                </Button>
+                <Button type="button" variant="ghost" onClick={() => setAiModeDraft(null)}>
+                  {t(locale, 'settings.cancel')}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+
+      {/* EPUB organization: instantly saved preference toggle */}
+      <section className="mb-8 border-b border-border/40 pb-6">
+        <h2 className="font-heading mb-3 text-xl font-semibold">{t(locale, 'settings.personalTagging.title')}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <label htmlFor="settings-personal-tagging" className="text-sm text-foreground">
+            {t(locale, 'settings.personalTagging.toggle')}
+          </label>
+          <input
+            id="settings-personal-tagging"
+            type="checkbox"
+            className="size-5 accent-primary"
+            checked={personalTaggingQuery.data?.enabled ?? false}
+            disabled={personalTaggingQuery.isPending || personalTaggingMutation.isPending}
+            onChange={(event) => personalTaggingMutation.mutate(event.target.checked)}
+          />
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">{t(locale, 'settings.personalTagging.description')}</p>
+        {personalTaggingQuery.data?.enabled && !personalTaggingQuery.data.providerAvailable ? (
+          <p role="status" className="mt-2 text-sm text-muted-foreground">
+            {t(locale, 'settings.personalTagging.providerUnavailable')}
+          </p>
+        ) : null}
+        {personalTaggingQuery.data?.enabled &&
+        personalTaggingQuery.data.providerAvailable &&
+        personalTaggingQuery.data.latestRunState ? (
+          <p role="status" className="mt-2 text-sm text-muted-foreground">
+            {personalTaggingQuery.data.latestRunState === 'failed'
+              ? t(locale, personalTaggingRunErrorKey(personalTaggingQuery.data.latestRunErrorCode))
+              : t(locale, `settings.personalTagging.runState.${personalTaggingQuery.data.latestRunState}`)}
+          </p>
+        ) : null}
+        {personalTaggingQuery.error ? (
+          <p role="alert" className="mt-2 text-sm text-destructive">
+            {formatUserSettingsApiError(personalTaggingQuery.error)}
+          </p>
+        ) : null}
+      </section>
+
+      {/* Own AI service: entry always reachable, opens the focused advanced view */}
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-4">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.ownAi.title')}</h2>
+            <p className="text-sm text-muted-foreground">{t(locale, 'settings.ownAi.description')}</p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-lg px-4"
+            onClick={() => setView('advanced')}
+          >
+            {t(locale, 'settings.ownAi.enter')}
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -850,11 +1163,13 @@ function ModelFields({
   locale: 'en-US' | 'zh-CN';
 }) {
   return (
-    <div className="grid w-full gap-3 sm:grid-cols-3">
+    <div className="flex w-full max-w-[680px] flex-col gap-4">
       <Field>
         <FieldLabel htmlFor="settings-model-label">{t(locale, 'settings.ai.modelName')}</FieldLabel>
         <Input
           id="settings-model-label"
+          appearance="filled"
+          className="h-11"
           value={draft.label}
           onChange={(e) => setDraft((v) => ({ ...v, label: e.target.value }))}
         />
@@ -863,6 +1178,8 @@ function ModelFields({
         <FieldLabel htmlFor="settings-model-id">{t(locale, 'settings.ai.modelId')}</FieldLabel>
         <Input
           id="settings-model-id"
+          appearance="filled"
+          className="h-11"
           value={draft.modelId}
           onChange={(e) => setDraft((v) => ({ ...v, modelId: e.target.value }))}
         />
@@ -871,7 +1188,10 @@ function ModelFields({
         <FieldLabel htmlFor="settings-wire-variant">{t(locale, 'settings.ai.connectionType')}</FieldLabel>
         <select
           id="settings-wire-variant"
-          className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
+          className={cn(
+            'h-11 w-full px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+            nativeSelectFilledClasses,
+          )}
           value={draft.wireVariant}
           onChange={(e) => setDraft((v) => ({ ...v, wireVariant: e.target.value }))}
         >

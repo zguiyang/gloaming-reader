@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { SecretField } from '@/components/ui/secret-field';
 import { getApiFamilyLabel } from '@/features/admin/ai/ai-locale';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,8 @@ type AiProviderFormProps = {
   formId: string;
   onSubmit: (values: ProviderFormValues) => void;
   onCancel?: () => void;
+  /** Object-save pending; disables actions and the secret replacement draft. */
+  pending?: boolean;
 };
 
 export function emptyProviderValues(apiFamily: LlmApiFamily): ProviderFormValues {
@@ -94,7 +97,14 @@ function CollapsibleSection({
   );
 }
 
-export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel }: AiProviderFormProps) {
+export function AiProviderForm({
+  apiFamily,
+  provider,
+  formId,
+  onSubmit,
+  onCancel,
+  pending = false,
+}: AiProviderFormProps) {
   const { locale } = useLocale();
   const familyDef = getWireFamilyDefinition(apiFamily);
   const isEdit = provider != null;
@@ -102,6 +112,7 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
     provider ? providerValuesFromRow(provider) : emptyProviderValues(apiFamily),
   );
   const [errors, setErrors] = useState<Partial<Record<keyof ProviderFormValues, string>>>({});
+  const [isReplacingKey, setIsReplacingKey] = useState(false);
   const [isProxyOpen, setIsProxyOpen] = useState(() => Boolean(provider?.proxyUrl));
   const [isBalanceOpen, setIsBalanceOpen] = useState(() =>
     Boolean(provider?.balanceEndpoint || provider?.balanceAmountPath),
@@ -160,47 +171,84 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
             <FieldLabel htmlFor={`${formId}-name`}>{t(locale, 'admin.ai.provider.form.name')}</FieldLabel>
             <Input
               id={`${formId}-name`}
+              appearance="filled"
+              className="h-11"
+              aria-invalid={Boolean(errors.name) || undefined}
+              aria-describedby={errors.name ? `${formId}-name-error` : undefined}
               value={values.name}
               onChange={(e) => setValues((p) => ({ ...p, name: e.target.value }))}
             />
-            <FieldError>{errors.name}</FieldError>
+            <FieldError id={`${formId}-name-error`}>{errors.name}</FieldError>
           </Field>
           <Field data-invalid={Boolean(errors.baseUrl) || undefined}>
             <FieldLabel htmlFor={`${formId}-base-url`}>{t(locale, 'admin.ai.provider.form.baseUrl')}</FieldLabel>
             <Input
               id={`${formId}-base-url`}
-              className="font-mono text-sm"
+              appearance="filled"
+              className="h-11 font-mono text-sm"
+              aria-invalid={Boolean(errors.baseUrl) || undefined}
+              aria-describedby={errors.baseUrl ? `${formId}-base-url-error` : undefined}
               value={values.baseUrl}
               placeholder={familyDef.provider.baseUrlPlaceholder}
               onChange={(e) => setValues((p) => ({ ...p, baseUrl: e.target.value }))}
             />
-            <FieldError>{errors.baseUrl}</FieldError>
+            <FieldError id={`${formId}-base-url-error`}>{errors.baseUrl}</FieldError>
           </Field>
         </div>
 
-        <Field data-invalid={Boolean(errors.apiKey) || undefined}>
-          <FieldLabel htmlFor={`${formId}-api-key`}>{t(locale, 'admin.ai.provider.form.apiKey')}</FieldLabel>
-          <Input
+        {isEdit ? (
+          <SecretField
             id={`${formId}-api-key`}
-            type="password"
-            autoComplete="off"
+            label={t(locale, 'admin.ai.provider.form.apiKey')}
+            isSet={Boolean(provider?.apiKeySet)}
+            masked={provider?.apiKeyMasked}
             value={values.apiKey}
-            placeholder={isEdit ? t(locale, 'admin.ai.provider.form.apiKeyPlaceholderEdit') : 'sk-…'}
-            onChange={(e) => setValues((p) => ({ ...p, apiKey: e.target.value }))}
+            onChange={(value) => {
+              setValues((p) => ({ ...p, apiKey: value }));
+            }}
+            replacing={isReplacingKey}
+            onReplace={() => setIsReplacingKey(true)}
+            onCancelReplace={() => {
+              setValues((p) => ({ ...p, apiKey: '' }));
+              setIsReplacingKey(false);
+            }}
+            error={errors.apiKey}
+            disabled={pending}
+            placeholderWhenSet={t(locale, 'admin.ai.provider.form.apiKeyPlaceholderEdit')}
+            copy={{
+              replaceLabel: t(locale, 'common.secret.newKey'),
+              replaceAction: t(locale, 'common.secret.replace'),
+              cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
+              keepHint: t(locale, 'common.secret.keepHint'),
+              configuredLabel: t(locale, 'common.secret.configured'),
+            }}
           />
-          {isEdit && provider?.apiKeyMasked ? (
-            <p className="text-xs text-muted-foreground">
-              {t(locale, 'admin.ai.provider.form.apiKeyCurrent', { masked: provider.apiKeyMasked })}
-            </p>
-          ) : null}
-          <FieldError>{errors.apiKey}</FieldError>
-        </Field>
+        ) : (
+          <Field data-invalid={Boolean(errors.apiKey) || undefined}>
+            <FieldLabel htmlFor={`${formId}-api-key`}>{t(locale, 'admin.ai.provider.form.apiKey')}</FieldLabel>
+            <Input
+              id={`${formId}-api-key`}
+              type="password"
+              appearance="filled"
+              className="h-11"
+              autoComplete="off"
+              aria-invalid={Boolean(errors.apiKey) || undefined}
+              aria-describedby={errors.apiKey ? `${formId}-api-key-error` : undefined}
+              value={values.apiKey}
+              placeholder="sk-…"
+              onChange={(e) => setValues((p) => ({ ...p, apiKey: e.target.value }))}
+            />
+            <FieldError id={`${formId}-api-key-error`}>{errors.apiKey}</FieldError>
+          </Field>
+        )}
 
         {shouldShowThinkingParam ? (
           <Field>
             <FieldLabel htmlFor={`${formId}-thinking`}>{t(locale, 'admin.ai.provider.form.thinkingParam')}</FieldLabel>
             <Input
               id={`${formId}-thinking`}
+              appearance="filled"
+              className="h-11"
               value={values.thinkingParam}
               placeholder="enable_thinking"
               onChange={(e) => setValues((p) => ({ ...p, thinkingParam: e.target.value }))}
@@ -216,6 +264,8 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
         >
           <Input
             id={`${formId}-proxy`}
+            appearance="filled"
+            className="h-11"
             value={values.proxyUrl}
             placeholder="http://127.0.0.1:7890"
             onChange={(e) => setValues((p) => ({ ...p, proxyUrl: e.target.value }))}
@@ -230,7 +280,8 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
             onToggle={() => setIsBalanceOpen((o) => !o)}
           >
             <Input
-              className="font-mono text-sm"
+              appearance="filled"
+              className="h-11 font-mono text-sm"
               value={values.balanceEndpoint}
               placeholder={t(locale, 'admin.ai.provider.form.balanceEndpointPlaceholder')}
               onChange={(e) => setValues((p) => ({ ...p, balanceEndpoint: e.target.value }))}
@@ -238,13 +289,15 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
             <FieldDescription>{t(locale, 'admin.ai.provider.form.balanceEndpointHint')}</FieldDescription>
             <div className="grid gap-2 sm:grid-cols-2">
               <Input
-                className="font-mono text-sm"
+                appearance="filled"
+                className="h-11 font-mono text-sm"
                 value={values.balanceAmountPath}
                 placeholder={t(locale, 'admin.ai.provider.form.balanceAmountPathPlaceholder')}
                 onChange={(e) => setValues((p) => ({ ...p, balanceAmountPath: e.target.value }))}
               />
               <Input
-                className="font-mono text-sm"
+                appearance="filled"
+                className="h-11 font-mono text-sm"
                 value={values.balanceCurrencyPath}
                 placeholder={t(locale, 'admin.ai.provider.form.balanceCurrencyPathPlaceholder')}
                 onChange={(e) => setValues((p) => ({ ...p, balanceCurrencyPath: e.target.value }))}
@@ -255,11 +308,21 @@ export function AiProviderForm({ apiFamily, provider, formId, onSubmit, onCancel
       </FieldGroup>
 
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" className="rounded-xl hover:bg-brand-deep">
-          {isEdit ? t(locale, 'admin.ai.provider.form.save') : t(locale, 'admin.ai.provider.form.add')}
+        <Button type="submit" className="h-11 rounded-[8px] px-6 hover:bg-brand-deep" disabled={pending}>
+          {pending
+            ? t(locale, 'admin.content.common.saving')
+            : isEdit
+              ? t(locale, 'admin.ai.provider.form.save')
+              : t(locale, 'admin.ai.provider.form.add')}
         </Button>
         {onCancel ? (
-          <Button type="button" variant="outline" className="rounded-xl" onClick={onCancel}>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 rounded-[8px] px-6"
+            disabled={pending}
+            onClick={onCancel}
+          >
             {t(locale, 'admin.content.common.cancel')}
           </Button>
         ) : null}
