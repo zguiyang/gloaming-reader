@@ -110,19 +110,28 @@ export function LibraryBookCard({
             {t(locale, 'content.library.failedHint')}
           </p>
         ) : null}
-        {hasProgressBar ? (
+        {entry.availability === 'ready' ? (
+          // Stable progress footprint: every ready card reserves this 10px slot (mt-2 + h-0.5) so
+          // the read action stays aligned whether or not reading progress exists. The empty spacer
+          // carries no progressbar role or status semantics — it reserves layout only.
           <div
-            className="mt-2 h-0.5 w-full overflow-hidden rounded-full bg-muted/80"
-            role="progressbar"
-            aria-label={t(locale, 'content.library.statusReadProgress', { ratio: state.progressRatio })}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.min(100, state.progressRatio)}
+            className={cn('mt-2 h-0.5 w-full', hasProgressBar && 'overflow-hidden rounded-full bg-muted/80')}
+            role={hasProgressBar ? 'progressbar' : undefined}
+            aria-label={
+              hasProgressBar
+                ? t(locale, 'content.library.statusReadProgress', { ratio: state.progressRatio })
+                : undefined
+            }
+            aria-valuemin={hasProgressBar ? 0 : undefined}
+            aria-valuemax={hasProgressBar ? 100 : undefined}
+            aria-valuenow={hasProgressBar ? Math.min(100, state.progressRatio) : undefined}
           >
-            <div
-              className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out-soft"
-              style={{ width: `${Math.min(100, state.progressRatio)}%` }}
-            />
+            {hasProgressBar ? (
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out-soft"
+                style={{ width: `${Math.min(100, state.progressRatio)}%` }}
+              />
+            ) : null}
           </div>
         ) : null}
         {entry.availability === 'ready' ? (
