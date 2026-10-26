@@ -822,6 +822,7 @@
         "ipaFallback": "IPA",
         "contextExamplesHeading": "语境例句：",
         "readingNote": "阅读提示：{note}",
+        "savedConfigNotice": "测试只使用已保存的配置，不会提交上方的草稿修改。",
         "draftNotice": "上方配置有未保存修改：测试使用已保存的配置，不会提交这些修改。"
       },
       "saveConfig": "保存词典配置",

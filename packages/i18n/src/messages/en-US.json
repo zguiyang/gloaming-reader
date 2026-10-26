@@ -822,6 +822,7 @@
         "ipaFallback": "IPA",
         "contextExamplesHeading": "Context examples:",
         "readingNote": "Reading note: {note}",
+        "savedConfigNotice": "Tests use the saved configuration and never submit draft changes above.",
         "draftNotice": "Unsaved changes above: tests use the saved configuration and never submit these changes."
       },
       "saveConfig": "Save dictionary settings",

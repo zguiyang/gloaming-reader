@@ -23,6 +23,7 @@ import {
   testTts,
 } from '@/features/admin/tts/tts-config-api';
 import { useLocale } from '@/lib/locale-context';
+import { cn } from '@/lib/utils';
 
 type TestRoleValue = 'default' | TtsVoiceRole;
 
@@ -287,18 +288,32 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
       </section>
 
       <section className="flex flex-col gap-6">
-        <h2 className="border-b border-border/60 pb-3 text-base font-semibold text-foreground">
-          {t(locale, 'admin.tts.test.sectionTitle')}
-        </h2>
-
-        {hasUnsavedChanges ? (
+        {/* Stable feedback cell: both clean and dirty lines are always mounted in the same grid
+            area, so the row reserves the max of their actual wrapped heights (zh/en, 390px or
+            desktop). The inactive line is invisible + aria-hidden with no role; only the active
+            paragraph carries role=status. Test fields below never shift across clean/dirty/cancel. */}
+        <div className="grid gap-1 border-b border-border/60 pb-3">
+          <h2 className="col-start-1 row-start-1 text-base font-semibold text-foreground">
+            {t(locale, 'admin.tts.test.sectionTitle')}
+          </h2>
           <p
-            role="status"
-            className="rounded-lg border border-border/60 bg-surface-container-low px-4 py-3 text-sm text-muted-foreground"
+            role={hasUnsavedChanges ? undefined : 'status'}
+            aria-hidden={hasUnsavedChanges ? true : undefined}
+            className={cn('col-start-1 row-start-2 text-sm text-muted-foreground', hasUnsavedChanges && 'invisible')}
+          >
+            {t(locale, 'admin.tts.test.sectionDescription')}
+          </p>
+          <p
+            role={hasUnsavedChanges ? 'status' : undefined}
+            aria-hidden={hasUnsavedChanges ? undefined : true}
+            className={cn(
+              'col-start-1 row-start-2 text-sm text-muted-foreground',
+              hasUnsavedChanges ? undefined : 'invisible',
+            )}
           >
             {t(locale, 'admin.tts.test.draftNotice')}
           </p>
-        ) : null}
+        </div>
 
         <FieldGroup className="gap-5">
           <Field>
