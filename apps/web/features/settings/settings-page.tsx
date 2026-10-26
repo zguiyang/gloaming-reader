@@ -56,7 +56,7 @@ type ModelDraft = { modelId: string; label: string; wireVariant: string };
 type ModelTestResult = { status: 'success'; latencyMs: number } | { status: 'error'; message: string };
 
 /** One inline editing context on the settings page at a time. */
-type EditingContext = 'tts' | 'ai-mode' | 'provider' | 'model' | 'model-add' | 'purpose' | null;
+type EditingContext = 'tts' | 'ai-mode' | 'provider' | 'model' | 'model-add' | null;
 
 const EMPTY_PROVIDER: ProviderDraft = {
   apiFamily: 'openai',
@@ -338,7 +338,6 @@ export function SettingsPage() {
   const [editingModelId, setEditingModelId] = useState('');
   const [aiModeDraft, setAiModeDraft] = useState<'default' | 'own' | null>(null);
   const [purposeDraft, setPurposeDraft] = useState<Partial<Record<AiSettingKey, string>>>({});
-  const [editingPurposeKey, setEditingPurposeKey] = useState<AiSettingKey | null>(null);
   const isOwnMode = providers.some((provider) => provider.isEnabled);
   const settings = settingsQuery.data ?? [];
   // Independent domains: an AI query failure must not hide TTS, and vice versa.
@@ -372,12 +371,10 @@ export function SettingsPage() {
   const editingContextRef = useRef<EditingContext>(null);
   const editingProviderRef = useRef<LlmProvider | null>(null);
   const editingModelIdRef = useRef('');
-  const editingPurposeKeyRef = useRef<AiSettingKey | null>(null);
   useEffect(() => {
     editingContextRef.current = editingContext;
     editingProviderRef.current = editingProvider;
     editingModelIdRef.current = editingModelId;
-    editingPurposeKeyRef.current = editingPurposeKey;
   });
 
   const providerMutation = useMutation({
@@ -510,10 +507,6 @@ export function SettingsPage() {
         delete next[key];
         return next;
       });
-      if (editingContextRef.current === 'purpose' && editingPurposeKeyRef.current === key) {
-        setEditingPurposeKey(null);
-        setEditingContext(null);
-      }
       toast.success(t(locale, 'settings.saved'));
     },
     onError: (error) => toast.error(formatUserSettingsApiError(error)),
@@ -895,7 +888,7 @@ export function SettingsPage() {
               ) : null}
             </section>
 
-            {/* Purposes: read-only summary + per-row Change, independent save/cancel, keep unavailable hints */}
+            {/* Purposes: always-visible selector; Save/Cancel appear only while a row's draft differs from the saved binding */}
             <section>
               <div className="flex items-baseline justify-between gap-3 border-b border-border/50 pb-2">
                 <h2 className="text-base font-semibold text-foreground">{t(locale, 'settings.ai.capabilities')}</h2>
@@ -904,58 +897,50 @@ export function SettingsPage() {
               <div className="flex flex-col">
                 {PURPOSES.map(({ key, labelKey }) => {
                   const setting = settings.find((item) => item.key === key);
-                  const selected = purposeDraft[key] ?? setting?.modelId ?? '';
                   const saved = setting?.modelId ?? '';
+                  const selected = purposeDraft[key] ?? saved;
                   const savedModel = models.find((model) => model.id === saved);
-                  const isEditingThis = editingContext === 'purpose' && editingPurposeKey === key;
+                  const isDirty = selected !== saved;
+                  // Saved binding may reference a model that is no longer active;
+                  // keep it visible in the selector instead of disabling the row.
+                  const isSavedUnavailable = Boolean(saved) && !activeModels.some((model) => model.id === saved);
+                  const isSelectorDisabled = activeModels.length === 0 || settingMutation.isPending;
                   return (
-                    <div key={key} className="flex flex-col gap-2 border-b border-border/50 py-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex min-w-0 flex-col gap-0.5">
-                          <p className="text-sm font-semibold text-foreground">
-                            {t(locale, `settings.ai.purpose.${labelKey}`)}
-                          </p>
-                          <p className="text-sm text-foreground">
-                            {saved
-                              ? (setting?.modelLabel ?? savedModel?.label ?? saved)
-                              : t(locale, 'settings.ai.notSet')}
-                          </p>
-                          {setting?.modelId && !activeModels.some((model) => model.id === setting.modelId) ? (
-                            <p className="text-sm text-muted-foreground">
-                              {setting.modelLabel ?? t(locale, 'settings.ai.unavailableModel')}
-                            </p>
-                          ) : null}
-                        </div>
-                        {!isEditingThis ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-9 rounded-lg px-4"
-                            onClick={() => {
-                              setEditingPurposeKey(key);
-                              openContext('purpose');
-                            }}
-                          >
-                            {t(locale, 'settings.change')}
-                          </Button>
+                    <div key={key} className="flex flex-col gap-3 border-b border-border/50 py-4">
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <p className="text-sm font-semibold text-foreground">
+                          {t(locale, `settings.ai.purpose.${labelKey}`)}
+                        </p>
+                        {isSavedUnavailable ? (
+                          <p className="text-sm text-muted-foreground">{t(locale, 'settings.ai.unavailableModel')}</p>
                         ) : null}
                       </div>
-                      {isEditingThis ? (
-                        <div className="flex flex-wrap items-center gap-3">
+                      {/* Stable layout: full-width selector with a fixed-height action row below on
+                          narrow screens; inline reserved action slot on desktop. The slot keeps a
+                          constant footprint (empty and noninteractive while clean), so dirty-state
+                          actions never shift neighboring rows or the selector itself. */}
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                        <div className="min-w-0 w-full sm:w-auto sm:max-w-sm sm:flex-1">
                           <select
                             id={`purpose-${key}`}
                             aria-label={t(locale, `settings.ai.purpose.${labelKey}`)}
                             className={cn(
-                              'h-11 w-full max-w-sm px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                              'h-11 w-full px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                               nativeSelectFilledClasses,
                             )}
                             value={selected}
-                            disabled={!activeModels.some((model) => model.id === selected) && Boolean(selected)}
+                            disabled={isSelectorDisabled}
                             onChange={(event) =>
                               setPurposeDraft((current) => ({ ...current, [key]: event.target.value }))
                             }
                           >
+                            {isSavedUnavailable ? (
+                              // Clearly identified and nonselectable as a replacement; it stays visible
+                              // only to express the saved binding until the user picks an alternative.
+                              <option value={saved} disabled>
+                                {`${setting?.modelLabel ?? savedModel?.label ?? saved} ${t(locale, 'settings.ai.unavailableOption')}`}
+                              </option>
+                            ) : null}
                             <option value="">{t(locale, 'settings.ai.notSet')}</option>
                             {activeModels.map((model) => (
                               <option key={model.id} value={model.id}>
@@ -963,34 +948,42 @@ export function SettingsPage() {
                               </option>
                             ))}
                           </select>
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-9"
-                            disabled={!selected || selected === saved || settingMutation.isPending}
-                            onClick={() => settingMutation.mutate({ key, modelId: selected })}
-                          >
-                            {settingMutation.isPending ? t(locale, 'settings.saving') : t(locale, 'settings.save')}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              // Local cancel discards only this row's draft.
-                              setPurposeDraft((current) => {
-                                const next = { ...current };
-                                delete next[key];
-                                return next;
-                              });
-                              setEditingPurposeKey(null);
-                              setEditingContext(null);
-                            }}
-                          >
-                            {t(locale, 'settings.cancel')}
-                          </Button>
                         </div>
-                      ) : null}
+                        <div
+                          className="flex h-9 w-full items-center gap-2 sm:w-36"
+                          aria-hidden={isDirty ? undefined : true}
+                        >
+                          {isDirty ? (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-9"
+                                disabled={!selected || settingMutation.isPending}
+                                onClick={() => settingMutation.mutate({ key, modelId: selected })}
+                              >
+                                {settingMutation.isPending ? t(locale, 'settings.saving') : t(locale, 'settings.save')}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={settingMutation.isPending}
+                                onClick={() => {
+                                  // Local cancel restores only this row's saved binding.
+                                  setPurposeDraft((current) => {
+                                    const next = { ...current };
+                                    delete next[key];
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {t(locale, 'settings.cancel')}
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}

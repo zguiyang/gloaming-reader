@@ -137,6 +137,7 @@
       },
       "notSet": "选择模型",
       "unavailableModel": "当前模型不可用，请重新选择。",
+      "unavailableOption": "· 不可用",
       "defaultOnUnset": "未设置个人模型的能力会使用默认服务。",
       "defaultSummary": "覆盖阅读辅助、翻译与作品信息整理。",
       "ownSummary": "已启用自有服务商与模型。",

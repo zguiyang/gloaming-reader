@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { type Locale, t } from '@gloaming/i18n';
 import type { AiSettingKey, LlmAppSettingView, LlmModel, LlmProvider } from '@gloaming/shared/llm';
@@ -39,6 +39,8 @@ type AiPurposePanelProps = {
   providers: LlmProvider[];
   models: LlmModel[];
   draftByKey: Partial<Record<AiSettingKey, string>>;
+  /** Key whose save request is in flight, or null. */
+  savingKey: AiSettingKey | null;
   onDraftChange: (key: AiSettingKey, modelId: string) => void;
   onSave: (key: AiSettingKey) => void;
 };
@@ -219,12 +221,11 @@ export function AiPurposePanel({
   providers,
   models,
   draftByKey,
+  savingKey,
   onDraftChange,
   onSave,
 }: AiPurposePanelProps) {
   const { locale } = useLocale();
-  // One inline editing context at a time; each purpose saves independently.
-  const [editingKey, setEditingKey] = useState<AiSettingKey | null>(null);
 
   const bindableModels = useMemo(
     () =>
@@ -239,7 +240,6 @@ export function AiPurposePanel({
       {settings.map((setting) => {
         const title = purposeTitle(setting.key, locale);
         const draft = draftByKey[setting.key] ?? setting.modelId ?? '';
-        const savedModel = models.find((model) => model.id === (setting.modelId ?? ''));
         const health = resolveHealth(
           { ...setting, modelId: draft || null, healthy: Boolean(draft) },
           models,
@@ -248,93 +248,78 @@ export function AiPurposePanel({
         );
         const isDirty = draft !== (setting.modelId ?? '');
         const groups = buildModelGroups(bindableModels, providers, draft, models, locale, setting.modelLabel);
-        const isEditing = editingKey === setting.key;
+        // Any purpose save in flight gates every row: saves and selectors stay
+        // locked so concurrent mutations cannot overwrite each other's variables.
+        const isAnySaving = savingKey !== null;
 
         return (
           <li key={setting.key} className="flex flex-col gap-3 border-b border-border/50 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-foreground">{title}</p>
-                  {health ? (
-                    <Badge
-                      variant="secondary"
-                      className={
-                        health.tone === 'warn' ? 'bg-muted text-muted-foreground' : 'bg-destructive/10 text-destructive'
-                      }
-                    >
-                      {health.label}
-                    </Badge>
-                  ) : null}
-                  {!setting.runtimeReady && setting.modelId ? (
-                    <Badge variant="outline" className="text-xs font-normal">
-                      {t(locale, 'admin.ai.purpose.bindingNotRunnable')}
-                    </Badge>
-                  ) : null}
-                </div>
-                {!isEditing ? (
-                  <p className="text-sm text-foreground">
-                    {setting.modelId
-                      ? (setting.modelLabel ?? savedModel?.label ?? setting.modelId)
-                      : t(locale, 'admin.ai.purpose.notSetRow')}
-                  </p>
-                ) : null}
-              </div>
-              {!isEditing ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-lg px-4"
-                  onClick={() => setEditingKey(setting.key)}
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="text-sm font-semibold text-foreground">{title}</p>
+              {health ? (
+                <Badge
+                  variant="secondary"
+                  className={
+                    health.tone === 'warn' ? 'bg-muted text-muted-foreground' : 'bg-destructive/10 text-destructive'
+                  }
                 >
-                  {t(locale, 'settings.change')}
-                </Button>
+                  {health.label}
+                </Badge>
+              ) : null}
+              {!setting.runtimeReady && setting.modelId ? (
+                <Badge variant="outline" className="text-xs font-normal">
+                  {t(locale, 'admin.ai.purpose.bindingNotRunnable')}
+                </Badge>
               ) : null}
             </div>
-
-            {isEditing ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="min-w-0 flex-1">
-                  <PurposeModelCombobox
-                    id={`purpose-${setting.key}`}
-                    ariaLabel={title}
-                    groups={groups}
-                    value={draft}
-                    disabled={bindableModels.length === 0 && !draft}
-                    placeholder={
-                      bindableModels.length === 0
-                        ? t(locale, 'admin.ai.purpose.noBindableModels')
-                        : t(locale, 'admin.ai.purpose.searchOrSelectModel')
-                    }
-                    onValueChange={(modelId) => onDraftChange(setting.key, modelId)}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-9 rounded-lg px-4 hover:bg-brand-deep"
-                  disabled={!draft || !isDirty}
-                  onClick={() => onSave(setting.key)}
-                >
-                  {t(locale, 'admin.content.common.save')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    // Local cancel discards only this row's draft.
-                    if (isDirty) {
-                      onDraftChange(setting.key, setting.modelId ?? '');
-                    }
-                    setEditingKey(null);
-                  }}
-                >
-                  {t(locale, 'admin.content.common.cancel')}
-                </Button>
+            {/* Stable layout: full-width selector with a fixed-height action row below on narrow
+                screens; inline reserved action slot on desktop. The slot keeps a constant footprint
+                (empty and noninteractive while clean), so dirty-state actions never shift neighboring
+                rows or the selector itself. */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="min-w-0 w-full sm:w-auto sm:max-w-sm sm:flex-1">
+                <PurposeModelCombobox
+                  id={`purpose-${setting.key}`}
+                  ariaLabel={title}
+                  groups={groups}
+                  value={draft}
+                  disabled={(bindableModels.length === 0 && !draft) || isAnySaving}
+                  placeholder={
+                    bindableModels.length === 0
+                      ? t(locale, 'admin.ai.purpose.noBindableModels')
+                      : t(locale, 'admin.ai.purpose.searchOrSelectModel')
+                  }
+                  onValueChange={(modelId) => onDraftChange(setting.key, modelId)}
+                />
               </div>
-            ) : null}
+              <div className="flex h-9 w-full items-center gap-2 sm:w-40" aria-hidden={isDirty ? undefined : true}>
+                {isDirty ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 rounded-lg px-4 hover:bg-brand-deep"
+                      disabled={!draft || isAnySaving}
+                      onClick={() => onSave(setting.key)}
+                    >
+                      {t(locale, 'admin.content.common.save')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={isAnySaving}
+                      onClick={() => {
+                        // Local cancel restores only this row's saved binding.
+                        onDraftChange(setting.key, setting.modelId ?? '');
+                      }}
+                    >
+                      {t(locale, 'admin.content.common.cancel')}
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            </div>
           </li>
         );
       })}

@@ -137,6 +137,7 @@
       },
       "notSet": "Choose a model",
       "unavailableModel": "This model is unavailable. Choose another one.",
+      "unavailableOption": "· Unavailable",
       "defaultOnUnset": "Capabilities without a personal model use the default service.",
       "defaultSummary": "Covers reading assistance, translation, and work details.",
       "ownSummary": "Your own providers and models are enabled.",

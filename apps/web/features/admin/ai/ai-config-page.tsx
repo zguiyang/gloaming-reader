@@ -347,6 +347,7 @@ export function AiConfigPage() {
                 }))
               }
               onSave={(key) => purposeMutation.mutate(key)}
+              savingKey={purposeMutation.isPending ? (purposeMutation.variables ?? null) : null}
             />
           ) : (
             <AiProviderWorkspace
