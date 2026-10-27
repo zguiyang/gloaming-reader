@@ -1119,6 +1119,7 @@
       "sourceAll": "All",
       "sourcePersonal": "My uploads",
       "sourceSaved": "Saved",
+      "publishedYear": "Published {year}",
       "uploading": "Uploading…",
       "uploadStarted": "Added to Library. Processing has started.",
       "uploadDialogTitle": "Upload book",

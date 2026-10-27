@@ -56,4 +56,41 @@ describe('HistoryWorks status projection', () => {
 
     view.cleanup();
   });
+
+  it('keeps same-title different Works distinguishable through projected author, status, and date', async () => {
+    // History rows project no origin kind; the trustworthy discriminators are the
+    // projected author (when present), status, and the completed/last-read date.
+    const view = await renderHistoryWorks([
+      {
+        workId: 'walden-1',
+        title: 'Walden',
+        author: 'Henry David Thoreau',
+        coverAssetId: null,
+        status: 'completed',
+        date: '2026-08-18',
+      },
+      {
+        workId: 'walden-2',
+        title: 'Walden',
+        author: '其他作者',
+        coverAssetId: null,
+        status: 'in_progress',
+        date: '2026-09-01',
+      },
+    ]);
+    const rowFor = (id: string) =>
+      view.container.querySelector(`a[href="/works/${id}?returnTo=%2Freading-history"]`)?.closest('li')?.textContent ??
+      '';
+
+    expect(rowFor('walden-1')).toContain('Henry David Thoreau');
+    expect(rowFor('walden-1')).toContain('已读完');
+    expect(rowFor('walden-1')).toContain('2026年8月18日');
+    expect(rowFor('walden-2')).toContain('其他作者');
+    expect(rowFor('walden-2')).toContain('正在阅读');
+    expect(rowFor('walden-2')).toContain('2026年9月1日');
+    // Row identity stays Work-scoped; no merging or dedup of same-title Works.
+    expect(view.container.querySelectorAll('li')).toHaveLength(2);
+
+    view.cleanup();
+  });
 });

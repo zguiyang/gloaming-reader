@@ -8,6 +8,7 @@ import type { LibraryItem, UserTagManagementItem } from '@gloaming/shared/librar
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
+import { libraryTitleContext } from '@/features/library/library-title-context';
 import { LibraryWorkManagement } from '@/features/library/library-work-management';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
@@ -36,10 +37,13 @@ export function LibraryBookCard({
   entry,
   tags,
   returnTo = AUTH_ROUTES.library,
+  showTitleContext = false,
 }: {
   entry: LibraryItem;
   tags: UserTagManagementItem[];
   returnTo?: string;
+  /** True when another rendered card shares this title; adds trustworthy disambiguators only. */
+  showTitleContext?: boolean;
 }) {
   const { locale } = useLocale();
   const { work, state } = entry;
@@ -86,6 +90,13 @@ export function LibraryBookCard({
           </Link>
           <LibraryWorkManagement entry={entry} tags={tags} locale={locale} />
         </div>
+        {showTitleContext ? (
+          // Same-title, different-Work context: origin kind + only the author/published
+          // year actually projected for this Work. Never raw IDs or inferred metadata.
+          <p className="mt-1 truncate text-xs text-muted-foreground/80">
+            {libraryTitleContext(entry, locale).join(' · ')}
+          </p>
+        ) : null}
         <p
           className={cn(
             'mt-1.5 text-xs',

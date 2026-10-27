@@ -1119,6 +1119,7 @@
       "sourceAll": "全部",
       "sourcePersonal": "我的上传",
       "sourceSaved": "已保存",
+      "publishedYear": "{year} 年出版",
       "uploading": "上传中…",
       "uploadStarted": "已加入书库，正在处理",
       "uploadDialogTitle": "上传书籍",
