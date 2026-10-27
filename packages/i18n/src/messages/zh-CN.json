@@ -36,7 +36,7 @@
     "signIn": "登录",
     "account": "账户菜单",
     "accountCenter": "账户",
-    "settings": "设置",
+    "settings": "阅读设置",
     "signOut": "退出登录",
     "admin": "管理后台",
     "themeAppearance": "外观",
@@ -57,8 +57,8 @@
     "metaTitle": "更多 · Gloaming Reader"
   },
   "settings": {
-    "title": "设置",
-    "metaTitle": "设置 · Gloaming Reader",
+    "title": "阅读设置",
+    "metaTitle": "阅读设置 · Gloaming Reader",
     "save": "保存",
     "saving": "保存中…",
     "saved": "已保存",
@@ -71,8 +71,8 @@
     "personalTagging": {
       "title": "个人 EPUB 整理",
       "toggle": "个人 EPUB 就绪后自动整理标签",
-      "description": "仅对之后上传的书籍使用你配置的 AI Provider，不会处理已有书籍。",
-      "providerUnavailable": "请配置并选择个人 AI Provider 的“阅读辅助”模型后再使用此功能。",
+      "description": "仅对之后上传的书籍使用你自有 AI 服务中“阅读辅助”所设置的模型，不会处理已有书籍。",
+      "providerUnavailable": "请在自有 AI 服务中为“阅读辅助”设置模型后再使用此功能。",
       "runState": {
         "queued": "标签整理已排队",
         "processing": "正在整理标签",
@@ -88,7 +88,6 @@
     },
     "serviceMode": "服务来源",
     "defaultService": "默认服务",
-    "ownApi": "使用自己的 API",
     "validation": {
       "required": "请填写此项。",
       "url": "请输入有效的网址。"
@@ -111,9 +110,9 @@
       "advanced": "高级配置",
       "proxyUrl": "代理地址",
       "thinkingParam": "思考参数名",
-      "noProviders": "还没有自己的 API 配置。",
-      "confirmDefault": "保存后将停用个人 AI 配置，后续请求使用默认服务。",
-      "confirmOwn": "保存后启用个人 AI 配置。",
+      "noProviders": "尚未配置自有 AI 服务。",
+      "confirmDefault": "保存后将停用自有 AI 服务，后续请求使用默认服务。",
+      "confirmOwn": "保存后启用自有 AI 服务。",
       "providers": "服务配置",
       "addProvider": "添加服务",
       "models": "模型",
@@ -138,9 +137,9 @@
       "notSet": "未设置（使用默认服务）",
       "unavailableModel": "当前模型不可用，请重新选择。",
       "unavailableOption": "· 不可用",
-      "defaultOnUnset": "未设置个人模型的能力会使用默认服务。",
+      "defaultOnUnset": "未设置个人模型的能力会使用默认服务；已保存的模型只能更换，无法清除。",
       "defaultSummary": "覆盖阅读辅助、翻译与作品信息整理。",
-      "ownSummary": "已启用自有服务商与模型。",
+      "ownSummary": "已启用自有 AI 服务。",
       "disabled": "已停用",
       "addProviderEntry": "添加并启用服务商",
       "addModelEntry": "添加并启用模型",
@@ -150,7 +149,8 @@
       "replaceKey": "更换密钥",
       "connectionsAndModels": "连接与模型",
       "keyNotSet": "未配置",
-      "modeOwn": "自有 API · 已启用 {count} 个服务商",
+      "ownService": "自有 AI 服务",
+      "modeOwn": "自有 AI 服务 · 已启用 {count} 个服务商",
       "modeDefault": "默认服务 · 未启用任何服务商",
       "purposeSaveFailed": "保存失败，草稿已保留，请重试"
     },
@@ -164,7 +164,8 @@
         "uk": "英式英语"
       },
       "defaultSummary": "平台提供的朗读声音，无需配置。",
-      "ownSummary": "已配置自有朗读服务，保存后生效。"
+      "ownSummary": "已配置自有朗读服务，保存后生效。",
+      "ownService": "自有服务"
     },
     "readingServices": {
       "title": "阅读服务"
@@ -176,7 +177,7 @@
       "description": "先为阅读能力选择模型；连接与模型在下方管理。",
       "enter": "配置自有 AI 服务",
       "empty": "尚未添加服务商与模型",
-      "back": "返回设置"
+      "back": "返回阅读设置"
     }
   },
   "auth": {

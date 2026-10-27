@@ -567,8 +567,10 @@ export function SettingsPage() {
   const currentProvider = editingProvider;
   const ttsConfig = ttsQuery.data;
   const ttsSourceLabel =
-    ttsConfig?.configured && ttsConfig.isEnabled ? t(locale, 'settings.ownApi') : t(locale, 'settings.defaultService');
-  const aiSourceLabel = isOwnMode ? t(locale, 'settings.ownApi') : t(locale, 'settings.defaultService');
+    ttsConfig?.configured && ttsConfig.isEnabled
+      ? t(locale, 'settings.tts.ownService')
+      : t(locale, 'settings.defaultService');
+  const aiSourceLabel = isOwnMode ? t(locale, 'settings.ai.ownService') : t(locale, 'settings.defaultService');
   const activeModels = models.filter((model) => {
     const provider = providers.find((item) => item.id === model.providerId);
     return model.isEnabled && provider?.isEnabled && LLM_WIRE_REGISTRY[provider.apiFamily].runtimeImplemented;
@@ -1138,7 +1140,7 @@ export function SettingsPage() {
                 variant={(aiModeDraft ?? (isOwnMode ? 'own' : 'default')) === 'own' ? 'default' : 'outline'}
                 onClick={() => setAiModeDraft('own')}
               >
-                {t(locale, 'settings.ownApi')}
+                {t(locale, 'settings.ai.ownService')}
               </Button>
             </div>
             {aiModeDraft ? (

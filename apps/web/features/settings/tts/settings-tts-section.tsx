@@ -65,7 +65,7 @@ export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsC
             {t(locale, 'settings.defaultService')}
           </Button>
           <Button type="button" variant={enabled ? 'default' : 'outline'} onClick={() => setEnabled(true)}>
-            {t(locale, 'settings.ownApi')}
+            {t(locale, 'settings.tts.ownService')}
           </Button>
         </div>
       </div>
