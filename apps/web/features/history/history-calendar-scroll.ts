@@ -30,8 +30,14 @@ export function scrollCalendarToLatest(scroller: HTMLElement | null): void {
   scroller.scrollLeft = scroller.scrollWidth - scroller.clientWidth;
 }
 
-/** Frames to wait after a layout signal so metrics are read post-paint. */
-const HISTORY_CALENDAR_SNAP_SETTLE_FRAMES = 2;
+/**
+ * Pixel tolerance for classifying scroll events. Real browsers report scroll
+ * positions quantized to device pixels (zoom, DPR, fractional layout), so a
+ * position we programmed can read back 1px off from what we assigned.
+ */
+const HISTORY_CALENDAR_SCROLL_POSITION_TOLERANCE_PX = 1;
+/** How many recent programmatic positions stay eligible for match. */
+const HISTORY_CALENDAR_PROGRAMMATIC_MEMORY = 3;
 
 /**
  * Keep an overflowing calendar snapped to its latest weeks until the user
@@ -39,12 +45,23 @@ const HISTORY_CALENDAR_SNAP_SETTLE_FRAMES = 2;
  *
  * A single post-render scroll targets stale metrics: react-activity-calendar
  * (v3.2.1) first paints without the client-only weekday-label offset
- * (`isClient` flips in a passive effect, then `marginLeft` grows the content),
- * so a layout-effect snap computes its position against a `scrollWidth` that
- * is about to widen — leaving the latest month clipped. Keep re-snapping after
- * content mutations (library re-render) and box resizes (viewport changes),
- * but permanently stand down the moment a scroll event we did not program, so
- * manual exploration is never overridden.
+ * (`isClient` flips in a passive effect, then `marginLeft` grows the content
+ * from 580px to 612px on a 390px phone), so an initial snap computes its
+ * position against a `scrollWidth` that is about to widen — leaving the latest
+ * month clipped. Re-snap synchronously whenever the content mutates (library
+ * re-render) or the scroller box resizes (viewport/container change). Reading
+ * `scrollWidth` in the observer callback forces layout against current
+ * styles, so no requestAnimationFrame settle is needed — frames may be
+ * throttled or suspended in backgrounded tabs and embedded webviews, and a
+ * rAF-gated re-snap then never lands (live repro: stuck at 272 of max 304).
+ *
+ * Stand down permanently on a scroll we did not program so manual exploration
+ * is never overridden. Classification is positional with tolerance, not
+ * equality: browsers clamp and quantize scroll offsets and may deliver our
+ * own scroll events coalesced or out of order, so an exact-match rule misreads
+ * the controller's own snap as user takeover. A scroll landing within
+ * tolerance of a recent programmatic position — or of the current maximum,
+ * which is where clamping or a user flick-to-end lands — is not takeover.
  *
  * Returns a cleanup that disconnects observers and settles nothing further.
  */
@@ -53,16 +70,11 @@ export function attachHistoryCalendarLatestSnap(scroller: HTMLElement | null): (
     return () => {};
   }
 
-  let destroy = () => {};
+  let stopAutoSnap = () => {};
   let isUserOwned = false;
-  let pendingProgrammaticScrolls = 0;
-  let lastProgrammaticScrollLeft: number | null = null;
-  let settleFrame = 0;
+  const programmaticPositions: number[] = [];
 
-  const cancelSettle = () => {
-    cancelAnimationFrame(settleFrame);
-    settleFrame = 0;
-  };
+  const withinTolerance = (a: number, b: number) => Math.abs(a - b) <= HISTORY_CALENDAR_SCROLL_POSITION_TOLERANCE_PX;
 
   const snapNow = () => {
     if (isUserOwned) {
@@ -71,48 +83,50 @@ export function attachHistoryCalendarLatestSnap(scroller: HTMLElement | null): (
     const before = scroller.scrollLeft;
     scrollCalendarToLatest(scroller);
     if (scroller.scrollLeft !== before) {
-      pendingProgrammaticScrolls += 1;
-      lastProgrammaticScrollLeft = scroller.scrollLeft;
+      programmaticPositions.push(scroller.scrollLeft);
+      if (programmaticPositions.length > HISTORY_CALENDAR_PROGRAMMATIC_MEMORY) {
+        programmaticPositions.shift();
+      }
     }
   };
 
   const onScroll = () => {
-    // Our own snap lands as a scroll event; anything else means the user took over.
-    if (pendingProgrammaticScrolls > 0 && scroller.scrollLeft === lastProgrammaticScrollLeft) {
-      pendingProgrammaticScrolls -= 1;
+    const position = scroller.scrollLeft;
+    const isLatest = withinTolerance(position, scroller.scrollWidth - scroller.clientWidth);
+    if (isLatest || programmaticPositions.some((programmatic) => withinTolerance(position, programmatic))) {
       return;
     }
     isUserOwned = true;
-    destroy();
+    stopAutoSnap();
   };
 
-  const scheduleSettle = () => {
-    if (isUserOwned) {
-      return;
-    }
-    cancelSettle();
-    let remaining = HISTORY_CALENDAR_SNAP_SETTLE_FRAMES;
-    const step = () => {
-      settleFrame = requestAnimationFrame(() => {
-        settleFrame = 0;
-        remaining -= 1;
-        if (remaining > 0) {
-          step();
-          return;
-        }
-        snapNow();
-      });
-    };
-    step();
+  // Intent is more reliable than matching positions: a user may scroll back
+  // through a position previously set by the controller.
+  const onUserIntent = () => {
+    isUserOwned = true;
+    stopAutoSnap();
+  };
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    onUserIntent();
+    const step = Math.max(40, Math.round(scroller.clientWidth / 4));
+    if (event.key === 'Home') scroller.scrollLeft = 0;
+    else if (event.key === 'End') scroller.scrollLeft = scroller.scrollWidth - scroller.clientWidth;
+    else scroller.scrollLeft += event.key === 'ArrowLeft' ? -step : step;
   };
 
   // Content growth that changes no box size (library applies marginLeft to the
   // SVG after first paint) is only visible via a mutation observer.
-  const mutationObserver = typeof MutationObserver === 'function' ? new MutationObserver(scheduleSettle) : null;
+  const mutationObserver = typeof MutationObserver === 'function' ? new MutationObserver(snapNow) : null;
   // Viewport/container resizes change the scroller box without a React render.
-  const resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(scheduleSettle) : null;
+  const resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(snapNow) : null;
 
   scroller.addEventListener('scroll', onScroll);
+  scroller.addEventListener('wheel', onUserIntent, { passive: true });
+  scroller.addEventListener('touchstart', onUserIntent, { passive: true });
+  scroller.addEventListener('pointerdown', onUserIntent, { passive: true });
+  scroller.addEventListener('keydown', onKeyDown);
   mutationObserver?.observe(scroller, {
     subtree: true,
     attributes: true,
@@ -120,15 +134,19 @@ export function attachHistoryCalendarLatestSnap(scroller: HTMLElement | null): (
   });
   resizeObserver?.observe(scroller);
 
-  destroy = () => {
-    cancelSettle();
+  stopAutoSnap = () => {
     scroller.removeEventListener('scroll', onScroll);
+    scroller.removeEventListener('wheel', onUserIntent);
+    scroller.removeEventListener('touchstart', onUserIntent);
+    scroller.removeEventListener('pointerdown', onUserIntent);
     mutationObserver?.disconnect();
     resizeObserver?.disconnect();
   };
 
   snapNow();
-  scheduleSettle();
 
-  return () => destroy();
+  return () => {
+    stopAutoSnap();
+    scroller.removeEventListener('keydown', onKeyDown);
+  };
 }

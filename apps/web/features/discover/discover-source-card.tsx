@@ -28,6 +28,8 @@ import { cn } from '@/lib/utils';
 
 type DiscoverSourceCardProps = {
   item: DiscoverItem;
+  detailMode?: boolean;
+  actionsOnly?: boolean;
 };
 
 type SaveActionState = 'saving' | null;
@@ -46,13 +48,26 @@ const SOURCE_RECORD_NO_EPUB_CANDIDATE_CODE = 'api.errors.library.sourceRecordNoE
  * SourceRecord has no readable Work yet, so its action is an explicit Save
  * Intent that materializes on demand.
  */
-export function DiscoverSourceCard({ item }: DiscoverSourceCardProps) {
+export function DiscoverSourceCard({ item, detailMode = false, actionsOnly = false }: DiscoverSourceCardProps) {
   const { data } = authClient.useSession();
   const userId = data?.user.id ?? null;
-  return <DiscoverSourceCardContent key={userId ?? 'anonymous'} item={item} userId={userId} />;
+  return (
+    <DiscoverSourceCardContent
+      key={userId ?? 'anonymous'}
+      item={item}
+      detailMode={detailMode}
+      actionsOnly={actionsOnly}
+      userId={userId}
+    />
+  );
 }
 
-function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & { userId: string | null }) {
+function DiscoverSourceCardContent({
+  item,
+  detailMode,
+  actionsOnly,
+  userId,
+}: DiscoverSourceCardProps & { userId: string | null }) {
   const { locale } = useLocale();
   const { openLogin } = useAuthDialog();
   const queryClient = useQueryClient();
@@ -140,60 +155,69 @@ function DiscoverSourceCardContent({ item, userId }: DiscoverSourceCardProps & {
     canOpenDetail && !isPreparing && !isFailed && !isSaving && entryWorkId
       ? workDetailHref(entryWorkId, AUTH_ROUTES.discover)
       : null;
+  const cardHref = detailMode ? null : (detailHref ?? `/discover/records/${encodeURIComponent(item.id)}`);
   const failureReason = isFailed ? (statusQuery.data?.failureReason ?? null) : null;
 
   const cover = <WorkCover title={item.title} coverImageUrl={item.coverImageUrl} className="aspect-[2/3] rounded-sm" />;
 
   return (
     <article className="flex h-full flex-col items-stretch gap-3">
-      {detailHref ? (
-        <Link
-          href={detailHref}
-          className={cn(
-            'relative outline-none',
-            'transition-transform duration-300 ease-out-soft',
-            'hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50',
-          )}
-          aria-label={t(locale, 'content.common.viewBookDetailAria', { title: item.title })}
-        >
-          {cover}
-        </Link>
-      ) : (
-        cover
-      )}
+      {!actionsOnly &&
+        (cardHref ? (
+          <Link
+            href={cardHref}
+            className={cn(
+              'relative outline-none',
+              'transition-transform duration-300 ease-out-soft',
+              'hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50',
+            )}
+            aria-label={t(locale, 'content.common.viewBookDetailAria', { title: item.title })}
+          >
+            {cover}
+          </Link>
+        ) : (
+          cover
+        ))}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <h3
-          className="font-heading line-clamp-2 min-h-[2lh] text-sm leading-snug font-medium text-foreground md:text-base"
-          title={item.title}
-        >
-          {detailHref ? (
-            <Link
-              href={detailHref}
-              className="transition-colors duration-300 ease-out-soft hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        {!actionsOnly && (
+          <>
+            <h3
+              className={cn(
+                'font-heading text-sm leading-snug font-medium text-foreground md:text-base',
+                detailMode ? 'text-xl md:text-2xl' : 'line-clamp-2 min-h-[2lh]',
+              )}
+              title={item.title}
             >
-              {item.title}
-            </Link>
-          ) : (
-            item.title
-          )}
-        </h3>
-        {/* Reserved one-line author row keeps sibling cards' action areas aligned. */}
-        <p className="mt-1 min-h-[1lh] line-clamp-1 text-xs text-muted-foreground md:text-[13px]">
-          {item.author ?? ''}
-        </p>
+              {cardHref ? (
+                <Link
+                  href={cardHref}
+                  className="line-clamp-2 transition-colors duration-300 ease-out-soft hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  {item.title}
+                </Link>
+              ) : (
+                <span className={detailMode ? undefined : 'line-clamp-2'}>{item.title}</span>
+              )}
+            </h3>
+            {/* Reserved one-line author row keeps sibling cards' action areas aligned. */}
+            <p className="mt-1 min-h-[1lh] line-clamp-1 text-xs text-muted-foreground md:text-[13px]">
+              {item.author ?? ''}
+            </p>
 
-        {item.categories.length > 0 ? (
-          <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={t(locale, 'content.discover.categoriesAria')}>
-            {item.categories.map((category) => (
-              <li key={category.id}>
-                <Badge variant="secondary" className="rounded-full bg-accent font-normal text-accent-foreground">
-                  {categoryDisplayName(category)}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+            {item.categories.length > 0 ? (
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={t(locale, 'content.discover.categoriesAria')}>
+                {item.categories.map((category) => (
+                  <li key={category.id}>
+                    <Badge variant="secondary" className="rounded-full bg-accent font-normal text-accent-foreground">
+                      {categoryDisplayName(category)}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
 
         <div className="mt-auto pt-3">
           {isSaving ? (

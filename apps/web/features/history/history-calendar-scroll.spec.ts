@@ -15,7 +15,7 @@ beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-/** Await past the controller's double-requestAnimationFrame settle chain. */
+/** Await past observer-callback microtasks (and any stray timers). */
 function settleLayout(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 150));
 }
@@ -101,6 +101,41 @@ describe('scrollCalendarToLatest', () => {
 });
 
 describe('attachHistoryCalendarLatestSnap (live 390px regression)', () => {
+  it('supports repeated keyboard scrolling after automatic snapping stops', () => {
+    const scroller = document.createElement('div');
+    Object.defineProperty(scroller, 'clientWidth', { value: 320 });
+    Object.defineProperty(scroller, 'scrollWidth', { value: 640 });
+    const destroy = attachHistoryCalendarLatestSnap(scroller);
+    expect(scroller.scrollLeft).toBe(320);
+    scroller.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', cancelable: true }));
+    expect(scroller.scrollLeft).toBe(240);
+    scroller.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', cancelable: true }));
+    expect(scroller.scrollLeft).toBe(160);
+    scroller.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', cancelable: true }));
+    expect(scroller.scrollLeft).toBe(320);
+    destroy();
+  });
+  it('preserves a user gesture even when it lands on a previous snap position', async () => {
+    const scroller = document.createElement('div');
+    const content = document.createElement('div');
+    scroller.appendChild(content);
+    let width = 580;
+    Object.defineProperty(scroller, 'clientWidth', { value: 308 });
+    Object.defineProperty(scroller, 'scrollWidth', { get: () => width });
+    const destroy = attachHistoryCalendarLatestSnap(scroller);
+    width = 612;
+    content.style.marginLeft = '32px';
+    await settleLayout();
+    expect(scroller.scrollLeft).toBe(304);
+    scroller.dispatchEvent(new Event('wheel'));
+    scroller.scrollLeft = 272;
+    scroller.dispatchEvent(new Event('scroll'));
+    width = 700;
+    content.style.marginLeft = '88px';
+    await settleLayout();
+    expect(scroller.scrollLeft).toBe(272);
+    destroy();
+  });
   const CLIENT_WIDTH = 308;
   /** Live frame: 53 weeks × (8 + 3) − 3 = 580 before the weekday-label offset. */
   const SVG_WIDTH = 580;
@@ -250,6 +285,112 @@ describe('attachHistoryCalendarLatestSnap (live 390px regression)', () => {
     content.style.marginLeft = '16px';
     await settleLayout();
     expect(scroller.scrollLeft).toBe(380);
+    destroy();
+  });
+
+  it('re-snaps without any requestAnimationFrame firing (throttled/suspended frames)', async () => {
+    const scroller = document.createElement('div');
+    const content = document.createElement('div');
+    scroller.appendChild(content);
+    let scrollWidth = 580;
+    Object.defineProperty(scroller, 'clientWidth', { configurable: true, value: 308 });
+    Object.defineProperty(scroller, 'scrollWidth', { configurable: true, get: () => scrollWidth });
+
+    const raf = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = () => 0;
+    try {
+      const destroy = attachHistoryCalendarLatestSnap(scroller);
+      expect(scroller.scrollLeft).toBe(272);
+
+      // Live 390px frame: the library widens the content post-paint (580 -> 612
+      // with the CJK weekday-label offset). A backgrounded tab or embedded
+      // webview may not run a single frame — the re-snap must not need one.
+      scrollWidth = 612;
+      content.style.marginLeft = '32px';
+      await settleLayout();
+      expect(scroller.scrollLeft).toBe(304);
+      destroy();
+    } finally {
+      globalThis.requestAnimationFrame = raf;
+    }
+  });
+
+  it('tolerates device-pixel quantization of a programmed position', async () => {
+    const scroller = document.createElement('div');
+    const content = document.createElement('div');
+    scroller.appendChild(content);
+    let scrollWidth = 600;
+    Object.defineProperty(scroller, 'clientWidth', { configurable: true, value: 320 });
+    Object.defineProperty(scroller, 'scrollWidth', { configurable: true, get: () => scrollWidth });
+
+    const destroy = attachHistoryCalendarLatestSnap(scroller);
+    await settleLayout();
+    expect(scroller.scrollLeft).toBe(280);
+
+    // The browser reports our snap quantized to a device pixel (279).
+    scroller.scrollLeft = 279;
+    scroller.dispatchEvent(new Event('scroll'));
+
+    // Ownership stays with the controller: a later widening still re-snaps.
+    scrollWidth = 900;
+    content.style.marginLeft = '64px';
+    await settleLayout();
+    expect(scroller.scrollLeft).toBe(580);
+    destroy();
+  });
+
+  it('does not stand down when clamping lands a scroll at the current maximum', async () => {
+    const scroller = document.createElement('div');
+    const content = document.createElement('div');
+    scroller.appendChild(content);
+    let scrollWidth = 600;
+    Object.defineProperty(scroller, 'clientWidth', { configurable: true, value: 320 });
+    Object.defineProperty(scroller, 'scrollWidth', { configurable: true, get: () => scrollWidth });
+
+    const destroy = attachHistoryCalendarLatestSnap(scroller);
+    await settleLayout();
+    expect(scroller.scrollLeft).toBe(280);
+
+    // Content shrinks below our position: the browser clamps scrollLeft to the
+    // new maximum (100) and fires a scroll event we did not program.
+    scrollWidth = 420;
+    scroller.scrollLeft = 100;
+    scroller.dispatchEvent(new Event('scroll'));
+
+    // Still ours: a later widening re-snaps to the latest weeks.
+    scrollWidth = 900;
+    content.style.marginLeft = '64px';
+    await settleLayout();
+    expect(scroller.scrollLeft).toBe(580);
+    destroy();
+  });
+
+  it('tolerates a stale out-of-order delivery of an earlier snap', async () => {
+    const scroller = document.createElement('div');
+    const content = document.createElement('div');
+    scroller.appendChild(content);
+    let scrollWidth = 580;
+    Object.defineProperty(scroller, 'clientWidth', { configurable: true, value: 308 });
+    Object.defineProperty(scroller, 'scrollWidth', { configurable: true, get: () => scrollWidth });
+
+    const destroy = attachHistoryCalendarLatestSnap(scroller);
+    expect(scroller.scrollLeft).toBe(272);
+
+    // Live 390px frame: content widens to 612, controller re-snaps to 304.
+    scrollWidth = 612;
+    content.style.marginLeft = '32px';
+    await settleLayout();
+    expect(scroller.scrollLeft).toBe(304);
+
+    // The browser now delivers the delayed scroll event for the FIRST snap
+    // (position 272) — coalescing must not read it as user takeover.
+    scroller.scrollLeft = 272;
+    scroller.dispatchEvent(new Event('scroll'));
+
+    scrollWidth = 700;
+    content.style.marginLeft = '88px';
+    await settleLayout();
+    expect(scroller.scrollLeft).toBe(392);
     destroy();
   });
 

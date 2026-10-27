@@ -85,7 +85,7 @@ export function HistoryPage() {
         </>
       ) : (
         <div className="flex flex-col gap-10 md:gap-16">
-          <HistoryHeader />
+          <HistoryHeader spaced={false} />
           <HistorySummary portrait={data.portrait} />
           <HistoryHeatmap today={data.today} activity={data.activity} />
           <HistoryWorks works={data.works} />

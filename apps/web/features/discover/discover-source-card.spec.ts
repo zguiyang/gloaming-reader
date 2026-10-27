@@ -249,7 +249,8 @@ describe('DiscoverSourceCard Save Intent', () => {
   it('renders localized category chips without a Work-detail link', async () => {
     const view = await renderCard();
     expect(view.container.textContent).toContain('科幻');
-    expect(view.container.querySelector('a')).toBeNull();
+    expect(view.container.querySelector('a[href="/discover/records/sr-1"]')).toBeTruthy();
+    expect(view.container.querySelector('a[href^="/works/"]')).toBeNull();
     view.cleanup();
   });
 
@@ -290,10 +291,9 @@ describe('DiscoverSourceCard Save Intent', () => {
     const view = await renderCard('zh-CN', { ...item, linkedWorkId: 'work-77', detailAvailable: false });
 
     // A linked Work the viewer may not open must not produce any detail entry:
-    // neither the cover nor the title becomes a link (they would 404).
+    // The source-record page is available without exposing the unreadable Work.
     expect(view.container.querySelector('a[href^="/works/work-77"]')).toBeNull();
-    expect(view.container.querySelector('h3 a')).toBeNull();
-    expect(view.container.querySelector('a')).toBeNull();
+    expect(view.container.querySelector('h3 a')?.getAttribute('href')).toBe('/discover/records/sr-1');
     expect(view.container.textContent).not.toContain('查看详情');
     // The record keeps its normal save affordance instead.
     expect(view.container.textContent).toContain('加入书库');

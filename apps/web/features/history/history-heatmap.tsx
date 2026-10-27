@@ -125,6 +125,16 @@ export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
     }
 
     if (scroller.scrollWidth > scroller.clientWidth + 1) {
+      scroller.tabIndex = 0;
+      scroller.setAttribute('role', 'region');
+      scroller.setAttribute('aria-label', t(locale, 'content.history.distribution'));
+    } else {
+      scroller.removeAttribute('tabindex');
+      scroller.removeAttribute('role');
+      scroller.removeAttribute('aria-label');
+    }
+
+    if (scroller.scrollWidth > scroller.clientWidth + 1) {
       const shrunk = refineHistoryCalendarBlockSize(scroller.clientWidth, scroller.scrollWidth, blockSize);
       if (shrunk !== blockSize) {
         setBlockSize(shrunk);
@@ -136,7 +146,7 @@ export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
     // its weekday-label offset in a passive effect). The attached controller
     // snaps now and re-snaps after layout settles, until the user scrolls.
     ensureCalendarSnap(scroller);
-  }, [blockSize, today, activity]);
+  }, [blockSize, today, activity, locale]);
 
   useEffect(
     () => () => {

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
+import { WorkDetailHeroLayout } from '@/components/work-detail-hero-layout';
 import { AUTH_ROUTES } from '@/constants';
 import {
   type BookDetail,
@@ -41,88 +42,86 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
   const languageLabel = languageLabelFromCode(book.language, locale);
 
   return (
-    <section className="grid grid-cols-1 items-center gap-8 md:grid-cols-12 md:gap-12 lg:gap-16">
-      <div className="flex justify-center md:col-span-4 md:justify-start lg:col-span-3">
+    <WorkDetailHeroLayout
+      cover={
         <WorkCover
           title={book.title}
           coverImageUrl={book.coverImageUrl}
           className="aspect-[2/3] w-48 md:w-full md:max-w-[280px]"
         />
-      </div>
-
-      <div className="space-y-5 text-center md:col-span-8 md:space-y-6 md:text-left lg:col-span-9">
-        <div className="space-y-2">
-          <div className="mb-2 flex flex-wrap items-center justify-center gap-2 md:justify-start">
-            {languageLabel ? (
-              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-                <LanguagesIcon className="size-3.5" strokeWidth={1.5} aria-hidden />
-                {languageLabel}
-              </span>
-            ) : null}
-            {book.availability === 'processing' ? (
-              <span role="status" className="text-sm text-muted-foreground">
-                {t(locale, 'content.library.processing')}
-              </span>
-            ) : null}
-            {book.availability === 'failed' ? (
-              <span className="text-sm text-destructive">{t(locale, 'content.library.importFailed')}</span>
-            ) : null}
-          </div>
-          <h1 className="font-heading text-3xl leading-tight font-bold tracking-tight text-foreground text-balance md:text-5xl md:leading-[1.15]">
-            {book.title}
-          </h1>
-          {book.author ? (
-            <p className="font-heading text-lg text-muted-foreground italic md:text-2xl md:leading-8">{book.author}</p>
+      }
+    >
+      <div className="space-y-2">
+        <div className="mb-2 flex flex-wrap items-center justify-center gap-2 md:justify-start">
+          {languageLabel ? (
+            <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+              <LanguagesIcon className="size-3.5" strokeWidth={1.5} aria-hidden />
+              {languageLabel}
+            </span>
+          ) : null}
+          {book.availability === 'processing' ? (
+            <span role="status" className="text-sm text-muted-foreground">
+              {t(locale, 'content.library.processing')}
+            </span>
+          ) : null}
+          {book.availability === 'failed' ? (
+            <span className="text-sm text-destructive">{t(locale, 'content.library.importFailed')}</span>
           ) : null}
         </div>
-
-        {book.teaser ? (
-          <p className="font-reading mx-auto max-w-2xl text-base leading-7 text-muted-foreground md:mx-0 md:text-lg md:leading-8 md:italic">
-            {book.teaser}
-          </p>
+        <h1 className="font-heading text-3xl leading-tight font-bold tracking-tight text-foreground text-balance md:text-5xl md:leading-[1.15]">
+          {book.title}
+        </h1>
+        {book.author ? (
+          <p className="font-heading text-lg text-muted-foreground italic md:text-2xl md:leading-8">{book.author}</p>
         ) : null}
+      </div>
 
-        <div className="hidden max-w-xl flex-col gap-4 pt-1 md:flex">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            {book.isReadable ? (
-              <Button
-                nativeButton={false}
-                className="h-11 flex-1 rounded-xl px-8 text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]"
-                render={<Link href={readHref} />}
-              >
-                <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
-                {readLabel}
-              </Button>
-            ) : null}
-            <LibraryButton
-              inLibrary={inLibrary}
-              onAdd={onAddToLibrary}
-              isAdding={isAddingToLibrary}
-              className="h-11 flex-1 rounded-xl px-8 text-base"
-            />
-          </div>
+      {book.teaser ? (
+        <p className="font-reading mx-auto max-w-2xl text-base leading-7 text-muted-foreground md:mx-0 md:text-lg md:leading-8 md:italic">
+          {book.teaser}
+        </p>
+      ) : null}
 
-          {hasProgress ? (
-            <div className="w-full">
-              <div className="mb-2 flex justify-between text-sm text-muted-foreground">
-                <span className="font-medium text-primary">{progressLabel}</span>
-                {lastRead ? <span>{t(locale, 'content.bookDetail.lastReadPrefix', { time: lastRead })}</span> : null}
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
-                <div
-                  className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out-soft"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
+      <div className="hidden max-w-xl flex-col gap-4 pt-1 md:flex">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          {book.isReadable ? (
+            <Button
+              nativeButton={false}
+              className="h-11 flex-1 rounded-xl px-8 text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]"
+              render={<Link href={readHref} />}
+            >
+              <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
+              {readLabel}
+            </Button>
           ) : null}
+          <LibraryButton
+            inLibrary={inLibrary}
+            onAdd={onAddToLibrary}
+            isAdding={isAddingToLibrary}
+            className="h-11 flex-1 rounded-xl px-8 text-base"
+          />
         </div>
 
-        <p className="text-sm text-muted-foreground md:hidden">
-          {[formatMinutes(book.estimatedMinutes, locale)].filter(Boolean).join(' · ')}
-        </p>
+        {hasProgress ? (
+          <div className="w-full">
+            <div className="mb-2 flex justify-between text-sm text-muted-foreground">
+              <span className="font-medium text-primary">{progressLabel}</span>
+              {lastRead ? <span>{t(locale, 'content.bookDetail.lastReadPrefix', { time: lastRead })}</span> : null}
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out-soft"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
-    </section>
+
+      <p className="text-sm text-muted-foreground md:hidden">
+        {[formatMinutes(book.estimatedMinutes, locale)].filter(Boolean).join(' · ')}
+      </p>
+    </WorkDetailHeroLayout>
   );
 }
 
