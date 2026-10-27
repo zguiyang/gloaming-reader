@@ -477,11 +477,34 @@
 }
 
 /* Reading content — normalized HTML from the ingest pipeline.
-   Scoped typography only: document flow owns spacing (no flex-gap stacking). */
+   Scoped typography only: document flow owns spacing (no flex-gap stacking).
+   `.reading-body` declares lang="en" (reading content is English) so
+   hyphenation dictionaries apply regardless of the UI locale. */
 @layer components {
+  .reading-body {
+    /* Container for measure-gated justification: the column narrows on mobile
+       and when the AI drawer / TOC sidebar is open — a viewport media query
+       cannot see that, an inline-size container can. */
+    container-type: inline-size;
+  }
+
   .reading-body p {
     margin: 0 0 0.95em;
-    text-align: justify;
+    /* Hyphenation is what keeps justified English from stretching into rivers
+       of inter-word space; without it justify does more harm than good. */
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    hyphenate-limit-chars: 6 3 3;
+  }
+
+  /* Justify only at a comfortable measure (~32rem ≈ 50+ characters at 20px).
+       Narrow columns (mobile, drawer-open desktop) stay ragged-right — this is
+       the fix for the large inter-word gaps, not a typography identity change:
+       wide reading columns keep the book-like justified look. */
+  @container (min-width: 32rem) {
+    .reading-body p {
+      text-align: justify;
+    }
   }
 
   .reading-body h1,

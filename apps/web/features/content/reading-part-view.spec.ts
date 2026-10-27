@@ -1,9 +1,16 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import type { BilingualTranslationData } from '@/features/content/bilingual-translation';
+import { LocaleProvider } from '@/lib/locale-context';
 
-import { transformBilingualHtml } from './reading-part-view';
+import { ReadingPartView, transformBilingualHtml } from './reading-part-view';
 
 describe('ReadingPartView (Bilingual sentence pair & spotlight)', () => {
   const sampleHtml = `
@@ -109,6 +116,42 @@ describe('ReadingPartView (Bilingual sentence pair & spotlight)', () => {
     expect(zhSpans.length).toBe(3);
     zhSpans.forEach((span) => {
       expect(span.getAttribute('data-bilingual-translation')).toBe('true');
+      // Reading body is lang="en" — translations must not inherit English.
+      expect(span.getAttribute('lang')).toBe('zh');
     });
+  });
+});
+
+describe('ReadingPartView (reading typography contract)', () => {
+  function renderReadingBody(html: string): string {
+    return renderToStaticMarkup(
+      // createElement typing requires children on props; third-arg children trips eslint.
+      // eslint-disable-next-line react/no-children-prop -- test-only LocaleProvider wrapper
+      createElement(LocaleProvider, {
+        locale: 'zh-CN',
+        children: createElement(ReadingPartView, { html }),
+      }),
+    );
+  }
+
+  it('declares lang="en" on the reading body regardless of the UI locale', () => {
+    const markup = renderReadingBody('<p data-p="0">A short line.</p>');
+    const match = markup.match(/<div[^>]*class="reading-body[^>]*>/);
+    expect(match).not.toBeNull();
+    expect(match?.[0]).toContain('lang="en"');
+  });
+
+  it('marks the reading column for hyphenation and gates justification on measure', () => {
+    const globalsCss = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../app/globals.css'), 'utf8');
+
+    // Hyphenation is what keeps justified English free of stretched word rivers.
+    expect(globalsCss).toMatch(/\.reading-body p \{[^}]*hyphens: auto;/);
+    // Justification must be container-gated (narrow column → ragged right),
+    // never an unconditional text-align: justify on every reading paragraph.
+    expect(globalsCss).toMatch(/@container \(min-width: 32rem\)/);
+    const containerBlock = globalsCss.match(/@container \(min-width: 32rem\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
+    expect(containerBlock).toContain('text-align: justify');
+    const baseParagraphRule = globalsCss.match(/\.reading-body p \{[^}]*\}/)?.[0] ?? '';
+    expect(baseParagraphRule).not.toContain('text-align: justify');
   });
 });

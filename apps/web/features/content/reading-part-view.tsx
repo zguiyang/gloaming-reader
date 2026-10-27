@@ -67,6 +67,9 @@ function splitElementIntoSentences(
       const zhSpan = doc.createElement('span');
       zhSpan.setAttribute('data-bilingual-translation', 'true');
       zhSpan.setAttribute('data-sentence-index', String(sentence.index));
+      // Reading body is lang="en"; translations must not inherit English
+      // hyphenation or pronunciation.
+      zhSpan.setAttribute('lang', 'zh');
       zhSpan.className = cn(
         'sentence-zh block text-sm font-sans text-muted-foreground/75 leading-relaxed mt-1 select-text transition-[opacity,color] duration-150 group-hover/sentence:text-foreground group-hover/sentence:opacity-100',
         isFocused
@@ -140,6 +143,7 @@ function splitElementIntoSentences(
         const fallbackZh = doc.createElement('div');
         fallbackZh.setAttribute('data-bilingual-translation', 'true');
         fallbackZh.setAttribute('data-sentence-index', String(s.index));
+        fallbackZh.setAttribute('lang', 'zh');
         fallbackZh.className = 'text-sm font-sans text-muted-foreground/75 leading-relaxed select-text';
         fallbackZh.textContent = zh;
         fallbackContainer.appendChild(fallbackZh);
@@ -205,6 +209,7 @@ function splitElementIntoSentences(
       const zhSpan = doc.createElement('span');
       zhSpan.setAttribute('data-bilingual-translation', 'true');
       zhSpan.setAttribute('data-sentence-index', String(sentence.index));
+      zhSpan.setAttribute('lang', 'zh');
       zhSpan.className = cn(
         'sentence-zh block text-sm font-sans text-muted-foreground/75 leading-relaxed mt-1 select-text transition-[opacity,color] duration-150 group-hover/sentence:text-foreground group-hover/sentence:opacity-100',
         isFocused
@@ -349,6 +354,9 @@ export function ReadingPartView({
       ) : null}
 
       <div
+        // Reading content is English (system UI locale may be zh-CN); lang="en"
+        // scopes hyphenation and screen-reader pronunciation to the content.
+        lang="en"
         className="reading-body font-reading text-foreground/90 text-pretty selection:bg-accent selection:text-brand-deep"
         dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />
