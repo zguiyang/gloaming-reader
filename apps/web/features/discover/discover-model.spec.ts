@@ -5,6 +5,7 @@ import type { CatalogWork } from '@gloaming/shared/works';
 
 import {
   categoryDisplayName,
+  cleanDiscoverTitle,
   formatSourceRecordAuthors,
   hasActiveDiscoverFilter,
   toDiscoverItem,
@@ -117,6 +118,45 @@ describe('Discover model', () => {
     expect(hasActiveDiscoverFilter({ query: '  ', categoryId: null })).toBe(false);
     expect(hasActiveDiscoverFilter({ query: 'austen', categoryId: null })).toBe(true);
     expect(hasActiveDiscoverFilter({ query: '', categoryId: 'cat-1' })).toBe(true);
+  });
+
+  describe('cleanDiscoverTitle', () => {
+    it('decodes literal encoded line breaks into single spaces', () => {
+      expect(cleanDiscoverTitle('Pride and Prejudice&#13;\nA Novel')).toBe('Pride and Prejudice A Novel');
+      expect(cleanDiscoverTitle('Title&#10;Subtitle')).toBe('Title Subtitle');
+      expect(cleanDiscoverTitle('Title&#x0D;Subtitle')).toBe('Title Subtitle');
+    });
+
+    it('removes MARC-like subfield markers but keeps their text', () => {
+      expect(cleanDiscoverTitle('The Hobbit$bor, There and Back Again')).toBe('The Hobbit or, There and Back Again');
+      expect(cleanDiscoverTitle('$a Moby Dick$h electronic resource')).toBe('Moby Dick electronic resource');
+    });
+
+    it('keeps other HTML text literal instead of decoding or injecting markup', () => {
+      expect(cleanDiscoverTitle('Tom &amp; Jerry')).toBe('Tom &amp; Jerry');
+      expect(cleanDiscoverTitle('<script>alert(1)</script>')).toBe('<script>alert(1)</script>');
+    });
+
+    it('collapses real control characters and stray whitespace', () => {
+      expect(cleanDiscoverTitle('  War\u00a0and\u000bPeace\t1805 ')).toBe('War and Peace 1805');
+    });
+
+    it('falls back to the raw title when nothing survives cleaning', () => {
+      expect(cleanDiscoverTitle('&#13;&#10;')).toBe('&#13;&#10;');
+      expect(cleanDiscoverTitle('   ')).toBe('');
+    });
+  });
+
+  it('cleans the display title in the SourceRecord mapping without touching identity', () => {
+    const item = toDiscoverItem(sampleRecord({ title: 'Sense and Sensibility&#13;$bA novel' }));
+    expect(item.title).toBe('Sense and Sensibility A novel');
+    expect(item.id).toBe('sr-1');
+  });
+
+  it('cleans the display title in the legacy work mapping', () => {
+    expect(toDiscoverLegacyWork(sampleWork({ title: 'Middlemarch&#10;$cGeorge Eliot' }), null).title).toBe(
+      'Middlemarch George Eliot',
+    );
   });
 
   it('projects a published Catalog Work into the compatibility card row', () => {

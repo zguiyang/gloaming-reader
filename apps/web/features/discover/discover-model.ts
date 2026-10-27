@@ -47,6 +47,32 @@ export type DiscoverLegacyWork = {
 /** 3 rows × 5 columns on large screens. */
 export const DISCOVER_PAGE_SIZE = 15;
 
+/** Literal numeric character references for CR/LF/tab that appear encoded in upstream titles. */
+const ENCODED_CONTROL_REF_PATTERN = /&#(?:0*(?:13|10|9)|x0*(?:d|a|9));/gi;
+
+/** MARC-like subfield markers such as `$a` / `$b` embedded in upstream titles. */
+const MARC_SUBFIELD_PATTERN = /\$[a-z]/gi;
+
+/**
+ * Display-only cleanup for upstream book titles. Bibliographic feeds sometimes
+ * carry literal encoded line breaks (`&#13;`, `&#10;`), real control
+ * characters, or MARC-style subfield markers (`$b`) in the title. This fixes
+ * only what Discover renders — the SourceRecord and Catalog Work are never
+ * modified — and it never decodes or injects HTML: every other character
+ * (including `&amp;` or `<`) stays literal text.
+ */
+export function cleanDiscoverTitle(raw: string): string {
+  const cleaned = raw
+    .replace(ENCODED_CONTROL_REF_PATTERN, ' ')
+    .replace(MARC_SUBFIELD_PATTERN, ' ')
+    // Real control characters, tabs, line breaks, and non-breaking spaces.
+    .replace(/[\u0000-\u001f\u007f\u00a0]+/g, ' ')
+    .replace(/ {2,}/g, ' ')
+    .trim();
+  // A title that cleans down to nothing still needs something readable.
+  return cleaned || raw.trim();
+}
+
 /** Comma-joined SourceRecord author display names; empty when the source has none. */
 export function formatSourceRecordAuthors(record: Pick<SourceRecordItem, 'authors'>): string {
   return record.authors
@@ -61,7 +87,7 @@ export function toDiscoverItem(record: SourceRecordItem): DiscoverItem {
     linkedWorkId: record.linkedWorkId,
     // Defensive: a payload that predates the field must never open an entry.
     detailAvailable: record.detailAvailable === true,
-    title: record.title,
+    title: cleanDiscoverTitle(record.title),
     author: formatSourceRecordAuthors(record),
     coverImageUrl: record.coverUrl ?? null,
     categories: record.categories ?? [],
@@ -88,7 +114,7 @@ export function hasActiveDiscoverFilter(input: { query: string; categoryId: stri
 export function toDiscoverLegacyWork(work: CatalogWork, coverImageUrl: string | null): DiscoverLegacyWork {
   return {
     id: work.id,
-    title: work.title,
+    title: cleanDiscoverTitle(work.title),
     author: work.author.trim(),
     partCount: work.partCount,
     coverImageUrl,
