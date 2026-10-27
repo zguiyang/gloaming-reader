@@ -250,6 +250,7 @@
       "success": "Password updated",
       "invalidToken": "Reset link is invalid or expired. Please request a new one.",
       "failed": "Reset failed. Please request a new link.",
+      "requestNewLink": "Request a new reset link",
       "backToProduct": "Back to home"
     },
     "verifyEmail": {

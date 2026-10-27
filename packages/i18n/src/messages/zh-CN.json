@@ -250,6 +250,7 @@
       "success": "密码已更新",
       "invalidToken": "重置链接无效或已过期，请重新申请",
       "failed": "重置失败，请重新申请链接",
+      "requestNewLink": "申请新的重置链接",
       "backToProduct": "返回首页"
     },
     "verifyEmail": {

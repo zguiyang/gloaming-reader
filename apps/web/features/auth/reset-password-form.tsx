@@ -2,15 +2,17 @@
 
 import { useForm } from '@tanstack/react-form';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
+import { useAuthDialog } from '@/features/auth/auth-dialog-provider';
 import { authInputClassName, authPrimaryButtonClassName, Field } from '@/features/auth/auth-field';
 import { AuthFooterLink, AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
+import { isInvalidLinkError } from '@/lib/auth/auth-errors';
 import { consumePostAuthPath } from '@/lib/auth/post-auth-redirect';
 import { useLocale } from '@/lib/locale-context';
 import { resetPasswordSchema } from '@/lib/validations';
@@ -19,16 +21,13 @@ export function ResetPasswordForm() {
   const { locale } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { openForgotPassword } = useAuthDialog();
   const token = searchParams.get('token');
   const tokenError = searchParams.get('error');
+  // Missing token, Better Auth `error=INVALID_TOKEN` redirect, or an expired
+  // token rejected at submit time all land in the recovery state below.
+  const [isLinkInvalid, setLinkInvalid] = useState(() => !token || tokenError === 'INVALID_TOKEN');
   const [formError, setFormError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!token || tokenError === 'INVALID_TOKEN') {
-      toast.error(t(locale, 'auth.resetPassword.invalidToken'));
-      router.replace('/');
-    }
-  }, [token, tokenError, router, locale]);
 
   const form = useForm({
     defaultValues: {
@@ -37,7 +36,7 @@ export function ResetPasswordForm() {
     },
     onSubmit: async ({ value }) => {
       if (!token) {
-        router.replace('/');
+        setLinkInvalid(true);
         return;
       }
 
@@ -60,6 +59,13 @@ export function ResetPasswordForm() {
 
       if (error) {
         const message = resolveAuthErrorMessage(error, locale, 'auth.resetPassword.failed');
+        if (isInvalidLinkError(error)) {
+          // Expired or already-used link: switch to the recovery state so the
+          // existing forgot-password flow can issue a fresh reset email.
+          setLinkInvalid(true);
+          toast.error(message);
+          return;
+        }
         setFormError(message);
         toast.error(message);
         return;
@@ -70,8 +76,23 @@ export function ResetPasswordForm() {
     },
   });
 
-  if (!token || tokenError === 'INVALID_TOKEN') {
-    return null;
+  if (isLinkInvalid) {
+    return (
+      <>
+        <AuthIntro
+          title={t(locale, 'auth.resetPassword.title')}
+          description={t(locale, 'auth.resetPassword.invalidToken')}
+        />
+
+        <AuthPanel>
+          <Button type="button" className={authPrimaryButtonClassName} onClick={openForgotPassword}>
+            {t(locale, 'auth.resetPassword.requestNewLink')}
+          </Button>
+        </AuthPanel>
+
+        <AuthFooterLink href="/" label={t(locale, 'auth.resetPassword.backToProduct')} />
+      </>
+    );
   }
 
   return (

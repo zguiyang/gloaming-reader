@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
+import { useAuthDialog } from '@/features/auth/auth-dialog-provider';
 import { authPrimaryButtonClassName } from '@/features/auth/auth-field';
 import { AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
@@ -17,6 +18,7 @@ export function VerifyEmailForm() {
   const { locale } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { openLogin } = useAuthDialog();
   const token = searchParams.get('token');
   const [status, setStatus] = useState<'pending' | 'ok' | 'error'>(() => (token ? 'pending' : 'error'));
   const [message, setMessage] = useState<string | undefined>(() =>
@@ -75,15 +77,26 @@ export function VerifyEmailForm() {
             </Button>
           ) : null}
           {status === 'error' ? (
-            <Button
-              type="button"
-              className={authPrimaryButtonClassName}
-              onClick={() => {
-                router.replace('/');
-              }}
-            >
-              {t(locale, 'auth.verifyEmail.backToHome')}
-            </Button>
+            <div className="space-y-3">
+              {/* Recovery: the sign-in dialog hosts the existing resend-verification control. */}
+              <Button
+                type="button"
+                variant="outline"
+                className={authPrimaryButtonClassName}
+                onClick={() => openLogin()}
+              >
+                {t(locale, 'auth.verifyEmail.backToSignIn')}
+              </Button>
+              <Button
+                type="button"
+                className={authPrimaryButtonClassName}
+                onClick={() => {
+                  router.replace('/');
+                }}
+              >
+                {t(locale, 'auth.verifyEmail.backToHome')}
+              </Button>
+            </div>
           ) : null}
         </AuthPanel>
       ) : null}

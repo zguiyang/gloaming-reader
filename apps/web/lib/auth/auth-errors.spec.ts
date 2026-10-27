@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BA_ERROR_EMAIL_NOT_VERIFIED,
+  BA_ERROR_INVALID_TOKEN,
   isAuthRateLimited,
   isEmailNotVerifiedError,
+  isInvalidLinkError,
   resolveAuthErrorMessage,
 } from './auth-errors';
 
@@ -11,6 +13,13 @@ describe('auth-errors', () => {
   it('detects Better Auth email-not-verified code', () => {
     expect(isEmailNotVerifiedError(BA_ERROR_EMAIL_NOT_VERIFIED)).toBe(true);
     expect(isEmailNotVerifiedError('OTHER')).toBe(false);
+  });
+
+  it('detects Better Auth invalid/expired link code', () => {
+    expect(isInvalidLinkError({ code: BA_ERROR_INVALID_TOKEN })).toBe(true);
+    expect(isInvalidLinkError({ code: 'INVALID_PASSWORD' })).toBe(false);
+    expect(isInvalidLinkError({ code: 404 })).toBe(false);
+    expect(isInvalidLinkError(null)).toBe(false);
   });
 
   it('detects BA rate-limit status and code', () => {

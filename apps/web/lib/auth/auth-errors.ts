@@ -13,6 +13,13 @@ export function isEmailNotVerifiedError(code?: string | number | null): boolean 
   return code === BA_ERROR_EMAIL_NOT_VERIFIED;
 }
 
+/** Better Auth invalid/expired token code (email-verification and password-reset links). */
+export const BA_ERROR_INVALID_TOKEN = 'INVALID_TOKEN' as const;
+
+export function isInvalidLinkError(error: { code?: string | number } | null): boolean {
+  return error?.code != null && String(error.code) === BA_ERROR_INVALID_TOKEN;
+}
+
 /** BA built-in rate limit — HTTP 429. */
 export function isAuthRateLimited(error: { status?: number; code?: string | number } | null): boolean {
   if (!error) {
@@ -28,7 +35,7 @@ export function isAuthRateLimited(error: { status?: number; code?: string | numb
 const AUTH_ERROR_CODE_MESSAGE_KEYS: Record<string, string> = {
   TOO_MANY_REQUESTS: 'auth.errors.tooManyRequests',
   INVALID_PASSWORD: 'auth.errors.invalidPassword',
-  INVALID_TOKEN: 'auth.errors.invalidToken',
+  [BA_ERROR_INVALID_TOKEN]: 'auth.errors.invalidToken',
 };
 
 /**
