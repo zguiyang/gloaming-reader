@@ -127,17 +127,25 @@ describe('Discover model', () => {
       expect(cleanDiscoverTitle('Title&#x0D;Subtitle')).toBe('Title Subtitle');
     });
 
-    it('removes confidently delimited MARC-like subfield tokens but keeps their text', () => {
-      expect(cleanDiscoverTitle('The Hobbit$$b or, There and Back Again')).toBe('The Hobbit or, There and Back Again');
-      expect(cleanDiscoverTitle('$a Moby Dick$h electronic resource')).toBe('Moby Dick electronic resource');
+    it('removes only whitespace-delimited lowercase MARC subfield tokens', () => {
+      expect(cleanDiscoverTitle('$a Moby Dick $h electronic resource')).toBe('Moby Dick electronic resource');
+      expect(cleanDiscoverTitle('Middlemarch $c George Eliot')).toBe('Middlemarch George Eliot');
+      expect(cleanDiscoverTitle('War and Peace $b')).toBe('War and Peace');
     });
 
-    it('retains dollar sequences that plausibly belong to the title', () => {
+    it('retains ambiguous or legitimate dollar sequences', () => {
       expect(cleanDiscoverTitle('The $budget Cookbook')).toBe('The $budget Cookbook');
       expect(cleanDiscoverTitle('Notes on $500 and Up')).toBe('Notes on $500 and Up');
       expect(cleanDiscoverTitle('A $cappella Anthology')).toBe('A $cappella Anthology');
       expect(cleanDiscoverTitle('Cost: $5 a vol.')).toBe('Cost: $5 a vol.');
       expect(cleanDiscoverTitle('Hobbit$bor')).toBe('Hobbit$bor');
+      expect(cleanDiscoverTitle('Middlemarch$c George Eliot')).toBe('Middlemarch$c George Eliot');
+      expect(cleanDiscoverTitle('Prices in $USD and $US only')).toBe('Prices in $USD and $US only');
+      expect(cleanDiscoverTitle('Rated $A for all ages')).toBe('Rated $A for all ages');
+      // Double-dollar forms are not demonstrably safe, so they stay untouched.
+      expect(cleanDiscoverTitle('The Hobbit$$b or, There and Back Again')).toBe(
+        'The Hobbit$$b or, There and Back Again',
+      );
     });
 
     it('keeps other HTML text literal instead of decoding or injecting markup', () => {
@@ -156,7 +164,7 @@ describe('Discover model', () => {
   });
 
   it('cleans the display title in the SourceRecord mapping without touching identity', () => {
-    const item = toDiscoverItem(sampleRecord({ title: 'Sense and Sensibility&#13;$bA novel' }));
+    const item = toDiscoverItem(sampleRecord({ title: 'Sense and Sensibility&#13;$b A novel' }));
     expect(item.title).toBe('Sense and Sensibility A novel');
     expect(item.id).toBe('sr-1');
   });
@@ -174,7 +182,7 @@ describe('Discover model', () => {
   });
 
   it('cleans the display title in the legacy work mapping', () => {
-    expect(toDiscoverLegacyWork(sampleWork({ title: 'Middlemarch&#10;$cGeorge Eliot' }), null).title).toBe(
+    expect(toDiscoverLegacyWork(sampleWork({ title: 'Middlemarch&#10;$c George Eliot' }), null).title).toBe(
       'Middlemarch George Eliot',
     );
   });
