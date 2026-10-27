@@ -8,6 +8,7 @@ import { ActivityCalendar, type ThemeInput } from 'react-activity-calendar';
 
 import { t } from '@gloaming/i18n';
 
+import { findHistoryCalendarScroller, scrollCalendarToLatest } from '@/features/history/history-calendar-scroll';
 import {
   countHistoryActivityDays,
   fitHistoryCalendarBlockSize,
@@ -45,22 +46,13 @@ const HISTORY_CALENDAR_THEME: ThemeInput = {
   ],
 };
 
-const LIBRARY_SCROLL_SELECTOR = '.react-activity-calendar-scroll-container';
-
 type HistoryHeatmapProps = {
   today: string;
   activity: HistoryViewModel['activity'];
 };
 
 function scrollLibraryCalendarToLatest(root: HTMLElement): void {
-  const scroller = root.querySelector(LIBRARY_SCROLL_SELECTOR);
-  if (!(scroller instanceof HTMLElement)) {
-    return;
-  }
-  if (scroller.scrollWidth <= scroller.clientWidth + 1) {
-    return;
-  }
-  scroller.scrollLeft = scroller.scrollWidth - scroller.clientWidth;
+  scrollCalendarToLatest(findHistoryCalendarScroller(root));
 }
 
 export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
@@ -119,8 +111,8 @@ export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
       return;
     }
 
-    const scroller = frame.querySelector(LIBRARY_SCROLL_SELECTOR);
-    if (!(scroller instanceof HTMLElement) || scroller.scrollWidth <= 0) {
+    const scroller = findHistoryCalendarScroller(frame);
+    if (!scroller || scroller.scrollWidth <= 0) {
       return;
     }
 
