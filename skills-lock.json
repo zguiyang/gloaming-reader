@@ -5,7 +5,7 @@
       "source": "microsoft/azure-skills",
       "sourceType": "github",
       "skillPath": "skills/azure-ai/SKILL.md",
-      "computedHash": "00533909740269b80dfaa1edd24b0ce86f2fc452e977c811647839353c793025"
+      "computedHash": "59533e6163a700fc507d5072dda3e1f5b0de7d2e26694231342e0c0097c5c3cc"
     },
     "cloudflare": {
       "source": "cloudflare/skills",
@@ -17,7 +17,7 @@
       "source": "zguiyang/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/codebase-guardrails/SKILL.md",
-      "computedHash": "639b3b6bc1862477e5f43d186292c28aef5821b82de11054061240299813f6ee"
+      "computedHash": "291dd6ef9de90aa1b204e189983ef1f6468e87ca8d9e2611f4cf118633490f08"
     },
     "design-taste-frontend": {
       "source": "Leonxlnx/taste-skill",
@@ -41,7 +41,7 @@
       "source": "shadcn/ui",
       "sourceType": "github",
       "skillPath": "skills/shadcn/SKILL.md",
-      "computedHash": "f615de216e085a84e31593ad0fa9062232adc40cd87b7c7ab2b8e49abf6500be"
+      "computedHash": "b864a958765563321f485a96f4d59c0bb6539f4286ab6d8b8b66895b7ebd302d"
     },
     "test-database-workflow": {
       "source": "zguiyang/agent-skills",
@@ -53,7 +53,7 @@
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/react-best-practices/SKILL.md",
-      "computedHash": "ca7b0c0c6e5f2750043f7f0cd72d16ac4e2abc48f9b5500d047a4b77a2506212"
+      "computedHash": "3219a1944e404ffc14d1d9d6aef6dd2e3855b81387ee0a044ccbfe14d34c2357"
     }
   }
 }

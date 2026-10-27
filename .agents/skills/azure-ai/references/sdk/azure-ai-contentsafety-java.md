@@ -4,7 +4,6 @@
 > in the **azure-ai-contentsafety-java** plugin skill if installed.
 
 ## Install
-
 ```xml
 <dependency>
   <groupId>com.azure</groupId>
@@ -14,7 +13,6 @@
 ```
 
 ## Quick Start
-
 ```java
 import com.azure.ai.contentsafety.ContentSafetyClient;
 import com.azure.ai.contentsafety.ContentSafetyClientBuilder;
@@ -25,14 +23,12 @@ ContentSafetyClient client = new ContentSafetyClientBuilder()
 ```
 
 ## Non-Obvious Patterns
-
 - Two separate builders: `ContentSafetyClientBuilder` and `BlocklistClientBuilder`
 - Image from file: `new ContentSafetyImageData().setContent(BinaryData.fromBytes(bytes))`
 - Image from URL: `new ContentSafetyImageData().setBlobUrl(url)`
 - Blocklist create uses raw `BinaryData` + `RequestOptions` (not typed model)
 
 ## Best Practices
-
 1. Blocklist changes take ~5 minutes to take effect
 2. Only request needed categories to reduce latency
 3. Typically block severity >= 4 for strict moderation
