@@ -127,9 +127,17 @@ describe('Discover model', () => {
       expect(cleanDiscoverTitle('Title&#x0D;Subtitle')).toBe('Title Subtitle');
     });
 
-    it('removes MARC-like subfield markers but keeps their text', () => {
-      expect(cleanDiscoverTitle('The Hobbit$bor, There and Back Again')).toBe('The Hobbit or, There and Back Again');
+    it('removes confidently delimited MARC-like subfield tokens but keeps their text', () => {
+      expect(cleanDiscoverTitle('The Hobbit$$b or, There and Back Again')).toBe('The Hobbit or, There and Back Again');
       expect(cleanDiscoverTitle('$a Moby Dick$h electronic resource')).toBe('Moby Dick electronic resource');
+    });
+
+    it('retains dollar sequences that plausibly belong to the title', () => {
+      expect(cleanDiscoverTitle('The $budget Cookbook')).toBe('The $budget Cookbook');
+      expect(cleanDiscoverTitle('Notes on $500 and Up')).toBe('Notes on $500 and Up');
+      expect(cleanDiscoverTitle('A $cappella Anthology')).toBe('A $cappella Anthology');
+      expect(cleanDiscoverTitle('Cost: $5 a vol.')).toBe('Cost: $5 a vol.');
+      expect(cleanDiscoverTitle('Hobbit$bor')).toBe('Hobbit$bor');
     });
 
     it('keeps other HTML text literal instead of decoding or injecting markup', () => {
@@ -151,6 +159,18 @@ describe('Discover model', () => {
     const item = toDiscoverItem(sampleRecord({ title: 'Sense and Sensibility&#13;$bA novel' }));
     expect(item.title).toBe('Sense and Sensibility A novel');
     expect(item.id).toBe('sr-1');
+  });
+
+  it('changes only display text: save identity, linkage, and saveability stay raw', () => {
+    const item = toDiscoverItem(
+      sampleRecord({ title: 'Ulysses&#13;$b first edition', linkedWorkId: 'work-9', detailAvailable: true }),
+    );
+    expect(item.title).toBe('Ulysses first edition');
+    // Save Intent, detail entry, and library linkage all key off these fields.
+    expect(item.id).toBe('sr-1');
+    expect(item.linkedWorkId).toBe('work-9');
+    expect(item.isSaveable).toBe(true);
+    expect(item.detailAvailable).toBe(true);
   });
 
   it('cleans the display title in the legacy work mapping', () => {

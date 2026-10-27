@@ -50,13 +50,22 @@ export const DISCOVER_PAGE_SIZE = 15;
 /** Literal numeric character references for CR/LF/tab that appear encoded in upstream titles. */
 const ENCODED_CONTROL_REF_PATTERN = /&#(?:0*(?:13|10|9)|x0*(?:d|a|9));/gi;
 
-/** MARC-like subfield markers such as `$a` / `$b` embedded in upstream titles. */
-const MARC_SUBFIELD_PATTERN = /\$[a-z]/gi;
+/**
+ * Confidently delimited MARC-like subfield tokens only:
+ * - `$$b` — the double-dollar delimiter some exporters emit, unambiguous.
+ * - `$b` — a single-letter (or letter-capitalized) code not continued by a
+ *   lowercase word, so `$budget`, `$cappella`, and `$500` remain intact
+ *   while `$a ` / `$cGeorge` / a trailing `$h` are stripped.
+ */
+const MARC_SUBFIELD_DOUBLE_PATTERN = /\$\$[a-z]/gi;
+const MARC_SUBFIELD_PATTERN = /\$[a-zA-Z](?![a-z])/g;
 
 /**
  * Display-only cleanup for upstream book titles. Bibliographic feeds sometimes
  * carry literal encoded line breaks (`&#13;`, `&#10;`), real control
- * characters, or MARC-style subfield markers (`$b`) in the title. This fixes
+ * characters, or confidently delimited MARC-style subfield tokens (`$$b`,
+ * `$a `) in the title. Dollar sequences that plausibly belong to the title
+ * (`$budget`, `$500`) are preserved. This fixes
  * only what Discover renders — the SourceRecord and Catalog Work are never
  * modified — and it never decodes or injects HTML: every other character
  * (including `&amp;` or `<`) stays literal text.
@@ -64,6 +73,7 @@ const MARC_SUBFIELD_PATTERN = /\$[a-z]/gi;
 export function cleanDiscoverTitle(raw: string): string {
   const cleaned = raw
     .replace(ENCODED_CONTROL_REF_PATTERN, ' ')
+    .replace(MARC_SUBFIELD_DOUBLE_PATTERN, ' ')
     .replace(MARC_SUBFIELD_PATTERN, ' ')
     // Real control characters, tabs, line breaks, and non-breaking spaces.
     .replace(/[\u0000-\u001f\u007f\u00a0]+/g, ' ')

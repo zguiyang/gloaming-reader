@@ -407,3 +407,23 @@ describe('DiscoverSourceCard layout reservation', () => {
     view.cleanup();
   });
 });
+
+describe('DiscoverSourceCard cleaned title display', () => {
+  it('exposes the same full cleaned title in the heading, tooltip, and cover aria-label', async () => {
+    const cleanedTitle = 'Sense and Sensibility A novel';
+    const view = await renderCard('en-US', {
+      ...item,
+      title: cleanedTitle,
+      linkedWorkId: 'work-1',
+      detailAvailable: true,
+    });
+    const heading = view.container.querySelector('h3');
+    // The two-line clamp is visual only: the full title stays in the DOM text
+    // and the tooltip, so screen readers and hover users see the same string.
+    expect(heading?.textContent).toBe(cleanedTitle);
+    expect(heading?.getAttribute('title')).toBe(cleanedTitle);
+    const coverLink = view.container.querySelector('article > a');
+    expect(coverLink?.getAttribute('aria-label')).toBe(`View details for ${cleanedTitle}`);
+    view.cleanup();
+  });
+});
