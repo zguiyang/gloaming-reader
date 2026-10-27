@@ -56,60 +56,73 @@ const TABLE_SKELETON_ROW_COUNT = 6;
 
 function LogsTableSkeleton({ rows, locale }: { rows: number; locale: ReturnType<typeof useLocale>['locale'] }) {
   return (
-    <Table className="min-w-[48rem]" aria-hidden>
-      <TableHeader>
-        <TableRow className="hover:bg-transparent">
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-            {t(locale, 'admin.logs.table.time')}
-          </TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-            {t(locale, 'admin.logs.table.segment')}
-          </TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-            {t(locale, 'admin.logs.table.voice')}
-          </TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-            {t(locale, 'admin.logs.table.source')}
-          </TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-            {t(locale, 'admin.logs.table.status')}
-          </TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
-            {t(locale, 'admin.logs.table.latency')}
-          </TableHead>
-          <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-            {t(locale, 'admin.logs.table.error')}
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <div aria-hidden>
+      <div className="hidden md:block">
+        <Table className="min-w-[48rem]">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                {t(locale, 'admin.logs.table.time')}
+              </TableHead>
+              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                {t(locale, 'admin.logs.table.segment')}
+              </TableHead>
+              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                {t(locale, 'admin.logs.table.voice')}
+              </TableHead>
+              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                {t(locale, 'admin.logs.table.source')}
+              </TableHead>
+              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                {t(locale, 'admin.logs.table.status')}
+              </TableHead>
+              <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
+                {t(locale, 'admin.logs.table.latency')}
+              </TableHead>
+              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                {t(locale, 'admin.logs.table.error')}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: rows }, (_, index) => (
+              <TableRow key={index} className="border-border hover:bg-transparent">
+                <TableCell className="px-5 py-4">
+                  <Skeleton className="h-4 w-36 max-w-full bg-muted/70" />
+                </TableCell>
+                <TableCell className="px-5 py-4">
+                  <Skeleton className="h-4 w-28 bg-muted/70" />
+                </TableCell>
+                <TableCell className="px-5 py-4">
+                  <Skeleton className="h-4 w-24 bg-muted/70" />
+                </TableCell>
+                <TableCell className="px-5 py-4">
+                  <Skeleton className="h-4 w-16 bg-muted/70" />
+                </TableCell>
+                <TableCell className="px-5 py-4">
+                  <Skeleton className="h-5 w-12 rounded-full bg-muted/70" />
+                </TableCell>
+                <TableCell className="px-5 py-4 text-right">
+                  <Skeleton className="ml-auto h-4 w-14 bg-muted/70" />
+                </TableCell>
+                <TableCell className="px-5 py-4">
+                  <Skeleton className="h-4 w-32 bg-muted/70" />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <ul className="flex flex-col divide-y divide-border md:hidden">
         {Array.from({ length: rows }, (_, index) => (
-          <TableRow key={index} className="border-border hover:bg-transparent">
-            <TableCell className="px-5 py-4">
-              <Skeleton className="h-4 w-36 max-w-full bg-muted/70" />
-            </TableCell>
-            <TableCell className="px-5 py-4">
-              <Skeleton className="h-4 w-28 bg-muted/70" />
-            </TableCell>
-            <TableCell className="px-5 py-4">
-              <Skeleton className="h-4 w-24 bg-muted/70" />
-            </TableCell>
-            <TableCell className="px-5 py-4">
-              <Skeleton className="h-4 w-16 bg-muted/70" />
-            </TableCell>
-            <TableCell className="px-5 py-4">
-              <Skeleton className="h-5 w-12 rounded-full bg-muted/70" />
-            </TableCell>
-            <TableCell className="px-5 py-4 text-right">
-              <Skeleton className="ml-auto h-4 w-14 bg-muted/70" />
-            </TableCell>
-            <TableCell className="px-5 py-4">
-              <Skeleton className="h-4 w-32 bg-muted/70" />
-            </TableCell>
-          </TableRow>
+          <li key={index} className="flex flex-col gap-2 px-4 py-4">
+            <Skeleton className="h-4 w-36 max-w-full bg-muted/70" />
+            <Skeleton className="h-4 w-28 bg-muted/70" />
+            <Skeleton className="h-4 w-24 bg-muted/70" />
+          </li>
         ))}
-      </TableBody>
-    </Table>
+      </ul>
+    </div>
   );
 }
 
@@ -182,7 +195,7 @@ export function TtsLogsPage() {
         <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.logs.tts.title')}</h1>
       </div>
 
-      <div className="mt-10 flex flex-col gap-8">
+      <div className="mt-6 flex flex-col gap-8 md:mt-10">
         {statsQuery.isPending ? (
           <StatsSkeleton />
         ) : statsQuery.isError ? (
@@ -193,7 +206,7 @@ export function TtsLogsPage() {
           <StatsRow stats={statsQuery.data} locale={locale} />
         ) : null}
 
-        <div className="flex flex-col gap-5">
+        <div className="order-first flex flex-col gap-5 md:order-none">
           <InvocationLogsFilters
             rangeTab={rangeTab}
             range={range}
@@ -241,71 +254,116 @@ export function TtsLogsPage() {
               </Empty>
             ) : (
               <LoadingOverlay active={list.isSoftRefreshing} label={t(locale, 'admin.logs.listRefreshing')}>
-                <Table className="min-w-[48rem]">
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                        {t(locale, 'admin.logs.table.time')}
-                      </TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                        {t(locale, 'admin.logs.table.segment')}
-                      </TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                        {t(locale, 'admin.logs.table.voice')}
-                      </TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                        {t(locale, 'admin.logs.table.source')}
-                      </TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                        {t(locale, 'admin.logs.table.status')}
-                      </TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
-                        {t(locale, 'admin.logs.table.latency')}
-                      </TableHead>
-                      <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                        {t(locale, 'admin.logs.table.error')}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {list.items.map((log) => (
-                      <TableRow
-                        key={log.id}
-                        className="border-border transition-colors duration-300 ease-out-soft hover:bg-surface-container-low"
-                      >
-                        <TableCell className="px-5 py-4 tabular-nums text-muted-foreground">
-                          {formatAdminDateTime(log.createdAt, locale)}
-                        </TableCell>
-                        <TableCell className="px-5 py-4 text-foreground">
-                          {log.partTitle ?? (log.partId ? log.partId.slice(0, 8) : t(locale, 'admin.logs.emptyValue'))}
-                        </TableCell>
-                        <TableCell className="px-5 py-4 text-muted-foreground">
-                          <span className="block">{log.voice ?? t(locale, 'admin.logs.emptyValue')}</span>
-                          <span className="text-xs">{formatAdminTtsRole(log.role, locale)}</span>
-                        </TableCell>
-                        <TableCell className="px-5 py-4 text-muted-foreground">
-                          {formatAdminTtsSource(log.source, locale)}
-                        </TableCell>
-                        <TableCell className="px-5 py-4">
+                <div className="hidden md:block">
+                  <Table className="min-w-[48rem]">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                          {t(locale, 'admin.logs.table.time')}
+                        </TableHead>
+                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                          {t(locale, 'admin.logs.table.segment')}
+                        </TableHead>
+                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                          {t(locale, 'admin.logs.table.voice')}
+                        </TableHead>
+                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                          {t(locale, 'admin.logs.table.source')}
+                        </TableHead>
+                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                          {t(locale, 'admin.logs.table.status')}
+                        </TableHead>
+                        <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
+                          {t(locale, 'admin.logs.table.latency')}
+                        </TableHead>
+                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
+                          {t(locale, 'admin.logs.table.error')}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {list.items.map((log) => (
+                        <TableRow
+                          key={log.id}
+                          className="border-border transition-colors duration-300 ease-out-soft hover:bg-surface-container-low"
+                        >
+                          <TableCell className="px-5 py-4 tabular-nums text-muted-foreground">
+                            {formatAdminDateTime(log.createdAt, locale)}
+                          </TableCell>
+                          <TableCell className="px-5 py-4 text-foreground">
+                            {log.partTitle ??
+                              (log.partId ? log.partId.slice(0, 8) : t(locale, 'admin.logs.emptyValue'))}
+                          </TableCell>
+                          <TableCell className="px-5 py-4 text-muted-foreground">
+                            <span className="block">{log.voice ?? t(locale, 'admin.logs.emptyValue')}</span>
+                            <span className="text-xs">{formatAdminTtsRole(log.role, locale)}</span>
+                          </TableCell>
+                          <TableCell className="px-5 py-4 text-muted-foreground">
+                            {formatAdminTtsSource(log.source, locale)}
+                          </TableCell>
+                          <TableCell className="px-5 py-4">
+                            <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
+                              {formatAdminInvocationStatus(log.status, locale)}
+                            </Badge>
+                            {log.cached ? (
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                {t(locale, 'admin.logs.tts.cached')}
+                              </span>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="px-5 py-4 text-right tabular-nums text-muted-foreground">
+                            {formatAdminLatencyMs(log.latencyMs, locale)}
+                          </TableCell>
+                          <TableCell className="max-w-[14rem] truncate px-5 py-4 text-muted-foreground">
+                            {log.errorMessage ?? t(locale, 'admin.logs.emptyValue')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <ul className="flex flex-col divide-y divide-border md:hidden">
+                  {list.items.map((log) => (
+                    <li key={log.id} className="flex flex-col gap-2 px-4 py-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm tabular-nums text-muted-foreground">
+                            {formatAdminDateTime(log.createdAt, locale)}
+                          </p>
+                          <p className="mt-1 font-medium text-foreground">
+                            {log.partTitle ??
+                              (log.partId ? log.partId.slice(0, 8) : t(locale, 'admin.logs.emptyValue'))}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {log.cached ? (
+                            <span className="text-xs text-muted-foreground">{t(locale, 'admin.logs.tts.cached')}</span>
+                          ) : null}
                           <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
                             {formatAdminInvocationStatus(log.status, locale)}
                           </Badge>
-                          {log.cached ? (
-                            <span className="ml-2 text-xs text-muted-foreground">
-                              {t(locale, 'admin.logs.tts.cached')}
-                            </span>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="px-5 py-4 text-right tabular-nums text-muted-foreground">
+                        </div>
+                      </div>
+                      <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                        <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.voice')}</dt>
+                        <dd className="min-w-0 text-foreground">
+                          <span className="block">{log.voice ?? t(locale, 'admin.logs.emptyValue')}</span>
+                          <span className="text-xs text-muted-foreground">{formatAdminTtsRole(log.role, locale)}</span>
+                        </dd>
+                        <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.source')}</dt>
+                        <dd className="min-w-0 text-muted-foreground">{formatAdminTtsSource(log.source, locale)}</dd>
+                        <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.latency')}</dt>
+                        <dd className="min-w-0 tabular-nums text-muted-foreground">
                           {formatAdminLatencyMs(log.latencyMs, locale)}
-                        </TableCell>
-                        <TableCell className="max-w-[14rem] truncate px-5 py-4 text-muted-foreground">
+                        </dd>
+                        <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.error')}</dt>
+                        <dd className="min-w-0 break-words text-muted-foreground">
                           {log.errorMessage ?? t(locale, 'admin.logs.emptyValue')}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </dd>
+                      </dl>
+                    </li>
+                  ))}
+                </ul>
               </LoadingOverlay>
             )}
           </div>

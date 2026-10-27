@@ -98,7 +98,7 @@ function DateTimeEndpoint({ id, label, value, onChange }: DateTimeEndpointProps)
           <Button
             variant="ghost"
             className={cn(
-              'h-full min-h-0 min-w-[11.5rem] flex-1 justify-start rounded-xl border-0 bg-card px-3 font-normal shadow-card',
+              'h-full min-h-0 w-full min-w-[11.5rem] flex-1 justify-start rounded-xl border-0 bg-card px-3 font-normal shadow-card',
               'hover:bg-card hover:text-foreground',
               'aria-expanded:bg-card aria-expanded:text-foreground',
             )}
@@ -197,7 +197,10 @@ export function InvocationLogsFilters({
             }
           }}
         >
-          <AdminSegmentedTabsList aria-label={t(locale, 'admin.logs.filters.rangePresetAria')}>
+          <AdminSegmentedTabsList
+            aria-label={t(locale, 'admin.logs.filters.rangePresetAria')}
+            className="max-w-full flex-wrap"
+          >
             {INVOCATION_LOGS_PRESET_DAYS.map((days) => (
               <AdminSegmentedTabsTrigger key={days} value={String(days)} className="px-3.5">
                 {t(locale, 'admin.logs.filters.presetDays', { days })}
@@ -210,14 +213,14 @@ export function InvocationLogsFilters({
         </Tabs>
 
         {rangeTab === 'custom' ? (
-          <div className="flex h-[3.25rem] min-w-0 max-w-2xl flex-1 items-center rounded-xl bg-muted/80 p-1.5">
+          <div className="flex min-w-0 max-w-2xl flex-1 flex-col rounded-xl bg-muted/80 p-1.5 sm:h-[3.25rem] sm:flex-row sm:items-center">
             <DateTimeEndpoint
               id="invocation-logs-from-time"
               label={t(locale, 'admin.logs.filters.startTime')}
               value={range.from}
               onChange={applyFrom}
             />
-            <span className="shrink-0 px-2 text-sm text-muted-foreground">
+            <span className="self-center px-2 text-sm text-muted-foreground sm:self-auto">
               {t(locale, 'admin.logs.filters.rangeSeparator')}
             </span>
             <DateTimeEndpoint
@@ -240,7 +243,10 @@ export function InvocationLogsFilters({
           onStatusChange(value);
         }}
       >
-        <AdminSegmentedTabsList aria-label={t(locale, 'admin.logs.filters.statusFilterAria')}>
+        <AdminSegmentedTabsList
+          aria-label={t(locale, 'admin.logs.filters.statusFilterAria')}
+          className="max-w-full flex-wrap"
+        >
           {statusFilters.map((item) => (
             <AdminSegmentedTabsTrigger key={item.value} value={item.value}>
               {item.label}
