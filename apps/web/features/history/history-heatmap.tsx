@@ -3,12 +3,15 @@
 import 'react-activity-calendar/tooltips.css';
 
 import { useTheme } from 'next-themes';
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { ActivityCalendar, type ThemeInput } from 'react-activity-calendar';
 
 import { t } from '@gloaming/i18n';
 
-import { findHistoryCalendarScroller, scrollCalendarToLatest } from '@/features/history/history-calendar-scroll';
+import {
+  attachHistoryCalendarLatestSnap,
+  findHistoryCalendarScroller,
+} from '@/features/history/history-calendar-scroll';
 import {
   countHistoryActivityDays,
   fitHistoryCalendarBlockSize,
@@ -51,10 +54,6 @@ type HistoryHeatmapProps = {
   activity: HistoryViewModel['activity'];
 };
 
-function scrollLibraryCalendarToLatest(root: HTMLElement): void {
-  scrollCalendarToLatest(findHistoryCalendarScroller(root));
-}
-
 export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
   const { locale } = useLocale();
   const data = toHistoryActivityCalendarData(today, activity);
@@ -71,6 +70,15 @@ export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
     [locale],
   );
   const frameRef = useRef<HTMLDivElement>(null);
+  /** Keep the latest-weeks snap alive across re-renders; stand down on user scroll. */
+  const snapRef = useRef<{ scroller: HTMLElement; destroy: () => void } | null>(null);
+  const ensureCalendarSnap = (scroller: HTMLElement) => {
+    if (snapRef.current?.scroller === scroller) {
+      return;
+    }
+    snapRef.current?.destroy();
+    snapRef.current = { scroller, destroy: attachHistoryCalendarLatestSnap(scroller) };
+  };
   const [blockSize, setBlockSize] = useState<number>(HISTORY_CALENDAR_MIN_BLOCK_SIZE);
   const { resolvedTheme } = useTheme();
   const isClient = useSyncExternalStore(
@@ -122,12 +130,21 @@ export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
         setBlockSize(shrunk);
         return;
       }
-      scrollLibraryCalendarToLatest(frame);
-      return;
     }
 
-    scrollLibraryCalendarToLatest(frame);
+    // Do not snap inline: first paint has stale metrics (the library applies
+    // its weekday-label offset in a passive effect). The attached controller
+    // snaps now and re-snaps after layout settles, until the user scrolls.
+    ensureCalendarSnap(scroller);
   }, [blockSize, today, activity]);
+
+  useEffect(
+    () => () => {
+      snapRef.current?.destroy();
+      snapRef.current = null;
+    },
+    [],
+  );
 
   return (
     <section className="w-full space-y-4 md:space-y-6">
