@@ -51,8 +51,11 @@ export function LibraryTagsPage() {
 }
 
 function LibraryTagsPageContent() {
-  const { locale } = useLocale();
+  const { locale, localeOptions } = useLocale();
   const { openLogin } = useAuthDialog();
+  // Friendly endonym per supported language (e.g. "简体中文"), never the raw BCP-47 tag.
+  const localeLabel = (language: string) =>
+    localeOptions.find((option) => option.value === language)?.label ?? language;
   const queryClient = useQueryClient();
   const tagsQuery = useUserTagsQuery();
   const searchParams = useSearchParams();
@@ -232,7 +235,7 @@ function LibraryTagsPageContent() {
                     <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                       {SUPPORTED_LOCALES.map((language) => (
                         <label key={language} className="min-w-0 text-xs text-muted-foreground">
-                          <span>{language}</span>
+                          <span>{localeLabel(language)}</span>
                           <Input
                             autoFocus={language === locale}
                             value={editingNames[language] ?? ''}
@@ -241,7 +244,7 @@ function LibraryTagsPageContent() {
                               const value = event.currentTarget.value;
                               setEditingNames((current) => ({ ...current, [language]: value }));
                             }}
-                            aria-label={`${t(locale, 'content.library.tagName')} (${language})`}
+                            aria-label={`${t(locale, 'content.library.tagName')} (${localeLabel(language)})`}
                             disabled={isPending}
                             className="mt-1 h-10 text-foreground"
                           />
@@ -294,7 +297,7 @@ function LibraryTagsPageContent() {
                       <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                         {SUPPORTED_LOCALES.map((language) => (
                           <span key={language}>
-                            {language}:{' '}
+                            {localeLabel(language)}:{' '}
                             {tag.localizedNames?.[language] ?? t(locale, 'content.library.tagTranslationsMissing')}
                           </span>
                         ))}

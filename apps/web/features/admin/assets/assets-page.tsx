@@ -163,7 +163,7 @@ export function AssetsPage() {
             </EmptyMedia>
             <EmptyTitle>{t(locale, 'admin.assets.page.emptyTitle')}</EmptyTitle>
           </EmptyHeader>
-          <Button onClick={() => void runScan()}>{t(locale, 'admin.assets.page.scanNow')}</Button>
+          {/* Scan stays a single page-header action; do not duplicate the CTA here. */}
         </Empty>
       ) : null}
 

@@ -17,4 +17,9 @@ describe('Admin Storage operations surface', () => {
     expect(pageSource).toMatch(/AssetsCleanupDialog/);
     expect(pageSource).not.toMatch(/AssetsObjectTable|AssetsLargestList|listScanObjects|viewOrphans/);
   });
+
+  it('keeps scan as a single page-header CTA with no duplicate in the empty state', () => {
+    // "Scan now" must render exactly once (the header button); the empty state is title-only.
+    expect(pageSource.match(/admin\.assets\.page\.scanNow/g)).toHaveLength(1);
+  });
 });

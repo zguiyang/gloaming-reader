@@ -588,17 +588,20 @@ describe('LibraryPage', () => {
       (view.container.querySelector('button[aria-label="重命名: 喜欢"]') as HTMLButtonElement).click(),
     );
     await act(async () =>
-      updateInput(view.container.querySelector('input[aria-label="标签名称 (zh-CN)"]') as HTMLInputElement, '最爱'),
+      updateInput(view.container.querySelector('input[aria-label="标签名称 (简体中文)"]') as HTMLInputElement, '最爱'),
     );
     await act(async () =>
-      updateInput(view.container.querySelector('input[aria-label="标签名称 (en-US)"]') as HTMLInputElement, 'Favorite'),
+      updateInput(
+        view.container.querySelector('input[aria-label="标签名称 (English)"]') as HTMLInputElement,
+        'Favorite',
+      ),
     );
     await act(async () => (view.container.querySelector('li form button[type="submit"]') as HTMLButtonElement).click());
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
     const editForm = view.container.querySelector('li form');
-    const zhValue = editForm?.querySelector<HTMLInputElement>('input[aria-label="标签名称 (zh-CN)"]')?.value;
-    const enValue = editForm?.querySelector<HTMLInputElement>('input[aria-label="标签名称 (en-US)"]')?.value;
+    const zhValue = editForm?.querySelector<HTMLInputElement>('input[aria-label="标签名称 (简体中文)"]')?.value;
+    const enValue = editForm?.querySelector<HTMLInputElement>('input[aria-label="标签名称 (English)"]')?.value;
     view.cleanup();
 
     expect(mocks.renameUserTag).toHaveBeenCalledWith('tag-one', '最爱', 'zh-CN');
@@ -627,7 +630,7 @@ describe('LibraryPage', () => {
     await act(async () =>
       (view.container.querySelector('button[aria-label="重命名: 喜欢"]') as HTMLButtonElement).click(),
     );
-    const zhInput = view.container.querySelector('input[aria-label="标签名称 (zh-CN)"]') as HTMLInputElement;
+    const zhInput = view.container.querySelector('input[aria-label="标签名称 (简体中文)"]') as HTMLInputElement;
     await act(async () => updateInput(zhInput, ''));
 
     const save = view.container.querySelector('button[aria-label="保存"]') as HTMLButtonElement;
@@ -659,7 +662,7 @@ describe('LibraryPage', () => {
       (view.container.querySelector('button[aria-label="重命名: 喜欢"]') as HTMLButtonElement).click(),
     );
     await act(async () =>
-      updateInput(view.container.querySelector('input[aria-label="标签名称 (zh-CN)"]') as HTMLInputElement, '最爱'),
+      updateInput(view.container.querySelector('input[aria-label="标签名称 (简体中文)"]') as HTMLInputElement, '最爱'),
     );
     await act(async () => (view.container.querySelector('li form button[type="submit"]') as HTMLButtonElement).click());
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
