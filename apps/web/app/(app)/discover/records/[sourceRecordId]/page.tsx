@@ -1,4 +1,4 @@
-import { DiscoverRecordDetailPage } from '@/features/discover/discover-record-detail-page';
+import { DiscoverRecordDetailPage } from './source-record-detail';
 
 export default async function Page({ params }: { params: Promise<{ sourceRecordId: string }> }) {
   const { sourceRecordId } = await params;

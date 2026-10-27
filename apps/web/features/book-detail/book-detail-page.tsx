@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
@@ -15,7 +16,12 @@ import {
   formatBookDetailApiError,
   useBookDetailQuery,
 } from '@/features/book-detail/book-detail-api';
-import { BookDetailHero, BookDetailMobileProgress, BookDetailStickyCta } from '@/features/book-detail/book-detail-hero';
+import {
+  BookDetailHero,
+  BookDetailMobileProgress,
+  BookDetailSourceHero,
+  BookDetailStickyCta,
+} from '@/features/book-detail/book-detail-hero';
 import type { BookDetail } from '@/features/book-detail/book-detail-model';
 import { BookDetailRecommendations } from '@/features/book-detail/book-detail-recommendations';
 import { recommendationsQueryKey } from '@/features/book-detail/book-detail-recommendations-api';
@@ -54,7 +60,6 @@ function BookDetailView({ book, returnTo }: { book: BookDetail; returnTo: string
   const addToLibrary = useAddToLibraryMutation();
   const userTags = useUserTagsQuery({ enabled: Boolean(book.libraryItem) });
   const isInLibrary = book.libraryStatus === 'in_library';
-  const returnLabel = t(locale, workDetailReturnLabelKey(returnTo));
 
   function handleAddToLibrary() {
     if (!requireAuth({ reason: 'bookmark' })) {
@@ -80,11 +85,67 @@ function BookDetailView({ book, returnTo }: { book: BookDetail; returnTo: string
   }
 
   return (
+    <BookDetailPageLayout
+      returnTo={returnTo}
+      readable={book.isReadable}
+      management={
+        book.libraryItem ? (
+          <LibraryWorkManagement
+            entry={book.libraryItem}
+            tags={userTags.data ?? []}
+            locale={locale}
+            onRemoved={() => router.replace(AUTH_ROUTES.library)}
+          />
+        ) : null
+      }
+      hero={
+        <BookDetailHero
+          book={book}
+          inLibrary={isInLibrary}
+          onAddToLibrary={handleAddToLibrary}
+          isAddingToLibrary={addToLibrary.isPending}
+        />
+      }
+    >
+      <BookDetailMobileProgress book={book} />
+      <div className="flex flex-col gap-8 md:gap-14">
+        <BookDetailStats book={book} />
+        {book.isReadable && book.chapters.length > 0 ? <BookDetailToc book={book} /> : null}
+        {book.libraryItem?.libraryItemKind === 'personal' ? null : (
+          <BookDetailRecommendations excludeWorkId={book.id} />
+        )}
+      </div>
+      <BookDetailStickyCta
+        book={book}
+        inLibrary={isInLibrary}
+        onAddToLibrary={handleAddToLibrary}
+        isAddingToLibrary={addToLibrary.isPending}
+      />
+    </BookDetailPageLayout>
+  );
+}
+
+function BookDetailPageLayout({
+  returnTo,
+  readable,
+  management,
+  hero,
+  children,
+}: {
+  returnTo: string;
+  readable: boolean;
+  management?: ReactNode;
+  hero: ReactNode;
+  children?: ReactNode;
+}) {
+  const { locale } = useLocale();
+  const returnLabel = t(locale, workDetailReturnLabelKey(returnTo));
+  return (
     <div
       className={cn(
         'motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700',
         'flex w-full flex-col gap-8 md:gap-14 md:pb-8',
-        book.isReadable ? 'pb-36' : 'pb-8',
+        readable ? 'pb-36' : 'pb-8',
       )}
     >
       <div className="flex min-h-11 items-center justify-between gap-3">
@@ -96,38 +157,11 @@ function BookDetailView({ book, returnTo }: { book: BookDetail; returnTo: string
           <ArrowLeftIcon className="size-4" strokeWidth={1.5} aria-hidden />
           {returnLabel}
         </Link>
-        {book.libraryItem ? (
-          <LibraryWorkManagement
-            entry={book.libraryItem}
-            tags={userTags.data ?? []}
-            locale={locale}
-            onRemoved={() => router.replace(AUTH_ROUTES.library)}
-          />
-        ) : null}
+        {management}
       </div>
 
-      <BookDetailHero
-        book={book}
-        inLibrary={isInLibrary}
-        onAddToLibrary={handleAddToLibrary}
-        isAddingToLibrary={addToLibrary.isPending}
-      />
-      <BookDetailMobileProgress book={book} />
-
-      <div className="flex flex-col gap-8 md:gap-14">
-        <BookDetailStats book={book} />
-        {book.isReadable && book.chapters.length > 0 ? <BookDetailToc book={book} /> : null}
-        {book.libraryItem?.libraryItemKind === 'personal' ? null : (
-          <BookDetailRecommendations excludeWorkId={book.id} />
-        )}
-      </div>
-
-      <BookDetailStickyCta
-        book={book}
-        inLibrary={isInLibrary}
-        onAddToLibrary={handleAddToLibrary}
-        isAddingToLibrary={addToLibrary.isPending}
-      />
+      {hero}
+      {children}
     </div>
   );
 }
@@ -135,7 +169,26 @@ function BookDetailView({ book, returnTo }: { book: BookDetail; returnTo: string
 /**
  * Work detail for public Catalog and owner-visible Personal ReadingWorks.
  */
-export function BookDetailPage({ workId, returnTo }: { workId: string; returnTo: string }) {
+export type SourceBookDetail = {
+  title: string;
+  author: string;
+  coverImageUrl: string | null;
+  description: string | null;
+  actions: ReactNode;
+};
+
+export function BookDetailPage(
+  props: { workId: string; returnTo: string } | { source: SourceBookDetail; returnTo: string },
+) {
+  if ('source' in props) {
+    return (
+      <BookDetailPageLayout returnTo={props.returnTo} readable hero={<BookDetailSourceHero {...props.source} />} />
+    );
+  }
+  return <ReadableBookDetailPage {...props} />;
+}
+
+function ReadableBookDetailPage({ workId, returnTo }: { workId: string; returnTo: string }) {
   const detailQuery = useBookDetailQuery(workId);
 
   if (detailQuery.isPending) {

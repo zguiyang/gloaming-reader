@@ -90,6 +90,8 @@ function DiscoverSourceCardContent({
     if (serverStatus === 'ready' && !wasReady.current) {
       wasReady.current = true;
       void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'records'] });
+      // Refresh an open source detail as well, so its linked Work becomes available.
+      void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'record'] });
     }
     if (serverStatus !== 'ready') {
       wasReady.current = false;
@@ -219,14 +221,24 @@ function DiscoverSourceCardContent({
           </>
         )}
 
-        <div className="mt-auto pt-3">
+        <div className={cn('mt-auto pt-3', actionsOnly && 'pt-0')}>
           {isSaving ? (
-            <Button type="button" variant="outline" disabled className="h-8 gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              disabled
+              className={cn('h-8 gap-1.5', actionsOnly && 'h-12 w-full rounded-xl text-base md:h-11 md:w-auto md:px-8')}
+            >
               <Loader2Icon className="size-4 animate-spin" aria-hidden />
               {t(locale, 'content.discover.addToLibrary')}
             </Button>
           ) : isPreparing ? (
-            <Button type="button" variant="outline" disabled className="h-8 gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              disabled
+              className={cn('h-8 gap-1.5', actionsOnly && 'h-12 w-full rounded-xl text-base md:h-11 md:w-auto md:px-8')}
+            >
               <Loader2Icon className="size-4 animate-spin" aria-hidden />
               {t(locale, 'content.discover.preparing')}
             </Button>
@@ -235,7 +247,10 @@ function DiscoverSourceCardContent({
               <Button
                 type="button"
                 variant="outline"
-                className="h-8 gap-1.5"
+                className={cn(
+                  'h-8 gap-1.5',
+                  actionsOnly && 'h-12 w-full rounded-xl text-base md:h-11 md:w-auto md:px-8',
+                )}
                 onClick={() => {
                   void handleSaveIntent();
                 }}
@@ -253,7 +268,10 @@ function DiscoverSourceCardContent({
                 type="button"
                 variant="secondary"
                 disabled
-                className="h-8 cursor-default gap-1.5 bg-surface-container-high text-muted-foreground shadow-none disabled:opacity-100"
+                className={cn(
+                  'h-8 cursor-default gap-1.5 bg-surface-container-high text-muted-foreground shadow-none disabled:opacity-100',
+                  actionsOnly && 'h-12 rounded-xl text-base md:h-11 md:px-8',
+                )}
               >
                 <CheckIcon className="size-4" strokeWidth={1.5} aria-hidden />
                 {t(locale, 'content.discover.inLibrary')}
@@ -288,7 +306,10 @@ function DiscoverSourceCardContent({
               <Button
                 type="button"
                 variant="outline"
-                className="h-8 gap-1.5"
+                className={cn(
+                  'h-8 gap-1.5',
+                  actionsOnly && 'h-12 w-full rounded-xl text-base md:h-11 md:w-auto md:px-8',
+                )}
                 disabled={item.isSaveable === false}
                 onClick={() => {
                   void handleSaveIntent();

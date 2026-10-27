@@ -2,6 +2,7 @@
 
 import { BookmarkIcon, BookOpenIcon, CheckIcon, LanguagesIcon, Loader2Icon } from 'lucide-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { t } from '@gloaming/i18n';
 
@@ -121,6 +122,50 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
       <p className="text-sm text-muted-foreground md:hidden">
         {[formatMinutes(book.estimatedMinutes, locale)].filter(Boolean).join(' · ')}
       </p>
+    </WorkDetailHeroLayout>
+  );
+}
+
+/** Source records have no readable Work yet, but share the same detail hero. */
+export function BookDetailSourceHero({
+  title,
+  author,
+  coverImageUrl,
+  description,
+  actions,
+}: {
+  title: string;
+  author: string;
+  coverImageUrl: string | null;
+  description: string | null;
+  actions: ReactNode;
+}) {
+  return (
+    <WorkDetailHeroLayout
+      cover={
+        <WorkCover
+          title={title}
+          coverImageUrl={coverImageUrl}
+          className="aspect-[2/3] w-48 md:w-full md:max-w-[280px]"
+        />
+      }
+    >
+      <div className="space-y-2">
+        <h1 className="font-heading text-3xl leading-tight font-bold tracking-tight text-foreground text-balance md:text-5xl md:leading-[1.15]">
+          {title}
+        </h1>
+        {author ? (
+          <p className="font-heading text-lg text-muted-foreground italic md:text-2xl md:leading-8">{author}</p>
+        ) : null}
+      </div>
+      {description ? (
+        <p className="font-reading mx-auto max-w-2xl whitespace-pre-line text-base leading-7 text-muted-foreground md:mx-0 md:text-lg md:leading-8 md:italic">
+          {description}
+        </p>
+      ) : null}
+      <div className="fixed inset-x-0 z-40 border-t border-border/60 bg-background/95 p-4 backdrop-blur-md bottom-[var(--app-shell-bottom,0px)] md:static md:max-w-xl md:border-0 md:bg-transparent md:p-0 md:pt-1 md:backdrop-blur-none">
+        {actions}
+      </div>
     </WorkDetailHeroLayout>
   );
 }
