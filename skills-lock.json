@@ -19,6 +19,12 @@
       "skillPath": "skills/codebase-guardrails/SKILL.md",
       "computedHash": "639b3b6bc1862477e5f43d186292c28aef5821b82de11054061240299813f6ee"
     },
+    "design-taste-frontend": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/taste-skill/SKILL.md",
+      "computedHash": "6ac8ba6089dcbc303744a507a4587113c5d845ca2f658b3ce2b0b5eab108fb0d"
+    },
     "infrastructure-operations": {
       "source": "zguiyang/agent-skills",
       "sourceType": "github",

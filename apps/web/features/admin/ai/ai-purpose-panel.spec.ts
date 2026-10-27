@@ -135,6 +135,37 @@ async function click(button: HTMLButtonElement) {
 }
 
 describe('AiPurposePanel purpose rows', () => {
+  it('lays the purpose name beside a full-width selector on wide rows and stacks them when narrow', async () => {
+    const view = await renderPanel({ draftByKey: {} });
+
+    const row = view.container.querySelector('li');
+    // Desktop-wide: the name column and the control column sit side by side…
+    expect(row?.className).toContain('sm:flex-row');
+    const [nameColumn, controlColumn] = Array.from(row?.children ?? []);
+    // …with a fixed-basis left column so long titles wrap without pushing the selector…
+    expect(nameColumn?.className).toContain('sm:shrink-0');
+    // The title band matches the selector height so a normal name centers vertically
+    // against the 44px selector on desktop (long titles grow it without clipping).
+    const titleBand = nameColumn?.firstElementChild;
+    expect(titleBand?.className).toContain('sm:min-h-[44px]');
+    expect(titleBand?.className).toContain('items-center');
+    expect(titleBand?.querySelector('p')?.textContent).toBeTruthy();
+    // …and the controls keep the stacked order narrow screens use (flex-col is the base layout).
+    expect(row?.className).toContain('flex-col');
+    expect(controlColumn?.className).toContain('flex-1');
+    const [selectorWrapper, actions] = Array.from(controlColumn?.children ?? []);
+    // The selector spans the full remaining width: its right edge stays flush with the row
+    // content edge (no width cap, no action slot reserving space beside it).
+    expect(selectorWrapper?.className).toContain('w-full');
+    expect(selectorWrapper?.className).not.toContain('max-w');
+    // Reserved constant-footprint action slot below the selector: dirty Save/Cancel appear
+    // right-aligned inside it without shifting the selector or neighboring rows.
+    expect(actions?.className).toContain('h-9');
+    expect(actions?.className).toContain('justify-end');
+    expect(actions?.className).not.toContain('sm:w-40');
+    view.cleanup();
+  });
+
   it('always shows the selector and hides actions while the draft matches the saved binding', async () => {
     const view = await renderPanel({ draftByKey: {} });
 

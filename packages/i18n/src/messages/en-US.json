@@ -135,7 +135,7 @@
         "translate": "Translation",
         "metadata": "Work details"
       },
-      "notSet": "Choose a model",
+      "notSet": "Not set (uses default service)",
       "unavailableModel": "This model is unavailable. Choose another one.",
       "unavailableOption": "· Unavailable",
       "defaultOnUnset": "Capabilities without a personal model use the default service.",
@@ -147,7 +147,12 @@
       "saveModel": "Save model",
       "cancelChanges": "Discard changes",
       "editProvider": "Edit provider",
-      "replaceKey": "Replace key"
+      "replaceKey": "Replace key",
+      "connectionsAndModels": "Connections and models",
+      "keyNotSet": "Not configured",
+      "modeOwn": "Own API · {count} providers enabled",
+      "modeDefault": "Default service · no providers enabled",
+      "purposeSaveFailed": "Save failed, draft kept. Please retry."
     },
     "tts": {
       "title": "Read aloud",
@@ -168,7 +173,7 @@
     "change": "Change",
     "ownAi": {
       "title": "Own AI service",
-      "description": "Connect a provider → choose models → assign purposes.",
+      "description": "Choose a model for each reading capability first; manage connections and models below.",
       "enter": "Configure own AI service",
       "empty": "No providers or models added yet",
       "back": "Back to settings"

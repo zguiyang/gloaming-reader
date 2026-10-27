@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   getPersonalTaggingPreference: vi.fn(),
   listUserLlmModels: vi.fn(),
   putUserLlmSetting: vi.fn(),
+  createUserLlmModel: vi.fn(),
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -41,6 +42,7 @@ vi.mock('@/features/settings/settings-api', async (importOriginal) => {
     getPersonalTaggingPreference: (...args: unknown[]) => mocks.getPersonalTaggingPreference(...args),
     listUserLlmModels: (...args: unknown[]) => mocks.listUserLlmModels(...args),
     putUserLlmSetting: (...args: unknown[]) => mocks.putUserLlmSetting(...args),
+    createUserLlmModel: (...args: unknown[]) => mocks.createUserLlmModel(...args),
   };
 });
 
@@ -55,6 +57,8 @@ beforeEach(() => {
   mocks.getUserTtsConfig.mockResolvedValue(null);
   mocks.listUserLlmModels.mockResolvedValue([]);
   mocks.putUserLlmSetting.mockReset();
+  mocks.createUserLlmModel.mockReset();
+  mocks.createUserLlmModel.mockImplementation(async (body: unknown) => body);
   mocks.putUserLlmSetting.mockImplementation(async () => ({
     key: 'assist.default_model_id',
     modelId: 'model-a',
@@ -178,6 +182,14 @@ function changeSelect(select: HTMLSelectElement, value: string) {
   });
 }
 
+// Native React input setter (matches the pattern in discover/library specs): the prototype
+// setter bypasses React's value tracking so the dispatched `input` event registers the change.
+function updateInput(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 describe('SettingsPage personal tagging run feedback', () => {
   it('explains a failed run with the copy mapped from a known error code', async () => {
     const view = await renderSettings({
@@ -213,6 +225,22 @@ describe('SettingsPage personal tagging run feedback', () => {
 });
 
 describe('SettingsPage AI purpose bindings', () => {
+  it('keeps clear spacing between the capabilities heading divider and the first selector row', async () => {
+    mocks.listUserLlmProviders.mockResolvedValue([PROVIDER]);
+    mocks.listUserLlmModels.mockResolvedValue([MODEL_A]);
+    mocks.listUserLlmSettings.mockResolvedValue([]);
+
+    const view = await renderOwnAiView();
+    const heading = Array.from(view.container.querySelectorAll('h2')).find((node) => node.textContent === '阅读能力');
+    expect(heading).toBeTruthy();
+    const divider = heading?.parentElement;
+    expect(divider?.className).toContain('border-b');
+    // The row list starts with top margin so the divider never touches the first selector
+    // (rows stack below the label on narrow and sit beside it on desktop — same gap either way).
+    expect(divider?.nextElementSibling?.className).toContain('mt-3');
+    view.cleanup();
+  });
+
   it('keeps the purpose selector always visible and hides actions while the draft matches the saved binding', async () => {
     mocks.listUserLlmProviders.mockResolvedValue([PROVIDER]);
     mocks.listUserLlmModels.mockResolvedValue([MODEL_A, MODEL_B]);
@@ -389,6 +417,176 @@ describe('SettingsPage AI purpose bindings', () => {
     changeSelect(select, 'model-a');
     expect(buttons(view, '保存')).toHaveLength(1);
     expect(select.disabled).toBe(false);
+    view.cleanup();
+  });
+
+  it('disables the empty placeholder once a purpose is bound but keeps it for unbound purposes', async () => {
+    mocks.listUserLlmProviders.mockResolvedValue([PROVIDER]);
+    mocks.listUserLlmModels.mockResolvedValue([MODEL_A, MODEL_B]);
+    mocks.listUserLlmSettings.mockResolvedValue([
+      { key: 'assist.default_model_id', modelId: 'model-a', modelLabel: 'Model A', healthy: true, runtimeReady: true },
+    ] satisfies LlmAppSettingView[]);
+
+    const view = await renderOwnAiView();
+    // A bound purpose cannot be cleared (PUT requires a non-empty modelId): empty is not selectable.
+    const bound = purposeSelect(view, 'assist.default_model_id');
+    expect(Array.from(bound.options).find((option) => option.value === '')?.disabled).toBe(true);
+    // An unbound purpose keeps the empty placeholder as its selected “not set” value.
+    const unbound = purposeSelect(view, 'translate.default_model_id');
+    expect(Array.from(unbound.options).find((option) => option.value === '')?.disabled).toBe(false);
+    expect(unbound.value).toBe('');
+    view.cleanup();
+  });
+
+  it('shows an inline per-row save error and clears it after Cancel', async () => {
+    mocks.listUserLlmProviders.mockResolvedValue([PROVIDER]);
+    mocks.listUserLlmModels.mockResolvedValue([MODEL_A, MODEL_B]);
+    mocks.listUserLlmSettings.mockResolvedValue([
+      { key: 'assist.default_model_id', modelId: 'model-a', modelLabel: 'Model A', healthy: true, runtimeReady: true },
+    ] satisfies LlmAppSettingView[]);
+    mocks.putUserLlmSetting.mockRejectedValue(new Error('network down'));
+
+    const view = await renderOwnAiView();
+    const select = purposeSelect(view, 'assist.default_model_id');
+    changeSelect(select, 'model-b');
+    await act(async () => {
+      buttons(view, '保存')[0].click();
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    // Inline failure text on the row, with the draft kept for retry.
+    expect(view.container.textContent).toContain('保存失败');
+    expect(select.value).toBe('model-b');
+    // Cancel restores the saved binding and clears the stale error.
+    await act(async () => {
+      buttons(view, '取消')[0].click();
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(view.container.textContent).not.toContain('保存失败');
+    expect(select.value).toBe('model-a');
+    view.cleanup();
+  });
+});
+
+describe('SettingsPage provider-grouped model options', () => {
+  const P1 = { ...PROVIDER, id: 'provider-1', name: '个人连接' };
+  const P2 = { ...PROVIDER, id: 'provider-2', name: '备用连接' };
+  // Two providers share the same model label; they must stay distinguishable.
+  const M1 = { ...MODEL_A, id: 'm1', providerId: 'provider-1', label: 'gpt-4o-mini', modelId: 'gpt-4o-mini' };
+  const M2 = {
+    ...MODEL_A,
+    id: 'm2',
+    providerId: 'provider-2',
+    label: 'gpt-4o-mini',
+    modelId: 'gpt-4o-mini-2024',
+  };
+
+  it('groups purpose options by provider and keeps same-label models distinguishable', async () => {
+    mocks.listUserLlmProviders.mockResolvedValue([P1, P2]);
+    mocks.listUserLlmModels.mockImplementation(async (providerId: string) =>
+      providerId === 'provider-1' ? [M1] : providerId === 'provider-2' ? [M2] : [],
+    );
+    mocks.listUserLlmSettings.mockResolvedValue([]);
+
+    const view = await renderOwnAiView();
+    const select = purposeSelect(view, 'assist.default_model_id');
+
+    // Provider context flows into each option so two "gpt-4o-mini" entries differ.
+    const texts = Array.from(select.options).map((option) => option.textContent);
+    expect(texts).toContain('gpt-4o-mini · 个人连接');
+    expect(texts).toContain('gpt-4o-mini · gpt-4o-mini-2024 · 备用连接');
+    // Options are grouped under their provider (optgroup labels).
+    const groups = Array.from(select.querySelectorAll('optgroup')).map((group) => group.label);
+    expect(groups).toEqual(['个人连接', '备用连接']);
+    view.cleanup();
+  });
+
+  it('adds a model under the provider whose add action was used', async () => {
+    mocks.listUserLlmProviders.mockResolvedValue([P1, P2]);
+    mocks.listUserLlmModels.mockImplementation(async (providerId: string) =>
+      providerId === 'provider-1' ? [M1] : providerId === 'provider-2' ? [M2] : [],
+    );
+    mocks.listUserLlmSettings.mockResolvedValue([]);
+
+    const view = await renderOwnAiView();
+    // Two per-provider "添加模型" actions; the second belongs to 备用连接 (provider-2).
+    const addButtons = buttons(view, '添加模型');
+    expect(addButtons).toHaveLength(2);
+    await act(async () => {
+      addButtons[1].click();
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    const submit = buttons(view, '添加并启用模型')[0];
+    expect(submit).toBeTruthy();
+    await act(async () => {
+      submit.click();
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    // The created model is owned by provider-2, not the first provider.
+    expect(mocks.createUserLlmModel).toHaveBeenCalledTimes(1);
+    expect(mocks.createUserLlmModel).toHaveBeenCalledWith(expect.objectContaining({ providerId: 'provider-2' }));
+    view.cleanup();
+  });
+
+  it('does not reset a newer add draft when an earlier add for another provider completes late', async () => {
+    mocks.listUserLlmProviders.mockResolvedValue([P1, P2]);
+    mocks.listUserLlmModels.mockImplementation(async (providerId: string) =>
+      providerId === 'provider-1' ? [M1] : providerId === 'provider-2' ? [M2] : [],
+    );
+    mocks.listUserLlmSettings.mockResolvedValue([]);
+    let resolveA: (value: unknown) => void = () => {};
+    mocks.createUserLlmModel.mockImplementation(
+      (body: unknown) =>
+        new Promise((resolve) => {
+          resolveA = () => resolve(body);
+        }),
+    );
+
+    const view = await renderOwnAiView();
+    const modelIdInput = () => view.container.querySelector<HTMLInputElement>('#settings-model-id');
+    const modelLabelInput = () => view.container.querySelector<HTMLInputElement>('#settings-model-label');
+
+    // Open provider-1's add form, fill a valid distinct draft, and submit (stays in flight).
+    const addButtons = buttons(view, '添加模型');
+    await act(async () => {
+      addButtons[0].click();
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(modelIdInput()).toBeTruthy();
+    await act(async () => {
+      updateInput(modelIdInput() as HTMLInputElement, 'a-model-id');
+      updateInput(modelLabelInput() as HTMLInputElement, 'A Label');
+    });
+    await act(async () => {
+      buttons(view, '添加并启用模型')[0].click();
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(mocks.createUserLlmModel).toHaveBeenCalledWith(
+      expect.objectContaining({ providerId: 'provider-1', modelId: 'a-model-id', label: 'A Label' }),
+    );
+
+    // While provider-1's add is pending, open provider-2's add form and type a different draft.
+    const addButtonsWhilePending = buttons(view, '添加模型');
+    await act(async () => {
+      addButtonsWhilePending[1].click();
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await act(async () => {
+      updateInput(modelIdInput() as HTMLInputElement, 'b-model-id');
+      updateInput(modelLabelInput() as HTMLInputElement, 'B Label');
+    });
+    expect(modelIdInput()?.value).toBe('b-model-id');
+    expect(modelLabelInput()?.value).toBe('B Label');
+
+    // provider-1's add completes late; it must not clear provider-2's newer typed draft.
+    await act(async () => {
+      resolveA({});
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(modelIdInput()).toBeTruthy();
+    expect(modelIdInput()?.value).toBe('b-model-id');
+    expect(modelLabelInput()?.value).toBe('B Label');
     view.cleanup();
   });
 });

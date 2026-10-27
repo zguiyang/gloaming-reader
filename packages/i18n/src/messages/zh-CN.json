@@ -135,7 +135,7 @@
         "translate": "翻译",
         "metadata": "作品信息整理"
       },
-      "notSet": "选择模型",
+      "notSet": "未设置（使用默认服务）",
       "unavailableModel": "当前模型不可用，请重新选择。",
       "unavailableOption": "· 不可用",
       "defaultOnUnset": "未设置个人模型的能力会使用默认服务。",
@@ -147,7 +147,12 @@
       "saveModel": "保存模型",
       "cancelChanges": "取消修改",
       "editProvider": "编辑服务商",
-      "replaceKey": "更换密钥"
+      "replaceKey": "更换密钥",
+      "connectionsAndModels": "连接与模型",
+      "keyNotSet": "未配置",
+      "modeOwn": "自有 API · 已启用 {count} 个服务商",
+      "modeDefault": "默认服务 · 未启用任何服务商",
+      "purposeSaveFailed": "保存失败，草稿已保留，请重试"
     },
     "tts": {
       "title": "朗读",
@@ -168,7 +173,7 @@
     "change": "更改",
     "ownAi": {
       "title": "自有 AI 服务",
-      "description": "连接服务商 → 选择模型 → 分配用途。",
+      "description": "先为阅读能力选择模型；连接与模型在下方管理。",
       "enter": "配置自有 AI 服务",
       "empty": "尚未添加服务商与模型",
       "back": "返回设置"

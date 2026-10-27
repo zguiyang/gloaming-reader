@@ -253,9 +253,21 @@ export function AiPurposePanel({
         const isAnySaving = savingKey !== null;
 
         return (
-          <li key={setting.key} className="flex flex-col gap-3 border-b border-border/50 py-4">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">{title}</p>
+          <li
+            key={setting.key}
+            className="flex flex-col gap-3 border-b border-border/50 py-4 sm:flex-row sm:items-start sm:gap-4"
+          >
+            {/* Purpose name + health badges: fixed-basis left column on desktop-wide rows so the
+                selector can fill the remaining width up to the content right edge; stacks
+                naturally above the selector on narrow screens. Top alignment keeps the title and
+                selector steady when badges appear or long titles wrap. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:w-48 sm:shrink-0 sm:flex-col sm:items-start sm:gap-1.5 lg:w-56">
+              {/* Desktop: the title band matches the selector's 44px height so a normal
+                  single-line name sits on the selector's vertical center; a wrapped long title
+                  grows the band instead of clipping. Narrow keeps the plain stacked title. */}
+              <div className="flex min-w-0 items-center sm:min-h-[44px]">
+                <p className="min-w-0 text-sm font-semibold text-foreground">{title}</p>
+              </div>
               {health ? (
                 <Badge
                   variant="secondary"
@@ -272,12 +284,12 @@ export function AiPurposePanel({
                 </Badge>
               ) : null}
             </div>
-            {/* Stable layout: full-width selector with a fixed-height action row below on narrow
-                screens; inline reserved action slot on desktop. The slot keeps a constant footprint
-                (empty and noninteractive while clean), so dirty-state actions never shift neighboring
-                rows or the selector itself. */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <div className="min-w-0 w-full sm:w-auto sm:max-w-sm sm:flex-1">
+            {/* The selector spans the full remaining row width, so its right edge stays flush with
+                the content right edge in every state. Save/Cancel sit below it, right-aligned, in
+                a constant-height reserved slot: dirty, pending, error, and cancel states never
+                shift the selector, its right edge, or neighboring rows. */}
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="min-w-0 w-full">
                 <PurposeModelCombobox
                   id={`purpose-${setting.key}`}
                   ariaLabel={title}
@@ -292,7 +304,7 @@ export function AiPurposePanel({
                   onValueChange={(modelId) => onDraftChange(setting.key, modelId)}
                 />
               </div>
-              <div className="flex h-9 w-full items-center gap-2 sm:w-40" aria-hidden={isDirty ? undefined : true}>
+              <div className="flex h-9 w-full items-center justify-end gap-2" aria-hidden={isDirty ? undefined : true}>
                 {isDirty ? (
                   <>
                     <Button
