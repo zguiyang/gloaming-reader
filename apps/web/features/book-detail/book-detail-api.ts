@@ -16,9 +16,8 @@ import {
   type BookDetail,
   languageLabelFromCode,
   readingStatusFromState,
-  teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
-import { getLibrary } from '@/features/library/library-public';
+import { getLibraryItem } from '@/features/library/library-public';
 import { getReadingState } from '@/features/reader/reader-api';
 import { getWorkParts } from '@/features/reader/reader-parts-public';
 import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
@@ -125,7 +124,7 @@ export function toBookDetail(
 ): BookDetail {
   const progressRatio = state?.progressRatio ?? null;
   const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
-  const teaser = teaserFromDescription(work.description);
+  const teaser = work.sourceSummary === undefined ? work.description : (work.sourceSummary ?? '');
   const readingStats = resolveWorkReadingStats(work, parts);
   const availability = workAvailability(work.processingStatus, parts.length);
 
@@ -138,6 +137,7 @@ export function toBookDetail(
     estimatedMinutes: readingStats.estimatedMinutes,
     suggestedVocabSize: readingStats.suggestedVocabSize,
     teaser,
+    sourceNotes: work.sourceNotes,
     language: work.language,
     languageLabel: languageLabelFromCode(work.language, DEFAULT_LOCALE),
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
@@ -164,19 +164,23 @@ export function toPersonalBookDetail(
   const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
   const work = libraryItem.work;
   const totalWords = parts.reduce((total, part) => total + (part.wordCount ?? 0), 0);
-  const estimatedMinutes = totalWords > 0 ? estimatedMinutesFromWordCount(totalWords) : null;
+  const estimatedMinutes =
+    libraryItem.personalMetadata?.estimatedMinutes ??
+    (totalWords > 0 ? estimatedMinutesFromWordCount(totalWords) : null);
+  const difficultyScore = libraryItem.personalMetadata?.difficultyScore ?? null;
+  const language = libraryItem.personalMetadata?.language ?? '';
 
   return {
     id: work.id,
     title: work.title,
     author: libraryItem.personalMetadata?.author ?? '',
-    difficultyScore: null,
-    difficultyLabel: null,
+    difficultyScore,
+    difficultyLabel: difficultyScore != null ? difficultyLabelFromScore(difficultyScore) : null,
     estimatedMinutes,
-    suggestedVocabSize: null,
-    teaser: teaserFromDescription(work.description),
-    language: '',
-    languageLabel: languageLabelFromCode(''),
+    suggestedVocabSize: libraryItem.personalMetadata?.suggestedVocabSize ?? null,
+    teaser: work.description,
+    language,
+    languageLabel: languageLabelFromCode(language),
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
     libraryStatus: 'in_library',
     libraryItem,
@@ -196,15 +200,13 @@ export type BookDetailQueryResult = {
 };
 
 export async function fetchBookDetail(workId: string, init?: { signal?: AbortSignal }): Promise<BookDetailQueryResult> {
-  const libraryData = await getLibrary(init).catch((error: unknown) => {
-    if (error instanceof ApiRequestError && error.status === 401) {
+  const libraryItem = await getLibraryItem(workId, init).catch((error: unknown) => {
+    if (error instanceof ApiRequestError && (error.status === 401 || error.status === 404)) {
       return null;
     }
     throw error;
   });
-  const personalItem = libraryData?.items.find(
-    (item) => item.work.id === workId && item.libraryItemKind === 'personal',
-  );
+  const personalItem = libraryItem?.libraryItemKind === 'personal' ? libraryItem : null;
   if (personalItem) {
     if (personalItem.availability !== 'ready') {
       return { book: toPersonalBookDetail(personalItem, null, personalItem.state) };
@@ -218,7 +220,6 @@ export async function fetchBookDetail(workId: string, init?: { signal?: AbortSig
     getWorkParts(workId, init),
     getOptionalReadingState(workId, init),
   ]);
-  const libraryItem = libraryData?.items.find((item) => item.work.id === workId) ?? null;
   const book = toBookDetail(work, partsData.parts, libraryItem, state);
   return { book };
 }

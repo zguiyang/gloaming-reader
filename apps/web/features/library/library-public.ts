@@ -1,4 +1,4 @@
-import { type LibraryData, libraryDataSchema, type LibraryItem } from '@gloaming/shared/library';
+import { type LibraryData, libraryDataSchema, type LibraryItem, libraryItemSchema } from '@gloaming/shared/library';
 
 import { apiRequest } from '@/lib/api-request';
 
@@ -6,6 +6,13 @@ import { apiRequest } from '@/lib/api-request';
 export async function getLibrary(init?: { signal?: AbortSignal }): Promise<LibraryData> {
   return apiRequest('/api/library', {
     schema: libraryDataSchema,
+    signal: init?.signal,
+  });
+}
+
+export async function getLibraryItem(workId: string, init?: { signal?: AbortSignal }): Promise<LibraryItem> {
+  return apiRequest(`/api/library/items/${encodeURIComponent(workId)}`, {
+    schema: libraryItemSchema,
     signal: init?.signal,
   });
 }

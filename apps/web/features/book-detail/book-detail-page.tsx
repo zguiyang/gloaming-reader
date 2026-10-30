@@ -174,6 +174,8 @@ export type SourceBookDetail = {
   author: string;
   coverImageUrl: string | null;
   description: string | null;
+  notes?: string[];
+  categories?: string[];
   actions: ReactNode;
 };
 

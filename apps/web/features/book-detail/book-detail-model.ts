@@ -26,6 +26,7 @@ export type BookDetail = {
   estimatedMinutes: number | null;
   suggestedVocabSize: number | null;
   teaser: string;
+  sourceNotes?: string[];
   /** BCP-47 language tag from catalog work — display via {@link languageLabelFromCode}. */
   language: string;
   languageLabel: string;

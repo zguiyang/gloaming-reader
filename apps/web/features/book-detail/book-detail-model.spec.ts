@@ -343,4 +343,22 @@ describe('toPersonalBookDetail', () => {
     expect(book.isReadable).toBe(false);
     expect(book.chapters).toEqual([]);
   });
+
+  it('uses stored personal metadata and reading statistics', () => {
+    const book = toPersonalBookDetail(
+      {
+        ...entry,
+        personalMetadata: {
+          author: 'Local Author',
+          language: 'en',
+          difficultyScore: 3,
+          suggestedVocabSize: 2500,
+          estimatedMinutes: 42,
+        },
+      },
+      { work: entry.work, parts },
+      null,
+    );
+    expect(book).toMatchObject({ language: 'en', difficultyScore: 3, suggestedVocabSize: 2500, estimatedMinutes: 42 });
+  });
 });

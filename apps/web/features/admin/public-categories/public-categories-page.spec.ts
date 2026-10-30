@@ -82,6 +82,9 @@ beforeEach(() => {
   categories = [missingCategory(), completeCategory()];
   completeHandler = () => Promise.resolve({ translatedLocales: ['en-US'] });
   mocks.apiRequest.mockImplementation((path: string, options?: { method?: string }) => {
+    if (path.includes('/source-category-mappings')) {
+      return Promise.resolve({ items: [], hasMore: false });
+    }
     if (isCompletionRequest(path, options)) {
       return completeHandler();
     }

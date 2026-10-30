@@ -490,6 +490,35 @@
       }
     },
     "publicCategories": {
+      "sourceMappings": {
+        "title": "Source category mappings",
+        "description": "Review how source categories map to public categories. AI runs only when requested.",
+        "empty": "No source categories yet.",
+        "analyze": "Analyze with AI",
+        "confirm": "Confirm suggestion",
+        "create": "Create suggested category",
+        "categoryLanguage": "Suggested category language",
+        "chooseCategory": "Choose an existing category",
+        "applyCategory": "Apply selected category",
+        "ignore": "Leave unmapped",
+        "reconcile": "Update existing work associations",
+        "reconciling": "Existing work associations need updating. Processing runs in batches and can resume if you close this page.",
+        "changed": "The source mapping changed. Refresh and try again.",
+        "mappedTo": "Mapped to",
+        "invalidProposal": "The suggestion is invalid or conflicts with an existing category. Review it and decide how to proceed.",
+        "omittedDetails": "Some category meanings were omitted to fit the input. Review the suggestion before creating a category.",
+        "done": "Action completed.",
+        "previous": "Previous",
+        "next": "Next",
+        "page": "Page {page}",
+        "status": {
+          "pending": "Pending",
+          "analyzing": "Analyzing",
+          "review": "Needs review",
+          "confirmed": "Confirmed",
+          "ignored": "Unmapped"
+        }
+      },
       "page": {
         "title": "Public categories",
         "subtitle": "Instance-level category names and source-record assignments."
@@ -1087,6 +1116,8 @@
       "categoriesFilterAria": "Category filter",
       "categoriesAria": "Categories",
       "allCategories": "All",
+      "moreCategories": "More categories",
+      "fewerCategories": "Fewer categories",
       "activeFilters": "Filtering by",
       "clearCategoryFilter": "Clear category filter: {category}",
       "searchFilterChip": "Search: {query}",
@@ -1230,6 +1261,11 @@
       "lastReadOn": "Last read on {date}"
     },
     "bookDetail": {
+      "description": "About this book",
+      "noDescription": "No description available yet.",
+      "descriptionExpand": "Read more",
+      "descriptionCollapse": "Show less",
+      "sourceNotes": "Source notes",
       "metaTitle": "Book · Gloaming Reader",
       "languageOriginalEn": "English original",
       "languageOriginal": "Original",
@@ -1507,7 +1543,8 @@
       "discovery": {
         "publicCategoryNameExists": "A category with that name already exists for this language",
         "publicCategoryLimitExceeded": "A source record can have at most {limit} categories",
-        "publicCategoryHasAssignments": "This category is still assigned to {count} source record(s). Remove those assignments before deleting it.",
+        "publicCategoryHasAssignments": "This category has {count} source record or source mapping reference(s). Remove them before deleting it.",
+        "sourceCategoryMappingConflict": "This mapping changed or the suggestion is no longer valid. Refresh and try again.",
         "publicCategoryTranslationBusy": "Another classification or translation task is running. Try again in a moment."
       }
     }

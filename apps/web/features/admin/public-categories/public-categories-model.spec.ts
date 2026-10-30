@@ -227,7 +227,7 @@ describe('source record helpers', () => {
     );
   });
 
-  it('detects the assigned pair and the assignment cap', () => {
+  it('detects the assigned pair without limiting the category count', () => {
     const assigned = sampleRecord({ categories: [{ id: 'cat-1', name: '科幻' }] });
     expect(isCategoryAssignedToRecord(assigned, 'cat-1')).toBe(true);
     expect(canAssignCategoryToRecord(assigned, 'cat-1')).toBe(false);
@@ -240,7 +240,7 @@ describe('source record helpers', () => {
         { id: 'c', name: 'C' },
       ],
     });
-    expect(canAssignCategoryToRecord(capped, 'cat-1')).toBe(false);
+    expect(canAssignCategoryToRecord(capped, 'cat-1')).toBe(true);
   });
 
   it('gates the candidate search on a minimum term length', () => {

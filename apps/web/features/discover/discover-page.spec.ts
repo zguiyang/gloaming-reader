@@ -188,6 +188,29 @@ beforeEach(() => {
 });
 
 describe('DiscoverPage', () => {
+  it('keeps the category filter compact while retaining every category and the active selection', async () => {
+    mocks.useDiscoverCategoriesQuery.mockReturnValue({
+      data: {
+        items: Array.from({ length: 15 }, (_, index) => ({
+          id: `category-${index}`,
+          name: `分类${index}`,
+          recordCount: 15 - index,
+        })),
+      },
+      isLoading: false,
+    });
+    const view = await renderDiscover();
+    expect(buttonByText(view.container, '分类11')).toBeTruthy();
+    expect(buttonByText(view.container, '分类14')).toBeUndefined();
+    await act(async () => buttonByText(view.container, '更多分类')!.click());
+    expect(buttonByText(view.container, '分类14')).toBeTruthy();
+    await act(async () => buttonByText(view.container, '分类14')!.click());
+    await flush();
+    await act(async () => buttonByText(view.container, '收起分类')!.click());
+    expect(buttonByText(view.container, '分类14')?.getAttribute('aria-pressed')).toBe('true');
+    expect(lastRecordParams()).toMatchObject({ categoryId: 'category-14' });
+    view.cleanup();
+  });
   it('drops the previous viewer list while replacement cover projections are loading', async () => {
     mocks.fetchDiscoverRecords.mockResolvedValue(recordsData([record({ title: 'Member Projection' })]));
     const view = await renderDiscover();

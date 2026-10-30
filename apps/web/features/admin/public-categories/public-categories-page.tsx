@@ -45,6 +45,7 @@ import {
 } from '@/features/admin/public-categories/public-categories-model';
 import { PublicCategoryLabelsEditor } from '@/features/admin/public-categories/public-category-labels-editor';
 import { PublicCategoryRecordsPanel } from '@/features/admin/public-categories/public-category-records-panel';
+import { SourceCategoryMappings } from '@/features/admin/public-categories/source-category-mappings';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -401,6 +402,7 @@ export function PublicCategoriesPage() {
           )}
         </div>
       )}
+      <SourceCategoryMappings categories={categories} />
     </div>
   );
 }

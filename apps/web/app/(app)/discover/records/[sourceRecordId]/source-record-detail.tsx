@@ -41,7 +41,9 @@ export function DiscoverRecordDetailPage({ sourceRecordId }: { sourceRecordId: s
         title: item.title,
         author: item.author,
         coverImageUrl: item.coverImageUrl,
-        description: query.data.description,
+        description: query.data.sourceMeta.summary ?? null,
+        notes: query.data.sourceMeta.notes ?? (query.data.description ? [query.data.description] : []),
+        categories: query.data.categories?.map((category) => category.name),
         actions: <DiscoverSourceCard item={item} detailMode actionsOnly />,
       }}
     />

@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import { t } from '@gloaming/i18n';
 import type { PublicCategoryListItem } from '@gloaming/shared/discovery';
 
@@ -36,6 +38,7 @@ export function DiscoverCategories({
   onRetry,
 }: DiscoverCategoriesProps) {
   const { locale } = useLocale();
+  const [isExpanded, setExpanded] = useState(false);
 
   if (isLoading) {
     return (
@@ -64,6 +67,14 @@ export function DiscoverCategories({
     return null;
   }
 
+  const popular = [...categories].sort((a, b) => b.recordCount - a.recordCount).slice(0, 12);
+  const selected = categories.find((category) => category.id === selectedCategoryId);
+  const visible = isExpanded
+    ? categories
+    : selected && !popular.some((category) => category.id === selected.id)
+      ? [...popular, selected]
+      : popular;
+
   return (
     <nav aria-label={t(locale, 'content.discover.categoriesFilterAria')} className="flex flex-wrap gap-2">
       <button
@@ -74,7 +85,7 @@ export function DiscoverCategories({
       >
         {t(locale, 'content.discover.allCategories')}
       </button>
-      {categories.map((category) => (
+      {visible.map((category) => (
         <button
           key={category.id}
           type="button"
@@ -85,6 +96,16 @@ export function DiscoverCategories({
           {categoryDisplayName(category)}
         </button>
       ))}
+      {categories.length > 12 ? (
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          className={chipClassName(false)}
+          onClick={() => setExpanded(!isExpanded)}
+        >
+          {t(locale, isExpanded ? 'content.discover.fewerCategories' : 'content.discover.moreCategories')}
+        </button>
+      ) : null}
     </nav>
   );
 }

@@ -2,7 +2,6 @@ import { type Locale, SUPPORTED_LOCALES, t } from '@gloaming/i18n';
 import {
   isPublicCategoryTranslationMissing,
   normalizePublicCategoryName,
-  PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
   type PublicCategoryManagementItem,
   type PublicCategoryProvenance,
   resolvePublicCategoryName,
@@ -210,14 +209,13 @@ export function isCategoryAssignedToRecord(record: Pick<SourceRecordItem, 'categ
 }
 
 /**
- * Assignment is capped by the Discovery service; the UI disables the action when
- * the record already holds the product limit or the pair already exists.
+ * The UI disables an already assigned pair; manual assignments have no total cap.
  */
 export function canAssignCategoryToRecord(record: Pick<SourceRecordItem, 'categories'>, categoryId: string): boolean {
   if (isCategoryAssignedToRecord(record, categoryId)) {
     return false;
   }
-  return (record.categories ?? []).length < PUBLIC_CATEGORY_ASSIGNMENT_LIMIT;
+  return true;
 }
 
 /** Assignable-candidate search is explicit: it only runs above the minimum length. */

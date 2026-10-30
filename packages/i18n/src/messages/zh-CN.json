@@ -490,6 +490,35 @@
       }
     },
     "publicCategories": {
+      "sourceMappings": {
+        "title": "来源分类映射",
+        "description": "确认来源分类与公共分类的对应关系。AI 分析仅在点击时运行。",
+        "empty": "暂无来源分类。",
+        "analyze": "AI 分析",
+        "confirm": "确认使用建议",
+        "create": "创建建议分类",
+        "categoryLanguage": "建议分类的语言",
+        "chooseCategory": "选择已有公共分类",
+        "applyCategory": "应用所选分类",
+        "ignore": "暂不映射",
+        "reconcile": "更新已有作品关联",
+        "reconciling": "已有作品关联待更新；点击后将分批处理，关闭页面后可继续。",
+        "changed": "分类映射已改变，请刷新后重试。",
+        "mappedTo": "映射至",
+        "invalidProposal": "建议无效或与已有分类冲突，请人工检查并决定如何处理。",
+        "omittedDetails": "分类信息过多，部分含义未能参与分析；请人工检查后再决定是否创建分类。",
+        "done": "操作完成。",
+        "previous": "上一页",
+        "next": "下一页",
+        "page": "第 {page} 页",
+        "status": {
+          "pending": "待分析",
+          "analyzing": "分析中",
+          "review": "待确认",
+          "confirmed": "已确认",
+          "ignored": "暂不映射"
+        }
+      },
       "page": {
         "title": "公共分类",
         "subtitle": "实例级公共分类的名称与来源记录分配。"
@@ -1087,6 +1116,8 @@
       "categoriesFilterAria": "分类筛选",
       "categoriesAria": "分类",
       "allCategories": "全部",
+      "moreCategories": "更多分类",
+      "fewerCategories": "收起分类",
       "activeFilters": "当前筛选：",
       "clearCategoryFilter": "清除分类筛选：{category}",
       "searchFilterChip": "搜索：{query}",
@@ -1230,6 +1261,11 @@
       "lastReadOn": "最近阅读于 {date}"
     },
     "bookDetail": {
+      "description": "作品简介",
+      "noDescription": "暂无作品简介。",
+      "descriptionExpand": "展开简介",
+      "descriptionCollapse": "收起简介",
+      "sourceNotes": "来源备注",
       "metaTitle": "书籍 · Gloaming Reader",
       "languageOriginalEn": "英文原版",
       "languageOriginal": "原文",
@@ -1510,7 +1546,8 @@
       "discovery": {
         "publicCategoryNameExists": "该语言下已存在同名分类",
         "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类",
-        "publicCategoryHasAssignments": "该分类仍关联着 {count} 条来源记录，请先解除关联后再删除。",
+        "publicCategoryHasAssignments": "该分类仍被 {count} 条来源作品或来源映射引用，请先解除引用后再删除。",
+        "sourceCategoryMappingConflict": "映射已发生变化或建议不再有效，请刷新后重试。",
         "publicCategoryTranslationBusy": "另一项分类或翻译任务正在执行，请稍后重试。"
       }
     }

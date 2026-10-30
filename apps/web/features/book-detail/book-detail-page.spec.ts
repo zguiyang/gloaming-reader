@@ -8,6 +8,27 @@ import { BookDetailPage } from './book-detail-page';
 vi.mock('@/lib/locale-context', () => ({ useLocale: () => ({ locale: 'zh-CN' }) }));
 
 describe('BookDetailPage source record', () => {
+  it('separates source notes from a long description with an expand control', () => {
+    const html = renderToStaticMarkup(
+      createElement(BookDetailPage, {
+        returnTo: '/discover',
+        source: {
+          title: 'A source book',
+          author: 'An author',
+          coverImageUrl: null,
+          description: 'A'.repeat(450),
+          notes: ['Original source note'],
+          actions: null,
+        },
+      }),
+    );
+    expect(html).toContain('作品简介');
+    expect(html).toContain('来源备注');
+    expect(html).toContain('Original source note');
+    expect(html).toContain('展开简介');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain('A'.repeat(450));
+  });
   it('uses the detail page shell while exposing only source actions', () => {
     const html = renderToStaticMarkup(
       createElement(BookDetailPage, {

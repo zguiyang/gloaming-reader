@@ -2,7 +2,7 @@
 
 import { BookmarkIcon, BookOpenIcon, CheckIcon, LanguagesIcon, Loader2Icon } from 'lucide-react';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import { t } from '@gloaming/i18n';
 
@@ -26,6 +26,47 @@ type BookDetailHeroProps = {
   onAddToLibrary: () => void;
   isAddingToLibrary?: boolean;
 };
+
+function BookDescription({ description, notes }: { description: string | null; notes?: string[] }) {
+  const { locale } = useLocale();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const text = description?.trim() ?? '';
+  const isLong = text.length > 400;
+  return (
+    <div className="mx-auto w-full max-w-2xl space-y-4 text-left md:mx-0">
+      <section className="space-y-2">
+        <h2 className="font-heading text-base font-semibold">{t(locale, 'content.bookDetail.description')}</h2>
+        <p className="font-reading whitespace-pre-line break-words text-base leading-7 text-muted-foreground">
+          {text
+            ? isLong && !isExpanded
+              ? `${text.slice(0, 400).trimEnd()}…`
+              : text
+            : t(locale, 'content.bookDetail.noDescription')}
+        </p>
+        {isLong ? (
+          <button
+            type="button"
+            className="text-sm text-primary hover:underline"
+            aria-expanded={isExpanded}
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {t(locale, isExpanded ? 'content.bookDetail.descriptionCollapse' : 'content.bookDetail.descriptionExpand')}
+          </button>
+        ) : null}
+      </section>
+      {notes?.length ? (
+        <section className="space-y-2">
+          <h2 className="font-heading text-base font-semibold">{t(locale, 'content.bookDetail.sourceNotes')}</h2>
+          {notes.map((note, index) => (
+            <p key={index} className="whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
+              {note}
+            </p>
+          ))}
+        </section>
+      ) : null}
+    </div>
+  );
+}
 
 export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibrary }: BookDetailHeroProps) {
   const { locale } = useLocale();
@@ -77,11 +118,7 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
         ) : null}
       </div>
 
-      {book.teaser ? (
-        <p className="font-reading mx-auto max-w-2xl text-base leading-7 text-muted-foreground md:mx-0 md:text-lg md:leading-8 md:italic">
-          {book.teaser}
-        </p>
-      ) : null}
+      <BookDescription description={book.teaser} notes={book.sourceNotes} />
 
       <div className="hidden max-w-xl flex-col gap-4 pt-1 md:flex">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -132,12 +169,16 @@ export function BookDetailSourceHero({
   author,
   coverImageUrl,
   description,
+  notes,
+  categories,
   actions,
 }: {
   title: string;
   author: string;
   coverImageUrl: string | null;
   description: string | null;
+  notes?: string[];
+  categories?: string[];
   actions: ReactNode;
 }) {
   return (
@@ -158,10 +199,15 @@ export function BookDetailSourceHero({
           <p className="font-heading text-lg text-muted-foreground italic md:text-2xl md:leading-8">{author}</p>
         ) : null}
       </div>
-      {description ? (
-        <p className="font-reading mx-auto max-w-2xl whitespace-pre-line text-base leading-7 text-muted-foreground md:mx-0 md:text-lg md:leading-8 md:italic">
-          {description}
-        </p>
+      <BookDescription description={description} notes={notes} />
+      {categories?.length ? (
+        <div className="flex flex-wrap gap-2">
+          {categories.map((category) => (
+            <span key={category} className="rounded-full bg-muted px-3 py-1 text-sm text-muted-foreground">
+              {category}
+            </span>
+          ))}
+        </div>
       ) : null}
       <div className="fixed inset-x-0 z-40 border-t border-border/60 bg-background/95 p-4 backdrop-blur-md bottom-[var(--app-shell-bottom,0px)] md:static md:max-w-xl md:border-0 md:bg-transparent md:p-0 md:pt-1 md:backdrop-blur-none">
         {actions}
