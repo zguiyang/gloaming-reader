@@ -113,7 +113,15 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
     availability: workAvailability(row.work.processingStatus, (partsByWork.get(row.work.id) ?? []).length),
     canRemoveFromLibrary: row.canRemoveFromLibrary,
     libraryItemKind: row.canRemoveFromLibrary ? 'saved_catalog' : 'personal',
-    personalMetadata: row.canRemoveFromLibrary ? null : { author: row.work.author },
+    personalMetadata: row.canRemoveFromLibrary
+      ? null
+      : {
+          author: row.work.author,
+          language: row.work.language,
+          estimatedMinutes: row.work.estimatedMinutes,
+          suggestedVocabSize: row.work.suggestedVocabSize,
+          difficultyScore: row.work.difficultyScore,
+        },
     userTags: userTagsByWork.get(row.work.id) ?? [],
   });
 
@@ -126,6 +134,61 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
       : null,
     items: orderedRows.map(toItem),
     isTruncated,
+  };
+}
+
+/** Owner-scoped single membership, independent of the Library grid limit. */
+export async function getLibraryItem(userId: string, workId: string): Promise<LibraryItem> {
+  const [owned] = await db
+    .select({ work: readingWorkTable, state: readingStateTable })
+    .from(readingWorkTable)
+    .leftJoin(
+      readingStateTable,
+      and(eq(readingStateTable.workId, readingWorkTable.id), eq(readingStateTable.userId, userId)),
+    )
+    .where(and(eq(readingWorkTable.id, workId), eq(readingWorkTable.ownerUserId, userId)))
+    .limit(1);
+  const [saved] = owned
+    ? []
+    : await db
+        .select({ work: readingWorkTable, state: readingStateTable })
+        .from(userLibraryItemTable)
+        .innerJoin(readingWorkTable, eq(userLibraryItemTable.workId, readingWorkTable.id))
+        .leftJoin(
+          readingStateTable,
+          and(eq(readingStateTable.workId, readingWorkTable.id), eq(readingStateTable.userId, userId)),
+        )
+        .where(
+          and(
+            eq(userLibraryItemTable.userId, userId),
+            eq(readingWorkTable.id, workId),
+            workReadAccessSql(workReadActorFromIdentity({ id: userId })),
+          ),
+        )
+        .limit(1);
+  const row = owned ?? saved;
+  if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
+  const [parts, tags] = await Promise.all([
+    loadPartSortOrdersByWorkIds([workId]),
+    loadUserTagsByWorkIds(userId, [workId]),
+  ]);
+  const orders = parts.get(workId) ?? [];
+  return {
+    work: toWorkSummary(row.work),
+    state: row.state ? toReadingState(row.state, orders) : null,
+    availability: workAvailability(row.work.processingStatus, orders.length),
+    canRemoveFromLibrary: !owned,
+    libraryItemKind: owned ? 'personal' : 'saved_catalog',
+    personalMetadata: owned
+      ? {
+          author: row.work.author,
+          language: row.work.language,
+          estimatedMinutes: row.work.estimatedMinutes,
+          suggestedVocabSize: row.work.suggestedVocabSize,
+          difficultyScore: row.work.difficultyScore,
+        }
+      : null,
+    userTags: tags.get(workId) ?? [],
   };
 }
 

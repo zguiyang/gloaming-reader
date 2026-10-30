@@ -118,7 +118,7 @@ export type PublicClassificationCommandResult =
       outcome: PublicClassificationOutcome;
       /**
        * Effective public category ids the record actually carries after this
-       * pass (0-3), including preserved manual associations — not merely the
+       * pass, including preserved manual and source associations — not merely the
        * ids this pass proposed.
        */
       categoryIds: string[];

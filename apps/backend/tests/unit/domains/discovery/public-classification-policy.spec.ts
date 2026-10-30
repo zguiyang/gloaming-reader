@@ -9,6 +9,8 @@ import {
 import {
   buildPublicCategoryTranslationMessages,
   buildPublicClassificationMessages,
+  buildSourceMappingContext,
+  compactSourceMappingCandidates,
   estimatePublicClassificationInputTokens,
   PUBLIC_CLASSIFICATION_SYSTEM_PROMPT,
   publicClassificationInputWithinLimit,
@@ -334,6 +336,51 @@ describe('public classification prompt', () => {
     expect(estimatePublicClassificationInputTokens('abcd')).toBe(1);
     expect(publicClassificationInputWithinLimit('x'.repeat(1_000))).toBe(true);
     expect(publicClassificationInputWithinLimit('汉'.repeat(4_000))).toBe(false);
+  });
+
+  it('compacts mapping candidates without losing names or aliases', () => {
+    const candidates = Array.from({ length: 45 }, (_, index) =>
+      candidate(`category-${index}`, { 'en-US': `Topic ${index}`, 'zh-CN': `主题${index}` }, [
+        { locale: 'en-US', alias: `Alias ${index}` },
+      ]),
+    );
+    const compact = compactSourceMappingCandidates(candidates);
+    expect(compact).toHaveLength(45);
+    expect(compact[0]).toEqual({
+      id: 'category-0',
+      names: ['Topic 0', '主题0'],
+      aliases: ['Alias 0'],
+      meaning: 'category-0 meaning',
+    });
+    const context = JSON.stringify({
+      sourceValue: 'Category: Topic',
+      evidence: [{ title: 'A book', summary: 'A summary.' }],
+      categories: compact,
+    });
+    expect(publicClassificationInputWithinLimit(context)).toBe(true);
+    expect(JSON.stringify(compact).length).toBeLessThan(JSON.stringify(candidates).length);
+  });
+
+  it('reduces evidence and then optional meanings before refusing an oversized vocabulary', () => {
+    const categories = Array.from({ length: 65 }, (_, index) => ({
+      ...candidate(`category-${index}`, { 'en-US': `Topic ${index}`, 'zh-CN': `主题${index}` }, [
+        { locale: 'en-US', alias: `Alias ${index}` },
+      ]),
+      meaning: 'A long description of the category scope. '.repeat(12),
+    }));
+    const input = { sourceValue: 'Category: Topic', evidence: [{ title: 'A book', summary: 'summary '.repeat(100) }] };
+    const result = buildSourceMappingContext(input, categories);
+    expect(result?.meaningsOmitted).toBe(true);
+    const parsed = JSON.parse(result!.content);
+    expect(parsed.categoryMeaningsOmitted).toBe(true);
+    expect(parsed.categories).toHaveLength(65);
+    expect(parsed.categories[0]).toMatchObject({ names: ['Topic 0', '主题0'], aliases: ['Alias 0'] });
+    expect(publicClassificationInputWithinLimit(result!.content)).toBe(true);
+    const oversized = categories.map((category) => ({
+      ...category,
+      aliases: [{ locale: 'zh-CN', alias: '长'.repeat(1000), editedBy: 'manual' as const }],
+    }));
+    expect(buildSourceMappingContext(input, oversized)).toBeNull();
   });
 
   it('builds a translation prompt limited to requested locales', () => {

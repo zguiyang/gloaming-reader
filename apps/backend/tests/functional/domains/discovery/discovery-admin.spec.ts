@@ -5,12 +5,18 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { user as userTable } from '@gloaming/db';
-import { discoverySource as discoverySourceTable } from '@gloaming/db/schema';
+import {
+  discoverySource as discoverySourceTable,
+  publicCategory as publicCategoryTable,
+  sourceCategoryMapping as mappingTable,
+} from '@gloaming/db/schema';
 import { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
 import { discoverySourceStatusSchema, discoverySyncTriggerResultSchema } from '@gloaming/shared/discovery';
 
 import app from '@/app';
 import { JOB_DISCOVERY_SYNC } from '@/application/jobs/discovery-sync';
+import { createManagedCategory } from '@/domains/discovery/categories/service';
+import { getOrCreateSourceCategoryMapping } from '@/domains/discovery/categories/source-category-mapping';
 import { PROJECT_GUTENBERG_SOURCE_KEY } from '@/domains/discovery/gutenberg/constants';
 import { db } from '@/infra/db';
 import { closeQueue, getDiscoverySyncQueue, getQueueConnection } from '@/infra/queue';
@@ -215,6 +221,51 @@ describe('Admin DiscoverySource controls', () => {
 
     const sync = await app.request(`${SOURCE_PATH}/sync`, { method: 'POST', headers: { cookie: userCookie } });
     expect(sync.status).toBe(HTTP_STATUS.FORBIDDEN);
+  });
+
+  it('protects source mapping controls and confirms a mapping without calling AI', async () => {
+    const path = '/api/admin/discovery/source-category-mappings';
+    expect((await app.request(path)).status).toBe(HTTP_STATUS.UNAUTHORIZED);
+    expect((await app.request(path, { headers: { cookie: userCookie } })).status).toBe(HTTP_STATUS.FORBIDDEN);
+    expect(
+      (
+        await app.request(`${path}/missing/analyze`, {
+          method: 'POST',
+          headers: { cookie: userCookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enableThinking: true }),
+        })
+      ).status,
+    ).toBe(HTTP_STATUS.FORBIDDEN);
+    const sourceId = randomUUID();
+    await db
+      .insert(discoverySourceTable)
+      .values({ id: sourceId, sourceKey: `mapping-api-${sourceId}`, sourceType: 'gutenberg_rdf' });
+    const category = await createManagedCategory({ name: `Mapping API ${sourceId}`, locale: 'en-US' });
+    try {
+      const mapping = await getOrCreateSourceCategoryMapping(sourceId, `Category: ${sourceId}`);
+      const response = await app.request(`${path}/${mapping.id}/confirm`, {
+        method: 'POST',
+        headers: { cookie: adminCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ revision: mapping.revision, categoryIds: [category.id] }),
+      });
+      expect(response.status).toBe(HTTP_STATUS.OK);
+      const list = await app.request(`${path}?page=1`, { headers: { cookie: adminCookie } });
+      expect(list.status).toBe(HTTP_STATUS.OK);
+      expect((await list.json()).items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: mapping.id,
+            status: 'confirmed',
+            categoryIds: [category.id],
+            reconciliation: 'pending',
+          }),
+        ]),
+      );
+    } finally {
+      await db.delete(mappingTable).where(eq(mappingTable.sourceId, sourceId));
+      await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
+      await db.delete(publicCategoryTable).where(eq(publicCategoryTable.id, category.id));
+    }
   });
 
   it('reports source status for an administrator', async () => {

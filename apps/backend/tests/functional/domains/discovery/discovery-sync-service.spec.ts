@@ -14,13 +14,21 @@ import {
 import {
   discoverySource as discoverySourceTable,
   discoverySyncRun as discoverySyncRunTable,
+  publicCategory as publicCategoryTable,
+  sourceCategoryMapping as mappingTable,
   sourceRecord as sourceRecordTable,
+  sourceRecordPublicCategory as categoryAssignmentTable,
   sourceRecordPublicClassificationState as stateTable,
 } from '@gloaming/db/schema';
 
 import { JOB_DISCOVERY_SYNC, processDiscoverySync } from '@/application/jobs/discovery-sync';
 import type * as DiscoveryCategories from '@/domains/discovery/categories';
 import { loadDuePublicClassifications } from '@/domains/discovery/categories/incremental-classification-repository';
+import { createManagedCategory } from '@/domains/discovery/categories/service';
+import {
+  confirmSourceCategoryMapping,
+  getOrCreateSourceCategoryMapping,
+} from '@/domains/discovery/categories/source-category-mapping';
 import {
   PROJECT_GUTENBERG_RDF_SNAPSHOT_URL,
   PROJECT_GUTENBERG_SOURCE_KEY,
@@ -326,6 +334,40 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
     expect(second).toMatchObject({ status: 'succeeded', seenRecords: 20, batches: 1 });
 
     expect(await ownedRecordCount()).toBe(20);
+  });
+
+  it('registers source terms, reuses confirmed mappings, and avoids per-work AI jobs', async () => {
+    const term = `Category: ${runId}-adventure`;
+    const mapping = await getOrCreateSourceCategoryMapping(sourceId, term);
+    const category = await createManagedCategory({ name: `Sync category ${runId}`, locale: 'en-US' });
+    try {
+      await confirmSourceCategoryMapping(mapping.id, mapping.revision, [category.id]);
+      snapshotMocks.open.mockImplementation(async () =>
+        fakeSnapshot([fixtureRecord(891, { sourceMeta: { bookshelves: [term, `Category: ${runId}-new`] } })]),
+      );
+      const result = await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
+      expect(result.status).toBe('succeeded');
+      const [record] = await db
+        .select()
+        .from(sourceRecordTable)
+        .where(and(eq(sourceRecordTable.sourceId, sourceId), eq(sourceRecordTable.externalId, `${runId}-891`)));
+      expect(
+        await db.select().from(categoryAssignmentTable).where(eq(categoryAssignmentTable.sourceRecordId, record!.id)),
+      ).toEqual([expect.objectContaining({ categoryId: category.id, source: 'source' })]);
+      expect(await db.select().from(stateTable).where(eq(stateTable.sourceRecordId, record!.id))).toHaveLength(0);
+      expect(
+        await db
+          .select()
+          .from(mappingTable)
+          .where(and(eq(mappingTable.sourceId, sourceId), eq(mappingTable.sourceValue, `Category: ${runId}-new`))),
+      ).toEqual([expect.objectContaining({ status: 'pending' })]);
+    } finally {
+      await db
+        .delete(sourceRecordTable)
+        .where(and(eq(sourceRecordTable.sourceId, sourceId), eq(sourceRecordTable.externalId, `${runId}-891`)));
+      await db.delete(mappingTable).where(eq(mappingTable.id, mapping.id));
+      await db.delete(publicCategoryTable).where(eq(publicCategoryTable.id, category.id));
+    }
   });
 
   it.each(['new', 'changed-legacy', 'changed-completed'] as const)(

@@ -89,6 +89,8 @@ export const workSchema = z.object({
   title: z.string(),
   author: z.string(),
   description: z.string(),
+  sourceSummary: z.string().nullable().optional(),
+  sourceNotes: z.array(z.string()).optional(),
   language: z.string(),
   processingStatus: workProcessingStatusSchema,
   visibility: workVisibilitySchema,

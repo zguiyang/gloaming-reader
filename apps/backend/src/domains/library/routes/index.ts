@@ -15,6 +15,10 @@ libraryRoutes.get('/api/library', requireAuth, async (c) => {
   return c.json(data);
 });
 
+libraryRoutes.get('/api/library/items/:workId', requireAuth, async (c) => {
+  return c.json(await libraryService.getLibraryItem(c.get('user')!.id, c.req.param('workId')));
+});
+
 /** Save a SourceRecord by its Discover identity; membership follows once import is readable. */
 libraryRoutes.post('/api/library/source-records/:sourceRecordId', requireAuth, async (c) => {
   const user = c.get('user')!;

@@ -1,6 +1,5 @@
 import { SUPPORTED_LOCALES } from '@gloaming/i18n';
 import {
-  PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
   type PublicCategory,
   type PublicCategoryListItem,
   type PublicCategoryManagementItem,
@@ -100,35 +99,36 @@ export function toPublicCategoryManagementItem(
   return { ...category, recordCount, missingLocales: missingPublicCategoryLocales(category) };
 }
 
-export type CategoryAssignmentDecision = 'insert' | 'promote' | 'keep' | 'noop' | 'limit';
+export type CategoryAssignmentDecision = 'insert' | 'promote' | 'keep' | 'noop';
 
 /**
  * Decide how one assignment request resolves against the current pair/count.
  *
- * - A `manual` assignment always wins: it inserts, or promotes an existing `ai`
+ * - A `manual` assignment always wins: it inserts, or promotes an existing automatic
  *   row to `manual`, and clears any suppression before reaching this policy.
  * - An `ai` assignment never overrides a `manual` row and never restores an
  *   explicitly suppressed pair (it becomes a no-op), and an existing `ai` row is
- *   already idempotent.
- * - A net-new assignment of either provenance is rejected once the record already
- *   holds `PUBLIC_CATEGORY_ASSIGNMENT_LIMIT` categories.
+ *   already idempotent. A source-owned row is promoted to AI when an AI pass
+ *   independently selects it; source support remains separately recorded.
+ * - Each valid new association can be inserted; AI output is bounded separately.
  */
 export function decideCategoryAssignment(input: {
   incomingSource: PublicCategoryProvenance;
-  existingSource: PublicCategoryProvenance | null;
-  assignmentCount: number;
+  existingSource: PublicCategoryProvenance | 'source' | null;
+  assignmentCount?: number;
   suppressed: boolean;
 }): CategoryAssignmentDecision {
   if (input.incomingSource === 'manual') {
     if (input.existingSource === 'manual') return 'noop';
-    if (input.existingSource === 'ai') return 'promote';
-    return input.assignmentCount >= PUBLIC_CATEGORY_ASSIGNMENT_LIMIT ? 'limit' : 'insert';
+    if (input.existingSource === 'ai' || input.existingSource === 'source') return 'promote';
+    return 'insert';
   }
 
   if (input.existingSource === 'manual') return 'keep';
+  if (input.existingSource === 'source') return 'promote';
   if (input.existingSource === 'ai') return 'noop';
   if (input.suppressed) return 'keep';
-  return input.assignmentCount >= PUBLIC_CATEGORY_ASSIGNMENT_LIMIT ? 'limit' : 'insert';
+  return 'insert';
 }
 
 /**
@@ -136,6 +136,6 @@ export function decideCategoryAssignment(input: {
  * that exact pair, regardless of the removed row's provenance, so a later AI
  * retry cannot restore it. Removing a pair that was never assigned is a no-op.
  */
-export function shouldSuppressOnRemoval(existingSource: PublicCategoryProvenance | null): boolean {
+export function shouldSuppressOnRemoval(existingSource: PublicCategoryProvenance | 'source' | null): boolean {
   return existingSource !== null;
 }

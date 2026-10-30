@@ -333,7 +333,7 @@ describe('public classification service on gloaming_test', () => {
     expect(await listAssignmentsForRecord(recordId)).toHaveLength(0);
   });
 
-  it('preserves manual assignments and the 0-3 cap', async () => {
+  it('preserves manual assignments and permits more than three total categories', async () => {
     const manual = await Promise.all([
       createCategory(`Manual One ${suffix}`),
       createCategory(`Manual Two ${suffix}`),
@@ -343,14 +343,14 @@ describe('public classification service on gloaming_test', () => {
     const recordId = await insertRecord();
     for (const category of manual) await assignCategoryToSourceRecord(recordId, category.id, 'manual');
 
-    // AI may not add a fourth category, and re-proposing a manual row is a no-op.
+    // Re-proposing a manual row is a no-op; the per-decision AI cap remains separate.
     invokeAiMock.mockResolvedValueOnce(aiResult(reuseDecision([extra.id, manual[0]!.id])));
     const blocked = await classifySourceRecordForPublicCategories(recordId);
     expect(blocked.status).toBe('completed');
     const afterBlocked = await listAssignmentsForRecord(recordId);
-    expect(afterBlocked).toHaveLength(3);
+    expect(afterBlocked).toHaveLength(4);
     expect(afterBlocked.find((row) => row.categoryId === manual[0]!.id)?.source).toBe('manual');
-    expect(afterBlocked.some((row) => row.categoryId === extra.id)).toBe(false);
+    expect(afterBlocked.some((row) => row.categoryId === extra.id)).toBe(true);
   });
 
   it('does not restore an explicitly removed pair on a normal AI retry', async () => {

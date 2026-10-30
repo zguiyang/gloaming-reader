@@ -3,6 +3,7 @@ import type {
   PublicClassificationCommandResult,
   PublicClassificationDeferredReason,
 } from '@/domains/discovery/categories/classification-contract';
+import { loadClassifiableSourceRecord } from '@/domains/discovery/categories/classification-repository';
 import {
   completePublicClassification,
   deferPublicClassification,
@@ -44,6 +45,19 @@ export async function processPublicClassification(
   });
   if (verdict !== 'eligible') {
     return { status: 'skipped', reason: verdict };
+  }
+
+  // A legacy job may already exist when source-term mapping is introduced.
+  // Do not invoke per-record AI for a record now handled by source mappings.
+  const source = await loadClassifiableSourceRecord(data.sourceRecordId);
+  if (source?.sourceMeta.bookshelves?.some((value) => value.startsWith('Category: '))) {
+    const applied = await completePublicClassification({
+      sourceRecordId: data.sourceRecordId,
+      fingerprint: data.fingerprint,
+    });
+    return applied
+      ? { status: 'skipped', reason: 'source_category_mapping' }
+      : { status: 'skipped', reason: 'superseded' };
   }
 
   let result: PublicClassificationCommandResult;

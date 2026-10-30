@@ -3,7 +3,6 @@ import {
   type CategorySourceRecordListQuery,
   DISCOVERY_DEFAULT_LANGUAGE,
   normalizePublicCategoryName,
-  PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
   type PublicCategoryListData,
   type PublicCategoryListItem,
   type PublicCategoryManagementItem,
@@ -25,7 +24,7 @@ import {
   clearSuppression,
   countAssignmentsByCategoryIds,
   countAssignmentsForCategory,
-  countAssignmentsForRecord,
+  countMappingsForCategory,
   countPublicRecordsByCategoryIds,
   deleteAssignment,
   deleteCategoryRow,
@@ -56,12 +55,6 @@ import { ERROR_CODES } from '@/shared/errors/codes';
 
 function categoryNameExists(): AppError {
   return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_NAME_EXISTS);
-}
-
-function categoryLimitExceeded(): AppError {
-  return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_LIMIT_EXCEEDED, {
-    limit: PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
-  });
 }
 
 function categoryHasAssignments(count: number): AppError {
@@ -326,8 +319,11 @@ export async function deleteManagedCategory(categoryId: string): Promise<void> {
     const row = await lockCategoryRow(tx, categoryId);
     if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
 
-    const assignmentCount = await countAssignmentsForCategory(tx, categoryId);
-    if (assignmentCount > 0) throw categoryHasAssignments(assignmentCount);
+    const [assignmentCount, mappingCount] = await Promise.all([
+      countAssignmentsForCategory(tx, categoryId),
+      countMappingsForCategory(tx, categoryId),
+    ]);
+    if (assignmentCount + mappingCount > 0) throw categoryHasAssignments(assignmentCount + mappingCount);
 
     await deleteCategoryRow(tx, categoryId);
   });
@@ -335,7 +331,7 @@ export async function deleteManagedCategory(categoryId: string): Promise<void> {
 
 /**
  * Assign a category to a SourceRecord. The SourceRecord row is locked so
- * concurrent requests serialize: the 0–3 cap cannot be exceeded, repeats are
+ * concurrent requests serialize, repeats are
  * idempotent, a manual assignment promotes/keeps over an AI one, and an explicit
  * manual assignment clears any prior suppression for that exact pair.
  */
@@ -357,17 +353,14 @@ export async function assignCategoryToSourceRecord(
     }
 
     const existing = await getAssignmentRow(tx, sourceRecordId, categoryId);
-    const assignmentCount = await countAssignmentsForRecord(tx, sourceRecordId);
     const suppressed = incomingSource === 'ai' ? await hasSuppression(tx, sourceRecordId, categoryId) : false;
 
     const decision = decideCategoryAssignment({
       incomingSource,
       existingSource: existing?.source ?? null,
-      assignmentCount,
       suppressed,
     });
 
-    if (decision === 'limit') throw categoryLimitExceeded();
     if (decision === 'insert' || decision === 'promote') {
       await upsertAssignment(tx, { sourceRecordId, categoryId, source: incomingSource });
     }

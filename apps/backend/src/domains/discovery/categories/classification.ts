@@ -109,7 +109,7 @@ async function resolveNewPublicCategory(input: {
  * Persist a validated decision: reuse existing stable ids and create only the
  * approved new concepts, resolving an exact name collision to the existing id.
  * Raw `sourceMeta` is never written. The shared assignment policy preserves
- * manual assignments and suppression and enforces the 0-3 limit. Every outcome
+ * manual assignments and suppression and bounds each AI decision to three. Every outcome
  * except a review abstention reconciles the record's AI associations to this
  * pass inside one locked transaction, so stale AI rows are removed while manual
  * rows and suppression memory survive; `categoryIds` reports the associations

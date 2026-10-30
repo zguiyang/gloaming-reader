@@ -38,6 +38,46 @@ export function publicClassificationInputWithinLimit(text: string): boolean {
   return estimatePublicClassificationInputTokens(text) <= AI_INPUT_TOKEN_LIMIT;
 }
 
+/** Keep all category names and aliases while excluding management-only metadata. */
+export function compactSourceMappingCandidates(candidates: PublicCategory[]) {
+  return candidates.map(({ id, localizedNames, aliases, meaning }) => ({
+    id,
+    names: Object.values(localizedNames),
+    aliases: aliases.map(({ alias }) => alias),
+    meaning,
+  }));
+}
+
+/** Fit the entire vocabulary into the budget, without dropping names or aliases. */
+export function buildSourceMappingContext(
+  input: {
+    sourceId?: string;
+    sourceValue: string;
+    evidence: Array<{ title: string; summary: string }>;
+    proposal?: unknown;
+  },
+  candidates: PublicCategory[],
+): { content: string; meaningsOmitted: boolean } | null {
+  const full = compactSourceMappingCandidates(candidates);
+  const withoutMeanings = full.map(({ id, names, aliases }) => ({ id, names, aliases }));
+  for (const [summaryLimit, meaningsOmitted] of [
+    [500, false],
+    [160, false],
+    [500, true],
+    [160, true],
+    [0, true],
+  ] as const) {
+    const content = JSON.stringify({
+      ...input,
+      evidence: input.evidence.map((item) => ({ ...item, summary: item.summary.slice(0, summaryLimit) })),
+      categories: meaningsOmitted ? withoutMeanings : full,
+      ...(meaningsOmitted ? { categoryMeaningsOmitted: true } : {}),
+    });
+    if (publicClassificationInputWithinLimit(content)) return { content, meaningsOmitted };
+  }
+  return null;
+}
+
 function boundedSourceRecord(record: ClassifiableSourceRecord) {
   return {
     title: bound(record.title, INPUT_TITLE_MAX),

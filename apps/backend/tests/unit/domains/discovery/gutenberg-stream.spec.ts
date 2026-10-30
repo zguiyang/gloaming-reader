@@ -186,6 +186,19 @@ describe('Gutenberg tar reader', () => {
 });
 
 describe('Gutenberg RDF parsing', () => {
+  it('preserves the Gutenberg summary separately from source notes', () => {
+    const rdf = buildEbookRdf({ externalId: '1342', title: 'Pride', agentName: 'Austen' })
+      .toString('utf8')
+      .replace(
+        '<dcterms:rights>',
+        '<pgterms:marc520>A summary. (This is an automatically generated summary.)</pgterms:marc520><dcterms:rights>',
+      );
+    const record = parseGutenbergRdf(Buffer.from(rdf), 'pg1342.rdf');
+    expect(record?.sourceMeta.summary).toBe('A summary. (This is an automatically generated summary.)');
+    expect(record?.sourceMeta.notes).toEqual(['A local synthetic fixture description.']);
+    expect(record?.description).toBe('A local synthetic fixture description.');
+  });
+
   it('maps a single ebook member onto the SourceRecord shape', () => {
     const record = parseGutenbergRdf(
       buildEbookRdf({ externalId: '1342', title: 'Pride', agentName: 'Austen' }),

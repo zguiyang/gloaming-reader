@@ -297,6 +297,16 @@ describe('incremental public classification on gloaming_test', () => {
     expect(invokeAiMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not call AI for a legacy job when a source browse category is present', async () => {
+    const record = fixtureRecord(987, { sourceMeta: { bookshelves: ['Category: Adventure'] } });
+    const recordId = await insertAndRegister(record);
+    const run = await dispatchAndRun(new Set([recordId]));
+    expect(run.results).toEqual([{ status: 'skipped', reason: 'source_category_mapping' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+    const state = await readState(recordId);
+    expect(state?.completedFingerprint).toBe(state?.evidenceFingerprint);
+  });
+
   it('re-triggers exactly once on a substantive metadata change', async () => {
     const category = await createCategory('Material Change');
     const original = fixtureRecord(2);
@@ -428,14 +438,14 @@ describe('incremental public classification on gloaming_test', () => {
     const manualRecordId = await insertAndRegister(fixtureRecord(7));
     for (const category of manual) await assignCategoryToSourceRecord(manualRecordId, category.id, 'manual');
 
-    // AI may not add a fourth category and may not overwrite the manual rows.
+    // AI may add a fourth category but may not overwrite the manual rows.
     invokeAiMock.mockResolvedValue(aiResult(reuseDecision([blocked.id, manual[0]!.id])));
     const manualRun = await dispatchAndRun(new Set([manualRecordId]));
     expect(manualRun.results).toEqual([{ status: 'completed' }]);
     const preserved = await listAssignmentsForRecord(manualRecordId);
-    expect(preserved).toHaveLength(3);
-    expect(preserved.every((row) => row.source === 'manual')).toBe(true);
-    expect(preserved.some((row) => row.categoryId === blocked.id)).toBe(false);
+    expect(preserved).toHaveLength(4);
+    expect(preserved.filter((row) => row.source === 'manual')).toHaveLength(3);
+    expect(preserved.some((row) => row.categoryId === blocked.id && row.source === 'ai')).toBe(true);
 
     // An explicitly removed AI pair stays suppressed on a later classification.
     const suppressedCategory = await createCategory('Suppressed Pair');

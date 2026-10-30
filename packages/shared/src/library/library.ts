@@ -63,7 +63,15 @@ export const libraryItemSchema = z.object({
   /** Stable ownership/membership semantics; does not infer source from origin metadata. */
   libraryItemKind: z.enum(['personal', 'saved_catalog']),
   /** Owner-editable fields that are not part of the public Reader summary. */
-  personalMetadata: z.object({ author: z.string() }).nullable(),
+  personalMetadata: z
+    .object({
+      author: z.string(),
+      language: z.string().optional(),
+      estimatedMinutes: z.number().int().nonnegative().nullable().optional(),
+      suggestedVocabSize: z.number().int().positive().nullable().optional(),
+      difficultyScore: z.number().int().min(1).max(5).nullable().optional(),
+    })
+    .nullable(),
   /** True only for explicitly saved Catalog works; owned books are not removable from Library. */
   canRemoveFromLibrary: z.boolean(),
   /** Private organization labels owned by the current user. */

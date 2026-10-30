@@ -44,9 +44,44 @@ export type SourceRecordContentCandidate = z.infer<typeof sourceRecordContentCan
 export const sourceRecordSourceMetaSchema = z.object({
   subjects: z.array(z.string()).optional(),
   bookshelves: z.array(z.string()).optional(),
+  summary: z.string().optional(),
+  notes: z.array(z.string()).optional(),
   extra: z.record(z.string(), z.unknown()).optional(),
 });
 export type SourceRecordSourceMeta = z.infer<typeof sourceRecordSourceMetaSchema>;
+
+/** Admin-visible source category mapping; raw source terms remain source-owned. */
+export const sourceCategoryMappingSchema = z.object({
+  id: z.string(),
+  sourceKey: z.string(),
+  sourceValue: z.string(),
+  status: z.enum(['pending', 'analyzing', 'review', 'confirmed', 'ignored']),
+  revision: z.number().int().nonnegative(),
+  suggestion: z
+    .object({
+      outcome: z.enum(['reuse', 'create', 'ignore', 'review']),
+      categoryIds: z.array(z.string()),
+      newName: z.string().nullable(),
+      meaning: z.string().nullable(),
+      rationale: z.string(),
+    })
+    .nullable(),
+  categoryIds: z.array(z.string()),
+  lastError: z.string().nullable(),
+  leaseUntil: z.string().nullable(),
+  canAnalyze: z.boolean(),
+  reconciliation: z.enum(['pending', 'completed']).nullable(),
+});
+export const sourceCategoryMappingListSchema = z.object({
+  items: z.array(sourceCategoryMappingSchema),
+  hasMore: z.boolean(),
+});
+export const sourceCategoryMappingConfirmSchema = z.object({
+  revision: z.number().int().nonnegative(),
+  categoryIds: z.array(z.string().min(1)).min(1).max(12),
+});
+export const sourceCategoryMappingRevisionSchema = z.object({ revision: z.number().int().nonnegative() });
+export type SourceCategoryMapping = z.infer<typeof sourceCategoryMappingSchema>;
 
 /** Provenance shared by a public category, its labels, and its source assignments. */
 export const PUBLIC_CATEGORY_PROVENANCES = ['manual', 'ai'] as const;
@@ -57,8 +92,7 @@ export const publicCategoryProvenanceSchema = z.enum(PUBLIC_CATEGORY_PROVENANCES
 export const PUBLIC_CATEGORY_NAME_MAX_CHARS = 80 as const;
 
 /**
- * Product cap: one SourceRecord carries at most this many public categories.
- * Enforced by the owning Discovery category service, not by the database.
+ * Per-invocation AI output cap; a SourceRecord can carry more associations.
  */
 export const PUBLIC_CATEGORY_ASSIGNMENT_LIMIT = 3 as const;
 
@@ -202,7 +236,7 @@ export type PublicCategoryManagementItem = z.infer<typeof publicCategoryManageme
 /** One public category assigned to one SourceRecord, with assignment provenance. */
 export const sourceRecordPublicCategorySchema = z.object({
   categoryId: z.string(),
-  source: publicCategoryProvenanceSchema,
+  source: z.enum(['manual', 'ai', 'source']),
 });
 export type SourceRecordPublicCategory = z.infer<typeof sourceRecordPublicCategorySchema>;
 

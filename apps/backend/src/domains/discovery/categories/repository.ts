@@ -7,6 +7,7 @@ import {
   publicCategory as publicCategoryTable,
   publicCategoryAlias as publicCategoryAliasTable,
   publicCategoryLabel as publicCategoryLabelTable,
+  sourceCategoryMappingCategory as sourceCategoryMappingCategoryTable,
   sourceRecord as sourceRecordTable,
   sourceRecordPublicCategory as sourceRecordPublicCategoryTable,
   sourceRecordPublicCategorySuppression as sourceRecordPublicCategorySuppressionTable,
@@ -260,6 +261,14 @@ export async function countAssignmentsForCategory(tx: CategoryTx, categoryId: st
   return Number(row?.value ?? 0);
 }
 
+export async function countMappingsForCategory(tx: CategoryTx, categoryId: string): Promise<number> {
+  const [row] = await tx
+    .select({ value: count() })
+    .from(sourceCategoryMappingCategoryTable)
+    .where(eq(sourceCategoryMappingCategoryTable.categoryId, categoryId));
+  return Number(row?.value ?? 0);
+}
+
 /** Removes the category row; owned labels/aliases/suppressions go via ON DELETE CASCADE. */
 export async function deleteCategoryRow(tx: CategoryTx, categoryId: string): Promise<number> {
   const result = await tx.delete(publicCategoryTable).where(eq(publicCategoryTable.id, categoryId));
@@ -342,7 +351,7 @@ export async function insertSuppression(tx: CategoryTx, sourceRecordId: string, 
 
 export async function upsertAssignment(
   tx: CategoryTx,
-  input: { sourceRecordId: string; categoryId: string; source: PublicCategoryProvenance },
+  input: { sourceRecordId: string; categoryId: string; source: PublicCategoryProvenance | 'source' },
 ): Promise<void> {
   await tx
     .insert(sourceRecordPublicCategoryTable)

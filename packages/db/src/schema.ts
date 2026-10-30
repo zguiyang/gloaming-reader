@@ -1093,6 +1093,8 @@ export type SourceRecordAuthor = {
 export type SourceRecordSourceMeta = {
   subjects?: string[];
   bookshelves?: string[];
+  summary?: string;
+  notes?: string[];
   extra?: Record<string, unknown>;
 };
 
@@ -1327,6 +1329,66 @@ export const sourceRecordSaveIntentRelations = relations(sourceRecordSaveIntent,
 /** Provenance for a public Discover category, its labels, and SourceRecord assignments. */
 export type PublicCategoryProvenance = 'manual' | 'ai';
 
+/** Source-scoped classification proposals; pending suggestions never affect Discover. */
+export const sourceCategoryMapping = pgTable(
+  'source_category_mapping',
+  {
+    id: text('id').primaryKey(),
+    sourceId: text('source_id')
+      .notNull()
+      .references(() => discoverySource.id, { onDelete: 'cascade' }),
+    sourceValue: text('source_value').notNull(),
+    normalizedValue: text('normalized_value').notNull(),
+    status: text('status')
+      .$type<'pending' | 'analyzing' | 'review' | 'confirmed' | 'ignored'>()
+      .default('pending')
+      .notNull(),
+    suggestion: jsonb('suggestion').$type<Record<string, unknown> | null>(),
+    leaseUntil: timestamp('lease_until'),
+    lastError: text('last_error'),
+    revision: integer('revision').default(0).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    unique('source_category_mapping_source_value_uidx').on(table.sourceId, table.normalizedValue),
+    check(
+      'source_category_mapping_status_check',
+      sql`${table.status} in ('pending', 'analyzing', 'review', 'confirmed', 'ignored')`,
+    ),
+    check('source_category_mapping_value_check', sql`length(${table.normalizedValue}) > 0`),
+  ],
+);
+
+/** Confirmed many-to-many mappings to existing public category identities. */
+export const sourceCategoryMappingCategory = pgTable(
+  'source_category_mapping_category',
+  {
+    mappingId: text('mapping_id')
+      .notNull()
+      .references(() => sourceCategoryMapping.id, { onDelete: 'cascade' }),
+    categoryId: text('category_id')
+      .notNull()
+      .references(() => publicCategory.id, { onDelete: 'restrict' }),
+  },
+  (table) => [unique('source_category_mapping_category_uidx').on(table.mappingId, table.categoryId)],
+);
+
+/** Durable recalculation cursor; dispatch is deliberately not connected to any worker. */
+export const sourceCategoryReconciliation = pgTable(
+  'source_category_reconciliation',
+  {
+    mappingId: text('mapping_id')
+      .primaryKey()
+      .references(() => sourceCategoryMapping.id, { onDelete: 'cascade' }),
+    revision: integer('revision').notNull(),
+    cursor: text('cursor'),
+    status: text('status').$type<'pending' | 'completed'>().default('pending').notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [check('source_category_reconciliation_status_check', sql`${table.status} in ('pending', 'completed')`)],
+);
+
 /**
  * One flat, stable, instance-wide Discover category. Identity is `id`; localized
  * display names live on `public_category_label`, so renaming or translating a
@@ -1436,7 +1498,7 @@ export const publicCategoryAlias = pgTable(
  * Many-to-many public classification of a SourceRecord. Raw `sourceMeta`
  * Subjects/Bookshelves remain untouched; these rows are the projected product
  * categories. One category may classify many records and a record may carry
- * several categories; the owning service enforces the 0–3 product limit.
+ * several categories. Individual AI decisions have a separate output limit.
  */
 export const sourceRecordPublicCategory = pgTable(
   'source_record_public_category',
@@ -1445,7 +1507,7 @@ export const sourceRecordPublicCategory = pgTable(
     sourceRecordId: text('source_record_id').notNull(),
     categoryId: text('category_id').notNull(),
     /** Assignment provenance: `manual` for explicit assignment, `ai` for automatic classification. */
-    source: text('source').$type<PublicCategoryProvenance>().default('manual').notNull(),
+    source: text('source').$type<PublicCategoryProvenance | 'source'>().default('manual').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => [
@@ -1461,8 +1523,22 @@ export const sourceRecordPublicCategory = pgTable(
     }).onDelete('cascade'),
     unique('source_record_public_category_record_category_uidx').on(table.sourceRecordId, table.categoryId),
     index('source_record_public_category_category_idx').on(table.categoryId),
-    check('source_record_public_category_source_check', sql`${table.source} in ('manual', 'ai')`),
+    check('source_record_public_category_source_check', sql`${table.source} in ('manual', 'ai', 'source')`),
   ],
+);
+
+/** Mapping-derived support for a record/category pair, independent of its assignment owner. */
+export const sourceRecordCategoryMappingSupport = pgTable(
+  'source_record_category_mapping_support',
+  {
+    sourceRecordId: text('source_record_id')
+      .notNull()
+      .references(() => sourceRecord.id, { onDelete: 'cascade' }),
+    categoryId: text('category_id')
+      .notNull()
+      .references(() => publicCategory.id, { onDelete: 'cascade' }),
+  },
+  (table) => [unique('source_record_category_mapping_support_uidx').on(table.sourceRecordId, table.categoryId)],
 );
 
 /**

@@ -209,6 +209,10 @@ describe('Library HTTP', () => {
       visibility: 'private',
       originKind: 'user_epub',
       processingStatus: 'ready',
+      language: 'en',
+      difficultyScore: 3,
+      suggestedVocabSize: 2500,
+      estimatedMinutes: 42,
     });
     await db
       .insert(readingPartTable)
@@ -244,6 +248,14 @@ describe('Library HTTP', () => {
     });
     expect(ownerData.items.find((item) => item.work.id === processingWorkId)?.availability).toBe('processing');
     expect(ownerData.items.find((item) => item.work.id === failedWorkId)?.availability).toBe('failed');
+    expect((await app.request(`/api/library/items/${workId}`)).status).toBe(401);
+    expect((await app.request(`/api/library/items/${workId}`, { headers: { cookie: other.cookie } })).status).toBe(404);
+    const ownDetail = await app.request(`/api/library/items/${workId}`, { headers: { cookie: owner.cookie } });
+    expect(ownDetail.status).toBe(200);
+    expect(await ownDetail.json()).toMatchObject({
+      libraryItemKind: 'personal',
+      personalMetadata: { language: 'en', difficultyScore: 3, suggestedVocabSize: 2500, estimatedMinutes: 42 },
+    });
     expect(
       (await app.request(`/api/library/${workId}`, { method: 'POST', headers: { cookie: owner.cookie } })).status,
     ).toBe(404);

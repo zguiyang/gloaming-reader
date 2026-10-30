@@ -94,5 +94,19 @@ export async function getCatalogWork(actor: WorkReadActor, id: string): Promise<
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   const hydrated = await ensureWorkReadingStatsIfMissing(row);
-  return toWork(hydrated);
+  const [source] = await db
+    .select({ meta: sourceRecordTable.sourceMeta, description: sourceRecordTable.description })
+    .from(sourceRecordTable)
+    .where(eq(sourceRecordTable.workId, id))
+    .limit(1);
+  return {
+    ...toWork(hydrated),
+    ...(source
+      ? {
+          sourceSummary:
+            source.meta.summary ?? (hydrated.description !== source.description ? hydrated.description || null : null),
+          sourceNotes: source.meta.notes ?? (source.description ? [source.description] : []),
+        }
+      : {}),
+  };
 }

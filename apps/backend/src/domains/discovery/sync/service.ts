@@ -3,8 +3,11 @@ import type { SourceRecordAuthor, SourceRecordSourceMeta } from '@gloaming/db/sc
 import { coverUrlHost, workCoverRefreshJobId } from '@/application/jobs/work-cover-refresh';
 import {
   computePublicClassificationFingerprint,
+  normalizeSourceCategory,
   type PublicClassificationEvidence,
+  reconcileSourceCategoryAssignments,
   recordPublicClassificationEvidenceBatch,
+  registerSourceCategoryTerms,
 } from '@/domains/discovery/categories';
 import {
   PROJECT_GUTENBERG_RDF_SNAPSHOT_URL,
@@ -378,6 +381,28 @@ async function consumeSnapshot(input: {
       updatedWorkMetadata += await syncLinkedWorkMetadata(records, upserted, previousWorkMetadata, tx);
       coverRefreshCandidates = detectCoverRefreshCandidates(records, upserted, previousWorkMetadata);
       throwIfRunAborted(signal);
+      const browseTerms = records.flatMap((record) =>
+        (record.sourceMeta.bookshelves ?? []).filter((value) => value.startsWith('Category: ')),
+      );
+      const confirmedTerms = await registerSourceCategoryTerms(sourceId, browseTerms, tx);
+      const recordById = new Map(records.map((record) => [record.externalId, record]));
+      for (const row of upserted) {
+        const record = recordById.get(row.externalId);
+        if (!record) throw new Error('Missing source record for classification');
+        const previous = previousEvidence.get(row.externalId);
+        const categoryInputs = (meta: SourceRecordSourceMeta) =>
+          JSON.stringify([meta.subjects ?? [], meta.bookshelves ?? []]);
+        const hasConfirmedSourceTerm = (record.sourceMeta.bookshelves ?? []).some((value) =>
+          confirmedTerms.has(normalizeSourceCategory(value)),
+        );
+        if (
+          (!previous && hasConfirmedSourceTerm) ||
+          (previous && categoryInputs(previous.sourceMeta) !== categoryInputs(record.sourceMeta))
+        ) {
+          await reconcileSourceCategoryAssignments(row.id, tx);
+        }
+      }
+      throwIfRunAborted(signal);
       await registerIncrementalClassification(records, upserted, previousEvidence, tx);
       throwIfRunAborted(signal);
       // Progress advances inside the batch transaction: a rolled-back batch
@@ -571,7 +596,15 @@ async function registerIncrementalClassification(
       isNew: !previous,
     };
   });
-  await recordPublicClassificationEvidenceBatch(candidates, new Date(), executor);
+  // Source browse categories have their own reusable mapping workflow; avoid
+  // scheduling a separate per-work AI classification for the same input.
+  const upsertedById = new Map(upserted.map((row) => [row.id, row]));
+  const fallbackCandidates = candidates.filter((candidate) => {
+    const row = upsertedById.get(candidate.sourceRecordId);
+    const record = row ? recordByExternalId.get(row.externalId) : undefined;
+    return !record?.sourceMeta.bookshelves?.some((value) => value.startsWith('Category: '));
+  });
+  await recordPublicClassificationEvidenceBatch(fallbackCandidates, new Date(), executor);
 }
 
 function toSyncErrorSummary(error: unknown, signal?: AbortSignal): string {

@@ -24,7 +24,7 @@ Related: [`personal-tags.md`](./personal-tags.md) · [`content-strategy.md`](./c
 ## 3. AI classification
 
 - AI classification uses the **instance provider**, not personal BYOK.
-- The established classification contract allows zero to three categories per record; do not fill the count without evidence. This domain constraint is distinct from the removed daily business quotas.
+- Each AI classification decision selects zero to three categories; a record can hold more associations from manual decisions and source mappings. Do not fill the AI decision count without evidence.
 - Distinguish concept identity from applicability: reuse an identity only for an equivalent concept, not merely a related or broader/narrower one. Existing categories or combinations may still apply to a book with a more specific topic.
 - Prefer adequate existing coverage. Create a category only when coverage is insufficient and the concept has durable public navigation value. An empty catalog does not require a seeded vocabulary.
 - Insufficient evidence permits abstention; ambiguity permits review. Neither result authorizes invented classifications or silent edits to existing categories.

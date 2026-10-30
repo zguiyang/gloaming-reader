@@ -57,3 +57,14 @@ export {
   unassignCategoryFromSourceRecord,
   updateManagedCategoryLabel,
 } from './service';
+export {
+  confirmNewSourceCategory,
+  confirmSourceCategoryMapping,
+  ignoreSourceCategoryMapping,
+  listSourceCategoryMappings,
+  normalizeSourceCategory,
+  reconcileSourceCategoryAssignments,
+  registerSourceCategoryTerms,
+  runSourceCategoryReconciliationBatch,
+  suggestSourceCategoryMapping,
+} from './source-category-mapping';

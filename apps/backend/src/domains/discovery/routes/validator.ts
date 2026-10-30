@@ -8,6 +8,8 @@ import {
   discoverySourceEnabledUpdateSchema,
   publicCategoryListQuerySchema,
   publicCategoryWriteSchema,
+  sourceCategoryMappingConfirmSchema,
+  sourceCategoryMappingRevisionSchema,
   sourceRecordListQuerySchema,
 } from '@gloaming/shared/discovery';
 
@@ -46,6 +48,20 @@ export const validateCategorySourceRecordListQuery = validated('query', category
 export const validateAdminSourceRecordListQuery = validated('query', categorySourceRecordListQuerySchema);
 
 export const validateSourceEnabledUpdate = validated('json', discoverySourceEnabledUpdateSchema);
+export const validateSourceMappingList = validated(
+  'query',
+  z.object({ page: z.coerce.number().int().min(1).max(10000).default(1) }),
+);
+export const validateSourceMappingConfirm = validated('json', sourceCategoryMappingConfirmSchema);
+export const validateSourceMappingRevision = validated('json', sourceCategoryMappingRevisionSchema);
+export const validateSourceMappingCreate = validated(
+  'json',
+  sourceCategoryMappingRevisionSchema.extend({ locale: z.enum(SUPPORTED_LOCALES) }),
+);
+export const validateSourceMappingAnalysis = validated(
+  'json',
+  z.object({ enableThinking: z.boolean().default(false) }),
+);
 
 /**
  * Optional body of the manual sync trigger. A request without a JSON body

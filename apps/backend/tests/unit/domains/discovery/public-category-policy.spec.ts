@@ -77,7 +77,7 @@ describe('public category projection policy', () => {
 });
 
 describe('public category assignment policy', () => {
-  it('caps net-new assignments at the product limit', () => {
+  it('allows net-new assignments regardless of existing category count', () => {
     expect(
       decideCategoryAssignment({
         incomingSource: 'manual',
@@ -93,7 +93,7 @@ describe('public category assignment policy', () => {
         assignmentCount: PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
         suppressed: false,
       }),
-    ).toBe('limit');
+    ).toBe('insert');
     expect(
       decideCategoryAssignment({
         incomingSource: 'ai',
@@ -101,7 +101,7 @@ describe('public category assignment policy', () => {
         assignmentCount: PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
         suppressed: false,
       }),
-    ).toBe('limit');
+    ).toBe('insert');
   });
 
   it('is idempotent for a repeated identical assignment', () => {
@@ -123,7 +123,7 @@ describe('public category assignment policy', () => {
     ).toBe('noop');
   });
 
-  it('gives manual assignment precedence and never removes existing rows on a limit', () => {
+  it('gives manual assignment precedence', () => {
     // A manual request promotes an AI-origin row to manual.
     expect(
       decideCategoryAssignment({

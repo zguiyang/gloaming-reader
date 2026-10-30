@@ -96,7 +96,7 @@ function normalizeNewCategoryName(name: string): string | null {
  *   alias, and written in the record's source-locale script. An exact
  *   same-locale collision becomes a safe reuse. Cross-locale semantic
  *   equivalence remains a model decision; string equality alone is not identity.
- * - Total assignments are clamped to the 0-3 product limit, reuses first.
+ * - This AI decision is clamped to three selections, reuses first.
  * - `outcome` is downgraded when the model's selected actions no longer support
  *   it, so the persisted result can never claim a decision it did not apply.
  * - Nothing is created, merged, renamed, or deleted here.

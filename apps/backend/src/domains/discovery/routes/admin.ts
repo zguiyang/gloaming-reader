@@ -3,10 +3,16 @@ import { Hono } from 'hono';
 import {
   assignCategoryToSourceRecord,
   completeManagedCategoryTranslations,
+  confirmNewSourceCategory,
+  confirmSourceCategoryMapping,
   createManagedCategory,
   deleteManagedCategory,
+  ignoreSourceCategoryMapping,
   listManagedCategories,
   listManagedCategorySourceRecords,
+  listSourceCategoryMappings,
+  runSourceCategoryReconciliationBatch,
+  suggestSourceCategoryMapping,
   unassignCategoryFromSourceRecord,
   updateManagedCategoryLabel,
 } from '@/domains/discovery/categories';
@@ -17,6 +23,11 @@ import {
   validateDiscoverySyncTrigger,
   validateManagedCategoryWrite,
   validateSourceEnabledUpdate,
+  validateSourceMappingAnalysis,
+  validateSourceMappingConfirm,
+  validateSourceMappingCreate,
+  validateSourceMappingList,
+  validateSourceMappingRevision,
 } from '@/domains/discovery/routes/validator';
 import {
   getProjectGutenbergSourceStatus,
@@ -27,6 +38,8 @@ import {
 import { resolveRequestLocale } from '@/infra/http/locale';
 import { type AuthVariables, requireAdmin } from '@/infra/http/middleware/auth';
 import { HTTP_STATUS } from '@/shared/constants';
+import { AppError } from '@/shared/errors/app-error';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 /**
  * Admin-only Discovery controls. V1 exposes exactly the Project Gutenberg source
@@ -81,6 +94,53 @@ discoveryAdminRoutes.get(SOURCE_RECORDS_PATH, requireAdmin, validateAdminSourceR
 });
 
 const CATEGORIES_PATH = '/api/admin/discovery/categories';
+
+const SOURCE_MAPPINGS_PATH = '/api/admin/discovery/source-category-mappings';
+discoveryAdminRoutes.get(SOURCE_MAPPINGS_PATH, requireAdmin, validateSourceMappingList, async (c) =>
+  c.json(await listSourceCategoryMappings(c.req.valid('query').page)),
+);
+discoveryAdminRoutes.post(
+  `${SOURCE_MAPPINGS_PATH}/:id/analyze`,
+  requireAdmin,
+  validateSourceMappingAnalysis,
+  async (c) => {
+    const result = await suggestSourceCategoryMapping(c.req.param('id'), c.req.valid('json'));
+    if (result.status !== 'review') {
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.SOURCE_CATEGORY_MAPPING_CONFLICT);
+    }
+    return c.json(result);
+  },
+);
+discoveryAdminRoutes.post(
+  `${SOURCE_MAPPINGS_PATH}/:id/confirm`,
+  requireAdmin,
+  validateSourceMappingConfirm,
+  async (c) => {
+    const { revision, categoryIds } = c.req.valid('json');
+    return c.json(await confirmSourceCategoryMapping(c.req.param('id'), revision, categoryIds));
+  },
+);
+discoveryAdminRoutes.post(
+  `${SOURCE_MAPPINGS_PATH}/:id/create`,
+  requireAdmin,
+  validateSourceMappingCreate,
+  async (c) => {
+    const { revision, locale } = c.req.valid('json');
+    return c.json(await confirmNewSourceCategory(c.req.param('id'), revision, locale));
+  },
+);
+discoveryAdminRoutes.post(
+  `${SOURCE_MAPPINGS_PATH}/:id/ignore`,
+  requireAdmin,
+  validateSourceMappingRevision,
+  async (c) => {
+    await ignoreSourceCategoryMapping(c.req.param('id'), c.req.valid('json').revision);
+    return c.body(null, HTTP_STATUS.NO_CONTENT);
+  },
+);
+discoveryAdminRoutes.post(`${SOURCE_MAPPINGS_PATH}/:id/reconcile`, requireAdmin, async (c) =>
+  c.json(await runSourceCategoryReconciliationBatch(c.req.param('id'), 100)),
+);
 
 discoveryAdminRoutes.get(CATEGORIES_PATH, requireAdmin, async (c) => {
   return c.json(await listManagedCategories());

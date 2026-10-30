@@ -8,6 +8,7 @@ import {
   publicCategoryAlias as publicCategoryAliasTable,
   publicCategoryLabel as publicCategoryLabelTable,
   sourceRecord as sourceRecordTable,
+  sourceRecordCategoryMappingSupport as mappingSupportTable,
   sourceRecordPublicCategory as sourceRecordPublicCategoryTable,
 } from '@gloaming/db/schema';
 import type {
@@ -21,7 +22,6 @@ import type {
 import { buildPublicCategory, decideCategoryAssignment } from '@/domains/discovery/categories/policy';
 import {
   categoryExists,
-  countAssignmentsForRecord,
   deleteAssignment,
   getAssignmentRow,
   hasSuppression,
@@ -187,8 +187,7 @@ export type ApplyPublicCategoryAssignmentsOptions = {
  * operation — SourceRecord row lock, stale-AI reconciliation, insert decisions,
  * and the final read-back — runs in one transaction so it can never interleave
  * with a concurrent manual assignment edit. The shared assignment policy keeps
- * manual assignments, keeps explicit suppression, deduplicates, and enforces
- * the 0-3 limit. Returns the category ids the record actually carries after
+ * manual assignments, keeps explicit suppression, and deduplicates. Returns the category ids the record actually carries after
  * this pass (manual and AI alike).
  */
 export async function applyPublicCategoryAssignments(
@@ -212,7 +211,26 @@ export async function applyPublicCategoryAssignments(
         );
       for (const row of aiRows) {
         if (!incoming.has(row.categoryId)) {
-          await deleteAssignment(tx, recordId, row.categoryId);
+          const [support] = await tx
+            .select({ categoryId: mappingSupportTable.categoryId })
+            .from(mappingSupportTable)
+            .where(
+              and(eq(mappingSupportTable.sourceRecordId, recordId), eq(mappingSupportTable.categoryId, row.categoryId)),
+            )
+            .limit(1);
+          if (support) {
+            await tx
+              .update(sourceRecordPublicCategoryTable)
+              .set({ source: 'source' })
+              .where(
+                and(
+                  eq(sourceRecordPublicCategoryTable.sourceRecordId, recordId),
+                  eq(sourceRecordPublicCategoryTable.categoryId, row.categoryId),
+                ),
+              );
+          } else {
+            await deleteAssignment(tx, recordId, row.categoryId);
+          }
         }
       }
     }
@@ -220,15 +238,13 @@ export async function applyPublicCategoryAssignments(
     for (const categoryId of categoryIds) {
       if (!(await categoryExists(tx, categoryId))) continue;
       const existing = await getAssignmentRow(tx, recordId, categoryId);
-      const assignmentCount = await countAssignmentsForRecord(tx, recordId);
       const suppressed = await hasSuppression(tx, recordId, categoryId);
       const decision = decideCategoryAssignment({
         incomingSource: 'ai',
         existingSource: existing?.source ?? null,
-        assignmentCount,
         suppressed,
       });
-      if (decision === 'insert') {
+      if (decision === 'insert' || decision === 'promote') {
         await upsertAssignment(tx, { sourceRecordId: recordId, categoryId, source: 'ai' });
       }
     }

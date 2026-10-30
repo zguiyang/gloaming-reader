@@ -81,6 +81,10 @@ export function parseGutenbergRdf(content: Buffer, memberName: string): ParsedSo
   const descriptions = asArray(ebook['dcterms:description'])
     .map(textOf)
     .filter((value): value is string => value !== null);
+  const summary = asArray(ebook['pgterms:marc520'])
+    .map(textOf)
+    .filter((value): value is string => value !== null)
+    .join('\n\n');
 
   const { contentCandidates, coverUrl } = parseFiles(ebook, externalId);
 
@@ -100,6 +104,8 @@ export function parseGutenbergRdf(content: Buffer, memberName: string): ParsedSo
   const sourceMeta: SourceRecordSourceMeta = {
     ...(subjects.length > 0 ? { subjects } : {}),
     ...(bookshelves.length > 0 ? { bookshelves } : {}),
+    ...(summary ? { summary } : {}),
+    notes: descriptions,
     ...(Object.keys(extra).length > 0 ? { extra } : {}),
   };
 
