@@ -66,6 +66,7 @@ export const PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY = 1;
 export const PUBLIC_CLASSIFICATION_ONLY_FLAG = '--public-classification-only';
 export const DISCOVERY_SYNC_ONLY_FLAG = '--discovery-sync-only';
 export const DISCOVERY_IMPORT_ONLY_FLAG = '--discovery-import-only';
+export const NO_PUBLIC_CLASSIFICATION_FLAG = '--no-public-classification';
 
 export type WorkerMode = 'full' | 'public-classification-only' | 'discovery-sync-only' | 'discovery-import-only';
 
@@ -73,6 +74,19 @@ export function resolveWorkerMode(argv: readonly string[] = process.argv): Worke
   if (argv.includes(DISCOVERY_IMPORT_ONLY_FLAG)) return 'discovery-import-only';
   if (argv.includes(DISCOVERY_SYNC_ONLY_FLAG)) return 'discovery-sync-only';
   return argv.includes(PUBLIC_CLASSIFICATION_ONLY_FLAG) ? 'public-classification-only' : 'full';
+}
+
+export function publicClassificationEnabled(mode: WorkerMode, argv: readonly string[] = process.argv): boolean {
+  if (!argv.includes(NO_PUBLIC_CLASSIFICATION_FLAG)) return true;
+  if (mode !== 'full') throw new Error(`${NO_PUBLIC_CLASSIFICATION_FLAG} is only supported in full worker mode`);
+  return false;
+}
+
+export async function dispatchPublicClassificationsIfEnabled(
+  enabled: boolean,
+  dispatch: typeof dispatchDuePublicClassifications = dispatchDuePublicClassifications,
+): Promise<void> {
+  if (enabled) await dispatch();
 }
 
 export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
@@ -134,7 +148,11 @@ function attachWorkerEvents(worker: Worker, queue: string): void {
 
 export function createWorkers(
   mode: WorkerMode = 'full',
-  options: { discoverySyncQueueName?: string; discoveryImportQueueName?: string } = {},
+  options: {
+    discoverySyncQueueName?: string;
+    discoveryImportQueueName?: string;
+    publicClassificationEnabled?: boolean;
+  } = {},
 ): {
   worker?: Worker;
   cleanupWorker?: Worker;
@@ -218,7 +236,8 @@ export function createWorkers(
   attachWorkerEvents(cleanupWorker, CLEANUP_QUEUE_NAME);
   attachWorkerEvents(personalTagWorker, PERSONAL_TAG_QUEUE_NAME);
 
-  const publicClassificationWorker = createPublicClassificationWorker();
+  const publicClassificationWorker =
+    options.publicClassificationEnabled === false ? undefined : createPublicClassificationWorker();
   const discoveryImportWorker = createDiscoveryImportWorker();
 
   return { worker, cleanupWorker, personalTagWorker, publicClassificationWorker, discoveryImportWorker };
@@ -226,6 +245,7 @@ export function createWorkers(
 
 async function main(): Promise<void> {
   const mode = resolveWorkerMode();
+  const classificationEnabled = publicClassificationEnabled(mode);
   const publicClassificationOnly = mode === 'public-classification-only';
   const {
     worker,
@@ -234,7 +254,7 @@ async function main(): Promise<void> {
     publicClassificationWorker,
     discoverySyncWorker,
     discoveryImportWorker,
-  } = createWorkers(mode);
+  } = createWorkers(mode, { publicClassificationEnabled: classificationEnabled });
   if (mode === 'discovery-sync-only') {
     workerLogger.info({ queue: DISCOVERY_SYNC_QUEUE_NAME, mode }, 'Worker listening');
     let shuttingDown = false;
@@ -284,7 +304,7 @@ async function main(): Promise<void> {
       }
     }
     try {
-      await dispatchDuePublicClassifications();
+      await dispatchPublicClassificationsIfEnabled(classificationEnabled);
     } catch (error) {
       workerLogger.warn({ err: error }, 'Public classification outbox recovery pass failed');
     } finally {
@@ -303,6 +323,7 @@ async function main(): Promise<void> {
       personalTagQueue: PERSONAL_TAG_QUEUE_NAME,
       nodeEnv: commonEnv.NODE_ENV,
       mode,
+      publicClassificationEnabled: classificationEnabled,
     },
     'Worker listening',
   );

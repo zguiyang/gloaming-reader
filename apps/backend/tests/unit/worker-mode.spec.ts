@@ -30,8 +30,15 @@ vi.mock('bullmq', () => ({
   },
 }));
 
-const { DISCOVERY_SYNC_ONLY_FLAG, PUBLIC_CLASSIFICATION_ONLY_FLAG, createWorkers, resolveWorkerMode } =
-  await import('@/worker');
+const {
+  DISCOVERY_SYNC_ONLY_FLAG,
+  NO_PUBLIC_CLASSIFICATION_FLAG,
+  PUBLIC_CLASSIFICATION_ONLY_FLAG,
+  createWorkers,
+  dispatchPublicClassificationsIfEnabled,
+  publicClassificationEnabled,
+  resolveWorkerMode,
+} = await import('@/worker');
 
 describe('resolveWorkerMode', () => {
   it('selects public-classification-only only when the CLI flag is present', () => {
@@ -64,6 +71,26 @@ describe('resolveWorkerMode', () => {
 
     expect(workerMocks.instances.map(({ queueName }) => queueName)).toContain('gloaming-discovery-import');
     expect(workers.worker).toBeDefined();
+    expect(workers.publicClassificationWorker).toBeDefined();
+  });
+
+  it('disables both public classification consumption and dispatch in full mode', async () => {
+    workerMocks.instances.length = 0;
+    const enabled = publicClassificationEnabled('full', ['node', 'worker.ts', NO_PUBLIC_CLASSIFICATION_FLAG]);
+    const workers = createWorkers('full', { publicClassificationEnabled: enabled });
+    const dispatch = vi.fn(async () => 0);
+
+    await dispatchPublicClassificationsIfEnabled(enabled, dispatch);
+
+    expect(workers.publicClassificationWorker).toBeUndefined();
+    expect(workerMocks.instances.map(({ queueName }) => queueName)).not.toContain('gloaming-public-classification');
+    expect(workers.worker).toBeDefined();
+    expect(workers.discoveryImportWorker).toBeDefined();
+    expect(dispatch).not.toHaveBeenCalled();
+
+    await dispatchPublicClassificationsIfEnabled(publicClassificationEnabled('full', []), dispatch);
+    expect(dispatch).toHaveBeenCalledOnce();
+    expect(() => publicClassificationEnabled('public-classification-only', [NO_PUBLIC_CLASSIFICATION_FLAG])).toThrow();
   });
 
   it('creates only the import consumer in discovery-import-only mode', () => {
