@@ -124,7 +124,7 @@ export function toBookDetail(
 ): BookDetail {
   const progressRatio = state?.progressRatio ?? null;
   const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
-  const teaser = work.sourceSummary === undefined ? work.description : (work.sourceSummary ?? '');
+  const teaser = work.sourceSummary?.trim() || work.description;
   const readingStats = resolveWorkReadingStats(work, parts);
   const availability = workAvailability(work.processingStatus, parts.length);
 

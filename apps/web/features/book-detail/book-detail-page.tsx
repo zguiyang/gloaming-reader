@@ -177,6 +177,7 @@ export type SourceBookDetail = {
   notes?: string[];
   categories?: string[];
   actions: ReactNode;
+  children?: ReactNode;
 };
 
 export function BookDetailPage(
@@ -184,7 +185,9 @@ export function BookDetailPage(
 ) {
   if ('source' in props) {
     return (
-      <BookDetailPageLayout returnTo={props.returnTo} readable hero={<BookDetailSourceHero {...props.source} />} />
+      <BookDetailPageLayout returnTo={props.returnTo} readable hero={<BookDetailSourceHero {...props.source} />}>
+        {props.source.children}
+      </BookDetailPageLayout>
     );
   }
   return <ReadableBookDetailPage {...props} />;

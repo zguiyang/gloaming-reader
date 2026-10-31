@@ -22,11 +22,12 @@ describe('BookDetailPage source record', () => {
         },
       }),
     );
-    expect(html).toContain('作品简介');
+    expect(html).not.toContain('作品简介');
     expect(html).toContain('来源备注');
     expect(html).toContain('Original source note');
     expect(html).toContain('展开简介');
     expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('aria-label="展开简介"');
     expect(html).not.toContain('A'.repeat(450));
   });
   it('uses the detail page shell while exposing only source actions', () => {
@@ -48,5 +49,7 @@ describe('BookDetailPage source record', () => {
     expect(html).toContain('href="/discover"');
     expect(html).not.toContain('继续阅读');
     expect(html).not.toContain('/read/');
+    expect(html).not.toContain('暂无作品简介');
+    expect(html).not.toContain('作品简介');
   });
 });

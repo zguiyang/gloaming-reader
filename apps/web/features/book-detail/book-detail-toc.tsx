@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 /** Desktop prototype shows a short preview then “展开全部章节”. */
 const PREVIEW_COUNT = 4;
 
-export function BookDetailToc({ book }: { book: BookDetail }) {
+export function BookDetailToc({ book }: { book: Pick<BookDetail, 'id' | 'chapters'> }) {
   const { locale } = useLocale();
   const [isExpanded, setIsExpanded] = useState(false);
   const chapters = book.chapters;

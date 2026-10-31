@@ -1261,6 +1261,8 @@
       "lastReadOn": "Last read on {date}"
     },
     "bookDetail": {
+      "sameAuthor": "More by this author",
+      "sameCategory": "More in this category",
       "description": "About this book",
       "noDescription": "No description available yet.",
       "descriptionExpand": "Read more",

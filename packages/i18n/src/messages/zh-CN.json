@@ -1261,6 +1261,8 @@
       "lastReadOn": "最近阅读于 {date}"
     },
     "bookDetail": {
+      "sameAuthor": "同作者的其他作品",
+      "sameCategory": "同分类的其他作品",
       "description": "作品简介",
       "noDescription": "暂无作品简介。",
       "descriptionExpand": "展开简介",

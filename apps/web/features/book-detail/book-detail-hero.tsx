@@ -1,6 +1,6 @@
 'use client';
 
-import { BookmarkIcon, BookOpenIcon, CheckIcon, LanguagesIcon, Loader2Icon } from 'lucide-react';
+import { BookmarkIcon, BookOpenIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, Loader2Icon } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
 
@@ -13,7 +13,6 @@ import {
   type BookDetail,
   formatMinutes,
   formatRelativeReadTime,
-  languageLabelFromCode,
   primaryReadLabel,
 } from '@/features/book-detail/book-detail-model';
 import { WorkCover } from '@/features/work-cover';
@@ -32,28 +31,32 @@ function BookDescription({ description, notes }: { description: string | null; n
   const [isExpanded, setIsExpanded] = useState(false);
   const text = description?.trim() ?? '';
   const isLong = text.length > 400;
+  if (!text && !notes?.length) return null;
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 text-left md:mx-0">
-      <section className="space-y-2">
-        <h2 className="font-heading text-base font-semibold">{t(locale, 'content.bookDetail.description')}</h2>
+      {text ? (
         <p className="font-reading whitespace-pre-line break-words text-base leading-7 text-muted-foreground">
-          {text
-            ? isLong && !isExpanded
-              ? `${text.slice(0, 400).trimEnd()}…`
-              : text
-            : t(locale, 'content.bookDetail.noDescription')}
+          {isLong && !isExpanded ? `${text.slice(0, 400).trimEnd()}…` : text}
+          {isLong ? (
+            <button
+              type="button"
+              className="ml-1 inline-flex size-8 items-center justify-center rounded text-primary align-middle hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={t(
+                locale,
+                isExpanded ? 'content.bookDetail.descriptionCollapse' : 'content.bookDetail.descriptionExpand',
+              )}
+              aria-expanded={isExpanded}
+              onClick={() => setIsExpanded((value) => !value)}
+            >
+              {isExpanded ? (
+                <ChevronUpIcon className="size-4" aria-hidden />
+              ) : (
+                <ChevronDownIcon className="size-4" aria-hidden />
+              )}
+            </button>
+          ) : null}
         </p>
-        {isLong ? (
-          <button
-            type="button"
-            className="text-sm text-primary hover:underline"
-            aria-expanded={isExpanded}
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {t(locale, isExpanded ? 'content.bookDetail.descriptionCollapse' : 'content.bookDetail.descriptionExpand')}
-          </button>
-        ) : null}
-      </section>
+      ) : null}
       {notes?.length ? (
         <section className="space-y-2">
           <h2 className="font-heading text-base font-semibold">{t(locale, 'content.bookDetail.sourceNotes')}</h2>
@@ -81,7 +84,6 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
   const progressLabel = isCompleted
     ? t(locale, 'content.bookDetail.progressCompleted')
     : t(locale, 'content.bookDetail.progressRead', { ratio: book.progressRatio ?? 0 });
-  const languageLabel = languageLabelFromCode(book.language, locale);
 
   return (
     <WorkDetailHeroLayout
@@ -94,22 +96,18 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
       }
     >
       <div className="space-y-2">
-        <div className="mb-2 flex flex-wrap items-center justify-center gap-2 md:justify-start">
-          {languageLabel ? (
-            <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
-              <LanguagesIcon className="size-3.5" strokeWidth={1.5} aria-hidden />
-              {languageLabel}
-            </span>
-          ) : null}
-          {book.availability === 'processing' ? (
-            <span role="status" className="text-sm text-muted-foreground">
-              {t(locale, 'content.library.processing')}
-            </span>
-          ) : null}
-          {book.availability === 'failed' ? (
-            <span className="text-sm text-destructive">{t(locale, 'content.library.importFailed')}</span>
-          ) : null}
-        </div>
+        {book.availability === 'processing' || book.availability === 'failed' ? (
+          <div className="mb-2 flex flex-wrap items-center justify-center gap-2 md:justify-start">
+            {book.availability === 'processing' ? (
+              <span role="status" className="text-sm text-muted-foreground">
+                {t(locale, 'content.library.processing')}
+              </span>
+            ) : null}
+            {book.availability === 'failed' ? (
+              <span className="text-sm text-destructive">{t(locale, 'content.library.importFailed')}</span>
+            ) : null}
+          </div>
+        ) : null}
         <h1 className="font-heading text-3xl leading-tight font-bold tracking-tight text-foreground text-balance md:text-5xl md:leading-[1.15]">
           {book.title}
         </h1>

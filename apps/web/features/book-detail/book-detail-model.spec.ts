@@ -205,6 +205,12 @@ describe('toBookDetail', () => {
     updatedAt: '2026-01-01T00:00:00.000Z',
   };
 
+  it('falls back to the work description when the source summary is empty', () => {
+    expect(toBookDetail({ ...work, sourceSummary: null }, [], null, null).teaser).toBe('Desc');
+    expect(toBookDetail({ ...work, sourceSummary: '  ' }, [], null, null).teaser).toBe('Desc');
+    expect(toBookDetail({ ...work, sourceSummary: 'Source summary' }, [], null, null).teaser).toBe('Source summary');
+  });
+
   it('derives estimated minutes from part word counts when work stats are missing', () => {
     const parts = [
       {
