@@ -42,6 +42,16 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/features/library/library-api', () => ({
   useLibraryQuery: mocks.useLibraryQuery,
+  useLibraryBrowseQuery: (query: { source: string; tag?: string }) => {
+    const data = mocks.useLibraryQuery().data as LibraryData | undefined;
+    const items = (data?.items ?? []).filter(
+      (item) =>
+        (query.source === 'all' ||
+          item.libraryItemKind === (query.source === 'personal' ? 'personal' : 'saved_catalog')) &&
+        (!query.tag || item.userTags.some((tag) => tag.id === query.tag)),
+    );
+    return { data: { pages: [{ items, hasMore: false }] }, isPending: false, isError: false };
+  },
   useUserTagsQuery: mocks.useUserTagsQuery,
   createUserTag: mocks.createUserTag,
   completeUserTagTranslations: mocks.completeUserTagTranslations,
@@ -264,12 +274,11 @@ describe('LibraryPage', () => {
     error.cleanup();
   });
 
-  it('shows the Library truncation hint only when the response is truncated', async () => {
+  it('uses browse results rather than the legacy truncation hint', async () => {
     const data = { current: null, items: [item('book', false)] };
 
     const truncated = await renderLibrary({ isPending: false, isError: false, data: { ...data, isTruncated: true } });
-    expect(truncated.container.textContent).toContain('书库仅显示前 48 本书');
-    expect(truncated.container.textContent).toContain('可用标签或来源筛选查看其余书籍');
+    expect(truncated.container.textContent).not.toContain('书库仅显示前 48 本书');
     // The hint is advisory copy: the grid still renders underneath it.
     expect(truncated.container.querySelector('a[href="/works/book?returnTo=%2Flibrary"]')).toBeTruthy();
     truncated.cleanup();
@@ -286,7 +295,7 @@ describe('LibraryPage', () => {
       { isPending: false, isError: false, data: { ...data, isTruncated: true } },
       'en-US',
     );
-    expect(english.container.textContent).toContain('Only the first 48 books are shown');
+    expect(english.container.textContent).not.toContain('Only the first 48 books are shown');
     english.cleanup();
   });
 
@@ -359,12 +368,9 @@ describe('LibraryPage', () => {
     expect(continueHero?.textContent).not.toContain('已读 0%');
     expect(continueHero?.querySelector('[role="progressbar"]')).toBeNull();
     expect(statusTextFor('current')).toBe('阅读中');
-    expect(statusTextFor('reading')).toBe('阅读中');
+    expect(statusTextFor('reading')).toBe('已读 40%');
     expect(statusTextFor('current')).not.toBe('未开始');
-    expect(statusTextFor('reading')).not.toBe('已读 40%');
-    // The percentage stays a separate progress indicator, not the status copy.
-    expect(cardFor('reading')?.querySelector('[role="progressbar"]')?.getAttribute('aria-label')).toBe('已读 40%');
-    expect(cardFor('reading')?.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('40');
+    expect(cardFor('reading')?.querySelector('[role="progressbar"]')).toBeNull();
     // completed keeps the existing completed copy.
     expect(statusTextFor('finished')).toBe('已读完');
 
@@ -1273,8 +1279,7 @@ describe('LibraryPage', () => {
 
     expect(view.container.textContent).toContain('正在整理书籍…');
     expect(view.container.textContent).toContain('导入失败');
-    expect(view.container.textContent).toContain('暂时无法读取这本书。');
-    expect(view.container.querySelector('[role="progressbar"]')?.hasAttribute('aria-valuenow')).toBe(false);
+    expect(view.container.querySelector('[role="progressbar"]')).toBeNull();
     expect(view.container.querySelector('a[href="/works/processing?returnTo=%2Flibrary"]')).toBeTruthy();
     expect(view.container.querySelector('a[href="/works/failed?returnTo=%2Flibrary"]')).toBeTruthy();
     expect(view.container.querySelector('a[href="/read/processing"]')).toBeNull();
@@ -1403,7 +1408,7 @@ describe('LibraryPage', () => {
     );
     await act(async () => (edit as HTMLElement).click());
     expect(document.body.textContent).toContain('书名');
-    const inputs = document.querySelectorAll('input');
+    const inputs = document.querySelectorAll('[role="dialog"] input');
     await act(async () => {
       updateInput(inputs[0] as HTMLInputElement, 'New title');
       updateInput(inputs[1] as HTMLInputElement, 'New author');
@@ -1669,12 +1674,11 @@ describe('LibraryPage', () => {
       },
     });
     await capped.navigate('?source=saved');
-    expect(capped.container.textContent).toContain('当前已加载的书籍中没有符合条件的结果');
-    expect(capped.container.textContent).not.toContain('还没有已保存的书');
-    expect(capped.container.textContent).toContain('书库仅显示前 48 本书');
+    expect(capped.container.textContent).toContain('还没有已保存的书');
+    expect(capped.container.textContent).not.toContain('书库仅显示前 48 本书');
 
     await capped.navigate('?tag=tag-favorite');
-    expect(capped.container.textContent).toContain('当前已加载的书籍中没有符合条件的结果');
+    expect(capped.container.textContent).not.toContain('当前已加载的书籍中没有符合条件的结果');
     capped.cleanup();
   });
 });

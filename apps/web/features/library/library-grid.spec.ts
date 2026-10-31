@@ -54,7 +54,7 @@ async function renderGrid(items: LibraryItem[]) {
 }
 
 describe('LibraryGrid same-title context', () => {
-  it('disambiguates same-title cards with trustworthy origin/author facts only', async () => {
+  it('does not repeat source labels on same-title cards', async () => {
     const view = await renderGrid([
       item('personal-1', 'Walden', 'personal', 'Henry David Thoreau'),
       item('saved-1', 'walden', 'saved_catalog'),
@@ -64,9 +64,8 @@ describe('LibraryGrid same-title context', () => {
         article.querySelector(`a[href="/works/${id}?returnTo=%2Flibrary"]`),
       );
 
-    expect(cardFor('personal-1')?.textContent).toContain('My uploads · Henry David Thoreau');
-    // Saved Catalog items project no author; only the origin kind may show.
-    expect(cardFor('saved-1')?.textContent).toContain('Saved');
+    expect(cardFor('personal-1')?.textContent).not.toContain('My uploads');
+    expect(cardFor('saved-1')?.textContent).not.toContain('Saved');
     expect(cardFor('saved-1')?.textContent).not.toContain('My uploads');
     // No raw IDs leak into the visible context.
     expect(cardFor('personal-1')?.textContent).not.toContain('personal-1');

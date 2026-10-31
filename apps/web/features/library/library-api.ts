@@ -1,8 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
 import type { Locale } from '@gloaming/i18n';
-import { type LibraryData, type UserTag, userTagListSchema, userTagSchema } from '@gloaming/shared/library';
+import {
+  libraryBrowseDataSchema,
+  type LibraryBrowseQuery,
+  type LibraryData,
+  type UserTag,
+  userTagListSchema,
+  userTagSchema,
+} from '@gloaming/shared/library';
 import { userTagTranslationsResultSchema } from '@gloaming/shared/library';
 import {
   EPUB_UPLOAD_MAX_BYTES,
@@ -16,11 +23,37 @@ import {
 
 import { getLibrary } from '@/features/library/library-public';
 import { apiRequest, formatApiError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
 
 export const libraryQueryKey = {
   all: ['library'] as const,
   tags: ['library', 'tags'] as const,
 };
+
+export function useLibraryBrowseQuery(query: Omit<LibraryBrowseQuery, 'page'>) {
+  const { data: session } = authClient.useSession();
+  return useInfiniteQuery({
+    queryKey: [...libraryQueryKey.all, 'browse', session?.user.id ?? null, query],
+    enabled: Boolean(session?.user.id),
+    initialPageParam: 1,
+    queryFn: ({ pageParam, signal }) => {
+      const params = new URLSearchParams({
+        source: query.source,
+        status: query.status,
+        sort: query.sort,
+        page: String(pageParam),
+      });
+      if (query.tag) params.set('tag', query.tag);
+      if (query.q) params.set('q', query.q);
+      return apiRequest(`/api/library/browse?${params}`, { schema: libraryBrowseDataSchema, signal });
+    },
+    getNextPageParam: (last, pages) => (last.hasMore ? pages.length + 1 : undefined),
+    refetchInterval: (result) =>
+      result.state.data?.pages.some((page) => page.items.some((item) => item.availability === 'processing'))
+        ? 2000
+        : false,
+  });
+}
 
 export function useUserTagsQuery(options?: { enabled?: boolean }) {
   return useQuery({

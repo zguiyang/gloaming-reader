@@ -1,18 +1,21 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { Grid2X2Icon, ListIcon, SearchIcon } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
 import { t } from '@gloaming/i18n';
-import { LIBRARY_ITEMS_LIMIT, resolveUserTagName } from '@gloaming/shared/library';
+import { resolveUserTagName } from '@gloaming/shared/library';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import {
   formatLibraryApiError,
   libraryQueryKey,
+  useLibraryBrowseQuery,
   useLibraryQuery,
   useUserTagsQuery,
 } from '@/features/library/library-api';
@@ -21,7 +24,6 @@ import { LibraryEmptyState } from '@/features/library/library-empty-state';
 import {
   buildLibraryFilterQuery,
   isLibraryFilterActive,
-  libraryFilterHref,
   type LibraryFilters,
   normalizeLibraryFilterSearch,
   parseLibraryFilters,
@@ -107,6 +109,26 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
   const [filters, setFilters] = useState<LibraryFilters>(() =>
     parseLibraryFilters(searchKey ? new URLSearchParams(searchKey) : null),
   );
+  const initialParams = new URLSearchParams(searchKey);
+  const [search, setSearch] = useState(() => initialParams.get('q')?.slice(0, 200) ?? '');
+  const [status, setStatus] = useState<'all' | 'reading' | 'unread' | 'completed'>(() => {
+    const value = initialParams.get('status');
+    return value === 'reading' || value === 'unread' || value === 'completed' ? value : 'all';
+  });
+  const [sort, setSort] = useState<'added' | 'recent' | 'title'>(() => {
+    const value = initialParams.get('sort');
+    return value === 'recent' || value === 'title' ? value : 'added';
+  });
+  const [view, setView] = useState<'grid' | 'list'>(() => (initialParams.get('view') === 'list' ? 'list' : 'grid'));
+  const isTagValid = filters.tagId === null || !hasTagsLoaded || tags.some((tag) => tag.id === filters.tagId);
+  const effectiveFilters: LibraryFilters = { source: filters.source, tagId: isTagValid ? filters.tagId : null };
+  const browse = useLibraryBrowseQuery({
+    source: effectiveFilters.source,
+    tag: effectiveFilters.tagId ?? undefined,
+    q: search.trim() || undefined,
+    status,
+    sort,
+  });
 
   // Safely normalize invalid/redundant source or tag parameters once user tags are known.
   useEffect(() => {
@@ -126,15 +148,26 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
   }, [openLogin, libraryQuery.error, libraryQuery.isError]);
 
   // A tag that is not (or no longer) one of the user's tags is treated as no tag condition.
-  const isTagValid = filters.tagId === null || !hasTagsLoaded || tags.some((tag) => tag.id === filters.tagId);
-  const effectiveFilters: LibraryFilters = { source: filters.source, tagId: isTagValid ? filters.tagId : null };
 
   const applyFilters = (next: LibraryFilters) => {
     if (next.source === effectiveFilters.source && next.tagId === effectiveFilters.tagId) return;
     setFilters(next);
-    const query = buildLibraryFilterQuery(next, searchKey ? new URLSearchParams(searchKey) : undefined);
+    const query = buildLibraryFilterQuery(next, currentViewParams());
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
+
+  function currentViewParams() {
+    const params = new URLSearchParams(searchKey);
+    if (search.trim()) params.set('q', search.trim());
+    else params.delete('q');
+    if (status !== 'all') params.set('status', status);
+    else params.delete('status');
+    if (sort !== 'added') params.set('sort', sort);
+    else params.delete('sort');
+    if (view !== 'grid') params.set('view', view);
+    else params.delete('view');
+    return params;
+  }
 
   if (libraryQuery.isPending) {
     return (
@@ -185,16 +218,7 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
   const items = data.items;
   const activeTag = effectiveFilters.tagId ? (tags.find((tag) => tag.id === effectiveFilters.tagId) ?? null) : null;
   const isFilterActive = isLibraryFilterActive(effectiveFilters);
-  // Only the server may declare truncation (`data.isTruncated`); a full page of
-  // items is exactly what the 48-item cap returns even when nothing was cut.
-  const isTruncated = data.isTruncated === true;
-  const filteredItems = items.filter((item) => {
-    const isSourceMatch =
-      effectiveFilters.source === 'all' ||
-      item.libraryItemKind === (effectiveFilters.source === 'saved' ? 'saved_catalog' : 'personal');
-    const isTagMatch = !effectiveFilters.tagId || item.userTags.some((tag) => tag.id === effectiveFilters.tagId);
-    return isSourceMatch && isTagMatch;
-  });
+  const filteredItems = browse.data?.pages.flatMap((page) => page.items) ?? [];
   const isEmpty = !current && items.length === 0;
 
   const sourceLabel =
@@ -241,6 +265,85 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
         <div className="flex min-w-0 flex-1 flex-col gap-8 md:gap-10">
           <LibraryMobileSourceNav currentLabel={currentLabel} {...sourceNavProps} />
           {current ? <LibraryContinueHero entry={current} /> : null}
+          <div className="flex flex-col gap-4 border-b border-border/50 pb-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div
+                className="flex flex-wrap gap-4"
+                role="group"
+                aria-label={t(locale, 'content.library.readingFilter')}
+              >
+                {(['all', 'reading', 'unread', 'completed'] as const).map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setStatus(value)}
+                    aria-pressed={status === value}
+                    className={cn(
+                      'border-b-2 pb-2 text-sm',
+                      status === value
+                        ? 'border-primary font-medium text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {t(
+                      locale,
+                      value === 'all'
+                        ? 'content.library.allStatuses'
+                        : value === 'reading'
+                          ? 'content.library.readingInProgress'
+                          : value === 'unread'
+                            ? 'content.library.statusNotStarted'
+                            : 'content.library.statusCompleted',
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <label className="relative block">
+                  <SearchIcon
+                    className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <Input
+                    maxLength={200}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    aria-label={t(locale, 'content.library.searchBooks')}
+                    placeholder={t(locale, 'content.library.searchBooks')}
+                    className="h-9 w-40 pl-8 sm:w-52"
+                  />
+                </label>
+                <select
+                  value={sort}
+                  onChange={(event) => setSort(event.target.value as typeof sort)}
+                  aria-label={t(locale, 'content.library.sortBooks')}
+                  className="h-9 max-w-28 rounded-md bg-transparent text-sm text-foreground"
+                >
+                  <option value="added">{t(locale, 'content.library.sortAdded')}</option>
+                  <option value="recent">{t(locale, 'content.library.sortRecent')}</option>
+                  <option value="title">{t(locale, 'content.library.sortTitle')}</option>
+                </select>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t(locale, 'content.library.gridView')}
+                  aria-pressed={view === 'grid'}
+                  onClick={() => setView('grid')}
+                >
+                  <Grid2X2Icon className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t(locale, 'content.library.listView')}
+                  aria-pressed={view === 'list'}
+                  onClick={() => setView('list')}
+                >
+                  <ListIcon className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
           {isFilterActive ? (
             <div className="flex items-center gap-3">
               <h2 className="font-heading hidden min-w-0 truncate text-lg font-semibold tracking-tight text-foreground md:block">
@@ -259,40 +362,52 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
           <LibraryGrid
             items={filteredItems}
             tags={tags}
-            returnTo={libraryFilterHref(effectiveFilters)}
+            view={view}
+            returnTo={`${AUTH_ROUTES.library}${buildLibraryFilterQuery(effectiveFilters, currentViewParams()) ? `?${buildLibraryFilterQuery(effectiveFilters, currentViewParams())}` : ''}`}
             emptyState={
-              <div className="flex flex-col items-center gap-3 py-10 text-center" role="status">
-                <p className="text-sm text-muted-foreground">
-                  {t(
-                    locale,
-                    isTruncated
-                      ? 'content.library.noMatchTruncated'
-                      : effectiveFilters.tagId
-                        ? 'content.library.noMatchTitle'
-                        : effectiveFilters.source === 'saved'
-                          ? 'content.library.noSavedBooks'
-                          : effectiveFilters.source === 'personal'
-                            ? 'content.library.noUploadedBooks'
-                            : 'content.library.noMatchTitle',
-                  )}
-                </p>
-                {!isTruncated && !effectiveFilters.tagId && effectiveFilters.source !== 'all' ? (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-sm"
-                    onClick={() => applyFilters({ source: 'all', tagId: null })}
-                  >
-                    {t(locale, 'content.library.viewAllBooks')}
-                  </Button>
-                ) : null}
-              </div>
+              browse.isPending || browse.isError ? null : (
+                <div className="flex flex-col items-center gap-3 py-10 text-center" role="status">
+                  <p className="text-sm text-muted-foreground">
+                    {t(
+                      locale,
+                      search || status !== 'all'
+                        ? 'content.library.noSearchResults'
+                        : effectiveFilters.tagId
+                          ? 'content.library.noMatchTitle'
+                          : effectiveFilters.source === 'saved'
+                            ? 'content.library.noSavedBooks'
+                            : effectiveFilters.source === 'personal'
+                              ? 'content.library.noUploadedBooks'
+                              : 'content.library.noMatchTitle',
+                    )}
+                  </p>
+                  {!search && status === 'all' && !effectiveFilters.tagId && effectiveFilters.source !== 'all' ? (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-sm"
+                      onClick={() => applyFilters({ source: 'all', tagId: null })}
+                    >
+                      {t(locale, 'content.library.viewAllBooks')}
+                    </Button>
+                  ) : null}
+                </div>
+              )
             }
           />
-          {isTruncated ? (
-            <p className="text-sm text-muted-foreground" role="status">
-              {t(locale, 'content.library.truncatedHint', { count: LIBRARY_ITEMS_LIMIT })}
-            </p>
+          {browse.isPending ? <p role="status">{t(locale, 'common.loading')}</p> : null}
+          {browse.isError ? (
+            <div role="alert">
+              <p>{t(locale, 'content.library.loadFailed')}</p>
+              <Button variant="outline" onClick={() => void browse.refetch()}>
+                {t(locale, 'content.common.retry')}
+              </Button>
+            </div>
+          ) : null}
+          {browse.hasNextPage ? (
+            <Button variant="outline" disabled={browse.isFetchingNextPage} onClick={() => void browse.fetchNextPage()}>
+              {t(locale, 'content.library.loadMore')}
+            </Button>
           ) : null}
         </div>
       </div>
