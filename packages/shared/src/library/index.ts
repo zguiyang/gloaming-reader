@@ -1,5 +1,7 @@
 export type {
   ContinueReadingItem,
+  LibraryBrowseData,
+  LibraryBrowseQuery,
   LibraryData,
   LibraryItem,
   SourceRecordSaveResult,
@@ -12,6 +14,8 @@ export {
   continueReadingItemSchema,
   isUserTagTranslationMissing,
   LIBRARY_ITEMS_LIMIT,
+  libraryBrowseDataSchema,
+  libraryBrowseQuerySchema,
   libraryDataSchema,
   libraryItemSchema,
   resolveUserTagName,

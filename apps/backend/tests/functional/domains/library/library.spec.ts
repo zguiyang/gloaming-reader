@@ -153,6 +153,15 @@ describe('Library HTTP', () => {
     expect(((tagged as LibraryData).items.find((item) => item.work.id === work.id)?.userTags ?? [])[0]?.id).toBe(
       tag.id,
     );
+    const filtered = await app.request(`/api/library/browse?source=saved&status=reading&tag=${tag.id}&q=Ocean`, {
+      headers: { cookie: learner.cookie },
+    });
+    expect(filtered.status).toBe(200);
+    expect(((await filtered.json()) as { items: LibraryData['items'] }).items.map((item) => item.work.id)).toEqual([
+      work.id,
+    ]);
+    const unread = await app.request('/api/library/browse?status=unread', { headers: { cookie: learner.cookie } });
+    expect(((await unread.json()) as { items: LibraryData['items'] }).items).toEqual([]);
 
     expect(
       (
@@ -371,5 +380,32 @@ describe('Library HTTP', () => {
       [40, 8],
       [39, 9],
     ]).toContainEqual([overPersonalCount, overSavedCount]);
+
+    const page1 = await app.request('/api/library/browse?page=1', { headers: { cookie: over.cookie } });
+    const page2 = await app.request('/api/library/browse?page=2', { headers: { cookie: over.cookie } });
+    const page3 = await app.request('/api/library/browse?page=3', { headers: { cookie: over.cookie } });
+    expect(page1.status).toBe(200);
+    const first = (await page1.json()) as { items: LibraryData['items']; hasMore: boolean };
+    const second = (await page2.json()) as { items: LibraryData['items']; hasMore: boolean };
+    expect(first.items).toHaveLength(24);
+    expect(first.hasMore).toBe(true);
+    expect(second.items).toHaveLength(24);
+    const third = (await page3.json()) as { items: LibraryData['items']; hasMore: boolean };
+    expect(third.items).toHaveLength(1);
+    expect(third.hasMore).toBe(false);
+    expect(new Set([...first.items, ...second.items].map((entry) => entry.work.id)).size).toBe(48);
+    const searched = await app.request(`/api/library/browse?q=${encodeURIComponent(overPersonal[0]!)}`, {
+      headers: { cookie: over.cookie },
+    });
+    expect(((await searched.json()) as { items: LibraryData['items'] }).items.map((entry) => entry.work.id)).toEqual([
+      overPersonal[0],
+    ]);
+    const other = await app.request(`/api/library/browse?q=${encodeURIComponent(overPersonal[0]!)}`, {
+      headers: { cookie: small.cookie },
+    });
+    expect(((await other.json()) as { items: LibraryData['items'] }).items).toEqual([]);
+    const savedOnly = await app.request('/api/library/browse?source=saved', { headers: { cookie: over.cookie } });
+    expect(((await savedOnly.json()) as { items: LibraryData['items'] }).items).toHaveLength(9);
+    expect((await app.request('/api/library/browse')).status).toBe(401);
   });
 });

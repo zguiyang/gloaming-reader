@@ -9,7 +9,13 @@ import {
   userWorkTag as userWorkTagTable,
 } from '@gloaming/db';
 import { sourceRecord as sourceRecordTable, sourceRecordSaveIntent as saveIntentTable } from '@gloaming/db/schema';
-import { LIBRARY_ITEMS_LIMIT, type LibraryData, type LibraryItem } from '@gloaming/shared/library';
+import {
+  LIBRARY_ITEMS_LIMIT,
+  type LibraryBrowseData,
+  type LibraryBrowseQuery,
+  type LibraryData,
+  type LibraryItem,
+} from '@gloaming/shared/library';
 import { workAvailability } from '@gloaming/shared/works';
 
 import { loadUserTagsByWorkIds } from '@/domains/library/tags/service';
@@ -21,6 +27,54 @@ import { NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
+
+/** Search the complete owner-scoped shelf before limiting results. */
+export async function browseLibrary(userId: string, query: LibraryBrowseQuery): Promise<LibraryBrowseData> {
+  const size = 24;
+  const source =
+    query.source === 'personal'
+      ? sql`AND m.kind = 'personal'`
+      : query.source === 'saved'
+        ? sql`AND m.kind = 'saved'`
+        : sql``;
+  const tag = query.tag
+    ? sql`AND EXISTS (SELECT 1 FROM user_work_tag t WHERE t.user_id = ${userId} AND t.work_id = w.id AND t.tag_id = ${query.tag})`
+    : sql``;
+  const term = query.q?.trim();
+  const pattern = term ? `%${term.replace(/[\\%_]/g, '\\$&')}%` : '';
+  const search = term ? sql`AND (w.title ILIKE ${pattern} OR w.author ILIKE ${pattern})` : sql``;
+  const readable = sql`(w.processing_status IN ('parsed', 'metadata', 'ready') AND EXISTS (SELECT 1 FROM reading_part p WHERE p.work_id = w.id))`;
+  const status =
+    query.status === 'reading'
+      ? sql`AND ${readable} AND s.status = 'in_progress'`
+      : query.status === 'completed'
+        ? sql`AND ${readable} AND s.status = 'completed'`
+        : query.status === 'unread'
+          ? sql`AND ${readable} AND s.status IS NULL`
+          : sql``;
+  const order =
+    query.sort === 'title'
+      ? sql`lower(w.title) ASC, w.id DESC`
+      : query.sort === 'recent'
+        ? sql`s.last_read_at DESC NULLS LAST, m.added_at DESC, w.id DESC`
+        : sql`m.added_at DESC, w.id DESC`;
+  const result = await db.execute<{ id: string }>(sql`
+    WITH memberships AS (
+      SELECT id AS work_id, created_at AS added_at, 'personal' AS kind FROM reading_work WHERE owner_user_id = ${userId}
+      UNION ALL
+      SELECT work_id, created_at AS added_at, 'saved' AS kind FROM user_library_item WHERE user_id = ${userId}
+    )
+    SELECT w.id FROM memberships m JOIN reading_work w ON w.id = m.work_id
+    LEFT JOIN reading_state s ON s.work_id = w.id AND s.user_id = ${userId}
+    WHERE true ${source} ${tag} ${search} ${status}
+    ORDER BY ${order} LIMIT ${size + 1} OFFSET ${(query.page - 1) * size}
+  `);
+  const rows = result.rows;
+  return {
+    items: await Promise.all(rows.slice(0, size).map((row) => getLibraryItem(userId, row.id))),
+    hasMore: rows.length > size,
+  };
+}
 
 function toIso(value: Date): string {
   return value.toISOString();

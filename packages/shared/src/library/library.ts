@@ -80,6 +80,18 @@ export const libraryItemSchema = z.object({
 
 export type LibraryItem = z.infer<typeof libraryItemSchema>;
 
+export const libraryBrowseQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  source: z.enum(['all', 'personal', 'saved']).default('all'),
+  tag: z.string().max(200).optional(),
+  q: z.string().trim().max(200).optional(),
+  status: z.enum(['all', 'reading', 'unread', 'completed']).default('all'),
+  sort: z.enum(['added', 'recent', 'title']).default('added'),
+});
+export type LibraryBrowseQuery = z.infer<typeof libraryBrowseQuerySchema>;
+export const libraryBrowseDataSchema = z.object({ items: z.array(libraryItemSchema), hasMore: z.boolean() });
+export type LibraryBrowseData = z.infer<typeof libraryBrowseDataSchema>;
+
 /** Continue Reading projects progress and does not declare Library membership. */
 export const continueReadingItemSchema = z.object({
   work: readerWorkSummarySchema,
