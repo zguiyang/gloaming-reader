@@ -1143,7 +1143,6 @@
       "legacySectionDescription": "这些是已发布但尚无来源记录的书目。",
       "chapterCount": "{count} 章",
       "pagination": "分页",
-      "loadMore": "加载更多",
       "noSearchResults": "没有符合条件的书籍",
       "prevPage": "上一页",
       "nextPage": "下一页"

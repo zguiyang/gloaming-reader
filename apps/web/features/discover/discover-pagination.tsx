@@ -12,9 +12,6 @@ type DiscoverPaginationProps = {
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  /** Mobile: show load-more instead of page numbers when more remain. */
-  hasMoreMobile: boolean;
-  onLoadMore: () => void;
 };
 
 type PageEntry = number | 'ellipsis-start' | 'ellipsis-end';
@@ -39,16 +36,10 @@ export function discoverPageEntries(page: number, totalPages: number): PageEntry
   return entries;
 }
 
-export function DiscoverPagination({
-  page,
-  totalPages,
-  onPageChange,
-  hasMoreMobile,
-  onLoadMore,
-}: DiscoverPaginationProps) {
+export function DiscoverPagination({ page, totalPages, onPageChange }: DiscoverPaginationProps) {
   const { locale } = useLocale();
 
-  if (totalPages <= 1 && !hasMoreMobile) {
+  if (totalPages <= 1) {
     return null;
   }
 
@@ -56,20 +47,7 @@ export function DiscoverPagination({
 
   return (
     <div className="mt-10 mb-4 md:mt-16 md:mb-8">
-      {hasMoreMobile ? (
-        <div className="flex justify-center md:hidden">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-full border-border px-6 text-sm text-muted-foreground hover:border-primary hover:text-primary"
-            onClick={onLoadMore}
-          >
-            {t(locale, 'content.discover.loadMore')}
-          </Button>
-        </div>
-      ) : null}
-
-      {totalPages > 1 && !hasMoreMobile ? (
+      {totalPages > 1 ? (
         <nav
           className="flex items-center justify-center gap-4 md:hidden"
           aria-label={t(locale, 'content.discover.pagination')}

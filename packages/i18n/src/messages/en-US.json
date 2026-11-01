@@ -1143,7 +1143,6 @@
       "legacySectionDescription": "Titles already published without a source record.",
       "chapterCount": "{count} chapters",
       "pagination": "Pagination",
-      "loadMore": "Load more",
       "noSearchResults": "No books match these filters",
       "prevPage": "Previous",
       "nextPage": "Next"

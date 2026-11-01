@@ -14,14 +14,8 @@ beforeAll(() => {
 
 const DOTS = '…';
 
-async function renderPagination(props: {
-  page: number;
-  totalPages: number;
-  hasMoreMobile?: boolean;
-  locale?: 'en-US' | 'zh-CN';
-}) {
+async function renderPagination(props: { page: number; totalPages: number; locale?: 'en-US' | 'zh-CN' }) {
   const onPageChange = vi.fn();
-  const onLoadMore = vi.fn();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -31,8 +25,6 @@ async function renderPagination(props: {
       page: props.page,
       totalPages: props.totalPages,
       onPageChange,
-      hasMoreMobile: props.hasMoreMobile ?? false,
-      onLoadMore,
     }),
   };
   let root!: ReturnType<typeof createRoot>;
@@ -45,7 +37,6 @@ async function renderPagination(props: {
   return {
     container,
     onPageChange,
-    onLoadMore,
     /** Desktop page-number window: buttons plus non-interactive ellipsis gaps. */
     pageButtons(): HTMLElement[] {
       const nav = container.querySelector('nav:last-child');
@@ -122,24 +113,14 @@ describe('DiscoverPagination bounded page numbers', () => {
     view.cleanup();
   });
 
-  it('keeps the mobile load-more control', async () => {
-    const view = await renderPagination({ page: 1, totalPages: 4216, hasMoreMobile: true });
-    const loadMore = Array.from(view.container.querySelectorAll('button')).find(
-      (button) => button.textContent === 'Load more',
-    );
-    expect(loadMore).toBeDefined();
-    await act(async () => {
-      loadMore!.click();
-    });
-    expect(view.onLoadMore).toHaveBeenCalledTimes(1);
-    view.cleanup();
-  });
-
-  it('offers mobile page navigation when the current batch has no more local items', async () => {
+  it('offers mobile page navigation without a duplicate load-more control', async () => {
     const view = await renderPagination({ page: 1, totalPages: 5 });
     const mobileNav = view.container.querySelector('nav.md\\:hidden')!;
     const buttons = Array.from(mobileNav.querySelectorAll('button'));
     expect(buttons[0]?.disabled).toBe(true);
+    expect(
+      Array.from(view.container.querySelectorAll('button')).some((button) => button.textContent === 'Load more'),
+    ).toBe(false);
     await act(async () => buttons[1]!.click());
     expect(view.onPageChange).toHaveBeenCalledWith(2);
     view.cleanup();

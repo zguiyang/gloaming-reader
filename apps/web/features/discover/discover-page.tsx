@@ -82,28 +82,22 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
   const [appliedQuery, setAppliedQuery] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [mobileVisible, setMobileVisible] = useState(DISCOVER_PAGE_SIZE);
   const [legacyPage, setLegacyPage] = useState(1);
-  const [legacyMobileVisible, setLegacyMobileVisible] = useState(DISCOVER_PAGE_SIZE);
 
   const categoriesQuery = useDiscoverCategoriesQuery();
   const categories: PublicCategoryListItem[] = categoriesQuery.data?.items ?? [];
 
   function resetListView() {
     setPage(1);
-    setMobileVisible(DISCOVER_PAGE_SIZE);
     setLegacyPage(1);
-    setLegacyMobileVisible(DISCOVER_PAGE_SIZE);
   }
 
   function handlePageChange(next: number) {
     setPage(next);
-    setMobileVisible(DISCOVER_PAGE_SIZE);
   }
 
   function handleLegacyPageChange(next: number) {
     setLegacyPage(next);
-    setLegacyMobileVisible(DISCOVER_PAGE_SIZE);
   }
 
   function handleSearchSubmit() {
@@ -170,10 +164,8 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
     toDiscoverLegacyWork(work, coverUrlFromAssetId(work.coverAssetId)),
   );
 
-  const mobileItems = recordsItems.slice(0, mobileVisible);
-  const hasMoreMobile = mobileVisible < recordsItems.length;
-  const legacyMobileItems = legacyItems.slice(0, legacyMobileVisible);
-  const hasMoreLegacyMobile = legacyMobileVisible < legacyItems.length;
+  const mobileItems = recordsItems;
+  const legacyMobileItems = legacyItems;
 
   const selectedCategoryLabel = categoryId
     ? (() => {
@@ -248,8 +240,6 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
                 page={recordsList.page}
                 totalPages={recordsList.totalPages}
                 onPageChange={handlePageChange}
-                hasMoreMobile={hasMoreMobile}
-                onLoadMore={() => setMobileVisible((value) => value + DISCOVER_PAGE_SIZE)}
               />
             </LoadingOverlay>
           ) : null}
@@ -291,8 +281,6 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
                     page={legacyList.page}
                     totalPages={legacyList.totalPages}
                     onPageChange={handleLegacyPageChange}
-                    hasMoreMobile={hasMoreLegacyMobile}
-                    onLoadMore={() => setLegacyMobileVisible((value) => value + DISCOVER_PAGE_SIZE)}
                   />
                 </LoadingOverlay>
               )}
