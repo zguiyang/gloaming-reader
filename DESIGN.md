@@ -568,6 +568,13 @@ Depth from **tonal layering** and hairline outlines — not heavy drop shadows.
 | Paper texture                      | Same asset; **Dark opacity reduction**.                                                                                                                                                                                        |
 | Reading typography                 | Families/sizes unchanged; colors via tokens → **auto follows**.                                                                                                                                                                |
 
+### Selection & focus indicators (locked)
+
+- **Selected / current state is a square 2px bar, never a border.** Draw it with a `before:` / `after:` pseudo-element at the shared edge: the bottom edge for tab-like filters and pagination, the left edge for list rows (provider list, reader TOC). A single-side `border` on a rounded surface follows the corner radius and reads as a U or a bracket, and it shifts the box when the state toggles.
+- **One focus signal only.** A control shows either a border or a ring on focus, never both. Filled controls (`data-appearance="filled"`) keep the border transparent while focused and show the 2px offset ring; the outline recipe's focusing border is neutralized in the theme layer, not in the primitive.
+- **Do not edit `components/ui` for page-level visuals.** Prefer usage-site Tailwind classes. If a shared slot genuinely needs a fix, add an attribute-scoped rule to the override block at the end of `apps/web/app/globals.css` and explain why. Changing shared primitive source requires explicit task authorization ([`rules/frontend.md`](rules/frontend.md)).
+- **Guard:** `apps/web/test/design-guards.spec.ts` fails on single-side border indicators, double focus rings, and consumer overrides of the tab indicator offset. Extend its allowlist only for structural exceptions, with a comment.
+
 ---
 
 ## Third-party theme strategy
