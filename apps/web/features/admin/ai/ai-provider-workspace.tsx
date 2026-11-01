@@ -213,18 +213,18 @@ export function AiProviderWorkspace({
                 <li key={provider.id}>
                   <div
                     className={cn(
-                      'flex items-center gap-2 border-b border-border/50 py-3 pr-1',
-                      isActive && 'bg-brand-soft/40',
+                      // Selection is a square 2px bar on the row, not a border on the
+                      // rounded Button — a left border would curve into a bracket.
+                      'relative flex items-center gap-2 border-b border-border/50 py-3 pr-1',
+                      'before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary before:opacity-0 before:transition-opacity',
+                      isActive && 'bg-brand-soft/40 before:opacity-100',
                     )}
                   >
                     <Button
                       variant="plain"
                       size={null}
                       type="button"
-                      className={cn(
-                        'flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg px-2 py-1 text-left',
-                        isActive && 'border-l-2 border-primary pl-2.5',
-                      )}
+                      className="flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg px-2 py-1 text-left"
                       aria-current={isActive ? 'true' : undefined}
                       onClick={() => selectProvider(provider.id)}
                     >

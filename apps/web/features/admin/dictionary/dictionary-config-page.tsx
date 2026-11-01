@@ -517,7 +517,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
               </div>
 
               {testResult.entry.contextExamples && testResult.entry.contextExamples.length > 0 ? (
-                <div className="flex flex-col gap-1.5 rounded-lg border-l-2 border-primary/60 bg-surface-container-high/40 p-3">
+                <div className="relative flex flex-col gap-1.5 rounded-lg bg-surface-container-high/40 p-3 before:absolute before:inset-y-3 before:left-0 before:w-0.5 before:bg-primary/60">
                   <span className="text-xs font-semibold text-muted-foreground">
                     {t(locale, 'admin.dictionary.test.contextExamplesHeading')}
                   </span>

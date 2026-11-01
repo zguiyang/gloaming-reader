@@ -154,10 +154,13 @@ function TocRow({
         onClick={onClick}
         aria-current={isCurrent ? 'page' : undefined}
         className={cn(
-          'flex w-full items-center justify-start gap-3 whitespace-normal py-3 pr-6 pl-5 text-left text-sm transition-colors duration-200 ease-out-soft',
+          'relative flex w-full items-center justify-start gap-3 whitespace-normal py-3 pr-6 pl-5 text-left text-sm transition-colors duration-200 ease-out-soft',
+          // Square 2px bar (not a border): a left border on a rounded row would
+          // curve, and 4px was inconsistent with the rest of the app.
+          'before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary before:opacity-0 before:transition-opacity',
           isCurrent
-            ? 'rounded-r-full border-l-4 border-primary bg-secondary font-bold text-foreground'
-            : 'rounded-r-full border-l-4 border-transparent text-muted-foreground hover:bg-secondary/30 hover:text-foreground',
+            ? 'rounded-r-full bg-secondary font-bold text-foreground before:opacity-100'
+            : 'rounded-r-full text-muted-foreground hover:bg-secondary/30 hover:text-foreground',
         )}
       >
         <span

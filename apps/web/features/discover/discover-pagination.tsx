@@ -94,8 +94,11 @@ export function DiscoverPagination({ page, totalPages, onPageChange }: DiscoverP
                   onClick={() => onPageChange(entry)}
                   aria-current={entry === page ? 'page' : undefined}
                   className={cn(
-                    'pb-1 transition-colors duration-200 ease-out-soft hover:text-primary',
-                    entry === page && 'border-b border-primary font-semibold text-primary',
+                    // Square 2px underline via pseudo-element; a border would curve
+                    // with the Button radius and read as a U.
+                    'relative pb-1 transition-colors duration-200 ease-out-soft hover:text-primary',
+                    'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-none after:bg-primary after:opacity-0 after:transition-opacity',
+                    entry === page && 'font-semibold text-primary after:opacity-100',
                   )}
                 >
                   {entry}

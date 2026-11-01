@@ -244,7 +244,7 @@ function AiThread({
         }}
       >
         {quote ? (
-          <div className="mb-2 flex items-start gap-2 rounded-xl border border-border/50 border-l-2 border-l-primary/70 bg-surface-container-high/80 p-2.5 transition-all duration-200 ease-out">
+          <div className="relative mb-2 flex items-start gap-2 rounded-xl border border-border/50 bg-surface-container-high/80 p-2.5 transition-all duration-200 ease-out before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:bg-primary/70">
             <QuoteIcon className="mt-0.5 size-3.5 shrink-0 text-primary/70" />
             <p className="min-w-0 flex-1 font-serif text-xs italic leading-relaxed text-foreground/85 line-clamp-2">
               {quote}

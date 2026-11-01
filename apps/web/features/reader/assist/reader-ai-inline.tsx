@@ -116,7 +116,7 @@ export function ReaderAiInline({
           'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
         )}
       >
-        <p className="line-clamp-2 border-l-2 border-primary/40 pl-3 font-heading text-sm italic text-muted-foreground">
+        <p className="relative line-clamp-2 pl-3 font-heading text-sm italic text-muted-foreground before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary/40">
           “{quote}”
         </p>
         {mode === 'question' ? (
