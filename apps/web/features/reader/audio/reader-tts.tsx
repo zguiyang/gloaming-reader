@@ -267,7 +267,9 @@ export function ReaderTts({
             isExpanded ? 'pointer-events-none opacity-0' : 'opacity-100',
           )}
         >
-          <button
+          <Button
+            variant="plain"
+            size={null}
             type="button"
             aria-label={avatarLabel}
             disabled={isLoading}
@@ -318,9 +320,11 @@ export function ReaderTts({
                 </span>
               </span>
             )}
-          </button>
+          </Button>
 
-          <button
+          <Button
+            variant="plain"
+            size={null}
             ref={expandButtonRef}
             type="button"
             aria-label={t(locale, 'content.reader.tts.expandControls')}
@@ -342,7 +346,7 @@ export function ReaderTts({
             )}
           >
             <ChevronRightIcon className="size-3.5 max-md:-scale-x-100" strokeWidth={2} aria-hidden />
-          </button>
+          </Button>
         </div>
 
         {/* Expanded: play/pause, speed, accent and the chapter progress hairline. */}
@@ -377,7 +381,9 @@ export function ReaderTts({
                 <PlayIcon className="size-4" />
               )}
             </Button>
-            <button
+            <Button
+              variant="plain"
+              size={null}
               type="button"
               disabled={isLoading}
               aria-label={t(locale, 'content.reader.tts.playbackRate', { rate: rateLabel })}
@@ -390,7 +396,7 @@ export function ReaderTts({
               )}
             >
               {rateLabel}
-            </button>
+            </Button>
             <AccentSegment role={audioRole} onSelect={handleRole} />
           </div>
 
@@ -453,7 +459,9 @@ function AccentOption({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button
+      variant="plain"
+      size={null}
       type="button"
       aria-pressed={selected}
       aria-label={ariaLabel}
@@ -465,6 +473,6 @@ function AccentOption({
       )}
     >
       {label}
-    </button>
+    </Button>
   );
 }

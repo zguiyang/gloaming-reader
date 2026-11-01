@@ -9,6 +9,7 @@ import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { formatPhoneticRoleLabel } from '@/features/reader/reader-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -89,12 +90,14 @@ export function ReaderDictionaryCard({
 
           {isLoading ? (
             <div className="mt-1.5 flex gap-2">
-              <div className="h-4 w-24 animate-pulse rounded bg-surface-container-high" />
+              <Skeleton className="h-4 w-24 rounded bg-surface-container-high" />
             </div>
           ) : (
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {primaryPhonetic && (
-                <button
+                <Button
+                  variant="plain"
+                  size={null}
                   type="button"
                   onClick={() => handlePlayAudio(primaryPhonetic.audio)}
                   disabled={!primaryPhonetic.audio}
@@ -117,11 +120,13 @@ export function ReaderDictionaryCard({
                   {primaryPhonetic.text && (
                     <span className="font-sans text-muted-foreground">{primaryPhonetic.text}</span>
                   )}
-                </button>
+                </Button>
               )}
 
               {secondaryPhonetic && (
-                <button
+                <Button
+                  variant="plain"
+                  size={null}
                   type="button"
                   onClick={() => handlePlayAudio(secondaryPhonetic.audio)}
                   disabled={!secondaryPhonetic.audio}
@@ -144,7 +149,7 @@ export function ReaderDictionaryCard({
                   {secondaryPhonetic.text && (
                     <span className="font-sans text-muted-foreground">{secondaryPhonetic.text}</span>
                   )}
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -155,12 +160,12 @@ export function ReaderDictionaryCard({
       <div className="flex-1 space-y-4 overflow-y-auto py-3">
         {isLoading ? (
           <div className="space-y-3">
-            <div className="h-4 w-12 animate-pulse rounded bg-surface-container-high" />
+            <Skeleton className="h-4 w-12 rounded bg-surface-container-high" />
             <div className="space-y-2">
-              <div className="h-4 w-5/6 animate-pulse rounded bg-surface-container-high" />
-              <div className="h-4 w-4/6 animate-pulse rounded bg-surface-container-high" />
+              <Skeleton className="h-4 w-5/6 rounded bg-surface-container-high" />
+              <Skeleton className="h-4 w-4/6 rounded bg-surface-container-high" />
             </div>
-            <div className="mt-4 h-16 w-full animate-pulse rounded-xl bg-surface-container-low" />
+            <Skeleton className="mt-4 h-16 w-full rounded-xl bg-surface-container-low" />
           </div>
         ) : isError ? (
           <div className="flex flex-col items-center justify-center py-6 text-center">

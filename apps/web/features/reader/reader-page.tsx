@@ -783,6 +783,12 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           assist.closeAiSurface();
         }}
         onTranslate={() => requestInlineAssist('translate')}
+        onClose={(restoreFocus) => {
+          clearSelectionUi();
+          if (restoreFocus) {
+            requestAnimationFrame(() => contentRef.current?.querySelector('article')?.focus({ preventScroll: true }));
+          }
+        }}
       />
 
       <ReaderDictionaryView

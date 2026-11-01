@@ -1,7 +1,7 @@
 'use client';
 
 import DOMPurify from 'dompurify';
-import { type MouseEvent, type ReactNode, useMemo } from 'react';
+import { type KeyboardEvent, type MouseEvent, type ReactNode, useMemo } from 'react';
 
 import { t } from '@gloaming/i18n';
 import type { TranslateSentenceEn } from '@gloaming/shared/translate';
@@ -24,6 +24,7 @@ export type ReadingPartViewProps = {
   className?: string;
   /** Optional selection handling — the learner Reader wires its assist toolbar here. */
   onArticleMouseUp?: (event: MouseEvent<HTMLElement>) => void;
+  onArticleKeyUp?: (event: KeyboardEvent<HTMLElement>) => void;
   /** Optional content after the reading body (e.g. the learner's chapter-end footer). */
   footer?: ReactNode;
   isBilingual?: boolean;
@@ -298,6 +299,7 @@ export function ReadingPartView({
   fontSize = 'md',
   className,
   onArticleMouseUp,
+  onArticleKeyUp,
   footer,
   isBilingual = false,
   bilingualData,
@@ -330,11 +332,15 @@ export function ReadingPartView({
   return (
     <article
       onMouseUp={onArticleMouseUp}
+      onKeyUp={onArticleKeyUp}
+      tabIndex={onArticleKeyUp ? 0 : undefined}
+      aria-label={onArticleKeyUp ? t(locale, 'content.reader.readingArea') : undefined}
       onClick={handleArticleClick}
       className={cn(
         // Readest-aligned page insets: 16/20 L-R, compact top; large pb clears TTS/chrome.
         'mx-auto w-full max-w-reading-column px-4 pb-24 pt-6 md:px-5 md:pt-8',
         FONT_CLASS[fontSize],
+        onArticleKeyUp && 'focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2',
         className,
       )}
     >

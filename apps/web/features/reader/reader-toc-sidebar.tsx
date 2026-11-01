@@ -6,6 +6,7 @@ import { useSyncExternalStore } from 'react';
 
 import { t } from '@gloaming/i18n';
 
+import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { AUTH_ROUTES } from '@/constants';
 import {
@@ -56,14 +57,16 @@ export function ReaderTocSidebar({
   const list = (
     <div className="flex h-full flex-col bg-surface-container-low">
       <div className="relative border-b border-border/40 p-6 pb-5">
-        <button
+        <Button
+          variant="plain"
+          size={null}
           type="button"
           className="absolute top-4 right-4 rounded-full p-2 text-muted-foreground transition-colors hover:bg-surface-container-high hover:text-foreground"
           aria-label={t(locale, 'content.reader.toc.collapse')}
           onClick={() => onOpenChange(false)}
         >
           <ChevronsLeftIcon className="size-5" strokeWidth={1.5} />
-        </button>
+        </Button>
         <div className="mt-2 flex gap-4">
           <WorkCover
             title={reader.workTitle}
@@ -116,6 +119,7 @@ export function ReaderTocSidebar({
           open ? 'translate-x-0' : '-translate-x-full pointer-events-none',
         )}
         aria-hidden={!open}
+        inert={!open}
       >
         {list}
       </aside>
@@ -143,12 +147,14 @@ function TocRow({
 }) {
   return (
     <li>
-      <button
+      <Button
+        variant="plain"
+        size={null}
         type="button"
         onClick={onClick}
         aria-current={isCurrent ? 'page' : undefined}
         className={cn(
-          'flex w-full items-center gap-3 py-3 pr-6 pl-5 text-left text-sm transition-colors duration-200 ease-out-soft',
+          'flex w-full items-center justify-start gap-3 whitespace-normal py-3 pr-6 pl-5 text-left text-sm transition-colors duration-200 ease-out-soft',
           isCurrent
             ? 'rounded-r-full border-l-4 border-primary bg-secondary font-bold text-foreground'
             : 'rounded-r-full border-l-4 border-transparent text-muted-foreground hover:bg-secondary/30 hover:text-foreground',
@@ -163,7 +169,7 @@ function TocRow({
           {index}
         </span>
         <span className="truncate">{title}</span>
-      </button>
+      </Button>
     </li>
   );
 }
