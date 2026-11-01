@@ -95,7 +95,11 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
         ) : null}
 
         <AuthPanel variant={embedded ? 'plain' : 'card'}>
-          {formError ? <p className="mb-4 text-sm text-destructive">{formError}</p> : null}
+          {formError ? (
+            <p role="alert" className="mb-4 text-sm text-destructive">
+              {formError}
+            </p>
+          ) : null}
           <Button
             type="button"
             className={authPrimaryButtonClassName}
@@ -210,7 +214,11 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
               </form.Field>
             </div>
 
-            {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
+            {formError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {formError}
+              </p>
+            ) : null}
 
             <form.Subscribe selector={(state) => state.isSubmitting}>
               {(isSubmitting) => (

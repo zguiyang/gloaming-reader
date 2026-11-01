@@ -142,7 +142,11 @@ export function AccountChangePasswordForm({ enabled, accountsPending }: AccountC
         )}
       </form.Field>
 
-      {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
+      {formError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {formError}
+        </p>
+      ) : null}
 
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (

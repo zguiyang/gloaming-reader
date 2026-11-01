@@ -179,7 +179,11 @@ export function SignInForm({ embedded = false, onSuccess, onSwitchMode }: SignIn
               </form.Field>
             </div>
 
-            {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
+            {formError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {formError}
+              </p>
+            ) : null}
 
             {isVerificationRequired ? (
               <Button
