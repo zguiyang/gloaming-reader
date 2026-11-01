@@ -556,6 +556,7 @@
         "untranslated": "未翻译",
         "complete": "各语言名称已填写",
         "save": "保存 {locale} 名称",
+        "name": "{locale} 分类名称",
         "saved": "名称已保存。",
         "nameExists": "该语言下已存在同名分类。"
       },
@@ -690,6 +691,10 @@
           "apiKeyCurrent": "当前：{masked}",
           "thinkingParam": "思考参数名（可选）",
           "proxy": "代理",
+          "proxyUrl": "代理地址",
+          "balanceEndpoint": "余额查询路径",
+          "balanceAmountPath": "余额字段路径",
+          "balanceCurrencyPath": "币种字段路径",
           "balanceQuery": "余额查询",
           "balanceEndpointPlaceholder": "auth/key 或 /user/balance",
           "balanceEndpointHint": "只填路径，将与 Base URL 自动拼接；粘贴同域完整链接时会转为路径",
@@ -1321,6 +1326,7 @@
       "difficultyPrefix": "难度: {label}"
     },
     "reader": {
+      "readingArea": "阅读正文",
       "unavailableTitle": "无法打开这本书",
       "unavailableDefault": "当前无法获取书籍内容，请稍后再试。",
       "chrome": {

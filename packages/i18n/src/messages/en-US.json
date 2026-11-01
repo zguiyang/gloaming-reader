@@ -556,6 +556,7 @@
         "untranslated": "Untranslated",
         "complete": "All names filled in",
         "save": "Save {locale} name",
+        "name": "Category name ({locale})",
         "saved": "Name saved.",
         "nameExists": "A category with that name already exists for this language."
       },
@@ -690,6 +691,10 @@
           "apiKeyCurrent": "Current: {masked}",
           "thinkingParam": "Thinking parameter name (optional)",
           "proxy": "Proxy",
+          "proxyUrl": "Proxy URL",
+          "balanceEndpoint": "Balance endpoint path",
+          "balanceAmountPath": "Balance amount field path",
+          "balanceCurrencyPath": "Currency field path",
           "balanceQuery": "Balance query",
           "balanceEndpointPlaceholder": "auth/key or /user/balance",
           "balanceEndpointHint": "Path only; appended to Base URL. Same-origin full URLs are stored as a path.",
@@ -1321,6 +1326,7 @@
       "difficultyPrefix": "Difficulty: {label}"
     },
     "reader": {
+      "readingArea": "Reading text",
       "unavailableTitle": "Could not open this book",
       "unavailableDefault": "Book content is unavailable right now. Please try again later.",
       "chrome": {

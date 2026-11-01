@@ -172,6 +172,7 @@ function CalendarDayButton({
         className,
       )}
       {...props}
+      ref={ref}
     />
   );
 }
