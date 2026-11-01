@@ -547,7 +547,7 @@ Depth from **tonal layering** and hairline outlines — not heavy drop shadows.
   - Temp Stitch HTML may disagree (14px / 1px underline on some screens) — **this contract wins**.
 - **App bottom nav (mobile learner shell) — locked:** Only inside `AppShell` (`MobileBottomNav`). Not on Landing, Auth, Reader, or Admin.
   - **Tabs:** 书架 → 发现 → 历史 → 更多 (labels from `nav-config`; hrefs shared with desktop primary links).
-  - **更多:** opens a bottom Sheet for extensions — **no** `/more` route. Future account/settings rows. Theme mode is **not** hosted here (top `SiteNav` icon). Placeholder-only rows may remain for not-yet-shipped items.
+  - **更多:** opens the existing `/more` page for extensions. Product decision (2026-11-01): keep the route and page behavior; do **not** replace it with a bottom Sheet. Future account/settings rows. Theme mode is **not** hosted here (top `SiteNav` icon). Placeholder-only rows may remain for not-yet-shipped items.
   - **Height:** **56px** tab row + `env(safe-area-inset-bottom)`.
   - **AppShell** exposes `--app-shell-bottom` so page sticky CTAs (e.g. book detail) sit above the tab bar; `md+` sets it to `0`.
   - **Active:** `primary` icon + label; idle `muted-foreground`. Quiet — no floating island / glow.
