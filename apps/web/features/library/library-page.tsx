@@ -266,10 +266,10 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
         <div className="flex min-w-0 flex-1 flex-col gap-8 md:gap-10">
           <LibraryMobileSourceNav currentLabel={currentLabel} {...sourceNavProps} />
           {current ? <LibraryContinueHero entry={current} /> : null}
-          <div className="flex flex-col gap-4 border-b border-border/50">
+          <div className="flex flex-col gap-4 border-b border-border/50 pb-3">
             <div className="flex flex-wrap items-center gap-3">
               <div
-                className="flex flex-wrap items-end gap-4 self-stretch"
+                className="flex flex-wrap gap-4"
                 role="group"
                 aria-label={t(locale, 'content.library.readingFilter')}
               >
@@ -283,8 +283,10 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
                     aria-pressed={status === value}
                     className={cn(
                       // Square 2px underline drawn by the pseudo-element: a single-side
-                      // border would follow the Button's radius and read as a U.
-                      'relative pb-3 text-sm',
+                      // border would follow the Button's radius and read as a U. It sits
+                      // at the button's own bottom so the row keeps its clearance from
+                      // the section divider (do not pull the control row onto the rule).
+                      'relative pb-2 text-sm',
                       'after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-none after:bg-primary after:opacity-0 after:transition-opacity',
                       status === value
                         ? 'font-medium text-primary after:opacity-100'
