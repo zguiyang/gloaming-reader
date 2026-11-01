@@ -54,9 +54,6 @@ export function AuthDialog({ open, mode, reason, onOpenChange, onSuccess, onSwit
           'fixed top-1/2 left-1/2 z-50 flex max-h-[min(44rem,calc(100dvh-2rem))] w-[calc(100vw-2rem)]',
           '-translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-lg bg-card text-foreground',
           'shadow-card ring-1 ring-border/40 outline-none sm:max-w-[26rem]',
-          'motion-safe:data-starting-style:animate-in motion-safe:data-starting-style:fade-in-0',
-          'motion-safe:data-starting-style:zoom-in-95 motion-safe:data-ending-style:animate-out',
-          'motion-safe:data-ending-style:fade-out-0 motion-safe:data-ending-style:zoom-out-95',
         )}
       >
         <DialogClose
