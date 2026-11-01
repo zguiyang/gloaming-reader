@@ -4,6 +4,7 @@ import { XIcon } from 'lucide-react';
 
 import { t } from '@gloaming/i18n';
 
+import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/locale-context';
 
 type DiscoverActiveFiltersProps = {
@@ -34,7 +35,9 @@ export function DiscoverActiveFilters({
     <div className="flex flex-wrap items-center gap-2" aria-live="polite">
       <span className="text-xs text-muted-foreground">{t(locale, 'content.discover.activeFilters')}</span>
       {categoryLabel ? (
-        <button
+        <Button
+          variant="plain"
+          size={null}
           type="button"
           onClick={onClearCategory}
           className={filterChipClassName}
@@ -42,10 +45,12 @@ export function DiscoverActiveFilters({
         >
           {categoryLabel}
           <XIcon className="size-3.5" strokeWidth={1.5} aria-hidden />
-        </button>
+        </Button>
       ) : null}
       {trimmedQuery ? (
-        <button
+        <Button
+          variant="plain"
+          size={null}
           type="button"
           onClick={onClearQuery}
           className={filterChipClassName}
@@ -53,7 +58,7 @@ export function DiscoverActiveFilters({
         >
           {t(locale, 'content.discover.searchFilterChip', { query: trimmedQuery })}
           <XIcon className="size-3.5" strokeWidth={1.5} aria-hidden />
-        </button>
+        </Button>
       ) : null}
     </div>
   );

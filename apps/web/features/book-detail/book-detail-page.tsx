@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog, useRequireAuth } from '@/features/auth';
 import {
@@ -39,12 +40,12 @@ import { cn } from '@/lib/utils';
 function BookDetailSkeleton() {
   return (
     <div className="flex w-full flex-col gap-8 py-8" aria-hidden>
-      <div className="h-8 w-32 animate-pulse rounded bg-surface-container-high" />
+      <Skeleton className="h-8 w-32 rounded bg-surface-container-high" />
       <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
-        <div className="mx-auto aspect-[2/3] w-48 animate-pulse rounded-sm bg-surface-container-high md:col-span-4" />
+        <Skeleton className="mx-auto aspect-[2/3] w-48 rounded-sm bg-surface-container-high md:col-span-4" />
         <div className="space-y-4 md:col-span-8">
-          <div className="h-10 w-3/4 animate-pulse rounded bg-surface-container-high" />
-          <div className="h-6 w-1/2 animate-pulse rounded bg-surface-container-high" />
+          <Skeleton className="h-10 w-3/4 rounded bg-surface-container-high" />
+          <Skeleton className="h-6 w-1/2 rounded bg-surface-container-high" />
         </div>
       </div>
     </div>

@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { AdminSegmentedTabsList, AdminSegmentedTabsTrigger } from '@/features/admin/admin-segmented-tabs';
 import {
   adminLlmQueryKey,
@@ -324,7 +324,7 @@ export function AiConfigPage() {
           <AdminSegmentedTabsTrigger value="providers">{t(locale, 'admin.ai.tabProviders')}</AdminSegmentedTabsTrigger>
         </AdminSegmentedTabsList>
 
-        <div className="mt-8">
+        <TabsContent value={activeTab} className="mt-8">
           {isPending ? (
             <>
               <Skeleton className="h-40 w-full rounded-2xl bg-muted/70" />
@@ -379,7 +379,7 @@ export function AiConfigPage() {
               isModelSaving={createModelMutation.isPending || updateModelMutation.isPending}
             />
           )}
-        </div>
+        </TabsContent>
       </Tabs>
 
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>

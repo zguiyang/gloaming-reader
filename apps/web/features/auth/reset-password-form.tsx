@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useAuthDialog } from '@/features/auth/auth-dialog-provider';
 import { authInputClassName, authPrimaryButtonClassName, Field } from '@/features/auth/auth-field';
 import { AuthFooterLink, AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
@@ -110,7 +111,7 @@ export function ResetPasswordForm() {
           <form.Field name="password">
             {(field) => (
               <Field label={t(locale, 'auth.resetPassword.passwordLabel')} htmlFor="reset-password">
-                <input
+                <Input
                   id="reset-password"
                   type="password"
                   autoComplete="new-password"
@@ -128,7 +129,7 @@ export function ResetPasswordForm() {
           <form.Field name="passwordConfirm">
             {(field) => (
               <Field label={t(locale, 'auth.resetPassword.confirmLabel')} htmlFor="reset-password-confirm">
-                <input
+                <Input
                   id="reset-password-confirm"
                   type="password"
                   autoComplete="new-password"

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import { t } from '@gloaming/i18n';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { BookDetailRecommendations } from '@/features/book-detail/book-detail-recommendations';
 import { useLocale } from '@/lib/locale-context';
 import { workDetailReturnLabelKey } from '@/lib/navigation/work-detail-return';
@@ -49,14 +49,17 @@ export function BookDetailUnavailable({
             <RefreshCwIcon className="size-4" strokeWidth={1.5} aria-hidden />
             {t(locale, 'content.bookDetail.reload')}
           </Button>
-          <Button
-            nativeButton={false}
-            variant="outline"
-            className="h-11 rounded-xl border-2 border-outline/60 px-8 text-sm text-muted-foreground hover:bg-surface-container-low"
-            render={<Link href={returnTo} replace />}
+          <Link
+            href={returnTo}
+            replace
+            className={buttonVariants({
+              variant: 'outline',
+              className:
+                'h-11 rounded-xl border-2 border-outline/60 px-8 text-sm text-muted-foreground hover:bg-surface-container-low',
+            })}
           >
             {t(locale, workDetailReturnLabelKey(returnTo))}
-          </Button>
+          </Link>
         </div>
       </div>
 

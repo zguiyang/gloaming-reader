@@ -69,12 +69,31 @@ export function DiscoverPagination({
         </div>
       ) : null}
 
+      {totalPages > 1 && !hasMoreMobile ? (
+        <nav
+          className="flex items-center justify-center gap-4 md:hidden"
+          aria-label={t(locale, 'content.discover.pagination')}
+        >
+          <Button type="button" variant="outline" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+            {t(locale, 'content.discover.prevPage')}
+          </Button>
+          <span className="text-sm tabular-nums text-muted-foreground" aria-current="page">
+            {page} / {totalPages}
+          </span>
+          <Button type="button" variant="outline" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+            {t(locale, 'content.discover.nextPage')}
+          </Button>
+        </nav>
+      ) : null}
+
       {totalPages > 1 ? (
         <nav
           className="hidden items-center justify-center gap-6 font-heading text-lg md:flex"
           aria-label={t(locale, 'content.discover.pagination')}
         >
-          <button
+          <Button
+            variant="plain"
+            size={null}
             type="button"
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
@@ -85,11 +104,13 @@ export function DiscoverPagination({
           >
             <ChevronLeftIcon className="size-5" strokeWidth={1.5} aria-hidden />
             {t(locale, 'content.discover.prevPage')}
-          </button>
+          </Button>
           <div className="flex items-center gap-4 text-muted-foreground">
             {pageEntries.map((entry) =>
               typeof entry === 'number' ? (
-                <button
+                <Button
+                  variant="plain"
+                  size={null}
                   key={entry}
                   type="button"
                   onClick={() => onPageChange(entry)}
@@ -100,7 +121,7 @@ export function DiscoverPagination({
                   )}
                 >
                   {entry}
-                </button>
+                </Button>
               ) : (
                 <span key={entry} aria-hidden className="select-none">
                   …
@@ -108,7 +129,9 @@ export function DiscoverPagination({
               ),
             )}
           </div>
-          <button
+          <Button
+            variant="plain"
+            size={null}
             type="button"
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
@@ -119,7 +142,7 @@ export function DiscoverPagination({
           >
             {t(locale, 'content.discover.nextPage')}
             <ChevronRightIcon className="size-5" strokeWidth={1.5} aria-hidden />
-          </button>
+          </Button>
         </nav>
       ) : null}
     </div>

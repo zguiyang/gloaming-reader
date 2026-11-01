@@ -6,6 +6,7 @@ import type { AssetCleanupJob } from '@gloaming/shared/assets';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { canRetryCleanupJob } from '@/features/admin/assets/assets-cleanup-state';
 import { assetCleanupJobStatusLabel, formatStorageBytes } from '@/features/admin/assets/assets-format';
@@ -61,19 +62,12 @@ export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsClea
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div
-          className="bg-muted h-2 overflow-hidden rounded-full"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={percent}
+        <Progress
+          className="h-2 rounded-full bg-muted"
+          value={percent}
           aria-label={t(locale, 'admin.assets.cleanup.progressAria')}
-        >
-          <div
-            className={cn('bg-primary h-full transition-[width]', job.status === 'failed' && 'bg-destructive')}
-            style={{ width: `${percent}%` }}
-          />
-        </div>
+          indicatorClassName={cn(job.status === 'failed' && 'bg-destructive')}
+        />
         <p className="text-muted-foreground text-sm">
           {t(locale, 'admin.assets.cleanup.stats', {
             deleted: job.deletedCount,

@@ -182,8 +182,8 @@ export function InvocationLogsFilters({
   }
 
   return (
-    <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-      <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
+    <div className="flex flex-wrap items-start gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
         <Tabs
           value={rangeTab}
           className="w-fit"

@@ -10,7 +10,7 @@ import { t } from '@gloaming/i18n';
 import type { SourceRecordSaveResult, SourceRecordSaveStatus } from '@gloaming/shared/library';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import {
@@ -277,30 +277,20 @@ function DiscoverSourceCardContent({
                 {t(locale, 'content.discover.inLibrary')}
               </Button>
               {detailHref ? (
-                <Button
-                  nativeButton={false}
-                  variant="outline"
-                  className="h-8 gap-1.5"
-                  render={<Link href={detailHref} />}
-                >
+                <Link href={detailHref} className={buttonVariants({ variant: 'outline', className: 'h-8 gap-1.5' })}>
                   {t(locale, 'content.discover.viewDetail')}
                   <ArrowRightIcon className="size-4" strokeWidth={1.5} aria-hidden />
-                </Button>
+                </Link>
               ) : null}
-              <Button
-                nativeButton={false}
-                variant="link"
-                className="h-8 px-0"
-                render={<Link href={AUTH_ROUTES.library} />}
-              >
+              <Link href={AUTH_ROUTES.library} className={buttonVariants({ variant: 'link', className: 'h-8 px-0' })}>
                 {t(locale, 'content.discover.goToLibrary')}
-              </Button>
+              </Link>
             </div>
           ) : detailHref ? (
-            <Button nativeButton={false} variant="outline" className="h-8 gap-1.5" render={<Link href={detailHref} />}>
+            <Link href={detailHref} className={buttonVariants({ variant: 'outline', className: 'h-8 gap-1.5' })}>
               {t(locale, 'content.discover.viewDetail')}
               <ArrowRightIcon className="size-4" strokeWidth={1.5} aria-hidden />
-            </Button>
+            </Link>
           ) : (
             <>
               <Button

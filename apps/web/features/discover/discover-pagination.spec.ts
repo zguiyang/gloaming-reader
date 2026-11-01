@@ -48,7 +48,7 @@ async function renderPagination(props: {
     onLoadMore,
     /** Desktop page-number window: buttons plus non-interactive ellipsis gaps. */
     pageButtons(): HTMLElement[] {
-      const nav = container.querySelector('nav');
+      const nav = container.querySelector('nav:last-child');
       const numbers = nav?.querySelector('div');
       return numbers ? (Array.from(numbers.children) as HTMLElement[]) : [];
     },
@@ -132,6 +132,16 @@ describe('DiscoverPagination bounded page numbers', () => {
       loadMore!.click();
     });
     expect(view.onLoadMore).toHaveBeenCalledTimes(1);
+    view.cleanup();
+  });
+
+  it('offers mobile page navigation when the current batch has no more local items', async () => {
+    const view = await renderPagination({ page: 1, totalPages: 5 });
+    const mobileNav = view.container.querySelector('nav.md\\:hidden')!;
+    const buttons = Array.from(mobileNav.querySelectorAll('button'));
+    expect(buttons[0]?.disabled).toBe(true);
+    await act(async () => buttons[1]!.click());
+    expect(view.onPageChange).toHaveBeenCalledWith(2);
     view.cleanup();
   });
 });

@@ -10,6 +10,7 @@ import { resolveUserTagName } from '@gloaming/shared/library';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import {
@@ -273,7 +274,9 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
                 aria-label={t(locale, 'content.library.readingFilter')}
               >
                 {(['all', 'reading', 'unread', 'completed'] as const).map((value) => (
-                  <button
+                  <Button
+                    variant="plain"
+                    size={null}
                     key={value}
                     type="button"
                     onClick={() => setStatus(value)}
@@ -295,7 +298,7 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
                             ? 'content.library.statusNotStarted'
                             : 'content.library.statusCompleted',
                     )}
-                  </button>
+                  </Button>
                 ))}
               </div>
               <div className="ml-auto flex items-center gap-2">
@@ -313,16 +316,28 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
                     className="h-9 w-40 pl-8 sm:w-52"
                   />
                 </label>
-                <select
+                <Select
                   value={sort}
-                  onChange={(event) => setSort(event.target.value as typeof sort)}
-                  aria-label={t(locale, 'content.library.sortBooks')}
-                  className="h-9 max-w-28 rounded-md bg-transparent text-sm text-foreground"
+                  items={[
+                    { value: 'added', label: t(locale, 'content.library.sortAdded') },
+                    { value: 'recent', label: t(locale, 'content.library.sortRecent') },
+                    { value: 'title', label: t(locale, 'content.library.sortTitle') },
+                  ]}
+                  onValueChange={(value) => {
+                    if (value === 'added' || value === 'recent' || value === 'title') setSort(value);
+                  }}
                 >
-                  <option value="added">{t(locale, 'content.library.sortAdded')}</option>
-                  <option value="recent">{t(locale, 'content.library.sortRecent')}</option>
-                  <option value="title">{t(locale, 'content.library.sortTitle')}</option>
-                </select>
+                  <SelectTrigger aria-label={t(locale, 'content.library.sortBooks')} className="h-9 max-w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="added">{t(locale, 'content.library.sortAdded')}</SelectItem>
+                      <SelectItem value="recent">{t(locale, 'content.library.sortRecent')}</SelectItem>
+                      <SelectItem value="title">{t(locale, 'content.library.sortTitle')}</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
                 <Button
                   variant="ghost"
                   size="icon"

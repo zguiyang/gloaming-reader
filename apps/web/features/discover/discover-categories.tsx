@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { t } from '@gloaming/i18n';
 import type { PublicCategoryListItem } from '@gloaming/shared/discovery';
 
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { categoryDisplayName } from '@/features/discover/discover-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -44,7 +46,7 @@ export function DiscoverCategories({
     return (
       <div className="flex flex-wrap gap-2" aria-hidden>
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="h-8 w-20 animate-pulse rounded-full bg-surface-container-high" />
+          <Skeleton key={index} className="h-8 w-20 rounded-full bg-surface-container-high" />
         ))}
       </div>
     );
@@ -56,9 +58,9 @@ export function DiscoverCategories({
     return (
       <div role="alert" className="flex flex-wrap items-center gap-3">
         <span className="text-sm text-muted-foreground">{t(locale, 'content.discover.loadFailed')}</span>
-        <button type="button" className={chipClassName(false)} onClick={() => onRetry?.()}>
+        <Button variant="plain" size={null} type="button" className={chipClassName(false)} onClick={() => onRetry?.()}>
           {t(locale, 'content.common.retry')}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -77,16 +79,20 @@ export function DiscoverCategories({
 
   return (
     <nav aria-label={t(locale, 'content.discover.categoriesFilterAria')} className="flex flex-wrap gap-2">
-      <button
+      <Button
+        variant="plain"
+        size={null}
         type="button"
         aria-pressed={selectedCategoryId === null}
         className={chipClassName(selectedCategoryId === null)}
         onClick={() => onSelect(null)}
       >
         {t(locale, 'content.discover.allCategories')}
-      </button>
+      </Button>
       {visible.map((category) => (
-        <button
+        <Button
+          variant="plain"
+          size={null}
           key={category.id}
           type="button"
           aria-pressed={selectedCategoryId === category.id}
@@ -94,17 +100,19 @@ export function DiscoverCategories({
           onClick={() => onSelect(selectedCategoryId === category.id ? null : category.id)}
         >
           {categoryDisplayName(category)}
-        </button>
+        </Button>
       ))}
       {categories.length > 12 ? (
-        <button
+        <Button
+          variant="plain"
+          size={null}
           type="button"
           aria-expanded={isExpanded}
           className={chipClassName(false)}
           onClick={() => setExpanded(!isExpanded)}
         >
           {t(locale, isExpanded ? 'content.discover.fewerCategories' : 'content.discover.moreCategories')}
-        </button>
+        </Button>
       ) : null}
     </nav>
   );

@@ -23,6 +23,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import {
@@ -200,8 +201,8 @@ function LibraryTagsPageContent() {
 
       {tagsQuery.isPending ? (
         <div className="divide-y divide-border/50 rounded-xl border border-border/60" aria-busy="true">
-          <div className="h-16 animate-pulse bg-muted/30" />
-          <div className="h-16 animate-pulse bg-muted/30" />
+          <Skeleton className="h-16 bg-muted/30" />
+          <Skeleton className="h-16 bg-muted/30" />
         </div>
       ) : tagsQuery.isError ? (
         <p className="py-8 text-sm text-muted-foreground">{t(locale, 'content.library.loadFailed')}</p>

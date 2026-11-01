@@ -286,25 +286,31 @@ export function AiModelForm({ formId, provider, model, onSubmit, onCancel, pendi
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
+          <Field data-invalid={Boolean(errors.temperature) || undefined}>
             <FieldLabel htmlFor={`${formId}-temperature`}>{t(locale, 'admin.ai.model.temperature')}</FieldLabel>
             <Input
               id={`${formId}-temperature`}
+              aria-invalid={Boolean(errors.temperature) || undefined}
+              aria-describedby={errors.temperature ? `${formId}-temperature-error` : undefined}
               appearance="filled"
               className="h-11"
               value={values.temperature}
               onChange={(e) => setValues((p) => ({ ...p, temperature: e.target.value }))}
             />
+            <FieldError id={`${formId}-temperature-error`}>{errors.temperature}</FieldError>
           </Field>
-          <Field>
+          <Field data-invalid={Boolean(errors.maxTokens) || undefined}>
             <FieldLabel htmlFor={`${formId}-max-tokens`}>{t(locale, 'admin.ai.model.maxTokens')}</FieldLabel>
             <Input
               id={`${formId}-max-tokens`}
+              aria-invalid={Boolean(errors.maxTokens) || undefined}
+              aria-describedby={errors.maxTokens ? `${formId}-max-tokens-error` : undefined}
               appearance="filled"
               className="h-11"
               value={values.maxTokens}
               onChange={(e) => setValues((p) => ({ ...p, maxTokens: e.target.value }))}
             />
+            <FieldError id={`${formId}-max-tokens-error`}>{errors.maxTokens}</FieldError>
           </Field>
         </div>
 

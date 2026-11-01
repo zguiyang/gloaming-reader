@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   authDialogFieldStackClassName,
   authDialogFormClassName,
@@ -127,7 +128,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
               <form.Field name="name">
                 {(field) => (
                   <Field hideLabel={embedded} label={t(locale, 'auth.signUp.nameLabel')} htmlFor="sign-up-name">
-                    <input
+                    <Input
                       id="sign-up-name"
                       type="text"
                       autoComplete="name"
@@ -148,7 +149,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
               <form.Field name="username">
                 {(field) => (
                   <Field hideLabel={embedded} label={t(locale, 'auth.signUp.usernameLabel')} htmlFor="sign-up-username">
-                    <input
+                    <Input
                       id="sign-up-username"
                       type="text"
                       autoComplete="username"
@@ -169,7 +170,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
               <form.Field name="email">
                 {(field) => (
                   <Field hideLabel={embedded} label={t(locale, 'auth.signUp.emailLabel')} htmlFor="sign-up-email">
-                    <input
+                    <Input
                       id="sign-up-email"
                       type="email"
                       autoComplete="email"
@@ -190,7 +191,7 @@ export function SignUpForm({ embedded = false }: { embedded?: boolean }) {
               <form.Field name="password">
                 {(field) => (
                   <Field hideLabel={embedded} label={t(locale, 'auth.signUp.passwordLabel')} htmlFor="sign-up-password">
-                    <input
+                    <Input
                       id="sign-up-password"
                       type="password"
                       autoComplete="new-password"

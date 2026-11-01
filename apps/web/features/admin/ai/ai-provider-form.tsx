@@ -80,9 +80,11 @@ function CollapsibleSection({
   const Icon = icon;
   return (
     <div className="rounded-xl border border-border">
-      <button
+      <Button
+        variant="plain"
+        size={null}
         type="button"
-        className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium"
+        className="flex w-full items-center justify-start gap-2 px-4 py-3 text-left text-sm font-medium"
         onClick={onToggle}
         aria-expanded={open}
       >
@@ -91,7 +93,7 @@ function CollapsibleSection({
         <ChevronDown
           className={cn('ml-auto size-4 text-muted-foreground transition-transform', open && 'rotate-180')}
         />
-      </button>
+      </Button>
       {open ? <div className="flex flex-col gap-3 border-t border-border px-4 py-4">{children}</div> : null}
     </div>
   );
@@ -262,14 +264,17 @@ export function AiProviderForm({
           open={isProxyOpen}
           onToggle={() => setIsProxyOpen((o) => !o)}
         >
-          <Input
-            id={`${formId}-proxy`}
-            appearance="filled"
-            className="h-11"
-            value={values.proxyUrl}
-            placeholder="http://127.0.0.1:7890"
-            onChange={(e) => setValues((p) => ({ ...p, proxyUrl: e.target.value }))}
-          />
+          <Field>
+            <FieldLabel htmlFor={`${formId}-proxy`}>{t(locale, 'admin.ai.provider.form.proxyUrl')}</FieldLabel>
+            <Input
+              id={`${formId}-proxy`}
+              appearance="filled"
+              className="h-11"
+              value={values.proxyUrl}
+              placeholder="http://127.0.0.1:7890"
+              onChange={(e) => setValues((p) => ({ ...p, proxyUrl: e.target.value }))}
+            />
+          </Field>
         </CollapsibleSection>
 
         {shouldShowBalance ? (
@@ -279,29 +284,50 @@ export function AiProviderForm({
             open={isBalanceOpen}
             onToggle={() => setIsBalanceOpen((o) => !o)}
           >
-            <Input
-              appearance="filled"
-              className="h-11 font-mono text-sm"
-              value={values.balanceEndpoint}
-              placeholder={t(locale, 'admin.ai.provider.form.balanceEndpointPlaceholder')}
-              onChange={(e) => setValues((p) => ({ ...p, balanceEndpoint: e.target.value }))}
-            />
-            <FieldDescription>{t(locale, 'admin.ai.provider.form.balanceEndpointHint')}</FieldDescription>
+            <Field>
+              <FieldLabel htmlFor={`${formId}-balance-endpoint`}>
+                {t(locale, 'admin.ai.provider.form.balanceEndpoint')}
+              </FieldLabel>
+              <Input
+                id={`${formId}-balance-endpoint`}
+                aria-describedby={`${formId}-balance-hint`}
+                appearance="filled"
+                className="h-11 font-mono text-sm"
+                value={values.balanceEndpoint}
+                placeholder={t(locale, 'admin.ai.provider.form.balanceEndpointPlaceholder')}
+                onChange={(e) => setValues((p) => ({ ...p, balanceEndpoint: e.target.value }))}
+              />
+              <FieldDescription id={`${formId}-balance-hint`}>
+                {t(locale, 'admin.ai.provider.form.balanceEndpointHint')}
+              </FieldDescription>
+            </Field>
             <div className="grid gap-2 sm:grid-cols-2">
-              <Input
-                appearance="filled"
-                className="h-11 font-mono text-sm"
-                value={values.balanceAmountPath}
-                placeholder={t(locale, 'admin.ai.provider.form.balanceAmountPathPlaceholder')}
-                onChange={(e) => setValues((p) => ({ ...p, balanceAmountPath: e.target.value }))}
-              />
-              <Input
-                appearance="filled"
-                className="h-11 font-mono text-sm"
-                value={values.balanceCurrencyPath}
-                placeholder={t(locale, 'admin.ai.provider.form.balanceCurrencyPathPlaceholder')}
-                onChange={(e) => setValues((p) => ({ ...p, balanceCurrencyPath: e.target.value }))}
-              />
+              <Field>
+                <FieldLabel htmlFor={`${formId}-balance-amount`}>
+                  {t(locale, 'admin.ai.provider.form.balanceAmountPath')}
+                </FieldLabel>
+                <Input
+                  id={`${formId}-balance-amount`}
+                  appearance="filled"
+                  className="h-11 font-mono text-sm"
+                  value={values.balanceAmountPath}
+                  placeholder={t(locale, 'admin.ai.provider.form.balanceAmountPathPlaceholder')}
+                  onChange={(e) => setValues((p) => ({ ...p, balanceAmountPath: e.target.value }))}
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor={`${formId}-balance-currency`}>
+                  {t(locale, 'admin.ai.provider.form.balanceCurrencyPath')}
+                </FieldLabel>
+                <Input
+                  id={`${formId}-balance-currency`}
+                  appearance="filled"
+                  className="h-11 font-mono text-sm"
+                  value={values.balanceCurrencyPath}
+                  placeholder={t(locale, 'admin.ai.provider.form.balanceCurrencyPathPlaceholder')}
+                  onChange={(e) => setValues((p) => ({ ...p, balanceCurrencyPath: e.target.value }))}
+                />
+              </Field>
             </div>
           </CollapsibleSection>
         ) : null}

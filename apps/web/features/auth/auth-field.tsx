@@ -9,7 +9,7 @@ type FieldProps = {
   children: ReactNode;
   className?: string;
   labelAside?: ReactNode;
-  /** Placeholder-only layout; keeps an sr-only label for accessibility. */
+  /** Compact layout for the embedded authentication dialog. */
   hideLabel?: boolean;
 };
 
@@ -17,7 +17,7 @@ export function Field({ label, htmlFor, error, children, className, labelAside, 
   if (hideLabel) {
     return (
       <div className={className}>
-        <label htmlFor={htmlFor} className="sr-only">
+        <label htmlFor={htmlFor} className="mb-1.5 block text-xs font-medium text-foreground">
           {label}
         </label>
         {children}

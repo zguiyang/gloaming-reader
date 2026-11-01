@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { t } from '@gloaming/i18n';
 
+import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import type { BookChapter, BookDetail } from '@/features/book-detail/book-detail-model';
 import { chapterOrdinalLabel, chapterStatusLabel, formatChapterTitle } from '@/features/book-detail/book-detail-model';
@@ -43,9 +44,11 @@ export function BookDetailToc({ book }: { book: Pick<BookDetail, 'id' | 'chapter
 
       {canExpand ? (
         <div className="pt-1 text-center">
-          <button
+          <Button
             type="button"
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors duration-200 ease-out-soft hover:text-brand-deep"
+            variant="link"
+            aria-expanded={isExpanded}
+            className="h-auto gap-1 p-0 text-sm font-medium text-primary no-underline transition-colors duration-200 ease-out-soft hover:text-brand-deep hover:no-underline"
             onClick={() => setIsExpanded((v) => !v)}
           >
             {isExpanded ? t(locale, 'content.bookDetail.tocCollapse') : t(locale, 'content.bookDetail.tocExpand')}
@@ -54,7 +57,7 @@ export function BookDetailToc({ book }: { book: Pick<BookDetail, 'id' | 'chapter
               strokeWidth={1.5}
               aria-hidden
             />
-          </button>
+          </Button>
         </div>
       ) : null}
     </section>

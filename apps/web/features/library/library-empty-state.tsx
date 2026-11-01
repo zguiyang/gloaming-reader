@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { t } from '@gloaming/i18n';
 
+import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { LibraryUploadDialog } from '@/features/library/library-upload-dialog';
 import { useLocale } from '@/lib/locale-context';
@@ -22,7 +23,9 @@ export function LibraryEmptyState() {
       <h2 className="font-heading mb-6 text-xl font-medium tracking-tight text-foreground md:mb-8 md:text-2xl">
         {t(locale, 'content.library.emptyTitle')}
       </h2>
-      <button
+      <Button
+        variant="plain"
+        size={null}
         type="button"
         className={cn(
           'group flex min-h-56 w-full flex-col items-center justify-center rounded-lg border border-dashed px-6 py-9 transition-colors md:min-h-64',
@@ -55,7 +58,7 @@ export function LibraryEmptyState() {
         </span>
         <span className="font-medium text-foreground">{t(locale, 'content.library.dropzoneTitle')}</span>
         <span className="mt-1.5 text-sm text-muted-foreground">{t(locale, 'content.library.dropzoneChoose')}</span>
-      </button>
+      </Button>
       <Link
         href={AUTH_ROUTES.discover}
         className="mt-5 rounded-sm text-sm text-muted-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"

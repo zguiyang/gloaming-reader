@@ -2,6 +2,7 @@
 
 import { resolveUserTagName, type UserTagManagementItem } from '@gloaming/shared/library';
 
+import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +23,9 @@ export function LibraryTagFilter({
         const isActive = selectedTagId === tag.id;
         return (
           <li key={tag.id}>
-            <button
+            <Button
+              variant="plain"
+              size={null}
               type="button"
               aria-current={isActive ? 'true' : undefined}
               className={cn(
@@ -35,7 +38,7 @@ export function LibraryTagFilter({
             >
               <span className="min-w-0 flex-1 truncate">{resolveUserTagName(tag, locale)}</span>
               <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{tag.bookCount}</span>
-            </button>
+            </Button>
           </li>
         );
       })}

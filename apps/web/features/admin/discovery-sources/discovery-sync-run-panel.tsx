@@ -9,6 +9,7 @@ import type {
 } from '@gloaming/shared/discovery';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -117,14 +118,16 @@ export function DiscoverySyncRunPanel({
             <div className="flex items-center gap-2 text-sm" data-testid="history-error">
               <span className="text-destructive">{t(locale, 'admin.discoverySources.run.recent.error')}</span>
               {onRetryHistory ? (
-                <button
+                <Button
+                  variant="plain"
+                  size={null}
                   type="button"
                   onClick={onRetryHistory}
                   data-testid="history-retry"
                   className="rounded-md border px-2 py-0.5 text-foreground hover:bg-muted"
                 >
                   {t(locale, 'admin.discoverySources.run.recent.retry')}
-                </button>
+                </Button>
               ) : null}
             </div>
           ) : history && history.runs.length > 0 ? (

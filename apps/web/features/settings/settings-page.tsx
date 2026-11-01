@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronDownIcon } from 'lucide-react';
 import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -15,10 +16,21 @@ import {
 } from '@gloaming/shared/llm';
 
 import { Button } from '@/components/ui/button';
-import { nativeSelectFilledClasses } from '@/components/ui/control-appearance';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { SecretField } from '@/components/ui/secret-field';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import { useAuthDialog } from '@/features/auth';
 import {
   createUserLlmModel,
@@ -163,27 +175,33 @@ function ProviderForm({
         {!provider ? (
           <Field>
             <FieldLabel htmlFor="settings-provider-family">{t(locale, 'settings.ai.serviceType')}</FieldLabel>
-            <select
-              id="settings-provider-family"
-              className={cn(
-                'h-11 w-full px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                nativeSelectFilledClasses,
-              )}
+            <Select
               value={draft.apiFamily}
-              onChange={(event) => {
-                const apiFamily = event.target.value as LlmApiFamily;
-                setDraft((current) => ({ ...current, apiFamily }));
+              items={LLM_API_FAMILIES.map((familyId) => ({
+                value: familyId,
+                label: `${LLM_WIRE_REGISTRY[familyId].label}${!LLM_WIRE_REGISTRY[familyId].runtimeImplemented ? ` · ${t(locale, 'settings.ai.notAvailableYet')}` : ''}`,
+              }))}
+              onValueChange={(value) => {
+                if (value && LLM_API_FAMILIES.includes(value as LlmApiFamily))
+                  setDraft((current) => ({ ...current, apiFamily: value as LlmApiFamily }));
               }}
             >
-              {LLM_API_FAMILIES.map((familyId) => (
-                <option key={familyId} value={familyId}>
-                  {LLM_WIRE_REGISTRY[familyId].label}
-                  {!LLM_WIRE_REGISTRY[familyId].runtimeImplemented
-                    ? ` · ${t(locale, 'settings.ai.notAvailableYet')}`
-                    : ''}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="settings-provider-family" appearance="filled" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {LLM_API_FAMILIES.map((familyId) => (
+                    <SelectItem key={familyId} value={familyId}>
+                      {LLM_WIRE_REGISTRY[familyId].label}
+                      {!LLM_WIRE_REGISTRY[familyId].runtimeImplemented
+                        ? ` · ${t(locale, 'settings.ai.notAvailableYet')}`
+                        : ''}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </Field>
         ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
@@ -240,11 +258,21 @@ function ProviderForm({
             configuredLabel: t(locale, 'common.secret.configured'),
           }}
         />
-        <details className="border-t border-border/50 pt-3">
-          <summary className="cursor-pointer text-sm text-muted-foreground">
+        <Collapsible className="border-t border-border/50 pt-3">
+          <CollapsibleTrigger
+            render={
+              <Button
+                type="button"
+                variant="plain"
+                size={null}
+                className="group gap-1 cursor-pointer text-sm text-muted-foreground"
+              />
+            }
+          >
             {t(locale, 'settings.ai.advanced')}
-          </summary>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <ChevronDownIcon className="size-4 transition-transform group-data-panel-open:rotate-180" aria-hidden />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="settings-provider-proxy">{t(locale, 'settings.ai.proxyUrl')}</FieldLabel>
               <Input
@@ -270,8 +298,8 @@ function ProviderForm({
                 />
               </Field>
             ) : null}
-          </div>
-        </details>
+          </CollapsibleContent>
+        </Collapsible>
       </FieldGroup>
       <div className="flex justify-end gap-3">
         <Button
@@ -551,7 +579,7 @@ export function SettingsPage() {
     return (
       <div className="mx-auto w-full max-w-3xl">
         <SettingHeader />
-        <div className="h-24 animate-pulse rounded bg-surface-container-high" />
+        <Skeleton className="h-24 rounded bg-surface-container-high" />
       </div>
     );
   }
@@ -639,6 +667,14 @@ export function SettingsPage() {
                   // visible in the selector (explained + replaceable) instead of disabling the row.
                   const isSavedUnavailable = Boolean(saved) && !activeModels.some((model) => model.id === saved);
                   const isSelectorDisabled = activeModels.length === 0 || settingMutation.isPending;
+                  const selectedModel = activeModels.find((model) => model.id === selected);
+                  const selectedProvider =
+                    selectedModel && providers.find((provider) => provider.id === selectedModel.providerId);
+                  const selectedLabel = selectedModel
+                    ? `${selectedModel.label}${selectedModel.label !== selectedModel.modelId ? ` · ${selectedModel.modelId}` : ''}${selectedProvider ? ` · ${selectedProvider.name}` : ''}`
+                    : selected && selected === saved && isSavedUnavailable
+                      ? `${setting?.modelLabel ?? savedModel?.label ?? saved}${savedProvider ? ` · ${savedProvider.name}` : ''} ${t(locale, 'settings.ai.unavailableOption')}`
+                      : t(locale, 'settings.ai.notSet');
                   // Group options by provider so two same-label models stay distinguishable.
                   const optionGroups = providers
                     .map((provider) => ({
@@ -667,41 +703,42 @@ export function SettingsPage() {
                       </div>
                       {/* Persistent selector fills the remaining width to the section right edge */}
                       <div className="[grid-area:select] min-w-0">
-                        <select
-                          id={`purpose-${key}`}
-                          className={cn(
-                            'h-11 w-full px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                            nativeSelectFilledClasses,
-                          )}
-                          value={selected}
+                        <Select
+                          value={selected || null}
                           disabled={isSelectorDisabled}
-                          onChange={(event) =>
-                            setPurposeDraft((current) => ({ ...current, [key]: event.target.value }))
-                          }
+                          onValueChange={(value) => setPurposeDraft((current) => ({ ...current, [key]: value ?? '' }))}
                         >
-                          {isSavedUnavailable ? (
-                            // Kept visible only to express the saved binding; not a selectable replacement.
-                            <option value={saved} disabled>
-                              {`${setting?.modelLabel ?? savedModel?.label ?? saved}${savedProvider ? ` · ${savedProvider.name}` : ''} ${t(locale, 'settings.ai.unavailableOption')}`}
-                            </option>
-                          ) : null}
-                          {/* A bound purpose cannot be cleared (PUT requires a non-empty modelId); the
+                          <SelectTrigger id={`purpose-${key}`} appearance="filled" className="h-11 w-full">
+                            <SelectValue>{selectedLabel}</SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {isSavedUnavailable ? (
+                                // Kept visible only to express the saved binding; not a selectable replacement.
+                                <SelectItem value={saved} disabled>
+                                  {`${setting?.modelLabel ?? savedModel?.label ?? saved}${savedProvider ? ` · ${savedProvider.name}` : ''} ${t(locale, 'settings.ai.unavailableOption')}`}
+                                </SelectItem>
+                              ) : null}
+                              {/* A bound purpose cannot be cleared (PUT requires a non-empty modelId); the
                               empty placeholder is only selectable while the purpose is unbound. */}
-                          <option value="" disabled={Boolean(saved)}>
-                            {t(locale, 'settings.ai.notSet')}
-                          </option>
-                          {optionGroups.map((group) => (
-                            <optgroup key={group.provider.id} label={group.provider.name}>
-                              {group.models.map((model) => (
-                                <option key={model.id} value={model.id}>
-                                  {model.label !== model.modelId
-                                    ? `${model.label} · ${model.modelId} · ${group.provider.name}`
-                                    : `${model.label} · ${group.provider.name}`}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                        </select>
+                              <SelectItem value="" disabled={Boolean(saved)}>
+                                {t(locale, 'settings.ai.notSet')}
+                              </SelectItem>
+                            </SelectGroup>
+                            {optionGroups.map((group) => (
+                              <SelectGroup key={group.provider.id}>
+                                <SelectLabel>{group.provider.name}</SelectLabel>
+                                {group.models.map((model) => (
+                                  <SelectItem key={model.id} value={model.id}>
+                                    {model.label !== model.modelId
+                                      ? `${model.label} · ${model.modelId} · ${group.provider.name}`
+                                      : `${model.label} · ${group.provider.name}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       {/* Dirty-only Save/Cancel: below the control (right-aligned) on desktop; beside
                           the label on narrow. A reserved, non-interactive strip keeps clean/dirty/
@@ -1131,6 +1168,7 @@ export function SettingsPage() {
               <Button
                 type="button"
                 variant={(aiModeDraft ?? (isOwnMode ? 'own' : 'default')) === 'default' ? 'default' : 'outline'}
+                aria-pressed={(aiModeDraft ?? (isOwnMode ? 'own' : 'default')) === 'default'}
                 onClick={() => setAiModeDraft('default')}
               >
                 {t(locale, 'settings.defaultService')}
@@ -1138,6 +1176,7 @@ export function SettingsPage() {
               <Button
                 type="button"
                 variant={(aiModeDraft ?? (isOwnMode ? 'own' : 'default')) === 'own' ? 'default' : 'outline'}
+                aria-pressed={(aiModeDraft ?? (isOwnMode ? 'own' : 'default')) === 'own'}
                 onClick={() => setAiModeDraft('own')}
               >
                 {t(locale, 'settings.ai.ownService')}
@@ -1171,13 +1210,11 @@ export function SettingsPage() {
           <label htmlFor="settings-personal-tagging" className="text-sm text-foreground">
             {t(locale, 'settings.personalTagging.toggle')}
           </label>
-          <input
+          <Switch
             id="settings-personal-tagging"
-            type="checkbox"
-            className="size-5 accent-primary"
             checked={personalTaggingQuery.data?.enabled ?? false}
             disabled={personalTaggingQuery.isPending || personalTaggingMutation.isPending}
-            onChange={(event) => personalTaggingMutation.mutate(event.target.checked)}
+            onCheckedChange={(checked) => personalTaggingMutation.mutate(checked)}
           />
         </div>
         <p className="mt-2 text-sm text-muted-foreground">{t(locale, 'settings.personalTagging.description')}</p>
@@ -1259,21 +1296,26 @@ function ModelFields({
       </Field>
       <Field>
         <FieldLabel htmlFor="settings-wire-variant">{t(locale, 'settings.ai.connectionType')}</FieldLabel>
-        <select
-          id="settings-wire-variant"
-          className={cn(
-            'h-11 w-full px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-            nativeSelectFilledClasses,
-          )}
+        <Select
           value={draft.wireVariant}
-          onChange={(e) => setDraft((v) => ({ ...v, wireVariant: e.target.value }))}
+          items={LLM_WIRE_REGISTRY[family].wireVariants.map((variant) => ({ value: variant.id, label: variant.label }))}
+          onValueChange={(value) => {
+            if (value) setDraft((v) => ({ ...v, wireVariant: value }));
+          }}
         >
-          {LLM_WIRE_REGISTRY[family].wireVariants.map((variant) => (
-            <option key={variant.id} value={variant.id}>
-              {variant.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger id="settings-wire-variant" appearance="filled" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {LLM_WIRE_REGISTRY[family].wireVariants.map((variant) => (
+                <SelectItem key={variant.id} value={variant.id}>
+                  {variant.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
       </Field>
     </div>
   );

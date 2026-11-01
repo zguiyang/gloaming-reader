@@ -314,7 +314,7 @@ export function TtsLogsPage() {
                           <TableCell className="px-5 py-4 text-right tabular-nums text-muted-foreground">
                             {formatAdminLatencyMs(log.latencyMs, locale)}
                           </TableCell>
-                          <TableCell className="max-w-[14rem] truncate px-5 py-4 text-muted-foreground">
+                          <TableCell className="max-w-[14rem] px-5 py-4 whitespace-normal break-words text-muted-foreground">
                             {log.errorMessage ?? t(locale, 'admin.logs.emptyValue')}
                           </TableCell>
                         </TableRow>

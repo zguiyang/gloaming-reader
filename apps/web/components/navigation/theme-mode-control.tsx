@@ -1,11 +1,19 @@
 'use client';
 
-import { Menu } from '@base-ui/react/menu';
-import { CheckIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { MoonIcon, SunIcon } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useMemo, useSyncExternalStore } from 'react';
 
 import { getNavCopy } from '@/components/navigation/nav-config';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -58,8 +66,8 @@ export function ThemeModeNavButton() {
   const Icon = isClient && resolvedTheme === 'dark' ? SunIcon : MoonIcon;
 
   return (
-    <Menu.Root>
-      <Menu.Trigger
+    <DropdownMenu>
+      <DropdownMenuTrigger
         className={cn(
           'flex size-9 items-center justify-center rounded-full text-muted-foreground',
           'outline-none transition-opacity duration-300 ease-out-soft hover:opacity-80',
@@ -68,47 +76,42 @@ export function ThemeModeNavButton() {
         aria-label={navCopy.themeAppearance}
       >
         <Icon className="size-5" strokeWidth={1.5} aria-hidden />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner className="z-50 outline-none" sideOffset={8} align="end">
-          <Menu.Popup
-            className={cn(
-              'min-w-44 rounded-xl bg-card p-1 shadow-card ring-1 ring-foreground/5 outline-none',
-              'transition-opacity duration-200 ease-out-soft',
-              'data-starting-style:opacity-0 data-ending-style:opacity-0',
-            )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        sideOffset={8}
+        align="end"
+        className={cn(
+          'w-auto min-w-44 rounded-xl bg-card p-1 shadow-card ring-1 ring-foreground/5 outline-none',
+          'transition-opacity duration-200 ease-out-soft',
+          'data-starting-style:opacity-0 data-ending-style:opacity-0',
+        )}
+      >
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="px-2.5 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">
+            {navCopy.themeAppearance}
+          </DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={current}
+            onValueChange={(value) => {
+              if (value === 'light' || value === 'dark' || value === 'system') {
+                setTheme(value);
+              }
+            }}
           >
-            <Menu.Group>
-              <Menu.GroupLabel className="px-2.5 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">
-                {navCopy.themeAppearance}
-              </Menu.GroupLabel>
-              <Menu.RadioGroup
-                value={current}
-                onValueChange={(value) => {
-                  if (value === 'light' || value === 'dark' || value === 'system') {
-                    setTheme(value);
-                  }
-                }}
+            {themeModeOptions.map((option) => (
+              <DropdownMenuRadioItem
+                key={option.value}
+                value={option.value}
+                label={option.label}
+                aria-label={option.label}
+                className={menuItemClass}
               >
-                {themeModeOptions.map((option) => (
-                  <Menu.RadioItem
-                    key={option.value}
-                    value={option.value}
-                    label={option.label}
-                    aria-label={option.label}
-                    className={menuItemClass}
-                  >
-                    {option.label}
-                    <Menu.RadioItemIndicator className="flex size-4 items-center justify-center text-primary">
-                      <CheckIcon className="size-4" strokeWidth={2} aria-hidden />
-                    </Menu.RadioItemIndicator>
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioGroup>
-            </Menu.Group>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
+                {option.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

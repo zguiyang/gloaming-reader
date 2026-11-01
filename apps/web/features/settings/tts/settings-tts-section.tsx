@@ -8,13 +8,12 @@ import { t } from '@gloaming/i18n';
 import { DEFAULT_TTS_VOICES, TTS_VOICE_PRESETS, type TtsConfigView } from '@gloaming/shared/tts';
 
 import { Button } from '@/components/ui/button';
-import { nativeSelectFilledClasses } from '@/components/ui/control-appearance';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { SecretField } from '@/components/ui/secret-field';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatUserSettingsApiError, putUserTtsConfig, userSettingsQueryKey } from '@/features/settings/settings-api';
 import { useLocale } from '@/lib/locale-context';
-import { cn } from '@/lib/utils';
 
 export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsConfigView; hideTitle?: boolean }) {
   const { locale } = useLocale();
@@ -61,10 +60,20 @@ export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsC
       <div>
         {!hideTitle ? <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.tts.title')}</h2> : null}
         <div className="flex flex-wrap gap-2" role="group" aria-label={t(locale, 'settings.serviceMode')}>
-          <Button type="button" variant={!enabled ? 'default' : 'outline'} onClick={chooseDefault}>
+          <Button
+            type="button"
+            variant={!enabled ? 'default' : 'outline'}
+            aria-pressed={!enabled}
+            onClick={chooseDefault}
+          >
             {t(locale, 'settings.defaultService')}
           </Button>
-          <Button type="button" variant={enabled ? 'default' : 'outline'} onClick={() => setEnabled(true)}>
+          <Button
+            type="button"
+            variant={enabled ? 'default' : 'outline'}
+            aria-pressed={enabled}
+            onClick={() => setEnabled(true)}
+          >
             {t(locale, 'settings.tts.ownService')}
           </Button>
         </div>
@@ -133,21 +142,42 @@ export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsC
               ).map(([key, value, setter]) => (
                 <Field key={key}>
                   <FieldLabel htmlFor={`settings-tts-${key}`}>{t(locale, `settings.tts.voice.${key}`)}</FieldLabel>
-                  <select
-                    id={`settings-tts-${key}`}
-                    className={cn(
-                      'h-11 w-full px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                      nativeSelectFilledClasses,
-                    )}
+                  <Select
                     value={value}
-                    onChange={(event) => setter(event.target.value)}
+                    items={[
+                      ...TTS_VOICE_PRESETS.filter((preset) => key === 'default' || preset.role === key).map(
+                        (preset) => ({ value: preset.voice, label: preset.label }),
+                      ),
+                      ...(!TTS_VOICE_PRESETS.some(
+                        (preset) => preset.voice === value && (key === 'default' || preset.role === key),
+                      ) && value
+                        ? [{ value, label: value }]
+                        : []),
+                    ]}
+                    onValueChange={(next) => {
+                      if (next) setter(next);
+                    }}
                   >
-                    {TTS_VOICE_PRESETS.filter((preset) => key === 'default' || preset.role === key).map((preset) => (
-                      <option key={preset.voice} value={preset.voice}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id={`settings-tts-${key}`} appearance="filled" className="h-11 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {TTS_VOICE_PRESETS.filter((preset) => key === 'default' || preset.role === key).map(
+                          (preset) => (
+                            <SelectItem key={preset.voice} value={preset.voice}>
+                              {preset.label}
+                            </SelectItem>
+                          ),
+                        )}
+                        {!TTS_VOICE_PRESETS.some(
+                          (preset) => preset.voice === value && (key === 'default' || preset.role === key),
+                        ) && value ? (
+                          <SelectItem value={value}>{value}</SelectItem>
+                        ) : null}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </Field>
               ))}
             </div>

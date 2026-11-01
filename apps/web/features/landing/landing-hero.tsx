@@ -15,7 +15,7 @@ export function LandingHero() {
       <LandingAmbientGlow />
 
       <LandingEntrance delay={0.1}>
-        <h1 className="font-heading max-w-3xl text-[2.25rem] leading-[1.15] font-bold tracking-tight sm:text-5xl md:text-[48px] md:leading-[56px]">
+        <h1 className="font-heading max-w-3xl text-balance text-[2.25rem] leading-[1.15] font-bold tracking-tight sm:text-5xl md:text-[48px] md:leading-[56px]">
           {t(locale, 'landing.hero.title')}
         </h1>
       </LandingEntrance>

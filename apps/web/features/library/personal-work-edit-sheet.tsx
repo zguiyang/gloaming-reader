@@ -42,7 +42,7 @@ export function PersonalWorkEditSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="gap-0 sm:max-w-md">
+      <SheetContent side="right" className="gap-0 overflow-y-auto sm:max-w-md">
         <form
           className="flex min-h-full flex-col"
           onSubmit={(event) => {

@@ -9,6 +9,7 @@ import { type Locale, t } from '@gloaming/i18n';
 import { type PublicCategoryManagementItem, sourceCategoryMappingListSchema } from '@gloaming/shared/discovery';
 
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { categoryDisplayName } from '@/features/admin/public-categories/public-categories-model';
 import { apiRequest, formatApiError } from '@/lib/api-request';
 import { useLocale } from '@/lib/locale-context';
@@ -161,15 +162,22 @@ export function SourceCategoryMappings({ categories }: { categories: PublicCateg
                   ) : null}
                   {item.status === 'review' && suggestion?.outcome === 'create' ? (
                     <>
-                      <select
-                        aria-label={t(locale, 'admin.publicCategories.sourceMappings.categoryLanguage')}
+                      <Select
                         value={suggestionLocale}
-                        onChange={(event) => setSuggestionLocale(event.target.value as Locale)}
-                        className="rounded-md border border-border bg-background px-2 text-sm"
+                        onValueChange={(value) => {
+                          if (value) setSuggestionLocale(value as Locale);
+                        }}
                       >
-                        <option value="en-US">English</option>
-                        <option value="zh-CN">中文</option>
-                      </select>
+                        <SelectTrigger aria-label={t(locale, 'admin.publicCategories.sourceMappings.categoryLanguage')}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="en-US">English</SelectItem>
+                            <SelectItem value="zh-CN">中文</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
                       <Button
                         size="sm"
                         disabled={action.isPending}
@@ -187,21 +195,33 @@ export function SourceCategoryMappings({ categories }: { categories: PublicCateg
                   ) : null}
                   {item.status !== 'analyzing' && categories.length > 0 ? (
                     <>
-                      <select
-                        aria-label={t(locale, 'admin.publicCategories.sourceMappings.chooseCategory')}
-                        value={selectedCategories[item.id] ?? ''}
-                        onChange={(event) =>
-                          setSelectedCategories((current) => ({ ...current, [item.id]: event.target.value }))
+                      <Select
+                        value={selectedCategories[item.id] || null}
+                        onValueChange={(value) =>
+                          setSelectedCategories((current) => ({ ...current, [item.id]: value ?? '' }))
                         }
-                        className="max-w-48 rounded-md border border-border bg-background px-2 text-sm"
                       >
-                        <option value="">{t(locale, 'admin.publicCategories.sourceMappings.chooseCategory')}</option>
-                        {categories.map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {categoryDisplayName(category, locale)}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger
+                          aria-label={t(locale, 'admin.publicCategories.sourceMappings.chooseCategory')}
+                          className="max-w-48"
+                        >
+                          <SelectValue
+                            placeholder={t(locale, 'admin.publicCategories.sourceMappings.chooseCategory')}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="">
+                              {t(locale, 'admin.publicCategories.sourceMappings.chooseCategory')}
+                            </SelectItem>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {categoryDisplayName(category, locale)}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
                       <Button
                         size="sm"
                         variant="outline"

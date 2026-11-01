@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { t } from '@gloaming/i18n';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { useLocale } from '@/lib/locale-context';
 
@@ -59,14 +59,12 @@ export function DiscoverEmptyState({ isFiltered = false, onClearFilters }: Disco
             {t(locale, 'content.discover.clearFilters')}
           </Button>
         ) : null}
-        <Button
-          nativeButton={false}
-          variant="outline"
-          className="h-12 rounded-full px-8 text-base"
-          render={<Link href={AUTH_ROUTES.library} />}
+        <Link
+          href={AUTH_ROUTES.library}
+          className={buttonVariants({ variant: 'outline', className: 'h-12 rounded-full px-8 text-base' })}
         >
           {t(locale, 'content.common.backToLibrary')}
-        </Button>
+        </Link>
       </div>
     </div>
   );

@@ -6,7 +6,8 @@ import { type ReactNode, useState } from 'react';
 
 import { t } from '@gloaming/i18n';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { WorkDetailHeroLayout } from '@/components/work-detail-hero-layout';
 import { AUTH_ROUTES } from '@/constants';
 import {
@@ -38,7 +39,9 @@ function BookDescription({ description, notes }: { description: string | null; n
         <p className="font-reading whitespace-pre-line break-words text-base leading-7 text-muted-foreground">
           {isLong && !isExpanded ? `${text.slice(0, 400).trimEnd()}…` : text}
           {isLong ? (
-            <button
+            <Button
+              variant="plain"
+              size={null}
               type="button"
               className="ml-1 inline-flex size-8 items-center justify-center rounded text-primary align-middle hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={t(
@@ -53,7 +56,7 @@ function BookDescription({ description, notes }: { description: string | null; n
               ) : (
                 <ChevronDownIcon className="size-4" aria-hidden />
               )}
-            </button>
+            </Button>
           ) : null}
         </p>
       ) : null}
@@ -121,14 +124,15 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
       <div className="hidden max-w-xl flex-col gap-4 pt-1 md:flex">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           {book.isReadable ? (
-            <Button
-              nativeButton={false}
-              className="h-11 flex-1 rounded-xl px-8 text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]"
-              render={<Link href={readHref} />}
+            <Link
+              href={readHref}
+              className={buttonVariants({
+                className: 'h-11 flex-1 rounded-xl px-8 text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]',
+              })}
             >
               <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
               {readLabel}
-            </Button>
+            </Link>
           ) : null}
           <LibraryButton
             inLibrary={inLibrary}
@@ -144,12 +148,12 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
               <span className="font-medium text-primary">{progressLabel}</span>
               {lastRead ? <span>{t(locale, 'content.bookDetail.lastReadPrefix', { time: lastRead })}</span> : null}
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
-              <div
-                className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out-soft"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
+            <Progress
+              aria-hidden
+              value={progressPercent}
+              className="h-1.5 rounded-full bg-surface-container-highest"
+              indicatorClassName="rounded-full duration-700 ease-out-soft"
+            />
           </div>
         ) : null}
       </div>
@@ -242,12 +246,12 @@ export function BookDetailMobileProgress({ book }: { book: BookDetail }) {
           </span>
         ) : null}
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out-soft"
-          style={{ width: `${ratio}%` }}
-        />
-      </div>
+      <Progress
+        aria-hidden
+        value={ratio}
+        className="h-2 rounded-full bg-muted"
+        indicatorClassName="rounded-full duration-700 ease-out-soft"
+      />
     </section>
   );
 }
@@ -273,14 +277,15 @@ export function BookDetailStickyCta({
   return (
     <div className="fixed inset-x-0 z-40 border-t border-border/60 bg-background/95 p-4 backdrop-blur-md md:hidden bottom-[var(--app-shell-bottom,0px)]">
       <div className="mx-auto flex max-w-lg gap-3">
-        <Button
-          nativeButton={false}
-          className="h-12 flex-1 rounded-xl text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]"
-          render={<Link href={readHref} />}
+        <Link
+          href={readHref}
+          className={buttonVariants({
+            className: 'h-12 flex-1 rounded-xl text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]',
+          })}
         >
           <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
           {readLabel}
-        </Button>
+        </Link>
         {!inLibrary ? (
           <Button
             type="button"

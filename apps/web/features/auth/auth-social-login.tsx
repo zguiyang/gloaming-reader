@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
 
+import { Button } from '@/components/ui/button';
 import { authSocialButtonClassName } from '@/features/auth/auth-field';
 import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
@@ -55,8 +56,9 @@ function AuthSocialButton({ provider }: AuthSocialButtonProps) {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       className={authSocialButtonClassName}
       disabled={isSigningIn}
       aria-busy={isSigningIn}
@@ -68,7 +70,7 @@ function AuthSocialButton({ provider }: AuthSocialButtonProps) {
       <span className="w-full text-center">
         {isSigningIn ? t(locale, 'auth.signIn.submitting') : t(locale, SOCIAL_PROVIDER_KEY)}
       </span>
-    </button>
+    </Button>
   );
 }
 

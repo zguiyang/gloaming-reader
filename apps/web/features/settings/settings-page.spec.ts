@@ -29,6 +29,65 @@ vi.mock('@/lib/auth', () => ({
   authClient: { useSession: () => ({ data: { user: { id: 'user-1' } }, isPending: false, error: null }) },
 }));
 vi.mock('@/features/auth', () => ({ useAuthDialog: () => ({ openLogin: mocks.openLogin }) }));
+// These tests exercise draft and save policy; the real Select interaction is
+// checked separately in the browser. Keep the option values and grouping here.
+vi.mock('@/components/ui/select', async () => {
+  const React = await import('react');
+  type NodeProps = { children?: React.ReactNode };
+  function SelectLabel({ children }: NodeProps) {
+    return children;
+  }
+  function SelectGroup({ children }: NodeProps) {
+    const nodes = React.Children.toArray(children);
+    const label = nodes.find((node) => React.isValidElement(node) && node.type === SelectLabel) as
+      React.ReactElement<NodeProps> | undefined;
+    const items = nodes.filter((node) => !(React.isValidElement(node) && node.type === SelectLabel));
+    return label
+      ? React.createElement('optgroup', { label: String(label.props.children) }, items)
+      : React.createElement(React.Fragment, null, items);
+  }
+  function SelectTrigger() {
+    return null;
+  }
+  function Select({
+    children,
+    value,
+    disabled,
+    onValueChange,
+  }: NodeProps & { value?: string | null; disabled?: boolean; onValueChange?: (value: string) => void }) {
+    const nodes = React.Children.toArray(children);
+    const trigger = nodes.find((node) => React.isValidElement(node) && node.type === SelectTrigger) as
+      React.ReactElement<{ id?: string }> | undefined;
+    return React.createElement(
+      'select',
+      {
+        id: trigger?.props.id,
+        value: value ?? '',
+        disabled,
+        onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onValueChange?.(event.target.value),
+      },
+      nodes.filter((node) => !(React.isValidElement(node) && node.type === SelectTrigger)),
+    );
+  }
+  function SelectContent({ children }: NodeProps) {
+    return children;
+  }
+  function SelectValue() {
+    return null;
+  }
+  function SelectItem({ children, value, disabled }: NodeProps & { value: string; disabled?: boolean }) {
+    return React.createElement('option', { value, disabled }, children);
+  }
+  return {
+    Select,
+    SelectTrigger,
+    SelectGroup,
+    SelectLabel,
+    SelectContent,
+    SelectValue,
+    SelectItem,
+  };
+});
 vi.mock('sonner', () => ({
   toast: { success: mocks.toastSuccess, error: mocks.toastError, info: mocks.toastInfo },
 }));

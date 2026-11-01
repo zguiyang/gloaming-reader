@@ -217,10 +217,12 @@ export function AiProviderWorkspace({
                       isActive && 'bg-brand-soft/40',
                     )}
                   >
-                    <button
+                    <Button
+                      variant="plain"
+                      size={null}
                       type="button"
                       className={cn(
-                        'flex min-w-0 flex-1 flex-col gap-0.5 rounded-lg px-2 py-1 text-left',
+                        'flex min-w-0 flex-1 flex-col items-start gap-0.5 rounded-lg px-2 py-1 text-left',
                         isActive && 'border-l-2 border-primary pl-2.5',
                       )}
                       aria-current={isActive ? 'true' : undefined}
@@ -235,7 +237,7 @@ export function AiProviderWorkspace({
                           locale,
                         )}
                       </span>
-                    </button>
+                    </Button>
                     <Switch
                       checked={provider.isEnabled}
                       disabled={isToggling}
@@ -270,9 +272,11 @@ export function AiProviderWorkspace({
                 <ul className="grid gap-3 sm:grid-cols-2">
                   {families.map((family) => (
                     <li key={family.id}>
-                      <button
+                      <Button
+                        variant="plain"
+                        size={null}
                         type="button"
-                        className="flex h-full w-full flex-col gap-2 rounded-xl border border-border bg-secondary/40 p-4 text-left transition-colors hover:bg-secondary"
+                        className="flex h-full w-full flex-col items-start gap-2 whitespace-normal rounded-xl border border-border bg-secondary/40 p-4 text-left transition-colors hover:bg-secondary"
                         onClick={() => setCreateWizard({ step: 'form', apiFamily: family.id })}
                       >
                         <div className="flex flex-wrap items-center gap-2">
@@ -283,7 +287,7 @@ export function AiProviderWorkspace({
                             </Badge>
                           ) : null}
                         </div>
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>

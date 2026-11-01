@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { t } from '@gloaming/i18n';
 
 import { BrandMark } from '@/components/brand-mark';
+import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -101,13 +102,15 @@ export function AuthFooterAction({ prompt, label, onClick, className }: AuthFoot
   return (
     <p className={cn('mt-8 text-center text-sm text-muted-foreground', className)}>
       {prompt ? `${prompt} ` : null}
-      <button
+      <Button
+        variant="plain"
+        size={null}
         type="button"
         className="text-sm text-muted-foreground transition-colors hover:text-foreground"
         onClick={onClick}
       >
         {label}
-      </button>
+      </Button>
     </p>
   );
 }

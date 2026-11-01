@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   authDialogActionStackClassName,
   authDialogFieldStackClassName,
@@ -105,13 +106,15 @@ export function SignInForm({ embedded = false, onSuccess, onSwitchMode }: SignIn
   }
 
   const forgotPasswordLink = (
-    <button
+    <Button
+      variant="plain"
+      size={null}
       type="button"
       className="text-sm text-muted-foreground transition-colors hover:text-foreground"
       onClick={() => onSwitchMode?.('forgot-password')}
     >
       {t(locale, 'auth.signIn.forgotPassword')}
-    </button>
+    </Button>
   );
 
   return (
@@ -131,7 +134,7 @@ export function SignInForm({ embedded = false, onSuccess, onSwitchMode }: SignIn
               <form.Field name="login">
                 {(field) => (
                   <Field hideLabel={embedded} label={t(locale, 'auth.signIn.loginLabel')} htmlFor="sign-in-login">
-                    <input
+                    <Input
                       id="sign-in-login"
                       type="text"
                       autoComplete="username"
@@ -157,7 +160,7 @@ export function SignInForm({ embedded = false, onSuccess, onSwitchMode }: SignIn
                     htmlFor="sign-in-password"
                     labelAside={embedded ? undefined : forgotPasswordLink}
                   >
-                    <input
+                    <Input
                       id="sign-in-password"
                       type="password"
                       autoComplete="current-password"

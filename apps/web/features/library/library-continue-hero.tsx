@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { type Locale, t } from '@gloaming/i18n';
 import type { ContinueReadingItem } from '@gloaming/shared/library';
 
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { AUTH_ROUTES } from '@/constants';
 import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
@@ -62,22 +63,25 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
             ) : null}
           </p>
           {ratio > 0 ? (
-            <div className="mt-1.5 h-0.5 w-full max-w-xs overflow-hidden rounded-full bg-muted/80">
-              <div
-                className="h-full rounded-full bg-primary transition-[width] duration-700 ease-out-soft"
-                style={{ width: `${Math.min(100, ratio)}%` }}
-              />
-            </div>
+            <Progress
+              aria-hidden
+              value={Math.min(100, ratio)}
+              className="mt-1.5 h-0.5 max-w-xs rounded-full bg-muted/80"
+              indicatorClassName="rounded-full duration-700 ease-out-soft"
+            />
           ) : null}
-          <Button
-            nativeButton={false}
-            variant="ghost"
-            className="-ml-2 mt-1 h-8 rounded-lg px-2 text-sm font-medium text-primary hover:bg-muted active:scale-[0.98]"
-            render={<Link href={readHref} />}
+          <Link
+            href={readHref}
+            aria-label={t(locale, 'content.common.openReaderAria', { title: entry.work.title })}
+            className={buttonVariants({
+              variant: 'ghost',
+              className:
+                '-ml-2 mt-1 h-8 rounded-lg px-2 text-sm font-medium text-primary hover:bg-muted active:scale-[0.98]',
+            })}
           >
             <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
             {t(locale, 'content.library.continueReading')}
-          </Button>
+          </Link>
         </div>
       </div>
     </section>

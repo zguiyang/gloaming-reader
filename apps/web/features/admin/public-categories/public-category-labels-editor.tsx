@@ -80,7 +80,7 @@ export function PublicCategoryLabelsEditor({ category }: { category: PublicCateg
                 value={value}
                 maxLength={PUBLIC_CATEGORY_NAME_MAX_CHARS}
                 placeholder={t(locale, 'admin.publicCategories.create.namePlaceholder')}
-                aria-label={`${t(locale, 'admin.publicCategories.labels.save', {
+                aria-label={`${t(locale, 'admin.publicCategories.labels.name', {
                   locale: localeDisplayLabel(entry.locale, locale),
                 })}`}
                 disabled={mutation.isPending}

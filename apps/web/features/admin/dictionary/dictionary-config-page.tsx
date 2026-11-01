@@ -478,14 +478,16 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
                       ) : null}
                       <span className="font-mono">{p.text || t(locale, 'admin.dictionary.test.ipaFallback')}</span>
                       {p.audio ? (
-                        <button
+                        <Button
+                          variant="plain"
+                          size={null}
                           type="button"
                           onClick={() => playAudioUrl(p.audio!)}
                           className="text-primary hover:text-brand-deep cursor-pointer"
                           title={t(locale, 'admin.dictionary.test.playPronunciation')}
                         >
                           <Volume2 className="h-3.5 w-3.5" />
-                        </button>
+                        </Button>
                       ) : null}
                     </div>
                   ))}

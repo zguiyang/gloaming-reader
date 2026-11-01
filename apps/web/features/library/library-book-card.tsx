@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { t } from '@gloaming/i18n';
 import type { LibraryItem, UserTagManagementItem } from '@gloaming/shared/library';
 
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { LibraryWorkManagement } from '@/features/library/library-work-management';
 import { WorkCover } from '@/features/work-cover';
@@ -93,13 +93,10 @@ export function LibraryBookCard({
         {entry.availability === 'ready' ? (
           <div className="-mt-1">
             <p className="text-xs text-muted-foreground">{status}</p>
-            <Button
-              nativeButton={false}
-              variant="link"
-              className="mt-1 h-auto min-h-9 px-0 text-sm"
-              render={
-                <Link href={readHref} aria-label={t(locale, 'content.common.openReaderAria', { title: work.title })} />
-              }
+            <Link
+              href={readHref}
+              aria-label={t(locale, 'content.common.openReaderAria', { title: work.title })}
+              className={buttonVariants({ variant: 'link', className: 'mt-1 h-auto min-h-9 px-0 text-sm' })}
             >
               <BookOpenIcon className="size-4" aria-hidden />
               {t(
@@ -110,7 +107,7 @@ export function LibraryBookCard({
                     ? 'content.bookDetail.readContinue'
                     : 'content.bookDetail.readStart',
               )}
-            </Button>
+            </Link>
           </div>
         ) : null}
       </div>

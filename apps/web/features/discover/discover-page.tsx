@@ -8,6 +8,7 @@ import type { CatalogListData, CatalogWork } from '@gloaming/shared/works';
 
 import { LoadingOverlay } from '@/components/loading-overlay';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DiscoverActiveFilters } from '@/features/discover/discover-active-filters';
 import {
   discoverQueryKey,
@@ -44,9 +45,9 @@ function DiscoverSkeleton() {
     <div className="grid grid-cols-2 gap-x-5 gap-y-8 md:grid-cols-4 md:gap-x-8 md:gap-y-12 lg:grid-cols-5" aria-hidden>
       {Array.from({ length: DISCOVER_PAGE_SIZE }, (_, index) => (
         <div key={index} className="flex flex-col gap-3">
-          <div className="aspect-[2/3] animate-pulse rounded-sm bg-surface-container-high" />
-          <div className="h-4 w-3/4 animate-pulse rounded bg-surface-container-high" />
-          <div className="h-3 w-1/2 animate-pulse rounded bg-surface-container-high" />
+          <Skeleton className="aspect-[2/3] rounded-sm bg-surface-container-high" />
+          <Skeleton className="h-4 w-3/4 rounded bg-surface-container-high" />
+          <Skeleton className="h-3 w-1/2 rounded bg-surface-container-high" />
         </div>
       ))}
     </div>

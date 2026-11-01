@@ -235,12 +235,14 @@ export function PublicCategoriesPage() {
                   const isCompleting = completeMutation.isPending && completeMutation.variables === category.id;
                   return (
                     <li key={category.id} className="flex items-center gap-1">
-                      <button
+                      <Button
+                        variant="plain"
+                        size={null}
                         type="button"
                         aria-pressed={isActive}
                         onClick={() => setSelectedId(category.id)}
                         className={cn(
-                          'flex min-w-0 flex-1 flex-col gap-1 rounded-xl px-3 py-2 text-left transition-colors duration-200 ease-out-soft',
+                          'flex min-w-0 flex-1 flex-col items-stretch gap-1 rounded-xl px-3 py-2 text-left transition-colors duration-200 ease-out-soft',
                           'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                           isActive
                             ? 'bg-sidebar-accent text-sidebar-accent-foreground'
@@ -261,7 +263,7 @@ export function PublicCategoriesPage() {
                             <Badge variant="outline">{t(locale, 'admin.publicCategories.labels.untranslated')}</Badge>
                           ) : null}
                         </span>
-                      </button>
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"

@@ -71,17 +71,19 @@ function WorkCoverStandard({
 
 function WorkCoverCompact({ title, coverImageUrl }: { title: string; coverImageUrl: string | null }) {
   const tint = coverTintForVolume(title);
+  const [hasImageFailed, setHasImageFailed] = useState(false);
+  const canShowImage = Boolean(coverImageUrl) && !hasImageFailed;
 
   return (
     <div
       className={cn(
         'relative h-20 w-14 shrink-0 overflow-hidden rounded-sm shadow-sm ring-1 ring-foreground/8 md:h-24 md:w-16',
-        !coverImageUrl && tint,
+        !canShowImage && tint,
       )}
     >
-      {coverImageUrl ? (
+      {canShowImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- cover assets via API proxy
-        <img src={coverImageUrl} alt="" className="size-full object-cover" />
+        <img src={coverImageUrl!} alt="" className="size-full object-cover" onError={() => setHasImageFailed(true)} />
       ) : (
         <p className="font-heading line-clamp-4 p-1.5 text-[10px] font-semibold leading-tight text-foreground/80 md:p-2 md:text-xs">
           {title}

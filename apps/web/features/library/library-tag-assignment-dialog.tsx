@@ -1,6 +1,5 @@
 'use client';
 
-import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PlusIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -11,6 +10,8 @@ import { type LibraryItem, resolveUserTagName, type UserTagManagementItem } from
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   assignUserTag,
@@ -36,32 +37,29 @@ export function LibraryTagAssignmentDialog({
   const { locale } = useLocale();
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-foreground/25 backdrop-blur-[2px] transition-opacity data-ending-style:opacity-0 data-starting-style:opacity-0" />
-        <DialogPrimitive.Popup className="fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl bg-card text-foreground shadow-card ring-1 ring-border/50 outline-none sm:max-w-md">
-          <header className="flex items-start justify-between gap-4 border-b border-border/50 px-5 py-5">
-            <div className="min-w-0">
-              <DialogPrimitive.Title className="font-heading text-xl font-semibold tracking-tight">
-                {t(locale, 'content.library.manageTagsForBook')}
-              </DialogPrimitive.Title>
-              <DialogPrimitive.Description className="mt-1 truncate text-sm text-muted-foreground">
-                {entry.work.title}
-              </DialogPrimitive.Description>
-            </div>
-            <DialogPrimitive.Close
-              render={<Button type="button" variant="ghost" size="icon-sm" className="-mr-2 -mt-1 shrink-0" />}
-              aria-label={t(locale, 'common.close')}
-            >
-              <XIcon aria-hidden />
-            </DialogPrimitive.Close>
-          </header>
-          {open ? (
-            <LibraryTagAssignmentContent key={entry.work.id} entry={entry} tags={tags} onOpenChange={onOpenChange} />
-          ) : null}
-        </DialogPrimitive.Popup>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <header className="flex items-start justify-between gap-4 border-b border-border/50 px-5 py-5">
+          <div className="min-w-0">
+            <DialogTitle className="font-heading text-xl font-semibold tracking-tight">
+              {t(locale, 'content.library.manageTagsForBook')}
+            </DialogTitle>
+            <DialogDescription className="mt-1 truncate text-sm text-muted-foreground">
+              {entry.work.title}
+            </DialogDescription>
+          </div>
+          <DialogClose
+            render={<Button type="button" variant="ghost" size="icon-sm" className="-mr-2 -mt-1 shrink-0" />}
+            aria-label={t(locale, 'common.close')}
+          >
+            <XIcon aria-hidden />
+          </DialogClose>
+        </header>
+        {open ? (
+          <LibraryTagAssignmentContent key={entry.work.id} entry={entry} tags={tags} onOpenChange={onOpenChange} />
+        ) : null}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -158,12 +156,9 @@ function LibraryTagAssignmentContent({
               key={tag.id}
               className="flex min-h-11 cursor-pointer items-center gap-3 border-b border-border/40 py-2 text-sm last:border-0"
             >
-              <input
-                type="checkbox"
-                className="size-4 accent-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+              <Checkbox
                 checked={selectedIds.includes(tag.id)}
-                onChange={(event) => {
-                  const isChecked = event.currentTarget.checked;
+                onCheckedChange={(isChecked) => {
                   setSelectedIds((current) =>
                     isChecked ? [...current, tag.id] : current.filter((selectedId) => selectedId !== tag.id),
                   );
@@ -211,9 +206,7 @@ function LibraryTagAssignmentContent({
       </form>
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <DialogPrimitive.Close render={<Button variant="ghost" disabled={isPending} />}>
-          {t(locale, 'common.close')}
-        </DialogPrimitive.Close>
+        <DialogClose render={<Button variant="ghost" disabled={isPending} />}>{t(locale, 'common.close')}</DialogClose>
         <Button disabled={isPending} onClick={() => save.mutate()}>
           {t(locale, 'content.library.saveTags')}
         </Button>

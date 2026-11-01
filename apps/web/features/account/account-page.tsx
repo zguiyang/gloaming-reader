@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useLinkedAccountsQuery } from '@/features/account/account-api';
 import { AccountChangeEmailForm } from '@/features/account/account-change-email-form';
 import { AccountChangePasswordForm } from '@/features/account/account-change-password-form';
@@ -31,18 +32,18 @@ function AccountSkeleton() {
   return (
     <div className="flex flex-col" aria-hidden>
       <div className="border-b border-border/50 py-6">
-        <div className="mb-4 h-4 w-24 animate-pulse rounded bg-surface-container-high" />
+        <Skeleton className="mb-4 h-4 w-24 rounded bg-surface-container-high" />
         <div className="flex flex-col gap-3">
-          <div className="h-4 w-full max-w-xs animate-pulse rounded bg-surface-container-high" />
-          <div className="h-4 w-full max-w-sm animate-pulse rounded bg-surface-container-high" />
-          <div className="h-4 w-full max-w-xs animate-pulse rounded bg-surface-container-high" />
+          <Skeleton className="h-4 w-full max-w-xs rounded bg-surface-container-high" />
+          <Skeleton className="h-4 w-full max-w-sm rounded bg-surface-container-high" />
+          <Skeleton className="h-4 w-full max-w-xs rounded bg-surface-container-high" />
         </div>
       </div>
       <div className="border-b border-border/50 py-6">
-        <div className="mb-4 h-4 w-20 animate-pulse rounded bg-surface-container-high" />
+        <Skeleton className="mb-4 h-4 w-20 rounded bg-surface-container-high" />
         <div className="flex flex-col gap-3">
-          <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
-          <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
+          <Skeleton className="h-11 rounded-md bg-surface-container-high" />
+          <Skeleton className="h-11 rounded-md bg-surface-container-high" />
         </div>
       </div>
     </div>

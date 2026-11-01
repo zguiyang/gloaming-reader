@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 
 import { t } from '@gloaming/i18n';
 
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { AuthIntro, AuthPanel } from '@/features/auth/auth-layout';
 import { clearAuthReturnPath, resolvePostAuthPath } from '@/lib/auth/post-auth-redirect';
@@ -38,12 +38,12 @@ export function AuthErrorPage() {
         <div className="flex flex-col items-center gap-5 text-center">
           <AlertCircleIcon className="size-8 text-destructive" strokeWidth={1.5} aria-hidden />
           <div className="flex w-full flex-col gap-3">
-            <Button nativeButton={false} render={<Link href={returnPath} />}>
+            <Link href={returnPath} className={buttonVariants()}>
               {t(locale, 'auth.social.backToPrevious')}
-            </Button>
-            <Button nativeButton={false} variant="outline" render={<Link href={AUTH_ROUTES.discover} />}>
+            </Link>
+            <Link href={AUTH_ROUTES.discover} className={buttonVariants({ variant: 'outline' })}>
               {t(locale, 'auth.social.backToProduct')}
-            </Button>
+            </Link>
           </div>
         </div>
       </AuthPanel>

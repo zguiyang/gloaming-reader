@@ -10,6 +10,7 @@ import { AccountMenu, useNavAccount } from '@/components/navigation/account-menu
 import { DesktopNav } from '@/components/navigation/desktop-nav';
 import { getNavCopy } from '@/components/navigation/nav-config';
 import { ThemeModeNavButton } from '@/components/navigation/theme-mode-control';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthDialog } from '@/features/auth';
 import { LibraryUploadDialog } from '@/features/library';
@@ -50,7 +51,9 @@ export function SiteNav({ showUpload = false }: { showUpload?: boolean }) {
           ) : user ? (
             <>
               {showUpload ? (
-                <button
+                <Button
+                  variant="plain"
+                  size={null}
                   type="button"
                   aria-label={t(locale, 'content.library.uploadBook')}
                   className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none md:h-9 md:w-auto md:gap-2 md:px-2.5"
@@ -60,7 +63,7 @@ export function SiteNav({ showUpload = false }: { showUpload?: boolean }) {
                   <span className="hidden text-sm font-medium md:inline">
                     {t(locale, 'content.library.uploadBook')}
                   </span>
-                </button>
+                </Button>
               ) : null}
               <ThemeModeNavButton />
               <AccountMenu
@@ -75,13 +78,15 @@ export function SiteNav({ showUpload = false }: { showUpload?: boolean }) {
               />
             </>
           ) : (
-            <button
+            <Button
+              variant="plain"
+              size={null}
               type="button"
               className="text-base font-medium text-primary transition-opacity duration-200 ease-out-soft hover:opacity-80"
               onClick={() => openLogin()}
             >
               {navCopy.signIn}
-            </button>
+            </Button>
           )}
         </div>
       </nav>

@@ -328,7 +328,13 @@ export function AiLogsPage() {
                             {formatAdminCount(log.totalTokens, locale)}
                           </TableCell>
                           <TableCell className="px-5 py-4 text-right">
-                            <Button variant="ghost" size="sm" className="rounded-xl" onClick={() => setSelected(log)}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="rounded-xl"
+                              aria-label={`${t(locale, 'admin.logs.ai.detailAction')} · ${formatAdminDateTime(log.createdAt, locale)} · ${formatAdminAiSource(log.source, locale)}`}
+                              onClick={() => setSelected(log)}
+                            >
                               {t(locale, 'admin.logs.ai.detailAction')}
                             </Button>
                           </TableCell>
@@ -364,7 +370,13 @@ export function AiLogsPage() {
                         </dd>
                       </dl>
                       <div className="flex justify-end">
-                        <Button variant="ghost" size="sm" className="rounded-xl" onClick={() => setSelected(log)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-xl"
+                          aria-label={`${t(locale, 'admin.logs.ai.detailAction')} · ${formatAdminDateTime(log.createdAt, locale)} · ${formatAdminAiSource(log.source, locale)}`}
+                          onClick={() => setSelected(log)}
+                        >
                           {t(locale, 'admin.logs.ai.detailAction')}
                         </Button>
                       </div>

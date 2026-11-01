@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { t } from '@gloaming/i18n';
 
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { formatHistoryCalendarDate, type HistoryViewModel } from '@/features/history/history-model';
 import { WorkCover } from '@/features/work-cover';
@@ -74,17 +74,16 @@ export function HistoryWorks({ works }: { works: HistoryViewModel['works'] }) {
                     aria-hidden
                   />
                 </Link>
-                <Button
-                  nativeButton={false}
-                  variant="outline"
-                  className="min-h-11 shrink-0 px-3 md:px-5"
-                  render={<Link href={AUTH_ROUTES.readBook(item.workId)} />}
+                <Link
+                  href={AUTH_ROUTES.readBook(item.workId)}
+                  className={buttonVariants({ variant: 'outline', className: 'min-h-11 shrink-0 px-3 md:px-5' })}
+                  aria-label={`${t(locale, item.status === 'completed' ? 'content.bookDetail.readAgain' : 'content.bookDetail.readContinue')} · ${item.title}`}
                 >
                   {t(
                     locale,
                     item.status === 'completed' ? 'content.bookDetail.readAgain' : 'content.bookDetail.readContinue',
                   )}
-                </Button>
+                </Link>
               </div>
             </li>
           );

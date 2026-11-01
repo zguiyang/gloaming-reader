@@ -12,6 +12,7 @@ import type { UserTagManagementItem } from '@gloaming/shared/library';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AUTH_ROUTES } from '@/constants';
 import {
   completeUserTagTranslations,
@@ -97,7 +98,7 @@ function LibrarySourceNavContent({
 
   const rowClassName = (isActive: boolean) =>
     cn(
-      'flex min-h-9 w-full items-center rounded-lg px-3 text-left text-sm transition-colors duration-200 ease-out-soft focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+      'flex min-h-9 w-full items-center justify-start rounded-lg px-3 text-left text-sm transition-colors duration-200 ease-out-soft focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
       isActive
         ? 'bg-accent font-medium text-accent-foreground'
         : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -114,14 +115,16 @@ function LibrarySourceNavContent({
             const isActive = filters.source === source;
             return (
               <li key={source}>
-                <button
+                <Button
+                  variant="plain"
+                  size={null}
                   type="button"
                   aria-current={isActive ? 'true' : undefined}
                   className={rowClassName(isActive)}
                   onClick={() => onSelectSource(source)}
                 >
                   {t(locale, label)}
-                </button>
+                </Button>
               </li>
             );
           })}
@@ -145,8 +148,8 @@ function LibrarySourceNavContent({
 
         {tagsLoading ? (
           <div className="flex flex-col gap-1 px-1" aria-hidden>
-            <div className="h-8 animate-pulse rounded-lg bg-muted/60" />
-            <div className="h-8 animate-pulse rounded-lg bg-muted/60" />
+            <Skeleton className="h-8 rounded-lg bg-muted/60" />
+            <Skeleton className="h-8 rounded-lg bg-muted/60" />
           </div>
         ) : tags.length === 0 ? null : (
           <nav aria-label={t(locale, 'content.library.tagFilterAria')}>
@@ -193,10 +196,16 @@ function LibrarySourceNavContent({
               </div>
             </form>
           ) : (
-            <button type="button" className={rowClassName(false)} onClick={() => setIsCreating(true)}>
+            <Button
+              variant="plain"
+              size={null}
+              type="button"
+              className={rowClassName(false)}
+              onClick={() => setIsCreating(true)}
+            >
               <PlusIcon className="size-3.5 shrink-0" aria-hidden />
               {t(locale, 'content.library.newTag')}
-            </button>
+            </Button>
           )}
         </div>
       </div>
