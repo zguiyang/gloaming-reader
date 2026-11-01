@@ -82,6 +82,19 @@ function isInteractiveScrollTarget(target: EventTarget | null): boolean {
   );
 }
 
+/**
+ * Reader side panels close by becoming `inert`, which drops focus to <body> when the
+ * close control lived inside the panel. Return focus to a sensible anchor only when
+ * focus was actually lost, so closing from the chrome toggle does not steal it.
+ */
+function focusAfterPanelClose(getTarget: () => HTMLElement | null) {
+  window.requestAnimationFrame(() => {
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    getTarget()?.focus({ preventScroll: true });
+  });
+}
+
 export function ReaderPage({ workId }: ReaderPageProps) {
   const { locale } = useLocale();
   const router = useRouter();
@@ -654,7 +667,10 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background">
       <ReaderTocSidebar
         open={isTocOpen}
-        onOpenChange={setIsTocOpen}
+        onOpenChange={(nextOpen) => {
+          setIsTocOpen(nextOpen);
+          if (!nextOpen) focusAfterPanelClose(() => document.getElementById('reader-toc-toggle'));
+        }}
         reader={{ ...reader, state: reader.state }}
         currentPartId={reader.partId}
         onSelectChapter={(partId) => void navigateToPart(partId, 'navigate')}
@@ -836,6 +852,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         onClose={() => {
           assist.closeAiSurface();
           clearSelectionUi();
+          focusAfterPanelClose(() => contentRef.current?.querySelector('article') ?? null);
         }}
         onOpenDrawer={assist.openInlineConversationInDrawer}
       />
@@ -852,7 +869,14 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         onRetryHistory={() => void assist.refetchHistory()}
         isSending={assist.isDrawerSending}
         error={assist.error}
-        onOpenChange={(open) => (open ? assist.openDrawer() : assist.closeAiSurface())}
+        onOpenChange={(open) => {
+          if (open) {
+            assist.openDrawer();
+            return;
+          }
+          assist.closeAiSurface();
+          focusAfterPanelClose(() => document.getElementById('reader-ai-toggle'));
+        }}
         onSend={(text) => {
           const currentSelection = selection;
           clearSelectionUi();
