@@ -87,14 +87,14 @@ export function AuthDialog({ open, mode, reason, onOpenChange, onSuccess, onSwit
             >
               <TabsList
                 variant="line"
-                className="grid h-auto w-full grid-cols-2 rounded-none border-b border-border/50 p-0"
+                className="grid h-auto w-full grid-cols-2 rounded-none border-b border-border/50 p-0 group-data-horizontal/tabs:h-auto"
                 aria-label={t(locale, 'auth.dialog.tablistAria')}
               >
                 <TabsTrigger
                   value="login"
                   className={cn(
-                    'relative pb-3 text-base font-medium transition-colors',
-                    'after:absolute after:right-0 after:bottom-[-1px] after:left-0 after:h-[2px] after:bg-primary after:transition-transform',
+                    'relative h-auto pb-3 text-base font-medium transition-colors',
+                    'after:absolute after:right-0 after:bottom-[-2px]! after:left-0 after:h-[2px] after:bg-primary after:transition-transform',
                     isLoginFlow
                       ? 'text-primary after:scale-x-100'
                       : 'text-muted-foreground after:scale-x-0 hover:text-foreground',
@@ -105,8 +105,8 @@ export function AuthDialog({ open, mode, reason, onOpenChange, onSuccess, onSwit
                 <TabsTrigger
                   value="register"
                   className={cn(
-                    'relative pb-3 text-base font-medium transition-colors',
-                    'after:absolute after:right-0 after:bottom-[-1px] after:left-0 after:h-[2px] after:bg-primary after:transition-transform',
+                    'relative h-auto pb-3 text-base font-medium transition-colors',
+                    'after:absolute after:right-0 after:bottom-[-2px]! after:left-0 after:h-[2px] after:bg-primary after:transition-transform',
                     mode === 'register'
                       ? 'text-primary after:scale-x-100'
                       : 'text-muted-foreground after:scale-x-0 hover:text-foreground',
