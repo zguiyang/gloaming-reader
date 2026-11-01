@@ -598,3 +598,30 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Theme-layer control overrides — SSOT for cross-cutting visual fixes that
+   must not change `components/ui` source (see DESIGN.md «Selection & focus
+   indicators»). Prefer usage-site className overrides first; keep this section
+   small, attribute-scoped, and justified.
+   --------------------------------------------------------------------------- */
+
+/*
+  Dialog scrim: the shared Dialog primitive tints its backdrop with `foreground`.
+  In dark mode that token is light, so the scrim reads as a white veil; Sheet and
+  AlertDialog use a black scrim. Align the shared slot here instead of editing
+  the primitive.
+*/
+[data-slot='dialog-overlay'] {
+  background-color: color-mix(in oklab, black 10%, transparent);
+}
+
+/*
+  Filled controls: the filled recipe draws a 2px ring with an offset gap. The
+  shared outline recipe also colors the 1px border on focus, which reads as a
+  second ring. Keep the border transparent while focused so exactly one focus
+  ring is visible (inputs, textareas, select triggers all expose the attribute).
+*/
+[data-appearance='filled']:focus-visible {
+  border-color: transparent;
+}
