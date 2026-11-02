@@ -189,7 +189,7 @@ discoveryAdminRoutes.get(
   },
 );
 
-/** Manual assignment; idempotent, capped at three, and wins over AI assignment. */
+/** Manual assignment; idempotent, wins over AI assignment, and is not capped by the AI decision limit. */
 discoveryAdminRoutes.put(RECORD_CATEGORY_PATH, requireAdmin, async (c) => {
   await assignCategoryToSourceRecord(c.req.param('sourceRecordId'), c.req.param('categoryId'), 'manual');
   return c.body(null, HTTP_STATUS.NO_CONTENT);

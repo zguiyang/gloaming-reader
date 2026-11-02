@@ -205,7 +205,7 @@ describe('public category service on gloaming_test', () => {
     ).rejects.toMatchObject({ statusCode: 409 });
   });
 
-  it('caps assignments at three and stays idempotent and manual-preferred', async (ctx) => {
+  it('accepts net-new assignments without a per-record cap and stays idempotent and manual-preferred', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 
     const recordId = recordIdFor(1);
@@ -224,11 +224,10 @@ describe('public category service on gloaming_test', () => {
     await assignCategoryToSourceRecord(recordId, categories[0]!.id, 'manual');
     expect(await listAssignmentsForRecord(recordId)).toHaveLength(3);
 
-    // A fourth net-new category is rejected; no existing row is removed.
-    await expect(assignCategoryToSourceRecord(recordId, categories[3]!.id, 'manual')).rejects.toMatchObject({
-      statusCode: 409,
-    });
-    expect(await listAssignmentsForRecord(recordId)).toHaveLength(3);
+    // A fourth net-new category is accepted: the three-category limit bounds a
+    // single AI decision, not the record's total associations.
+    await assignCategoryToSourceRecord(recordId, categories[3]!.id, 'manual');
+    expect(await listAssignmentsForRecord(recordId)).toHaveLength(4);
 
     // Manual precedence: AI cannot override a manual row, manual promotes an AI row.
     await assignCategoryToSourceRecord(recordId, categories[0]!.id, 'ai');
