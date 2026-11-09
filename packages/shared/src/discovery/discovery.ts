@@ -512,3 +512,61 @@ export const discoverySyncTriggerResultSchema = z.object({
   result: z.enum(DISCOVERY_SYNC_TRIGGER_RESULTS),
 });
 export type DiscoverySyncAccepted = z.infer<typeof discoverySyncTriggerResultSchema>;
+
+/** One Gutenberg Category: shelf row in the admin editor. */
+export const gutenbergShelfTermSchema = z.object({
+  mappingId: z.string(),
+  sourceValue: z.string(),
+  displayName: z.string(),
+  categoryId: z.string().nullable(),
+  recordCount: z.number().int().nonnegative(),
+});
+export type GutenbergShelfTerm = z.infer<typeof gutenbergShelfTermSchema>;
+
+export const gutenbergShelfTermListDataSchema = z.object({
+  items: z.array(gutenbergShelfTermSchema),
+});
+export type GutenbergShelfTermListData = z.infer<typeof gutenbergShelfTermListDataSchema>;
+
+export const saveCategoryShelfTermsSchema = z.object({
+  mappingIds: z.array(z.string().min(1)).max(5000),
+});
+export type SaveCategoryShelfTerms = z.infer<typeof saveCategoryShelfTermsSchema>;
+
+/** One source term the organizer placed into an existing main category. */
+export const shelfOrganizationAssignmentSchema = z.object({
+  mappingId: z.string(),
+  displayName: z.string(),
+  categoryId: z.string(),
+  categoryName: z.string(),
+});
+export type ShelfOrganizationAssignment = z.infer<typeof shelfOrganizationAssignmentSchema>;
+
+/** A proposed main category that is not created until an admin accepts it. */
+export const shelfOrganizationProposalSchema = z.object({
+  zhName: z.string(),
+  enName: z.string(),
+  rationale: z.string(),
+  shelves: z.array(
+    z.object({
+      mappingId: z.string(),
+      displayName: z.string(),
+      recordCount: z.number().int().nonnegative(),
+    }),
+  ),
+});
+export type ShelfOrganizationProposal = z.infer<typeof shelfOrganizationProposalSchema>;
+
+export const shelfOrganizationResultSchema = z.object({
+  assigned: z.array(shelfOrganizationAssignmentSchema),
+  proposals: z.array(shelfOrganizationProposalSchema),
+  untouchedCount: z.number().int().nonnegative(),
+});
+export type ShelfOrganizationResult = z.infer<typeof shelfOrganizationResultSchema>;
+
+export const acceptShelfCategoryProposalSchema = z.object({
+  zhName: publicCategoryNameSchema,
+  enName: publicCategoryNameSchema,
+  mappingIds: z.array(z.string().min(1)).min(2).max(40),
+});
+export type AcceptShelfCategoryProposal = z.infer<typeof acceptShelfCategoryProposalSchema>;
