@@ -1,6 +1,6 @@
 'use client';
 
-import { HardDrive, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -10,22 +10,25 @@ import type { AssetCleanupJobStatus, AssetScanReport } from '@gloaming/shared/as
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import {
   formatAssetsApiError,
+  isAssetsScanNotFoundError,
   useCleanupJobQuery,
   useEnqueueOrphanCleanupMutation,
+  useLatestScanQuery,
   useRetryCleanupJobMutation,
   useScanAssetsMutation,
 } from '@/features/admin/assets/assets-api';
-import { AssetsCleanupCard } from '@/features/admin/assets/assets-cleanup-card';
+import { AssetsCleanupBanner } from '@/features/admin/assets/assets-cleanup-banner';
 import { AssetsCleanupDialog } from '@/features/admin/assets/assets-cleanup-dialog';
+import { AssetsCleanupHistoryDialog } from '@/features/admin/assets/assets-cleanup-history-dialog';
 import {
   clearStoredCleanupJob,
   deriveAssetsPageStatus,
   getStoredCleanupJobId,
+  shouldPollCleanupJob,
   shouldRefreshScanAfterCleanupTransition,
   subscribeStoredCleanupJob,
   writeStoredCleanupJob,
@@ -51,18 +54,22 @@ const AssetsChart = dynamic(() => import('@/features/admin/assets/assets-chart')
 
 export function AssetsPage() {
   const { locale } = useLocale();
+  const latestQuery = useLatestScanQuery();
   const scanMutation = useScanAssetsMutation();
   const enqueueMutation = useEnqueueOrphanCleanupMutation();
   const retryMutation = useRetryCleanupJobMutation();
-  const [report, setReport] = useState<AssetScanReport | null>(null);
+  const [scannedReport, setScannedReport] = useState<AssetScanReport | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [isCleanupOpen, setIsCleanupOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const autoScanAttemptedRef = useRef(false);
   const jobId = useSyncExternalStore(subscribeStoredCleanupJob, getStoredCleanupJobId, () => null);
   const previousJobStatusRef = useRef<AssetCleanupJobStatus | undefined>(undefined);
 
   const jobQuery = useCleanupJobQuery(jobId);
   const job = jobQuery.data ?? null;
   const isScanning = scanMutation.isPending;
+  const report = scannedReport ?? latestQuery.data ?? null;
   const hasReport = report !== null;
   const pageStatus = deriveAssetsPageStatus({ isScanning, hasReport, job });
   const hasJobForCurrentScan = Boolean(report && job && job.scanId === report.scanId);
@@ -71,28 +78,57 @@ export function AssetsPage() {
     (report?.orphanCount ?? 0) > 0 &&
     !hasJobForCurrentScan &&
     !enqueueMutation.isPending;
-
-  useEffect(() => {
-    if (!jobQuery.isError) return;
-    clearStoredCleanupJob();
-  }, [jobQuery.isError]);
+  const isCleanupInFlight = Boolean(job && shouldPollCleanupJob(job.status));
+  const hasCleanupHistory = Boolean(job && !isCleanupInFlight);
+  const bootstrapError =
+    !scannedReport && latestQuery.isError && !isAssetsScanNotFoundError(latestQuery.error)
+      ? formatAssetsApiError(latestQuery.error) || t(locale, 'admin.assets.page.scanStorageFailed')
+      : null;
+  const displayError = scanError ?? bootstrapError;
+  const isBootstrapping =
+    !hasReport && (latestQuery.isPending || (isAssetsScanNotFoundError(latestQuery.error) && isScanning));
 
   async function runScan() {
     setScanError(null);
     try {
       const next = await scanMutation.mutateAsync();
-      setReport(next);
+      setScannedReport(next);
     } catch (error) {
       setScanError(formatAssetsApiError(error) || t(locale, 'admin.assets.page.scanStorageFailed'));
     }
   }
 
   useEffect(() => {
+    if (scannedReport || latestQuery.data || latestQuery.isPending || isScanning) return;
+    if (!latestQuery.isError || autoScanAttemptedRef.current) return;
+    if (!isAssetsScanNotFoundError(latestQuery.error)) return;
+    autoScanAttemptedRef.current = true;
+    void scanMutation
+      .mutateAsync()
+      .then((next) => setScannedReport(next))
+      .catch((error) => {
+        setScanError(formatAssetsApiError(error) || t(locale, 'admin.assets.page.scanStorageFailed'));
+      });
+    // Auto-scan once when the cached latest report is missing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- depends on latest-query settlement
+  }, [scannedReport, latestQuery.data, latestQuery.isPending, latestQuery.isError, latestQuery.error, isScanning]);
+
+  useEffect(() => {
+    if (!jobQuery.isError) return;
+    clearStoredCleanupJob();
+  }, [jobQuery.isError]);
+
+  useEffect(() => {
     const status = job?.status;
     const previous = previousJobStatusRef.current;
     previousJobStatusRef.current = status;
     if (!shouldRefreshScanAfterCleanupTransition(previous, status)) return;
-    void runScan();
+    void scanMutation
+      .mutateAsync()
+      .then((next) => setScannedReport(next))
+      .catch((error) => {
+        setScanError(formatAssetsApiError(error) || t(locale, 'admin.assets.page.scanStorageFailed'));
+      });
     // Refresh the scan snapshot only when an in-flight job reaches a terminal status.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- depends on job status transitions
   }, [job]);
@@ -138,36 +174,29 @@ export function AssetsPage() {
             </p>
           ) : null}
         </div>
-        <Button onClick={() => void runScan()} disabled={isScanning}>
-          {isScanning ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
-          {isScanning ? t(locale, 'admin.assets.page.scanning') : t(locale, 'admin.assets.page.scanNow')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {hasCleanupHistory ? (
+            <Button type="button" variant="outline" onClick={() => setIsHistoryOpen(true)}>
+              {t(locale, 'admin.assets.page.cleanupHistory')}
+            </Button>
+          ) : null}
+          <Button onClick={() => void runScan()} disabled={isScanning || latestQuery.isPending}>
+            {isScanning ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
+            {isScanning ? t(locale, 'admin.assets.page.scanning') : t(locale, 'admin.assets.page.scanNow')}
+          </Button>
+        </div>
       </div>
 
-      {scanError ? (
+      {displayError ? (
         <Alert variant="destructive">
           <AlertTitle>{t(locale, 'admin.assets.page.operationFailed')}</AlertTitle>
-          <AlertDescription>{scanError}</AlertDescription>
+          <AlertDescription>{displayError}</AlertDescription>
         </Alert>
       ) : null}
 
-      {job ? (
-        <AssetsCleanupCard job={job} retrying={retryMutation.isPending} onRetry={() => void retryCleanup()} />
-      ) : null}
+      {job && isCleanupInFlight ? <AssetsCleanupBanner job={job} onOpenDetails={() => setIsHistoryOpen(true)} /> : null}
 
-      {!hasReport && !isScanning ? (
-        <Empty className="border border-dashed">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <HardDrive />
-            </EmptyMedia>
-            <EmptyTitle>{t(locale, 'admin.assets.page.emptyTitle')}</EmptyTitle>
-          </EmptyHeader>
-          {/* Scan stays a single page-header action; do not duplicate the CTA here. */}
-        </Empty>
-      ) : null}
-
-      {isScanning && !hasReport ? <AssetsSummary report={null} loading /> : null}
+      {isBootstrapping || (isScanning && !hasReport) ? <AssetsSummary report={null} loading /> : null}
 
       {report ? (
         <>
@@ -214,6 +243,16 @@ export function AssetsPage() {
             onConfirm={() => void enqueueCleanup()}
           />
         </>
+      ) : null}
+
+      {job ? (
+        <AssetsCleanupHistoryDialog
+          open={isHistoryOpen}
+          onOpenChange={setIsHistoryOpen}
+          job={job}
+          retrying={retryMutation.isPending}
+          onRetry={() => void retryCleanup()}
+        />
       ) : null}
     </div>
   );

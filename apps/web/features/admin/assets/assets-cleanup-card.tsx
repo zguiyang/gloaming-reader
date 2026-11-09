@@ -17,6 +17,8 @@ type AssetsCleanupCardProps = {
   job: AssetCleanupJob;
   retrying?: boolean;
   onRetry?: () => void;
+  /** When true, render without Card chrome for dialog embedding. */
+  embedded?: boolean;
 };
 
 export function cleanupProgressPercent(job: Pick<AssetCleanupJob, 'processedCount' | 'requestedCount'>): number {
@@ -30,74 +32,95 @@ function hasLeftoverUncleanedObjects(job: AssetCleanupJob): boolean {
   return (verification.orphanCount ?? 0) > 0 || verification.scanComplete === false;
 }
 
-export function AssetsCleanupCard({ job, retrying = false, onRetry }: AssetsCleanupCardProps) {
+export function AssetsCleanupCard({ job, retrying = false, onRetry, embedded = false }: AssetsCleanupCardProps) {
   const { locale } = useLocale();
   const percent = cleanupProgressPercent(job);
   const canRetry = canRetryCleanupJob(job) && Boolean(onRetry);
   const isInFlight = job.status === 'queued' || job.status === 'running';
+  const title = t(locale, 'admin.assets.cleanup.title');
+  const progressLabel = t(locale, 'admin.assets.cleanup.progress', {
+    processed: job.processedCount,
+    requested: job.requestedCount,
+    bytes: formatStorageBytes(job.deletedBytes),
+  });
+
+  const statusBadge = (
+    <Badge
+      variant={
+        job.status === 'partial' || job.status === 'failed'
+          ? 'destructive'
+          : job.status === 'completed'
+            ? 'secondary'
+            : 'outline'
+      }
+    >
+      {assetCleanupJobStatusLabel(job.status, locale)}
+    </Badge>
+  );
+
+  const body = (
+    <div className="flex flex-col gap-4">
+      <Progress
+        className="h-2 rounded-full bg-muted"
+        value={percent}
+        aria-label={t(locale, 'admin.assets.cleanup.progressAria')}
+        indicatorClassName={cn(job.status === 'failed' && 'bg-destructive')}
+      />
+      <p className="text-muted-foreground text-sm">
+        {t(locale, 'admin.assets.cleanup.stats', {
+          deleted: job.deletedCount,
+          skipped: job.skippedReferencedCount,
+          failed: job.failedCount,
+        })}
+      </p>
+      {job.status === 'partial' && hasLeftoverUncleanedObjects(job) ? (
+        <p className="text-destructive text-sm">{t(locale, 'admin.assets.cleanup.leftoverUncleaned')}</p>
+      ) : null}
+      {job.verification?.ran ? (
+        <p className="text-muted-foreground text-sm">
+          {t(locale, 'admin.assets.cleanup.afterCleanup', {
+            orphan: job.verification.orphanCount ?? 0,
+            missing: job.verification.missingCount ?? 0,
+          })}
+        </p>
+      ) : null}
+      {canRetry ? (
+        <Button variant="outline" disabled={retrying} onClick={onRetry}>
+          {retrying ? <Spinner data-icon="inline-start" /> : null}
+          {retrying ? t(locale, 'admin.assets.cleanup.retrySubmitting') : t(locale, 'admin.assets.cleanup.retryFailed')}
+        </Button>
+      ) : null}
+      {isInFlight ? (
+        <p className="text-muted-foreground text-sm">{t(locale, 'admin.assets.cleanup.inFlightHint')}</p>
+      ) : null}
+    </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-base font-semibold">{title}</p>
+            {statusBadge}
+          </div>
+          <p className="text-muted-foreground text-sm">{progressLabel}</p>
+        </div>
+        {body}
+      </div>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>{t(locale, 'admin.assets.cleanup.title')}</CardTitle>
-          <Badge
-            variant={
-              job.status === 'partial' || job.status === 'failed'
-                ? 'destructive'
-                : job.status === 'completed'
-                  ? 'secondary'
-                  : 'outline'
-            }
-          >
-            {assetCleanupJobStatusLabel(job.status, locale)}
-          </Badge>
+          <CardTitle>{title}</CardTitle>
+          {statusBadge}
         </div>
-        <CardDescription>
-          {t(locale, 'admin.assets.cleanup.progress', {
-            processed: job.processedCount,
-            requested: job.requestedCount,
-            bytes: formatStorageBytes(job.deletedBytes),
-          })}
-        </CardDescription>
+        <CardDescription>{progressLabel}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <Progress
-          className="h-2 rounded-full bg-muted"
-          value={percent}
-          aria-label={t(locale, 'admin.assets.cleanup.progressAria')}
-          indicatorClassName={cn(job.status === 'failed' && 'bg-destructive')}
-        />
-        <p className="text-muted-foreground text-sm">
-          {t(locale, 'admin.assets.cleanup.stats', {
-            deleted: job.deletedCount,
-            skipped: job.skippedReferencedCount,
-            failed: job.failedCount,
-          })}
-        </p>
-        {job.status === 'partial' && hasLeftoverUncleanedObjects(job) ? (
-          <p className="text-destructive text-sm">{t(locale, 'admin.assets.cleanup.leftoverUncleaned')}</p>
-        ) : null}
-        {job.verification?.ran ? (
-          <p className="text-muted-foreground text-sm">
-            {t(locale, 'admin.assets.cleanup.afterCleanup', {
-              orphan: job.verification.orphanCount ?? 0,
-              missing: job.verification.missingCount ?? 0,
-            })}
-          </p>
-        ) : null}
-        {canRetry ? (
-          <Button variant="outline" disabled={retrying} onClick={onRetry}>
-            {retrying ? <Spinner data-icon="inline-start" /> : null}
-            {retrying
-              ? t(locale, 'admin.assets.cleanup.retrySubmitting')
-              : t(locale, 'admin.assets.cleanup.retryFailed')}
-          </Button>
-        ) : null}
-        {isInFlight ? (
-          <p className="text-muted-foreground text-sm">{t(locale, 'admin.assets.cleanup.inFlightHint')}</p>
-        ) : null}
-      </CardContent>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }

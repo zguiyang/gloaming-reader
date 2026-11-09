@@ -4,13 +4,25 @@ import type { AssetCleanupJob, AssetCleanupJobAccepted, AssetScanReport } from '
 import { assetCleanupJobAcceptedSchema, assetCleanupJobSchema, assetScanReportSchema } from '@gloaming/shared/assets';
 
 import { shouldPollCleanupJob } from '@/features/admin/assets/assets-cleanup-state';
-import { apiRequest, formatApiError } from '@/lib/api-request';
+import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 
 export const assetsQueryKey = {
   all: ['admin', 'assets'] as const,
+  latestScan: () => [...assetsQueryKey.all, 'scan', 'latest'] as const,
   scan: (scanId: string) => [...assetsQueryKey.all, 'scan', scanId] as const,
   job: (jobId: string) => [...assetsQueryKey.all, 'cleanup-job', jobId] as const,
 };
+
+export function isAssetsScanNotFoundError(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.status === 404;
+}
+
+export async function getLatestScanReport(init?: { signal?: AbortSignal }): Promise<AssetScanReport> {
+  return apiRequest('/api/admin/assets/scan/latest', {
+    schema: assetScanReportSchema,
+    signal: init?.signal,
+  });
+}
 
 export async function scanAssets(init?: { signal?: AbortSignal }): Promise<AssetScanReport> {
   return apiRequest('/api/admin/assets/scan', {
@@ -43,12 +55,22 @@ export async function retryCleanupJob(jobId: string): Promise<AssetCleanupJobAcc
   });
 }
 
+export function useLatestScanQuery() {
+  return useQuery({
+    queryKey: assetsQueryKey.latestScan(),
+    queryFn: ({ signal }) => getLatestScanReport({ signal }),
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+
 export function useScanAssetsMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => scanAssets(),
     onSuccess: (report) => {
       queryClient.setQueryData(assetsQueryKey.scan(report.scanId), report);
+      queryClient.setQueryData(assetsQueryKey.latestScan(), report);
     },
   });
 }

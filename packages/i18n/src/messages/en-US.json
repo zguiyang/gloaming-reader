@@ -1068,7 +1068,7 @@
         "lastScan": "Last scan: {time} · {status} · {duration}",
         "scanComplete": "Complete",
         "scanIncomplete": "Incomplete",
-        "scanNow": "Scan now",
+        "scanNow": "Rescan",
         "scanning": "Scanning…",
         "operationFailed": "Operation failed",
         "scanStorageFailed": "Could not read object storage. Check S3 configuration or network.",
@@ -1081,7 +1081,13 @@
         "orphanShare": "Orphan share {percent}",
         "releasable": "Releasable {bytes}",
         "orphanFound": "Found {count} orphan objects",
-        "cleanupOrphans": "Clean up orphan objects"
+        "cleanupOrphans": "Clean up orphan objects",
+        "cleanupHistory": "Cleanup history",
+        "cleanupDetails": "Details"
+      },
+      "cleanupBanner": {
+        "title": "Orphan cleanup in progress",
+        "progress": "{processed} / {requested} · released {bytes}"
       },
       "summary": {
         "totalUsage": "Total usage",
@@ -1583,6 +1589,7 @@
       },
       "assetManagement": {
         "scanSnapshotExpired": "Scan snapshot expired or not found; please scan again",
+        "scanReportNotFound": "No scan report available; please scan first",
         "scanIncomplete": "Incomplete scan cannot be cleaned up; rescan with a smaller bucket or retry later",
         "noOrphans": "No orphan objects to clean up",
         "scanInProgress": "A scan is already in progress",
