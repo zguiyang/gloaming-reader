@@ -9,23 +9,34 @@ const redisState = vi.hoisted(() => {
       values.set(key, value);
       return 'OK';
     }),
+    del: vi.fn(async (key: string) => {
+      const existed = values.delete(key);
+      return existed ? 1 : 0;
+    }),
     clear() {
       values.clear();
       this.get.mockClear();
       this.set.mockClear();
+      this.del.mockClear();
     },
   };
 });
 
 vi.mock('@/infra/cache', () => ({
-  getRedis: () => ({ get: redisState.get, set: redisState.set }),
+  getRedis: () => ({ get: redisState.get, set: redisState.set, del: redisState.del }),
 }));
 
 vi.mock('@/domains/assets/scan/config', () => ({ snapshotTtlSeconds: () => 60 }));
 
 import type { AssetScanReport } from '@gloaming/shared/assets';
 
-import { loadScanSnapshot, saveScanSnapshot } from '@/domains/assets/scan/snapshot';
+import {
+  LATEST_SCAN_KEY,
+  loadLatestScanReport,
+  loadScanSnapshot,
+  saveScanSnapshot,
+} from '@/domains/assets/scan/snapshot';
+import { ERROR_CODES } from '@/shared/errors/codes';
 
 const report: AssetScanReport = {
   scanId: 'scan_1',
@@ -57,6 +68,34 @@ describe('scan snapshots', () => {
       report,
       orphanCandidates: [{ key: 'orphan/a.bin', size: 20 }],
     });
+  });
+
+  it('points latest at the saved scan id', async () => {
+    await saveScanSnapshot({
+      report,
+      orphanCandidates: [{ key: 'orphan/a.bin', size: 20 }],
+    });
+
+    expect(redisState.values.get(LATEST_SCAN_KEY)).toBe('scan_1');
+    await expect(loadLatestScanReport()).resolves.toEqual(report);
+  });
+
+  it('returns not found when no latest pointer exists', async () => {
+    await expect(loadLatestScanReport()).rejects.toMatchObject({
+      statusCode: 404,
+      code: ERROR_CODES.ASSET_MANAGEMENT.SCAN_REPORT_NOT_FOUND,
+    });
+  });
+
+  it('clears a stale latest pointer when the snapshot is missing', async () => {
+    redisState.values.set(LATEST_SCAN_KEY, 'scan_gone');
+
+    await expect(loadLatestScanReport()).rejects.toMatchObject({
+      statusCode: 404,
+      code: ERROR_CODES.ASSET_MANAGEMENT.SCAN_REPORT_NOT_FOUND,
+    });
+    expect(redisState.del).toHaveBeenCalledWith(LATEST_SCAN_KEY);
+    expect(redisState.values.has(LATEST_SCAN_KEY)).toBe(false);
   });
 
   it('does not read snapshots from the previous namespace', async () => {

@@ -109,6 +109,7 @@ export const ERROR_CODES = {
 
   ASSET_MANAGEMENT: {
     SCAN_SNAPSHOT_EXPIRED: 'api.errors.assetManagement.scanSnapshotExpired',
+    SCAN_REPORT_NOT_FOUND: 'api.errors.assetManagement.scanReportNotFound',
     SCAN_INCOMPLETE: 'api.errors.assetManagement.scanIncomplete',
     NO_ORPHANS: 'api.errors.assetManagement.noOrphans',
     SCAN_IN_PROGRESS: 'api.errors.assetManagement.scanInProgress',

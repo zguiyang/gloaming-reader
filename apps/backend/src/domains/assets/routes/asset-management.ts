@@ -13,6 +13,11 @@ assetManagementRoutes.post('/api/admin/assets/scan', requireAdmin, async (c) => 
   return c.json(report);
 });
 
+assetManagementRoutes.get('/api/admin/assets/scan/latest', requireAdmin, async (c) => {
+  const report = await assetScanService.getLatestScanReport();
+  return c.json(report);
+});
+
 assetManagementRoutes.post(
   '/api/admin/assets/scans/:scanId/cleanup',
   requireAdmin,

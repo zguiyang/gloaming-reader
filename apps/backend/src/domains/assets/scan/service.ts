@@ -6,7 +6,7 @@ import { acquireLock, releaseLock, startLockRenewal } from '@/domains/assets/man
 import { collectReferencedStorageKeys } from '@/domains/assets/management/referenced-keys';
 import { SCAN_LOCK_KEY, SCAN_LOCK_TTL_SECONDS } from '@/domains/assets/scan/config';
 import { reconcileObjects } from '@/domains/assets/scan/reconcile';
-import { saveScanSnapshot } from '@/domains/assets/scan/snapshot';
+import { loadLatestScanReport, saveScanSnapshot } from '@/domains/assets/scan/snapshot';
 import { listBucketObjects } from '@/domains/assets/storage/list-bucket-objects';
 import { rootLogger } from '@/infra/logging/logger';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -14,6 +14,8 @@ import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 const logger = rootLogger.child({ module: 'AssetManagement' });
+
+export { loadLatestScanReport as getLatestScanReport };
 
 export async function scanAssets(): Promise<AssetScanReport> {
   const scanId = `scan_${randomUUID()}`;

@@ -175,6 +175,15 @@ describe('asset management admin APIs', () => {
     });
     expect(forbidden.status).toBe(HTTP_STATUS.FORBIDDEN);
 
+    expect((await app.request('/api/admin/assets/scan/latest')).status).toBe(HTTP_STATUS.UNAUTHORIZED);
+    expect(
+      (
+        await app.request('/api/admin/assets/scan/latest', {
+          headers: { Cookie: userCookie },
+        })
+      ).status,
+    ).toBe(HTTP_STATUS.FORBIDDEN);
+
     expect((await app.request('/api/admin/assets/cleanup-jobs/job_x')).status).toBe(HTTP_STATUS.UNAUTHORIZED);
     expect(
       (
@@ -183,6 +192,30 @@ describe('asset management admin APIs', () => {
         })
       ).status,
     ).toBe(HTTP_STATUS.FORBIDDEN);
+  });
+
+  it('returns the latest scan report after a successful scan', async () => {
+    const missing = await app.request('/api/admin/assets/scan/latest', {
+      headers: { Cookie: adminCookie },
+    });
+    expect(missing.status).toBe(HTTP_STATUS.NOT_FOUND);
+
+    const workId = await insertWork();
+    await putObject(`covers/${workId}/cover.jpg`, 12);
+    await insertAsset({ workId, kind: 'cover', storageKey: `covers/${workId}/cover.jpg` });
+
+    const scan = await app.request('/api/admin/assets/scan', {
+      method: 'POST',
+      headers: { Cookie: adminCookie },
+    });
+    expect(scan.status).toBe(200);
+    const report = assetScanReportSchema.parse(await scan.json());
+
+    const latest = await app.request('/api/admin/assets/scan/latest', {
+      headers: { Cookie: adminCookie },
+    });
+    expect(latest.status).toBe(200);
+    expect(assetScanReportSchema.parse(await latest.json())).toEqual(report);
   });
 
   it('does not expose scan object detail or register the legacy browser endpoint', async () => {

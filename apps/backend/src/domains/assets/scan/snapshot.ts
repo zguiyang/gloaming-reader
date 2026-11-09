@@ -6,12 +6,13 @@ import { snapshotTtlSeconds } from '@/domains/assets/scan/config';
 import { getRedis } from '@/infra/cache';
 import { rootLogger } from '@/infra/logging/logger';
 import { HTTP_STATUS } from '@/shared/constants';
-import { AppError } from '@/shared/errors/app-error';
+import { AppError, NotFoundError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
 
 const logger = rootLogger.child({ module: 'AssetManagement' });
 
 const SCAN_KEY_PREFIX = 'asset-management:scan:v2:';
+export const LATEST_SCAN_KEY = `${SCAN_KEY_PREFIX}latest`;
 
 const scanSnapshotSchema = z.strictObject({
   report: z.strictObject(assetScanReportSchema.shape),
@@ -33,7 +34,11 @@ export function scanRedisKey(scanId: string): string {
 }
 
 export async function saveScanSnapshot(snapshot: ScanSnapshot): Promise<void> {
-  await getRedis().set(scanRedisKey(snapshot.report.scanId), JSON.stringify(snapshot), 'EX', snapshotTtlSeconds());
+  const redis = getRedis();
+  const ttl = snapshotTtlSeconds();
+  const payload = JSON.stringify(snapshot);
+  await redis.set(scanRedisKey(snapshot.report.scanId), payload, 'EX', ttl);
+  await redis.set(LATEST_SCAN_KEY, snapshot.report.scanId, 'EX', ttl);
 }
 
 export async function loadScanSnapshot(scanId: string): Promise<ScanSnapshot> {
@@ -50,5 +55,28 @@ export async function loadScanSnapshot(scanId: string): Promise<ScanSnapshot> {
   } catch (error) {
     logger.warn({ err: error, scanId }, 'Failed to parse scan snapshot');
     throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.ASSET_MANAGEMENT.SCAN_SNAPSHOT_EXPIRED);
+  }
+}
+
+/** Returns the most recent scan report, or throws NotFound when none is cached. */
+export async function loadLatestScanReport(): Promise<AssetScanReport> {
+  const redis = getRedis();
+  const scanId = await redis.get(LATEST_SCAN_KEY);
+  if (!scanId) {
+    throw new NotFoundError(ERROR_CODES.ASSET_MANAGEMENT.SCAN_REPORT_NOT_FOUND);
+  }
+  try {
+    const snapshot = await loadScanSnapshot(scanId);
+    return snapshot.report;
+  } catch (error) {
+    if (error instanceof AppError && error.code === ERROR_CODES.ASSET_MANAGEMENT.SCAN_SNAPSHOT_EXPIRED) {
+      try {
+        await redis.del(LATEST_SCAN_KEY);
+      } catch (delError) {
+        logger.warn({ err: delError }, 'Failed to clear stale latest scan pointer');
+      }
+      throw new NotFoundError(ERROR_CODES.ASSET_MANAGEMENT.SCAN_REPORT_NOT_FOUND);
+    }
+    throw error;
   }
 }
