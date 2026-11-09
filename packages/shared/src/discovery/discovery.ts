@@ -375,8 +375,14 @@ export const sourceRecordDetailSchema = sourceRecordItemSchema.extend({
 });
 export type SourceRecordDetail = z.infer<typeof sourceRecordDetailSchema>;
 
+/**
+ * Paginated SourceRecord list. `hasMore` is the browse cursor for the next
+ * page; `pagination.total` / `totalPages` stay exact for admin lists and are a
+ * known lower bound on the public Discover probe path (no full COUNT).
+ */
 export const sourceRecordListDataSchema = z.object({
   items: z.array(sourceRecordItemSchema),
+  hasMore: z.boolean(),
   pagination: paginationMetaSchema,
 });
 export type SourceRecordListData = z.infer<typeof sourceRecordListDataSchema>;

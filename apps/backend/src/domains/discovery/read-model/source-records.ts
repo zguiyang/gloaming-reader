@@ -200,30 +200,46 @@ type ListViewerAccess = {
   viewerCovers: boolean;
 };
 
+/**
+ * `exact` runs a full COUNT for admin UIs that show total pages.
+ * `probe` skips COUNT and fetches pageSize+1 to derive hasMore for public Discover.
+ */
+type ListCountMode = 'exact' | 'probe';
+
 /** Shared page query for the public, category, and admin SourceRecord list surfaces. */
 async function listSourceRecordPage(
   where: SQL,
   query: SourceRecordPageQuery,
   locale: string,
   access: ListViewerAccess,
+  countMode: ListCountMode,
 ): Promise<SourceRecordListData> {
   const offset = (query.page - 1) * query.pageSize;
+  const fetchLimit = countMode === 'probe' ? query.pageSize + 1 : query.pageSize;
 
-  const [countRow] = await db
-    .select({ value: count() })
-    .from(sourceRecord)
-    .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
-    .where(where);
-  const total = Number(countRow?.value ?? 0);
+  const countPromise =
+    countMode === 'exact'
+      ? db
+          .select({ value: count() })
+          .from(sourceRecord)
+          .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
+          .where(where)
+      : Promise.resolve(null);
 
-  const rows = await db
-    .select({ record: sourceRecord, source: discoverySource })
-    .from(sourceRecord)
-    .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
-    .where(where)
-    .orderBy(...listOrderBy(query))
-    .limit(query.pageSize)
-    .offset(offset);
+  const [countRows, fetchedRows] = await Promise.all([
+    countPromise,
+    db
+      .select({ record: sourceRecord, source: discoverySource })
+      .from(sourceRecord)
+      .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
+      .where(where)
+      .orderBy(...listOrderBy(query))
+      .limit(fetchLimit)
+      .offset(offset),
+  ]);
+
+  const hasMore = countMode === 'probe' ? fetchedRows.length > query.pageSize : false;
+  const rows = countMode === 'probe' ? fetchedRows.slice(0, query.pageSize) : fetchedRows;
 
   const recordIds = rows.map((row) => row.record.id);
   const categoriesByRecord = await loadCategorySummariesByRecordIds(recordIds, locale);
@@ -231,23 +247,42 @@ async function listSourceRecordPage(
   const detailIds = await loadViewerDetailAvailability(workIds, access.actor);
   const coverUrls = access.viewerCovers ? await loadViewerCoverUrls(workIds, access.actor) : null;
 
+  const items = rows.map((row) => ({
+    ...toSourceRecordItem(
+      row.record,
+      row.source,
+      coverUrls?.get(row.record.workId ?? '') ?? null,
+      detailIds.has(row.record.workId ?? ''),
+    ),
+    categories: categoriesByRecord.get(row.record.id) ?? [],
+  }));
+
+  const exactTotal = countMode === 'exact' ? Number(countRows?.[0]?.value ?? 0) : null;
+  // Probe path: lower-bound total so existing pagination meta stays valid without a COUNT.
+  const total = exactTotal ?? (query.page - 1) * query.pageSize + items.length;
+  const basePagination = buildPaginationMeta({
+    page: query.page,
+    pageSize: query.pageSize,
+    total,
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+  });
+
+  if (countMode === 'exact') {
+    return {
+      items,
+      hasMore: query.page < basePagination.totalPages,
+      pagination: basePagination,
+    };
+  }
+
   return {
-    items: rows.map((row) => ({
-      ...toSourceRecordItem(
-        row.record,
-        row.source,
-        coverUrls?.get(row.record.workId ?? '') ?? null,
-        detailIds.has(row.record.workId ?? ''),
-      ),
-      categories: categoriesByRecord.get(row.record.id) ?? [],
-    })),
-    pagination: buildPaginationMeta({
-      page: query.page,
-      pageSize: query.pageSize,
-      total,
-      sortBy: query.sortBy,
-      sortOrder: query.sortOrder,
-    }),
+    items,
+    hasMore,
+    pagination: {
+      ...basePagination,
+      totalPages: hasMore ? query.page + 1 : query.page,
+    },
   };
 }
 
@@ -256,10 +291,16 @@ export async function listSourceRecords(
   options: SourceRecordReadOptions = {},
 ): Promise<SourceRecordListData> {
   const actor = options.actor ?? anonymousWorkReadActor();
-  return listSourceRecordPage(listWhere(query), query, options.locale ?? DEFAULT_LOCALE, {
-    actor,
-    viewerCovers: true,
-  });
+  return listSourceRecordPage(
+    listWhere(query),
+    query,
+    options.locale ?? DEFAULT_LOCALE,
+    {
+      actor,
+      viewerCovers: true,
+    },
+    'probe',
+  );
 }
 
 /** Admin search has no public visibility or language constraint; only `q` narrows it. */
@@ -282,10 +323,16 @@ export async function listAdminSourceRecords(
 ): Promise<SourceRecordListData> {
   // Admin search never renders viewer-local covers; `detailAvailable` still
   // follows this actor's Work access (the Admin role grants none by itself).
-  return listSourceRecordPage(adminListWhere(query), query, options.locale ?? DEFAULT_LOCALE, {
-    actor: options.actor ?? anonymousWorkReadActor(),
-    viewerCovers: false,
-  });
+  return listSourceRecordPage(
+    adminListWhere(query),
+    query,
+    options.locale ?? DEFAULT_LOCALE,
+    {
+      actor: options.actor ?? anonymousWorkReadActor(),
+      viewerCovers: false,
+    },
+    'exact',
+  );
 }
 
 export async function getSourceRecord(
@@ -334,8 +381,14 @@ export async function listCategorySourceRecords(
   if (query.q) {
     parts.push(searchFilter(query.q));
   }
-  return listSourceRecordPage(and(...parts)!, query, options.locale ?? DEFAULT_LOCALE, {
-    actor: options.actor ?? anonymousWorkReadActor(),
-    viewerCovers: false,
-  });
+  return listSourceRecordPage(
+    and(...parts)!,
+    query,
+    options.locale ?? DEFAULT_LOCALE,
+    {
+      actor: options.actor ?? anonymousWorkReadActor(),
+      viewerCovers: false,
+    },
+    'exact',
+  );
 }

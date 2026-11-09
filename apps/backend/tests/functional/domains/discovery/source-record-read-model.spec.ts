@@ -168,7 +168,24 @@ describe('SourceRecord read model on gloaming_test', () => {
     expect(ids).toEqual(expect.arrayContaining([`${runId}-1`, `${runId}-2`, `${runId}-4`]));
     expect(ids).not.toContain(`${runId}-3`);
     expect(data.pagination.total).toBe(3);
+    expect(data.hasMore).toBe(false);
     expect(data.pagination.sortBy).toBe('sourceUpdatedAt');
+  });
+
+  it('probes hasMore for public Discover without exposing a full catalog page count', async () => {
+    const first = sourceRecordListDataSchema.parse(
+      await (await app.request(`/api/discover/records?page=1&pageSize=1&q=${encodeURIComponent(runId)}`)).json(),
+    );
+    expect(first.items).toHaveLength(1);
+    expect(first.hasMore).toBe(true);
+    expect(first.pagination.totalPages).toBe(2);
+
+    const last = sourceRecordListDataSchema.parse(
+      await (await app.request(`/api/discover/records?page=3&pageSize=1&q=${encodeURIComponent(runId)}`)).json(),
+    );
+    expect(last.items).toHaveLength(1);
+    expect(last.hasMore).toBe(false);
+    expect(last.pagination.totalPages).toBe(3);
   });
 
   it('marks isSaveable from synced EPUB candidates without exposing them on the list', async () => {
