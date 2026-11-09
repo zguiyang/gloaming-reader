@@ -521,7 +521,21 @@
       },
       "page": {
         "title": "Public categories",
-        "subtitle": "Instance-level category names and source-record assignments."
+        "subtitle": "Manage Discover genres and link Gutenberg Category shelves."
+      },
+      "organize": {
+        "action": "Let AI place unassigned source categories",
+        "pending": "Placing…",
+        "assigned": "Placed {count} source categories into existing main categories.",
+        "assignedLine": "{shelf} → {category}",
+        "none": "No unassigned source categories to place.",
+        "untouched": "{count} source categories could not be placed.",
+        "proposalTitle": "Created main category",
+        "proposalShelves": "Source categories to include",
+        "accept": "Accept and create",
+        "dismiss": "Dismiss",
+        "accepted": "Created the main category and placed its source categories.",
+        "emptyProposals": "No new main category was suggested."
       },
       "create": {
         "namePlaceholder": "Category name",
@@ -533,7 +547,7 @@
       "delete": {
         "action": "Delete category",
         "confirmTitle": "Delete category?",
-        "confirmDescription": "This permanently deletes \"{name}\" together with its localized names, aliases, and suppressions. A category still assigned to source records cannot be deleted.",
+        "confirmDescription": "This permanently deletes \"{name}\" and detaches its linked Gutenberg shelves. Discover record assignments derived from those shelves are removed.",
         "confirm": "Delete",
         "deletedToast": "Category deleted."
       },
@@ -543,7 +557,21 @@
       },
       "list": {
         "empty": "No public categories yet.",
-        "selectHint": "Select a category to edit its names and manage source records."
+        "selectHint": "Select a category to edit its names and Gutenberg shelves."
+      },
+      "shelves": {
+        "title": "Gutenberg shelves",
+        "description": "Link Category: bookshelf strings to this genre. Saving updates Discover assignments immediately.",
+        "searchPlaceholder": "Search shelves",
+        "assignedTitle": "In this category",
+        "availableTitle": "Unassigned shelves",
+        "assignedEmpty": "No shelves linked yet.",
+        "availableEmpty": "No unassigned shelves match the search.",
+        "save": "Save shelves",
+        "saved": "Shelf links saved.",
+        "loadFailed": "Could not load Gutenberg shelves.",
+        "recordCount": "{count} books",
+        "toggleAria": "Include shelf {name}"
       },
       "recordCount": "{count} records",
       "provenance": {

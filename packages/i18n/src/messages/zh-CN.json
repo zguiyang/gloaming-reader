@@ -521,7 +521,21 @@
       },
       "page": {
         "title": "公共分类",
-        "subtitle": "实例级公共分类的名称与来源记录分配。"
+        "subtitle": "管理发现页体裁，并关联 Gutenberg 的 Category 书架。"
+      },
+      "organize": {
+        "action": "让 AI 归类未分配的来源分类",
+        "pending": "正在归类…",
+        "assigned": "已把 {count} 个来源分类归入现有主分类。",
+        "assignedLine": "{shelf} → {category}",
+        "none": "没有需要处理的未分配来源分类。",
+        "untouched": "还有 {count} 个来源分类没能归入。",
+        "proposalTitle": "已新建主分类",
+        "proposalShelves": "归入的来源分类",
+        "accept": "接受并创建",
+        "dismiss": "不采纳",
+        "accepted": "已创建主分类，并归入对应的来源分类。",
+        "emptyProposals": "这次没有建议新建主分类。"
       },
       "create": {
         "namePlaceholder": "输入分类名称",
@@ -533,7 +547,7 @@
       "delete": {
         "action": "删除分类",
         "confirmTitle": "删除分类？",
-        "confirmDescription": "将永久删除“{name}”及其多语言名称、别名与抑制记录。仍关联来源记录的分类无法删除。",
+        "confirmDescription": "将永久删除“{name}”，并解除其已关联的 Gutenberg 书架；由这些书架派生的发现记录分类也会被移除。",
         "confirm": "删除",
         "deletedToast": "分类已删除。"
       },
@@ -543,7 +557,21 @@
       },
       "list": {
         "empty": "还没有公共分类。",
-        "selectHint": "选择一个分类以编辑名称并管理来源记录。"
+        "selectHint": "选择一个分类以编辑名称并管理 Gutenberg 书架。"
+      },
+      "shelves": {
+        "title": "Gutenberg 书架",
+        "description": "将 Category: 书架字符串关联到此体裁。保存后立即更新发现页分类。",
+        "searchPlaceholder": "搜索书架",
+        "assignedTitle": "已纳入本分类",
+        "availableTitle": "未分配书架",
+        "assignedEmpty": "尚未关联任何书架。",
+        "availableEmpty": "没有符合条件的未分配书架。",
+        "save": "保存书架",
+        "saved": "书架关联已保存。",
+        "loadFailed": "无法加载 Gutenberg 书架。",
+        "recordCount": "{count} 本书",
+        "toggleAria": "纳入书架 {name}"
       },
       "recordCount": "{count} 条记录",
       "provenance": {

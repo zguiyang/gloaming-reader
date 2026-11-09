@@ -1,6 +1,6 @@
 'use client';
 
-import { LanguagesIcon, Loader2Icon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -23,50 +23,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CategoryShelfPanel } from '@/features/admin/public-categories/category-shelf-panel';
 import {
   formatPublicCategoriesApiError,
-  isCategoryHasAssignmentsError,
   isCategoryNameCollisionError,
-  useCompleteCategoryTranslationsMutation,
   useCreateManagedCategoryMutation,
   useDeleteManagedCategoryMutation,
   useManagedCategoriesQuery,
 } from '@/features/admin/public-categories/public-categories-api';
 import {
-  canCompleteCategoryTranslations,
   categoryDisplayName,
-  categoryProvenanceKey,
   filterPublicCategories,
-  isCategoryFullyLocalized,
   localeDisplayLabel,
   paginatePublicCategories,
   PUBLIC_CATEGORY_ADMIN_PAGE_SIZE,
   sortPublicCategories,
 } from '@/features/admin/public-categories/public-categories-model';
 import { PublicCategoryLabelsEditor } from '@/features/admin/public-categories/public-category-labels-editor';
-import { PublicCategoryRecordsPanel } from '@/features/admin/public-categories/public-category-records-panel';
-import { SourceCategoryMappings } from '@/features/admin/public-categories/source-category-mappings';
+import { ShelfOrganizationPanel } from '@/features/admin/public-categories/shelf-organization-panel';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-/**
- * Instance-level Public Category management. Manual creation and localized label
- * edits never require a model; each row also offers the admin-triggered
- * "complete translations" action that fills only missing locales through the
- * instance model on an explicit click. Assignment/removal are explicit, single
- * record/category actions against the existing PC-02 admin endpoints.
- */
 export function PublicCategoriesPage() {
   const { locale } = useLocale();
   const categoriesQuery = useManagedCategoriesQuery();
   const createMutation = useCreateManagedCategoryMutation();
   const deleteMutation = useDeleteManagedCategoryMutation();
-  const completeMutation = useCompleteCategoryTranslationsMutation();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteReason, setDeleteReason] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [newLocale, setNewLocale] = useState<Locale>(locale);
 
@@ -80,12 +66,8 @@ export function PublicCategoriesPage() {
   async function createCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = newName.trim();
-    if (!name) {
-      return;
-    }
+    if (!name) return;
     try {
-      // The stable id always comes from the POST response, including when the
-      // service reuses an existing category with the same normalized label.
       const category = await createMutation.mutateAsync({ name, locale: newLocale });
       setNewName('');
       setSearch('');
@@ -102,41 +84,14 @@ export function PublicCategoriesPage() {
   }
 
   async function removeCategory() {
-    if (!selected) {
-      return;
-    }
+    if (!selected) return;
     try {
       await deleteMutation.mutateAsync(selected.id);
       setIsDeleting(false);
-      setDeleteReason(null);
       setSelectedId(null);
       toast.success(t(locale, 'admin.publicCategories.delete.deletedToast'));
     } catch (error) {
-      if (isCategoryHasAssignmentsError(error)) {
-        // The 409 body already carries the localized "still assigned" reason.
-        setDeleteReason(formatPublicCategoriesApiError(error));
-        return;
-      }
       setIsDeleting(false);
-      setDeleteReason(null);
-      toast.error(formatPublicCategoriesApiError(error));
-    }
-  }
-
-  async function completeTranslations(categoryId: string) {
-    try {
-      const result = await completeMutation.mutateAsync(categoryId);
-      const locales = result?.translatedLocales ?? [];
-      if (locales.length === 0) {
-        toast.info(t(locale, 'admin.publicCategories.translate.nothing'));
-        return;
-      }
-      toast.success(
-        t(locale, 'admin.publicCategories.translate.completed', {
-          locales: locales.map((target) => localeDisplayLabel(target, locale)).join(' / '),
-        }),
-      );
-    } catch (error) {
       toast.error(formatPublicCategoriesApiError(error));
     }
   }
@@ -147,6 +102,7 @@ export function PublicCategoriesPage() {
         <h1 className="text-2xl font-semibold tracking-tight">{t(locale, 'admin.publicCategories.page.title')}</h1>
         <p className="text-sm text-muted-foreground">{t(locale, 'admin.publicCategories.page.subtitle')}</p>
       </header>
+      <ShelfOrganizationPanel />
 
       {categoriesQuery.isPending ? (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]" aria-busy="true">
@@ -231,10 +187,8 @@ export function PublicCategoriesPage() {
               <ul className="flex flex-col gap-1">
                 {pageItems.map((category) => {
                   const isActive = category.id === selectedId;
-                  const canComplete = canCompleteCategoryTranslations(category);
-                  const isCompleting = completeMutation.isPending && completeMutation.variables === category.id;
                   return (
-                    <li key={category.id} className="flex items-center gap-1">
+                    <li key={category.id}>
                       <Button
                         variant="plain"
                         size={null}
@@ -242,7 +196,7 @@ export function PublicCategoriesPage() {
                         aria-pressed={isActive}
                         onClick={() => setSelectedId(category.id)}
                         className={cn(
-                          'flex min-w-0 flex-1 flex-col items-stretch gap-1 rounded-xl px-3 py-2 text-left transition-colors duration-200 ease-out-soft',
+                          'flex min-w-0 w-full flex-col items-stretch gap-1 rounded-xl px-3 py-2 text-left transition-colors duration-200 ease-out-soft',
                           'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                           isActive
                             ? 'bg-sidebar-accent text-sidebar-accent-foreground'
@@ -257,30 +211,6 @@ export function PublicCategoriesPage() {
                             {t(locale, 'admin.publicCategories.recordCount', { count: category.recordCount })}
                           </Badge>
                         </span>
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                          <span>{t(locale, categoryProvenanceKey(category.createdBy))}</span>
-                          {!isCategoryFullyLocalized(category) ? (
-                            <Badge variant="outline">{t(locale, 'admin.publicCategories.labels.untranslated')}</Badge>
-                          ) : null}
-                        </span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        disabled={!canComplete || completeMutation.isPending}
-                        aria-label={t(locale, 'admin.publicCategories.translate.actionAria', {
-                          name: categoryDisplayName(category, locale),
-                        })}
-                        onClick={() => void completeTranslations(category.id)}
-                      >
-                        {isCompleting ? (
-                          <Loader2Icon className="size-4 animate-spin" aria-hidden />
-                        ) : (
-                          <LanguagesIcon data-icon="inline-start" aria-hidden />
-                        )}
-                        {t(locale, 'admin.publicCategories.translate.action')}
                       </Button>
                     </li>
                   );
@@ -325,7 +255,6 @@ export function PublicCategoriesPage() {
               <header className="flex flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-lg font-semibold tracking-tight">{categoryDisplayName(selected, locale)}</h2>
-                  <Badge variant="outline">{t(locale, categoryProvenanceKey(selected.createdBy))}</Badge>
                   <Badge variant="outline">
                     {t(locale, 'admin.publicCategories.recordCount', { count: selected.recordCount })}
                   </Badge>
@@ -335,43 +264,17 @@ export function PublicCategoriesPage() {
                     size="sm"
                     className="ml-auto shrink-0"
                     disabled={deleteMutation.isPending}
-                    onClick={() => {
-                      setDeleteReason(null);
-                      setIsDeleting(true);
-                    }}
+                    onClick={() => setIsDeleting(true)}
                   >
                     <Trash2Icon data-icon="inline-start" aria-hidden />
                     {t(locale, 'admin.publicCategories.delete.action')}
                   </Button>
                 </div>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {t(locale, 'admin.publicCategories.detail.idLabel')}: {selected.id}
-                </p>
-                {selected.meaning ? (
-                  <p className="text-xs text-muted-foreground">
-                    {t(locale, 'admin.publicCategories.detail.meaning')}: {selected.meaning}
-                  </p>
-                ) : null}
-                {selected.manualLocales?.length ? (
-                  <p className="text-xs text-muted-foreground">
-                    {t(locale, 'admin.publicCategories.detail.manualLocales', {
-                      locales: selected.manualLocales.map((tag) => localeDisplayLabel(tag, locale)).join(' / '),
-                    })}
-                  </p>
-                ) : null}
               </header>
               <PublicCategoryLabelsEditor key={`labels-${selected.id}`} category={selected} />
-              <PublicCategoryRecordsPanel key={`records-${selected.id}`} category={selected} />
+              <CategoryShelfPanel key={`shelves-${selected.id}`} category={selected} />
 
-              <AlertDialog
-                open={isDeleting}
-                onOpenChange={(open) => {
-                  if (!open) {
-                    setIsDeleting(false);
-                    setDeleteReason(null);
-                  }
-                }}
-              >
+              <AlertDialog open={isDeleting} onOpenChange={setIsDeleting}>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>{t(locale, 'admin.publicCategories.delete.confirmTitle')}</AlertDialogTitle>
@@ -379,7 +282,6 @@ export function PublicCategoriesPage() {
                       {t(locale, 'admin.publicCategories.delete.confirmDescription', {
                         name: categoryDisplayName(selected, locale),
                       })}
-                      {deleteReason ? <span className="mt-2 block text-destructive">{deleteReason}</span> : null}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -404,7 +306,6 @@ export function PublicCategoriesPage() {
           )}
         </div>
       )}
-      <SourceCategoryMappings categories={categories} />
     </div>
   );
 }

@@ -3,8 +3,12 @@ import { z } from 'zod';
 
 import type { Locale } from '@gloaming/i18n';
 import {
+  type GutenbergShelfTermListData,
+  gutenbergShelfTermListDataSchema,
   type PublicCategoryManagementItem,
   publicCategoryManagementItemSchema,
+  type ShelfOrganizationResult,
+  shelfOrganizationResultSchema,
   type SourceRecordListData,
   sourceRecordListDataSchema,
 } from '@gloaming/shared/discovery';
@@ -24,6 +28,7 @@ import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 
 /** PC-02 admin routes. Writes stay scoped to one category or one record/category pair. */
 const CATEGORIES_PATH = '/api/admin/discovery/categories';
+const GUTENBERG_SHELVES_PATH = '/api/admin/discovery/sources/project-gutenberg/category-shelves';
 const SOURCE_RECORD_CATEGORY_PATH = '/api/admin/discovery/source-records';
 /**
  * Candidate assignment searches the admin SourceRecord list so records hidden
@@ -54,6 +59,7 @@ export const publicCategoriesQueryKey = {
     [...publicCategoriesQueryKey.recordsAll(), categoryId, params] as const,
   candidatesAll: () => [...publicCategoriesQueryKey.all, 'candidates'] as const,
   candidates: (term: string) => [...publicCategoriesQueryKey.candidatesAll(), term] as const,
+  shelves: () => [...publicCategoriesQueryKey.all, 'shelves'] as const,
 };
 
 /** `GET /api/admin/discovery/categories/:categoryId/source-records` query string. */
@@ -83,6 +89,37 @@ export function buildAssignmentCandidateQuery(term: string): string {
 
 export async function listManagedCategories(init?: { signal?: AbortSignal }): Promise<PublicCategoryManagementItem[]> {
   return apiRequest(CATEGORIES_PATH, { schema: managedCategoryListSchema, signal: init?.signal });
+}
+
+export async function listGutenbergShelfTerms(init?: { signal?: AbortSignal }): Promise<GutenbergShelfTermListData> {
+  return apiRequest(GUTENBERG_SHELVES_PATH, { schema: gutenbergShelfTermListDataSchema, signal: init?.signal });
+}
+
+export async function organizeUnassignedShelves(): Promise<ShelfOrganizationResult> {
+  return apiRequest(`${GUTENBERG_SHELVES_PATH}/organize`, {
+    method: 'POST',
+    schema: shelfOrganizationResultSchema,
+  });
+}
+
+export async function acceptShelfCategoryProposal(input: {
+  zhName: string;
+  enName: string;
+  mappingIds: string[];
+}): Promise<void> {
+  await apiRequest(`${GUTENBERG_SHELVES_PATH}/proposals`, {
+    method: 'POST',
+    schema: z.void(),
+    json: input,
+  });
+}
+
+export async function saveCategoryShelfTerms(input: { categoryId: string; mappingIds: string[] }): Promise<void> {
+  await apiRequest(`${CATEGORIES_PATH}/${encodeURIComponent(input.categoryId)}/category-shelves`, {
+    method: 'PUT',
+    schema: z.void(),
+    json: { mappingIds: input.mappingIds },
+  });
 }
 
 /** Manual create; the backend never needs a Provider and returns the stable category id. */
@@ -194,6 +231,46 @@ export function useManagedCategoriesQuery() {
   return useQuery({
     queryKey: publicCategoriesQueryKey.list(),
     queryFn: ({ signal }) => listManagedCategories({ signal }),
+  });
+}
+
+export function useGutenbergShelfTermsQuery() {
+  return useQuery({
+    queryKey: publicCategoriesQueryKey.shelves(),
+    queryFn: ({ signal }) => listGutenbergShelfTerms({ signal }),
+  });
+}
+
+export function useOrganizeUnassignedShelvesMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: organizeUnassignedShelves,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.shelves() });
+      void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.list() });
+    },
+  });
+}
+
+export function useAcceptShelfCategoryProposalMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: acceptShelfCategoryProposal,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.shelves() });
+      void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.list() });
+    },
+  });
+}
+
+export function useSaveCategoryShelfTermsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: saveCategoryShelfTerms,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.shelves() });
+      void queryClient.invalidateQueries({ queryKey: publicCategoriesQueryKey.list() });
+    },
   });
 }
 
