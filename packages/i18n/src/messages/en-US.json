@@ -525,6 +525,9 @@
       },
       "organize": {
         "action": "Let AI place unassigned source categories",
+        "actionShort": "AI place unassigned",
+        "pendingCount": "{count} unassigned source shelves",
+        "pendingCountLoading": "Counting unassigned shelves…",
         "pending": "Placing…",
         "assigned": "Placed {count} source categories into existing main categories.",
         "assignedLine": "{shelf} → {category}",
@@ -538,9 +541,12 @@
         "emptyProposals": "No new main category was suggested."
       },
       "create": {
+        "new": "New",
+        "formTitle": "New main category",
         "namePlaceholder": "Category name",
         "localeLabel": "Name language",
         "submit": "Create category",
+        "confirm": "Add",
         "ready": "Category ready."
       },
       "cancel": "Cancel",
@@ -560,14 +566,18 @@
         "selectHint": "Select a category to edit its names and Gutenberg shelves."
       },
       "shelves": {
-        "title": "Gutenberg shelves",
+        "title": "Gutenberg shelf links",
         "description": "Link Category: bookshelf strings to this genre. Saving updates Discover assignments immediately.",
-        "searchPlaceholder": "Search shelves",
+        "searchPlaceholder": "Search shelf name or Gutenberg raw tag…",
         "assignedTitle": "In this category",
+        "assignedTitleCount": "Included shelves ({count})",
         "availableTitle": "Unassigned shelves",
+        "availableTitleCount": "Unassigned shelves ({count})",
+        "uncheckToRemove": "Uncheck to remove",
+        "checkToInclude": "Check to include",
         "assignedEmpty": "No shelves linked yet.",
         "availableEmpty": "No unassigned shelves match the search.",
-        "save": "Save shelves",
+        "save": "Save shelf links",
         "saved": "Shelf links saved.",
         "loadFailed": "Could not load Gutenberg shelves.",
         "recordCount": "{count} books",
@@ -580,6 +590,10 @@
       },
       "labels": {
         "title": "Localized names",
+        "edit": "Edit name",
+        "modify": "Edit",
+        "summaryPrefix": "Localized names:",
+        "summary": "Localized names: {summary}",
         "missing": "Missing name: {locale}",
         "untranslated": "Untranslated",
         "complete": "All names filled in",

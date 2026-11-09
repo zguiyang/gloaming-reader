@@ -521,10 +521,13 @@
       },
       "page": {
         "title": "公共分类",
-        "subtitle": "管理发现页体裁，并关联 Gutenberg 的 Category 书架。"
+        "subtitle": "管理 Discover 发现页主分类（体裁），并关联 Gutenberg 书架。"
       },
       "organize": {
         "action": "让 AI 归类未分配的来源分类",
+        "actionShort": "AI 归类未分配",
+        "pendingCount": "有 {count} 个未分配来源书架",
+        "pendingCountLoading": "正在统计未分配书架…",
         "pending": "正在归类…",
         "assigned": "已把 {count} 个来源分类归入现有主分类。",
         "assignedLine": "{shelf} → {category}",
@@ -538,9 +541,12 @@
         "emptyProposals": "这次没有建议新建主分类。"
       },
       "create": {
-        "namePlaceholder": "输入分类名称",
+        "new": "新建",
+        "formTitle": "新建主分类",
+        "namePlaceholder": "分类中文名称",
         "localeLabel": "名称语言",
         "submit": "创建分类",
+        "confirm": "确定",
         "ready": "分类已就绪。"
       },
       "cancel": "取消",
@@ -552,7 +558,7 @@
         "deletedToast": "分类已删除。"
       },
       "search": {
-        "placeholder": "搜索名称",
+        "placeholder": "搜索分类…",
         "empty": "没有匹配的分类。"
       },
       "list": {
@@ -560,17 +566,21 @@
         "selectHint": "选择一个分类以编辑名称并管理 Gutenberg 书架。"
       },
       "shelves": {
-        "title": "Gutenberg 书架",
-        "description": "将 Category: 书架字符串关联到此体裁。保存后立即更新发现页分类。",
-        "searchPlaceholder": "搜索书架",
+        "title": "Gutenberg 书架关联",
+        "description": "将原始书架映射至当前体裁，更新客户端分类索引。",
+        "searchPlaceholder": "搜索书架名称或 Gutenberg 原始标签…",
         "assignedTitle": "已纳入本分类",
+        "assignedTitleCount": "已纳入书架（{count}）",
         "availableTitle": "未分配书架",
+        "availableTitleCount": "未分配书架（{count}）",
+        "uncheckToRemove": "取消勾选移出",
+        "checkToInclude": "勾选纳入",
         "assignedEmpty": "尚未关联任何书架。",
         "availableEmpty": "没有符合条件的未分配书架。",
-        "save": "保存书架",
+        "save": "保存书架关联",
         "saved": "书架关联已保存。",
         "loadFailed": "无法加载 Gutenberg 书架。",
-        "recordCount": "{count} 本书",
+        "recordCount": "{count} 本",
         "toggleAria": "纳入书架 {name}"
       },
       "recordCount": "{count} 条记录",
@@ -580,6 +590,10 @@
       },
       "labels": {
         "title": "多语言名称",
+        "edit": "编辑名称",
+        "modify": "修改",
+        "summaryPrefix": "多语言名称：",
+        "summary": "多语言名称：{summary}",
         "missing": "缺少名称：{locale}",
         "untranslated": "未翻译",
         "complete": "各语言名称已填写",
@@ -627,8 +641,8 @@
       },
       "pagination": {
         "page": "第 {page} / {total} 页",
-        "prev": "上一页",
-        "next": "下一页"
+        "prev": "上页",
+        "next": "下页"
       },
       "errors": {
         "loadCategories": "无法加载分类列表。",
