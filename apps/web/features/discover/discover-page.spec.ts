@@ -88,8 +88,12 @@ function record(overrides: Partial<SourceRecordItem> = {}): SourceRecordItem {
   };
 }
 
-function recordsData(items: SourceRecordItem[]): SourceRecordListData {
-  return { items, pagination: { ...pagination, total: items.length, totalPages: items.length > 0 ? 1 : 0 } };
+function recordsData(items: SourceRecordItem[], hasMore = false): SourceRecordListData {
+  return {
+    items,
+    hasMore,
+    pagination: { ...pagination, total: items.length, totalPages: hasMore ? 2 : items.length > 0 ? 1 : 0 },
+  };
 }
 
 function legacyData(): CatalogListData {

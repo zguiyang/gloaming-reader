@@ -238,7 +238,7 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
               </div>
               <DiscoverPagination
                 page={recordsList.page}
-                totalPages={recordsList.totalPages}
+                hasMore={recordsList.data?.hasMore ?? recordsList.page < recordsList.totalPages}
                 onPageChange={handlePageChange}
               />
             </LoadingOverlay>
@@ -279,7 +279,7 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
                   </section>
                   <DiscoverPagination
                     page={legacyList.page}
-                    totalPages={legacyList.totalPages}
+                    hasMore={legacyList.page < legacyList.totalPages}
                     onPageChange={handleLegacyPageChange}
                   />
                 </LoadingOverlay>

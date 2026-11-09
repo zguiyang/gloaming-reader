@@ -1193,7 +1193,8 @@
       "pagination": "Pagination",
       "noSearchResults": "No books match these filters",
       "prevPage": "Previous",
-      "nextPage": "Next"
+      "nextPage": "Next",
+      "currentPage": "Page {page}"
     },
     "library": {
       "readingFilter": "Reading status",

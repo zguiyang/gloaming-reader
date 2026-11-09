@@ -12,9 +12,7 @@ beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-const DOTS = '…';
-
-async function renderPagination(props: { page: number; totalPages: number; locale?: 'en-US' | 'zh-CN' }) {
+async function renderPagination(props: { page: number; hasMore: boolean; locale?: 'en-US' | 'zh-CN' }) {
   const onPageChange = vi.fn();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement('div');
@@ -23,7 +21,7 @@ async function renderPagination(props: { page: number; totalPages: number; local
     locale: props.locale ?? 'en-US',
     children: createElement(DiscoverPagination, {
       page: props.page,
-      totalPages: props.totalPages,
+      hasMore: props.hasMore,
       onPageChange,
     }),
   };
@@ -37,12 +35,6 @@ async function renderPagination(props: { page: number; totalPages: number; local
   return {
     container,
     onPageChange,
-    /** Desktop page-number window: buttons plus non-interactive ellipsis gaps. */
-    pageButtons(): HTMLElement[] {
-      const nav = container.querySelector('nav:last-child');
-      const numbers = nav?.querySelector('div');
-      return numbers ? (Array.from(numbers.children) as HTMLElement[]) : [];
-    },
     cleanup() {
       act(() => root.unmount());
       container.remove();
@@ -51,78 +43,50 @@ async function renderPagination(props: { page: number; totalPages: number; local
   };
 }
 
-/** Window entries in DOM order, with the ellipsis marker for gap entries. */
-function pageButtonLabels(view: Awaited<ReturnType<typeof renderPagination>>): string[] {
-  return view.pageButtons().map((entry) => entry.textContent?.trim() ?? '');
-}
-
-function pageNumberButtons(view: Awaited<ReturnType<typeof renderPagination>>): HTMLButtonElement[] {
-  return view.pageButtons().filter((entry): entry is HTMLButtonElement => entry.tagName === 'BUTTON');
-}
-
-describe('DiscoverPagination bounded page numbers', () => {
-  it('caps the number of page buttons across first, middle, and last pages of 4216 pages', async () => {
-    for (const page of [1, 2108, 4216]) {
-      const view = await renderPagination({ page, totalPages: 4216 });
-      const buttons = view.pageButtons();
-      expect(buttons.length).toBeLessThanOrEqual(9);
-      const labels = pageButtonLabels(view);
-      expect(labels).toContain(String(page));
-      expect(labels[0]).toBe('1');
-      expect(labels[labels.length - 1]).toBe('4216');
-      view.cleanup();
-    }
-  });
-
-  it('shows non-interactive ellipsis gaps between windowed pages', async () => {
-    const view = await renderPagination({ page: 2108, totalPages: 4216 });
-    const labels = pageButtonLabels(view);
-    expect(labels.filter((label) => label === DOTS)).toHaveLength(2);
-    for (const dots of view.pageButtons().filter((entry) => entry.tagName !== 'BUTTON')) {
-      expect(dots.textContent?.trim()).toBe(DOTS);
-      expect(dots.getAttribute('aria-hidden')).toBe('true');
-    }
+describe('DiscoverPagination hasMore controls', () => {
+  it('hides when there is only one page of results', async () => {
+    const view = await renderPagination({ page: 1, hasMore: false });
+    expect(view.container.querySelector('nav')).toBeNull();
     view.cleanup();
   });
 
-  it('keeps adjacent pages next to the current page', async () => {
-    const view = await renderPagination({ page: 2108, totalPages: 4216 });
-    const labels = pageButtonLabels(view);
-    expect(labels).toContain('2107');
-    expect(labels).toContain('2109');
-    view.cleanup();
-  });
-
-  it('renders every page number once for a small page count', async () => {
-    const view = await renderPagination({ page: 2, totalPages: 5 });
-    expect(pageButtonLabels(view)).toEqual(['1', '2', '3', '4', '5']);
-    expect(pageButtonLabels(view).filter((label) => label === DOTS)).toHaveLength(0);
-    view.cleanup();
-  });
-
-  it('invokes onPageChange with the target page and marks the current page', async () => {
-    const view = await renderPagination({ page: 3, totalPages: 5 });
-    const buttons = pageNumberButtons(view);
-    const five = buttons.find((button) => button.textContent?.trim() === '5')!;
-    await act(async () => {
-      five.click();
-    });
-    expect(view.onPageChange).toHaveBeenCalledWith(5);
-    const current = buttons.find((button) => button.getAttribute('aria-current') === 'page');
-    expect(current?.textContent?.trim()).toBe('3');
-    view.cleanup();
-  });
-
-  it('offers mobile page navigation without a duplicate load-more control', async () => {
-    const view = await renderPagination({ page: 1, totalPages: 5 });
+  it('disables previous on the first page and advances with next', async () => {
+    const view = await renderPagination({ page: 1, hasMore: true });
     const mobileNav = view.container.querySelector('nav.md\\:hidden')!;
     const buttons = Array.from(mobileNav.querySelectorAll('button'));
     expect(buttons[0]?.disabled).toBe(true);
-    expect(
-      Array.from(view.container.querySelectorAll('button')).some((button) => button.textContent === 'Load more'),
-    ).toBe(false);
+    expect(buttons[1]?.disabled).toBe(false);
+    expect(mobileNav.textContent).toContain('Page 1');
     await act(async () => buttons[1]!.click());
     expect(view.onPageChange).toHaveBeenCalledWith(2);
+    view.cleanup();
+  });
+
+  it('disables next when hasMore is false and goes back with previous', async () => {
+    const view = await renderPagination({ page: 3, hasMore: false });
+    const mobileNav = view.container.querySelector('nav.md\\:hidden')!;
+    const buttons = Array.from(mobileNav.querySelectorAll('button'));
+    expect(buttons[0]?.disabled).toBe(false);
+    expect(buttons[1]?.disabled).toBe(true);
+    expect(mobileNav.textContent).toContain('Page 3');
+    await act(async () => buttons[0]!.click());
+    expect(view.onPageChange).toHaveBeenCalledWith(2);
+    view.cleanup();
+  });
+
+  it('does not render per-page number jump controls', async () => {
+    const view = await renderPagination({ page: 2, hasMore: true });
+    const numberButtons = Array.from(view.container.querySelectorAll('button')).filter((button) =>
+      /^\d+$/.test(button.textContent?.trim() ?? ''),
+    );
+    expect(numberButtons).toHaveLength(0);
+    expect(view.container.textContent).not.toContain('4216');
+    view.cleanup();
+  });
+
+  it('localizes the current page label', async () => {
+    const view = await renderPagination({ page: 4, hasMore: true, locale: 'zh-CN' });
+    expect(view.container.textContent).toContain('第 4 页');
     view.cleanup();
   });
 });

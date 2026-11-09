@@ -10,122 +10,78 @@ import { cn } from '@/lib/utils';
 
 type DiscoverPaginationProps = {
   page: number;
-  totalPages: number;
+  hasMore: boolean;
   onPageChange: (page: number) => void;
 };
 
-type PageEntry = number | 'ellipsis-start' | 'ellipsis-end';
-
 /**
- * Bounded page-window list: first page, last page, the current page with one
- * neighbor on each side, and non-interactive ellipsis gaps between the windows
- * (e.g. `1 … 2107 2108 2109 … 4216`), so a huge page count can never render a
- * button per page. Small counts return every page once.
+ * Prev / current / next only. Discover catalogs are too large for page-number
+ * windows (thousands of pages); hasMore comes from a pageSize+1 probe.
  */
-export function discoverPageEntries(page: number, totalPages: number): PageEntry[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
-  }
-  const entries: PageEntry[] = [1];
-  const windowStart = Math.max(2, page - 1);
-  const windowEnd = Math.min(totalPages - 1, page + 1);
-  if (windowStart > 2) entries.push('ellipsis-start');
-  for (let n = windowStart; n <= windowEnd; n += 1) entries.push(n);
-  if (windowEnd < totalPages - 1) entries.push('ellipsis-end');
-  entries.push(totalPages);
-  return entries;
-}
-
-export function DiscoverPagination({ page, totalPages, onPageChange }: DiscoverPaginationProps) {
+export function DiscoverPagination({ page, hasMore, onPageChange }: DiscoverPaginationProps) {
   const { locale } = useLocale();
+  const hasPrev = page > 1;
+  const shouldShowControls = hasPrev || hasMore;
 
-  if (totalPages <= 1) {
+  if (!shouldShowControls) {
     return null;
   }
 
-  const pageEntries = discoverPageEntries(page, totalPages);
+  const currentLabel = t(locale, 'content.discover.currentPage', { page });
 
   return (
     <div className="mt-10 mb-4 md:mt-16 md:mb-8">
-      {totalPages > 1 ? (
-        <nav
-          className="flex items-center justify-center gap-4 md:hidden"
-          aria-label={t(locale, 'content.discover.pagination')}
-        >
-          <Button type="button" variant="outline" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
-            {t(locale, 'content.discover.prevPage')}
-          </Button>
-          <span className="text-sm tabular-nums text-muted-foreground" aria-current="page">
-            {page} / {totalPages}
-          </span>
-          <Button type="button" variant="outline" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
-            {t(locale, 'content.discover.nextPage')}
-          </Button>
-        </nav>
-      ) : null}
+      <nav
+        className="flex items-center justify-center gap-4 md:hidden"
+        aria-label={t(locale, 'content.discover.pagination')}
+      >
+        <Button type="button" variant="outline" disabled={!hasPrev} onClick={() => onPageChange(page - 1)}>
+          {t(locale, 'content.discover.prevPage')}
+        </Button>
+        <span className="text-sm tabular-nums text-muted-foreground" aria-current="page">
+          {currentLabel}
+        </span>
+        <Button type="button" variant="outline" disabled={!hasMore} onClick={() => onPageChange(page + 1)}>
+          {t(locale, 'content.discover.nextPage')}
+        </Button>
+      </nav>
 
-      {totalPages > 1 ? (
-        <nav
-          className="hidden items-center justify-center gap-6 font-heading text-lg md:flex"
-          aria-label={t(locale, 'content.discover.pagination')}
+      <nav
+        className="hidden items-center justify-center gap-6 font-heading text-lg md:flex"
+        aria-label={t(locale, 'content.discover.pagination')}
+      >
+        <Button
+          variant="plain"
+          size={null}
+          type="button"
+          disabled={!hasPrev}
+          onClick={() => onPageChange(page - 1)}
+          className={cn(
+            'inline-flex items-center gap-2 text-muted-foreground transition-colors duration-200 ease-out-soft',
+            'hover:text-primary disabled:pointer-events-none disabled:opacity-40',
+          )}
         >
-          <Button
-            variant="plain"
-            size={null}
-            type="button"
-            disabled={page <= 1}
-            onClick={() => onPageChange(page - 1)}
-            className={cn(
-              'inline-flex items-center gap-2 text-muted-foreground transition-colors duration-200 ease-out-soft',
-              'hover:text-primary disabled:pointer-events-none disabled:opacity-40',
-            )}
-          >
-            <ChevronLeftIcon className="size-5" strokeWidth={1.5} aria-hidden />
-            {t(locale, 'content.discover.prevPage')}
-          </Button>
-          <div className="flex items-center gap-4 text-muted-foreground">
-            {pageEntries.map((entry) =>
-              typeof entry === 'number' ? (
-                <Button
-                  variant="plain"
-                  size={null}
-                  key={entry}
-                  type="button"
-                  onClick={() => onPageChange(entry)}
-                  aria-current={entry === page ? 'page' : undefined}
-                  className={cn(
-                    // Square 2px underline via pseudo-element; a border would curve
-                    // with the Button radius and read as a U.
-                    'relative pb-1 transition-colors duration-200 ease-out-soft hover:text-primary',
-                    'after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-none after:bg-primary after:opacity-0 after:transition-opacity',
-                    entry === page && 'font-semibold text-primary after:opacity-100',
-                  )}
-                >
-                  {entry}
-                </Button>
-              ) : (
-                <span key={entry} aria-hidden className="select-none">
-                  …
-                </span>
-              ),
-            )}
-          </div>
-          <Button
-            variant="plain"
-            size={null}
-            type="button"
-            disabled={page >= totalPages}
-            onClick={() => onPageChange(page + 1)}
-            className={cn(
-              'inline-flex items-center gap-2 text-muted-foreground transition-colors duration-200 ease-out-soft',
-              'hover:text-primary disabled:pointer-events-none disabled:opacity-40',
-            )}
-          >
-            {t(locale, 'content.discover.nextPage')}
-            <ChevronRightIcon className="size-5" strokeWidth={1.5} aria-hidden />
-          </Button>
-        </nav>
-      ) : null}
+          <ChevronLeftIcon className="size-5" strokeWidth={1.5} aria-hidden />
+          {t(locale, 'content.discover.prevPage')}
+        </Button>
+        <span className="tabular-nums text-muted-foreground" aria-current="page">
+          {currentLabel}
+        </span>
+        <Button
+          variant="plain"
+          size={null}
+          type="button"
+          disabled={!hasMore}
+          onClick={() => onPageChange(page + 1)}
+          className={cn(
+            'inline-flex items-center gap-2 text-muted-foreground transition-colors duration-200 ease-out-soft',
+            'hover:text-primary disabled:pointer-events-none disabled:opacity-40',
+          )}
+        >
+          {t(locale, 'content.discover.nextPage')}
+          <ChevronRightIcon className="size-5" strokeWidth={1.5} aria-hidden />
+        </Button>
+      </nav>
     </div>
   );
 }
