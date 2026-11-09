@@ -172,8 +172,8 @@ describe('public category service on gloaming_test', () => {
 
     const displayName = `Science Fiction ${suffix}`;
     const created = await createCategory(`  Science   Fiction ${suffix} `);
-    expect(created.localizedNames).toEqual({ 'en-US': displayName });
-    expect(created.manualLocales).toEqual(['en-US']);
+    expect(created.localizedNames).toEqual({ 'en-US': displayName, 'zh-CN': displayName });
+    expect(created.manualLocales).toEqual(['en-US', 'zh-CN']);
     expect(created.recordCount).toBe(0);
 
     const reused = await createCategory(`science   fiction ${suffix}`);
@@ -507,7 +507,7 @@ describe('public category service on gloaming_test', () => {
     expect(aliases).toHaveLength(0);
   });
 
-  it('refuses with 409 while the category still has an assignment and keeps both rows intact', async (ctx) => {
+  it('deletes a category with assignments after detaching derived rows', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 
     const recordId = recordIdFor(5);
@@ -515,23 +515,19 @@ describe('public category service on gloaming_test', () => {
     await assignCategoryToSourceRecord(recordId, category.id, 'manual');
 
     const response = await adminApp().request(categoryPath(category.id), { method: 'DELETE' });
-    expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toMatchObject({
-      code: ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_HAS_ASSIGNMENTS,
-      error: expect.stringContaining('1'),
-    });
+    expect(response.status).toBe(204);
 
     const categories = await db
       .select({ id: publicCategoryTable.id })
       .from(publicCategoryTable)
       .where(eq(publicCategoryTable.id, category.id));
-    expect(categories).toHaveLength(1);
+    expect(categories).toHaveLength(0);
 
     const assignments = await db
       .select({ id: sourceRecordPublicCategoryTable.id })
       .from(sourceRecordPublicCategoryTable)
       .where(eq(sourceRecordPublicCategoryTable.categoryId, category.id));
-    expect(assignments).toHaveLength(1);
+    expect(assignments).toHaveLength(0);
   });
 
   it('returns 404 for an unknown category id', async (ctx) => {

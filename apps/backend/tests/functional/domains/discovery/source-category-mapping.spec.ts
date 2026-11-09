@@ -214,10 +214,10 @@ describe('source category mapping', () => {
     expect(await getConfirmedSourceCategoryIds(sourceId, ['category: race'])).toEqual([categoryId]);
   });
 
-  it('reconciles multiple supports, respects manual removal and preserves manual re-additions', async () => {
+  it('reconciles multiple supports and replaces assignments from Category shelves only', async () => {
     const recordId = randomUUID();
-    const first = await getOrCreateSourceCategoryMapping(sourceId, `support a ${suffix}`);
-    const second = await getOrCreateSourceCategoryMapping(sourceId, `support b ${suffix}`);
+    const first = await getOrCreateSourceCategoryMapping(sourceId, `Category: support a ${suffix}`);
+    const second = await getOrCreateSourceCategoryMapping(sourceId, `Category: support b ${suffix}`);
     await confirmSourceCategoryMapping(first.id, first.revision, [categoryId]);
     await confirmSourceCategoryMapping(second.id, second.revision, [categoryId]);
     await db.insert(sourceRecord).values({
@@ -241,21 +241,19 @@ describe('source category mapping', () => {
       .where(eq(sourceRecord.id, recordId));
     expect(await reconcileSourceCategoryAssignments(recordId)).toEqual([categoryId]);
     await unassignCategoryFromSourceRecord(recordId, categoryId);
-    expect(await reconcileSourceCategoryAssignments(recordId)).toEqual([]);
+    expect(await reconcileSourceCategoryAssignments(recordId)).toEqual([categoryId]);
     await assignCategoryToSourceRecord(recordId, categoryId, 'manual');
     await db
       .update(sourceRecord)
       .set({ sourceMeta: { bookshelves: [] } })
       .where(eq(sourceRecord.id, recordId));
-    expect(await reconcileSourceCategoryAssignments(recordId)).toEqual([categoryId]);
-    expect(await listAssignmentsForRecord(recordId)).toEqual([
-      expect.objectContaining({ categoryId, source: 'manual' }),
-    ]);
+    expect(await reconcileSourceCategoryAssignments(recordId)).toEqual([]);
+    expect(await listAssignmentsForRecord(recordId)).toEqual([]);
   });
 
   it('preserves mapped support when a later AI result drops its original AI assignment', async () => {
     const recordId = randomUUID();
-    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `ai support ${suffix}`);
+    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `Category: ai support ${suffix}`);
     await confirmSourceCategoryMapping(mapping.id, mapping.revision, [categoryId]);
     await db.insert(sourceRecord).values({
       id: recordId,
@@ -280,9 +278,9 @@ describe('source category mapping', () => {
     expect(await reconcileSourceCategoryAssignments(recordId)).toEqual([]);
   });
 
-  it('keeps an independent AI assignment when source mapping support disappears', async () => {
+  it('drops AI assignments when Category shelf support disappears', async () => {
     const recordId = randomUUID();
-    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `source then ai ${suffix}`);
+    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `Category: source then ai ${suffix}`);
     await confirmSourceCategoryMapping(mapping.id, mapping.revision, [categoryId]);
     await db.insert(sourceRecord).values({
       id: recordId,
@@ -300,8 +298,8 @@ describe('source category mapping', () => {
       .update(sourceRecord)
       .set({ sourceMeta: { bookshelves: [] } })
       .where(eq(sourceRecord.id, recordId));
-    expect(await reconcileSourceCategoryAssignments(recordId)).toEqual([categoryId]);
-    expect(await listAssignmentsForRecord(recordId)).toEqual([expect.objectContaining({ categoryId, source: 'ai' })]);
+    expect(await reconcileSourceCategoryAssignments(recordId)).toEqual([]);
+    expect(await listAssignmentsForRecord(recordId)).toEqual([]);
   });
 
   it('retries failed AI analysis and avoids concurrent duplicate calls', async () => {
@@ -325,7 +323,7 @@ describe('source category mapping', () => {
   });
 
   it('schedules and resumes bounded reconciliation after mapping confirmation and ignore', async () => {
-    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `batch ${suffix}`);
+    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `Category: batch ${suffix}`);
     const recordId = randomUUID();
     await db.insert(sourceRecord).values({
       id: recordId,
@@ -352,12 +350,13 @@ describe('source category mapping', () => {
     expect(await listAssignmentsForRecord(recordId)).toEqual([]);
   });
 
-  it('returns a conflict when a category is mapped even before any record is assigned', async () => {
+  it('deletes a category that only has shelf mappings', async () => {
     const category = await createManagedCategory({ name: `Mapped only ${suffix}`, locale: 'en-US' });
     categoryIds.push(category.id);
-    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `mapped only ${suffix}`);
+    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `Category: mapped only ${suffix}`);
     await confirmSourceCategoryMapping(mapping.id, mapping.revision, [category.id]);
-    await expect(deleteManagedCategory(category.id)).rejects.toMatchObject({ statusCode: 409 });
+    await deleteManagedCategory(category.id);
+    categoryIds.pop();
   });
 
   it('passes bounded source evidence and honors failure retry', async () => {
@@ -404,7 +403,7 @@ describe('source category mapping', () => {
     const other = await createManagedCategory({ name: `Replacement ${suffix}`, locale: 'en-US' });
     categoryIds.push(other.id);
     const recordId = randomUUID();
-    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `change ${suffix}`);
+    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `Category: change ${suffix}`);
     await confirmSourceCategoryMapping(mapping.id, mapping.revision, [categoryId]);
     await db.insert(sourceRecord).values({
       id: recordId,
@@ -426,7 +425,7 @@ describe('source category mapping', () => {
       Array.from({ length: 5 }, (_, i) => createManagedCategory({ name: `Many ${suffix} ${i}`, locale: 'en-US' })),
     );
     categoryIds.push(...created.map((row) => row.id));
-    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `many ${suffix}`);
+    const mapping = await getOrCreateSourceCategoryMapping(sourceId, `Category: many ${suffix}`);
     await confirmSourceCategoryMapping(
       mapping.id,
       mapping.revision,

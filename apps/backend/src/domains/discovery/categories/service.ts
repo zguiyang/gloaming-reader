@@ -1,3 +1,4 @@
+import { SUPPORTED_LOCALES } from '@gloaming/i18n';
 import {
   canonicalizePublicCategoryName,
   type CategorySourceRecordListQuery,
@@ -23,8 +24,6 @@ import {
   categoryExists,
   clearSuppression,
   countAssignmentsByCategoryIds,
-  countAssignmentsForCategory,
-  countMappingsForCategory,
   countPublicRecordsByCategoryIds,
   deleteAssignment,
   deleteCategoryRow,
@@ -47,6 +46,7 @@ import {
   upsertAssignment,
   upsertManualCategoryLabel,
 } from '@/domains/discovery/categories/repository';
+import { detachCategoryShelfLinks } from '@/domains/discovery/categories/shelf-terms-admin';
 import { listCategorySourceRecords } from '@/domains/discovery/read-model';
 import { db } from '@/infra/db';
 import { HTTP_STATUS } from '@/shared/constants';
@@ -57,8 +57,30 @@ function categoryNameExists(): AppError {
   return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_NAME_EXISTS);
 }
 
-function categoryHasAssignments(count: number): AppError {
-  return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_HAS_ASSIGNMENTS, { count });
+async function ensureFallbackLocaleLabels(
+  categoryId: string,
+  primaryLocale: string,
+  primaryName: string,
+): Promise<void> {
+  const primary = canonicalizePublicCategoryName(primaryName);
+  const fallbackLocales = SUPPORTED_LOCALES.filter((locale) => locale !== primaryLocale);
+  const englishName =
+    primaryLocale === 'en-US'
+      ? primary
+      : (await listLabelRowsByCategoryIds([categoryId])).find((row) => row.locale === 'en-US')?.name;
+  const fallback = englishName ? canonicalizePublicCategoryName(englishName) : primary;
+  for (const locale of fallbackLocales) {
+    const ownerId = await findCategoryIdByNormalizedLabel(locale, normalizePublicCategoryName(fallback));
+    if (ownerId && ownerId !== categoryId) continue;
+    const existing = await listLabelRowsByCategoryIds([categoryId]);
+    if (existing.some((row) => row.locale === locale)) continue;
+    await upsertManualCategoryLabel({
+      categoryId,
+      locale,
+      name: fallback,
+      normalizedName: normalizePublicCategoryName(fallback),
+    });
+  }
 }
 
 /**
@@ -238,6 +260,7 @@ export async function createManagedCategory(input: {
 
   try {
     const row = await insertCategoryWithLabel({ locale: input.locale, name, normalizedName });
+    await ensureFallbackLocaleLabels(row.id, input.locale, name);
     return loadManagedCategory(row.id);
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -270,6 +293,7 @@ export async function updateManagedCategoryLabel(
 
   try {
     await upsertManualCategoryLabel({ categoryId, locale: input.locale, name, normalizedName });
+    await ensureFallbackLocaleLabels(categoryId, input.locale, name);
   } catch (error) {
     if (isUniqueViolation(error)) throw categoryNameExists();
     throw error;
@@ -319,12 +343,7 @@ export async function deleteManagedCategory(categoryId: string): Promise<void> {
     const row = await lockCategoryRow(tx, categoryId);
     if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
 
-    const [assignmentCount, mappingCount] = await Promise.all([
-      countAssignmentsForCategory(tx, categoryId),
-      countMappingsForCategory(tx, categoryId),
-    ]);
-    if (assignmentCount + mappingCount > 0) throw categoryHasAssignments(assignmentCount + mappingCount);
-
+    await detachCategoryShelfLinks(tx, categoryId);
     await deleteCategoryRow(tx, categoryId);
   });
 }

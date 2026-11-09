@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 
 import {
+  acceptShelfCategoryProposal,
   assignCategoryToSourceRecord,
   completeManagedCategoryTranslations,
   confirmNewSourceCategory,
@@ -8,20 +9,25 @@ import {
   createManagedCategory,
   deleteManagedCategory,
   ignoreSourceCategoryMapping,
+  listGutenbergCategoryShelfTerms,
   listManagedCategories,
   listManagedCategorySourceRecords,
   listSourceCategoryMappings,
+  organizeUnassignedCategoryShelves,
   runSourceCategoryReconciliationBatch,
+  saveCategoryShelfTerms,
   suggestSourceCategoryMapping,
   unassignCategoryFromSourceRecord,
   updateManagedCategoryLabel,
 } from '@/domains/discovery/categories';
 import { listAdminSourceRecords } from '@/domains/discovery/read-model';
 import {
+  validateAcceptShelfCategoryProposal,
   validateAdminSourceRecordListQuery,
   validateCategorySourceRecordListQuery,
   validateDiscoverySyncTrigger,
   validateManagedCategoryWrite,
+  validateSaveCategoryShelfTerms,
   validateSourceEnabledUpdate,
   validateSourceMappingAnalysis,
   validateSourceMappingConfirm,
@@ -81,6 +87,24 @@ discoveryAdminRoutes.post(
 discoveryAdminRoutes.get(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync/runs`, requireAdmin, async (c) => {
   return c.json(await getProjectGutenbergSyncRunHistory());
 });
+
+discoveryAdminRoutes.get(`${PROJECT_GUTENBERG_SOURCE_PATH}/category-shelves`, requireAdmin, async (c) => {
+  return c.json(await listGutenbergCategoryShelfTerms());
+});
+
+discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/category-shelves/organize`, requireAdmin, async (c) => {
+  return c.json(await organizeUnassignedCategoryShelves());
+});
+
+discoveryAdminRoutes.post(
+  `${PROJECT_GUTENBERG_SOURCE_PATH}/category-shelves/proposals`,
+  requireAdmin,
+  validateAcceptShelfCategoryProposal,
+  async (c) => {
+    await acceptShelfCategoryProposal(c.req.valid('json'));
+    return c.body(null, HTTP_STATUS.NO_CONTENT);
+  },
+);
 
 const SOURCE_RECORDS_PATH = '/api/admin/discovery/source-records';
 
@@ -163,6 +187,16 @@ discoveryAdminRoutes.patch(
   validateManagedCategoryWrite,
   async (c) => {
     return c.json(await updateManagedCategoryLabel(c.req.param('categoryId'), c.req.valid('json')));
+  },
+);
+
+discoveryAdminRoutes.put(
+  `${CATEGORIES_PATH}/:categoryId/category-shelves`,
+  requireAdmin,
+  validateSaveCategoryShelfTerms,
+  async (c) => {
+    await saveCategoryShelfTerms(c.req.param('categoryId'), c.req.valid('json').mappingIds);
+    return c.body(null, HTTP_STATUS.NO_CONTENT);
   },
 );
 

@@ -102,6 +102,19 @@ export function normalizeSourceCategory(value: string): string {
   return normalizePublicCategoryName(value);
 }
 
+/** Gutenberg browse shelf prefix used for Discover public categories. */
+export const GUTENBERG_CATEGORY_BOOKSHELF_PREFIX = 'Category: ';
+
+export function isGutenbergCategoryBookshelf(value: string): boolean {
+  return value.startsWith(GUTENBERG_CATEGORY_BOOKSHELF_PREFIX);
+}
+
+function normalizeCategoryBookshelves(bookshelves: string[] | undefined): string[] {
+  return [
+    ...new Set((bookshelves ?? []).filter(isGutenbergCategoryBookshelf).map(normalizeSourceCategory).filter(Boolean)),
+  ];
+}
+
 /** Creates a pending identity once; never replaces a confirmed or reviewed result. */
 export async function getOrCreateSourceCategoryMapping(sourceId: string, value: string) {
   const normalizedValue = normalizeSourceCategory(value);
@@ -143,7 +156,7 @@ export async function getConfirmedSourceCategoryIds(sourceId: string, values: st
   return rows.map((row) => row.categoryId);
 }
 
-/** Reconcile one record from current metadata; manual and AI assignments remain intact. */
+/** Recompute one record's Discover categories from confirmed Category: shelf links only. */
 export async function reconcileSourceCategoryAssignments(
   recordId: string,
   executor?: MappingTransaction,
@@ -151,13 +164,7 @@ export async function reconcileSourceCategoryAssignments(
   const reconcile = async (tx: MappingTransaction) => {
     const [record] = await tx.select().from(sourceRecord).where(eq(sourceRecord.id, recordId)).for('update');
     if (!record) throw new Error('Source record not found');
-    const values = [
-      ...new Set(
-        [...(record.sourceMeta.subjects ?? []), ...(record.sourceMeta.bookshelves ?? [])]
-          .map(normalizeSourceCategory)
-          .filter(Boolean),
-      ),
-    ];
+    const values = normalizeCategoryBookshelves(record.sourceMeta.bookshelves);
     const mappings = values.length
       ? await tx
           .select({ id: sourceCategoryMapping.id })
@@ -183,31 +190,20 @@ export async function reconcileSourceCategoryAssignments(
             ),
           )
       : [];
-    const desired = new Set(supports.map((row) => row.categoryId));
+    const desired = [...new Set(supports.map((row) => row.categoryId))].sort();
     await tx
       .delete(sourceRecordCategoryMappingSupport)
       .where(eq(sourceRecordCategoryMappingSupport.sourceRecordId, recordId));
-    if (desired.size)
+    if (desired.length) {
       await tx
         .insert(sourceRecordCategoryMappingSupport)
-        .values([...desired].map((categoryId) => ({ sourceRecordId: recordId, categoryId })));
-    const current = await tx
-      .select()
-      .from(sourceRecordPublicCategory)
-      .where(eq(sourceRecordPublicCategory.sourceRecordId, recordId));
-    const suppressed = await tx
-      .select({ categoryId: sourceRecordPublicCategorySuppression.categoryId })
-      .from(sourceRecordPublicCategorySuppression)
-      .where(eq(sourceRecordPublicCategorySuppression.sourceRecordId, recordId));
-    const blocked = new Set(suppressed.map((row) => row.categoryId));
-    for (const row of current) {
-      if (row.source === 'source' && !desired.has(row.categoryId)) {
-        await tx.delete(sourceRecordPublicCategory).where(eq(sourceRecordPublicCategory.id, row.id));
-      }
+        .values(desired.map((categoryId) => ({ sourceRecordId: recordId, categoryId })));
     }
-    const existing = new Set(current.map((row) => row.categoryId));
+    await tx
+      .delete(sourceRecordPublicCategorySuppression)
+      .where(eq(sourceRecordPublicCategorySuppression.sourceRecordId, recordId));
+    await tx.delete(sourceRecordPublicCategory).where(eq(sourceRecordPublicCategory.sourceRecordId, recordId));
     for (const categoryId of desired) {
-      if (blocked.has(categoryId) || existing.has(categoryId)) continue;
       await tx
         .insert(sourceRecordPublicCategory)
         .values({ id: randomUUID(), sourceRecordId: recordId, categoryId, source: 'source' })
@@ -215,11 +211,7 @@ export async function reconcileSourceCategoryAssignments(
           target: [sourceRecordPublicCategory.sourceRecordId, sourceRecordPublicCategory.categoryId],
         });
     }
-    const result = await tx
-      .select({ categoryId: sourceRecordPublicCategory.categoryId })
-      .from(sourceRecordPublicCategory)
-      .where(eq(sourceRecordPublicCategory.sourceRecordId, recordId));
-    return result.map((row) => row.categoryId).sort();
+    return desired;
   };
   return executor ? reconcile(executor) : db.transaction(reconcile);
 }
@@ -232,6 +224,7 @@ export async function registerSourceCategoryTerms(
 ): Promise<Set<string>> {
   const values = new Map<string, string>();
   for (const term of terms) {
+    if (!isGutenbergCategoryBookshelf(term)) continue;
     const normalized = normalizeSourceCategory(term);
     if (normalized && normalized.length <= 512 && !values.has(normalized)) values.set(normalized, term.trim());
   }
@@ -575,9 +568,7 @@ export async function runSourceCategoryReconciliationBatch(mappingId: string, ba
     .orderBy(sourceRecord.id)
     .limit(batchSize);
   for (const record of records) {
-    const values = [...(record.sourceMeta.subjects ?? []), ...(record.sourceMeta.bookshelves ?? [])].map(
-      normalizeSourceCategory,
-    );
+    const values = normalizeCategoryBookshelves(record.sourceMeta.bookshelves);
     if (values.includes(job.mapping.normalizedValue)) await reconcileSourceCategoryAssignments(record.id);
   }
   const finished = records.length < batchSize;

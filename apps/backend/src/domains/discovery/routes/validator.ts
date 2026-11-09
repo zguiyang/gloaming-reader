@@ -4,10 +4,12 @@ import { z, type ZodType } from 'zod';
 
 import { SUPPORTED_LOCALES } from '@gloaming/i18n';
 import {
+  acceptShelfCategoryProposalSchema,
   categorySourceRecordListQuerySchema,
   discoverySourceEnabledUpdateSchema,
   publicCategoryListQuerySchema,
   publicCategoryWriteSchema,
+  saveCategoryShelfTermsSchema,
   sourceCategoryMappingConfirmSchema,
   sourceCategoryMappingRevisionSchema,
   sourceRecordListQuerySchema,
@@ -86,3 +88,7 @@ const managedCategoryWriteSchema = publicCategoryWriteSchema.extend({
 });
 
 export const validateManagedCategoryWrite = validated('json', managedCategoryWriteSchema);
+
+export const validateSaveCategoryShelfTerms = validated('json', saveCategoryShelfTermsSchema);
+
+export const validateAcceptShelfCategoryProposal = validated('json', acceptShelfCategoryProposalSchema);

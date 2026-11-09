@@ -1,12 +1,10 @@
-import type { SourceRecordAuthor, SourceRecordSourceMeta } from '@gloaming/db/schema';
+import type { SourceRecordSourceMeta } from '@gloaming/db/schema';
 
 import { coverUrlHost, workCoverRefreshJobId } from '@/application/jobs/work-cover-refresh';
 import {
-  computePublicClassificationFingerprint,
+  isGutenbergCategoryBookshelf,
   normalizeSourceCategory,
-  type PublicClassificationEvidence,
   reconcileSourceCategoryAssignments,
-  recordPublicClassificationEvidenceBatch,
   registerSourceCategoryTerms,
 } from '@/domains/discovery/categories';
 import {
@@ -37,7 +35,6 @@ import {
   reconcileUnavailableRecords,
   recordDiscoverySyncRunBatchProgress,
   releaseSourceQueued,
-  type SourceRecordClassificationEvidenceRow,
   type SourceRecordWorkMetadataBaselineRow,
   SourceRunOwnershipLostError,
   startSourceSyncing,
@@ -391,9 +388,9 @@ async function consumeSnapshot(input: {
         if (!record) throw new Error('Missing source record for classification');
         const previous = previousEvidence.get(row.externalId);
         const categoryInputs = (meta: SourceRecordSourceMeta) =>
-          JSON.stringify([meta.subjects ?? [], meta.bookshelves ?? []]);
-        const hasConfirmedSourceTerm = (record.sourceMeta.bookshelves ?? []).some((value) =>
-          confirmedTerms.has(normalizeSourceCategory(value)),
+          JSON.stringify((meta.bookshelves ?? []).filter(isGutenbergCategoryBookshelf));
+        const hasConfirmedSourceTerm = (record.sourceMeta.bookshelves ?? []).some(
+          (value) => isGutenbergCategoryBookshelf(value) && confirmedTerms.has(normalizeSourceCategory(value)),
         );
         if (
           (!previous && hasConfirmedSourceTerm) ||
@@ -402,8 +399,6 @@ async function consumeSnapshot(input: {
           await reconcileSourceCategoryAssignments(row.id, tx);
         }
       }
-      throwIfRunAborted(signal);
-      await registerIncrementalClassification(records, upserted, previousEvidence, tx);
       throwIfRunAborted(signal);
       // Progress advances inside the batch transaction: a rolled-back batch
       // rolls this increment back too, so counters only ever count committed work.
@@ -553,58 +548,6 @@ async function syncLinkedWorkMetadata(
     });
   }
   return updateLinkedWorkMetadata(updates, executor);
-}
-
-function toClassificationEvidence(input: {
-  title: string;
-  authors: SourceRecordAuthor[];
-  languages: string[];
-  description: string | null;
-  sourceMeta: SourceRecordSourceMeta;
-}): PublicClassificationEvidence {
-  return {
-    title: input.title,
-    authors: input.authors.map((author) => author.name),
-    languages: input.languages,
-    description: input.description,
-    subjects: input.sourceMeta.subjects ?? [],
-    bookshelves: input.sourceMeta.bookshelves ?? [],
-  };
-}
-
-/**
- * Persist the classification decision inside the metadata batch transaction.
- * A bookkeeping failure rolls back the batch and fails this sync so identical
- * snapshot retries can still detect the original new/changed evidence.
- */
-async function registerIncrementalClassification(
-  records: ParsedSourceRecord[],
-  upserted: Array<{ id: string; externalId: string }>,
-  previousEvidence: Map<string, SourceRecordClassificationEvidenceRow>,
-  executor: DbTransaction,
-): Promise<void> {
-  if (upserted.length === 0) return;
-  const recordByExternalId = new Map(records.map((record) => [record.externalId, record]));
-  const candidates = upserted.map((row) => {
-    const record = recordByExternalId.get(row.externalId);
-    if (!record) throw new Error(`Missing parsed source record for ${row.externalId}`);
-    const previous = previousEvidence.get(row.externalId);
-    return {
-      sourceRecordId: row.id,
-      fingerprint: computePublicClassificationFingerprint(toClassificationEvidence(record)),
-      previousFingerprint: previous ? computePublicClassificationFingerprint(toClassificationEvidence(previous)) : null,
-      isNew: !previous,
-    };
-  });
-  // Source browse categories have their own reusable mapping workflow; avoid
-  // scheduling a separate per-work AI classification for the same input.
-  const upsertedById = new Map(upserted.map((row) => [row.id, row]));
-  const fallbackCandidates = candidates.filter((candidate) => {
-    const row = upsertedById.get(candidate.sourceRecordId);
-    const record = row ? recordByExternalId.get(row.externalId) : undefined;
-    return !record?.sourceMeta.bookshelves?.some((value) => value.startsWith('Category: '));
-  });
-  await recordPublicClassificationEvidenceBatch(fallbackCandidates, new Date(), executor);
 }
 
 function toSyncErrorSummary(error: unknown, signal?: AbortSignal): string {

@@ -57,10 +57,20 @@ export {
   unassignCategoryFromSourceRecord,
   updateManagedCategoryLabel,
 } from './service';
+export { acceptShelfCategoryProposal, organizeUnassignedCategoryShelves } from './shelf-organization';
+export {
+  attachShelfTermsToCategories,
+  detachCategoryShelfLinks,
+  listGutenbergCategoryShelfTerms,
+  recomputeAllRecordsForConfirmedShelves,
+  saveCategoryShelfTerms,
+} from './shelf-terms-admin';
 export {
   confirmNewSourceCategory,
   confirmSourceCategoryMapping,
+  GUTENBERG_CATEGORY_BOOKSHELF_PREFIX,
   ignoreSourceCategoryMapping,
+  isGutenbergCategoryBookshelf,
   listSourceCategoryMappings,
   normalizeSourceCategory,
   reconcileSourceCategoryAssignments,

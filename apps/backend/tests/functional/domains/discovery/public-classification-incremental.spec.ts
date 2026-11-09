@@ -7,7 +7,6 @@ import {
   discoverySource as discoverySourceTable,
   publicCategory as publicCategoryTable,
   sourceRecord as sourceRecordTable,
-  sourceRecordPublicCategorySuppression as suppressionTable,
   sourceRecordPublicClassificationState as stateTable,
 } from '@gloaming/db/schema';
 
@@ -21,11 +20,7 @@ import {
   recordPublicClassificationEvidenceBatch,
 } from '@/domains/discovery/categories';
 import { listAssignmentsForRecord } from '@/domains/discovery/categories/repository';
-import {
-  assignCategoryToSourceRecord,
-  createManagedCategory,
-  unassignCategoryFromSourceRecord,
-} from '@/domains/discovery/categories/service';
+import { assignCategoryToSourceRecord, createManagedCategory } from '@/domains/discovery/categories/service';
 import { PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE } from '@/domains/discovery/gutenberg/constants';
 import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
 import type * as SyncRepository from '@/domains/discovery/sync/repository';
@@ -89,23 +84,6 @@ vi.mock('@/domains/discovery/sync/repository', async (importOriginal) => {
       ),
   };
 });
-
-function aiResult<T>(content: T) {
-  return {
-    content,
-    model: { rowId: 'mock', label: 'Mock', modelId: 'mock' },
-    usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
-  };
-}
-
-function reuseDecision(categoryIds: string[]) {
-  return {
-    outcome: 'REUSE',
-    reuse: categoryIds.map((categoryId) => ({ categoryId, rationale: 'applies' })),
-    create: [],
-    reviewReason: null,
-  };
-}
 
 const runId = randomUUID();
 const suffix = runId.slice(0, 8);
@@ -274,46 +252,39 @@ describe('incremental public classification on gloaming_test', () => {
     // created by later describes are covered too.
   });
 
-  it('classifies a new record once, persists success per fingerprint, and keeps repeated sync free', async () => {
-    const category = await createCategory('Space Opera');
+  it('marks queued evidence complete without per-record AI classification', async () => {
     const record = fixtureRecord(1);
     const recordId = await insertAndRegister(record);
     const fingerprint = computePublicClassificationFingerprint(fixtureEvidence(record));
-    invokeAiMock.mockResolvedValue(aiResult(reuseDecision([category.id])));
 
     const first = await dispatchAndRun(new Set([recordId]));
     expect(first.jobs).toHaveLength(1);
-    expect(first.results).toEqual([{ status: 'completed' }]);
-    expect(invokeAiMock).toHaveBeenCalledTimes(1);
+    expect(first.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
     const completed = await readState(recordId);
     expect(completed).toMatchObject({ evidenceFingerprint: fingerprint, completedFingerprint: fingerprint });
-    expect(await listAssignmentsForRecord(recordId)).toEqual([
-      expect.objectContaining({ categoryId: category.id, source: 'ai' }),
-    ]);
+    expect(await listAssignmentsForRecord(recordId)).toHaveLength(0);
 
-    // A repeated trigger with the same fingerprint must not enqueue or call AI again.
     const second = await dispatchAndRun(new Set([recordId]));
     expect(second.jobs).toHaveLength(0);
-    expect(invokeAiMock).toHaveBeenCalledTimes(1);
+    expect(invokeAiMock).not.toHaveBeenCalled();
   });
 
   it('does not call AI for a legacy job when a source browse category is present', async () => {
     const record = fixtureRecord(987, { sourceMeta: { bookshelves: ['Category: Adventure'] } });
     const recordId = await insertAndRegister(record);
     const run = await dispatchAndRun(new Set([recordId]));
-    expect(run.results).toEqual([{ status: 'skipped', reason: 'source_category_mapping' }]);
+    expect(run.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
     expect(invokeAiMock).not.toHaveBeenCalled();
     const state = await readState(recordId);
     expect(state?.completedFingerprint).toBe(state?.evidenceFingerprint);
   });
 
   it('re-triggers exactly once on a substantive metadata change', async () => {
-    const category = await createCategory('Material Change');
     const original = fixtureRecord(2);
     const recordId = await insertAndRegister(original);
-    invokeAiMock.mockResolvedValue(aiResult(reuseDecision([category.id])));
     await dispatchAndRun(new Set([recordId]));
-    expect(invokeAiMock).toHaveBeenCalledTimes(1);
+    expect(invokeAiMock).not.toHaveBeenCalled();
 
     // Same record, changed classification evidence (description + subjects).
     const changed = fixtureRecord(2, {
@@ -337,129 +308,87 @@ describe('incremental public classification on gloaming_test', () => {
 
     const state = await readState(recordId);
     expect(state?.completedFingerprint).toBeNull();
-    invokeAiMock.mockResolvedValue(aiResult(reuseDecision([category.id])));
     const run = await dispatchAndRun(new Set([recordId]));
     expect(run.jobs).toHaveLength(1);
-    expect(invokeAiMock).toHaveBeenCalledTimes(2);
+    expect(run.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
 
-    // Unchanged afterwards is free again.
     const repeated = await dispatchAndRun(new Set([recordId]));
     expect(repeated.jobs).toHaveLength(0);
-    expect(invokeAiMock).toHaveBeenCalledTimes(2);
+    expect(invokeAiMock).not.toHaveBeenCalled();
   });
 
   it('does not invoke AI again for a duplicate job on a completed fingerprint', async () => {
-    const category = await createCategory('Duplicate Job');
     const record = fixtureRecord(3);
     const recordId = await insertAndRegister(record);
-    invokeAiMock.mockResolvedValue(aiResult(reuseDecision([category.id])));
     const job: PublicClassificationJobData = {
       sourceRecordId: recordId,
       fingerprint: computePublicClassificationFingerprint(fixtureEvidence(record)),
     };
 
-    expect(await processPublicClassification(job)).toEqual({ status: 'completed' });
+    expect(await processPublicClassification(job)).toEqual({ status: 'skipped', reason: 'shelf_derived_only' });
     expect(await processPublicClassification(job)).toEqual({ status: 'skipped', reason: 'completed' });
-    expect(invokeAiMock).toHaveBeenCalledTimes(1);
+    expect(invokeAiMock).not.toHaveBeenCalled();
   });
 
-  it('defers without calling AI when the provider is unavailable, then retries after the gate', async () => {
-    const category = await createCategory('Provider Retry');
+  it('completes queued evidence without provider availability checks', async () => {
     const recordId = await insertAndRegister(fixtureRecord(4));
     instanceProviderMock.mockResolvedValue(null);
 
-    const deferred = await dispatchAndRun(new Set([recordId]));
-    expect(deferred.results).toEqual([{ status: 'deferred', reason: 'provider_unavailable' }]);
+    const first = await dispatchAndRun(new Set([recordId]));
+    expect(first.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
     expect(invokeAiMock).not.toHaveBeenCalled();
-    const state = await readState(recordId);
-    expect(state?.lastDeferredReason).toBe('provider_unavailable');
-    expect(state?.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
 
-    // Not due yet: the dispatcher must not create a rapid retry loop.
     const tooSoon = await dispatchAndRun(new Set([recordId]));
     expect(tooSoon.jobs).toHaveLength(0);
-
-    // Provider returns and the gate passes: exactly one retry succeeds.
-    instanceProviderMock.mockResolvedValue('instance-model');
-    invokeAiMock.mockResolvedValue(aiResult(reuseDecision([category.id])));
-    await db
-      .update(stateTable)
-      .set({ nextAttemptAt: new Date(Date.now() - 1_000) })
-      .where(eq(stateTable.sourceRecordId, recordId));
-    const retried = await dispatchAndRun(new Set([recordId]));
-    expect(retried.results).toEqual([{ status: 'completed' }]);
-    expect(invokeAiMock).toHaveBeenCalledTimes(1);
   });
 
-  it('classifies every due record in one dispatcher pass without a shared daily gate', async () => {
-    const category = await createCategory('No Shared Gate');
+  it('marks every due record in one dispatcher pass without AI', async () => {
     const first = await insertAndRegister(fixtureRecord(5));
     const second = await insertAndRegister(fixtureRecord(6));
-    invokeAiMock.mockResolvedValue(aiResult(reuseDecision([category.id])));
 
     const run = await dispatchAndRun(new Set([first, second]));
 
     expect(run.results).toHaveLength(2);
-    expect(run.results.every((result) => result.status === 'completed')).toBe(true);
-    expect(invokeAiMock).toHaveBeenCalledTimes(2);
-    expect(await listAssignmentsForRecord(first)).toHaveLength(1);
-    expect(await listAssignmentsForRecord(second)).toHaveLength(1);
+    expect(run.results.every((result) => result.status === 'skipped' && result.reason === 'shelf_derived_only')).toBe(
+      true,
+    );
+    expect(invokeAiMock).not.toHaveBeenCalled();
+    expect(await listAssignmentsForRecord(first)).toHaveLength(0);
+    expect(await listAssignmentsForRecord(second)).toHaveLength(0);
   });
 
-  it('caps one invocation at the PC-03 two AI attempts before deferring', async () => {
-    const category = await createCategory('Max Attempts');
+  it('never calls AI even when legacy jobs are retried', async () => {
     const recordId = await insertAndRegister(fixtureRecord(6));
-    invokeAiMock
-      .mockRejectedValueOnce(new Error('transient one'))
-      .mockRejectedValueOnce(new Error('transient two'))
-      .mockResolvedValue(aiResult(reuseDecision([category.id])));
+    invokeAiMock.mockRejectedValue(new Error('should not run'));
 
-    const deferred = await dispatchAndRun(new Set([recordId]));
-    expect(deferred.results).toEqual([{ status: 'deferred', reason: 'transient_failure' }]);
-    expect(invokeAiMock).toHaveBeenCalledTimes(2);
+    const first = await dispatchAndRun(new Set([recordId]));
+    expect(first.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
 
-    // A later eligible pass succeeds without any extra BullMQ-driven attempts.
     await db
       .update(stateTable)
-      .set({ nextAttemptAt: new Date(Date.now() - 1_000) })
+      .set({ nextAttemptAt: new Date(Date.now() - 1_000), completedFingerprint: null })
       .where(eq(stateTable.sourceRecordId, recordId));
     const retried = await dispatchAndRun(new Set([recordId]));
-    expect(retried.results).toEqual([{ status: 'completed' }]);
-    expect(invokeAiMock).toHaveBeenCalledTimes(3);
+    expect(retried.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
   });
 
-  it('preserves manual assignments and never restores a suppressed pair', async () => {
+  it('preserves manual assignments while per-record AI jobs no-op', async () => {
     const manual = await Promise.all([
       createCategory('Manual One'),
       createCategory('Manual Two'),
       createCategory('Manual Three'),
     ]);
-    const blocked = await createCategory('Manual Blocked');
     const manualRecordId = await insertAndRegister(fixtureRecord(7));
     for (const category of manual) await assignCategoryToSourceRecord(manualRecordId, category.id, 'manual');
 
-    // AI may add a fourth category but may not overwrite the manual rows.
-    invokeAiMock.mockResolvedValue(aiResult(reuseDecision([blocked.id, manual[0]!.id])));
     const manualRun = await dispatchAndRun(new Set([manualRecordId]));
-    expect(manualRun.results).toEqual([{ status: 'completed' }]);
+    expect(manualRun.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
     const preserved = await listAssignmentsForRecord(manualRecordId);
-    expect(preserved).toHaveLength(4);
-    expect(preserved.filter((row) => row.source === 'manual')).toHaveLength(3);
-    expect(preserved.some((row) => row.categoryId === blocked.id && row.source === 'ai')).toBe(true);
-
-    // An explicitly removed AI pair stays suppressed on a later classification.
-    const suppressedCategory = await createCategory('Suppressed Pair');
-    const suppressedRecordId = await insertAndRegister(fixtureRecord(8));
-    await assignCategoryToSourceRecord(suppressedRecordId, suppressedCategory.id, 'ai');
-    await unassignCategoryFromSourceRecord(suppressedRecordId, suppressedCategory.id);
-    expect(
-      await db.select().from(suppressionTable).where(eq(suppressionTable.sourceRecordId, suppressedRecordId)),
-    ).toHaveLength(1);
-
-    invokeAiMock.mockResolvedValue(aiResult(reuseDecision([suppressedCategory.id])));
-    const suppressedRun = await dispatchAndRun(new Set([suppressedRecordId]));
-    expect(suppressedRun.results).toEqual([{ status: 'completed' }]);
-    expect(await listAssignmentsForRecord(suppressedRecordId)).toHaveLength(0);
+    expect(preserved).toHaveLength(3);
+    expect(preserved.every((row) => row.source === 'manual')).toBe(true);
   });
 
   it('keeps enqueue failure and a failing classification job from touching SourceRecords', async () => {
@@ -478,7 +407,7 @@ describe('incremental public classification on gloaming_test', () => {
       .set({ nextAttemptAt: new Date(Date.now() - 1_000) })
       .where(eq(stateTable.sourceRecordId, recordId));
     const run = await dispatchAndRun(new Set([recordId]));
-    expect(run.results).toEqual([{ status: 'deferred', reason: 'transient_failure' }]);
+    expect(run.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
     expect(await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.id, recordId))).toHaveLength(1);
     expect(await listAssignmentsForRecord(recordId)).toHaveLength(0);
   });
@@ -522,11 +451,9 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
     await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, gutenbergSourceId));
   });
 
-  it('triggers classification once for a new record and stays free on an unchanged sync', async () => {
-    const category = await createCategory('Sync Trigger');
+  it('does not enqueue incremental AI classification during Gutenberg sync', async () => {
     const record = fixtureRecord(20);
     snapshotMocks.open.mockImplementation(async () => fakeSnapshot([record]));
-    invokeAiMock.mockResolvedValue(aiResult(reuseDecision([category.id])));
 
     const firstClaim = await claimSourceQueued(gutenbergSourceId);
     expect(firstClaim).not.toBeNull();
@@ -541,26 +468,11 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
       )
       .limit(1);
     expect(recordRow).toBeDefined();
-    const firstState = await readState(recordRow!.id);
-    expect(firstState?.completedFingerprint).toBeNull();
-    expect(firstState?.evidenceFingerprint).toBe(computePublicClassificationFingerprint(fixtureEvidence(record)));
+    expect(await readState(recordRow!.id)).toBeNull();
 
     const run = await dispatchAndRun(new Set([recordRow!.id]));
-    expect(run.results).toEqual([{ status: 'completed' }]);
-    expect(invokeAiMock).toHaveBeenCalledTimes(1);
-
-    // Second sync with identical evidence: no new due row and no AI call.
-    await db
-      .update(discoverySourceTable)
-      .set({ syncStatus: 'idle', syncStartedAt: null })
-      .where(eq(discoverySourceTable.id, gutenbergSourceId));
-    const secondClaim = await claimSourceQueued(gutenbergSourceId);
-    expect(secondClaim).not.toBeNull();
-    const secondSync = await syncProjectGutenbergMetadata({ claimedAt: secondClaim! });
-    expect(secondSync).toMatchObject({ status: 'succeeded', seenRecords: 1 });
-    const second = await dispatchAndRun(new Set([recordRow!.id]));
-    expect(second.jobs).toHaveLength(0);
-    expect(invokeAiMock).toHaveBeenCalledTimes(1);
+    expect(run.jobs).toHaveLength(0);
+    expect(invokeAiMock).not.toHaveBeenCalled();
   });
 
   it('baselines a pre-existing unchanged record instead of reprocessing the corpus', async () => {
@@ -572,9 +484,7 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
     expect(claimedAt).not.toBeNull();
     await syncProjectGutenbergMetadata({ claimedAt: claimedAt! });
 
-    const state = await readState(id!);
-    expect(state?.evidenceFingerprint).toBe(computePublicClassificationFingerprint(fixtureEvidence(record)));
-    expect(state?.completedFingerprint).toBe(state?.evidenceFingerprint);
+    expect(await readState(id!)).toBeNull();
     const run = await dispatchAndRun(new Set([id!]));
     expect(run.jobs).toHaveLength(0);
     expect(invokeAiMock).not.toHaveBeenCalled();
@@ -607,7 +517,7 @@ describe('Gutenberg sync incremental trigger on gloaming_test', () => {
       .set({ nextAttemptAt: new Date(Date.now() - 1_000) })
       .where(eq(stateTable.sourceRecordId, recordRow!.id));
     const run = await dispatchAndRun(new Set([recordRow!.id]));
-    expect(run.results).toEqual([{ status: 'deferred', reason: 'transient_failure' }]);
+    expect(run.jobs).toHaveLength(0);
 
     const source = await readSource(gutenbergSourceId);
     expect(source?.syncStatus).toBe('succeeded');
