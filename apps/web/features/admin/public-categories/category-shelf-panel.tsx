@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2Icon, SaveIcon, SearchIcon } from 'lucide-react';
+import { CheckIcon, Loader2Icon, SearchIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -17,6 +17,7 @@ import {
   useSaveCategoryShelfTermsMutation,
 } from '@/features/admin/public-categories/public-categories-api';
 import { useLocale } from '@/lib/locale-context';
+import { cn } from '@/lib/utils';
 
 type Props = {
   category: PublicCategoryManagementItem;
@@ -81,62 +82,85 @@ function CategoryShelfEditor({ category, items, initialSelectedIds }: EditorProp
     }
   }
 
-  function renderList(listItems: GutenbergShelfTerm[], emptyKey: string) {
-    if (listItems.length === 0) {
-      return (
-        <p className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center text-xs text-muted-foreground">
-          {t(locale, emptyKey)}
-        </p>
-      );
-    }
+  function renderColumn(title: string, hint: string, listItems: GutenbergShelfTerm[], emptyKey: string) {
     return (
-      <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded-lg border border-border/60 p-2">
-        {listItems.map((item) => {
-          const isChecked = selectedIds.has(item.mappingId);
-          return (
-            <li key={item.mappingId} className="flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted/60">
-              <Checkbox
-                checked={isChecked}
-                onCheckedChange={(value) => toggle(item.mappingId, value === true)}
-                aria-label={t(locale, 'admin.publicCategories.shelves.toggleAria', { name: item.displayName })}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{item.displayName}</p>
-                <p className="truncate font-mono text-[11px] text-muted-foreground">{item.sourceValue}</p>
-              </div>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {t(locale, 'admin.publicCategories.shelves.recordCount', { count: item.recordCount })}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+        <div className="flex items-center justify-between border-b border-border bg-surface-container-low/70 px-3 py-2 text-xs font-medium text-muted-foreground">
+          <span>{title}</span>
+          <span className="text-[11px] font-normal text-outline">{hint}</span>
+        </div>
+        {listItems.length === 0 ? (
+          <p className="px-3 py-8 text-center text-[11px] text-outline">{t(locale, emptyKey)}</p>
+        ) : (
+          <div className="max-h-[26rem] divide-y divide-border/50 overflow-y-auto text-xs">
+            {listItems.map((item) => {
+              const isChecked = selectedIds.has(item.mappingId);
+              return (
+                <label
+                  key={item.mappingId}
+                  className="flex cursor-pointer items-center justify-between px-3 py-2.5 transition-colors hover:bg-background"
+                >
+                  <div className="flex min-w-0 items-center gap-2.5 pr-2">
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={(value) => toggle(item.mappingId, value === true)}
+                      aria-label={t(locale, 'admin.publicCategories.shelves.toggleAria', {
+                        name: item.displayName,
+                      })}
+                      className="size-3.5 border-border data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+                    />
+                    <div className="min-w-0">
+                      <div className={cn('truncate text-foreground', isChecked ? 'font-medium' : 'font-normal')}>
+                        {item.displayName}
+                      </div>
+                      <div className="truncate font-mono text-[11px] text-outline">{item.sourceValue}</div>
+                    </div>
+                  </div>
+                  <span
+                    className={cn(
+                      'shrink-0 font-mono text-[11px]',
+                      isChecked ? 'text-muted-foreground' : 'text-outline',
+                    )}
+                  >
+                    {t(locale, 'admin.publicCategories.shelves.recordCount', {
+                      count: item.recordCount.toLocaleString(),
+                    })}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
     );
   }
 
   return (
-    <section className="flex flex-col gap-3">
-      <header className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold tracking-tight">{t(locale, 'admin.publicCategories.shelves.title')}</h3>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col justify-between gap-3 pt-1 sm:flex-row sm:items-center">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{t(locale, 'admin.publicCategories.shelves.title')}</h3>
+          <p className="mt-0.5 text-[11px] text-outline">{t(locale, 'admin.publicCategories.shelves.description')}</p>
+        </div>
         <Button
           type="button"
           size="sm"
-          className="ml-auto"
+          className="h-auto shrink-0 gap-1.5 rounded-lg px-3.5 py-1.5 text-xs"
           disabled={!isDirty || saveMutation.isPending}
           onClick={() => void save()}
         >
           {saveMutation.isPending ? (
-            <Loader2Icon className="size-4 animate-spin" aria-hidden />
+            <Loader2Icon className="size-3.5 animate-spin" aria-hidden />
           ) : (
-            <SaveIcon data-icon="inline-start" aria-hidden />
+            <CheckIcon className="size-3.5" aria-hidden />
           )}
           {t(locale, 'admin.publicCategories.shelves.save')}
         </Button>
-      </header>
-      <p className="text-xs text-muted-foreground">{t(locale, 'admin.publicCategories.shelves.description')}</p>
+      </div>
+
       <div className="relative">
         <SearchIcon
-          className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+          className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-outline"
           aria-hidden
         />
         <Input
@@ -145,24 +169,25 @@ function CategoryShelfEditor({ category, items, initialSelectedIds }: EditorProp
           onChange={(event) => setSearch(event.currentTarget.value)}
           placeholder={t(locale, 'admin.publicCategories.shelves.searchPlaceholder')}
           aria-label={t(locale, 'admin.publicCategories.shelves.searchPlaceholder')}
-          className="h-8 pl-8"
+          className="h-auto rounded-lg border-border bg-card py-1.5 pr-3 pl-8 text-xs"
         />
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <h4 className="text-xs font-medium text-muted-foreground">
-            {t(locale, 'admin.publicCategories.shelves.assignedTitle')}
-          </h4>
-          {renderList(assigned, 'admin.publicCategories.shelves.assignedEmpty')}
-        </div>
-        <div className="flex flex-col gap-2">
-          <h4 className="text-xs font-medium text-muted-foreground">
-            {t(locale, 'admin.publicCategories.shelves.availableTitle')}
-          </h4>
-          {renderList(available, 'admin.publicCategories.shelves.availableEmpty')}
-        </div>
+
+      <div className="mt-1 grid grid-cols-1 gap-4 md:grid-cols-2">
+        {renderColumn(
+          t(locale, 'admin.publicCategories.shelves.assignedTitleCount', { count: assigned.length }),
+          t(locale, 'admin.publicCategories.shelves.uncheckToRemove'),
+          assigned,
+          'admin.publicCategories.shelves.assignedEmpty',
+        )}
+        {renderColumn(
+          t(locale, 'admin.publicCategories.shelves.availableTitleCount', { count: available.length }),
+          t(locale, 'admin.publicCategories.shelves.checkToInclude'),
+          available,
+          'admin.publicCategories.shelves.availableEmpty',
+        )}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -179,12 +204,12 @@ export function CategoryShelfPanel({ category }: Props) {
   }, [category.id, shelvesQuery.data]);
 
   if (shelvesQuery.isPending) {
-    return <Skeleton className="h-64 rounded-2xl" />;
+    return <Skeleton className="h-64 rounded-xl" />;
   }
 
   if (shelvesQuery.isError) {
     return (
-      <p className="rounded-xl border border-border/60 px-4 py-6 text-sm text-destructive">
+      <p className="rounded-lg border border-border px-4 py-6 text-xs text-destructive">
         {formatPublicCategoriesApiError(shelvesQuery.error) || t(locale, 'admin.publicCategories.shelves.loadFailed')}
       </p>
     );

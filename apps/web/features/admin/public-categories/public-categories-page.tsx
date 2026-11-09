@@ -1,6 +1,6 @@
 'use client';
 
-import { PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
+import { PlusIcon, SearchIcon } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -18,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -53,6 +52,8 @@ export function PublicCategoriesPage() {
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isEditingLabels, setIsEditingLabels] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLocale, setNewLocale] = useState<Locale>(locale);
 
@@ -63,6 +64,11 @@ export function PublicCategoriesPage() {
   const selected = selectedId ? (categories.find((category) => category.id === selectedId) ?? null) : null;
   const localeItems = SUPPORTED_LOCALES.map((value) => ({ value, label: localeDisplayLabel(value, locale) }));
 
+  function selectCategory(categoryId: string) {
+    setSelectedId(categoryId);
+    setIsEditingLabels(false);
+  }
+
   async function createCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const name = newName.trim();
@@ -72,6 +78,8 @@ export function PublicCategoriesPage() {
       setNewName('');
       setSearch('');
       setPage(1);
+      setIsCreating(false);
+      setIsEditingLabels(false);
       setSelectedId(category.id);
       toast.success(t(locale, 'admin.publicCategories.create.ready'));
     } catch (error) {
@@ -97,17 +105,21 @@ export function PublicCategoriesPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{t(locale, 'admin.publicCategories.page.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t(locale, 'admin.publicCategories.page.subtitle')}</p>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+      <header className="flex flex-col justify-between gap-4 border-b border-border/70 pb-2 sm:flex-row sm:items-end">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold tracking-tight text-foreground">
+            {t(locale, 'admin.publicCategories.page.title')}
+          </h1>
+          <p className="mt-1 text-xs font-normal text-outline">{t(locale, 'admin.publicCategories.page.subtitle')}</p>
+        </div>
+        <ShelfOrganizationPanel />
       </header>
-      <ShelfOrganizationPanel />
 
       {categoriesQuery.isPending ? (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]" aria-busy="true">
-          <Skeleton className="h-72 rounded-2xl" />
-          <Skeleton className="h-72 rounded-2xl" />
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12" aria-busy="true">
+          <Skeleton className="h-80 rounded-xl lg:col-span-4" />
+          <Skeleton className="h-80 rounded-xl lg:col-span-8" />
         </div>
       ) : categoriesQuery.isError ? (
         <Alert variant="destructive">
@@ -118,100 +130,135 @@ export function PublicCategoriesPage() {
           </AlertDescription>
         </Alert>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-          <section className="flex min-w-0 flex-col gap-3">
-            <form className="flex items-center gap-2" onSubmit={createCategory}>
-              <Input
-                value={newName}
-                maxLength={PUBLIC_CATEGORY_NAME_MAX_CHARS}
-                onChange={(event) => setNewName(event.currentTarget.value)}
-                placeholder={t(locale, 'admin.publicCategories.create.namePlaceholder')}
-                aria-label={t(locale, 'admin.publicCategories.create.namePlaceholder')}
-                disabled={createMutation.isPending}
-                className="h-8"
-              />
-              <Select
-                items={localeItems}
-                value={newLocale}
-                onValueChange={(value) => value && setNewLocale(value as Locale)}
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+          <aside className="flex flex-col gap-3 rounded-xl border border-border bg-surface-container-low p-3.5 lg:col-span-4">
+            <div className="flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <SearchIcon
+                  className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-outline"
+                  aria-hidden
+                />
+                <Input
+                  type="search"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.currentTarget.value);
+                    setPage(1);
+                  }}
+                  placeholder={t(locale, 'admin.publicCategories.search.placeholder')}
+                  aria-label={t(locale, 'admin.publicCategories.search.placeholder')}
+                  className="h-auto rounded-lg border-border bg-card py-1.5 pr-2.5 pl-8 text-xs"
+                />
+              </div>
+              <button
+                type="button"
+                className="flex h-[30px] shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-border bg-card px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                aria-expanded={isCreating}
+                onClick={() => setIsCreating((current) => !current)}
               >
-                <SelectTrigger size="sm" aria-label={t(locale, 'admin.publicCategories.create.localeLabel')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {localeItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Button
-                type="submit"
-                size="sm"
-                className="shrink-0"
-                disabled={!newName.trim() || createMutation.isPending}
-              >
-                <PlusIcon data-icon="inline-start" aria-hidden />
-                {t(locale, 'admin.publicCategories.create.submit')}
-              </Button>
-            </form>
-
-            <div className="relative">
-              <SearchIcon
-                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <Input
-                type="search"
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.currentTarget.value);
-                  setPage(1);
-                }}
-                placeholder={t(locale, 'admin.publicCategories.search.placeholder')}
-                aria-label={t(locale, 'admin.publicCategories.search.placeholder')}
-                className="h-8 pl-8"
-              />
+                <PlusIcon className="size-3" aria-hidden />
+                <span>{t(locale, 'admin.publicCategories.create.new')}</span>
+              </button>
             </div>
 
+            {isCreating ? (
+              <form
+                className="flex flex-col gap-2 rounded-lg border border-border bg-card p-2.5 text-xs"
+                onSubmit={createCategory}
+              >
+                <span className="font-medium text-muted-foreground">
+                  {t(locale, 'admin.publicCategories.create.formTitle')}
+                </span>
+                <div className="flex gap-2">
+                  <Input
+                    value={newName}
+                    maxLength={PUBLIC_CATEGORY_NAME_MAX_CHARS}
+                    onChange={(event) => setNewName(event.currentTarget.value)}
+                    placeholder={t(locale, 'admin.publicCategories.create.namePlaceholder')}
+                    aria-label={t(locale, 'admin.publicCategories.create.namePlaceholder')}
+                    disabled={createMutation.isPending}
+                    className="h-7 flex-1 rounded border-border bg-background px-2.5 text-xs"
+                    autoFocus
+                  />
+                  <Select
+                    items={localeItems}
+                    value={newLocale}
+                    onValueChange={(value) => value && setNewLocale(value as Locale)}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      className="h-7 w-auto text-xs"
+                      aria-label={t(locale, 'admin.publicCategories.create.localeLabel')}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {localeItems.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2.5 text-xs text-primary"
+                    disabled={!newName.trim() || createMutation.isPending}
+                  >
+                    {t(locale, 'admin.publicCategories.create.confirm')}
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+
             {filtered.length === 0 ? (
-              <p className="rounded-xl border border-border/60 px-4 py-6 text-center text-sm text-muted-foreground">
+              <p className="px-3 py-8 text-center text-xs text-outline">
                 {search
                   ? t(locale, 'admin.publicCategories.search.empty')
                   : t(locale, 'admin.publicCategories.list.empty')}
               </p>
             ) : (
-              <ul className="flex flex-col gap-1">
+              <ul className="flex flex-col divide-y divide-border/40">
                 {pageItems.map((category) => {
                   const isActive = category.id === selectedId;
                   return (
                     <li key={category.id}>
-                      <Button
-                        variant="plain"
-                        size={null}
+                      <button
                         type="button"
+                        aria-current={isActive ? 'true' : undefined}
                         aria-pressed={isActive}
-                        onClick={() => setSelectedId(category.id)}
+                        onClick={() => selectCategory(category.id)}
                         className={cn(
-                          'flex min-w-0 w-full flex-col items-stretch gap-1 rounded-xl px-3 py-2 text-left transition-colors duration-200 ease-out-soft',
-                          'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
-                          isActive
-                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                            : 'hover:bg-muted hover:text-foreground',
+                          'group relative flex w-full cursor-pointer items-center justify-between px-3 py-2.5 text-left transition-colors',
+                          isActive ? 'bg-background' : 'rounded-lg hover:bg-card/60',
                         )}
                       >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="min-w-0 truncate text-sm font-medium">
-                            {categoryDisplayName(category, locale)}
-                          </span>
-                          <Badge variant="outline">
-                            {t(locale, 'admin.publicCategories.recordCount', { count: category.recordCount })}
-                          </Badge>
+                        {isActive ? (
+                          <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-primary" />
+                        ) : null}
+                        <span
+                          className={cn(
+                            'text-xs',
+                            isActive
+                              ? 'font-semibold text-foreground'
+                              : 'font-medium text-foreground group-hover:text-primary',
+                          )}
+                        >
+                          {categoryDisplayName(category, locale)}
                         </span>
-                      </Button>
+                        <span
+                          className={cn(
+                            'font-mono text-[11px]',
+                            isActive ? 'font-medium text-primary' : 'text-outline',
+                          )}
+                        >
+                          {category.recordCount.toLocaleString()}
+                        </span>
+                      </button>
                     </li>
                   );
                 })}
@@ -219,59 +266,77 @@ export function PublicCategoriesPage() {
             )}
 
             {pagination.totalPages > 1 ? (
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-muted-foreground">
+              <div className="flex items-center justify-between border-t border-border/70 pt-2 text-[11px] text-outline">
+                <span>
                   {t(locale, 'admin.publicCategories.pagination.page', {
                     page: pagination.page,
                     total: pagination.totalPages,
                   })}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
                     disabled={pagination.page <= 1}
+                    className="cursor-pointer rounded border border-border bg-card px-2 py-0.5 text-muted-foreground hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => setPage((current) => Math.max(1, current - 1))}
                   >
                     {t(locale, 'admin.publicCategories.pagination.prev')}
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
                     disabled={pagination.page >= pagination.totalPages}
+                    className="cursor-pointer rounded border border-border bg-card px-2 py-0.5 text-muted-foreground hover:border-primary disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => setPage((current) => current + 1)}
                   >
                     {t(locale, 'admin.publicCategories.pagination.next')}
-                  </Button>
+                  </button>
                 </div>
               </div>
             ) : null}
-          </section>
+          </aside>
 
           {selected ? (
-            <div className="flex min-w-0 flex-col gap-4">
-              <header className="flex flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-lg font-semibold tracking-tight">{categoryDisplayName(selected, locale)}</h2>
-                  <Badge variant="outline">
-                    {t(locale, 'admin.publicCategories.recordCount', { count: selected.recordCount })}
-                  </Badge>
-                  <Button
+            <section className="flex flex-col gap-5 rounded-xl border border-border bg-surface-container-low p-5 lg:col-span-8">
+              <div className="flex items-center justify-between border-b border-border/70 pb-3.5">
+                <div className="flex items-baseline gap-2.5">
+                  <h2 className="font-heading text-xl font-semibold text-foreground">
+                    {categoryDisplayName(selected, locale)}
+                  </h2>
+                  <span className="font-mono text-xs text-outline">
+                    {t(locale, 'admin.publicCategories.recordCount', {
+                      count: selected.recordCount.toLocaleString(),
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <button
                     type="button"
-                    variant="destructive"
-                    size="sm"
-                    className="ml-auto shrink-0"
+                    className="cursor-pointer text-muted-foreground transition-colors hover:text-primary"
+                    onClick={() => setIsEditingLabels(true)}
+                  >
+                    {t(locale, 'admin.publicCategories.labels.edit')}
+                  </button>
+                  <span className="text-border" aria-hidden>
+                    |
+                  </span>
+                  <button
+                    type="button"
+                    className="cursor-pointer text-outline transition-colors hover:text-destructive"
                     disabled={deleteMutation.isPending}
+                    title={t(locale, 'admin.publicCategories.delete.action')}
                     onClick={() => setIsDeleting(true)}
                   >
-                    <Trash2Icon data-icon="inline-start" aria-hidden />
                     {t(locale, 'admin.publicCategories.delete.action')}
-                  </Button>
+                  </button>
                 </div>
-              </header>
-              <PublicCategoryLabelsEditor key={`labels-${selected.id}`} category={selected} />
+              </div>
+
+              <PublicCategoryLabelsEditor
+                key={`labels-${selected.id}`}
+                category={selected}
+                isEditing={isEditingLabels}
+                onEditingChange={setIsEditingLabels}
+              />
               <CategoryShelfPanel key={`shelves-${selected.id}`} category={selected} />
 
               <AlertDialog open={isDeleting} onOpenChange={setIsDeleting}>
@@ -298,9 +363,9 @@ export function PublicCategoriesPage() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            </div>
+            </section>
           ) : (
-            <p className="self-start rounded-2xl border border-border/60 px-4 py-6 text-sm text-muted-foreground">
+            <p className="rounded-xl border border-border bg-surface-container-low px-4 py-10 text-center text-xs text-outline lg:col-span-8">
               {t(locale, 'admin.publicCategories.list.selectHint')}
             </p>
           )}
