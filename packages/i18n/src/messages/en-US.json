@@ -347,36 +347,113 @@
   },
   "landing": {
     "meta": {
-      "title": "Gloaming Reader — A reading environment with in-text help",
-      "description": "Read works with lookup, translation, and saved progress."
+      "title": "Gloaming · A quiet place for real reading",
+      "description": "Read source texts you chose. When stuck, get help beside the page—then keep reading."
     },
     "cta": {
-      "signInToRead": "Sign in to read",
-      "goToLibrary": "Go to Library"
+      "startReading": "Start reading",
+      "signInToRead": "Start reading",
+      "goToLibrary": "Go to Library",
+      "browseDiscover": "Browse Discover first"
     },
-    "hero": {
-      "title": "Read. Look up, translate, or ask when you need help.",
-      "subtitle": "Results stay beside the text, and your reading progress is saved automatically."
+    "shot": {
+      "reader": "[Screenshot placeholder: reader]",
+      "help": "[Screenshot placeholder: in-text help]",
+      "discover": "[Screenshot placeholder: Discover / upload]",
+      "readerHelp": "[Screenshot placeholder: reader + side help]",
+      "library": "[Screenshot placeholder: Library · Continue]"
     },
-    "contrast": {
-      "title": "Hard words should not pull you out of the page.",
-      "punch": "Lookup, translation, and explanation stay in the reader. No separate chat or lesson mode."
+    "opening": {
+      "eyebrow": "Immersive reading",
+      "titleLine1": "Real source texts are worth reading,",
+      "titleLine2": "but they’re hard to finish.",
+      "body1": "When you hit a hard passage, you leave the page to look something up, open a translator, or ask a chatbot. By the time you return, the reading is broken.",
+      "body2": "Gloaming is a quiet reading environment: the activity stays reading. Help appears beside the text only when you’re stuck—then you continue. English ebooks are the focus today."
     },
-    "product": {
-      "title": "Use lookup, translation, and explanation beside the text.",
-      "readerTitle": "Reader",
-      "readerImageAlt": "Gloaming Reader interface",
-      "companionTitle": "In-text tools",
-      "companionBody": "Select text to look up a word, translate a passage, or request a sentence explanation. Results appear beside the text.",
-      "companionCardTitle": "Sentence explanation",
-      "companionCardBody": "Explains the selected sentence in context, including word meaning and how the clause fits the surrounding text.",
-      "libraryTitle": "Library",
-      "libraryBody": "Keep the works you own or choose to save together in your Library.",
-      "libraryImageAlt": "Gloaming Library interface"
+    "problem": {
+      "eyebrow": "The Reality",
+      "title": "The hard part isn’t finding content. It’s stopping mid-read.",
+      "lead": "It often isn’t that a word is too hard—it’s that every tool pulls you out of the page you wanted to stay in.",
+      "items": {
+        "1": {
+          "title": "One lookup, and you’ve left the page",
+          "body": "Switch apps, copy-paste, come back—and the context you just built is gone."
+        },
+        "2": {
+          "title": "Ask for help, and it turns into class, drills, or chat",
+          "body": "Quizzes, review curves, long dialogues. You only wanted to keep reading."
+        },
+        "3": {
+          "title": "Next time, you can’t find where you stopped",
+          "body": "Books scatter, progress fades, and it’s easier to give up than to resume."
+        }
+      },
+      "panelTitle": "Explain"
+    },
+    "solution": {
+      "eyebrow": "The Solution",
+      "title": "How we solve it",
+      "lead": "Keep the energy on reading itself—from choosing a text, through hard lines, to picking up again.",
+      "beatA": {
+        "label": "Beat A",
+        "title": "Bring content in first",
+        "body": "Browse the catalog in Discover, or upload your own file into your Library. We don’t invent “learning articles” as the main content.",
+        "points": {
+          "1": "Public-domain titles you can browse by category",
+          "2": "Upload your own EPUB into a private library"
+        }
+      },
+      "beatB": {
+        "label": "Beat B",
+        "title": "When stuck, understand beside the text—then continue",
+        "body": "Select a passage to look up, translate, or explain in context. Listen when you want, or open a parallel view. The default stays the source text; turn help off and the text still reads.",
+        "points": {
+          "1": "Help stays beside the page—no app switching",
+          "2": "Listen when you need it",
+          "3": "Open bilingual view when useful, hide it anytime"
+        }
+      },
+      "beatC": {
+        "label": "Beat C",
+        "title": "Come home to what you left unfinished",
+        "body": "Library isn’t a study dashboard. Open it and continue reading—uploads and saved titles live together.",
+        "points": {
+          "1": "Continue Reading returns you to where you stopped",
+          "2": "No streak badges, no vocab homework alerts"
+        }
+      }
+    },
+    "boundaries": {
+      "eyebrow": "Our Boundaries",
+      "title": "What we deliberately don’t do",
+      "lead": "Protecting attention matters more than packing features.",
+      "items": {
+        "1": {
+          "title": "No course trees or homework",
+          "body": "You don’t level up through drills. Real source text is the material."
+        },
+        "2": {
+          "title": "No shame streaks",
+          "body": "Reading is interest, not a number holding you hostage."
+        },
+        "3": {
+          "title": "Vocab collecting isn’t the main job",
+          "body": "The job is finishing the page—not building a word deck."
+        },
+        "4": {
+          "title": "Chat is not the home screen",
+          "body": "Home is the shelf and the text. Help appears only when asked."
+        }
+      }
     },
     "invite": {
-      "title": "Pick up where you left off.",
-      "body": "Sign in to save progress, manage your Library, and use the reader tools."
+      "titleLine1": "Find a source text you want,",
+      "titleLine2": "and keep reading.",
+      "body": "When stuck, understand beside the page—then continue. Not a class. Not a chat.",
+      "footnote": "Open and read · Import your own files · Keep reading first"
+    },
+    "footer": {
+      "tagline": "A quiet place for real reading"
     }
   },
   "admin": {
