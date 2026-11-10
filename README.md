@@ -20,11 +20,12 @@ Product vision and decision docs (English SSOT): [`docs/product/`](./docs/produc
 Choose authentic English → Read → Contextual help when stuck → Keep reading
 ```
 
-| Surface | Role                                                    |
-| ------- | ------------------------------------------------------- |
-| Shelf   | Official catalog (admin EPUB) + user import in Phase 1b |
-| Reader  | Calm reading; lookup, translation, TTS                  |
-| AI      | In-page companion; disappears when not needed           |
+| Surface  | Role                                                                 |
+| -------- | -------------------------------------------------------------------- |
+| Discover | Browse authentic catalog works, then save what you want to read      |
+| Library  | Personal shelf: saved catalog works, uploads, tags, search & filters |
+| Reader   | Calm reading; lookup, translation, TTS                               |
+| AI       | In-page companion; disappears when not needed                        |
 
 Gloaming is not Duolingo, LingQ, Anki, a ChatGPT reading plugin, or an AI content factory. V1 spec: [`docs/product/mvp-scope.md`](./docs/product/mvp-scope.md). Development priorities: [`docs/product/roadmap.md`](./docs/product/roadmap.md).
 

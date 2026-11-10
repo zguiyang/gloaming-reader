@@ -20,11 +20,12 @@ Gloaming 意为“暮色”，指昼夜交界的微光，也对应一个安静�
 选择真实英文内容 → 打开阅读 → 遇到语言障碍 → 获得上下文帮助 → 继续阅读
 ```
 
-| 表面   | 说明                                              |
-| ------ | ------------------------------------------------- |
-| Shelf  | 官方书目（admin EPUB catalog）+ Phase 1b 用户导入 |
-| Reader | 安静阅读；查词、翻译、TTS                         |
-| AI     | 页内同伴，不需要时消失                            |
+| 表面     | 说明                                       |
+| -------- | ------------------------------------------ |
+| Discover | 浏览真实英文书目，把想读的作品收藏进书架   |
+| Library  | 个人书架：收藏、上传、标签，以及搜索与筛选 |
+| Reader   | 安静阅读；查词、翻译、TTS                  |
+| AI       | 页内同伴，不需要时消失                     |
 
 Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不是 AI 内容工厂。V1 规格：[`docs/product/mvp-scope.md`](./docs/product/mvp-scope.md)。开发优先级：[`docs/product/roadmap.md`](./docs/product/roadmap.md)。
 
