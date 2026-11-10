@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { llmModel as llmModelTable, llmProvider as llmProviderTable } from '@gloaming/db';
 import type { LlmApiFamily } from '@gloaming/shared/llm';
@@ -9,6 +9,32 @@ import { decryptApiKey } from '@/infra/llm/crypto';
 import { HTTP_STATUS } from '@/shared/constants';
 import { AppError } from '@/shared/errors/app-error';
 import { ERROR_CODES } from '@/shared/errors/codes';
+
+function normalizeLlmBaseUrl(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, '');
+}
+
+/**
+ * When a (typically user BYOK) provider omits proxyUrl, reuse the instance
+ * provider proxy for the same base URL so local outbound routing matches Admin.
+ */
+async function resolveInstanceProxyForBaseUrl(baseUrl: string): Promise<string | null> {
+  const normalized = normalizeLlmBaseUrl(baseUrl);
+  const rows = await db
+    .select({ proxyUrl: llmProviderTable.proxyUrl })
+    .from(llmProviderTable)
+    .where(
+      and(
+        isNull(llmProviderTable.ownerUserId),
+        sql`rtrim(${llmProviderTable.baseUrl}, '/') = ${normalized}`,
+        sql`${llmProviderTable.proxyUrl} is not null`,
+        sql`length(btrim(${llmProviderTable.proxyUrl})) > 0`,
+      ),
+    )
+    .limit(1);
+  const proxy = rows[0]?.proxyUrl?.trim();
+  return proxy || null;
+}
 
 export type ResolvedLlm = {
   modelRowId: string;
@@ -82,6 +108,9 @@ export async function resolveLlmByModelRowId(modelRowId: string): Promise<Resolv
     throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.UNAVAILABLE);
   }
 
+  const ownProxy = row.proxyUrl?.trim() || null;
+  const proxyUrl = ownProxy ?? (await resolveInstanceProxyForBaseUrl(row.baseUrl));
+
   return {
     modelRowId: row.modelRowId,
     providerId: row.providerId,
@@ -92,7 +121,7 @@ export async function resolveLlmByModelRowId(modelRowId: string): Promise<Resolv
     modelId: row.modelId,
     baseUrl: row.baseUrl,
     apiKey,
-    proxyUrl: row.proxyUrl ?? null,
+    proxyUrl,
     thinkingParam: row.thinkingParam ?? null,
     temperature: row.temperature,
     maxTokens: row.maxTokens,

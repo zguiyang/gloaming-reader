@@ -109,6 +109,7 @@
       "apiKey": "API key",
       "advanced": "Advanced settings",
       "proxyUrl": "Proxy URL",
+      "proxyUrlHint": "Optional. Leave empty to reuse the instance proxy for the same API URL when one is configured.",
       "thinkingParam": "Thinking parameter name",
       "noProviders": "No own AI service is configured yet.",
       "confirmDefault": "Save to turn off your own AI service. Future requests will use the default service.",

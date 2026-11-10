@@ -109,6 +109,7 @@
       "apiKey": "API 密钥",
       "advanced": "高级配置",
       "proxyUrl": "代理地址",
+      "proxyUrlHint": "可选。留空时，若实例侧已为相同 API 地址配置代理，将自动沿用。",
       "thinkingParam": "思考参数名",
       "noProviders": "尚未配置自有 AI 服务。",
       "confirmDefault": "保存后将停用自有 AI 服务，后续请求使用默认服务。",

@@ -283,6 +283,7 @@ function ProviderForm({
                 value={draft.proxyUrl}
                 onChange={(e) => setDraft((v) => ({ ...v, proxyUrl: e.target.value }))}
               />
+              <p className="text-xs text-muted-foreground">{t(locale, 'settings.ai.proxyUrlHint')}</p>
             </Field>
             {family.provider.optionalFields.includes('thinkingParam') ? (
               <Field>
