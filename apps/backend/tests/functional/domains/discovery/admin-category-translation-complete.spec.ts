@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { user as userTable } from '@gloaming/db';
@@ -110,6 +110,13 @@ async function createCategory(adminCookie: string, name: string, locale = 'en-US
   return body.id;
 }
 
+/** Strip a create-time fallback copy so complete-translations still has work to do. */
+async function removeCategoryLocale(categoryId: string, locale: string) {
+  await db
+    .delete(publicCategoryLabelTable)
+    .where(and(eq(publicCategoryLabelTable.categoryId, categoryId), eq(publicCategoryLabelTable.locale, locale)));
+}
+
 async function labelNames(categoryId: string): Promise<Record<string, { name: string; editedBy: string }>> {
   const rows = await db
     .select()
@@ -152,6 +159,7 @@ describe('Admin category translation completion endpoint on gloaming_test', () =
 
   it('fills only the missing locales and reports what it wrote', async () => {
     const categoryId = await createCategory(adminCookie, `Sci-Fi ${randomUUID().slice(0, 8)}`);
+    await removeCategoryLocale(categoryId, 'zh-CN');
     invokeAiMock.mockResolvedValueOnce(aiResult({ translations: [{ locale: 'zh-CN', name: '科幻小说' }] }));
 
     const response = await app.request(completePath(categoryId), {
@@ -177,7 +185,8 @@ describe('Admin category translation completion endpoint on gloaming_test', () =
   it('never overwrites a manually edited locale while completing the other one', async () => {
     const manualName = `Manual ${randomUUID().slice(0, 8)}`;
     const categoryId = await createCategory(adminCookie, manualName);
-    // The model answers for both locales; only the missing en-US target may be written.
+    // Keep the English create-time manual label; only zh-CN is missing for the AI pass.
+    await removeCategoryLocale(categoryId, 'zh-CN');
     invokeAiMock.mockResolvedValueOnce(
       aiResult({
         translations: [
@@ -200,13 +209,8 @@ describe('Admin category translation completion endpoint on gloaming_test', () =
   });
 
   it('is a no-op that skips the model when no locale is missing', async () => {
+    // Create already fills every supported locale as a manual fallback copy.
     const categoryId = await createCategory(adminCookie, 'Bilingual');
-    const patch = await app.request(`${CATEGORIES_PATH}/${categoryId}/labels`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', cookie: adminCookie },
-      body: JSON.stringify({ name: '双语', locale: 'zh-CN' }),
-    });
-    expect(patch.status).toBe(HTTP_STATUS.OK);
 
     const response = await app.request(completePath(categoryId), {
       method: 'POST',
@@ -230,6 +234,7 @@ describe('Admin category translation completion endpoint on gloaming_test', () =
 
   it('returns 503 when the instance model is unavailable and 409 while the lock is held', async () => {
     const categoryId = await createCategory(adminCookie, 'No Provider');
+    await removeCategoryLocale(categoryId, 'zh-CN');
     instanceProviderMock.mockResolvedValue(null);
     const unavailable = await app.request(completePath(categoryId), {
       method: 'POST',

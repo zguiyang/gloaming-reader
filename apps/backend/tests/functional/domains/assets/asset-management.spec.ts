@@ -17,6 +17,7 @@ import { processAssetCleanup } from '@/application/jobs/asset-cleanup';
 import { CLEANUP_LOCK_KEY, loadCleanupJob, saveCleanupJob } from '@/domains/assets/cleanup/store';
 import { acquireLock, releaseLock, renewLock } from '@/domains/assets/management/lock-store';
 import { SCAN_LOCK_KEY } from '@/domains/assets/scan/config';
+import { LATEST_SCAN_KEY, scanRedisKey } from '@/domains/assets/scan/snapshot';
 import { getRedis } from '@/infra/cache';
 import { db } from '@/infra/db';
 import type { ObjectStore } from '@/infra/storage';
@@ -90,7 +91,15 @@ describe('asset management admin APIs', () => {
   beforeEach(async () => {
     memory = createMemoryObjectStore();
     setObjectStoreForTests(memory);
-    await getRedis().del(CLEANUP_LOCK_KEY);
+    const redis = getRedis();
+    await redis.del(CLEANUP_LOCK_KEY);
+    // Drop any leftover latest pointer so "missing report" starts from a clean slate.
+    const latestId = await redis.get(LATEST_SCAN_KEY);
+    if (latestId) {
+      await redis.del(LATEST_SCAN_KEY, scanRedisKey(latestId));
+    } else {
+      await redis.del(LATEST_SCAN_KEY);
+    }
   });
 
   async function withCleanupLockHeld<T>(fn: () => Promise<T>): Promise<T> {

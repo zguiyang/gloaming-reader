@@ -136,14 +136,13 @@ vi.mock('@/domains/discovery/categories', async (importOriginal) => {
   const actual = await importOriginal<typeof DiscoveryCategories>();
   return {
     ...actual,
-    recordPublicClassificationEvidenceBatch: async (
-      ...args: Parameters<typeof actual.recordPublicClassificationEvidenceBatch>
-    ) => {
+    // Sync now registers Category shelves inside the metadata transaction — inject
+    // failures here so batch rollback still covers metadata + mapping together.
+    registerSourceCategoryTerms: async (...args: Parameters<typeof actual.registerSourceCategoryTerms>) => {
       flushGate.classificationCalls += 1;
-      flushGate.lastClassificationId = args[0][0]?.sourceRecordId ?? '';
-      if (flushGate.failClassification) throw new Error('Injected classification evidence write failure');
-      const result = await actual.recordPublicClassificationEvidenceBatch(...args);
-      if (flushGate.failAfterClassificationWrite) throw new Error('Injected failure after classification write');
+      if (flushGate.failClassification) throw new Error('Injected shelf-term registration failure');
+      const result = await actual.registerSourceCategoryTerms(...args);
+      if (flushGate.failAfterClassificationWrite) throw new Error('Injected failure after shelf-term registration');
       return result;
     },
   };
@@ -371,7 +370,7 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
   });
 
   it.each(['new', 'changed-legacy', 'changed-completed'] as const)(
-    'keeps %s evidence due after a failed registration and identical snapshot retry',
+    'rolls back %s metadata after a failed shelf registration and retries cleanly',
     async (scenario) => {
       const incoming = fixtureRecord(0, { title: 'Changed evidence' });
       let originalId: string | undefined;
@@ -387,26 +386,27 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
       snapshotMocks.open.mockImplementation(async () => fakeSnapshot([incoming]));
       flushGate.failClassification = true;
       const first = await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
-      const [afterFailure] = await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
+      const ownedAfterFailure = await db
+        .select()
+        .from(sourceRecordTable)
+        .where(and(eq(sourceRecordTable.sourceId, sourceId), like(sourceRecordTable.externalId, `${runId}-%`)));
       const sourceAfterFailure = await sourceRow();
 
       flushGate.failClassification = false;
       const retry = await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() });
       expect(retry.status).toBe('succeeded');
-      const [record] = await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
-      const [state] = await db.select().from(stateTable).where(eq(stateTable.sourceRecordId, record!.id));
-      expect(state?.completedFingerprint).toBeNull();
-      expect(await loadDuePublicClassifications(new Date(), 10_000)).toContainEqual({
-        sourceRecordId: record!.id,
-        fingerprint: state!.evidenceFingerprint,
-      });
+      const [record] = await db
+        .select()
+        .from(sourceRecordTable)
+        .where(and(eq(sourceRecordTable.sourceId, sourceId), eq(sourceRecordTable.externalId, `${runId}-0`)));
+      expect(record).toMatchObject({ title: 'Changed evidence' });
       expect(first.status).toBe('failed');
       expect(sourceAfterFailure?.snapshotLastModified).toBe(
         scenario === 'changed-completed' ? 'Tue, 01 Jan 2030 00:00:00 GMT' : null,
       );
-      if (scenario === 'new') expect(afterFailure).toBeUndefined();
+      if (scenario === 'new') expect(ownedAfterFailure).toHaveLength(0);
       else {
-        expect(afterFailure).toMatchObject({ id: originalId, title: fixtureRecord(0).title });
+        expect(ownedAfterFailure).toEqual([expect.objectContaining({ id: originalId, title: fixtureRecord(0).title })]);
         expect(record!.id).toBe(originalId);
       }
     },
@@ -423,23 +423,28 @@ describe('Project Gutenberg sync service on gloaming_test', () => {
     );
   });
 
-  it('rolls back metadata and classification state together after a classification write', async () => {
+  it('rolls back metadata together with shelf registration after a post-write failure', async () => {
     snapshotMocks.open.mockImplementation(async () => fakeSnapshot([fixtureRecord(0)]));
     flushGate.failAfterClassificationWrite = true;
     expect((await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() })).status).toBe('failed');
     expect(await ownedRecordCount()).toBe(0);
     expect(
-      await db.select().from(stateTable).where(eq(stateTable.sourceRecordId, flushGate.lastClassificationId)),
+      await db
+        .select()
+        .from(sourceRecordTable)
+        .where(and(eq(sourceRecordTable.sourceId, sourceId), like(sourceRecordTable.externalId, `${runId}-%`))),
     ).toHaveLength(0);
     expect((await sourceRow())?.snapshotLastModified).toBeNull();
 
     flushGate.failAfterClassificationWrite = false;
     expect((await syncProjectGutenbergMetadata({ claimedAt: await claimQueued() })).status).toBe('succeeded');
-    const [state] = await db
+    const [record] = await db
       .select()
-      .from(stateTable)
-      .where(eq(stateTable.sourceRecordId, flushGate.lastClassificationId));
-    expect(state?.completedFingerprint).toBeNull();
+      .from(sourceRecordTable)
+      .where(and(eq(sourceRecordTable.sourceId, sourceId), eq(sourceRecordTable.externalId, `${runId}-0`)));
+    expect(record).toMatchObject({ title: fixtureRecord(0).title });
+    // Shelf-driven sync no longer writes AI classification state rows.
+    expect(await db.select().from(stateTable).where(eq(stateTable.sourceRecordId, record!.id))).toHaveLength(0);
   });
 
   it('drops a stale run batch that lost its token before the write and keeps the new run state', async () => {

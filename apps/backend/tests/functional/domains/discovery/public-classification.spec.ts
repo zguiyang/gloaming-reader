@@ -87,6 +87,16 @@ async function createCategory(name: string, locale = 'en-US') {
   return category;
 }
 
+/**
+ * Create leaves fallback locales filled as manual copies of the primary name.
+ * Translation suites that need a real missing locale strip that fallback first.
+ */
+async function removeCategoryLocale(categoryId: string, locale: string) {
+  await db
+    .delete(publicCategoryLabelTable)
+    .where(and(eq(publicCategoryLabelTable.categoryId, categoryId), eq(publicCategoryLabelTable.locale, locale)));
+}
+
 async function insertRecord(overrides: Partial<typeof sourceRecordTable.$inferInsert> = {}) {
   const id = randomUUID();
   await db.insert(sourceRecordTable).values({
@@ -493,6 +503,7 @@ describe('public classification service on gloaming_test', () => {
     const categoryIdByRecord = new Map<string, string>();
     for (let index = 0; index < iterations; index += 1) {
       const category = await createCategory(`No Reservation ${suffix} ${index}`);
+      await removeCategoryLocale(category.id, 'zh-CN');
       const recordId = await insertRecord({ title: `No Reservation Record ${index}` });
       categoryIdByRecord.set(recordId, category.id);
     }
@@ -562,6 +573,7 @@ describe('public classification service on gloaming_test', () => {
   describe('label translation operation', () => {
     it('fills only the missing supported locales and leaves manual labels intact', async () => {
       const category = await createCategory(`Translatable ${suffix}`, 'en-US');
+      await removeCategoryLocale(category.id, 'zh-CN');
       invokeAiMock.mockResolvedValueOnce(aiResult({ translations: [{ locale: 'zh-CN', name: `可翻译 ${suffix}` }] }));
 
       const result = await translateMissingPublicCategoryLabels(category.id);
@@ -596,14 +608,15 @@ describe('public classification service on gloaming_test', () => {
     });
 
     it('skips when no locale is missing and defers when the provider is unavailable', async () => {
+      // Create already fills every supported locale as a manual fallback copy.
       const category = await createCategory(`Bilingual ${suffix}`, 'en-US');
-      await updateManagedCategoryLabel(category.id, { name: `双语 ${suffix}`, locale: 'zh-CN' });
       expect(await translateMissingPublicCategoryLabels(category.id)).toEqual({
         status: 'skipped',
         reason: 'no_missing_locales',
       });
 
       const mono = await createCategory(`Mono ${suffix}`, 'en-US');
+      await removeCategoryLocale(mono.id, 'zh-CN');
       instanceProviderMock.mockResolvedValue(null);
       expect(await translateMissingPublicCategoryLabels(mono.id)).toEqual({
         status: 'deferred',
@@ -614,7 +627,8 @@ describe('public classification service on gloaming_test', () => {
     it('does not block manual category creation when the provider is unavailable', async () => {
       instanceProviderMock.mockResolvedValue(null);
       const created = await createCategory(`Manual Unblocked ${suffix}`, 'zh-CN');
-      expect(created.manualLocales).toEqual(['zh-CN']);
+      // Fallback locales are filled as manual copies without touching the model.
+      expect([...created.manualLocales].sort()).toEqual(['en-US', 'zh-CN']);
       expect(await invocations()).toBe(0);
     });
   });

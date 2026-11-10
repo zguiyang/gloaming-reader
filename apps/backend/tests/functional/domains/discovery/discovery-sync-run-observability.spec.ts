@@ -52,7 +52,7 @@ vi.mock('@/domains/discovery/gutenberg/snapshot-stream', async (importOriginal) 
   return { ...actual, openGutenbergSnapshot: snapshotMocks.open };
 });
 
-/** Partial-failure control: fail the classification write after the first committed batch. */
+/** Partial-failure control: fail shelf registration after the first committed batch. */
 const failureGate = vi.hoisted(() => ({
   failAfterBatches: Number.POSITIVE_INFINITY,
   batches: 0,
@@ -66,10 +66,8 @@ vi.mock('@/domains/discovery/categories', async (importOriginal) => {
   const actual = (await importOriginal()) as typeof DiscoveryCategories;
   return {
     ...actual,
-    recordPublicClassificationEvidenceBatch: async (
-      ...args: Parameters<typeof actual.recordPublicClassificationEvidenceBatch>
-    ) => {
-      const result = await actual.recordPublicClassificationEvidenceBatch(...args);
+    registerSourceCategoryTerms: async (...args: Parameters<typeof actual.registerSourceCategoryTerms>) => {
+      const result = await actual.registerSourceCategoryTerms(...args);
       failureGate.batches += 1;
       if (failureGate.batches >= failureGate.failAfterBatches) {
         throw new Error('Injected failure after committed batch');

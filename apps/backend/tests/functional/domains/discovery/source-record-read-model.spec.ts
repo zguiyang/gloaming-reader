@@ -223,12 +223,17 @@ describe('SourceRecord read model on gloaming_test', () => {
   });
 
   it('paginates and sorts without duplicating or leaking records', async () => {
-    const page1 = await listAll({ page: 1, pageSize: 2, sortBy: 'title', sortOrder: 'asc' });
-    const page2 = await listAll({ page: 2, pageSize: 2, sortBy: 'title', sortOrder: 'asc' });
+    // Scope to this run: public lists probe hasMore without an exact catalog COUNT.
+    const page1 = await listAll({ page: 1, pageSize: 2, sortBy: 'title', sortOrder: 'asc', q: runId });
+    const page2 = await listAll({ page: 2, pageSize: 2, sortBy: 'title', sortOrder: 'asc', q: runId });
 
     expect(page1.items.map((item) => item.title)).toEqual(['Alpha Discovery', 'Beta Discovery']);
+    expect(page1.hasMore).toBe(true);
     expect(page2.items.map((item) => item.title)).toEqual(['Delta Discovery']);
-    expect(page1.pagination).toMatchObject({ page: 1, pageSize: 2, total: 3, totalPages: 2, sortBy: 'title' });
+    expect(page2.hasMore).toBe(false);
+    // Probe total is a lower bound for the current page, not the catalog size.
+    expect(page1.pagination).toMatchObject({ page: 1, pageSize: 2, total: 2, sortBy: 'title' });
+    expect(page2.pagination).toMatchObject({ page: 2, pageSize: 2, total: 3, sortBy: 'title' });
   });
 
   it('returns SourceRecord detail without any ReadingWork linkage', async () => {
