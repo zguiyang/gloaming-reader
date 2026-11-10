@@ -2,6 +2,8 @@
 
 Current test **procedure** for Gloaming. It is a procedure, not acceptance proof: it contains no recorded results, and a guide that exists does not mean anything has passed.
 
+**Feature scope (what to cover):** [User-path feature inventory](./user-path-feature-inventory.md) — journeys `J-*`, feature IDs `F-*`, and suggested automation suites. This guide is **how/where** to run checks safely.
+
 **References:** [product docs](../product/README.md) · [personal tags](../product/personal-tags.md) · [public categories](../product/public-categories.md) · [deployment](../deployment.md) · [AGENTS.md](../../AGENTS.md) · [test database Skill](../../.agents/skills/test-database-workflow/SKILL.md)
 
 ---
