@@ -58,6 +58,7 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
       maxTokens: options.maxTokens,
       maxRetries: options.maxRetries,
       enableThinking: options.enableThinking ?? false,
+      jsonObject: options.jsonObject,
     });
     const conversation = toBaseMessages(options.messages);
     const tools = options.tools ?? [];

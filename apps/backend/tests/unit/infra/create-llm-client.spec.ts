@@ -61,6 +61,14 @@ describe('createLlmClient', () => {
     expect(chat.modelKwargs).toEqual({ enable_thinking: false });
   });
 
+  it('applies json_object response_format only on Chat Completions wires', () => {
+    const chat = createLlmClient(resolved('openai/gpt-5-mini', 'chat-completions'), { jsonObject: true });
+    expect(chat.modelKwargs).toEqual({ response_format: { type: 'json_object' } });
+
+    const responses = createLlmClient(resolved('openai/gpt-6-luna', 'responses'), { jsonObject: true });
+    expect(responses.modelKwargs?.response_format).toBeUndefined();
+  });
+
   it('rejects unimplemented API families', () => {
     try {
       createLlmClient({

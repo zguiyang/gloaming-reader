@@ -40,6 +40,11 @@ export type AiInvokeOptions<TSchema extends ZodTypeAny | undefined = undefined> 
   maxTokens?: number;
   /** Provider-internal retries; background jobs may set zero to keep retry accounting at the queue. */
   maxRetries?: number;
+  /**
+   * Ask the provider for JSON-object mode when the wire supports it (Chat Completions).
+   * Does not use strict JSON Schema structured outputs — callers still validate locally.
+   */
+  jsonObject?: boolean;
   /** Skip the invocation-log database write for isolated diagnostic calls. */
   persistInvocationLog?: boolean;
   requestSummaryExtra?: AiInvocationSummaryExtra;

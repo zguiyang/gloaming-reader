@@ -161,14 +161,23 @@ describe('dictionary context isolation', () => {
       rawData: { ok: true },
     });
     mocks.invokeAi.mockResolvedValueOnce({
-      content: {
+      content: JSON.stringify({
         meanings: [{ partOfSpeech: 'noun', definitionsZh: ['测试释义'] }],
-      },
+      }),
     });
 
     const first = await lookupWord({ actor: anonymousWorkReadActor(), word });
     expect(first?.meanings[0]?.definitions[0]?.definitionZh).toBe('测试释义');
     expect(first?.contextExamples).toBeUndefined();
+    expect(mocks.invokeAi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'dictionary:enrichment',
+        purpose: 'assist',
+        jsonObject: true,
+      }),
+    );
+    expect(mocks.invokeAi.mock.calls[0]?.[0]).not.toHaveProperty('userId');
+    expect(mocks.invokeAi.mock.calls[0]?.[0]).not.toHaveProperty('outputSchema');
 
     const redisRaw = mocks.redisStore.get(wordCacheKey(word));
     expect(redisRaw).toBeTruthy();
@@ -198,13 +207,19 @@ describe('dictionary context isolation', () => {
       entry: providerEntry(word),
       rawData: { ok: true },
     });
-    mocks.invokeAi.mockResolvedValueOnce({
-      content: {
-        meanings: [{ partOfSpeech: 'noun', definitionsZh: ['上下文词'] }],
-        contextSentenceZh: '用户甲的句子译文',
-        contextNote: '仅本次请求可见',
-      },
-    });
+    // Fresh+context: meanings enrichment (no zh yet) then request-scoped context.
+    mocks.invokeAi
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          meanings: [{ partOfSpeech: 'noun', definitionsZh: ['上下文词'] }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          contextSentenceZh: '用户甲的句子译文',
+          contextNote: '仅本次请求可见',
+        }),
+      });
 
     const result = await lookupWord({
       actor: anonymousWorkReadActor(),
@@ -218,6 +233,10 @@ describe('dictionary context isolation', () => {
     expect(result?.contextExamples?.[0]?.sentence).toBe('User A used isolation_ctx in a novel.');
     expect(result?.contextExamples?.[0]?.sentenceZh).toBe('用户甲的句子译文');
     expect(result?.contextExamples?.[0]?.workId).toBe('work-a');
+    expect(mocks.invokeAi.mock.calls.map((call) => call[0].source)).toEqual([
+      'dictionary:enrichment',
+      'dictionary:context',
+    ]);
 
     const redisEntry = JSON.parse(mocks.redisStore.get(wordCacheKey(word))!) as DictionaryEntry;
     expect(redisEntry.contextExamples).toBeUndefined();
@@ -250,16 +269,16 @@ describe('dictionary context isolation', () => {
 
     mocks.invokeAi
       .mockResolvedValueOnce({
-        content: {
+        content: JSON.stringify({
           contextSentenceZh: '用户甲译文',
           contextNote: '甲的笔记',
-        },
+        }),
       })
       .mockResolvedValueOnce({
-        content: {
+        content: JSON.stringify({
           contextSentenceZh: '用户乙译文',
           contextNote: '乙的笔记',
-        },
+        }),
       });
 
     const userA = await lookupWord({
@@ -341,13 +360,18 @@ describe('dictionary context isolation', () => {
       entry: providerEntry(word),
       rawData: { ok: true },
     });
-    mocks.invokeAi.mockResolvedValueOnce({
-      content: {
-        meanings: [{ partOfSpeech: 'noun', definitionsZh: ['旁路'] }],
-        contextSentenceZh: '旁路上下文',
-        contextNote: '测试旁路',
-      },
-    });
+    mocks.invokeAi
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          meanings: [{ partOfSpeech: 'noun', definitionsZh: ['旁路'] }],
+        }),
+      })
+      .mockResolvedValueOnce({
+        content: JSON.stringify({
+          contextSentenceZh: '旁路上下文',
+          contextNote: '测试旁路',
+        }),
+      });
 
     const result = await lookupWord({
       actor: anonymousWorkReadActor(),

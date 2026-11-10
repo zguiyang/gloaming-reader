@@ -17,14 +17,23 @@ export type CreateLlmClientOptions = {
   maxRetries?: number;
   /** Thinking-mode toggle; parameter name comes from `ResolvedLlm.thinkingParam`. */
   enableThinking?: boolean;
+  /**
+   * Prefer Chat Completions `response_format: json_object` when the wire supports it.
+   * Skipped for Responses-API wires (gateways often reject or remap that field).
+   */
+  jsonObject?: boolean;
 };
 
 function createOpenAiClient(resolved: ResolvedLlm, options?: CreateLlmClientOptions): ChatOpenAI {
   const proxiedFetch = buildProxiedFetch(resolved.proxyUrl);
-  const modelKwargs =
-    resolved.thinkingParam && options?.enableThinking !== undefined
-      ? { [resolved.thinkingParam]: options.enableThinking }
-      : undefined;
+  const modelKwargs: Record<string, unknown> = {};
+  if (resolved.thinkingParam && options?.enableThinking !== undefined) {
+    modelKwargs[resolved.thinkingParam] = options.enableThinking;
+  }
+  // json_object is a Chat Completions affordance; Responses wires use a different format surface.
+  if (options?.jsonObject && resolved.wireVariant !== 'responses') {
+    modelKwargs.response_format = { type: 'json_object' };
+  }
   return new ChatOpenAI({
     model: resolved.modelId,
     apiKey: resolved.apiKey,
@@ -36,7 +45,7 @@ function createOpenAiClient(resolved: ResolvedLlm, options?: CreateLlmClientOpti
       baseURL: resolved.baseUrl,
       ...(proxiedFetch ? { fetch: proxiedFetch } : {}),
     },
-    ...(modelKwargs ? { modelKwargs } : {}),
+    ...(Object.keys(modelKwargs).length > 0 ? { modelKwargs } : {}),
     useResponsesApi: resolved.wireVariant === 'responses',
   });
 }

@@ -200,11 +200,11 @@ export async function lookupWord(options: LookupWordOptions): Promise<Dictionary
   // L4: AI Enrichment (if enabled). Context examples stay on the response only.
   if (config.enableAiEnrichment) {
     if (hasContext) {
-      const enriched = await enrichFreshEntryWithAi(baseGeneric, lookupContext, options.actor.userId);
+      const enriched = await enrichFreshEntryWithAi(baseGeneric, lookupContext);
       genericToPersist = enriched.generic;
       responseEntry = enriched.response;
     } else {
-      genericToPersist = await enrichGenericMeaningsWithAi(baseGeneric, options.actor.userId);
+      genericToPersist = await enrichGenericMeaningsWithAi(baseGeneric);
       responseEntry = genericToPersist;
     }
   } else if (hasContext && lookupContext) {
