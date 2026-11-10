@@ -24,6 +24,7 @@ import {
   categoryExists,
   clearSuppression,
   countAssignmentsByCategoryIds,
+  countAssignmentsForCategory,
   countPublicRecordsByCategoryIds,
   deleteAssignment,
   deleteCategoryRow,
@@ -343,6 +344,15 @@ export async function deleteManagedCategory(categoryId: string): Promise<void> {
     const row = await lockCategoryRow(tx, categoryId);
     if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.PUBLIC_CATEGORY);
 
+    const assignmentCount = await countAssignmentsForCategory(tx, categoryId);
+    if (assignmentCount > 0) {
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_HAS_ASSIGNMENTS, {
+        count: assignmentCount,
+      });
+    }
+
+    // Shelf mapping links use ON DELETE RESTRICT; clear them only after the
+    // assignment guard so we never force-delete a still-assigned category.
     await detachCategoryShelfLinks(tx, categoryId);
     await deleteCategoryRow(tx, categoryId);
   });

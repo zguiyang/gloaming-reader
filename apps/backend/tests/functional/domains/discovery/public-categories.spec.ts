@@ -507,7 +507,7 @@ describe('public category service on gloaming_test', () => {
     expect(aliases).toHaveLength(0);
   });
 
-  it('deletes a category with assignments after detaching derived rows', async (ctx) => {
+  it('rejects deleting a category that still has SourceRecord assignments with 409', async (ctx) => {
     if (!schemaReady) return ctx.skip();
 
     const recordId = recordIdFor(5);
@@ -515,19 +515,22 @@ describe('public category service on gloaming_test', () => {
     await assignCategoryToSourceRecord(recordId, category.id, 'manual');
 
     const response = await adminApp().request(categoryPath(category.id), { method: 'DELETE' });
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(409);
+    const body = (await response.json()) as { code?: string; error?: string };
+    expect(body.code).toBe(ERROR_CODES.DISCOVERY.PUBLIC_CATEGORY_HAS_ASSIGNMENTS);
+    expect(body.error).toMatch(/1/);
 
     const categories = await db
       .select({ id: publicCategoryTable.id })
       .from(publicCategoryTable)
       .where(eq(publicCategoryTable.id, category.id));
-    expect(categories).toHaveLength(0);
+    expect(categories).toHaveLength(1);
 
     const assignments = await db
       .select({ id: sourceRecordPublicCategoryTable.id })
       .from(sourceRecordPublicCategoryTable)
       .where(eq(sourceRecordPublicCategoryTable.categoryId, category.id));
-    expect(assignments).toHaveLength(0);
+    expect(assignments).toHaveLength(1);
   });
 
   it('returns 404 for an unknown category id', async (ctx) => {
