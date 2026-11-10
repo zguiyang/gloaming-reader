@@ -1,7 +1,16 @@
 'use client';
 
-import { ChevronRightIcon, Loader2Icon, PauseIcon, PlayIcon, RotateCwIcon } from 'lucide-react';
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { Loader2Icon, PauseIcon, PlayIcon, RotateCwIcon } from 'lucide-react';
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { t } from '@gloaming/i18n';
 
@@ -15,24 +24,36 @@ import {
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
-/** Collapsed footprint: 56px cover + 10px gap + 26px expand trigger. */
-const COLLAPSED_WIDTH = 92;
-/** Width used only until the intrinsic pill content has been measured. */
-const EXPANDED_WIDTH_FALLBACK = 228;
-/** Expand folds itself back after this long, unless the pointer or focus is inside. */
+/**
+ * The card IS the cover circle. Collapsed width equals this diameter;
+ * expand only lengthens the trailing edge. Radius stays half the height,
+ * so the leading end never stops being that circle.
+ */
+const CARD_SIZE = 48;
+/** Artwork inside the leading circle, leaving a hair of card surface as a matte. */
+const AVATAR_INSET = 2;
+const AVATAR_SIZE = CARD_SIZE - AVATAR_INSET * 2;
+/** Gap from the circle’s trailing edge to the controls. */
+const CONTROL_GAP = 8;
+/** Where controls begin, measured from the leading edge. */
+const CONTROL_START = CARD_SIZE + CONTROL_GAP;
+/** Trailing padding after controls. */
+const CARD_PAD_END = 14;
+const PANEL_BODY_FALLBACK = 168;
 const AUTO_COLLAPSE_MS = 4_000;
-/** Progress sampling cadence; the 100ms bar transition keeps the fill continuous. */
+const LONG_PRESS_MS = 420;
 const PROGRESS_SAMPLE_MS = 100;
+/** Width of the pill. Opacity of the controls fades a little faster so glyphs aren’t sliced. */
+const MORPH_MS = 320;
+const CONTROLS_FADE_MS = 180;
 
 type ReaderTtsProps = {
   status: ReaderAudioStatus;
   playbackRate: ReaderPlaybackRate;
   tocOpen: boolean;
   audioRole: ReaderAudioRole;
-  /** Work cover used as the rotating avatar; null falls back to the title initial. */
   coverUrl: string | null;
   workTitle: string;
-  /** Chapter listening progress, 0–1 — sampled while the pill is expanded. */
   getChapterProgress: () => number;
   onToggle: () => void;
   onCyclePlaybackRate: () => void;
@@ -40,11 +61,9 @@ type ReaderTtsProps = {
 };
 
 /**
- * Mini player: collapsed it is a rotating cover avatar with the play/pause
- * control overlaid at its centre; the expand arrow only fades in while the
- * avatar cluster is hovered or focused (touch devices keep it visible). Expanded
- * it becomes the compact pill with speed, accent and a chapter progress
- * hairline. Idle entry lives in reader chrome (headphones).
+ * Collapsed: one circle — the cover is the card.
+ * Expanded: that same circle lengthens into a capsule. Cover stays the leading
+ * cap; only width changes. Desktop grows right, mobile grows left.
  */
 export function ReaderTts({
   status,
@@ -63,34 +82,35 @@ export function ReaderTts({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHeldOpen, setIsHeldOpen] = useState(false);
   const [activity, setActivity] = useState(0);
-  const [expandedWidth, setExpandedWidth] = useState(EXPANDED_WIDTH_FALLBACK);
+  const [panelBodyWidth, setPanelBodyWidth] = useState(PANEL_BODY_FALLBACK);
   const [failedCoverUrl, setFailedCoverUrl] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const expandButtonRef = useRef<HTMLButtonElement | null>(null);
-  const isExpandedPanelRef = useRef<HTMLDivElement | null>(null);
-  const expandedContentRef = useRef<HTMLDivElement | null>(null);
+  const panelBodyRef = useRef<HTMLDivElement | null>(null);
   const progressFillRef = useRef<HTMLSpanElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
-  const expandedPanelId = useId();
-  /** Auto-collapse only yields to keyboard users; a mouse-clicked button keeps focus forever. */
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
   const keyboardModalityRef = useRef(false);
+  const expandedPanelId = useId();
 
-  /** Every control interaction restarts the auto-collapse countdown. */
   const bumpActivity = useCallback(() => setActivity((tick) => tick + 1), []);
 
-  const collapse = useCallback(() => {
-    const activeElement = document.activeElement;
-    const shouldRestoreFocus =
-      activeElement instanceof HTMLElement && isExpandedPanelRef.current?.contains(activeElement);
-    setIsExpanded(false);
-    if (shouldRestoreFocus) {
-      // The pill is becoming inert — hand focus back once the collapsed
-      // controls are interactive again.
-      window.setTimeout(() => expandButtonRef.current?.focus(), 0);
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
     }
   }, []);
 
-  // Track keyboard modality so focus alone does not pin the pill open for mouse users.
+  const collapse = useCallback(() => {
+    setIsExpanded(false);
+  }, []);
+
+  const expand = useCallback(() => {
+    setIsExpanded(true);
+    bumpActivity();
+  }, [bumpActivity]);
+
   useEffect(() => {
     const handleKeyDown = () => {
       keyboardModalityRef.current = true;
@@ -99,17 +119,15 @@ export function ReaderTts({
     return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, []);
 
-  // The pill must fit its content in either locale, so measure the intrinsic
-  // row width instead of trusting a hardcoded pixel value that could clip.
   useLayoutEffect(() => {
-    const node = expandedContentRef.current;
+    const node = panelBodyRef.current;
     if (!node) {
       return;
     }
     const measure = () => {
-      const measured = Math.ceil(node.getBoundingClientRect().width);
-      if (measured > COLLAPSED_WIDTH) {
-        setExpandedWidth((current) => (current === measured ? current : measured));
+      const measured = Math.ceil(node.scrollWidth);
+      if (measured > 0) {
+        setPanelBodyWidth((current) => (current === measured ? current : measured));
       }
     };
     const timer = window.setTimeout(measure, 0);
@@ -129,7 +147,6 @@ export function ReaderTts({
     return () => window.clearTimeout(timer);
   }, [collapse, isExpanded, isHeldOpen, activity]);
 
-  // Outside press and Escape collapse the pill.
   useEffect(() => {
     if (!isExpanded) {
       return;
@@ -153,8 +170,6 @@ export function ReaderTts({
     };
   }, [collapse, isExpanded]);
 
-  // Paint progress straight into the DOM: the audio clock ticks far more often
-  // than React should re-render the reader page.
   useEffect(() => {
     if (!isExpanded) {
       return;
@@ -172,6 +187,8 @@ export function ReaderTts({
     return () => window.clearInterval(timer);
   }, [isExpanded, getChapterProgress]);
 
+  useEffect(() => () => clearLongPress(), [clearLongPress]);
+
   if (!isActive) {
     return null;
   }
@@ -187,7 +204,14 @@ export function ReaderTts({
   const avatarLabel = isLoading ? t(locale, 'content.reader.tts.loadingAudio') : toggleLabel;
   const coverInitial = Array.from(workTitle.trim())[0]?.toUpperCase() ?? '';
 
+  const cardWidth = CONTROL_START + panelBodyWidth + CARD_PAD_END;
+  const clusterWidth = isExpanded ? cardWidth : CARD_SIZE;
+
   const handleToggle = () => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
     bumpActivity();
     onToggle();
   };
@@ -199,14 +223,27 @@ export function ReaderTts({
     bumpActivity();
     onSelectRole(role);
   };
-  const handleExpand = () => {
-    setIsExpanded(true);
-    bumpActivity();
-    // The trigger becomes inert while expanded, so hand focus to the revealed
-    // controls. Pointer-driven focus does not show a focus-visible ring.
-    window.setTimeout(() => {
-      isExpandedPanelRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
-    }, 0);
+
+  const handleAvatarPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    keyboardModalityRef.current = false;
+    if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
+      return;
+    }
+    clearLongPress();
+    longPressTriggeredRef.current = false;
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      expand();
+    }, LONG_PRESS_MS);
+  };
+
+  const clearLongPressGesture = () => {
+    clearLongPress();
+  };
+
+  const cancelLongPressGesture = () => {
+    clearLongPress();
+    longPressTriggeredRef.current = false;
   };
 
   return (
@@ -214,29 +251,23 @@ export function ReaderTts({
       ref={rootRef}
       data-reader-ui
       className={cn(
-        'fixed z-40 transition-all duration-300 ease-out-soft',
+        'fixed z-40 transition-[left,right,bottom,opacity] duration-300 ease-out-soft',
         'bottom-6 right-6',
         'md:bottom-8 md:right-auto',
         tocOpen ? 'md:left-[350px]' : 'md:left-8',
         tocOpen && 'max-md:pointer-events-none max-md:opacity-0',
       )}
-      onPointerDownCapture={() => {
-        keyboardModalityRef.current = false;
+      onMouseEnter={() => {
+        setIsHeldOpen(true);
+        expand();
+      }}
+      onMouseLeave={() => {
         setIsHeldOpen(false);
-      }}
-      onPointerEnter={(event) => {
-        if (event.pointerType === 'mouse') {
-          setIsHeldOpen(true);
-        }
-      }}
-      onPointerLeave={(event) => {
-        if (event.pointerType === 'mouse') {
-          setIsHeldOpen(false);
-        }
       }}
       onFocusCapture={() => {
         if (keyboardModalityRef.current) {
           setIsHeldOpen(true);
+          expand();
         }
       }}
       onBlurCapture={(event) => {
@@ -246,47 +277,130 @@ export function ReaderTts({
       }}
     >
       <div
-        className="relative h-14 transition-[width] duration-[280ms] ease-out-soft motion-reduce:transition-none"
-        style={{ width: isExpanded ? expandedWidth : COLLAPSED_WIDTH }}
+        className="relative transition-[width] ease-out-soft motion-reduce:transition-none"
+        style={
+          {
+            width: clusterWidth,
+            height: CARD_SIZE,
+            transitionDuration: `${MORPH_MS}ms`,
+          } as CSSProperties
+        }
       >
-        {/* Expanded pill surface — stays mounted so width and fade can animate. */}
+        {/*
+          Pill — collapsed width is the circle itself. Width is the only tween;
+          radius stays a semicircle so the leading cap never changes shape.
+        */}
         <div
-          aria-hidden
           className={cn(
-            'pointer-events-none absolute inset-0 rounded-full border border-border/50 bg-card shadow-card transition-opacity duration-200',
-            isExpanded ? 'opacity-100' : 'opacity-0',
+            'absolute top-0 overflow-hidden rounded-full bg-card shadow-card ring-1 ring-border/50',
+            'transition-[width] ease-out-soft motion-reduce:transition-none',
+            'right-0 md:right-auto md:left-0',
           )}
-        />
+          style={
+            {
+              height: CARD_SIZE,
+              width: clusterWidth,
+              transitionDuration: `${MORPH_MS}ms`,
+            } as CSSProperties
+          }
+        >
+          <div
+            id={expandedPanelId}
+            role="group"
+            aria-label={t(locale, 'content.reader.tts.controlsGroup')}
+            aria-hidden={!isExpanded}
+            inert={!isExpanded}
+            className={cn(
+              'absolute inset-y-0 flex flex-col justify-center',
+              'transition-opacity ease-out motion-reduce:transition-none',
+              // Mobile grows left: cover slot is the trailing pad. Desktop grows right.
+              'right-0 pl-[var(--tts-end)] pr-[var(--tts-lead)]',
+              'md:right-auto md:left-0 md:pl-[var(--tts-lead)] md:pr-[var(--tts-end)]',
+            )}
+            style={
+              {
+                width: cardWidth,
+                opacity: isExpanded ? 1 : 0,
+                transitionDuration: `${CONTROLS_FADE_MS}ms`,
+                ['--tts-lead' as string]: `${CONTROL_START}px`,
+                ['--tts-end' as string]: `${CARD_PAD_END}px`,
+              } as CSSProperties
+            }
+          >
+            <div ref={panelBodyRef} className="flex w-max items-center gap-2.5">
+              <Button
+                variant="plain"
+                size={null}
+                type="button"
+                disabled={isLoading}
+                aria-label={t(locale, 'content.reader.tts.playbackRate', { rate: rateLabel })}
+                onClick={handleRate}
+                className={cn(
+                  'min-w-9 shrink-0 rounded-md px-1.5 py-1 text-xs font-medium tabular-nums transition-colors duration-200 ease-out-soft',
+                  'text-muted-foreground hover:text-foreground',
+                  'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                )}
+              >
+                {rateLabel}
+              </Button>
+              <AccentSegment role={audioRole} onSelect={handleRole} />
+            </div>
 
-        {/* Collapsed: rotating cover avatar + expand trigger that reveals on hover/focus. */}
+            <div
+              ref={progressBarRef}
+              role="progressbar"
+              aria-label={t(locale, 'content.reader.tts.chapterProgress')}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="mt-1.5 h-0.5 overflow-hidden rounded-full bg-foreground/10"
+              style={{ width: panelBodyWidth }}
+            >
+              <span
+                ref={progressFillRef}
+                className={cn(
+                  'block h-full w-0 rounded-full bg-brand',
+                  isLoading ? 'animate-pulse' : 'transition-[width] duration-100 ease-linear',
+                )}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Leading cap. Same box in both states — the pill grows out from this edge. */}
         <div
-          inert={isExpanded}
-          aria-hidden={isExpanded}
-          className={cn(
-            'group/cluster absolute inset-0 flex flex-row-reverse items-center gap-2.5 transition-opacity duration-150 ease-out-soft md:flex-row',
-            isExpanded ? 'pointer-events-none opacity-0' : 'opacity-100',
-          )}
+          data-tts-avatar
+          className="absolute top-0 z-10 max-md:right-0 md:left-0"
+          style={{ width: CARD_SIZE, height: CARD_SIZE }}
         >
           <Button
             variant="plain"
             size={null}
             type="button"
             aria-label={avatarLabel}
+            aria-expanded={isExpanded}
+            aria-controls={expandedPanelId}
             disabled={isLoading}
             onClick={handleToggle}
+            onPointerDown={handleAvatarPointerDown}
+            onPointerUp={clearLongPressGesture}
+            onPointerCancel={cancelLongPressGesture}
+            onPointerLeave={cancelLongPressGesture}
             className={cn(
-              'group relative size-14 shrink-0 overflow-hidden rounded-full shadow-card ring-1 ring-foreground/10',
+              'relative size-full rounded-full',
               'transition-transform duration-200 ease-out-soft motion-safe:active:scale-95',
               'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
               'disabled:cursor-wait',
             )}
           >
             <span
-              className="absolute inset-0 motion-safe:animate-reader-disc-spin"
-              style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
+              className="absolute overflow-hidden rounded-full bg-surface-container-high ring-1 ring-foreground/10 motion-safe:animate-reader-disc-spin"
+              style={{
+                inset: AVATAR_INSET,
+                animationPlayState: isPlaying ? 'running' : 'paused',
+              }}
             >
               {coverUrl && coverUrl !== failedCoverUrl ? (
-                // Asset URLs may be same-origin `/api/assets/:id` — plain img avoids next/image remote config.
                 // eslint-disable-next-line @next/next/no-img-element -- cover assets served via API proxy
                 <img
                   src={coverUrl}
@@ -296,126 +410,32 @@ export function ReaderTts({
                   onError={() => setFailedCoverUrl(coverUrl)}
                 />
               ) : (
-                <span className="flex size-full items-center justify-center bg-surface-container-high font-heading text-lg text-foreground/70">
+                <span className="flex size-full items-center justify-center font-heading text-base text-foreground/70">
                   {coverInitial || '·'}
                 </span>
               )}
             </span>
             {isLoading ? (
-              <span className="absolute inset-0 grid place-items-center bg-background/60">
+              <span
+                className="absolute grid place-items-center overflow-hidden rounded-full bg-background/60"
+                style={{ inset: AVATAR_INSET }}
+              >
                 <Loader2Icon className="size-5 animate-spin text-foreground" aria-hidden />
               </span>
             ) : (
               <span aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center">
-                {/* No scrim: a high-contrast glyph sits directly on the cover; the
-                    drop shadow keeps it readable over light artwork. */}
-                <span className="text-white opacity-90 drop-shadow-icon transition-[opacity,transform] duration-200 ease-out-soft group-hover:opacity-100 motion-safe:group-hover:scale-105">
+                <span className="text-white opacity-90 drop-shadow-icon">
                   {isPlaying ? (
-                    <PauseIcon className="size-[18px]" fill="currentColor" strokeWidth={1.5} />
+                    <PauseIcon className="size-4" fill="currentColor" strokeWidth={1.5} />
                   ) : status === 'error' ? (
-                    <RotateCwIcon className="size-[18px]" strokeWidth={2.25} />
+                    <RotateCwIcon className="size-4" strokeWidth={2.25} />
                   ) : (
-                    <PlayIcon className="size-[18px]" fill="currentColor" strokeWidth={1.5} />
+                    <PlayIcon className="size-4" fill="currentColor" strokeWidth={1.5} />
                   )}
                 </span>
               </span>
             )}
           </Button>
-
-          <Button
-            variant="plain"
-            size={null}
-            ref={expandButtonRef}
-            type="button"
-            aria-label={t(locale, 'content.reader.tts.expandControls')}
-            aria-expanded={isExpanded}
-            aria-controls={expandedPanelId}
-            onClick={handleExpand}
-            className={cn(
-              'grid size-[26px] shrink-0 place-items-center rounded-full border border-border/60 bg-surface-container text-muted-foreground',
-              'transition-[color,background-color,border-color,opacity,transform] duration-150 ease-out-soft motion-reduce:transition-none',
-              'hover:border-brand/60 hover:text-foreground',
-              'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-              'motion-safe:active:scale-95',
-              // Hidden until the cluster is hovered or focused. Touch devices have
-              // no hover, so they keep the trigger visible permanently.
-              'pointer-events-none scale-90 opacity-0',
-              'group-hover/cluster:pointer-events-auto group-hover/cluster:scale-100 group-hover/cluster:opacity-100',
-              'group-focus-within/cluster:pointer-events-auto group-focus-within/cluster:scale-100 group-focus-within/cluster:opacity-100',
-              '[@media(hover:none)]:pointer-events-auto [@media(hover:none)]:scale-100 [@media(hover:none)]:opacity-100',
-            )}
-          >
-            <ChevronRightIcon className="size-3.5 max-md:-scale-x-100" strokeWidth={2} aria-hidden />
-          </Button>
-        </div>
-
-        {/* Expanded: play/pause, speed, accent and the chapter progress hairline. */}
-        <div
-          id={expandedPanelId}
-          ref={isExpandedPanelRef}
-          role="group"
-          aria-label={t(locale, 'content.reader.tts.controlsGroup')}
-          inert={!isExpanded}
-          aria-hidden={!isExpanded}
-          className={cn(
-            'absolute inset-0 overflow-hidden rounded-full transition-opacity duration-200 ease-out-soft',
-            isExpanded ? 'opacity-100' : 'pointer-events-none opacity-0',
-          )}
-        >
-          <div ref={expandedContentRef} className="absolute inset-y-0 left-0 flex w-max items-center gap-5 pr-3 pl-2">
-            <Button
-              type="button"
-              size="icon"
-              className="size-10 shrink-0 rounded-full hover:bg-brand-deep focus-visible:ring-inset"
-              aria-label={toggleLabel}
-              disabled={isLoading}
-              onClick={handleToggle}
-            >
-              {isLoading ? (
-                <Loader2Icon className="size-4 animate-spin" />
-              ) : isPlaying ? (
-                <PauseIcon className="size-4" />
-              ) : status === 'error' ? (
-                <RotateCwIcon className="size-4" />
-              ) : (
-                <PlayIcon className="size-4" />
-              )}
-            </Button>
-            <Button
-              variant="plain"
-              size={null}
-              type="button"
-              disabled={isLoading}
-              aria-label={t(locale, 'content.reader.tts.playbackRate', { rate: rateLabel })}
-              onClick={handleRate}
-              className={cn(
-                'min-w-10 shrink-0 rounded-full px-2 py-1 text-xs font-medium tabular-nums transition-colors duration-200 ease-out-soft',
-                'text-muted-foreground hover:text-foreground',
-                'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-              )}
-            >
-              {rateLabel}
-            </Button>
-            <AccentSegment role={audioRole} onSelect={handleRole} />
-          </div>
-
-          <div
-            ref={progressBarRef}
-            role="progressbar"
-            aria-label={t(locale, 'content.reader.tts.chapterProgress')}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            className="absolute right-4 bottom-1 left-4 h-[3px] overflow-hidden rounded-full bg-foreground/10"
-          >
-            <span
-              ref={progressFillRef}
-              className={cn(
-                'block h-full w-0 rounded-full bg-brand',
-                isLoading ? 'animate-pulse' : 'transition-[width] duration-100 ease-linear',
-              )}
-            />
-          </div>
         </div>
       </div>
     </div>
@@ -429,7 +449,7 @@ function AccentSegment({ role, onSelect }: { role: ReaderAudioRole; onSelect: (r
     <div
       role="group"
       aria-label={t(locale, 'content.reader.tts.accentGroup')}
-      className="flex shrink-0 rounded-full bg-surface-container-high/80 p-0.5"
+      className="flex shrink-0 rounded-lg bg-surface-container-high/80 p-0.5"
     >
       <AccentOption
         label={t(locale, 'content.reader.tts.usShort')}
@@ -467,7 +487,7 @@ function AccentOption({
       aria-label={ariaLabel}
       onClick={onClick}
       className={cn(
-        'min-w-8 rounded-full px-2.5 py-1 text-xs font-medium transition-colors duration-200 ease-out-soft',
+        'min-w-8 rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200 ease-out-soft',
         'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none',
         selected ? 'bg-brand-soft text-brand-deep' : 'text-muted-foreground hover:text-foreground',
       )}

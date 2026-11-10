@@ -415,10 +415,19 @@ describe('ReaderPage lazy audio', () => {
 
     clickButton(container, 'Listen');
     await flushMicrotasks();
-    // Accent controls live in the expanded pill; the collapsed avatar only
-    // carries play/pause and the expand trigger.
-    clickButton(container, 'Expand playback controls');
-    await flushMicrotasks();
+    // Accent controls live in the expanded card; long-press the cover to open it.
+    const avatar = Array.from(container.querySelectorAll('button')).find((element) =>
+      element.closest('[data-tts-avatar]'),
+    );
+    expect(avatar).toBeDefined();
+    act(() => {
+      const down = new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true });
+      Object.defineProperty(down, 'pointerType', { value: 'touch' });
+      avatar!.dispatchEvent(down);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 420));
+    });
     clickButton(container, 'UK accent');
     await flushMicrotasks();
 
@@ -429,7 +438,7 @@ describe('ReaderPage lazy audio', () => {
     expect(audio.src).toBe('/audio/uk/0');
   });
 
-  it('collapses speed and accent behind the expand trigger until it is pressed', async () => {
+  it('reveals speed and accent after long-pressing the cover disc', async () => {
     const { container } = await renderReaderPage();
 
     clickButton(container, 'Listen');
@@ -439,14 +448,23 @@ describe('ReaderPage lazy audio', () => {
       (element) => element.getAttribute('aria-label') === 'UK accent',
     );
     expect(accentButton).toBeDefined();
-    // Collapsed pill content is inert, so the avatar stays the only reachable control.
+    // Collapsed card content is inert, so the cover stays the only reachable control.
     expect(accentButton!.closest('[inert]')).not.toBeNull();
 
-    clickButton(container, 'Expand playback controls');
-    await flushMicrotasks();
+    const avatar = Array.from(container.querySelectorAll('button')).find((element) =>
+      element.closest('[data-tts-avatar]'),
+    );
+    expect(avatar).toBeDefined();
+    act(() => {
+      const down = new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true });
+      Object.defineProperty(down, 'pointerType', { value: 'touch' });
+      avatar!.dispatchEvent(down);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 420));
+    });
     expect(accentButton!.closest('[inert]')).toBeNull();
 
-    // A press outside the player folds it back to the avatar.
     act(() => {
       document.body.dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
     });

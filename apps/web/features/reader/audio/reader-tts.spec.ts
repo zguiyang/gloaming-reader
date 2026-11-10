@@ -61,23 +61,41 @@ function click(button: HTMLElement): void {
   });
 }
 
-function pointerEvent(type: string, pointerType: string): MouseEvent {
-  const event = new window.MouseEvent(type, { bubbles: true, relatedTarget: document.body });
-  Object.defineProperty(event, 'pointerType', { value: pointerType });
-  return event;
-}
-
-function hover(container: HTMLElement, pointerType = 'mouse'): void {
+function hover(container: HTMLElement): void {
   const root = container.querySelector('[data-reader-ui]')!;
+  // React maps onMouseEnter through bubbling mouseover + relatedTarget checks.
   act(() => {
-    root.dispatchEvent(pointerEvent('pointerover', pointerType));
+    root.dispatchEvent(
+      new window.MouseEvent('mouseover', { bubbles: true, cancelable: true, relatedTarget: document.body }),
+    );
   });
 }
 
-function unhover(container: HTMLElement, pointerType = 'mouse'): void {
+function unhover(container: HTMLElement): void {
   const root = container.querySelector('[data-reader-ui]')!;
   act(() => {
-    root.dispatchEvent(pointerEvent('pointerout', pointerType));
+    root.dispatchEvent(
+      new window.MouseEvent('mouseout', { bubbles: true, cancelable: true, relatedTarget: document.body }),
+    );
+  });
+}
+
+function expandByHover(container: HTMLElement): void {
+  hover(container);
+}
+
+function expandByLongPress(container: HTMLElement): void {
+  const avatar = findButton(container, 'Pause');
+  act(() => {
+    const down = new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true });
+    Object.defineProperty(down, 'pointerType', { value: 'touch' });
+    avatar.dispatchEvent(down);
+  });
+  advance(420);
+  act(() => {
+    const up = new window.MouseEvent('pointerup', { bubbles: true, cancelable: true });
+    Object.defineProperty(up, 'pointerType', { value: 'touch' });
+    avatar.dispatchEvent(up);
   });
 }
 
@@ -88,7 +106,6 @@ function advance(ms: number): void {
 }
 
 function isCollapsed(container: HTMLElement): boolean {
-  // Every expanded-pill control is inert while the avatar is showing.
   return findButton(container, 'UK accent').closest('[inert]') !== null;
 }
 
@@ -108,19 +125,21 @@ afterEach(() => {
 });
 
 describe('ReaderTts mini player', () => {
-  it('shows the cover as a rotating avatar with play/pause at its centre', () => {
+  it('shows only the rotating cover with play/pause while collapsed', () => {
     const container = renderTts(baseProps());
 
     const avatar = findButton(container, 'Pause');
-    const cover = avatar.querySelector('img');
-    expect(cover?.getAttribute('src')).toBe('/api/assets/cover-1');
+    expect(avatar.closest('[data-tts-avatar]')).not.toBeNull();
+    expect(avatar.getAttribute('aria-expanded')).toBe('false');
+    expect(avatar.querySelector('img')?.getAttribute('src')).toBe('/api/assets/cover-1');
 
-    // The cover spins only while playing, and pausing freezes it in place.
     const disc = avatar.querySelector('[style*="animation-play-state"]') as HTMLElement | null;
     expect(disc?.style.animationPlayState).toBe('running');
 
-    const expandTrigger = findButton(container, 'Expand playback controls');
-    expect(expandTrigger.getAttribute('aria-expanded')).toBe('false');
+    // Card controls stay mounted (width 0 / inert); only the cover is interactive while collapsed.
+    expect(Array.from(container.querySelectorAll('button')).map((button) => button.getAttribute('aria-label'))).toEqual(
+      ['Playback speed 1×, tap to change', 'US accent', 'UK accent', 'Pause'],
+    );
     expect(isCollapsed(container)).toBe(true);
   });
 
@@ -140,12 +159,13 @@ describe('ReaderTts mini player', () => {
     expect(avatar.querySelector('.animate-spin')).not.toBeNull();
   });
 
-  it('expands on the arrow and folds back after four idle seconds', () => {
+  it('expands on mouse hover and folds back after four idle seconds', () => {
     const container = renderTts(baseProps());
 
-    click(findButton(container, 'Expand playback controls'));
+    expandByHover(container);
     expect(isCollapsed(container)).toBe(false);
 
+    unhover(container);
     advance(3_900);
     expect(isCollapsed(container)).toBe(false);
 
@@ -153,11 +173,10 @@ describe('ReaderTts mini player', () => {
     expect(isCollapsed(container)).toBe(true);
   });
 
-  it('keeps the pill open while hovered and restarts the countdown on leave', () => {
+  it('keeps the card open while hovered and restarts the countdown on leave', () => {
     const container = renderTts(baseProps());
 
-    click(findButton(container, 'Expand playback controls'));
-    hover(container);
+    expandByHover(container);
     advance(10_000);
     expect(isCollapsed(container)).toBe(false);
 
@@ -168,27 +187,46 @@ describe('ReaderTts mini player', () => {
     expect(isCollapsed(container)).toBe(true);
   });
 
-  it('does not treat a touch pointer as hover, so the pill still auto-collapses', () => {
-    const container = renderTts(baseProps());
+  it('expands on touch long-press without toggling playback', () => {
+    const props = baseProps();
+    const container = renderTts(props);
+    const avatar = findButton(container, 'Pause');
 
-    click(findButton(container, 'Expand playback controls'));
-    hover(container, 'touch');
-    advance(10_000);
-
+    act(() => {
+      const down = new window.MouseEvent('pointerdown', { bubbles: true, cancelable: true });
+      Object.defineProperty(down, 'pointerType', { value: 'touch' });
+      avatar.dispatchEvent(down);
+    });
     expect(isCollapsed(container)).toBe(true);
+
+    advance(420);
+    expect(isCollapsed(container)).toBe(false);
+
+    act(() => {
+      const up = new window.MouseEvent('pointerup', { bubbles: true, cancelable: true });
+      Object.defineProperty(up, 'pointerType', { value: 'touch' });
+      avatar.dispatchEvent(up);
+      avatar.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+    });
+    // Long-press consumed the gesture — playback stays put.
+    expect(props.onToggle).not.toHaveBeenCalled();
   });
 
-  it('moves focus into the revealed controls when expanding', () => {
+  it('keeps the same cover disc after expand — no secondary play button', () => {
     const container = renderTts(baseProps());
 
-    click(findButton(container, 'Expand playback controls'));
-    advance(1);
+    const avatar = findButton(container, 'Pause');
+    const coverBefore = avatar.querySelector('img');
 
-    const panelPlay = Array.from(container.querySelectorAll('button')).find(
-      (element) => element.getAttribute('aria-label') === 'Pause' && !element.closest('[inert]'),
-    );
-    expect(panelPlay).toBeDefined();
-    expect(document.activeElement).toBe(panelPlay);
+    expandByLongPress(container);
+    expect(isCollapsed(container)).toBe(false);
+    expect(findButton(container, 'Pause')).toBe(avatar);
+    expect(avatar.querySelector('img')).toBe(coverBefore);
+    expect(
+      Array.from(container.querySelectorAll('button')).filter(
+        (element) => element.getAttribute('aria-label') === 'Pause' && !element.closest('[data-tts-avatar]'),
+      ),
+    ).toHaveLength(0);
   });
 
   it('falls back to the title initial when the cover image fails to load', () => {
@@ -217,7 +255,7 @@ describe('ReaderTts mini player', () => {
     const props = baseProps();
     const container = renderTts(props);
 
-    click(findButton(container, 'Expand playback controls'));
+    expandByLongPress(container);
     advance(3_000);
     click(findButton(container, 'Playback speed 1×, tap to change'));
     expect(props.onCyclePlaybackRate).toHaveBeenCalledTimes(1);
@@ -231,40 +269,25 @@ describe('ReaderTts mini player', () => {
   it('collapses on an outside press and on Escape', () => {
     const container = renderTts(baseProps());
 
-    click(findButton(container, 'Expand playback controls'));
+    expandByLongPress(container);
     act(() => {
       document.body.dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
     });
     expect(isCollapsed(container)).toBe(true);
 
-    click(findButton(container, 'Expand playback controls'));
+    expandByLongPress(container);
     act(() => {
       document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     });
     expect(isCollapsed(container)).toBe(true);
-  });
-
-  it('hands keyboard focus back to the expand trigger when Escape closes the pill', () => {
-    const container = renderTts(baseProps());
-
-    click(findButton(container, 'Expand playback controls'));
-    act(() => findButton(container, 'Playback speed 1×, tap to change').focus());
-
-    act(() => {
-      document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    });
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
-
-    expect(document.activeElement).toBe(findButton(container, 'Expand playback controls'));
   });
 
   it('paints chapter progress into the expanded hairline', () => {
     const getChapterProgress = vi.fn(() => 0.62);
     const container = renderTts(baseProps({ getChapterProgress }));
 
-    click(findButton(container, 'Expand playback controls'));
+    expandByLongPress(container);
+    advance(1);
 
     const bar = container.querySelector('[role="progressbar"]');
     expect(bar?.getAttribute('aria-valuenow')).toBe('62');
