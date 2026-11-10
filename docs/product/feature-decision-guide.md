@@ -17,7 +17,7 @@ Users can already find courses, drills, and chatbots. They still cannot **comfor
 
 ## 2. Four questions (required before build)
 
-### Q1. Does this help the user keep reading this page?
+### Q1. Does this help the user find, resume, or keep reading authentic content?
 
 - Pass → consider
 - If it creates another study task → **refuse**
@@ -46,18 +46,20 @@ If you cannot place it, it is a side quest. Side quests are out of V1.
 
 ## 3. Feature types and default stance
 
-| Type                   | Examples                               | Default            | Design note                  |
-| ---------------------- | -------------------------------------- | ------------------ | ---------------------------- |
-| Main-loop strength     | Import, EPUB parse, typography, resume | **Prioritize**     | This _is_ V1                 |
-| Comprehension assist   | Inline explain, translation, TTS       | **Yes**            | On demand; do not hijack     |
-| Highlights / bookmarks | Save a line in the book                | **Later**          | Easy to become a vocab inbox |
-| Post-input quizzes     | Practice                               | **No for V1**      | Removed from codebase        |
-| Daily review queue     | Review / SRS                           | **No for V1**      | Removed from codebase        |
-| Growth dashboard       | Heatmaps, portraits                    | **Keep; optimize** | Reading-history overview     |
-| Social competition     | Leaderboards                           | **Default no**     |                              |
-| Courseification        | Syllabus, pass walls                   | **Default no**     |                              |
-| Free AI chat as home   | Chat without text                      | **Default no**     |                              |
-| AI-written library     | Generated stories                      | **Default no**     |                              |
+| Type                   | Examples                               | Default            | Design note                                                    |
+| ---------------------- | -------------------------------------- | ------------------ | -------------------------------------------------------------- |
+| Main-loop strength     | Import, EPUB parse, typography, resume | **Prioritize**     | This _is_ V1                                                   |
+| Comprehension assist   | Inline explain, translation, TTS       | **Yes**            | On demand; do not hijack                                       |
+| Personal organization  | Private tags and localized names       | **MVP required**   | Organize the user's Library; automatic tagging requires opt-in |
+| Public classification  | Instance categories for discovery      | **MVP scope**      | Separate from private tags; do not imply runtime acceptance    |
+| Highlights / bookmarks | Save a line in the book                | **Later**          | Easy to become a vocab inbox                                   |
+| Post-input quizzes     | Practice                               | **No for V1**      | Removed from codebase                                          |
+| Daily review queue     | Review / SRS                           | **No for V1**      | Removed from codebase                                          |
+| Growth dashboard       | Heatmaps, portraits                    | **Keep; optimize** | Reading-history overview                                       |
+| Social competition     | Leaderboards                           | **Default no**     |                                                                |
+| Courseification        | Syllabus, pass walls                   | **Default no**     |                                                                |
+| Free AI chat as home   | Chat without text                      | **Default no**     |                                                                |
+| AI-written library     | Generated stories                      | **Default no**     |                                                                |
 
 ---
 
@@ -80,16 +82,19 @@ Be careful with AI turn count (high turns may mean reading was stolen).
 
 ## 5. Adding AI without drifting
 
-AI’s only legal job:
+The purpose of reading assistance and organization AI:
 
 > **Lower friction to stay inside real content.**
 
-| Legal                                                | Illegal                                          |
-| ---------------------------------------------------- | ------------------------------------------------ |
-| Explain words/sentences in this text                 | Default path that skips reading via summary      |
-| Translate this sentence / passage                    | Free chat as the home screen                     |
-| TTS for this text                                    | Marketing “smarter models” instead of the reader |
-| Parse EPUB into **ReadingPart** chapters (admin MVP) | Rewrite the user’s book into a course            |
+| Legal                                                        | Illegal                                          |
+| ------------------------------------------------------------ | ------------------------------------------------ |
+| Explain words/sentences in this text                         | Default path that skips reading via summary      |
+| Translate this sentence / passage                            | Free chat as the home screen                     |
+| TTS for this text                                            | Marketing “smarter models” instead of the reader |
+| Opt-in personal tag organization and name translation        | Overwrite the user's manual organization         |
+| Instance public classification for finding authentic content | Turn classification into generated lessons       |
+
+EPUB parsing into ReadingParts is content infrastructure, not an AI lesson-generation feature. Provider and ownership boundaries for organization are defined in [Personal tags](./personal-tags.md) and [Public categories](./public-categories.md).
 
 Extra check: **If AI is off, does reading still work?** If no, redesign.
 

@@ -1,0 +1,323 @@
+'use client';
+
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowRightIcon, BookmarkIcon, CheckIcon, Loader2Icon, RotateCcwIcon } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
+
+import { t } from '@gloaming/i18n';
+import type { SourceRecordSaveResult, SourceRecordSaveStatus } from '@gloaming/shared/library';
+
+import { Badge } from '@/components/ui/badge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { AUTH_ROUTES } from '@/constants';
+import { useAuthDialog } from '@/features/auth';
+import {
+  discoverQueryKey,
+  saveSourceRecordToLibrary,
+  useSourceRecordSaveStatusQuery,
+} from '@/features/discover/discover-api';
+import { categoryDisplayName, type DiscoverItem } from '@/features/discover/discover-model';
+import { WorkCover } from '@/features/work-cover';
+import { ApiRequestError, isUnauthorizedError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
+import { useLocale } from '@/lib/locale-context';
+import { workDetailHref } from '@/lib/navigation/work-detail-return';
+import { cn } from '@/lib/utils';
+
+type DiscoverSourceCardProps = {
+  item: DiscoverItem;
+  detailMode?: boolean;
+  actionsOnly?: boolean;
+};
+
+type SaveActionState = 'saving' | null;
+
+/** Server 409 code for a source record without a readable EPUB candidate; it doubles as its i18n key. */
+const SOURCE_RECORD_NO_EPUB_CANDIDATE_CODE = 'api.errors.library.sourceRecordNoEpubCandidate';
+
+/**
+ * SourceRecord Discover card.
+ *
+ * Save feedback is driven by the server-side Save Intent status, not by the
+ * linked `linkedWorkId`: materialization links the Work first and keeps
+ * parsing, so only `ready` (readable Work + membership) may claim completion
+ * or expose the Work entry, and the entry itself exists only when the server
+ * reports `detailAvailable: true` for this viewer. An unmaterialized
+ * SourceRecord has no readable Work yet, so its action is an explicit Save
+ * Intent that materializes on demand.
+ */
+export function DiscoverSourceCard({ item, detailMode = false, actionsOnly = false }: DiscoverSourceCardProps) {
+  const { data } = authClient.useSession();
+  const userId = data?.user.id ?? null;
+  return (
+    <DiscoverSourceCardContent
+      key={userId ?? 'anonymous'}
+      item={item}
+      detailMode={detailMode}
+      actionsOnly={actionsOnly}
+      userId={userId}
+    />
+  );
+}
+
+function DiscoverSourceCardContent({
+  item,
+  detailMode,
+  actionsOnly,
+  userId,
+}: DiscoverSourceCardProps & { userId: string | null }) {
+  const { locale } = useLocale();
+  const { openLogin } = useAuthDialog();
+  const queryClient = useQueryClient();
+  const [action, setAction] = useState<SaveActionState>(null);
+  const [posted, setPosted] = useState<{
+    result: SourceRecordSaveResult;
+    seenData: SourceRecordSaveStatus | undefined;
+  } | null>(null);
+  const statusQuery = useSourceRecordSaveStatusQuery(item.id);
+
+  // A POST result only bridges until the status query reports data of its own:
+  // once the query data object changes, the server read is authoritative again.
+  const postedResult = posted && posted.seenData === statusQuery.data ? posted.result : null;
+  const serverStatus = postedResult?.status ?? statusQuery.data?.status ?? null;
+
+  // Refresh the records list once the server reports readiness so the shared
+  // `linkedWorkId` projection catches up with the completed import.
+  const wasReady = useRef(false);
+  useEffect(() => {
+    if (serverStatus === 'ready' && !wasReady.current) {
+      wasReady.current = true;
+      void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'records'] });
+      // Refresh an open source detail as well, so its linked Work becomes available.
+      void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'record'] });
+    }
+    if (serverStatus !== 'ready') {
+      wasReady.current = false;
+    }
+  }, [queryClient, serverStatus]);
+
+  async function handleSaveIntent() {
+    if (action || item.isSaveable === false) {
+      // Unsaveable records (no selectable EPUB yet) never send a Save Intent.
+      return;
+    }
+    setAction('saving');
+    try {
+      const result = await saveSourceRecordToLibrary(item.id);
+      // An older GET (for example, the pre-save `none` read) must not overwrite
+      // this POST result and stop polling after the import has been queued.
+      await queryClient.cancelQueries({ queryKey: discoverQueryKey.saveStatus(item.id, userId), exact: true });
+      queryClient.setQueryData(discoverQueryKey.saveStatus(item.id, userId), {
+        status: result.status,
+        workId: result.workId,
+        failureReason: null,
+      });
+      setPosted({ result, seenData: statusQuery.data });
+      void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'records'] });
+      if (result.status === 'ready') {
+        toast.success(t(locale, 'content.discover.saveReady'));
+      } else {
+        toast.info(t(locale, 'content.discover.savePending'));
+      }
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        openLogin();
+        return;
+      }
+      // A 409 rejection (no selectable EPUB candidate) carries the server's own
+      // localized explanation; every other failure keeps the generic copy.
+      const messageKey =
+        error instanceof ApiRequestError && error.code === SOURCE_RECORD_NO_EPUB_CANDIDATE_CODE
+          ? SOURCE_RECORD_NO_EPUB_CANDIDATE_CODE
+          : 'content.discover.saveFailed';
+      toast.error(t(locale, messageKey));
+    } finally {
+      setAction(null);
+    }
+  }
+
+  const isSaving = action === 'saving';
+  const isPreparing = !isSaving && serverStatus === 'pending';
+  const isFailed = !isSaving && serverStatus === 'failed';
+  const isSaved = !isSaving && serverStatus === 'ready';
+
+  // The Work entry is only truthful when the server says the import is ready;
+  // for viewers without a saved intent the existing linked projection applies,
+  // while pending/failed imports never expose a detail entry of their own.
+  const entryWorkId = isSaved
+    ? (postedResult?.workId ?? statusQuery.data?.workId ?? item.linkedWorkId)
+    : item.linkedWorkId;
+  // Detail links (cover, title, and the explicit buttons) exist only when the
+  // server confirmed this viewer may open the linked Work; a missing/older
+  // payload reports `false` and keeps the card on its save/action affordances.
+  const canOpenDetail = item.detailAvailable === true;
+  const detailHref =
+    canOpenDetail && !isPreparing && !isFailed && !isSaving && entryWorkId
+      ? workDetailHref(entryWorkId, AUTH_ROUTES.discover)
+      : null;
+  const cardHref = detailMode ? null : (detailHref ?? `/discover/records/${encodeURIComponent(item.id)}`);
+  const failureReason = isFailed ? (statusQuery.data?.failureReason ?? null) : null;
+
+  const cover = <WorkCover title={item.title} coverImageUrl={item.coverImageUrl} className="aspect-[2/3] rounded-sm" />;
+
+  return (
+    <article className="flex h-full flex-col items-stretch gap-3">
+      {!actionsOnly &&
+        (cardHref ? (
+          <Link
+            href={cardHref}
+            className={cn(
+              'relative outline-none',
+              'transition-transform duration-300 ease-out-soft',
+              'hover:-translate-y-0.5 focus-visible:ring-3 focus-visible:ring-ring/50',
+            )}
+            aria-label={t(locale, 'content.common.viewBookDetailAria', { title: item.title })}
+          >
+            {cover}
+          </Link>
+        ) : (
+          cover
+        ))}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {!actionsOnly && (
+          <>
+            <h3
+              className={cn(
+                'font-heading text-sm leading-snug font-medium text-foreground md:text-base',
+                detailMode ? 'text-xl md:text-2xl' : 'line-clamp-2 min-h-[2lh]',
+              )}
+              title={item.title}
+            >
+              {cardHref ? (
+                <Link
+                  href={cardHref}
+                  className="line-clamp-2 transition-colors duration-300 ease-out-soft hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  {item.title}
+                </Link>
+              ) : (
+                <span className={detailMode ? undefined : 'line-clamp-2'}>{item.title}</span>
+              )}
+            </h3>
+            {/* Reserved one-line author row keeps sibling cards' action areas aligned. */}
+            <p className="mt-1 min-h-[1lh] line-clamp-1 text-xs text-muted-foreground md:text-[13px]">
+              {item.author ?? ''}
+            </p>
+
+            {item.categories.length > 0 ? (
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={t(locale, 'content.discover.categoriesAria')}>
+                {item.categories.map((category) => (
+                  <li key={category.id}>
+                    <Badge variant="secondary" className="rounded-full bg-accent font-normal text-accent-foreground">
+                      {categoryDisplayName(category)}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
+
+        <div className={cn('mt-auto pt-3', actionsOnly && 'pt-0')}>
+          {isSaving ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled
+              className={cn('h-8 gap-1.5', actionsOnly && 'h-12 w-full rounded-xl text-base md:h-11 md:w-auto md:px-8')}
+            >
+              <Loader2Icon className="size-4 animate-spin" aria-hidden />
+              {t(locale, 'content.discover.addToLibrary')}
+            </Button>
+          ) : isPreparing ? (
+            <Button
+              type="button"
+              variant="outline"
+              disabled
+              className={cn('h-8 gap-1.5', actionsOnly && 'h-12 w-full rounded-xl text-base md:h-11 md:w-auto md:px-8')}
+            >
+              <Loader2Icon className="size-4 animate-spin" aria-hidden />
+              {t(locale, 'content.discover.preparing')}
+            </Button>
+          ) : isFailed ? (
+            <div className="flex flex-col items-start gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(
+                  'h-8 gap-1.5',
+                  actionsOnly && 'h-12 w-full rounded-xl text-base md:h-11 md:w-auto md:px-8',
+                )}
+                onClick={() => {
+                  void handleSaveIntent();
+                }}
+              >
+                <RotateCcwIcon className="size-4" strokeWidth={1.5} aria-hidden />
+                {t(locale, 'content.common.retry')}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {failureReason ?? t(locale, 'content.discover.saveFailed')}
+              </p>
+            </div>
+          ) : isSaved ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled
+                className={cn(
+                  'h-8 cursor-default gap-1.5 bg-surface-container-high text-muted-foreground shadow-none disabled:opacity-100',
+                  actionsOnly && 'h-12 rounded-xl text-base md:h-11 md:px-8',
+                )}
+              >
+                <CheckIcon className="size-4" strokeWidth={1.5} aria-hidden />
+                {t(locale, 'content.discover.inLibrary')}
+              </Button>
+              {detailHref ? (
+                <Link href={detailHref} className={buttonVariants({ variant: 'outline', className: 'h-8 gap-1.5' })}>
+                  {t(locale, 'content.discover.viewDetail')}
+                  <ArrowRightIcon className="size-4" strokeWidth={1.5} aria-hidden />
+                </Link>
+              ) : null}
+              <Link href={AUTH_ROUTES.library} className={buttonVariants({ variant: 'link', className: 'h-8 px-0' })}>
+                {t(locale, 'content.discover.goToLibrary')}
+              </Link>
+            </div>
+          ) : detailHref ? (
+            <Link href={detailHref} className={buttonVariants({ variant: 'outline', className: 'h-8 gap-1.5' })}>
+              {t(locale, 'content.discover.viewDetail')}
+              <ArrowRightIcon className="size-4" strokeWidth={1.5} aria-hidden />
+            </Link>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(
+                  'h-8 gap-1.5',
+                  actionsOnly && 'h-12 w-full rounded-xl text-base md:h-11 md:w-auto md:px-8',
+                )}
+                disabled={item.isSaveable === false}
+                onClick={() => {
+                  void handleSaveIntent();
+                }}
+              >
+                <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
+                {t(locale, 'content.discover.addToLibrary')}
+              </Button>
+              {item.isSaveable === false ? (
+                <p className="mt-1.5 text-xs text-muted-foreground">{t(locale, 'content.discover.noEpubHint')}</p>
+              ) : null}
+            </>
+          )}
+          {!detailHref && isPreparing ? (
+            <p className="mt-1.5 text-xs text-muted-foreground">{t(locale, 'content.discover.preparingHint')}</p>
+          ) : null}
+        </div>
+      </div>
+    </article>
+  );
+}

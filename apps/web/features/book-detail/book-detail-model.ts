@@ -1,5 +1,5 @@
 import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
-import { resolveLocalizedText, type TaxonomyReference } from '@gloaming/shared/taxonomy';
+import type { LibraryItem } from '@gloaming/shared/library';
 
 /** Reading lifecycle for book detail CTA / progress chrome. */
 export type BookReadingStatus = 'unread' | 'in_progress' | 'completed';
@@ -15,14 +15,7 @@ export type BookChapter = {
   status: BookChapterStatus;
 };
 
-export type BookDetailShelfStatus = 'available' | 'on_shelf';
-
-export type BookDetailSourceLabel = 'official';
-
-/** Sentinel when work has no taxonomy tag for category display. */
-export const BOOK_DETAIL_DEFAULT_CATEGORY = '__default_category__' as const;
-
-export type BookDetailCategory = TaxonomyReference | typeof BOOK_DETAIL_DEFAULT_CATEGORY;
+export type BookDetailLibraryStatus = 'available' | 'in_library';
 
 export type BookDetail = {
   id: string;
@@ -30,17 +23,18 @@ export type BookDetail = {
   author: string;
   difficultyScore: number | null;
   difficultyLabel: string | null;
-  category: BookDetailCategory;
-  tags: TaxonomyReference[];
   estimatedMinutes: number | null;
   suggestedVocabSize: number | null;
   teaser: string;
-  sourceLabel: BookDetailSourceLabel;
+  sourceNotes?: string[];
   /** BCP-47 language tag from catalog work — display via {@link languageLabelFromCode}. */
   language: string;
   languageLabel: string;
   coverImageUrl: string | null;
-  shelfStatus: BookDetailShelfStatus;
+  libraryStatus: BookDetailLibraryStatus;
+  libraryItem: LibraryItem | null;
+  availability: LibraryItem['availability'];
+  isReadable: boolean;
   readingStatus: BookReadingStatus;
   progressRatio: number | null;
   lastReadAt: string | null;
@@ -53,7 +47,6 @@ export type BookDetail = {
 export type RelatedBookCard = {
   id: string;
   title: string;
-  tags: TaxonomyReference[];
   coverImageUrl: string | null;
   difficultyLabel: string | null;
   estimatedMinutes: number | null;
@@ -147,37 +140,11 @@ export function formatChapterTitle(
   return t(locale, 'content.bookDetail.chapterFallback', { n: chapter.index });
 }
 
-export function taxonomyDisplayName(ref: TaxonomyReference, locale: Locale = DEFAULT_LOCALE): string {
-  return resolveLocalizedText(ref.names, locale);
-}
-
-/** Stable WorkCover tint seeds — taxonomy ids, not locale-specific labels. */
-export function taxonomyCoverTintSeeds(refs: readonly TaxonomyReference[]): string[] {
-  return refs.map((ref) => ref.id);
-}
-
-export function formatBookCategory(category: BookDetailCategory, locale: Locale = DEFAULT_LOCALE): string {
-  if (category === BOOK_DETAIL_DEFAULT_CATEGORY) {
-    return t(locale, 'content.bookDetail.defaultCategory');
-  }
-  return resolveLocalizedText(category.names, locale);
-}
-
-export function formatSourceLabel(source: BookDetailSourceLabel, locale: Locale = DEFAULT_LOCALE): string {
-  if (source === 'official') {
-    return t(locale, 'content.bookDetail.sourceOfficial');
-  }
-  return source;
-}
-
-export function readingStatusFromProgress(
-  status: 'in_progress' | 'completed' | null,
-  progressRatio: number | null,
-): BookReadingStatus {
+export function readingStatusFromState(status: 'in_progress' | 'completed' | null): BookReadingStatus {
   if (status === 'completed') {
     return 'completed';
   }
-  if (status === 'in_progress' && progressRatio != null && progressRatio > 0) {
+  if (status === 'in_progress') {
     return 'in_progress';
   }
   return 'unread';

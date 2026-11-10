@@ -7,15 +7,21 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "dev:worker": "tsx watch src/worker.ts",
+    "dev:worker:discovery-sync": "tsx watch src/worker.ts --discovery-sync-only",
+    "dev:worker:discovery-import": "tsx watch src/worker.ts --discovery-import-only",
     "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths --resolve-full-extension .js && node ./scripts/copy-prompts.mjs",
     "start": "node --import tsx dist/index.js",
     "worker": "node --import tsx dist/worker.js",
+    "worker:discovery-sync": "node --import tsx dist/worker.js --discovery-sync-only",
+    "worker:discovery-import": "node --import tsx dist/worker.js --discovery-import-only",
     "typecheck": "tsc --noEmit",
     "lint": "pnpm -w exec eslint apps/backend",
     "test": "vitest run",
+    "test:integration:worker": "tsx tests/integration/asset-cleanup-real-worker/main.ts",
     "seed:dev": "tsx scripts/seed-dev-works.ts",
+    "fold:public-categories": "tsx scripts/fold-public-categories-dev.ts",
     "reset:content": "tsx scripts/reset-content.ts",
-    "create:admin": "node --import tsx dist/scripts/create-admin.js"
+    "create:admin": "tsx dist/application/commands/create-admin.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1112.0",
@@ -43,6 +49,7 @@
     "pino": "^9.9.0",
     "rate-limiter-flexible": "^11.2.0",
     "resend": "^4.8.0",
+    "sharp": "0.34.5",
     "undici": "^8.10.0",
     "wink-eng-lite-web-model": "^1.8.1",
     "wink-nlp": "^2.4.0",

@@ -5,7 +5,7 @@
 **Amended:** 2026-09-08 (root facade removal)
 **Scope:** `@gloaming/shared` package public entrypoints only
 
-Related: [`.cursor/rules/packages.mdc`](../../.cursor/rules/packages.mdc) ·
+Related: [`rules/packages.md`](../../rules/packages.md) ·
 [`packages/shared/package.json`](../../packages/shared/package.json) ·
 [`packages/shared/src/public-exports.spec.ts`](../../packages/shared/src/public-exports.spec.ts)
 
@@ -64,7 +64,7 @@ already present on module entrypoints (no unique root surface).
   entrypoints; it does **not** assert root compatibility.
 - New consumers must import `@gloaming/shared/<module>` from the owning module.
 - Shared module lifecycle rules (add / remove / merge / rename) remain in force
-  via `.cursor/rules/packages.mdc` and the repository-structure protocol.
+  via `rules/packages.md` and the repository-structure protocol.
 - Reintroducing a root entrypoint requires a new independent ADR or Accepted
   amendment plus an explicit compatibility decision; it is not a default.
 
@@ -73,27 +73,27 @@ already present on module entrypoints (no unique root surface).
 The following semantic modules are accepted for the first migration baseline
 and remain the current public module map after root removal:
 
-| Module          | Public subpath                     | Scope                                                 |
-| --------------- | ---------------------------------- | ----------------------------------------------------- |
-| auth            | `@gloaming/shared/auth`            | auth policy and role policy                           |
-| pagination      | `@gloaming/shared/pagination`      | pagination and sorting contract                       |
-| works           | `@gloaming/shared/works`           | Work, Part, catalog, and admin-work contracts         |
-| reader          | `@gloaming/shared/reader`          | reading state and reader session contracts            |
-| reading-history | `@gloaming/shared/reading-history` | reading activity and history contracts                |
-| reading-stats   | `@gloaming/shared/reading-stats`   | work-stat derivation policy                           |
-| shelf           | `@gloaming/shared/shelf`           | shelf projection contracts                            |
-| recommendations | `@gloaming/shared/recommendations` | recommendation query and result contracts             |
-| dictionary      | `@gloaming/shared/dictionary`      | dictionary configuration and lookup contracts         |
-| translate       | `@gloaming/shared/translate`       | translation and bilingual-cache contracts             |
-| assist          | `@gloaming/shared/assist`          | assist request and stream contracts                   |
-| conversations   | `@gloaming/shared/conversations`   | conversation and message contracts                    |
-| taxonomy        | `@gloaming/shared/taxonomy`        | taxonomy contracts                                    |
-| tts             | `@gloaming/shared/tts`             | TTS configuration, voices, and timing contracts       |
-| tts-invocations | `@gloaming/shared/tts-invocations` | TTS invocation log contracts                          |
-| content-assets  | `@gloaming/shared/content-assets`  | ContentAsset and audio-asset contracts                |
-| assets          | `@gloaming/shared/assets`          | object-store health scan and orphan cleanup contracts |
-| llm             | `@gloaming/shared/llm`             | LLM configuration, keys, and wire registry            |
-| ai-invocations  | `@gloaming/shared/ai-invocations`  | AI invocation log contracts                           |
+| Module          | Public subpath                     | Scope                                                   |
+| --------------- | ---------------------------------- | ------------------------------------------------------- |
+| auth            | `@gloaming/shared/auth`            | auth policy and role policy                             |
+| pagination      | `@gloaming/shared/pagination`      | pagination and sorting contract                         |
+| works           | `@gloaming/shared/works`           | Work, Part, Catalog read, and Personal Upload contracts |
+| reader          | `@gloaming/shared/reader`          | reading state and reader session contracts              |
+| reading-history | `@gloaming/shared/reading-history` | reading activity and history contracts                  |
+| reading-stats   | `@gloaming/shared/reading-stats`   | work-stat derivation policy                             |
+| library         | `@gloaming/shared/library`         | Library membership and optional progress projections    |
+| recommendations | `@gloaming/shared/recommendations` | recommendation query and result contracts               |
+| dictionary      | `@gloaming/shared/dictionary`      | dictionary configuration and lookup contracts           |
+| translate       | `@gloaming/shared/translate`       | translation and bilingual-cache contracts               |
+| assist          | `@gloaming/shared/assist`          | assist request and stream contracts                     |
+| conversations   | `@gloaming/shared/conversations`   | conversation and message contracts                      |
+| tts             | `@gloaming/shared/tts`             | TTS configuration, voices, and timing contracts         |
+| tts-invocations | `@gloaming/shared/tts-invocations` | TTS invocation log contracts                            |
+| content-assets  | `@gloaming/shared/content-assets`  | ContentAsset and audio-asset contracts                  |
+| assets          | `@gloaming/shared/assets`          | object-store health scan and orphan cleanup contracts   |
+| llm             | `@gloaming/shared/llm`             | LLM configuration, keys, and wire registry              |
+| ai-invocations  | `@gloaming/shared/ai-invocations`  | AI invocation log contracts                             |
+| discovery       | `@gloaming/shared/discovery`       | SourceRecord discovery read and search contracts        |
 
 This map is a public-boundary baseline, not a mandate that every module keep
 one source file. Internal files may be split or reorganized while the public
@@ -171,7 +171,7 @@ declares it and `src/works/index.ts` owns its public surface;
 - New public symbols are added only to their owning module entrypoint and
   `package.json` module export.
 - New consumers must import the owning module subpath.
-- Module lifecycle changes follow `.cursor/rules/packages.mdc` (Shared public
+- Module lifecycle changes follow `rules/packages.md` (Shared public
   module lifecycle) and the repository-structure decision protocol.
 
 For future module changes, do **not** treat export count, `index.ts` line count,

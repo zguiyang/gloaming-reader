@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { t } from '@gloaming/i18n';
 
 import { AUTH_ROUTES } from '@/constants';
-import { formatMinutes, type RelatedBookCard, taxonomyCoverTintSeeds } from '@/features/book-detail/book-detail-model';
+import { formatMinutes, type RelatedBookCard } from '@/features/book-detail/book-detail-model';
 import { WorkCover } from '@/features/work-cover';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,7 @@ export function BookDetailRelated({
         {books.map((book) => (
           <Link
             key={book.id}
-            href={AUTH_ROUTES.bookDetail(book.id)}
+            href={AUTH_ROUTES.workDetail(book.id)}
             className={cn(
               'group w-32 shrink-0 snap-start outline-none md:w-auto',
               'transition-transform duration-300 ease-out-soft hover:-translate-y-0.5',
@@ -42,7 +42,6 @@ export function BookDetailRelated({
           >
             <WorkCover
               title={book.title}
-              tags={taxonomyCoverTintSeeds(book.tags)}
               coverImageUrl={book.coverImageUrl}
               className="aspect-[2/3] w-full rounded-lg"
             />

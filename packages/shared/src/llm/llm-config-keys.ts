@@ -7,6 +7,10 @@ export const AI_SETTING_KEY_VALUES = [
 
 export type AiSettingKey = (typeof AI_SETTING_KEY_VALUES)[number];
 
+export function isAiSettingKey(key: string): key is AiSettingKey {
+  return (AI_SETTING_KEY_VALUES as readonly string[]).includes(key);
+}
+
 export const AI_PURPOSE_TO_SETTING_KEY = {
   assist: 'assist.default_model_id',
   translate: 'translate.default_model_id',

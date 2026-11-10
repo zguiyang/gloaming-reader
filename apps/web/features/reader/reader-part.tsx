@@ -1,7 +1,8 @@
 'use client';
 
-import type { MouseEvent, ReactNode, Ref, UIEvent } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode, Ref, UIEvent } from 'react';
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { type BilingualTranslationData, ReadingPartView } from '@/features/content';
 import type { ReaderFontSize, ReaderSelectionRect } from '@/features/reader/reader-model';
 import { cn } from '@/lib/utils';
@@ -65,18 +66,25 @@ export function ReaderPart({
   onScroll,
   footer,
 }: ReaderPartProps) {
-  function handleMouseUp(event: MouseEvent<HTMLElement>) {
+  function handleSelection(target: Element, article: HTMLElement) {
     const selection = window.getSelection();
     const quote = selection?.toString().trim() ?? '';
-    if (!quote || quote.length < 2) {
+    if (
+      !quote ||
+      quote.length < 2 ||
+      !selection?.anchorNode ||
+      !selection.focusNode ||
+      !article.contains(selection.anchorNode) ||
+      !article.contains(selection.focusNode)
+    ) {
       return;
     }
 
-    const paragraphEl = (event.target as HTMLElement).closest('[data-p]') as HTMLElement | null;
+    const paragraphEl = target.closest('[data-p]') as HTMLElement | null;
     const paragraphId = paragraphIdFromElement(paragraphEl, partId, `${partId}-p1`);
     const paragraphText = paragraphEl?.textContent?.trim() || '';
     const contextSentence = extractContextSentence(paragraphText, quote);
-    const sentenceEl = (event.target as HTMLElement).closest('[data-sentence-index]') as HTMLElement | null;
+    const sentenceEl = target.closest('[data-sentence-index]') as HTMLElement | null;
     const sentenceIndexAttr = sentenceEl?.getAttribute('data-sentence-index');
     const sentenceIndex = sentenceIndexAttr ? Number(sentenceIndexAttr) : undefined;
     const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
@@ -99,6 +107,18 @@ export function ReaderPart({
       top: rect.bottom + 8,
       left: Math.min(Math.max(16, rect.left + rect.width / 2), window.innerWidth - 16),
     });
+  }
+
+  function handleMouseUp(event: MouseEvent<HTMLElement>) {
+    handleSelection(event.target as HTMLElement, event.currentTarget);
+  }
+
+  function handleKeyUp(event: KeyboardEvent<HTMLElement>) {
+    // Wait until Shift is released so extending a selection doesn't steal focus.
+    if (event.key !== 'Shift') return;
+    const anchor = window.getSelection()?.anchorNode;
+    const target = anchor instanceof Element ? anchor : anchor?.parentElement;
+    if (target) handleSelection(target, event.currentTarget);
   }
 
   function handleContentClick(event: MouseEvent<HTMLElement>) {
@@ -133,6 +153,7 @@ export function ReaderPart({
         focusedSentenceIndex={focusedSentenceIndex}
         onSentenceClick={onSentenceClick}
         onArticleMouseUp={handleMouseUp}
+        onArticleKeyUp={handleKeyUp}
         footer={footer}
       />
     </div>
@@ -144,9 +165,9 @@ export function ReaderPartSkeleton() {
     <div className="mx-auto flex w-full max-w-reading-column flex-col gap-6 px-4 py-16 md:px-5 md:py-20">
       <div className="mt-2 space-y-4">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div
+          <Skeleton
             key={i}
-            className="h-5 animate-pulse rounded bg-surface-container-high"
+            className="h-5 rounded bg-surface-container-high"
             style={{ width: `${88 - (i % 3) * 8}%` }}
           />
         ))}

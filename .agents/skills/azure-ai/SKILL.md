@@ -1,57 +1,55 @@
 ---
 name: azure-ai
-description: 'Use for Azure AI: Search, Speech, OpenAI, Document Intelligence. Helps with search, vector/hybrid search, speech-to-text, text-to-speech, transcription, OCR. WHEN: AI Search, query search, vector search, hybrid search, semantic search, speech-to-text, text-to-speech, transcribe, OCR, convert text to speech.'
+description: "Use for Azure AI: Search, Speech, OpenAI, Document Intelligence. Helps with search, vector/hybrid search, speech-to-text, text-to-speech, transcription, OCR. WHEN: AI Search, query search, vector search, hybrid search, semantic search, speech-to-text, text-to-speech, transcribe, OCR, convert text to speech."
 license: MIT
 metadata:
   author: Microsoft
-  version: '1.2.1'
+  version: "1.2.2"
 ---
 
 # Azure AI Services
 
 ## Services
 
-| Service               | Use When                         | MCP Tools       | CLI                    |
-| --------------------- | -------------------------------- | --------------- | ---------------------- |
-| AI Search             | Full-text, vector, hybrid search | `azure__search` | `az search`            |
-| Speech                | Speech-to-text, text-to-speech   | `azure__speech` | -                      |
-| OpenAI                | GPT models, embeddings, DALL-E   | -               | `az cognitiveservices` |
-| Document Intelligence | Form extraction, OCR             | -               | -                      |
+| Service | Use When | MCP Tools | CLI |
+|---------|----------|-----------|-----|
+| AI Search | Full-text, vector, hybrid search | `azure__search` | `az search` |
+| Speech | Speech-to-text, text-to-speech | `azure__speech` | - |
+| OpenAI | GPT models, embeddings, DALL-E | - | `az cognitiveservices` |
+| Document Intelligence | Form extraction, OCR | - | - |
 
 ## MCP Server (Preferred)
 
 When Azure MCP is enabled:
 
 ### AI Search
-
 - `azure__search` with command `search_index_list` - List search indexes
 - `azure__search` with command `search_index_get` - Get index details
 - `azure__search` with command `search_query` - Query search index
 
 ### Speech
-
 - `azure__speech` with command `speech_transcribe` - Speech to text
 - `azure__speech` with command `speech_synthesize` - Text to speech
 
-**If Azure MCP is not enabled:** Run `/azure:setup` or enable via `/mcp`.
+**If Azure MCP is not enabled:** In Copilot CLI or Claude Code, ask the user to run `/mcp` and enable Azure MCP; in other hosts, ask the user to enable Azure MCP through the host's MCP configuration.
 
 ## AI Search Capabilities
 
-| Feature          | Description                         |
-| ---------------- | ----------------------------------- |
-| Full-text search | Linguistic analysis, stemming       |
-| Vector search    | Semantic similarity with embeddings |
-| Hybrid search    | Combined keyword + vector           |
-| AI enrichment    | Entity extraction, OCR, sentiment   |
+| Feature | Description |
+|---------|-------------|
+| Full-text search | Linguistic analysis, stemming |
+| Vector search | Semantic similarity with embeddings |
+| Hybrid search | Combined keyword + vector |
+| AI enrichment | Entity extraction, OCR, sentiment |
 
 ## Speech Capabilities
 
-| Feature             | Description                       |
-| ------------------- | --------------------------------- |
-| Speech-to-text      | Real-time and batch transcription |
-| Text-to-speech      | Neural voices, SSML support       |
-| Speaker diarization | Identify who spoke when           |
-| Custom models       | Domain-specific vocabulary        |
+| Feature | Description |
+|---------|-------------|
+| Speech-to-text | Real-time and batch transcription |
+| Text-to-speech | Neural voices, SSML support |
+| Speaker diarization | Identify who spoke when |
+| Custom models | Domain-specific vocabulary |
 
 ## SDK Quick References
 

@@ -1,13 +1,14 @@
 /**
- * Idempotent dev seed: ensures at least one published work for Discover → Reader.
+ * Idempotent development fixture: ensures one published Catalog Work for Discover → Reader.
  * Run: pnpm --filter @gloaming/backend seed:dev
  */
+import { randomUUID } from 'node:crypto';
+
 import { eq } from 'drizzle-orm';
 
-import { readingWork as readingWorkTable } from '@gloaming/db';
+import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@gloaming/db';
 
-import { db } from '../src/db/index.ts';
-import { createAdminTextWork, publishWork, updateWork } from '../src/modules/works/service.ts';
+import { db } from '../src/infra/db/index.ts';
 
 const SEED_TITLE = '[dev-seed] Morning Light';
 
@@ -23,33 +24,45 @@ The sea did not hurry. Neither would he.`;
 
 async function main() {
   const [existing] = await db
-    .select({ id: readingWorkTable.id, status: readingWorkTable.status })
+    .select({
+      id: readingWorkTable.id,
+      publishedAt: readingWorkTable.publishedAt,
+    })
     .from(readingWorkTable)
     .where(eq(readingWorkTable.title, SEED_TITLE))
     .limit(1);
 
-  if (existing?.status === 'published') {
+  if (existing?.publishedAt) {
     console.log(`Dev seed work already published: ${existing.id}`);
     process.exit(0);
   }
 
-  let workId = existing?.id;
-  if (!workId) {
-    const created = await createAdminTextWork({
+  const workId = existing?.id ?? randomUUID();
+  if (!existing) {
+    await db.insert(readingWorkTable).values({
+      id: workId,
+      title: SEED_TITLE,
+      processingStatus: 'ready',
+      visibility: 'catalog',
+      ownerUserId: null,
+      publishedAt: new Date(),
+    });
+    await db.insert(readingPartTable).values({
+      id: randomUUID(),
+      workId,
+      sortOrder: 0,
+      kind: 'body',
       title: SEED_TITLE,
       body: SEED_BODY,
     });
-    workId = created.id;
-    console.log(`Created draft work: ${workId}`);
+    console.log(`Created development fixture: ${workId}`);
+  } else {
+    await db
+      .update(readingWorkTable)
+      .set({ processingStatus: 'ready', visibility: 'catalog', ownerUserId: null, publishedAt: new Date() })
+      .where(eq(readingWorkTable.id, workId));
   }
-
-  await updateWork(workId, {
-    sources: ['Dev Seed'],
-    tags: ['story', 'daily-life'],
-  });
-
-  const published = await publishWork(workId);
-  console.log(`Published dev seed work: ${published.id} — "${published.title}"`);
+  console.log(`Development fixture is available in Discover: ${workId} — "${SEED_TITLE}"`);
   process.exit(0);
 }
 

@@ -84,7 +84,7 @@ export function clearAuthReturnPath(): void {
 export function resolvePostAuthPath(searchParams?: URLSearchParams): string {
   const fromUrl = searchParams ? readReturnPathFromSearchParams(searchParams) : null;
   const fromStorage = peekAuthReturnPath();
-  return fromUrl ?? fromStorage ?? AUTH_ROUTES.shelf;
+  return fromUrl ?? fromStorage ?? AUTH_ROUTES.library;
 }
 
 export function resolveSocialAuthErrorPath(): string {

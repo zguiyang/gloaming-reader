@@ -1,0 +1,216 @@
+'use client';
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { PlusIcon, XIcon } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+
+import { t } from '@gloaming/i18n';
+import { type LibraryItem, resolveUserTagName, type UserTagManagementItem } from '@gloaming/shared/library';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  assignUserTag,
+  completeUserTagTranslations,
+  createUserTag,
+  formatLibraryApiError,
+  libraryQueryKey,
+  unassignUserTag,
+} from '@/features/library/library-api';
+import { useLocale } from '@/lib/locale-context';
+
+export function LibraryTagAssignmentDialog({
+  entry,
+  tags,
+  open,
+  onOpenChange,
+}: {
+  entry: LibraryItem;
+  tags: UserTagManagementItem[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { locale } = useLocale();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <header className="flex items-start justify-between gap-4 border-b border-border/50 px-5 py-5">
+          <div className="min-w-0">
+            <DialogTitle className="font-heading text-xl font-semibold tracking-tight">
+              {t(locale, 'content.library.manageTagsForBook')}
+            </DialogTitle>
+            <DialogDescription className="mt-1 truncate text-sm text-muted-foreground">
+              {entry.work.title}
+            </DialogDescription>
+          </div>
+          <DialogClose
+            render={<Button type="button" variant="ghost" size="icon-sm" className="-mr-2 -mt-1 shrink-0" />}
+            aria-label={t(locale, 'common.close')}
+          >
+            <XIcon aria-hidden />
+          </DialogClose>
+        </header>
+        {open ? (
+          <LibraryTagAssignmentContent key={entry.work.id} entry={entry} tags={tags} onOpenChange={onOpenChange} />
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function LibraryTagAssignmentContent({
+  entry,
+  tags,
+  onOpenChange,
+}: {
+  entry: LibraryItem;
+  tags: UserTagManagementItem[];
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { locale } = useLocale();
+  const queryClient = useQueryClient();
+  const [selectedIds, setSelectedIds] = useState<string[]>(entry.userTags.map((tag) => tag.id));
+  const [newName, setNewName] = useState('');
+
+  const refreshTagViews = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: libraryQueryKey.all }),
+      queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags }),
+      queryClient.invalidateQueries({ queryKey: ['book-detail', entry.work.id] }),
+    ]);
+  };
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const current = new Set(entry.userTags.map((tag) => tag.id));
+      const selected = new Set(selectedIds);
+      // Wait for every request to settle so success/error handling (refresh, feedback,
+      // unlock) only runs once the full outcome is known and the page cannot diverge
+      // from persistent state while slower requests are still in flight.
+      const results = await Promise.allSettled([
+        ...selectedIds.filter((id) => !current.has(id)).map((id) => assignUserTag(entry.work.id, id)),
+        ...entry.userTags.filter((tag) => !selected.has(tag.id)).map((tag) => unassignUserTag(entry.work.id, tag.id)),
+      ]);
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure) throw (failure as PromiseRejectedResult).reason;
+    },
+    onSuccess: async () => {
+      await refreshTagViews();
+      toast.success(t(locale, 'content.library.tagsSaved'));
+      onOpenChange(false);
+    },
+    onError: async (error) => {
+      await refreshTagViews();
+      toast.error(formatLibraryApiError(error));
+    },
+  });
+
+  const createAndAssign = useMutation({
+    mutationFn: async () => {
+      const tag = await createUserTag(newName, locale);
+      await assignUserTag(entry.work.id, tag.id);
+      return tag;
+    },
+    onSuccess: async (tag) => {
+      await refreshTagViews();
+      // Keep the selection aligned with the association that was already persisted,
+      // so a later Save cannot treat the new tag as an unselected pending removal.
+      setSelectedIds((current) => (current.includes(tag.id) ? current : [...current, tag.id]));
+      toast.success(t(locale, 'content.library.tagCreated'));
+      setNewName('');
+      void completeUserTagTranslations(tag.id)
+        .then(async (result) => {
+          await refreshTagViews();
+          toast.info(
+            t(
+              locale,
+              result.status === 'completed'
+                ? 'content.library.tagTranslationsComplete'
+                : result.status === 'provider_unavailable'
+                  ? 'content.library.tagTranslationProviderUnavailable'
+                  : 'content.library.tagTranslationsMissing',
+            ),
+          );
+        })
+        .catch(() => toast.info(t(locale, 'content.library.tagTranslationsMissing')));
+    },
+    onError: async (error) => {
+      await refreshTagViews();
+      toast.error(formatLibraryApiError(error));
+    },
+  });
+
+  const isPending = save.isPending || createAndAssign.isPending;
+
+  return (
+    <div className="flex flex-col gap-4 p-5">
+      {tags.length > 0 ? (
+        <div className="max-h-60 overflow-y-auto">
+          {tags.map((tag) => (
+            <label
+              key={tag.id}
+              className="flex min-h-11 cursor-pointer items-center gap-3 border-b border-border/40 py-2 text-sm last:border-0"
+            >
+              <Checkbox
+                checked={selectedIds.includes(tag.id)}
+                onCheckedChange={(isChecked) => {
+                  setSelectedIds((current) =>
+                    isChecked ? [...current, tag.id] : current.filter((selectedId) => selectedId !== tag.id),
+                  );
+                }}
+              />
+              <span className="min-w-0 flex-1 truncate">{resolveUserTagName(tag, locale)}</span>
+              {tag.createdBy === 'ai' ? (
+                <Badge variant="secondary" className="shrink-0 rounded-full px-1.5 font-normal">
+                  {t(locale, 'content.library.aiTagBadge')}
+                </Badge>
+              ) : null}
+              <span className="text-xs text-muted-foreground">{tag.bookCount}</span>
+            </label>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t(locale, 'content.library.noTags')}</p>
+      )}
+
+      <form
+        className="flex items-center gap-2 border-t border-border/50 pt-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (newName.trim()) createAndAssign.mutate();
+        }}
+      >
+        <Input
+          value={newName}
+          maxLength={80}
+          onChange={(event) => setNewName(event.currentTarget.value)}
+          placeholder={t(locale, 'content.library.newTag')}
+          aria-label={t(locale, 'content.library.tagName')}
+          disabled={isPending}
+        />
+        <Button
+          type="submit"
+          variant="outline"
+          size="icon"
+          className="size-11 shrink-0"
+          disabled={!newName.trim() || isPending}
+          aria-label={t(locale, 'content.library.createTag')}
+        >
+          <PlusIcon aria-hidden />
+        </Button>
+      </form>
+
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <DialogClose render={<Button variant="ghost" disabled={isPending} />}>{t(locale, 'common.close')}</DialogClose>
+        <Button disabled={isPending} onClick={() => save.mutate()}>
+          {t(locale, 'content.library.saveTags')}
+        </Button>
+      </div>
+    </div>
+  );
+}

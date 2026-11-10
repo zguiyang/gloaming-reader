@@ -124,11 +124,14 @@ function AiHistory({
             {conversations.map((conversation) => {
               const isActive = conversation.id === activeConversationId;
               return (
-                <button
+                <Button
+                  variant="plain"
+                  size={null}
                   key={conversation.id}
                   type="button"
+                  aria-current={isActive ? 'true' : undefined}
                   className={cn(
-                    'group relative flex w-full flex-col gap-1 rounded-xl px-3.5 py-2.5 text-left transition-colors',
+                    'group relative flex w-full flex-col items-start gap-1 rounded-xl px-3.5 py-2.5 text-left transition-colors',
                     isActive
                       ? 'bg-primary/10 text-foreground font-medium before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:rounded-full before:bg-primary'
                       : 'text-foreground/85 hover:bg-surface-container-high/60 hover:text-foreground',
@@ -141,7 +144,7 @@ function AiHistory({
                   <span className="text-[11px] text-muted-foreground/75">
                     {formatConversationTime(conversation.lastMessageAt, locale)}
                   </span>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -212,7 +215,9 @@ function AiThread({
         {suggestions.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 pt-2">
             {suggestions.map((s) => (
-              <button
+              <Button
+                variant="plain"
+                size={null}
                 key={s}
                 type="button"
                 className="rounded-full border border-border/60 bg-surface-container-high/40 px-3 py-1.5 text-xs text-foreground/80 transition-all hover:border-primary/40 hover:bg-surface-container-high hover:text-primary active:scale-98"
@@ -220,7 +225,7 @@ function AiThread({
                 disabled={isSending}
               >
                 {s}
-              </button>
+              </Button>
             ))}
           </div>
         ) : null}
@@ -239,26 +244,29 @@ function AiThread({
         }}
       >
         {quote ? (
-          <div className="mb-2 flex items-start gap-2 rounded-xl border border-border/50 border-l-2 border-l-primary/70 bg-surface-container-high/80 p-2.5 transition-all duration-200 ease-out">
+          <div className="relative mb-2 flex items-start gap-2 rounded-xl border border-border/50 bg-surface-container-high/80 p-2.5 transition-all duration-200 ease-out before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:bg-primary/70">
             <QuoteIcon className="mt-0.5 size-3.5 shrink-0 text-primary/70" />
             <p className="min-w-0 flex-1 font-serif text-xs italic leading-relaxed text-foreground/85 line-clamp-2">
               {quote}
             </p>
             {onClearQuote ? (
-              <button
+              <Button
+                variant="plain"
+                size={null}
                 type="button"
                 aria-label={t(locale, 'content.reader.assist.removeQuote')}
                 className="flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-surface-container-highest hover:text-foreground"
                 onClick={onClearQuote}
               >
                 <XIcon className="size-3" />
-              </button>
+              </Button>
             ) : null}
           </div>
         ) : null}
 
         <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-background/80 px-2 py-1 shadow-2xs focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
           <Input
+            aria-label={t(locale, 'content.reader.assist.placeholderDefault')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={
@@ -337,6 +345,7 @@ export function ReaderAiDrawer({
           open ? 'translate-x-0' : 'pointer-events-none translate-x-full',
         )}
         aria-hidden={!open}
+        inert={!open}
       >
         <div className="flex h-14 items-center justify-between border-b border-border/40 px-4 bg-surface-container-low/90 backdrop-blur-xs">
           <div className="min-w-0">

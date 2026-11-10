@@ -1,135 +1,115 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  getPublishAudioIssues,
-  getPublishPartAudioIssues,
-  mergePublishWorkIssues,
-  PUBLISH_DEFAULT_AUDIO_ROLE,
-  updateWorkBodySchema,
+  CATALOG_SOURCE_LINKS,
+  catalogListQuerySchema,
+  isWorkParseCompleted,
+  isWorkReadable,
+  personalWorkUpdateSchema,
+  personalWorkUploadResultSchema,
+  WORK_PROCESSING_STATUSES,
+  workAvailability,
+  type WorkProcessingStatus,
+  workProcessingStatusSchema,
+  workSchema,
 } from './works.ts';
 
-function taxonomyRef(id: string, zh: string, en: string) {
-  return {
-    id,
-    names: { 'zh-CN': zh, 'en-US': en },
-    origin: 'manual' as const,
-  };
-}
+describe('work contracts', () => {
+  it('keeps pipeline status separate from publication', () => {
+    expect(WORK_PROCESSING_STATUSES).toEqual(['uploaded', 'processing', 'parsed', 'metadata', 'ready', 'failed']);
+    for (const value of WORK_PROCESSING_STATUSES) {
+      expect(workProcessingStatusSchema.parse(value)).toBe(value);
+    }
+    expect(workProcessingStatusSchema.safeParse('published').success).toBe(false);
+    expect(workProcessingStatusSchema.safeParse('tts').success).toBe(false);
+  });
 
-function sourceRef(id: string, name: string) {
-  return { id, name, origin: 'manual' as const };
-}
+  it('judges parse-completed Works readable only when they have parts', () => {
+    expect(isWorkParseCompleted('parsed')).toBe(true);
+    expect(isWorkParseCompleted('metadata')).toBe(true);
+    expect(isWorkParseCompleted('ready')).toBe(true);
+    expect(isWorkReadable('parsed', 1)).toBe(true);
+    expect(isWorkReadable('metadata', 3)).toBe(true);
+    expect(isWorkReadable('ready', 1)).toBe(true);
+    expect(isWorkReadable('parsed', 0)).toBe(false);
+    expect(isWorkReadable('metadata', 0)).toBe(false);
+    for (const processingStatus of [
+      'uploaded',
+      'processing',
+      'failed',
+    ] as const satisfies readonly WorkProcessingStatus[]) {
+      expect(isWorkParseCompleted(processingStatus)).toBe(false);
+      expect(isWorkReadable(processingStatus, 4)).toBe(false);
+    }
+  });
 
-describe('update work body contracts', () => {
-  it('accepts taxonomy selections with id only', () => {
-    const body = updateWorkBodySchema.parse({
-      tags: [{ id: 'tag-1' }],
-      sources: [{ id: 'source-1' }],
-      category: { id: 'category-1' },
+  it('maps one availability bucket from pipeline status and part presence', () => {
+    expect(workAvailability('parsed', 2)).toBe('ready');
+    expect(workAvailability('metadata', 1)).toBe('ready');
+    expect(workAvailability('ready', 1)).toBe('ready');
+    expect(workAvailability('ready', 0)).toBe('processing');
+    expect(workAvailability('parsed', 0)).toBe('processing');
+    expect(workAvailability('uploaded', 4)).toBe('processing');
+    expect(workAvailability('processing', 0)).toBe('processing');
+    expect(workAvailability('failed', 4)).toBe('failed');
+  });
+
+  it('keeps the public Catalog Work contract independent of Admin provenance', () => {
+    const work = workSchema.parse({
+      id: 'work-1',
+      title: 'Title',
+      author: 'Author',
+      description: '',
+      language: 'en',
+      processingStatus: 'ready',
+      visibility: 'catalog',
+      coverAssetId: null,
+      wordCount: null,
+      estimatedMinutes: null,
+      suggestedVocabSize: null,
+      difficultyScore: null,
+      statsProvenance: null,
+      publishedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      originKind: 'privateOrigin',
     });
-    expect(body.tags).toEqual([{ id: 'tag-1' }]);
-    expect(body.sources).toEqual([{ id: 'source-1' }]);
-    expect(body.category).toEqual({ id: 'category-1' });
+
+    expect(work.processingStatus).toBe('ready');
+    expect(work.publishedAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(work).not.toHaveProperty('originKind');
+    expect(work).not.toHaveProperty('tags');
+    expect(work).not.toHaveProperty('category');
+    expect(work).not.toHaveProperty('sources');
   });
 
-  it('accepts null category to clear the selection', () => {
-    expect(updateWorkBodySchema.parse({ category: null }).category).toBeNull();
-  });
-
-  it('rejects full taxonomy references in update payloads', () => {
-    const fullRef = taxonomyRef('tag-1', '科学', 'Science');
-    expect(updateWorkBodySchema.safeParse({ tags: [fullRef] }).success).toBe(false);
-    expect(updateWorkBodySchema.safeParse({ sources: [fullRef] }).success).toBe(false);
-    expect(updateWorkBodySchema.safeParse({ category: fullRef }).success).toBe(false);
-  });
-});
-
-describe('publish default audio gate', () => {
-  const metadataOk = {
-    title: 'Title',
-    sources: [sourceRef('source-1', 'demo')],
-    tags: [taxonomyRef('tag-1', 'story', 'story')],
-    parts: [{ body: 'Hello world.' }],
-  };
-
-  it('does not require audio when synth text is empty', () => {
+  it('retains Catalog list filters and safe Personal upload results', () => {
+    expect(catalogListQuerySchema.parse({ q: '  book  ' }).q).toBe('book');
+    expect(catalogListQuerySchema.parse({ q: '  ' }).q).toBeUndefined();
+    expect(catalogListQuerySchema.parse({}).sourceLink).toBe('any');
+    expect(catalogListQuerySchema.parse({ sourceLink: 'unlinked' }).sourceLink).toBe('unlinked');
+    expect(catalogListQuerySchema.safeParse({ sourceLink: 'linked' }).success).toBe(false);
+    expect(CATALOG_SOURCE_LINKS).toEqual(['any', 'unlinked']);
+    expect(personalWorkUploadResultSchema.parse({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' })).toEqual(
+      { id: 'work-1', title: 'Book', processingStatus: 'uploaded' },
+    );
     expect(
-      getPublishPartAudioIssues({
-        partId: 'part-1',
-        partTitle: 'Intro',
-        bodyPlain: '   ',
-        defaultTrackStatus: 'none',
+      personalWorkUploadResultSchema.parse({
+        id: 'work-1',
+        title: 'Book',
+        processingStatus: 'uploaded',
+        storageKey: 'epub/private.epub',
       }),
-    ).toEqual([]);
+    ).toEqual({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' });
   });
 
-  it('rejects parts with body but missing default audio', () => {
-    const issues = getPublishPartAudioIssues({
-      partId: 'part-1',
-      partTitle: 'Chapter 1',
-      bodyPlain: 'Hello world.',
-      defaultTrackStatus: 'none',
+  it('accepts only owner-editable Personal Work metadata', () => {
+    expect(personalWorkUpdateSchema.parse({ title: '  Title  ', author: 'Author' })).toEqual({
+      title: 'Title',
+      author: 'Author',
     });
-    expect(issues).toEqual([
-      {
-        path: `parts.part-1.audio.${PUBLISH_DEFAULT_AUDIO_ROLE}`,
-        code: 'api.errors.work.publish.audioMissing',
-        params: { partTitle: 'Chapter 1' },
-      },
-    ]);
-  });
-
-  it('passes when default audio is ready with matching content hash', () => {
-    expect(
-      getPublishPartAudioIssues({
-        partId: 'part-1',
-        partTitle: 'Chapter 1',
-        bodyPlain: 'Hello world.',
-        defaultTrackStatus: 'ready',
-      }),
-    ).toEqual([]);
-  });
-
-  it.each(['stale', 'failed', 'generating'] as const)('rejects non-ready track status %s', (status) => {
-    const issues = getPublishPartAudioIssues({
-      partId: 'part-1',
-      partTitle: 'Chapter 1',
-      bodyPlain: 'Hello world.',
-      defaultTrackStatus: status,
-    });
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.path).toBe(`parts.part-1.audio.${PUBLISH_DEFAULT_AUDIO_ROLE}`);
-  });
-
-  it('merges metadata and audio issues for publishWork', () => {
-    const issues = mergePublishWorkIssues(metadataOk, [
-      {
-        partId: 'part-1',
-        partTitle: 'Chapter 1',
-        bodyPlain: 'Hello world.',
-        defaultTrackStatus: 'none',
-      },
-    ]);
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.path).toContain('.audio.us');
-  });
-
-  it('aggregates audio issues across multiple parts', () => {
-    const issues = getPublishAudioIssues([
-      {
-        partId: 'part-1',
-        partTitle: 'One',
-        bodyPlain: 'Text one.',
-        defaultTrackStatus: 'none',
-      },
-      {
-        partId: 'part-2',
-        partTitle: 'Two',
-        bodyPlain: '',
-        defaultTrackStatus: 'none',
-      },
-    ]);
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.path).toBe(`parts.part-1.audio.${PUBLISH_DEFAULT_AUDIO_ROLE}`);
+    expect(personalWorkUpdateSchema.safeParse({ visibility: 'catalog' }).success).toBe(false);
+    expect(personalWorkUpdateSchema.safeParse({ ownerUserId: 'other-user', title: 'Title' }).success).toBe(false);
+    expect(personalWorkUpdateSchema.safeParse({}).success).toBe(false);
   });
 });

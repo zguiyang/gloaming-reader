@@ -1,8 +1,8 @@
 # Gloaming Content Strategy
 
-SSOT for **what people read** and **how it enters Gloaming**—under the AI Native Language Reading Environment bet.
+SSOT for **what people read** and **how it enters Gloaming** — under the AI Native Language Reading Environment bet.
 
-Related: [`mvp-scope.md`](./mvp-scope.md) · [`mvp-1-modules.md`](./mvp-1-modules.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md) · ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
+Related: [`mvp-scope.md`](./mvp-scope.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md) · [`personal-tags.md`](./personal-tags.md) · [`public-categories.md`](./public-categories.md) · ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
 
 **Language:** Product docs are English. User-facing copy may be Chinese.
 
@@ -10,154 +10,93 @@ Related: [`mvp-scope.md`](./mvp-scope.md) · [`mvp-1-modules.md`](./mvp-1-module
 
 ## 1. Purpose of content
 
-Content exists so someone can **read real English**.
+Content exists so someone can **read real English**. Gloaming is not a corpus-building project, a course publisher, or an AI writing mill.
 
-Gloaming is not a corpus-building project, not a course publisher, and not an AI writing mill.
-
-**MVP supply (Phase 1a):** official **ReadingWork** catalog via admin EPUB upload → **发现** → **我的书架**.  
-**Later (Phase 1b):** users bring their own files (import).  
-**Never:** generated “learning English” articles as the product. Gloaming does not manufacture learning materials.
+- **Personal supply:** users upload their own EPUB; the work is **user-owned and private**.
+- **Catalog/source supply:** local source metadata and demand-driven import, as defined in section 3.
+- **Never:** generated “learning English” articles as the product.
 
 ---
 
 ## 2. Scope decisions (locked)
 
-| Decision                       | Stance                                                                                                      |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| MVP 1 primary supply           | **Admin EPUB upload** → processing → **ReadingWork** + **ReadingPart[]** → publish → Discover               |
-| User import                    | **Phase 1b** — deferred; not required for MVP 1                                                             |
-| Real content pipeline (EPUB)   | **In MVP 1a (admin)** — clean EPUB, organize chapters, present like a book; do **not** rewrite into lessons |
-| Official catalog               | Team-owned or licensed EPUBs; feed **发现**                                                                 |
-| `admin_text` fallback          | **Internal only** — dev/test/seed; see §2.1; **not** Short Article Library                                  |
-| Scraping / crawl               | **Out**                                                                                                     |
-| AI rewrite into graded lessons | **Out** — content generator                                                                                 |
-| AI at read time                | Explain / translate / TTS on **this part** of **this work**                                                 |
-| Memes / syllabus trees         | **Out** of identity                                                                                         |
-| User-generated marketplace     | **Out** of MVP 1                                                                                            |
+| Decision                       | Stance                                                              |
+| ------------------------------ | ------------------------------------------------------------------- |
+| Personal supply                | User EPUB → private owned `ReadingWork` + `ReadingPart[]` → Library |
+| Unit                           | **ReadingWork** (+ **ReadingPart**) — not a lesson                  |
+| Real content pipeline          | Shared EPUB parsing; organize chapters; do **not** rewrite lessons  |
+| Scraping user pages            | **Out**                                                             |
+| AI rewrite into graded lessons | **Out**                                                             |
+| AI at read time                | Explain / translate / TTS on **this part** of **this work**         |
+| Catalog test fixture           | Neutral ownerless Work; no source identity inferred                 |
+| Short Article Library          | **Out** — superseded by ReadingWork                                 |
 
-Module SSOT: [`mvp-1-modules.md`](./mvp-1-modules.md).
-
-### 2.1 `admin_text` (internal fallback — not product)
-
-`admin_text` creates **ReadingWork + one ReadingPart (`kind=body`)** from a title + body paste. Use for:
-
-- Development and migration testing
-- Automated test fixtures
-- Demo seed without uploading EPUB every time
-
-**It is not:**
-
-- The Short Article Library product (archived — [`docs/archive/feature-short-article-library-v1.md`](../archive/feature-short-article-library-v1.md))
-- What learners should see as the main catalog story
-- A reason to keep `Article`, `level`, `seriesId`, or 300-word caps
-
-Gloaming’s content identity is **ReadingWork**, not short articles.
+Reading atom: a **ReadingWork** the user is in the middle of — no 300-word units, no word cap. Difficulty is handled by **help on the page**.
 
 ---
 
-## 3. What “authentic” means here
+## 3. Source intake (accepted: Hybrid — DS01)
 
-Authentic = **not manufactured as a Gloaming lesson**.
+This accepted supply direction supersedes the earlier deferral of new Catalog intake. It does not claim complete runtime acceptance.
 
-Examples that fit:
+- **Hybrid:** sync source **metadata locally** into **SourceRecord**; **materialize the EPUB only on save/read intent**. V1 source: Project Gutenberg only.
+- **SourceRecord** = local bibliography (source + `externalID`, title/author/language/rights/URL). It is **not readable content**; only a materialized Work enters the Library/Reader.
+- **Pending save intent:** save creates a pending intent; on successful import it becomes a **formal membership** (`user_library_item`). Failure keeps a **retryable** state — never fake readiness. The owner reads the intent status via `GET /api/library/source-records/:id`, which drives pending/failed feedback, polling, refresh recovery, and retry; a linked Work id alone never claims readiness before the import is readable.
+- **Disabled sources** are hidden; a **failed sync retains the last full snapshot**.
+- V1 synchronizes the official Gutenberg RDF metadata snapshot **only when an administrator manually triggers it**; automatic/periodic scheduling is deferred. The administrator trigger supports an explicit **force full refresh** — an unconditional re-download and parse of the complete snapshot, used to re-parse historical records after a parser fix (for example, the 2026-10-19 run: 79,644 records, 160 batches, 0 unavailable, no AI calls). The default trigger still uses a conditional request and reports 304 as "not modified". A forced run likewise writes only metadata and never triggers AI classification. Recovering a lost run (a timed-out or stale `queued`/`syncing` claim) records a visible failure but never starts a new run — only an explicit administrator trigger does. Only a successfully completed snapshot can mark missing records unavailable; no hosted third-party catalog is a runtime requirement.
+- **Sync observability:** every claimed run is recorded durably (bounded history, latest 20) with its stage (queued/downloading/processing/reconciling, then succeeded / not-modified / skipped / failed), committed current-run record and batch counts, and truthful activity timestamps. Metrics are current-run committed facts only — a rolled-back batch never counts, a 304 is reported as a successful "not modified" outcome distinct from a full scan, and the source-level total record count stays separate from per-run counts. No totals, percentages, or inserted/updated splits are exposed. A queued run distinguishes "waiting for a queue worker" (conservative worker evidence on the dedicated queue) from "worker availability unknown"; neither ever claims the queue failed, and no consumer is launched automatically.
+- **Withdrawal never deletes** an existing work or its progress.
+- **Migration state:** the observability schema (`discovery_sync_run`, migration `0052_minor_mandrill`) has been applied to the **development database** (53 migrations, latest `0052_minor_mandrill`) and to the isolated **test database** (`gloaming_test`, equally migrated).
+- **Candidate coverage (2026-10-19):** the forced full refresh left 78,073 of 79,644 records with EPUB download candidates; 1,571 records have no candidate, 1,415 of them Discover-visible English records. The strategy for non-savable records (no EPUB / audio-only) awaits a product decision.
+- **Source metadata updates do not overwrite** already-imported parts.
+- Import retains source metadata and rights evidence; AI description enrichment must not replace authoritative source fields. Raw subjects and bookshelves remain distinct from public categories.
+- **No cross-source semantic dedup:** identity is `(source, externalID)`; identical bytes may be reused, but the same work is not inferred across sources.
+- **Covers:** an unmaterialized SourceRecord displays its source cover URL. A materialized record prefers the linked Work's local cover asset only when the central Work Access Policy proves the current viewer may read it (published Catalog or own Library membership); otherwise the source cover URL stays. No remote cover is downloaded this round, and asset permissions are unchanged.
 
-- A licensed EPUB the team publishes to Discover
-- A book the user imports (Phase 1b)
-- An essay they saved (when import supports it)
-
-Examples that do not:
-
-- AI-written “B1 daily story” farms
-- Dialogue drills
-- Vocab-pack paragraphs
-
-Difficulty is handled by **help on the page**, not by only shipping easy fables.
+New sources, content replacement, and cross-source identity merging require separate decisions. Do not turn a private uploaded EPUB into a public source record merely from its filename.
 
 ---
 
-## 4. Reading content shape (product contract)
+## 4. Domain contract (ADR-001)
 
-The reading atom is a **ReadingWork** the user is in the middle of—not “today’s 250-word unit.”
+| Entity              | Responsibility                                                 |
+| ------------------- | -------------------------------------------------------------- |
+| **ReadingWork**     | Title, description, language, stats, publication — **no body** |
+| **ReadingPart**     | Ordered text — Reader / TTS / Translate / Assist boundary      |
+| **ReadingState**    | Per user × work progress only; never membership                |
+| **UserLibraryItem** | Explicit catalog membership; membership ≠ progress             |
+| **SourceRecord**    | Local source bibliography; not readable                        |
+| **ContentAsset**    | EPUB file, cover, images                                       |
+| **Conversation**    | Thread scoped to `reading_work`                                |
 
-### 4.1 Domain entities (ADR-001)
-
-| Entity           | User concept        | Responsibility                                             |
-| ---------------- | ------------------- | ---------------------------------------------------------- |
-| **ReadingWork**  | 书 / 阅读内容       | Metadata, source, publish status, visibility — **no body** |
-| **ReadingPart**  | 章节                | Ordered text — Reader / TTS / Translate / Assist boundary  |
-| **ReadingState** | 阅读状态 / 书架成员 | Per user × work position; shelf membership                 |
-| **ContentAsset** | (internal)          | EPUB file, cover, TTS audio, future derivatives            |
-| **Conversation** | AI 帮助             | Thread scoped to `reading_work`                            |
-| **Shelf**        | 我的书架            | Read model over `reading_state`                            |
-
-**Product rule:** one kind of thing you read — not Article-the-lesson plus Book-the-other-app.
-
-### 4.2 Work fields (intent)
-
-| Concern                       | Need                                   |
-| ----------------------------- | -------------------------------------- |
-| Title, description, language  | Yes                                    |
-| Ordered parts (chapters)      | Yes for EPUB                           |
-| `origin_kind` / `origin_meta` | Yes — source SSOT                      |
-| Owner / visibility            | Official catalog vs user (1b)          |
-| Reading position              | Per user × work (+ part + anchor)      |
-| Tags                          | Optional metadata — **not** a syllabus |
-
-**Forbidden on Work:** `level`, `seriesId`, `estimatedMinutes`, single `body` blob.
-
-### 4.3 Length
-
-No 300-word cap on EPUB works. Part bodies are bounded by engineering limits only.
+**Library** = owned personal works ∪ explicit saved membership. Saving does not start progress; removing membership retains progress. Forbidden on Work: `level`, `seriesId`, single `body` blob.
 
 ---
 
 ## 5. End-to-end flows
 
-### 5.1 Primary — Admin EPUB (MVP)
+### 5.1 Personal upload
 
 ```text
-Admin upload EPUB
-  → ReadingWork (draft → processing)
-  → Parse → ReadingPart[] (chapters)
-  → ContentAsset (origin_file)
-  → Publish
-  → 发现 → 加入书架 → Reader
-  → Resume via ReadingState
-```
-
-### 5.2 Learner (MVP)
-
-```text
-发现 → choose ReadingWork → 加入书架 (ReadingState)
-  → Reader (current ReadingPart)
-  → Assist / translate / TTS on this part
-  → Keep reading
-```
-
-No practice or review step.
-
-### 5.3 User import (Phase 1b — not MVP)
-
-```text
-User chooses EPUB/PDF/…
-  → Clean + chapter structure
-  → ReadingWork (owner = user, visibility = private)
-  → Open at last ReadingState
+User uploads EPUB → private ReadingWork (processing)
+  → Parse → ReadingPart[] → ContentAsset (origin_file)
+  → Library → Reader → Resume via ReadingState
 ```
 
 Parse failures must be explicit. Do not LLM-“simplify” the book.
 
-### 5.4 Internal — admin_text (dev only)
+Chaptering keeps textless illustration plates (pages whose images are not the cover) as reading content while cover wrapper and blank pages still drop. The per-book image cap stays in force and is enforced explicitly: over-limit placeholder images are stripped from stored bodies and counted in parse metadata instead of leaking placeholder URLs.
+
+### 5.2 Source save (Hybrid)
 
 ```text
-Operator paste title + body (admin_text)
-  → 1 ReadingWork + 1 ReadingPart (kind=body)
-  → Publish (optional, for test catalog)
+Discover SourceRecord → Save intent (pending)
+  → EPUB materialize → ready Work → formal membership
+  → Reader → ReadingState on first read
+Failure → retryable intent (no fake readiness)
 ```
 
-Not the product supply story. Not Short Article Library.
-
-### 5.5 What we do not run
+### 5.3 What we do not run
 
 ```text
 Crawl the web → auto-AI “course” → ship to users
@@ -169,30 +108,6 @@ AI-generated article library as main shelf filler
 
 ## 6. Quality bar
 
-A catalog work is publishable only if:
-
-1. A reader might **want to keep reading it**
-2. Source/rights are clear (structured `sources` channel, licensed EPUB)
-3. It does not push Gloaming toward **course pack**, **vocab deck**, **chatbot**, or **AI-generated library**
-
----
-
-## 7. Phase note
-
-| When           | Content work                                                  |
-| -------------- | ------------------------------------------------------------- |
-| MVP (Phase 1a) | Admin EPUB pipeline + ReadingWork reader + companion on parts |
-| Phase 1b       | User import; `用户` source label on shelf                     |
-| Phase 2+       | More sources via `origin_kind` — same Work/Part model         |
+Add content only when a reader might **want to keep reading it**, provenance/rights are clear, and it does not push Gloaming toward **course pack**, **vocab deck**, **chatbot**, or **AI-generated library**.
 
 Empty reader is a failure mode. Filling it with generated articles is a worse failure mode.
-
----
-
-## 8. Revision log
-
-| Date       | Change                                                                          |
-| ---------- | ------------------------------------------------------------------------------- |
-| 2026-08-24 | ReadingWork domain; admin EPUB primary; admin_text internal; ADR-001 alignment. |
-| 2026-08-20 | Real content pipeline wording; 1a/1b split.                                     |
-| 2026-08-05 | Initial curated lean library SSOT (superseded).                                 |

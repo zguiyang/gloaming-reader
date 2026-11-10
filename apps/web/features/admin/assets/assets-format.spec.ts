@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCategoryChartData, formatDurationMs, formatStorageBytes, shortObjectKey } from './assets-format.ts';
+import { buildCategoryChartData, formatDurationMs, formatStorageBytes } from './assets-format.ts';
 
 describe('formatStorageBytes', () => {
   it('formats common sizes', () => {
@@ -18,25 +18,18 @@ describe('formatDurationMs', () => {
   });
 });
 
-describe('shortObjectKey', () => {
-  it('keeps short keys and truncates long paths', () => {
-    expect(shortObjectKey('epub/a.epub')).toBe('epub/a.epub');
-    expect(shortObjectKey('part-audio/p1/audio_us/h/chapter.mp3')).toBe('…/h/chapter.mp3');
-  });
-});
-
 describe('buildCategoryChartData', () => {
   it('drops zero-byte categories and assigns chart colors', () => {
     const data = buildCategoryChartData(
       [
-        { category: 'audio', objectCount: 2, bytes: 100 },
+        { category: 'image', objectCount: 2, bytes: 100 },
         { category: 'cover', objectCount: 0, bytes: 0 },
         { category: 'origin', objectCount: 1, bytes: 50 },
       ],
       'zh-CN',
     );
     expect(data).toHaveLength(2);
-    expect(data[0]).toMatchObject({ category: 'audio', label: '音频', fill: 'var(--chart-1)' });
+    expect(data[0]).toMatchObject({ category: 'image', label: '插图', fill: 'var(--chart-1)' });
     expect(data[1]).toMatchObject({ category: 'origin', label: '原始文件' });
   });
 });

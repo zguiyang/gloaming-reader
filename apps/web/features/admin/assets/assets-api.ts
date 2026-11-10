@@ -1,53 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type {
-  AssetCleanupJob,
-  AssetCleanupJobAccepted,
-  AssetObjectListData,
-  AssetObjectListQuery,
-  AssetScanReport,
-} from '@gloaming/shared/assets';
-import {
-  assetCleanupJobAcceptedSchema,
-  assetCleanupJobSchema,
-  assetObjectListDataSchema,
-  assetScanReportSchema,
-} from '@gloaming/shared/assets';
+import type { AssetCleanupJob, AssetCleanupJobAccepted, AssetScanReport } from '@gloaming/shared/assets';
+import { assetCleanupJobAcceptedSchema, assetCleanupJobSchema, assetScanReportSchema } from '@gloaming/shared/assets';
 
 import { shouldPollCleanupJob } from '@/features/admin/assets/assets-cleanup-state';
-import { apiRequest, formatApiError } from '@/lib/api-request';
-
-const OBJECTS_GC_TIME_MS = 5 * 60 * 1000;
+import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 
 export const assetsQueryKey = {
   all: ['admin', 'assets'] as const,
+  latestScan: () => [...assetsQueryKey.all, 'scan', 'latest'] as const,
   scan: (scanId: string) => [...assetsQueryKey.all, 'scan', scanId] as const,
-  objects: (scanId: string, query: AssetObjectListQuery) => [...assetsQueryKey.all, 'objects', scanId, query] as const,
   job: (jobId: string) => [...assetsQueryKey.all, 'cleanup-job', jobId] as const,
 };
 
-export async function scanAssets(init?: { signal?: AbortSignal }): Promise<AssetScanReport> {
-  return apiRequest('/api/admin/assets/scan', {
-    method: 'POST',
+export function isAssetsScanNotFoundError(error: unknown): boolean {
+  return error instanceof ApiRequestError && error.status === 404;
+}
+
+export async function getLatestScanReport(init?: { signal?: AbortSignal }): Promise<AssetScanReport> {
+  return apiRequest('/api/admin/assets/scan/latest', {
     schema: assetScanReportSchema,
     signal: init?.signal,
   });
 }
 
-export async function listScanObjects(
-  scanId: string,
-  query: AssetObjectListQuery,
-  init?: { signal?: AbortSignal },
-): Promise<AssetObjectListData> {
-  const search = new URLSearchParams();
-  search.set('page', String(query.page));
-  search.set('pageSize', String(query.pageSize));
-  search.set('sortBy', query.sortBy);
-  search.set('sortOrder', query.sortOrder);
-  search.set('status', query.status);
-  search.set('category', query.category);
-  return apiRequest(`/api/admin/assets/scans/${encodeURIComponent(scanId)}/objects?${search}`, {
-    schema: assetObjectListDataSchema,
+export async function scanAssets(init?: { signal?: AbortSignal }): Promise<AssetScanReport> {
+  return apiRequest('/api/admin/assets/scan', {
+    method: 'POST',
+    schema: assetScanReportSchema,
     signal: init?.signal,
   });
 }
@@ -75,26 +55,23 @@ export async function retryCleanupJob(jobId: string): Promise<AssetCleanupJobAcc
   });
 }
 
+export function useLatestScanQuery() {
+  return useQuery({
+    queryKey: assetsQueryKey.latestScan(),
+    queryFn: ({ signal }) => getLatestScanReport({ signal }),
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+
 export function useScanAssetsMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => scanAssets(),
     onSuccess: (report) => {
-      queryClient.removeQueries({
-        queryKey: [...assetsQueryKey.all, 'objects'],
-        predicate: (query) => query.queryKey[3] !== report.scanId,
-      });
       queryClient.setQueryData(assetsQueryKey.scan(report.scanId), report);
+      queryClient.setQueryData(assetsQueryKey.latestScan(), report);
     },
-  });
-}
-
-export function useScanObjectsQuery(scanId: string | null, query: AssetObjectListQuery) {
-  return useQuery({
-    queryKey: scanId ? assetsQueryKey.objects(scanId, query) : [...assetsQueryKey.all, 'objects', 'idle'],
-    queryFn: ({ signal }) => listScanObjects(scanId!, query, { signal }),
-    enabled: Boolean(scanId),
-    gcTime: OBJECTS_GC_TIME_MS,
   });
 }
 

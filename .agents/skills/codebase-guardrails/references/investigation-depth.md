@@ -5,11 +5,9 @@ How much to investigate before acting, graded by task risk. The goal: enough evi
 ## Risk levels
 
 ### Low risk
-
 Typical tasks: rename a variable/function, fix a comment, adjust styling, add a small self-contained file.
 
 Required investigation:
-
 1. Rule entry point (AGENTS.md / CLAUDE.md / rule directory) — skim for constraints touching this task
 2. The target file itself
 3. Adjacent code in the same directory (naming, structure, conventions)
@@ -17,11 +15,9 @@ Required investigation:
 Explicitly avoid: global structure scans, consumer searches, test inventory. Budget: ~5 minutes of reading.
 
 ### Medium risk
-
 Typical tasks: modify an API endpoint or handler, change component/function logic, adjust error handling, change a validation rule.
 
 Required investigation (all of Low, plus):
-
 1. The relevant rules for that layer/module
 2. Consumers of the thing being changed (who calls it)
 3. Related types and schemas
@@ -31,11 +27,9 @@ Required investigation (all of Low, plus):
 Budget: bounded to the touched surface; do not read unrelated modules.
 
 ### High risk
-
 Typical tasks: database schema or migration changes, authentication/authorization changes, public API contract changes, architecture-level refactors, large restructuring.
 
 Required investigation (all of Medium, plus):
-
 1. Schema / migrations / seed data as applicable
 2. Rule sections covering architecture, layering, database discipline
 3. ADRs, design docs, architecture notes
@@ -62,13 +56,13 @@ Pick only the items that sit on the task's contact surface. A comment fix does n
 
 Before introducing anything new (a dependency, a helper, a wrapper, a script), discover what the project already has **on this task's contact surface**:
 
-| Task touches  | Check for                                                               |
-| ------------- | ----------------------------------------------------------------------- |
-| API work      | request layer, validation, error handling, existing API helpers         |
-| New feature   | utilities, shared packages, existing abstractions, related dependencies |
+| Task touches | Check for |
+|---|---|
+| API work | request layer, validation, error handling, existing API helpers |
+| New feature | utilities, shared packages, existing abstractions, related dependencies |
 | Backend logic | service/controller patterns, error classes, logging setup, auth helpers |
-| Data work     | database access layer, migration tooling, seed scripts                  |
-| Anything      | package.json scripts, package manager, lint/format/test commands        |
+| Data work | database access layer, migration tooling, seed scripts |
+| Anything | package.json scripts, package manager, lint/format/test commands |
 
 "Do the project already have something that does this?" is asked **once, on the touched surface** — not as a repository-wide search.
 

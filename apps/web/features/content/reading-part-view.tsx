@@ -1,7 +1,7 @@
 'use client';
 
 import DOMPurify from 'dompurify';
-import { type MouseEvent, type ReactNode, useMemo } from 'react';
+import { type KeyboardEvent, type MouseEvent, type ReactNode, useMemo } from 'react';
 
 import { t } from '@gloaming/i18n';
 import type { TranslateSentenceEn } from '@gloaming/shared/translate';
@@ -24,6 +24,7 @@ export type ReadingPartViewProps = {
   className?: string;
   /** Optional selection handling — the learner Reader wires its assist toolbar here. */
   onArticleMouseUp?: (event: MouseEvent<HTMLElement>) => void;
+  onArticleKeyUp?: (event: KeyboardEvent<HTMLElement>) => void;
   /** Optional content after the reading body (e.g. the learner's chapter-end footer). */
   footer?: ReactNode;
   isBilingual?: boolean;
@@ -67,6 +68,9 @@ function splitElementIntoSentences(
       const zhSpan = doc.createElement('span');
       zhSpan.setAttribute('data-bilingual-translation', 'true');
       zhSpan.setAttribute('data-sentence-index', String(sentence.index));
+      // Reading body is lang="en"; translations must not inherit English
+      // hyphenation or pronunciation.
+      zhSpan.setAttribute('lang', 'zh');
       zhSpan.className = cn(
         'sentence-zh block text-sm font-sans text-muted-foreground/75 leading-relaxed mt-1 select-text transition-[opacity,color] duration-150 group-hover/sentence:text-foreground group-hover/sentence:opacity-100',
         isFocused
@@ -140,6 +144,7 @@ function splitElementIntoSentences(
         const fallbackZh = doc.createElement('div');
         fallbackZh.setAttribute('data-bilingual-translation', 'true');
         fallbackZh.setAttribute('data-sentence-index', String(s.index));
+        fallbackZh.setAttribute('lang', 'zh');
         fallbackZh.className = 'text-sm font-sans text-muted-foreground/75 leading-relaxed select-text';
         fallbackZh.textContent = zh;
         fallbackContainer.appendChild(fallbackZh);
@@ -205,6 +210,7 @@ function splitElementIntoSentences(
       const zhSpan = doc.createElement('span');
       zhSpan.setAttribute('data-bilingual-translation', 'true');
       zhSpan.setAttribute('data-sentence-index', String(sentence.index));
+      zhSpan.setAttribute('lang', 'zh');
       zhSpan.className = cn(
         'sentence-zh block text-sm font-sans text-muted-foreground/75 leading-relaxed mt-1 select-text transition-[opacity,color] duration-150 group-hover/sentence:text-foreground group-hover/sentence:opacity-100',
         isFocused
@@ -293,6 +299,7 @@ export function ReadingPartView({
   fontSize = 'md',
   className,
   onArticleMouseUp,
+  onArticleKeyUp,
   footer,
   isBilingual = false,
   bilingualData,
@@ -325,11 +332,15 @@ export function ReadingPartView({
   return (
     <article
       onMouseUp={onArticleMouseUp}
+      onKeyUp={onArticleKeyUp}
+      tabIndex={onArticleKeyUp ? 0 : undefined}
+      aria-label={onArticleKeyUp ? t(locale, 'content.reader.readingArea') : undefined}
       onClick={handleArticleClick}
       className={cn(
         // Readest-aligned page insets: 16/20 L-R, compact top; large pb clears TTS/chrome.
         'mx-auto w-full max-w-reading-column px-4 pb-24 pt-6 md:px-5 md:pt-8',
         FONT_CLASS[fontSize],
+        onArticleKeyUp && 'focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2',
         className,
       )}
     >
@@ -349,6 +360,9 @@ export function ReadingPartView({
       ) : null}
 
       <div
+        // Reading content is English (system UI locale may be zh-CN); lang="en"
+        // scopes hyphenation and screen-reader pronunciation to the content.
+        lang="en"
         className="reading-body font-reading text-foreground/90 text-pretty selection:bg-accent selection:text-brand-deep"
         dangerouslySetInnerHTML={{ __html: renderedHtml }}
       />

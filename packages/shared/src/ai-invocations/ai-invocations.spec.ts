@@ -83,11 +83,42 @@ describe('ai invocation log schema', () => {
       costAmount: null,
       costCurrency: null,
       requestSummary: { actionId: 'meaning', messageCount: 2 },
-      responseSummary: { replyPreview: 'hello', replyLength: 5 },
+      responseSummary: { replyLength: 5 },
     });
     expect(parsed.source).toBe('assist.ask');
     expect(parsed.purpose).toBe('assist');
     expect(parsed.costAmount).toBeNull();
+  });
+
+  it('keeps only operational fields in summaries', () => {
+    const parsed = aiInvocationLogSchema.parse({
+      id: 'log_2',
+      createdAt: '2026-08-13T12:00:00.000Z',
+      status: 'success',
+      errorCode: null,
+      errorMessage: null,
+      purpose: 'assist',
+      source: 'assist.ask',
+      userId: null,
+      refType: null,
+      refId: null,
+      modelRowId: null,
+      providerId: null,
+      modelId: null,
+      baseUrl: null,
+      latencyMs: 120,
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+      costAmount: null,
+      costCurrency: null,
+      requestSummary: { messageCount: 2, actionId: 'meaning', privateBody: 'private selection' },
+      responseSummary: { replyLength: 12, privateBody: 'private response' },
+    });
+
+    expect(parsed.requestSummary).toEqual({ messageCount: 2, actionId: 'meaning' });
+    expect(parsed.responseSummary).toEqual({ replyLength: 12 });
+    expect(JSON.stringify(parsed)).not.toContain('private');
   });
 });
 

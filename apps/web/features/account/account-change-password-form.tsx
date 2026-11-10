@@ -9,6 +9,7 @@ import { t } from '@gloaming/i18n';
 import { Button } from '@/components/ui/button';
 import { Field, FieldContent, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { changePasswordFormSchema } from '@/lib/validations/auth';
@@ -61,9 +62,9 @@ export function AccountChangePasswordForm({ enabled, accountsPending }: AccountC
   if (accountsPending) {
     return (
       <div className="flex flex-col gap-3" aria-hidden>
-        <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
-        <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
-        <div className="h-11 animate-pulse rounded-md bg-surface-container-high" />
+        <Skeleton className="h-11 rounded-md bg-surface-container-high" />
+        <Skeleton className="h-11 rounded-md bg-surface-container-high" />
+        <Skeleton className="h-11 rounded-md bg-surface-container-high" />
       </div>
     );
   }
@@ -141,7 +142,11 @@ export function AccountChangePasswordForm({ enabled, accountsPending }: AccountC
         )}
       </form.Field>
 
-      {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
+      {formError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {formError}
+        </p>
+      ) : null}
 
       <form.Subscribe selector={(state) => state.isSubmitting}>
         {(isSubmitting) => (

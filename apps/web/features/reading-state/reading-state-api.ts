@@ -1,4 +1,9 @@
-import { type ReadingState, readingStateSchema, type UpdateReadingStateBody } from '@gloaming/shared/reader';
+import {
+  type ReadingAnchor,
+  type ReadingState,
+  readingStateSchema,
+  type UpdateReadingStateBody,
+} from '@gloaming/shared/reader';
 
 import { apiRequest, ApiRequestError } from '@/lib/api-request';
 
@@ -29,7 +34,20 @@ export async function patchReadingState(
   });
 }
 
-/** Silent shelf add — creates 0% state without opening reader. */
-export async function addWorkToShelf(workId: string): Promise<void> {
-  await patchReadingState(workId, { action: 'add_to_shelf' });
+/**
+ * Persist a within-chapter scroll position. Intentionally bypasses the shared
+ * state mutation: it must not touch the React Query state cache, the chapter
+ * progress ratio, or Library/Book Detail caches.
+ */
+export async function saveReadingAnchor(
+  workId: string,
+  anchor: ReadingAnchor,
+  init?: { keepalive?: boolean },
+): Promise<ReadingState> {
+  return apiRequest(`/api/reader/works/${encodeURIComponent(workId)}/state`, {
+    method: 'PATCH',
+    schema: readingStateSchema,
+    json: { action: 'save_position', anchor } satisfies UpdateReadingStateBody,
+    keepalive: init?.keepalive,
+  });
 }

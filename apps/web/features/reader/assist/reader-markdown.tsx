@@ -46,7 +46,7 @@ export function ReaderMarkdown({ content, streaming, className }: ReaderMarkdown
           ol: ({ children }) => <ol className="my-2 list-decimal pl-4 space-y-1">{children}</ol>,
           li: ({ children }) => <li className="leading-relaxed">{children}</li>,
           blockquote: ({ children }) => (
-            <blockquote className="my-2 border-l-2 border-primary/50 pl-3 italic text-muted-foreground">
+            <blockquote className="relative my-2 pl-3 italic text-muted-foreground before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary/50">
               {children}
             </blockquote>
           ),

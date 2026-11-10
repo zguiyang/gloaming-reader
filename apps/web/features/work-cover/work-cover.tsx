@@ -2,45 +2,37 @@
 
 import { useState } from 'react';
 
-import { t } from '@gloaming/i18n';
-
 import { coverTintForVolume } from '@/features/work-cover/work-cover-tint';
-import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export type WorkCoverAppearance = 'standard' | 'compact';
 
 export type WorkCoverProps = {
   title: string;
-  /** Used by `standard` tint seeding; ignored by `compact` (always empty tags). */
-  tags?: string[];
   coverImageUrl?: string | null;
   /** Layout size overrides for `standard` only. Must not be used to fake `compact`. */
   className?: string;
   appearance?: WorkCoverAppearance;
 };
 
-export function WorkCover({ title, tags = [], coverImageUrl, className, appearance = 'standard' }: WorkCoverProps) {
+export function WorkCover({ title, coverImageUrl, className, appearance = 'standard' }: WorkCoverProps) {
   if (appearance === 'compact') {
     return <WorkCoverCompact title={title} coverImageUrl={coverImageUrl ?? null} />;
   }
 
-  return <WorkCoverStandard title={title} tags={tags} coverImageUrl={coverImageUrl} className={className} />;
+  return <WorkCoverStandard title={title} coverImageUrl={coverImageUrl} className={className} />;
 }
 
 function WorkCoverStandard({
   title,
-  tags,
   coverImageUrl,
   className,
 }: {
   title: string;
-  tags: string[];
   coverImageUrl?: string | null;
   className?: string;
 }) {
-  const { locale } = useLocale();
-  const tint = coverTintForVolume(tags, title);
+  const tint = coverTintForVolume(title);
   const [hasImageFailed, setHasImageFailed] = useState(false);
   const canShowImage = Boolean(coverImageUrl) && !hasImageFailed;
 
@@ -68,9 +60,6 @@ function WorkCoverStandard({
         />
       ) : (
         <div className="absolute inset-0 flex flex-col justify-between p-4 md:p-5">
-          <span className="self-end rounded-sm border border-border/30 bg-background/95 px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-foreground shadow-sm">
-            {t(locale, 'content.bookDetail.sourceOfficial')}
-          </span>
           <p className="font-heading line-clamp-5 text-base font-bold leading-snug text-foreground/85 md:text-xl">
             {title}
           </p>
@@ -81,18 +70,20 @@ function WorkCoverStandard({
 }
 
 function WorkCoverCompact({ title, coverImageUrl }: { title: string; coverImageUrl: string | null }) {
-  const tint = coverTintForVolume([], title);
+  const tint = coverTintForVolume(title);
+  const [hasImageFailed, setHasImageFailed] = useState(false);
+  const canShowImage = Boolean(coverImageUrl) && !hasImageFailed;
 
   return (
     <div
       className={cn(
         'relative h-20 w-14 shrink-0 overflow-hidden rounded-sm shadow-sm ring-1 ring-foreground/8 md:h-24 md:w-16',
-        !coverImageUrl && tint,
+        !canShowImage && tint,
       )}
     >
-      {coverImageUrl ? (
+      {canShowImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- cover assets via API proxy
-        <img src={coverImageUrl} alt="" className="size-full object-cover" />
+        <img src={coverImageUrl!} alt="" className="size-full object-cover" onError={() => setHasImageFailed(true)} />
       ) : (
         <p className="font-heading line-clamp-4 p-1.5 text-[10px] font-semibold leading-tight text-foreground/80 md:p-2 md:text-xs">
           {title}

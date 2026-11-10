@@ -18,8 +18,8 @@ import Redis from 'ioredis';
 
 import { dictionaryEntry as dictionaryEntryTable } from '@gloaming/db';
 
-import { db } from '../src/db/index.ts';
-import { env } from '../src/lib/env.ts';
+import { env } from '../src/infra/config/env.ts';
+import { db } from '../src/infra/db/index.ts';
 
 const FORBIDDEN_DB_NAME_PATTERN = /(prod|production|live)/i;
 const WORD_CACHE_PREFIX = 'gloaming:dictionary:v1:word:';

@@ -39,6 +39,8 @@ type AiPurposePanelProps = {
   providers: LlmProvider[];
   models: LlmModel[];
   draftByKey: Partial<Record<AiSettingKey, string>>;
+  /** Key whose save request is in flight, or null. */
+  savingKey: AiSettingKey | null;
   onDraftChange: (key: AiSettingKey, modelId: string) => void;
   onSave: (key: AiSettingKey) => void;
 };
@@ -153,6 +155,7 @@ function findModelItem(groups: ModelComboboxGroup[], modelId: string): ModelComb
 
 type PurposeModelComboboxProps = {
   id: string;
+  ariaLabel: string;
   groups: ModelComboboxGroup[];
   value: string;
   disabled?: boolean;
@@ -160,7 +163,15 @@ type PurposeModelComboboxProps = {
   onValueChange: (modelId: string) => void;
 };
 
-function PurposeModelCombobox({ id, groups, value, disabled, placeholder, onValueChange }: PurposeModelComboboxProps) {
+function PurposeModelCombobox({
+  id,
+  ariaLabel,
+  groups,
+  value,
+  disabled,
+  placeholder,
+  onValueChange,
+}: PurposeModelComboboxProps) {
   const { locale } = useLocale();
   const selected = value ? findModelItem(groups, value) : null;
 
@@ -177,7 +188,13 @@ function PurposeModelCombobox({ id, groups, value, disabled, placeholder, onValu
         }
       }}
     >
-      <ComboboxInput id={id} placeholder={placeholder} className="h-10 w-full rounded-xl" />
+      <ComboboxInput
+        id={id}
+        aria-label={ariaLabel}
+        appearance="filled"
+        placeholder={placeholder}
+        className="h-11 w-full"
+      />
       <ComboboxContent>
         <ComboboxEmpty>{t(locale, 'admin.ai.purpose.noMatchingModels')}</ComboboxEmpty>
         <ComboboxList>
@@ -204,6 +221,7 @@ export function AiPurposePanel({
   providers,
   models,
   draftByKey,
+  savingKey,
   onDraftChange,
   onSave,
 }: AiPurposePanelProps) {
@@ -218,7 +236,7 @@ export function AiPurposePanel({
   );
 
   return (
-    <ul className="overflow-hidden rounded-2xl border border-border bg-secondary/60">
+    <ul className="flex flex-col">
       {settings.map((setting) => {
         const title = purposeTitle(setting.key, locale);
         const draft = draftByKey[setting.key] ?? setting.modelId ?? '';
@@ -230,14 +248,26 @@ export function AiPurposePanel({
         );
         const isDirty = draft !== (setting.modelId ?? '');
         const groups = buildModelGroups(bindableModels, providers, draft, models, locale, setting.modelLabel);
+        // Any purpose save in flight gates every row: saves and selectors stay
+        // locked so concurrent mutations cannot overwrite each other's variables.
+        const isAnySaving = savingKey !== null;
 
         return (
           <li
             key={setting.key}
-            className="flex flex-col gap-3 border-t border-border/80 px-5 py-5 first:border-t-0 md:flex-row md:items-center md:gap-6 md:px-6 md:py-5"
+            className="flex flex-col gap-3 border-b border-border/50 py-4 sm:flex-row sm:items-start sm:gap-4"
           >
-            <div className="flex min-w-0 flex-wrap items-center gap-2 md:w-40 md:shrink-0">
-              <p className="font-medium text-foreground">{title}</p>
+            {/* Purpose name + health badges: fixed-basis left column on desktop-wide rows so the
+                selector can fill the remaining width up to the content right edge; stacks
+                naturally above the selector on narrow screens. Top alignment keeps the title and
+                selector steady when badges appear or long titles wrap. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:w-48 sm:shrink-0 sm:flex-col sm:items-start sm:gap-1.5 lg:w-56">
+              {/* Desktop: the title band matches the selector's 44px height so a normal
+                  single-line name sits on the selector's vertical center; a wrapped long title
+                  grows the band instead of clipping. Narrow keeps the plain stacked title. */}
+              <div className="flex min-w-0 items-center sm:min-h-[44px]">
+                <p className="min-w-0 text-sm font-semibold text-foreground">{title}</p>
+              </div>
               {health ? (
                 <Badge
                   variant="secondary"
@@ -254,27 +284,53 @@ export function AiPurposePanel({
                 </Badge>
               ) : null}
             </div>
-
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <PurposeModelCombobox
-                id={`purpose-${setting.key}`}
-                groups={groups}
-                value={draft}
-                disabled={bindableModels.length === 0 && !draft}
-                placeholder={
-                  bindableModels.length === 0
-                    ? t(locale, 'admin.ai.purpose.noBindableModels')
-                    : t(locale, 'admin.ai.purpose.searchOrSelectModel')
-                }
-                onValueChange={(modelId) => onDraftChange(setting.key, modelId)}
-              />
-              <Button
-                className="h-10 shrink-0 rounded-xl px-5 hover:bg-brand-deep"
-                disabled={!draft || !isDirty}
-                onClick={() => onSave(setting.key)}
-              >
-                {t(locale, 'admin.content.common.save')}
-              </Button>
+            {/* The selector spans the full remaining row width, so its right edge stays flush with
+                the content right edge in every state. Save/Cancel sit below it, right-aligned, in
+                a constant-height reserved slot: dirty, pending, error, and cancel states never
+                shift the selector, its right edge, or neighboring rows. */}
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="min-w-0 w-full">
+                <PurposeModelCombobox
+                  id={`purpose-${setting.key}`}
+                  ariaLabel={title}
+                  groups={groups}
+                  value={draft}
+                  disabled={(bindableModels.length === 0 && !draft) || isAnySaving}
+                  placeholder={
+                    bindableModels.length === 0
+                      ? t(locale, 'admin.ai.purpose.noBindableModels')
+                      : t(locale, 'admin.ai.purpose.searchOrSelectModel')
+                  }
+                  onValueChange={(modelId) => onDraftChange(setting.key, modelId)}
+                />
+              </div>
+              <div className="flex h-9 w-full items-center justify-end gap-2" aria-hidden={isDirty ? undefined : true}>
+                {isDirty ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 rounded-lg px-4 hover:bg-brand-deep"
+                      disabled={!draft || isAnySaving}
+                      onClick={() => onSave(setting.key)}
+                    >
+                      {t(locale, 'admin.content.common.save')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={isAnySaving}
+                      onClick={() => {
+                        // Local cancel restores only this row's saved binding.
+                        onDraftChange(setting.key, setting.modelId ?? '');
+                      }}
+                    >
+                      {t(locale, 'admin.content.common.cancel')}
+                    </Button>
+                  </>
+                ) : null}
+              </div>
             </div>
           </li>
         );

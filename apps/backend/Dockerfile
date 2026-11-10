@@ -13,7 +13,7 @@ COPY apps/backend/package.json ./apps/backend/
 COPY packages/db/package.json ./packages/db/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/i18n/package.json ./packages/i18n/
-# tsx is a runtime devDependency used by start/worker scripts.
+# Production entrypoints run compiled JavaScript via the tsx loader kept in the image.
 RUN pnpm install --frozen-lockfile --filter @gloaming/backend...
 
 FROM base AS build
@@ -34,6 +34,10 @@ FROM base AS runner
 ENV NODE_ENV=production
 # Dokploy can override this at runtime for the separate Worker service.
 ENV GLOAMING_SERVICE=api
+# bzip2 decompresses the Project Gutenberg RDF snapshot via a shell:false child process.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bzip2 \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/backend/node_modules ./apps/backend/node_modules
@@ -43,4 +47,6 @@ COPY --from=build /app/apps/backend/package.json ./apps/backend/package.json
 COPY package.json pnpm-workspace.yaml ./
 WORKDIR /app/apps/backend
 EXPOSE 3333
+# Workspace packages ship TypeScript sources (package exports point to src/*.ts),
+# so they are resolved by the tsx loader kept in the runner image.
 CMD ["sh", "-c", "if [ \"$GLOAMING_SERVICE\" = \"worker\" ]; then exec node --import tsx dist/worker.js; fi; exec node --import tsx dist/index.js"]

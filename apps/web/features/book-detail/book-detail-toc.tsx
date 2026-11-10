@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { t } from '@gloaming/i18n';
 
+import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import type { BookChapter, BookDetail } from '@/features/book-detail/book-detail-model';
 import { chapterOrdinalLabel, chapterStatusLabel, formatChapterTitle } from '@/features/book-detail/book-detail-model';
@@ -15,7 +16,7 @@ import { cn } from '@/lib/utils';
 /** Desktop prototype shows a short preview then “展开全部章节”. */
 const PREVIEW_COUNT = 4;
 
-export function BookDetailToc({ book }: { book: BookDetail }) {
+export function BookDetailToc({ book }: { book: Pick<BookDetail, 'id' | 'chapters'> }) {
   const { locale } = useLocale();
   const [isExpanded, setIsExpanded] = useState(false);
   const chapters = book.chapters;
@@ -43,9 +44,11 @@ export function BookDetailToc({ book }: { book: BookDetail }) {
 
       {canExpand ? (
         <div className="pt-1 text-center">
-          <button
+          <Button
             type="button"
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors duration-200 ease-out-soft hover:text-brand-deep"
+            variant="link"
+            aria-expanded={isExpanded}
+            className="h-auto gap-1 p-0 text-sm font-medium text-primary no-underline transition-colors duration-200 ease-out-soft hover:text-brand-deep hover:no-underline"
             onClick={() => setIsExpanded((v) => !v)}
           >
             {isExpanded ? t(locale, 'content.bookDetail.tocCollapse') : t(locale, 'content.bookDetail.tocExpand')}
@@ -54,7 +57,7 @@ export function BookDetailToc({ book }: { book: BookDetail }) {
               strokeWidth={1.5}
               aria-hidden
             />
-          </button>
+          </Button>
         </div>
       ) : null}
     </section>

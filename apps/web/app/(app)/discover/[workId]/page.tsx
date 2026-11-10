@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 import { t } from '@gloaming/i18n';
 
-import { BookDetailPage } from '@/features/book-detail/book-detail-page';
 import { getClientLocale, LOCALE_COOKIE_NAME } from '@/lib/client-locale';
+import { legacyWorkDetailRedirect } from '@/lib/navigation/work-detail-return';
 
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies();
@@ -21,9 +22,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 type PageProps = {
   params: Promise<{ workId: string }>;
+  searchParams: Promise<{ returnTo?: string | string[] }>;
 };
 
-export default async function Page({ params }: PageProps) {
-  const { workId } = await params;
-  return <BookDetailPage key={workId} workId={workId} />;
+export default async function Page({ params, searchParams }: PageProps) {
+  const [{ workId }, query] = await Promise.all([params, searchParams]);
+  redirect(legacyWorkDetailRedirect(workId, query.returnTo));
 }

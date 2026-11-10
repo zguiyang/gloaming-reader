@@ -21,7 +21,7 @@ import Redis from 'ioredis';
 
 import { TTS_CACHE_KEY_PREFIX_V1, TTS_CACHE_KEY_PREFIX_V2 } from '@gloaming/shared/tts';
 
-import { env } from '../src/lib/env.ts';
+import { env } from '../src/infra/config/env.ts';
 
 const ALLOWED_PREFIXES = {
   v1: TTS_CACHE_KEY_PREFIX_V1,

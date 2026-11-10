@@ -9,7 +9,9 @@ pnpm-lock.yaml
 .pnpm-store
 .trellis
 .gitnexus
+.delta
 .cursor/skills
+.agents/skills
 .cursor/agents
 .cursor/commands
 .cursor/hooks

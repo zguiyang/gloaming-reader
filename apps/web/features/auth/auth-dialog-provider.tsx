@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 import { AuthDialog, type AuthMode, type AuthReason } from '@/features/auth/auth-dialog';
@@ -22,7 +21,6 @@ type AuthDialogController = {
 const AuthDialogContext = createContext<AuthDialogController | null>(null);
 
 export function AuthDialogProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AuthMode>('login');
   const [reason, setReason] = useState<AuthReason>();
@@ -55,7 +53,7 @@ export function AuthDialogProvider({ children }: { children: ReactNode }) {
     await refresh();
     close();
     const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined;
-    router.replace(consumePostAuthPath(searchParams));
+    window.location.replace(consumePostAuthPath(searchParams));
   }
 
   return (

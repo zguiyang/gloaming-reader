@@ -1,0 +1,140 @@
+import { and, eq } from 'drizzle-orm';
+
+import {
+  contentAsset as contentAssetTable,
+  partAudioSegment as partAudioSegmentTable,
+  readingPart as readingPartTable,
+  readingWork as readingWorkTable,
+} from '@gloaming/db';
+
+import { workflowClaimWhere } from '@/domains/works/lifecycle';
+import { db } from '@/infra/db';
+import { rootLogger } from '@/infra/logging/logger';
+import { deleteObject } from '@/infra/storage';
+
+const ingestLogger = rootLogger.child({ module: 'IngestReset' });
+
+type WorkRow = typeof readingWorkTable.$inferSelect;
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type DbClient = typeof db | DbTransaction;
+type ParseClaim = {
+  retryJobToken: string;
+  attemptToken: string;
+};
+type DerivedAssetsForCleanup = {
+  storageKeys: string[];
+  /** `part_audio_segment.storage_key` values whose rows cascade away with their parts. */
+  segmentStorageKeys: string[];
+};
+
+/** Remove derived asset rows and return their objects for post-commit cleanup. */
+async function removeDerivedAssetRows(client: DbClient, workId: string): Promise<DerivedAssetsForCleanup> {
+  const rows = await client
+    .select({ id: contentAssetTable.id, storageKey: contentAssetTable.storageKey, kind: contentAssetTable.kind })
+    .from(contentAssetTable)
+    .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'image')));
+  // Collect every cover key: rows are deleted for the whole work, so a limit(1)
+  // select would leave orphaned objects when multiple cover rows exist (re-parse tests).
+  const cover = await client
+    .select({ id: contentAssetTable.id, storageKey: contentAssetTable.storageKey })
+    .from(contentAssetTable)
+    .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'cover')));
+
+  if (rows.length > 0) {
+    await client
+      .delete(contentAssetTable)
+      .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'image')));
+  }
+  if (cover.length > 0) {
+    await client
+      .delete(contentAssetTable)
+      .where(and(eq(contentAssetTable.workId, workId), eq(contentAssetTable.kind, 'cover')));
+  }
+
+  // Lazy per-segment audio: part deletion below cascades these rows away; the
+  // objects are deleted best-effort after the transaction commits.
+  const segments = await client
+    .select({ storageKey: partAudioSegmentTable.storageKey })
+    .from(partAudioSegmentTable)
+    .innerJoin(readingPartTable, eq(partAudioSegmentTable.partId, readingPartTable.id))
+    .where(eq(readingPartTable.workId, workId));
+
+  return {
+    storageKeys: [...rows, ...cover].map((row) => row.storageKey),
+    segmentStorageKeys: segments.map((row) => row.storageKey),
+  };
+}
+
+/** Object deletion happens only after the asset-row transaction has committed. */
+async function clearDerivedAssetObjects(workId: string, cleanup: DerivedAssetsForCleanup): Promise<void> {
+  for (const storageKey of cleanup.storageKeys) {
+    try {
+      const [stillReferenced] = await db
+        .select({ id: contentAssetTable.id })
+        .from(contentAssetTable)
+        .where(eq(contentAssetTable.storageKey, storageKey))
+        .limit(1);
+      if (!stillReferenced) {
+        await deleteObject(storageKey);
+      }
+    } catch (error) {
+      ingestLogger.warn({ err: error, workId, storageKey }, 'Failed to delete derived asset object');
+    }
+  }
+  for (const storageKey of cleanup.segmentStorageKeys) {
+    try {
+      await deleteObject(storageKey);
+    } catch (error) {
+      ingestLogger.warn({ err: error, workId, storageKey }, 'Failed to delete reader audio segment object');
+    }
+  }
+}
+
+/** AI-output reset: AI-filled description. */
+export async function resetMetadataAiOutputs(work: WorkRow, client: DbClient = db): Promise<void> {
+  if (work.descriptionProvenance === 'ai') {
+    await client
+      .update(readingWorkTable)
+      .set({ description: '', descriptionProvenance: null })
+      .where(eq(readingWorkTable.id, work.id));
+  }
+}
+
+/** Re-parse reset: parts, derived assets, AI description, and filled metadata fields. */
+export async function resetParseStepOutputs(work: WorkRow, claim?: ParseClaim): Promise<void> {
+  const reset = async (client: DbClient): Promise<DerivedAssetsForCleanup> => {
+    const cleanup = await removeDerivedAssetRows(client, work.id);
+    await client.delete(readingPartTable).where(eq(readingPartTable.workId, work.id));
+    await resetMetadataAiOutputs(work, client);
+    await client
+      .update(readingWorkTable)
+      .set({
+        title: '',
+        author: '',
+        description: '',
+        coverAssetId: null,
+        descriptionProvenance: null,
+      })
+      .where(eq(readingWorkTable.id, work.id));
+    return cleanup;
+  };
+
+  if (!claim) {
+    const cleanup = await db.transaction(reset);
+    await clearDerivedAssetObjects(work.id, cleanup);
+    return;
+  }
+
+  const cleanup = await db.transaction(async (tx) => {
+    const [owned] = await tx
+      .select({ id: readingWorkTable.id })
+      .from(readingWorkTable)
+      .where(workflowClaimWhere(work.id, 'parse', claim.retryJobToken, claim.attemptToken))
+      .for('update');
+    if (!owned) {
+      throw new Error('Parse workflow lease lost before reset');
+    }
+    return reset(tx);
+  });
+  await clearDerivedAssetObjects(work.id, cleanup);
+}

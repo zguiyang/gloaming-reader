@@ -1,156 +1,178 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
+import {
+  type PublicCategoryListData,
+  publicCategoryListDataSchema,
+  type SourceRecordListData,
+  sourceRecordListDataSchema,
+  type SourceRecordListQuery,
+} from '@gloaming/shared/discovery';
+import {
+  type SourceRecordSaveResult,
+  sourceRecordSaveResultSchema,
+  type SourceRecordSaveStatus,
+  sourceRecordSaveStatusSchema,
+} from '@gloaming/shared/library';
 import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
-import type { ShelfItem } from '@gloaming/shared/shelf';
-import { type CatalogTaxonomyListData, catalogTaxonomyListDataSchema } from '@gloaming/shared/taxonomy';
 import {
   type CatalogListData,
   catalogListDataSchema,
   type CatalogListQuery,
-  type CatalogWork,
   DEFAULT_CATALOG_SORT_BY,
 } from '@gloaming/shared/works';
 
-import { DISCOVER_PAGE_SIZE, type DiscoverItem, type DiscoverShelfStatus } from '@/features/discover/discover-model';
-import { buildShelfItemMap, getShelf } from '@/features/shelf/shelf-public';
-import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
-import { coverUrlFromAssetId } from '@/lib/asset-url';
+import { DISCOVER_PAGE_SIZE } from '@/features/discover/discover-model';
+import { apiRequest, formatApiError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
 
-export type DiscoverListParams = Partial<
-  Pick<CatalogListQuery, 'page' | 'pageSize' | 'category' | 'tag' | 'q' | 'sortBy' | 'sortOrder'>
->;
+/** Filters Discover owns; `language` stays the backend English-first default. */
+export type DiscoverListParams = Partial<Pick<SourceRecordListQuery, 'page' | 'pageSize' | 'q' | 'categoryId'>>;
 
-export type DiscoverCatalogResult = {
-  items: DiscoverItem[];
-  pagination: CatalogListData['pagination'];
-};
+/** Compatibility Catalog read parameters; it never carries a SourceRecord category. */
+export type DiscoverLegacyParams = Partial<Pick<CatalogListQuery, 'page' | 'pageSize' | 'q'>>;
 
 export const discoverQueryKey = {
   all: ['discover'] as const,
-  list: (params: DiscoverListParams) => [...discoverQueryKey.all, 'list', params] as const,
-  tags: () => [...discoverQueryKey.all, 'tags'] as const,
+  records: (params: DiscoverListParams, userId: string | null) =>
+    [...discoverQueryKey.all, 'records', userId, params] as const,
   categories: () => [...discoverQueryKey.all, 'categories'] as const,
+  legacyWorks: (params: DiscoverLegacyParams) => [...discoverQueryKey.all, 'legacy-works', params] as const,
+  saveStatus: (sourceRecordId: string, userId: string | null) =>
+    [...discoverQueryKey.all, 'save-status', userId, sourceRecordId] as const,
 };
 
-function toIsoString(value: string | Date | null | undefined): string {
-  if (!value) {
-    return '';
-  }
-  return typeof value === 'string' ? value : value.toISOString();
-}
+const DEFAULT_RECORD_SORT_BY = 'sourceUpdatedAt' as const;
 
-/** Builds the query string for `GET /api/catalog/works`. Exported for pure unit tests. */
-export function buildDiscoverListQuery(params: DiscoverListParams): string {
+/** Builds the query string for `GET /api/discover/records`. Exported for pure unit tests. */
+export function buildDiscoverRecordsQuery(params: DiscoverListParams): string {
   const search = new URLSearchParams();
   search.set('page', String(params.page ?? DEFAULT_PAGE));
   search.set('pageSize', String(params.pageSize ?? DISCOVER_PAGE_SIZE));
-  search.set('sortBy', params.sortBy ?? DEFAULT_CATALOG_SORT_BY);
-  search.set('sortOrder', params.sortOrder ?? DEFAULT_SORT_ORDER);
-  if (params.category) {
-    search.set('category', params.category);
+  search.set('sortBy', DEFAULT_RECORD_SORT_BY);
+  search.set('sortOrder', DEFAULT_SORT_ORDER);
+  if (params.q) {
+    search.set('q', params.q);
   }
-  if (params.tag?.length) {
-    search.set('tag', params.tag.join(','));
+  if (params.categoryId) {
+    search.set('categoryId', params.categoryId);
   }
+  return search.toString();
+}
+
+/**
+ * Builds the compatibility `GET /api/catalog/works` query. The `sourceLink=unlinked`
+ * filter keeps already-published ReadingWorks visible without duplicating a Work
+ * already represented by a SourceRecord.
+ */
+export function buildDiscoverLegacyQuery(params: DiscoverLegacyParams): string {
+  const search = new URLSearchParams();
+  search.set('page', String(params.page ?? DEFAULT_PAGE));
+  search.set('pageSize', String(params.pageSize ?? DISCOVER_PAGE_SIZE));
+  search.set('sortBy', DEFAULT_CATALOG_SORT_BY);
+  search.set('sortOrder', DEFAULT_SORT_ORDER);
+  search.set('sourceLink', 'unlinked');
   if (params.q) {
     search.set('q', params.q);
   }
   return search.toString();
 }
 
-export async function listCatalogWorks(
-  params: DiscoverListParams = {},
+export async function fetchDiscoverRecords(
+  params: DiscoverListParams,
+  init?: { signal?: AbortSignal },
+): Promise<SourceRecordListData> {
+  const qs = buildDiscoverRecordsQuery(params);
+  return apiRequest(`/api/discover/records?${qs}`, {
+    schema: sourceRecordListDataSchema,
+    signal: init?.signal,
+  });
+}
+
+export async function fetchDiscoverCategories(init?: { signal?: AbortSignal }): Promise<PublicCategoryListData> {
+  return apiRequest('/api/discover/categories', {
+    schema: publicCategoryListDataSchema,
+    signal: init?.signal,
+  });
+}
+
+export async function fetchDiscoverLegacyWorks(
+  params: DiscoverLegacyParams,
   init?: { signal?: AbortSignal },
 ): Promise<CatalogListData> {
-  const qs = buildDiscoverListQuery(params);
+  const qs = buildDiscoverLegacyQuery(params);
   return apiRequest(`/api/catalog/works?${qs}`, {
     schema: catalogListDataSchema,
     signal: init?.signal,
   });
 }
 
-export async function fetchDiscoverTags(init?: { signal?: AbortSignal }): Promise<CatalogTaxonomyListData> {
-  return apiRequest('/api/catalog/tags', {
-    schema: catalogTaxonomyListDataSchema,
-    signal: init?.signal,
+/**
+ * Explicit SourceRecord Save Intent. The user action creates the durable intent;
+ * the backend returns `pending` (import queued) or `ready` (readable Work and
+ * Library membership already exist). This never auto-saves or navigates.
+ */
+export async function saveSourceRecordToLibrary(sourceRecordId: string): Promise<SourceRecordSaveResult> {
+  return apiRequest(`/api/library/source-records/${encodeURIComponent(sourceRecordId)}`, {
+    method: 'POST',
+    schema: sourceRecordSaveResultSchema,
   });
 }
 
-export async function fetchDiscoverCategories(init?: { signal?: AbortSignal }): Promise<CatalogTaxonomyListData> {
-  return apiRequest('/api/catalog/categories', {
-    schema: catalogTaxonomyListDataSchema,
-    signal: init?.signal,
-  });
-}
-
-export function resolveShelfStatus(item?: ShelfItem): DiscoverShelfStatus {
-  if (!item) {
-    return 'available';
-  }
-  if (item.state.status === 'in_progress' && item.state.progressRatio > 0) {
-    return 'in_progress';
-  }
-  return 'on_shelf';
-}
-
-export function toDiscoverItem(work: CatalogWork, shelfItem?: ShelfItem): DiscoverItem {
-  const shelfStatus = resolveShelfStatus(shelfItem);
-  return {
-    id: work.id,
-    title: work.title,
-    author: work.author.trim(),
-    partCount: work.partCount,
-    tags: work.tags,
-    category: work.category,
-    coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
-    publishedAt: toIsoString(work.publishedAt) || toIsoString(work.createdAt),
-    shelfStatus,
-    progressRatio: shelfItem?.state.progressRatio ?? null,
-  };
-}
-
-export async function fetchDiscoverCatalog(
-  params: DiscoverListParams,
+/** Owner-scoped Save Intent status; `status` is authoritative over linked ids. */
+export async function fetchSourceRecordSaveStatus(
+  sourceRecordId: string,
   init?: { signal?: AbortSignal },
-): Promise<DiscoverCatalogResult> {
-  const [listData, shelfData] = await Promise.all([
-    listCatalogWorks(params, init),
-    getShelf(init).catch((error: unknown) => {
-      if (error instanceof ApiRequestError && error.status === 401) {
-        return null;
-      }
-      throw error;
-    }),
-  ]);
-  const shelfMap = shelfData ? buildShelfItemMap(shelfData) : new Map<string, ShelfItem>();
-  return {
-    items: listData.items.map((work) => toDiscoverItem(work, shelfMap.get(work.id))),
-    pagination: listData.pagination,
-  };
+): Promise<SourceRecordSaveStatus> {
+  return apiRequest(`/api/library/source-records/${encodeURIComponent(sourceRecordId)}`, {
+    schema: sourceRecordSaveStatusSchema,
+    signal: init?.signal,
+  });
 }
 
-export function useDiscoverCatalogQuery(params: DiscoverListParams, options?: { enabled?: boolean }) {
+/** Poll cadence while the server reports an in-flight import. */
+export const SOURCE_RECORD_SAVE_POLL_MS = 2_000;
+
+/**
+ * Poll only while `pending`; `ready`, `failed`, and `none` settle immediately.
+ * Exported as a pure function for unit tests.
+ */
+export function saveStatusRefetchInterval(query: { state: { data?: SourceRecordSaveStatus } }): number | false {
+  return query.state.data?.status === 'pending' ? SOURCE_RECORD_SAVE_POLL_MS : false;
+}
+
+/**
+ * Refresh recovery for the Save Intent: hydrates pending/failed/ready state on
+ * mount (a linked `linkedWorkId` never short-circuits this — the Work may still
+ * be parsing) and polls while the server reports `pending`. Enabled only for
+ * authenticated viewers; anonymous visitors simply never query.
+ */
+export function useSourceRecordSaveStatusQuery(sourceRecordId: string, options?: { enabled?: boolean }) {
+  const { data: authData } = authClient.useSession();
+  const userId = authData?.user.id ?? null;
   return useQuery({
-    queryKey: discoverQueryKey.list(params),
-    queryFn: ({ signal }) => fetchDiscoverCatalog(params, { signal }),
-    placeholderData: keepPreviousData,
+    queryKey: discoverQueryKey.saveStatus(sourceRecordId, userId),
+    queryFn: ({ signal }) => fetchSourceRecordSaveStatus(sourceRecordId, { signal }),
+    refetchInterval: saveStatusRefetchInterval,
+    enabled: (options?.enabled ?? true) && userId !== null,
+  });
+}
+
+export function useDiscoverRecordsQuery(params: DiscoverListParams, options?: { enabled?: boolean }) {
+  const { data: authData } = authClient.useSession();
+  const userId = authData?.user.id ?? null;
+  return useQuery({
+    queryKey: discoverQueryKey.records(params, userId),
+    queryFn: ({ signal }) => fetchDiscoverRecords(params, { signal }),
+    // Pagination may reuse this viewer's results, never another viewer's covers.
+    placeholderData: (data, previousQuery) => (previousQuery?.queryKey[2] === userId ? data : undefined),
     enabled: options?.enabled ?? true,
   });
 }
 
-export function useDiscoverTagsQuery(options?: { enabled?: boolean }) {
-  return useQuery({
-    queryKey: discoverQueryKey.tags(),
-    queryFn: ({ signal }) => fetchDiscoverTags({ signal }),
-    enabled: options?.enabled ?? true,
-  });
-}
-
-export function useDiscoverCategoriesQuery(options?: { enabled?: boolean }) {
+export function useDiscoverCategoriesQuery() {
   return useQuery({
     queryKey: discoverQueryKey.categories(),
     queryFn: ({ signal }) => fetchDiscoverCategories({ signal }),
-    enabled: options?.enabled ?? true,
   });
 }
 

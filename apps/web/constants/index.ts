@@ -5,14 +5,15 @@ export const AUTH_ROUTES = {
   resetPassword: '/reset-password',
   verifyEmail: '/verify-email',
   socialAuthError: '/auth-error',
-  shelf: '/my-shelf',
+  library: '/library',
   /** Discover catalog. */
   discover: '/discover',
-  /** Discover book detail (catalog + shelf hybrid). */
-  bookDetail: (id: string) => `/discover/${id}` as const,
+  /** ReadingWork detail; Catalog and Personal works share this page. */
+  workDetail: (id: string) => `/works/${id}` as const,
   history: '/reading-history',
   more: '/more',
   account: '/account',
+  settings: '/settings',
   /** Immersive reader. */
   read: '/read',
   readBook: (id: string, partId?: string) =>
@@ -21,12 +22,9 @@ export const AUTH_ROUTES = {
 
 export const ADMIN_ROUTES = {
   root: '/admin',
-  works: '/admin/works',
-  workNew: '/admin/works/new',
-  workDetail: (id: string) => `/admin/works/${id}` as const,
-  workPreview: (id: string) => `/admin/works/${id}/preview` as const,
-  workPreviewPart: (id: string, partId: string) => `/admin/works/${id}/preview/part/${partId}` as const,
   assets: '/admin/assets',
+  discoverySources: '/admin/discovery-sources',
+  publicCategories: '/admin/public-categories',
   config: '/admin/config',
   configTab: (tab: 'ai' | 'tts' | 'dictionary') => `/admin/config?tab=${tab}` as const,
   logs: '/admin/log-center',
@@ -36,5 +34,4 @@ export const ADMIN_ROUTES = {
   tts: '/admin/tts',
   ttsLogs: '/admin/tts-logs',
   dictionary: '/admin/dictionary',
-  taxonomy: '/admin/taxonomy',
 } as const;

@@ -3,7 +3,8 @@ import * as React from 'react';
 
 import { t } from '@gloaming/i18n';
 
-import { Button } from '@/components/ui/button';
+import type { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { getClientLocale } from '@/lib/client-locale';
 import { cn } from '@/lib/utils';
 
@@ -32,16 +33,23 @@ type PaginationLinkProps = {
 } & Pick<React.ComponentProps<typeof Button>, 'size'> &
   React.ComponentProps<'a'>;
 
-function PaginationLink({ className, isActive, size = 'icon', ...props }: PaginationLinkProps) {
+function PaginationLink({ className, isActive, size = 'icon', onClick, ...props }: PaginationLinkProps) {
+  const isDisabled = props['aria-disabled'] === true || props['aria-disabled'] === 'true';
   return (
-    <Button
-      variant={isActive ? 'outline' : 'ghost'}
-      size={size}
-      className={cn(className)}
-      nativeButton={false}
-      render={
-        <a aria-current={isActive ? 'page' : undefined} data-slot="pagination-link" data-active={isActive} {...props} />
-      }
+    <a
+      className={buttonVariants({ variant: isActive ? 'outline' : 'ghost', size, className })}
+      aria-current={isActive ? 'page' : undefined}
+      data-slot="pagination-link"
+      data-active={isActive}
+      {...props}
+      tabIndex={isDisabled ? -1 : props.tabIndex}
+      onClick={(event) => {
+        if (isDisabled) {
+          event.preventDefault();
+          return;
+        }
+        onClick?.(event);
+      }}
     />
   );
 }

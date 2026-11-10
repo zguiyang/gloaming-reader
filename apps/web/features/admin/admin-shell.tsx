@@ -1,16 +1,16 @@
 'use client';
 
-import { ArrowLeft, FileText, HardDrive, Menu, ScrollText, Settings, Tags } from 'lucide-react';
+import { ArrowLeft, Globe, HardDrive, Menu, ScrollText, Settings, Tags } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { type ReactNode, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Fragment, type ReactNode, Suspense, useState } from 'react';
 
 import { type Locale, t } from '@gloaming/i18n';
 import { isAdminRole } from '@gloaming/shared/auth';
 
 import { BrandMark } from '@/components/brand-mark';
 import { GlobalLoading } from '@/components/global-loading';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ADMIN_ROUTES, AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
@@ -25,18 +25,12 @@ type AdminShellProps = {
 type AdminNavItem = {
   href: string;
   label: string;
-  icon: typeof FileText;
+  icon: typeof HardDrive;
   isActive: boolean;
 };
 
 function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
   return [
-    {
-      href: ADMIN_ROUTES.works,
-      label: t(locale, 'admin.shell.navWorks'),
-      icon: FileText,
-      isActive: pathname.startsWith(ADMIN_ROUTES.works),
-    },
     {
       href: ADMIN_ROUTES.assets,
       label: t(locale, 'admin.shell.navAssets'),
@@ -44,16 +38,22 @@ function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
       isActive: pathname === ADMIN_ROUTES.assets || pathname.startsWith(`${ADMIN_ROUTES.assets}/`),
     },
     {
+      href: ADMIN_ROUTES.discoverySources,
+      label: t(locale, 'admin.shell.navDiscoverySources'),
+      icon: Globe,
+      isActive: pathname === ADMIN_ROUTES.discoverySources || pathname.startsWith(`${ADMIN_ROUTES.discoverySources}/`),
+    },
+    {
+      href: ADMIN_ROUTES.publicCategories,
+      label: t(locale, 'admin.shell.navPublicCategories'),
+      icon: Tags,
+      isActive: pathname === ADMIN_ROUTES.publicCategories || pathname.startsWith(`${ADMIN_ROUTES.publicCategories}/`),
+    },
+    {
       href: ADMIN_ROUTES.config,
       label: t(locale, 'admin.shell.navConfig'),
       icon: Settings,
       isActive: pathname === ADMIN_ROUTES.config || pathname.startsWith(`${ADMIN_ROUTES.config}/`),
-    },
-    {
-      href: ADMIN_ROUTES.taxonomy,
-      label: t(locale, 'admin.shell.navTaxonomy'),
-      icon: Tags,
-      isActive: pathname === ADMIN_ROUTES.taxonomy || pathname.startsWith(`${ADMIN_ROUTES.taxonomy}/`),
     },
     {
       href: ADMIN_ROUTES.logs,
@@ -64,24 +64,72 @@ function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
   ];
 }
 
+type ConfigTabId = 'ai' | 'tts' | 'dictionary';
+
+function parseConfigTab(raw: string | null): ConfigTabId {
+  return raw === 'tts' || raw === 'dictionary' ? raw : 'ai';
+}
+
+const CONFIG_SUBTABS: Array<{ id: ConfigTabId; labelKey: string }> = [
+  { id: 'ai', labelKey: 'admin.config.subAi' },
+  { id: 'tts', labelKey: 'admin.config.subTts' },
+  { id: 'dictionary', labelKey: 'admin.config.subDictionary' },
+];
+
+/** Sidebar sub-navigation for the config area; uses the existing query routes. */
+function AdminConfigSubnav({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { locale } = useLocale();
+  const activeTab = parseConfigTab(searchParams.get('tab'));
+  const isConfigArea = pathname === ADMIN_ROUTES.config || pathname.startsWith(`${ADMIN_ROUTES.config}/`);
+  if (!isConfigArea) {
+    return null;
+  }
+  return (
+    <nav className="mt-1 flex flex-col gap-1 pl-10" aria-label={t(locale, 'admin.config.subnavAria')}>
+      {CONFIG_SUBTABS.map((tab) => (
+        <Link
+          key={tab.id}
+          href={ADMIN_ROUTES.configTab(tab.id)}
+          onClick={onNavigate}
+          className={buttonVariants({
+            variant: 'ghost',
+            className: cn(
+              'h-auto justify-start gap-2 rounded-lg px-3 py-2 text-sm transition-colors duration-300 ease-out-soft',
+              activeTab === tab.id
+                ? 'bg-brand-soft/60 font-medium text-primary hover:bg-brand-soft/60 hover:text-primary'
+                : 'text-muted-foreground hover:bg-surface-container-high hover:text-foreground',
+            ),
+          })}
+          aria-current={activeTab === tab.id ? 'page' : undefined}
+        >
+          {t(locale, tab.labelKey)}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 function AdminNavButton({ item, onNavigate }: { item: AdminNavItem; onNavigate?: () => void }) {
   return (
-    <Button
-      variant="ghost"
-      nativeButton={false}
-      className={cn(
-        'h-auto justify-start gap-3 rounded-xl px-4 py-3 text-base font-normal transition-colors duration-300 ease-out-soft',
-        item.isActive
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-          : 'text-muted-foreground hover:bg-surface-container-high hover:text-foreground',
-      )}
-      render={
-        <Link href={item.href} onClick={onNavigate}>
-          <item.icon data-icon="inline-start" />
-          {item.label}
-        </Link>
-      }
-    />
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={item.isActive ? 'page' : undefined}
+      className={buttonVariants({
+        variant: 'ghost',
+        className: cn(
+          'h-auto justify-start gap-3 rounded-xl px-4 py-3 text-base font-normal transition-colors duration-300 ease-out-soft',
+          item.isActive
+            ? 'bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+            : 'text-muted-foreground hover:bg-surface-container-high hover:text-foreground',
+        ),
+      })}
+    >
+      <item.icon data-icon="inline-start" />
+      {item.label}
+    </Link>
   );
 }
 
@@ -116,7 +164,7 @@ export function AdminShell({ children }: AdminShellProps) {
         <section className="w-full max-w-md rounded-2xl border border-border bg-card px-8 py-10 text-center">
           <div className="mb-8 flex justify-center">
             <BrandMark
-              href={AUTH_ROUTES.shelf}
+              href={AUTH_ROUTES.library}
               subtitle={t(locale, 'admin.shell.subtitle')}
               ariaLabel={t(locale, 'nav.brandHomeAria')}
             />
@@ -130,9 +178,9 @@ export function AdminShell({ children }: AdminShellProps) {
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
             {t(locale, 'admin.shell.forbiddenDescription')}
           </p>
-          <Button nativeButton={false} className="mt-8 rounded-xl px-5" render={<Link href={AUTH_ROUTES.shelf} />}>
+          <Link href={AUTH_ROUTES.library} className={buttonVariants({ className: 'mt-8 rounded-xl px-5' })}>
             {t(locale, 'admin.shell.backHome')}
-          </Button>
+          </Link>
         </section>
       </div>
     );
@@ -163,7 +211,7 @@ export function AdminShell({ children }: AdminShellProps) {
               </SheetHeader>
               <div className="flex min-h-0 flex-1 flex-col px-6 pt-6 pb-3">
                 <BrandMark
-                  href={ADMIN_ROUTES.works}
+                  href={ADMIN_ROUTES.assets}
                   size="md"
                   subtitle={t(locale, 'admin.shell.contentSubtitle')}
                   ariaLabel={t(locale, 'nav.brandHomeAria')}
@@ -171,48 +219,56 @@ export function AdminShell({ children }: AdminShellProps) {
                 />
                 <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                   {navItems.map((item) => (
-                    <AdminNavButton key={item.href} item={item} onNavigate={() => setIsNavOpen(false)} />
+                    <Fragment key={item.href}>
+                      <AdminNavButton item={item} onNavigate={() => setIsNavOpen(false)} />
+                      {item.href === ADMIN_ROUTES.config ? (
+                        <Suspense fallback={null}>
+                          <AdminConfigSubnav onNavigate={() => setIsNavOpen(false)} />
+                        </Suspense>
+                      ) : null}
+                    </Fragment>
                   ))}
                 </nav>
-                <Button
-                  variant="ghost"
-                  nativeButton={false}
-                  className="mt-4 h-auto justify-start gap-2 rounded-xl px-4 py-3 font-normal text-muted-foreground transition-colors duration-300 ease-out-soft hover:bg-surface-container-high hover:text-foreground"
-                  render={
-                    <Link href={AUTH_ROUTES.shelf} onClick={() => setIsNavOpen(false)}>
-                      <ArrowLeft data-icon="inline-start" />
-                      {t(locale, 'admin.shell.backHome')}
-                    </Link>
-                  }
+                <Link
+                  href={AUTH_ROUTES.library}
+                  onClick={() => setIsNavOpen(false)}
+                  className={buttonVariants({
+                    variant: 'ghost',
+                    className:
+                      'mt-4 h-auto justify-start gap-2 rounded-xl px-4 py-3 font-normal text-muted-foreground transition-colors duration-300 ease-out-soft hover:bg-surface-container-high hover:text-foreground',
+                  })}
                 >
+                  <ArrowLeft data-icon="inline-start" />
                   {t(locale, 'admin.shell.backHome')}
-                </Button>
+                </Link>
               </div>
             </SheetContent>
           </Sheet>
           <BrandMark
-            href={ADMIN_ROUTES.works}
+            href={ADMIN_ROUTES.assets}
             subtitle={t(locale, 'admin.shell.contentSubtitle')}
             ariaLabel={t(locale, 'nav.brandHomeAria')}
             className="min-w-0"
           />
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          nativeButton={false}
-          className="gap-1.5 text-muted-foreground transition-colors duration-300 ease-out-soft hover:text-foreground"
-          render={<Link href={AUTH_ROUTES.shelf} />}
+        <Link
+          href={AUTH_ROUTES.library}
+          className={buttonVariants({
+            variant: 'ghost',
+            size: 'sm',
+            className:
+              'gap-1.5 text-muted-foreground transition-colors duration-300 ease-out-soft hover:text-foreground',
+          })}
         >
           <ArrowLeft data-icon="inline-start" />
           {t(locale, 'admin.shell.home')}
-        </Button>
+        </Link>
       </header>
 
       <aside className="hidden h-full w-72 shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar px-7 pt-7 pb-3 md:flex">
         <div className="min-h-0 flex-1">
           <BrandMark
-            href={ADMIN_ROUTES.works}
+            href={ADMIN_ROUTES.assets}
             size="md"
             subtitle={t(locale, 'admin.shell.contentSubtitle')}
             ariaLabel={t(locale, 'nav.brandHomeAria')}
@@ -221,23 +277,34 @@ export function AdminShell({ children }: AdminShellProps) {
 
           <nav className="flex flex-col gap-2">
             {navItems.map((item) => (
-              <AdminNavButton key={item.href} item={item} />
+              <Fragment key={item.href}>
+                <AdminNavButton item={item} />
+                {item.href === ADMIN_ROUTES.config ? (
+                  <Suspense fallback={null}>
+                    <AdminConfigSubnav />
+                  </Suspense>
+                ) : null}
+              </Fragment>
             ))}
           </nav>
         </div>
 
-        <Button
-          variant="ghost"
-          nativeButton={false}
-          className="mt-4 h-auto justify-start gap-2 rounded-xl px-4 py-3 font-normal text-muted-foreground transition-colors duration-300 ease-out-soft hover:bg-surface-container-high hover:text-foreground"
-          render={<Link href={AUTH_ROUTES.shelf} />}
+        <Link
+          href={AUTH_ROUTES.library}
+          className={buttonVariants({
+            variant: 'ghost',
+            className:
+              'mt-4 h-auto justify-start gap-2 rounded-xl px-4 py-3 font-normal text-muted-foreground transition-colors duration-300 ease-out-soft hover:bg-surface-container-high hover:text-foreground',
+          })}
         >
           <ArrowLeft data-icon="inline-start" />
           {t(locale, 'admin.shell.backHome')}
-        </Button>
+        </Link>
       </aside>
 
-      <main className="min-h-0 flex-1 overflow-y-auto p-6 md:p-12">{children}</main>
+      <main className="min-h-0 flex-1 overflow-y-auto p-6 md:p-12">
+        <div className="mx-auto w-full max-w-6xl md:mx-0">{children}</div>
+      </main>
     </div>
   );
 }

@@ -6,14 +6,22 @@ import { useRouter } from 'next/navigation';
 
 import { t } from '@gloaming/i18n';
 
-import { Button } from '@/components/ui/button';
-import { AUTH_ROUTES } from '@/constants';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { BookDetailRecommendations } from '@/features/book-detail/book-detail-recommendations';
 import { useLocale } from '@/lib/locale-context';
+import { workDetailReturnLabelKey } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
 
 /** Content unavailable / load-failure state for live book detail. */
-export function BookDetailUnavailable({ workId, message }: { workId?: string; message?: string }) {
+export function BookDetailUnavailable({
+  workId,
+  message,
+  returnTo,
+}: {
+  workId?: string;
+  message?: string;
+  returnTo: string;
+}) {
   const router = useRouter();
   const { locale } = useLocale();
 
@@ -41,14 +49,17 @@ export function BookDetailUnavailable({ workId, message }: { workId?: string; me
             <RefreshCwIcon className="size-4" strokeWidth={1.5} aria-hidden />
             {t(locale, 'content.bookDetail.reload')}
           </Button>
-          <Button
-            nativeButton={false}
-            variant="outline"
-            className="h-11 rounded-xl border-2 border-outline/60 px-8 text-sm text-muted-foreground hover:bg-surface-container-low"
-            render={<Link href={AUTH_ROUTES.discover} />}
+          <Link
+            href={returnTo}
+            replace
+            className={buttonVariants({
+              variant: 'outline',
+              className:
+                'h-11 rounded-xl border-2 border-outline/60 px-8 text-sm text-muted-foreground hover:bg-surface-container-low',
+            })}
           >
-            {t(locale, 'content.common.backToDiscover')}
-          </Button>
+            {t(locale, workDetailReturnLabelKey(returnTo))}
+          </Link>
         </div>
       </div>
 

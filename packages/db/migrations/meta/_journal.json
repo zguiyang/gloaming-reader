@@ -253,6 +253,167 @@
       "when": 1788757200000,
       "tag": "0035_reading_heartbeat_dedupe",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788760800000,
+      "tag": "0036_user_first_pr01_schema_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790697078410,
+      "tag": "0037_admin_invocation_log_privacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790734208000,
+      "tag": "0038_remove_legacy_admin_provenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790736404679,
+      "tag": "0039_remove_admin_taxonomy_timestamps",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790749274948,
+      "tag": "0040_user_tag_domain",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791102051693,
+      "tag": "0041_remove_catalog_taxonomy",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791335280254,
+      "tag": "0042_discovery_source_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791386995877,
+      "tag": "0043_brave_exodus",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791419655624,
+      "tag": "0044_grey_thunderbolts",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1791690331382,
+      "tag": "0045_stiff_oracle",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1791691200000,
+      "tag": "0046_personal_ai_tagging_p2",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1791725623156,
+      "tag": "0047_clever_the_enforcers",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791725875301,
+      "tag": "0048_bitter_martin_li",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1791728169532,
+      "tag": "0049_dark_celestials",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791729494764,
+      "tag": "0050_soft_lucky_pierre",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791810438819,
+      "tag": "0051_remove_business_quotas",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792156516426,
+      "tag": "0052_minor_mandrill",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1792552525479,
+      "tag": "0053_concerned_overlord",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1792588763789,
+      "tag": "0054_amused_marten_broadcloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1793184246905,
+      "tag": "0055_clumsy_wolfsbane",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1793185538975,
+      "tag": "0056_dizzy_wolfsbane",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1793194002304,
+      "tag": "0057_rapid_sunset_bain",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1793194161923,
+      "tag": "0058_daffy_husk",
+      "breakpoints": true
     }
   ]
 }

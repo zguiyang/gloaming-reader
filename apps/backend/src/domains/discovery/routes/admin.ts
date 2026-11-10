@@ -1,0 +1,236 @@
+import { Hono } from 'hono';
+
+import {
+  acceptShelfCategoryProposal,
+  assignCategoryToSourceRecord,
+  completeManagedCategoryTranslations,
+  confirmNewSourceCategory,
+  confirmSourceCategoryMapping,
+  createManagedCategory,
+  deleteManagedCategory,
+  ignoreSourceCategoryMapping,
+  listGutenbergCategoryShelfTerms,
+  listManagedCategories,
+  listManagedCategorySourceRecords,
+  listSourceCategoryMappings,
+  organizeUnassignedCategoryShelves,
+  runSourceCategoryReconciliationBatch,
+  saveCategoryShelfTerms,
+  suggestSourceCategoryMapping,
+  unassignCategoryFromSourceRecord,
+  updateManagedCategoryLabel,
+} from '@/domains/discovery/categories';
+import { listAdminSourceRecords } from '@/domains/discovery/read-model';
+import {
+  validateAcceptShelfCategoryProposal,
+  validateAdminSourceRecordListQuery,
+  validateCategorySourceRecordListQuery,
+  validateDiscoverySyncTrigger,
+  validateManagedCategoryWrite,
+  validateSaveCategoryShelfTerms,
+  validateSourceEnabledUpdate,
+  validateSourceMappingAnalysis,
+  validateSourceMappingConfirm,
+  validateSourceMappingCreate,
+  validateSourceMappingList,
+  validateSourceMappingRevision,
+} from '@/domains/discovery/routes/validator';
+import {
+  getProjectGutenbergSourceStatus,
+  getProjectGutenbergSyncRunHistory,
+  requestProjectGutenbergSync,
+  setProjectGutenbergSourceEnabled,
+} from '@/domains/discovery/sync/admin';
+import { resolveRequestLocale } from '@/infra/http/locale';
+import { type AuthVariables, requireAdmin } from '@/infra/http/middleware/auth';
+import { HTTP_STATUS } from '@/shared/constants';
+import { AppError } from '@/shared/errors/app-error';
+import { ERROR_CODES } from '@/shared/errors/codes';
+
+/**
+ * Admin-only Discovery controls. V1 exposes exactly the Project Gutenberg source
+ * (status, enabled toggle, manual background sync trigger) plus stable public
+ * category management, admin SourceRecord candidate search, and SourceRecord
+ * category assignment. Every route is guarded by `requireAdmin`.
+ */
+export const discoveryAdminRoutes = new Hono<{ Variables: AuthVariables }>();
+
+const PROJECT_GUTENBERG_SOURCE_PATH = '/api/admin/discovery/sources/project-gutenberg';
+
+discoveryAdminRoutes.get(PROJECT_GUTENBERG_SOURCE_PATH, requireAdmin, async (c) => {
+  return c.json(await getProjectGutenbergSourceStatus());
+});
+
+discoveryAdminRoutes.patch(PROJECT_GUTENBERG_SOURCE_PATH, requireAdmin, validateSourceEnabledUpdate, async (c) => {
+  const { enabled } = c.req.valid('json');
+  return c.json(await setProjectGutenbergSourceEnabled(enabled));
+});
+
+/**
+ * Manual background sync trigger. The optional `{force?: boolean}` body is an
+ * explicit full-refresh opt-in: absent, empty, or non-`true` bodies keep the
+ * original conditional sync; invalid bodies fail with the standard validation
+ * error contract before any claim is taken.
+ */
+discoveryAdminRoutes.post(
+  `${PROJECT_GUTENBERG_SOURCE_PATH}/sync`,
+  requireAdmin,
+  validateDiscoverySyncTrigger,
+  async (c) => {
+    const { force } = c.req.valid('json');
+    const accepted = await requestProjectGutenbergSync({ force });
+    return c.json(accepted, accepted.result === 'queued' ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.OK);
+  },
+);
+
+/** Bounded recent-run history (latest 20); admin-only like the status read. */
+discoveryAdminRoutes.get(`${PROJECT_GUTENBERG_SOURCE_PATH}/sync/runs`, requireAdmin, async (c) => {
+  return c.json(await getProjectGutenbergSyncRunHistory());
+});
+
+discoveryAdminRoutes.get(`${PROJECT_GUTENBERG_SOURCE_PATH}/category-shelves`, requireAdmin, async (c) => {
+  return c.json(await listGutenbergCategoryShelfTerms());
+});
+
+discoveryAdminRoutes.post(`${PROJECT_GUTENBERG_SOURCE_PATH}/category-shelves/organize`, requireAdmin, async (c) => {
+  return c.json(await organizeUnassignedCategoryShelves());
+});
+
+discoveryAdminRoutes.post(
+  `${PROJECT_GUTENBERG_SOURCE_PATH}/category-shelves/proposals`,
+  requireAdmin,
+  validateAcceptShelfCategoryProposal,
+  async (c) => {
+    await acceptShelfCategoryProposal(c.req.valid('json'));
+    return c.body(null, HTTP_STATUS.NO_CONTENT);
+  },
+);
+
+const SOURCE_RECORDS_PATH = '/api/admin/discovery/source-records';
+
+/**
+ * Admin candidate search over every SourceRecord, including records hidden from
+ * public Discover (unavailable, disabled source, or non-English). It reads only
+ * `source_record`, so personal/private EPUB works never appear.
+ */
+discoveryAdminRoutes.get(SOURCE_RECORDS_PATH, requireAdmin, validateAdminSourceRecordListQuery, async (c) => {
+  return c.json(await listAdminSourceRecords(c.req.valid('query'), { locale: resolveRequestLocale(c) }));
+});
+
+const CATEGORIES_PATH = '/api/admin/discovery/categories';
+
+const SOURCE_MAPPINGS_PATH = '/api/admin/discovery/source-category-mappings';
+discoveryAdminRoutes.get(SOURCE_MAPPINGS_PATH, requireAdmin, validateSourceMappingList, async (c) =>
+  c.json(await listSourceCategoryMappings(c.req.valid('query').page)),
+);
+discoveryAdminRoutes.post(
+  `${SOURCE_MAPPINGS_PATH}/:id/analyze`,
+  requireAdmin,
+  validateSourceMappingAnalysis,
+  async (c) => {
+    const result = await suggestSourceCategoryMapping(c.req.param('id'), c.req.valid('json'));
+    if (result.status !== 'review') {
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.DISCOVERY.SOURCE_CATEGORY_MAPPING_CONFLICT);
+    }
+    return c.json(result);
+  },
+);
+discoveryAdminRoutes.post(
+  `${SOURCE_MAPPINGS_PATH}/:id/confirm`,
+  requireAdmin,
+  validateSourceMappingConfirm,
+  async (c) => {
+    const { revision, categoryIds } = c.req.valid('json');
+    return c.json(await confirmSourceCategoryMapping(c.req.param('id'), revision, categoryIds));
+  },
+);
+discoveryAdminRoutes.post(
+  `${SOURCE_MAPPINGS_PATH}/:id/create`,
+  requireAdmin,
+  validateSourceMappingCreate,
+  async (c) => {
+    const { revision, locale } = c.req.valid('json');
+    return c.json(await confirmNewSourceCategory(c.req.param('id'), revision, locale));
+  },
+);
+discoveryAdminRoutes.post(
+  `${SOURCE_MAPPINGS_PATH}/:id/ignore`,
+  requireAdmin,
+  validateSourceMappingRevision,
+  async (c) => {
+    await ignoreSourceCategoryMapping(c.req.param('id'), c.req.valid('json').revision);
+    return c.body(null, HTTP_STATUS.NO_CONTENT);
+  },
+);
+discoveryAdminRoutes.post(`${SOURCE_MAPPINGS_PATH}/:id/reconcile`, requireAdmin, async (c) =>
+  c.json(await runSourceCategoryReconciliationBatch(c.req.param('id'), 100)),
+);
+
+discoveryAdminRoutes.get(CATEGORIES_PATH, requireAdmin, async (c) => {
+  return c.json(await listManagedCategories());
+});
+
+discoveryAdminRoutes.post(CATEGORIES_PATH, requireAdmin, validateManagedCategoryWrite, async (c) => {
+  return c.json(await createManagedCategory(c.req.valid('json')), HTTP_STATUS.CREATED);
+});
+
+/** Hard delete of an unused category; 409 while any SourceRecord is still assigned. */
+discoveryAdminRoutes.delete(`${CATEGORIES_PATH}/:categoryId`, requireAdmin, async (c) => {
+  await deleteManagedCategory(c.req.param('categoryId'));
+  return c.body(null, HTTP_STATUS.NO_CONTENT);
+});
+
+/** Create or edit one localized label; reuses the existing category on collision. */
+discoveryAdminRoutes.patch(
+  `${CATEGORIES_PATH}/:categoryId/labels`,
+  requireAdmin,
+  validateManagedCategoryWrite,
+  async (c) => {
+    return c.json(await updateManagedCategoryLabel(c.req.param('categoryId'), c.req.valid('json')));
+  },
+);
+
+discoveryAdminRoutes.put(
+  `${CATEGORIES_PATH}/:categoryId/category-shelves`,
+  requireAdmin,
+  validateSaveCategoryShelfTerms,
+  async (c) => {
+    await saveCategoryShelfTerms(c.req.param('categoryId'), c.req.valid('json').mappingIds);
+    return c.body(null, HTTP_STATUS.NO_CONTENT);
+  },
+);
+
+/**
+ * Admin-triggered completion of one category's missing label translations. The
+ * instance Provider is used only on this explicit click and only missing
+ * locales are written; the response reports the locales actually filled in.
+ */
+discoveryAdminRoutes.post(`${CATEGORIES_PATH}/:categoryId/translations/complete`, requireAdmin, async (c) => {
+  return c.json(await completeManagedCategoryTranslations(c.req.param('categoryId')));
+});
+
+const RECORD_CATEGORY_PATH = '/api/admin/discovery/source-records/:sourceRecordId/categories/:categoryId';
+
+/** Paginated admin view of every SourceRecord assigned to one category. */
+discoveryAdminRoutes.get(
+  `${CATEGORIES_PATH}/:categoryId/source-records`,
+  requireAdmin,
+  validateCategorySourceRecordListQuery,
+  async (c) => {
+    return c.json(
+      await listManagedCategorySourceRecords(c.req.param('categoryId'), c.req.valid('query'), resolveRequestLocale(c)),
+    );
+  },
+);
+
+/** Manual assignment; idempotent, wins over AI assignment, and is not capped by the AI decision limit. */
+discoveryAdminRoutes.put(RECORD_CATEGORY_PATH, requireAdmin, async (c) => {
+  await assignCategoryToSourceRecord(c.req.param('sourceRecordId'), c.req.param('categoryId'), 'manual');
+  return c.body(null, HTTP_STATUS.NO_CONTENT);
+});
+
+/** Manual removal; any explicit removal records exact suppression for the pair. */
+discoveryAdminRoutes.delete(RECORD_CATEGORY_PATH, requireAdmin, async (c) => {
+  await unassignCategoryFromSourceRecord(c.req.param('sourceRecordId'), c.req.param('categoryId'));
+  return c.body(null, HTTP_STATUS.NO_CONTENT);
+});

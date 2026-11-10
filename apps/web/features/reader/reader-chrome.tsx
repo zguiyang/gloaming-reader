@@ -64,7 +64,9 @@ export function ReaderChrome({
     <header
       className={cn(
         'fixed inset-x-0 top-0 z-40 border-b border-border/40 bg-background/90 backdrop-blur-md transition-all duration-300 ease-out-soft',
-        visible ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0',
+        visible
+          ? 'translate-y-0 opacity-100'
+          : 'pointer-events-none -translate-y-2 opacity-0 focus-within:translate-y-0 focus-within:opacity-100',
       )}
     >
       <div className="flex h-14 items-center justify-between gap-2 px-3 md:gap-3 md:px-6">
@@ -81,6 +83,7 @@ export function ReaderChrome({
           </Button>
           <Button
             type="button"
+            id="reader-toc-toggle"
             variant="ghost"
             size="icon"
             className={cn('size-10 shrink-0 text-muted-foreground hover:text-foreground', tocOpen && 'text-primary')}
@@ -129,6 +132,7 @@ export function ReaderChrome({
           </Button>
           <Button
             type="button"
+            id="reader-ai-toggle"
             variant="ghost"
             size="icon"
             className={cn('size-10 text-muted-foreground hover:text-foreground', aiOpen && 'bg-accent text-brand-deep')}

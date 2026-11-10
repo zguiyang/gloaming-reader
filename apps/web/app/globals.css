@@ -2,6 +2,25 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
+@keyframes library-cover-sheen {
+  0%,
+  100% {
+    transform: translateX(-110%);
+  }
+  50% {
+    transform: translateX(110%);
+  }
+}
+
+@keyframes library-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
+
 /* streamdown lives under apps/web/node_modules (pnpm symlink) */
 @source '../node_modules/streamdown/dist/*.js';
 
@@ -71,7 +90,15 @@
   --ease-out-soft: var(--ease-out);
   --animate-loading-soft-ring: loading-soft-ring 2.2s var(--ease-out) infinite;
   --animate-loading-page: loading-page 1.15s ease-in-out infinite;
+  --animate-reader-disc-spin: reader-disc-spin 16s linear infinite;
+  --drop-shadow-icon: 0 1px 2px rgb(0 0 0 / 0.65);
   --max-width-reading-column: var(--reading-column);
+}
+
+@keyframes reader-disc-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes loading-soft-ring {
@@ -450,11 +477,34 @@
 }
 
 /* Reading content — normalized HTML from the ingest pipeline.
-   Scoped typography only: document flow owns spacing (no flex-gap stacking). */
+   Scoped typography only: document flow owns spacing (no flex-gap stacking).
+   `.reading-body` declares lang="en" (reading content is English) so
+   hyphenation dictionaries apply regardless of the UI locale. */
 @layer components {
+  .reading-body {
+    /* Container for measure-gated justification: the column narrows on mobile
+       and when the AI drawer / TOC sidebar is open — a viewport media query
+       cannot see that, an inline-size container can. */
+    container-type: inline-size;
+  }
+
   .reading-body p {
     margin: 0 0 0.95em;
-    text-align: justify;
+    /* Hyphenation is what keeps justified English from stretching into rivers
+       of inter-word space; without it justify does more harm than good. */
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    hyphenate-limit-chars: 6 3 3;
+  }
+
+  /* Justify only at a comfortable measure (~32rem ≈ 50+ characters at 20px).
+       Narrow columns (mobile, drawer-open desktop) stay ragged-right — this is
+       the fix for the large inter-word gaps, not a typography identity change:
+       wide reading columns keep the book-like justified look. */
+  @container (min-width: 32rem) {
+    .reading-body p {
+      text-align: justify;
+    }
   }
 
   .reading-body h1,
@@ -547,4 +597,31 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Theme-layer control overrides — SSOT for cross-cutting visual fixes that
+   must not change `components/ui` source (see DESIGN.md «Selection & focus
+   indicators»). Prefer usage-site className overrides first; keep this section
+   small, attribute-scoped, and justified.
+   --------------------------------------------------------------------------- */
+
+/*
+  Dialog scrim: the shared Dialog primitive tints its backdrop with `foreground`.
+  In dark mode that token is light, so the scrim reads as a white veil; Sheet and
+  AlertDialog use a black scrim. Align the shared slot here instead of editing
+  the primitive.
+*/
+[data-slot='dialog-overlay'] {
+  background-color: color-mix(in oklab, black 10%, transparent);
+}
+
+/*
+  Filled controls: the filled recipe draws a 2px ring with an offset gap. The
+  shared outline recipe also colors the 1px border on focus, which reads as a
+  second ring. Keep the border transparent while focused so exactly one focus
+  ring is visible (inputs, textareas, select triggers all expose the attribute).
+*/
+[data-appearance='filled']:focus-visible {
+  border-color: transparent;
 }

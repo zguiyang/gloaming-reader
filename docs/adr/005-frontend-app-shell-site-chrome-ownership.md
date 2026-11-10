@@ -6,7 +6,7 @@
 chrome (Navigation). Does not change Providers, Auth Viewer entrypoints, or
 other Feature public surfaces.
 
-Related: [`.cursor/rules/frontend.mdc`](../../.cursor/rules/frontend.mdc) ·
+Related: [`rules/frontend.md`](../../rules/frontend.md) ·
 [`docs/adr/004-frontend-reading-state-public-seams.md`](./004-frontend-reading-state-public-seams.md)
 (separate reading-state seam record; not superseded here)
 
@@ -120,7 +120,7 @@ copy this directory shape as a mandatory template.
 ## Consequences
 
 - Agents judging App Shell / Site Chrome questions should load this ADR for
-  current ownership facts and `frontend.mdc` for reusable judgment criteria.
+  current ownership facts and `rules/frontend.md` for reusable judgment criteria.
 - ADR-004 remains scoped to reading-state seams only.
 - Restoring `@/components/site-nav`, exporting Navigation internals, or moving
   Landing chrome back into the Feature without a decide pass is a regression.

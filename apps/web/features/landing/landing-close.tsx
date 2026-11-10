@@ -4,26 +4,30 @@ import { t } from '@gloaming/i18n';
 
 import { LandingPrimaryCta } from '@/features/landing/landing-auth';
 import { LandingReveal } from '@/features/landing/landing-motion';
-import { LandingSection } from '@/features/landing/landing-section';
 import { useLocale } from '@/lib/locale-context';
 
 export function LandingCta() {
   const { locale } = useLocale();
 
   return (
-    <LandingSection id="cta" tone="paper" className="text-center">
-      <LandingReveal className="mx-auto max-w-3xl">
-        <h2 className="font-heading text-3xl leading-tight font-bold tracking-tight md:text-5xl">
-          {t(locale, 'landing.invite.title')}
-        </h2>
-        <p className="font-reading mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-foreground/80 md:text-xl">
-          {t(locale, 'landing.invite.body')}
-        </p>
-        <div className="mt-12 flex justify-center">
-          <LandingPrimaryCta className="px-10 py-5 text-lg" />
-        </div>
-      </LandingReveal>
-    </LandingSection>
+    <section className="py-24 md:py-32" id="cta">
+      <div className="mx-auto max-w-[1200px] px-6 text-center">
+        <LandingReveal className="mx-auto max-w-xl">
+          <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
+            {t(locale, 'landing.invite.titleLine1')}
+            <br />
+            {t(locale, 'landing.invite.titleLine2')}
+          </h2>
+          <p className="mt-5 mb-9 text-base leading-relaxed text-muted-foreground sm:text-lg">
+            {t(locale, 'landing.invite.body')}
+          </p>
+          <div className="flex justify-center">
+            <LandingPrimaryCta size="lg" className="w-full sm:w-auto" />
+          </div>
+          <p className="mt-5 font-sans text-xs text-muted-foreground">{t(locale, 'landing.invite.footnote')}</p>
+        </LandingReveal>
+      </div>
+    </section>
   );
 }
 
@@ -33,12 +37,15 @@ export function LandingFooter() {
   const brand = t(locale, 'common.appName');
 
   return (
-    <footer className="border-t border-border/60 bg-card">
-      <div className="container flex flex-col items-center justify-between gap-6 py-8 md:flex-row">
-        <p className="font-heading text-2xl font-semibold text-foreground">{brand}</p>
-        <p className="text-sm text-muted-foreground">
+    <footer className="border-t border-outline-variant bg-background py-10">
+      <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-4 px-6 text-sm text-muted-foreground sm:flex-row">
+        <div className="flex items-center gap-2">
+          <span className="font-heading text-lg font-semibold text-foreground">{brand}</span>
+          <span className="text-xs text-muted-foreground">· {t(locale, 'landing.footer.tagline')}</span>
+        </div>
+        <div className="font-sans text-xs text-muted-foreground">
           © {year} {brand}
-        </p>
+        </div>
       </div>
     </footer>
   );

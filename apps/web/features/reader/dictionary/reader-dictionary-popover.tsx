@@ -1,11 +1,11 @@
 'use client';
 
-import { Popover as PopoverPrimitive } from '@base-ui/react/popover';
 import { useMemo } from 'react';
 
 import { t } from '@gloaming/i18n';
 import type { DictionaryEntry } from '@gloaming/shared/dictionary';
 
+import { Popover, PopoverContent } from '@/components/ui/popover';
 import { ReaderDictionaryCard } from '@/features/reader/dictionary/reader-dictionary-card';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';
 import { useLocale } from '@/lib/locale-context';
@@ -80,40 +80,34 @@ export function ReaderDictionaryPopover({
   if (!open || !anchor) return null;
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Positioner
-          anchor={anchor}
-          side="bottom"
-          align="center"
-          sideOffset={8}
-          collisionPadding={16}
-          className="isolate z-50"
-        >
-          <PopoverPrimitive.Popup
-            data-reader-ui
-            role="dialog"
-            aria-label={t(locale, 'content.reader.dictionary.cardAria')}
-            className={cn(
-              'z-50 flex max-h-[min(28rem,calc(100vh-4rem))] w-[min(23rem,calc(100vw-2rem))] flex-col rounded-2xl border border-border/60 bg-card p-4 shadow-card outline-hidden',
-              'data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
-              'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
-            )}
-          >
-            <ReaderDictionaryCard
-              word={word}
-              entry={entry}
-              isLoading={isLoading}
-              isError={isError}
-              contextSentence={contextSentence}
-              onAskAi={onAskAi}
-              onRetry={onRetry}
-              onClose={onClose}
-              className="max-h-[calc(28rem-2rem)]"
-            />
-          </PopoverPrimitive.Popup>
-        </PopoverPrimitive.Positioner>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+    <Popover open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <PopoverContent
+        anchor={anchor}
+        side="bottom"
+        align="center"
+        sideOffset={8}
+        collisionPadding={16}
+        data-reader-ui
+        role="dialog"
+        aria-label={t(locale, 'content.reader.dictionary.cardAria')}
+        className={cn(
+          'z-50 flex max-h-[min(28rem,calc(100vh-4rem))] w-[min(23rem,calc(100vw-2rem))] flex-col rounded-2xl border border-border/60 bg-card p-4 shadow-card outline-hidden',
+          'data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
+          'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
+        )}
+      >
+        <ReaderDictionaryCard
+          word={word}
+          entry={entry}
+          isLoading={isLoading}
+          isError={isError}
+          contextSentence={contextSentence}
+          onAskAi={onAskAi}
+          onRetry={onRetry}
+          onClose={onClose}
+          className="max-h-[calc(28rem-2rem)]"
+        />
+      </PopoverContent>
+    </Popover>
   );
 }

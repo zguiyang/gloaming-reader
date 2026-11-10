@@ -1,8 +1,8 @@
 # Gloaming Roadmap
 
-Three phases. **Outcomes only**—do not pre-design future features.
+Three phases. **Outcomes only** — do not pre-design future features.
 
-V1 feature specification: [`mvp-scope.md`](./mvp-scope.md). Domain model: ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md).
+V1 feature specification: [`mvp-scope.md`](./mvp-scope.md). Domain model: ADR-001 [`../adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md). Supply policy: [`content-strategy.md`](./content-strategy.md).
 
 ---
 
@@ -10,45 +10,49 @@ V1 feature specification: [`mvp-scope.md`](./mvp-scope.md). Domain model: ADR-00
 
 **Outcome:** Gloaming is a place you open to **continue authentic English**, with contextual AI that unsticks you on the page, then disappears.
 
-**Module roadmap (anti-drift):** [`mvp-1-modules.md`](./mvp-1-modules.md).
-
-| Slice          | Outcome                                                                                                                                                                  |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **1a (MVP 1)** | **Admin EPUB catalog pipeline:** upload → process chapters → publish **ReadingWork** → **发现** → **我的书架** → Reader with help / translate / TTS. **No user upload.** |
-| **1b**         | **User import** (EPUB/PDF/web, etc.); `用户` source on shelf; same Work/Part model                                                                                       |
-
 ```text
-Admin EPUB upload
-  → Processing
-  → ReadingWork + ReadingPart[]
-  → Publish
-  → Discover
-  → Shelf
-  → Reader
-  → AI Assist
+Discover (catalog / SourceRecords) → Library → Reader → AI Assist / Translate / Listen
+Personal EPUB → private Work ────────┘
 ```
 
-Exit Phase 1 when 1a is real for users and 1b is either shipped or explicitly deferred without blocking daily reading. Do not ask users to practice, review, or chat.
-
-Capability must / must-not: [`mvp-scope.md`](./mvp-scope.md).
-
-**Wording:** say **no user upload in MVP 1** — not “no EPUB in MVP” (admin EPUB is in MVP).
+Capability must / must-not: [`mvp-scope.md`](./mvp-scope.md). Flows: [`prototype-flows.md`](./prototype-flows.md). Do not ask users to practice, review, or chat.
 
 ---
 
 ## Phase 2 — AI reading companion
 
-**Outcome:** Help inside the book feels like a **companion for this text**, not a generic chatbot parked beside a page.
-
-Do not spec Phase 2 surfaces yet. Start Phase 2 only after Phase 1 is actually used as a reading environment.
-
----
+**Outcome:** Help inside the book feels like a **companion for this text**, not a generic chatbot parked beside a page. Do not spec Phase 2 surfaces yet.
 
 ## Phase 3 — Reading-based language growth
 
-**Outcome:** Growth is visible as **time and depth with real English**, not as a study system bolted on.
+**Outcome:** Growth is visible as **time and depth with real English**, not a study system bolted on. Do not spec SRS, speaking, or dashboards here.
 
-Do not spec SRS, speaking, or dashboards here. If anything appears later, it must still serve reading. It must not become the reason to open Gloaming.
+---
+
+## Outstanding (current)
+
+| Item                                            | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Personal tags CRUD + localized-name acceptance  | **Accepted** — admin CRUD, localized names, manual association/removal, and tag filtering; see [`personal-tags.md`](./personal-tags.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Tag ↔ work association                          | **Accepted** — component/backend feature tests plus real page acceptance                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Real AI auto-tagging                            | **Accepted (bounded real BYOK sample, 2026-10-19)** — opt-in → dispatch → full worker → persistence → `GET /api/library/tags` rendering verified on 1 personal EPUB (run completed, tag "Fables"/寓言); multi-book batch and single-book re-run (deferred) not covered — see [`personal-tags.md`](./personal-tags.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Public categories                               | Admin CRUD accepted (2026-10-14); **bounded real classification + translation accepted (2026-10-19, instance Provider)** — 5 records, 3 new bilingual categories, 8 real AI calls; full-catalog/batch and remaining outbox records not executed — see [`public-categories.md`](./public-categories.md)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Personal AI tagging P2 (existing evidence)      | Historical provider run: 8 valid structured outputs; 7 semantic pass; 1 knot-theory fail; Worker E2E was unrun at that time (since run once with the 2026-10-19 bounded sample)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Real BYOK personal tagging acceptance           | **Accepted (bounded real BYOK sample, 2026-10-19)** — 1 EPUB, 2 real calls (classify + translation), run completed, opt-in restored to off after acceptance; multi-user/batch and P2 historical backfill (by design none) not covered                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| UserTTS runtime                                 | **Implemented in branch `feat/lazy-reader-audio`** — lazy on-demand reader audio (per-segment synthesis, lease-guarded, starts at the current segment with prefetch); real Azure synthesis and page acceptance pending                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Public real Worker/AI + Discover/save/read loop | **Accepted with bounded real sample (2026-10-19):** real classification + translation (5 records, 3 new categories, 8 real AI calls, instance Provider); full/batch classification and remaining outbox records not executed. Discover → save → library → detail → read loop page-accepted with real record 11339 (2026-10-18)                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Missing-locale translation backfill             | **Manual per-category completion available (2026-10-20)** — the admin list has a per-category secondary "complete translations" action (`POST /api/admin/discovery/categories/:categoryId/translations/complete`, `requireAdmin`) that fills only missing locales and never overwrites manual edits; the list DTO reports `missingLocales`. **No batch and no automatic trigger** — the real instance-Provider call happens only on the administrator's click; automated tests only, batch/multi-user acceptance not run                                                                                                                                                                                                                                                                    |
+| R2 hardening items (2026-10-20)                 | **Implemented with automated tests; page acceptance pending the user** — personal AI tag resilience (same-user lock conflict keeps the run `queued` for redispatch instead of terminal `failed`; `processing` stuck >10 min with `attempts < 2` recovered and redispatched; known `errorCode` surfaced in settings via the optional `latestRunErrorCode` DTO field), AI/manual tag provenance badge (`createdBy: 'ai' \| 'manual'`, `content.library.aiTagBadge`), Library cap notice (`isTruncated`, 48-item limit), server-side save validation rejecting source records with no EPUB candidate (409 `api.errors.library.sourceRecordNoEpubCandidate`, no intent/queue entry), and Discover category counts/list unified under the optional `language` query (default behavior unchanged) |
+| EPUB download candidate coverage                | **2026-10-19** — a forced full refresh backfilled EPUB download candidates for 78,073 of 79,644 records (1,571 still without a candidate, 1,415 of them Discover-visible); the strategy for non-savable records (no EPUB / audio-only) awaits a product decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+
+## Open questions (explicitly unresolved)
+
+| Question                                                                 | Status                                     |
+| ------------------------------------------------------------------------ | ------------------------------------------ |
+| Old `0036` inferred membership cleanup (backfilled from state)           | Unresolved                                 |
+| Duplicate-upload semantics — byte reuse does **not** imply the same Work | Unresolved                                 |
+| Publication withdrawal — existing membership retained                    | Unresolved (retention is current behavior) |
+| Content replacement policy                                               | Undecided                                  |
 
 ---
 
@@ -56,12 +60,4 @@ Do not spec SRS, speaking, or dashboards here. If anything appears later, it mus
 
 - Do not add a Phase 4 of “everything competitors ship.”
 - Do not turn Phase 2/3 into a backlog of modules.
-- A feature that would make Phase 1 a worse reading environment is not a Phase 2 sneak-peek; it is a cut.
-
----
-
-## Revision log
-
-| Date       | Change                                                                    |
-| ---------- | ------------------------------------------------------------------------- |
-| 2026-08-24 | Phase 1a = admin EPUB pipeline; 1b = user import only; ADR-001 alignment. |
+- A feature that would make Phase 1 a worse reading environment is a cut, not a sneak peek.

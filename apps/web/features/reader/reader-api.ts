@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  readerAudioTrackSchema,
+  type ReaderAudioManifest,
+  readerAudioManifestSchema,
+  type ReaderAudioSegment,
+  readerAudioSegmentSchema,
   type ReaderPartData,
   readerPartDataSchema,
   type ReaderPartsData,
@@ -11,6 +14,7 @@ import {
   type ReadingStateStatus,
   type UpdateReadingStateBody,
 } from '@gloaming/shared/reader';
+import type { TtsVoiceRole } from '@gloaming/shared/tts';
 import type { PartSummary } from '@gloaming/shared/works';
 
 import type { ReaderViewModel } from '@/features/reader/reader-model';
@@ -45,10 +49,31 @@ export async function getReadingState(workId: string, init?: { signal?: AbortSig
   return data.state;
 }
 
-export async function getReaderAudioTrack(partId: string, role: 'us' | 'uk', init?: { signal?: AbortSignal }) {
+export async function getReaderAudioManifest(
+  partId: string,
+  role: TtsVoiceRole,
+  init?: { signal?: AbortSignal },
+): Promise<ReaderAudioManifest> {
   const qs = new URLSearchParams({ role });
-  return apiRequest(`/api/reader/parts/${encodeURIComponent(partId)}/audio?${qs}`, {
-    schema: readerAudioTrackSchema,
+  return apiRequest(`/api/reader/parts/${encodeURIComponent(partId)}/audio/manifest?${qs}`, {
+    schema: readerAudioManifestSchema,
+    signal: init?.signal,
+  });
+}
+
+export async function getReaderAudioSegment(
+  partId: string,
+  role: TtsVoiceRole,
+  index: number,
+  expectedHash: string | undefined,
+  init?: { signal?: AbortSignal },
+): Promise<ReaderAudioSegment> {
+  const qs = new URLSearchParams({ role });
+  if (expectedHash) {
+    qs.set('expectedHash', expectedHash);
+  }
+  return apiRequest(`/api/reader/parts/${encodeURIComponent(partId)}/audio/segments/${index}?${qs}`, {
+    schema: readerAudioSegmentSchema,
     signal: init?.signal,
   });
 }
@@ -88,7 +113,6 @@ export function toReaderViewModel(
     workId: partsData.work.id,
     workTitle: partsData.work.title,
     coverAssetId: partsData.work.coverAssetId,
-    tags: partsData.work.tags,
     parts: partsData.parts,
     partId: partData.part.id,
     partTitle: partData.part.title,
@@ -101,6 +125,7 @@ export function toReaderViewModel(
           progressRatio: state.progressRatio,
           completedThroughSortOrder: state.completedThroughSortOrder,
           totalPartCount: state.totalPartCount,
+          anchor: state.anchor ?? null,
           lastReadAt: typeof state.lastReadAt === 'string' ? state.lastReadAt : state.lastReadAt.toISOString(),
           completedAt: state.completedAt
             ? typeof state.completedAt === 'string'
@@ -109,7 +134,7 @@ export function toReaderViewModel(
             : null,
         }
       : null,
-    audioAvailable: partData.audioAvailable,
+    ttsConfigured: partData.ttsConfigured,
   };
 }
 
@@ -149,7 +174,7 @@ export function useReaderStateMutation(workId: string) {
     },
     onSuccess: (state) => {
       queryClient.setQueryData(stateKey, state);
-      void queryClient.invalidateQueries({ queryKey: ['shelf'] });
+      void queryClient.invalidateQueries({ queryKey: ['library'] });
       void queryClient.invalidateQueries({ queryKey: ['book-detail'] });
     },
     onError: async (error) => {

@@ -75,45 +75,48 @@ export function collectReadableTextNodes(root: ParentNode): Text[] {
   return nodes;
 }
 
-export type StreamRange = {
-  /** Inclusive start index in the concatenated readable stream. */
-  start: number;
-  /** Exclusive end index. */
-  end: number;
+/** Minimal segment fields needed to scope word timings onto one paragraph chunk. */
+export type SegmentTimingInput = {
+  paragraphAnchor: string;
+  paragraphTextOffset: number;
+  textLength: number;
+  wordTimings: readonly TtsWordTiming[];
+};
+
+/** Normalized paragraph text plus the map from normalized to raw-stream offsets. */
+export type NormalizedParagraphText = {
+  text: string;
+  /** `rawIndex[i]` is the offset of `text[i]` in the raw concatenated stream. */
+  rawIndex: number[];
 };
 
 /**
- * Sequential needle match of lexical timings into a concatenated readable text stream.
- * Prefer over raw Azure `textOffset` — HTML whitespace / dropped footnotes disagree with synth.
+ * Collapse whitespace runs to single spaces (matching the backend segmenter's
+ * `.replace(/\s+/g, ' ').trim()`) while recording, for every kept character,
+ * its offset in the raw stream — so manifest `paragraphTextOffset` values can
+ * be mapped back onto live DOM positions.
  */
-export function alignTimingsToStream(stream: string, wordTimings: readonly TtsWordTiming[]): Map<string, StreamRange> {
-  const map = new Map<string, StreamRange>();
-  let cursor = 0;
-  for (const timing of wordTimings) {
-    if (isPunctuationOnlyTimingText(timing.text)) {
-      continue;
-    }
-    const key = activeWordSyncKey(timing);
-    const needles = [timing.text, stripEdgePunctuation(timing.text)].filter(
-      (item, index, all) => item.length > 0 && all.indexOf(item) === index,
-    );
-    let found = -1;
-    let usedLen = 0;
-    for (const needle of needles) {
-      const index = stream.indexOf(needle, cursor);
-      if (index >= 0) {
-        found = index;
-        usedLen = needle.length;
-        break;
+export function normalizeParagraphStream(raw: string): NormalizedParagraphText {
+  const chars: string[] = [];
+  const rawIndex: number[] = [];
+  let pendingSpaceRaw = -1;
+  for (let i = 0; i < raw.length; i += 1) {
+    const char = raw[i]!;
+    if (/\s/.test(char)) {
+      if (chars.length > 0 && pendingSpaceRaw < 0) {
+        pendingSpaceRaw = i;
       }
-    }
-    if (found < 0 || usedLen <= 0) {
       continue;
     }
-    map.set(key, { start: found, end: found + usedLen });
-    cursor = found + usedLen;
+    if (pendingSpaceRaw >= 0) {
+      chars.push(' ');
+      rawIndex.push(pendingSpaceRaw);
+      pendingSpaceRaw = -1;
+    }
+    chars.push(char);
+    rawIndex.push(i);
   }
-  return map;
+  return { text: chars.join(''), rawIndex };
 }
 
 function rangeFromStreamOffset(nodes: readonly Text[], streamStart: number, streamEnd: number): Range | null {
@@ -157,16 +160,65 @@ function rangeFromStreamOffset(nodes: readonly Text[], streamStart: number, stre
 }
 
 /**
- * Map lexical word timings onto live DOM Ranges under `root` (typically `.reading-body`).
- * Failed matches are omitted — caller degrades to no highlight for that word.
+ * Map one lazy-audio segment's lexical timings onto live DOM Ranges, scoped to
+ * its paragraph (`[data-p="paragraphAnchor"]`). The manifest's
+ * `paragraphTextOffset` anchors the sequential match inside the paragraph's
+ * whitespace-normalized text, so repeated words earlier in the paragraph can
+ * never steal a match. Missing paragraph or unmatchable words are omitted —
+ * the caller degrades to no highlight for that word.
  */
-export function buildTimingRanges(root: ParentNode, wordTimings: readonly TtsWordTiming[]): Map<string, Range> {
-  const nodes = collectReadableTextNodes(root);
-  const stream = nodes.map((node) => node.data).join('');
-  const streamMap = alignTimingsToStream(stream, wordTimings);
+export function buildSegmentTimingRanges(root: ParentNode | null, segment: SegmentTimingInput): Map<string, Range> {
   const result = new Map<string, Range>();
-  for (const [key, span] of streamMap) {
-    const range = rangeFromStreamOffset(nodes, span.start, span.end);
+  if (!root) {
+    return result;
+  }
+  let paragraph: Element | null = null;
+  for (const element of root.querySelectorAll('[data-p]')) {
+    if (element.getAttribute('data-p') === segment.paragraphAnchor) {
+      paragraph = element;
+      break;
+    }
+  }
+  if (!paragraph) {
+    return result;
+  }
+
+  const nodes = collectReadableTextNodes(paragraph);
+  const raw = nodes.map((node) => node.data).join('');
+  const normalized = normalizeParagraphStream(raw);
+  const segStart = Math.min(Math.max(0, segment.paragraphTextOffset), normalized.text.length);
+  const segEnd = Math.min(Math.max(segStart, segStart + segment.textLength), normalized.text.length);
+
+  let cursor = segStart;
+  for (const timing of segment.wordTimings) {
+    if (isPunctuationOnlyTimingText(timing.text)) {
+      continue;
+    }
+    const key = activeWordSyncKey(timing);
+    const needles = [timing.text, stripEdgePunctuation(timing.text)].filter(
+      (item, index, all) => item.length > 0 && all.indexOf(item) === index,
+    );
+    let found = -1;
+    let usedLen = 0;
+    for (const needle of needles) {
+      const index = normalized.text.indexOf(needle, cursor);
+      if (index >= 0 && index + needle.length <= segEnd) {
+        found = index;
+        usedLen = needle.length;
+        break;
+      }
+    }
+    if (found < 0 || usedLen <= 0) {
+      continue;
+    }
+    // Sequential cursor — repeated words match in order, never from the top.
+    cursor = found + usedLen;
+    const rawStart = normalized.rawIndex[found];
+    const rawEnd = normalized.rawIndex[found + usedLen - 1];
+    if (rawStart == null || rawEnd == null) {
+      continue;
+    }
+    const range = rangeFromStreamOffset(nodes, rawStart, rawEnd + 1);
     if (range) {
       result.set(key, range);
     }

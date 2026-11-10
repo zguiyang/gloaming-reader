@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   authDialogFormClassName,
   authInputClassName,
@@ -105,7 +106,7 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
           <form.Field name="email">
             {(field) => (
               <Field hideLabel={embedded} label={t(locale, 'auth.forgotPassword.emailLabel')} htmlFor="forgot-email">
-                <input
+                <Input
                   id="forgot-email"
                   type="email"
                   autoComplete="email"
@@ -124,7 +125,11 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
             )}
           </form.Field>
 
-          {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
+          {formError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {formError}
+            </p>
+          ) : null}
 
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (

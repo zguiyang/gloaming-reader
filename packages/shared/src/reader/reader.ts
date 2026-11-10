@@ -27,14 +27,31 @@ export const READING_STATE_ACTIONS = [
   'navigate',
   'finish',
   'restart',
-  'add_to_shelf',
+  'save_position',
 ] as const;
 export type ReadingStateAction = (typeof READING_STATE_ACTIONS)[number];
+
+/** Anchor kind for a within-part scroll position stored on `reading_state`. */
+export const READING_STATE_ANCHOR_KIND = 'part_ratio' as const;
+
+/**
+ * Within-chapter position. `partId` is stored with the ratio so a stale anchor
+ * can never be applied to a different current part.
+ */
+export const readingAnchorSchema = z.object({
+  partId: z.string().min(1),
+  /** 0 = top of the part, 1 = bottom. */
+  ratio: z.number().min(0).max(1),
+});
+
+export type ReadingAnchor = z.infer<typeof readingAnchorSchema>;
 
 export const readingStateSchema = z.object({
   status: readingStateStatusSchema,
   currentPartId: z.string().nullable(),
   completedThroughSortOrder: z.number().int(),
+  /** Saved within-part position for `currentPartId`; null when none or unpaired. */
+  anchor: readingAnchorSchema.nullable().optional(),
   /** DB revision for an optional compare-and-swap update; omitted by legacy responses. */
   revision: z.number().int().nonnegative().optional(),
   /** Computed for UI — not persisted. */
@@ -89,20 +106,11 @@ export const readerWorkSummarySchema = workSchema.pick({
   id: true,
   title: true,
   description: true,
-  tags: true,
   coverAssetId: true,
   publishedAt: true,
 });
 
 export type ReaderWorkSummary = z.infer<typeof readerWorkSummarySchema>;
-
-/** DB-derived: ready asset for current part content hash — not a live object-store existence check. */
-export const readerAudioAvailabilitySchema = z.object({
-  us: z.boolean(),
-  uk: z.boolean(),
-});
-
-export type ReaderAudioAvailability = z.infer<typeof readerAudioAvailabilitySchema>;
 
 export const readerCurrentPartSchema = z.object({
   id: z.string(),
@@ -123,9 +131,10 @@ export const readerPartsDataSchema = z.object({
 export type ReaderPartsData = z.infer<typeof readerPartsDataSchema>;
 
 export const readerPartDataSchema = z.object({
-  work: readerWorkSummarySchema.pick({ id: true, title: true, coverAssetId: true, tags: true }),
+  work: readerWorkSummarySchema.pick({ id: true, title: true, coverAssetId: true }),
   part: readerCurrentPartSchema,
-  audioAvailable: readerAudioAvailabilitySchema,
+  /** Whether this actor has a usable TTS configuration (config check only — no synthesis). */
+  ttsConfigured: z.boolean(),
 });
 
 export type ReaderPartData = z.infer<typeof readerPartDataSchema>;
@@ -136,33 +145,88 @@ export const readingStateDataSchema = z.object({
 
 export type ReadingStateData = z.infer<typeof readingStateDataSchema>;
 
-export const readerPartAudioQuerySchema = z.object({
+/** Lazy per-paragraph audio: manifest lists derived segments without triggering synthesis. */
+export const readerAudioManifestQuerySchema = z.object({
   role: z.enum(ttsVoiceRoleValues),
 });
 
-export type ReaderPartAudioQuery = z.infer<typeof readerPartAudioQuerySchema>;
+export type ReaderAudioManifestQuery = z.infer<typeof readerAudioManifestQuerySchema>;
 
-export const readerAudioTrackSchema = z.object({
+export const readerAudioManifestSegmentSchema = z.object({
+  index: z.number().int().min(0),
+  key: z.string().min(1),
+  segmentHash: z.string().min(1),
+  paragraphAnchor: z.string(),
+  paragraphTextOffset: z.number().int().min(0),
+  textLength: z.number().int().min(0),
+});
+
+export type ReaderAudioManifestSegment = z.infer<typeof readerAudioManifestSegmentSchema>;
+
+export const readerAudioManifestSchema = z.object({
   role: z.enum(ttsVoiceRoleValues),
-  mimeType: z.string().min(1),
+  ttsConfigured: z.boolean(),
+  configFingerprint: z.string().nullable(),
+  segments: z.array(readerAudioManifestSegmentSchema),
+});
+
+export type ReaderAudioManifest = z.infer<typeof readerAudioManifestSchema>;
+
+export const readerAudioSegmentQuerySchema = readerAudioManifestQuerySchema.extend({
+  /** Stale-manifest guard: the caller's segment hash must still match the derived one. */
+  expectedHash: z.string().min(16).max(128).optional(),
+});
+
+export type ReaderAudioSegmentQuery = z.infer<typeof readerAudioSegmentQuerySchema>;
+
+export const readerAudioSegmentSchema = z.object({
+  index: z.number().int().min(0),
+  role: z.enum(ttsVoiceRoleValues),
   voice: z.string().min(1),
-  /** Gateway URL — `/api/assets/:assetId`. */
-  audioUrl: z.string().min(1),
-  assetId: z.string().min(1),
-  durationMs: z.number().int().nonnegative().nullable(),
+  mimeType: z.string().min(1),
+  durationMs: z.number().int().min(0).nullable(),
   wordTimings: z.array(ttsWordTimingSchema),
+  paragraphAnchor: z.string(),
+  paragraphTextOffset: z.number().int().min(0),
+  segmentHash: z.string().min(1),
+  /** Auth-checked segment stream route — `/api/reader/parts/:partId/audio/segments/:index/audio`. */
+  audioUrl: z.string().min(1),
 });
 
-export type ReaderAudioTrack = z.infer<typeof readerAudioTrackSchema>;
+export type ReaderAudioSegment = z.infer<typeof readerAudioSegmentSchema>;
 
 export const updateReadingStateBodySchema = z
   .object({
     action: z.enum(READING_STATE_ACTIONS),
     partId: z.string().min(1).optional(),
     nextPartId: z.string().min(1).optional(),
+    /** Required for `save_position`; rejected for every other action. */
+    anchor: readingAnchorSchema.optional(),
     expectedRevision: z.number().int().nonnegative().optional(),
   })
   .superRefine((body, ctx) => {
+    if (body.action === 'save_position') {
+      if (!body.anchor) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['anchor'],
+          message: 'anchor is required for save_position',
+        });
+      }
+      if (body.partId || body.nextPartId) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['anchor'],
+          message: 'partId and nextPartId are not allowed for save_position',
+        });
+      }
+    } else if (body.anchor) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['anchor'],
+        message: 'anchor is only allowed for save_position',
+      });
+    }
     if ((body.action === 'navigate' || body.action === 'open') && !body.partId) {
       if (body.action === 'navigate') {
         ctx.addIssue({

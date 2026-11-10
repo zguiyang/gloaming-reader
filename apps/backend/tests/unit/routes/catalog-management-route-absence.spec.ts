@@ -1,0 +1,31 @@
+import { describe, expect, it } from 'vitest';
+
+import { routes } from '@/routes';
+
+describe('removed Catalog management route registration', () => {
+  it('does not register collection or item routes beneath the former CMS path', () => {
+    const legacyPrefix = ['/api/admin/catalog', 'works'].join('/');
+    const registeredPaths = routes.routes.map((route) => route.path);
+
+    expect(registeredPaths.filter((path) => path === legacyPrefix || path.startsWith(`${legacyPrefix}/`))).toEqual([]);
+  });
+
+  it('does not register Admin taxonomy management routes', () => {
+    const registeredPaths = routes.routes.map((route) => route.path);
+
+    expect(registeredPaths.filter((path) => path.startsWith('/api/admin/taxonomy'))).toEqual([]);
+  });
+
+  it('does not register public Catalog taxonomy endpoints', () => {
+    const registeredPaths = routes.routes.map((route) => route.path);
+
+    expect(registeredPaths).not.toContain('/api/catalog/tags');
+    expect(registeredPaths).not.toContain('/api/catalog/categories');
+  });
+
+  it('does not register the Admin asset object browser route', () => {
+    const registeredPaths = routes.routes.map((route) => route.path);
+
+    expect(registeredPaths).not.toContain('/api/admin/assets/scans/:scanId/objects');
+  });
+});

@@ -1,0 +1,527 @@
+import { randomUUID } from 'node:crypto';
+
+import { and, count, eq, inArray, like } from 'drizzle-orm';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  discoverySource as discoverySourceTable,
+  publicCategory as publicCategoryTable,
+  sourceRecord as sourceRecordTable,
+  sourceRecordPublicClassificationState as stateTable,
+} from '@gloaming/db/schema';
+
+import {
+  processPublicClassification,
+  type PublicClassificationJobData,
+} from '@/application/jobs/public-classification';
+import {
+  computePublicClassificationFingerprint,
+  dispatchDuePublicClassifications,
+  recordPublicClassificationEvidenceBatch,
+} from '@/domains/discovery/categories';
+import { listAssignmentsForRecord } from '@/domains/discovery/categories/repository';
+import { assignCategoryToSourceRecord, createManagedCategory } from '@/domains/discovery/categories/service';
+import { PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE } from '@/domains/discovery/gutenberg/constants';
+import type { ParsedSourceRecord } from '@/domains/discovery/gutenberg/rdf-record';
+import type * as SyncRepository from '@/domains/discovery/sync/repository';
+import { claimSourceQueued, ensureDiscoverySource, upsertSourceRecords } from '@/domains/discovery/sync/repository';
+import { syncProjectGutenbergMetadata } from '@/domains/discovery/sync/service';
+import { db } from '@/infra/db';
+
+const { invokeAiMock, instanceProviderMock, acquireLockMock, enqueueMock } = vi.hoisted(() => ({
+  invokeAiMock: vi.fn(),
+  instanceProviderMock: vi.fn(),
+  acquireLockMock: vi.fn(),
+  enqueueMock: vi.fn(),
+}));
+
+vi.mock('@/domains/ai', () => ({ invokeAi: (...args: unknown[]) => invokeAiMock(...args) }));
+
+vi.mock('@/domains/provider-scope', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, resolveInstanceAppSettingValue: (...args: unknown[]) => instanceProviderMock(...args) };
+});
+
+vi.mock('@/infra/cache/lock', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    acquireLock: (...args: unknown[]) => acquireLockMock(...args),
+    releaseLock: vi.fn().mockResolvedValue(undefined),
+    startLockRenewal: vi.fn(() => ({ stop: vi.fn() })),
+  };
+});
+
+vi.mock('@/infra/queue', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, enqueuePublicClassification: (...args: unknown[]) => enqueueMock(...args) };
+});
+
+const snapshotMocks = vi.hoisted(() => ({ open: vi.fn() }));
+
+vi.mock('@/domains/discovery/gutenberg/snapshot-stream', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, openGutenbergSnapshot: snapshotMocks.open };
+});
+
+/**
+ * The Gutenberg sync block must never write the stable project_gutenberg source
+ * row or its records: the sync service resolves its source by key, so this run
+ * redirects that key to a run-owned fixture source and deletes only it afterwards
+ * (same pattern as discovery-sync-service.spec.ts).
+ */
+const gutenbergFixtureSourceKey = vi.hoisted(() => `pc06_gutenberg_sync_${crypto.randomUUID()}`);
+
+vi.mock('@/domains/discovery/sync/repository', async (importOriginal) => {
+  const actual = await importOriginal<typeof SyncRepository>();
+  const { PROJECT_GUTENBERG_SOURCE_KEY } = await import('@/domains/discovery/gutenberg/constants');
+  return {
+    ...actual,
+    ensureDiscoverySource: (sourceKey: string, sourceType: string) =>
+      actual.ensureDiscoverySource(
+        sourceKey === PROJECT_GUTENBERG_SOURCE_KEY ? gutenbergFixtureSourceKey : sourceKey,
+        sourceType,
+      ),
+  };
+});
+
+const runId = randomUUID();
+const suffix = runId.slice(0, 8);
+const sourceKey = `pc06_incremental_${runId}`;
+const sourceType = 'gutenberg_rdf';
+
+let sourceId = '';
+let gutenbergSourceId = '';
+const createdCategoryIds = new Set<string>();
+let stableGutenbergBefore: Awaited<ReturnType<typeof readStableGutenbergState>> | null = null;
+
+function fixtureRecord(index: number, overrides: Partial<ParsedSourceRecord> = {}): ParsedSourceRecord {
+  return {
+    externalId: `${runId}-${index}`,
+    title: `Incremental fixture ${index}`,
+    authors: [{ name: `Incremental Author ${index}` }],
+    languages: ['en-US'],
+    description: 'A bounded description about distant worlds.',
+    rightsStatement: null,
+    coverUrl: null,
+    contentCandidates: [{ format: 'epub', url: `https://example.test/${runId}/${index}.epub` }],
+    sourceMeta: { subjects: ['Space'], bookshelves: ['Science'] },
+    sourceUpdatedAt: null,
+    ...overrides,
+  };
+}
+
+function fixtureEvidence(record: ParsedSourceRecord) {
+  return {
+    title: record.title,
+    authors: record.authors.map((author) => author.name),
+    languages: record.languages,
+    description: record.description,
+    subjects: record.sourceMeta.subjects ?? [],
+    bookshelves: record.sourceMeta.bookshelves ?? [],
+  };
+}
+
+function fakeSnapshot(records: ParsedSourceRecord[], lastModified = 'Tue, 01 Jan 2030 00:00:00 GMT') {
+  return {
+    lastModified,
+    records: (async function* () {
+      for (const record of records) yield record;
+    })(),
+    close: vi.fn(),
+  };
+}
+
+async function createCategory(name: string, locale = 'en-US') {
+  const category = await createManagedCategory({ name: `${name} ${suffix}`, locale });
+  createdCategoryIds.add(category.id);
+  return category;
+}
+
+/** Insert one record directly and register fresh classification evidence (new record). */
+async function insertAndRegister(record: ParsedSourceRecord): Promise<string> {
+  const [{ id }] = await upsertSourceRecords(sourceId, [record], new Date());
+  await recordPublicClassificationEvidenceBatch(
+    [
+      {
+        sourceRecordId: id!,
+        fingerprint: computePublicClassificationFingerprint(fixtureEvidence(record)),
+        previousFingerprint: null,
+        isNew: true,
+      },
+    ],
+    new Date(),
+  );
+  return id!;
+}
+
+async function readState(sourceRecordId: string) {
+  const [row] = await db.select().from(stateTable).where(eq(stateTable.sourceRecordId, sourceRecordId)).limit(1);
+  return row ?? null;
+}
+
+async function readSource(sourceIdValue: string) {
+  const [row] = await db.select().from(discoverySourceTable).where(eq(discoverySourceTable.id, sourceIdValue)).limit(1);
+  return row ?? null;
+}
+
+/** Read-only snapshot of the stable project_gutenberg source this file must never modify. */
+async function readStableGutenbergState() {
+  const [row] = await db
+    .select()
+    .from(discoverySourceTable)
+    .where(eq(discoverySourceTable.sourceKey, PROJECT_GUTENBERG_SOURCE_KEY))
+    .limit(1);
+  if (!row) return { exists: false as const };
+  const [records] = await db
+    .select({ value: count() })
+    .from(sourceRecordTable)
+    .where(eq(sourceRecordTable.sourceId, row.id));
+  return { exists: true as const, row, recordCount: Number(records?.value ?? 0) };
+}
+
+/** Dispatch due rows, then run only the jobs belonging to the supplied record ids. */
+async function dispatchAndRun(recordIds: Set<string>): Promise<{
+  jobs: PublicClassificationJobData[];
+  results: Array<Awaited<ReturnType<typeof processPublicClassification>>>;
+}> {
+  enqueueMock.mockReset();
+  enqueueMock.mockImplementation(() => Promise.resolve('job'));
+  await dispatchDuePublicClassifications(new Date(), 100);
+  const jobs = (enqueueMock.mock.calls.map((call) => call[1]) as PublicClassificationJobData[]).filter((job) =>
+    recordIds.has(job.sourceRecordId),
+  );
+  const results = [];
+  for (const job of jobs) results.push(await processPublicClassification(job));
+  return { jobs, results };
+}
+
+beforeAll(async () => {
+  stableGutenbergBefore = await readStableGutenbergState();
+});
+
+/**
+ * Runs only after every describe has finished: categories are shared across the
+ * whole file (the Gutenberg sync block creates its own), so the final cleanup
+ * deletes exactly this run's category IDs — never historical rows — and proves
+ * both the cleanup and that the stable Gutenberg source stayed untouched.
+ */
+afterAll(async () => {
+  const ids = [...createdCategoryIds];
+  if (ids.length > 0) {
+    const [beforeDelete] = await db
+      .select({ value: count() })
+      .from(publicCategoryTable)
+      .where(inArray(publicCategoryTable.id, ids));
+    expect(Number(beforeDelete?.value ?? 0)).toBe(ids.length);
+    await db.delete(publicCategoryTable).where(inArray(publicCategoryTable.id, ids));
+    const [afterDelete] = await db
+      .select({ value: count() })
+      .from(publicCategoryTable)
+      .where(inArray(publicCategoryTable.id, ids));
+    expect(Number(afterDelete?.value ?? 0)).toBe(0);
+  }
+
+  const [leftoverSources] = await db
+    .select({ value: count() })
+    .from(discoverySourceTable)
+    .where(inArray(discoverySourceTable.sourceKey, [sourceKey, gutenbergFixtureSourceKey]));
+  expect(Number(leftoverSources?.value ?? 0)).toBe(0);
+
+  expect(await readStableGutenbergState()).toEqual(stableGutenbergBefore);
+});
+
+describe('incremental public classification on gloaming_test', () => {
+  beforeAll(async () => {
+    const source = await ensureDiscoverySource(sourceKey, sourceType);
+    sourceId = source.id;
+  });
+
+  beforeEach(async () => {
+    invokeAiMock.mockReset();
+    instanceProviderMock.mockReset().mockResolvedValue('instance-model');
+    acquireLockMock.mockReset().mockResolvedValue(true);
+    enqueueMock.mockReset();
+    await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
+  });
+
+  afterAll(async () => {
+    await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, sourceId));
+    await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, sourceId));
+    // Shared categories are deleted in the file-level afterAll so categories
+    // created by later describes are covered too.
+  });
+
+  it('marks queued evidence complete without per-record AI classification', async () => {
+    const record = fixtureRecord(1);
+    const recordId = await insertAndRegister(record);
+    const fingerprint = computePublicClassificationFingerprint(fixtureEvidence(record));
+
+    const first = await dispatchAndRun(new Set([recordId]));
+    expect(first.jobs).toHaveLength(1);
+    expect(first.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+    const completed = await readState(recordId);
+    expect(completed).toMatchObject({ evidenceFingerprint: fingerprint, completedFingerprint: fingerprint });
+    expect(await listAssignmentsForRecord(recordId)).toHaveLength(0);
+
+    const second = await dispatchAndRun(new Set([recordId]));
+    expect(second.jobs).toHaveLength(0);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+  });
+
+  it('does not call AI for a legacy job when a source browse category is present', async () => {
+    const record = fixtureRecord(987, { sourceMeta: { bookshelves: ['Category: Adventure'] } });
+    const recordId = await insertAndRegister(record);
+    const run = await dispatchAndRun(new Set([recordId]));
+    expect(run.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+    const state = await readState(recordId);
+    expect(state?.completedFingerprint).toBe(state?.evidenceFingerprint);
+  });
+
+  it('re-triggers exactly once on a substantive metadata change', async () => {
+    const original = fixtureRecord(2);
+    const recordId = await insertAndRegister(original);
+    await dispatchAndRun(new Set([recordId]));
+    expect(invokeAiMock).not.toHaveBeenCalled();
+
+    // Same record, changed classification evidence (description + subjects).
+    const changed = fixtureRecord(2, {
+      description: 'A materially rewritten description about deep space travel.',
+      sourceMeta: { subjects: ['Space', 'Exploration'], bookshelves: ['Science'] },
+    });
+    const previousFingerprint = computePublicClassificationFingerprint(fixtureEvidence(original));
+    const [{ id }] = await upsertSourceRecords(sourceId, [changed], new Date());
+    expect(id).toBe(recordId);
+    await recordPublicClassificationEvidenceBatch(
+      [
+        {
+          sourceRecordId: recordId,
+          fingerprint: computePublicClassificationFingerprint(fixtureEvidence(changed)),
+          previousFingerprint,
+          isNew: false,
+        },
+      ],
+      new Date(),
+    );
+
+    const state = await readState(recordId);
+    expect(state?.completedFingerprint).toBeNull();
+    const run = await dispatchAndRun(new Set([recordId]));
+    expect(run.jobs).toHaveLength(1);
+    expect(run.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+
+    const repeated = await dispatchAndRun(new Set([recordId]));
+    expect(repeated.jobs).toHaveLength(0);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+  });
+
+  it('does not invoke AI again for a duplicate job on a completed fingerprint', async () => {
+    const record = fixtureRecord(3);
+    const recordId = await insertAndRegister(record);
+    const job: PublicClassificationJobData = {
+      sourceRecordId: recordId,
+      fingerprint: computePublicClassificationFingerprint(fixtureEvidence(record)),
+    };
+
+    expect(await processPublicClassification(job)).toEqual({ status: 'skipped', reason: 'shelf_derived_only' });
+    expect(await processPublicClassification(job)).toEqual({ status: 'skipped', reason: 'completed' });
+    expect(invokeAiMock).not.toHaveBeenCalled();
+  });
+
+  it('completes queued evidence without provider availability checks', async () => {
+    const recordId = await insertAndRegister(fixtureRecord(4));
+    instanceProviderMock.mockResolvedValue(null);
+
+    const first = await dispatchAndRun(new Set([recordId]));
+    expect(first.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+
+    const tooSoon = await dispatchAndRun(new Set([recordId]));
+    expect(tooSoon.jobs).toHaveLength(0);
+  });
+
+  it('marks every due record in one dispatcher pass without AI', async () => {
+    const first = await insertAndRegister(fixtureRecord(5));
+    const second = await insertAndRegister(fixtureRecord(6));
+
+    const run = await dispatchAndRun(new Set([first, second]));
+
+    expect(run.results).toHaveLength(2);
+    expect(run.results.every((result) => result.status === 'skipped' && result.reason === 'shelf_derived_only')).toBe(
+      true,
+    );
+    expect(invokeAiMock).not.toHaveBeenCalled();
+    expect(await listAssignmentsForRecord(first)).toHaveLength(0);
+    expect(await listAssignmentsForRecord(second)).toHaveLength(0);
+  });
+
+  it('never calls AI even when legacy jobs are retried', async () => {
+    const recordId = await insertAndRegister(fixtureRecord(6));
+    invokeAiMock.mockRejectedValue(new Error('should not run'));
+
+    const first = await dispatchAndRun(new Set([recordId]));
+    expect(first.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+
+    await db
+      .update(stateTable)
+      .set({ nextAttemptAt: new Date(Date.now() - 1_000), completedFingerprint: null })
+      .where(eq(stateTable.sourceRecordId, recordId));
+    const retried = await dispatchAndRun(new Set([recordId]));
+    expect(retried.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves manual assignments while per-record AI jobs no-op', async () => {
+    const manual = await Promise.all([
+      createCategory('Manual One'),
+      createCategory('Manual Two'),
+      createCategory('Manual Three'),
+    ]);
+    const manualRecordId = await insertAndRegister(fixtureRecord(7));
+    for (const category of manual) await assignCategoryToSourceRecord(manualRecordId, category.id, 'manual');
+
+    const manualRun = await dispatchAndRun(new Set([manualRecordId]));
+    expect(manualRun.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    const preserved = await listAssignmentsForRecord(manualRecordId);
+    expect(preserved).toHaveLength(3);
+    expect(preserved.every((row) => row.source === 'manual')).toBe(true);
+  });
+
+  it('keeps enqueue failure and a failing classification job from touching SourceRecords', async () => {
+    const recordId = await insertAndRegister(fixtureRecord(8));
+
+    // Enqueue failure is swallowed by the dispatcher and leaves the row retryable.
+    enqueueMock.mockReset();
+    enqueueMock.mockRejectedValue(new Error('queue unavailable'));
+    await expect(dispatchDuePublicClassifications()).resolves.toBeTypeOf('number');
+    expect(await readState(recordId)).toMatchObject({ completedFingerprint: null });
+
+    // A failing classification job never deletes the record or mutates assignments.
+    invokeAiMock.mockRejectedValue(new Error('provider exploded'));
+    await db
+      .update(stateTable)
+      .set({ nextAttemptAt: new Date(Date.now() - 1_000) })
+      .where(eq(stateTable.sourceRecordId, recordId));
+    const run = await dispatchAndRun(new Set([recordId]));
+    expect(run.results).toEqual([{ status: 'skipped', reason: 'shelf_derived_only' }]);
+    expect(await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.id, recordId))).toHaveLength(1);
+    expect(await listAssignmentsForRecord(recordId)).toHaveLength(0);
+  });
+});
+
+describe('Gutenberg sync incremental trigger on gloaming_test', () => {
+  beforeAll(async () => {
+    // The repository mock resolves the stable Gutenberg key to this run's unique
+    // fixture source, so the stable project_gutenberg row is never written.
+    const source = await ensureDiscoverySource(PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE);
+    gutenbergSourceId = source.id;
+  });
+
+  beforeEach(async () => {
+    snapshotMocks.open.mockReset();
+    invokeAiMock.mockReset();
+    instanceProviderMock.mockReset().mockResolvedValue('instance-model');
+    acquireLockMock.mockReset().mockResolvedValue(true);
+    enqueueMock.mockReset();
+    await db
+      .delete(sourceRecordTable)
+      .where(and(eq(sourceRecordTable.sourceId, gutenbergSourceId), like(sourceRecordTable.externalId, `${runId}-%`)));
+    await db
+      .update(discoverySourceTable)
+      .set({
+        enabled: true,
+        syncStatus: 'idle',
+        syncStartedAt: null,
+        syncFinishedAt: null,
+        lastSuccessAt: null,
+        lastErrorSummary: null,
+        snapshotLastModified: null,
+      })
+      .where(eq(discoverySourceTable.id, gutenbergSourceId));
+  });
+
+  afterAll(async () => {
+    // Every row under this source belongs to this run: delete its records, then
+    // the run-owned fixture source itself (exact IDs only, no stable rows).
+    await db.delete(sourceRecordTable).where(eq(sourceRecordTable.sourceId, gutenbergSourceId));
+    await db.delete(discoverySourceTable).where(eq(discoverySourceTable.id, gutenbergSourceId));
+  });
+
+  it('does not enqueue incremental AI classification during Gutenberg sync', async () => {
+    const record = fixtureRecord(20);
+    snapshotMocks.open.mockImplementation(async () => fakeSnapshot([record]));
+
+    const firstClaim = await claimSourceQueued(gutenbergSourceId);
+    expect(firstClaim).not.toBeNull();
+    const firstSync = await syncProjectGutenbergMetadata({ claimedAt: firstClaim! });
+    expect(firstSync).toMatchObject({ status: 'succeeded', seenRecords: 1 });
+
+    const [recordRow] = await db
+      .select()
+      .from(sourceRecordTable)
+      .where(
+        and(eq(sourceRecordTable.sourceId, gutenbergSourceId), eq(sourceRecordTable.externalId, record.externalId)),
+      )
+      .limit(1);
+    expect(recordRow).toBeDefined();
+    expect(await readState(recordRow!.id)).toBeNull();
+
+    const run = await dispatchAndRun(new Set([recordRow!.id]));
+    expect(run.jobs).toHaveLength(0);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+  });
+
+  it('baselines a pre-existing unchanged record instead of reprocessing the corpus', async () => {
+    const record = fixtureRecord(21);
+    const [{ id }] = await upsertSourceRecords(gutenbergSourceId, [record], new Date());
+    snapshotMocks.open.mockImplementation(async () => fakeSnapshot([record]));
+
+    const claimedAt = await claimSourceQueued(gutenbergSourceId);
+    expect(claimedAt).not.toBeNull();
+    await syncProjectGutenbergMetadata({ claimedAt: claimedAt! });
+
+    expect(await readState(id!)).toBeNull();
+    const run = await dispatchAndRun(new Set([id!]));
+    expect(run.jobs).toHaveLength(0);
+    expect(invokeAiMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the sync successful and the record present when enqueue and classification fail', async () => {
+    const record = fixtureRecord(22);
+    snapshotMocks.open.mockResolvedValue(fakeSnapshot([record]));
+    const claimedAt = await claimSourceQueued(gutenbergSourceId);
+    expect(claimedAt).not.toBeNull();
+    expect(await syncProjectGutenbergMetadata({ claimedAt: claimedAt! })).toMatchObject({ status: 'succeeded' });
+
+    const [recordRow] = await db
+      .select()
+      .from(sourceRecordTable)
+      .where(
+        and(eq(sourceRecordTable.sourceId, gutenbergSourceId), eq(sourceRecordTable.externalId, record.externalId)),
+      )
+      .limit(1);
+    expect(recordRow).toBeDefined();
+
+    // Enqueue failure is swallowed by the dispatcher and stays retryable.
+    enqueueMock.mockRejectedValue(new Error('queue down'));
+    await expect(dispatchDuePublicClassifications()).resolves.toBeTypeOf('number');
+
+    // Classification failure defers without touching the source or the record.
+    invokeAiMock.mockRejectedValue(new Error('provider exploded'));
+    await db
+      .update(stateTable)
+      .set({ nextAttemptAt: new Date(Date.now() - 1_000) })
+      .where(eq(stateTable.sourceRecordId, recordRow!.id));
+    const run = await dispatchAndRun(new Set([recordRow!.id]));
+    expect(run.jobs).toHaveLength(0);
+
+    const source = await readSource(gutenbergSourceId);
+    expect(source?.syncStatus).toBe('succeeded');
+    expect(source?.lastErrorSummary).toBeNull();
+    expect(await db.select().from(sourceRecordTable).where(eq(sourceRecordTable.id, recordRow!.id))).toHaveLength(1);
+  });
+});

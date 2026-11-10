@@ -3,11 +3,15 @@
 import 'react-activity-calendar/tooltips.css';
 
 import { useTheme } from 'next-themes';
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { ActivityCalendar, type ThemeInput } from 'react-activity-calendar';
 
 import { t } from '@gloaming/i18n';
 
+import {
+  attachHistoryCalendarLatestSnap,
+  findHistoryCalendarScroller,
+} from '@/features/history/history-calendar-scroll';
 import {
   countHistoryActivityDays,
   fitHistoryCalendarBlockSize,
@@ -45,23 +49,10 @@ const HISTORY_CALENDAR_THEME: ThemeInput = {
   ],
 };
 
-const LIBRARY_SCROLL_SELECTOR = '.react-activity-calendar-scroll-container';
-
 type HistoryHeatmapProps = {
   today: string;
   activity: HistoryViewModel['activity'];
 };
-
-function scrollLibraryCalendarToLatest(root: HTMLElement): void {
-  const scroller = root.querySelector(LIBRARY_SCROLL_SELECTOR);
-  if (!(scroller instanceof HTMLElement)) {
-    return;
-  }
-  if (scroller.scrollWidth <= scroller.clientWidth + 1) {
-    return;
-  }
-  scroller.scrollLeft = scroller.scrollWidth - scroller.clientWidth;
-}
 
 export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
   const { locale } = useLocale();
@@ -79,6 +70,15 @@ export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
     [locale],
   );
   const frameRef = useRef<HTMLDivElement>(null);
+  /** Keep the latest-weeks snap alive across re-renders; stand down on user scroll. */
+  const snapRef = useRef<{ scroller: HTMLElement; destroy: () => void } | null>(null);
+  const ensureCalendarSnap = (scroller: HTMLElement) => {
+    if (snapRef.current?.scroller === scroller) {
+      return;
+    }
+    snapRef.current?.destroy();
+    snapRef.current = { scroller, destroy: attachHistoryCalendarLatestSnap(scroller) };
+  };
   const [blockSize, setBlockSize] = useState<number>(HISTORY_CALENDAR_MIN_BLOCK_SIZE);
   const { resolvedTheme } = useTheme();
   const isClient = useSyncExternalStore(
@@ -119,9 +119,19 @@ export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
       return;
     }
 
-    const scroller = frame.querySelector(LIBRARY_SCROLL_SELECTOR);
-    if (!(scroller instanceof HTMLElement) || scroller.scrollWidth <= 0) {
+    const scroller = findHistoryCalendarScroller(frame);
+    if (!scroller || scroller.scrollWidth <= 0) {
       return;
+    }
+
+    if (scroller.scrollWidth > scroller.clientWidth + 1) {
+      scroller.tabIndex = 0;
+      scroller.setAttribute('role', 'region');
+      scroller.setAttribute('aria-label', t(locale, 'content.history.distribution'));
+    } else {
+      scroller.removeAttribute('tabindex');
+      scroller.removeAttribute('role');
+      scroller.removeAttribute('aria-label');
     }
 
     if (scroller.scrollWidth > scroller.clientWidth + 1) {
@@ -130,12 +140,21 @@ export function HistoryHeatmap({ today, activity }: HistoryHeatmapProps) {
         setBlockSize(shrunk);
         return;
       }
-      scrollLibraryCalendarToLatest(frame);
-      return;
     }
 
-    scrollLibraryCalendarToLatest(frame);
-  }, [blockSize, today, activity]);
+    // Do not snap inline: first paint has stale metrics (the library applies
+    // its weekday-label offset in a passive effect). The attached controller
+    // snaps now and re-snaps after layout settles, until the user scrolls.
+    ensureCalendarSnap(scroller);
+  }, [blockSize, today, activity, locale]);
+
+  useEffect(
+    () => () => {
+      snapRef.current?.destroy();
+      snapRef.current = null;
+    },
+    [],
+  );
 
   return (
     <section className="w-full space-y-4 md:space-y-6">

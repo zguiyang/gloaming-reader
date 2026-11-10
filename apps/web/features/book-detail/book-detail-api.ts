@@ -1,26 +1,25 @@
 /**
- * Book detail data layer — catalog/shelf/parts + derived reading stats from API.
+ * Book detail data layer — catalog/Library/parts + independently derived reading progress.
  * Reader parts fetch uses credentials: 'omit' so viewing detail does not create reading_state.
  */
 
 import { useQuery } from '@tanstack/react-query';
 
 import { DEFAULT_LOCALE } from '@gloaming/i18n';
-import type { ReadingState } from '@gloaming/shared/reader';
+import type { LibraryItem } from '@gloaming/shared/library';
+import type { ReaderPartsData, ReadingState } from '@gloaming/shared/reader';
 import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
-import type { ShelfItem } from '@gloaming/shared/shelf';
-import { type PartSummary, type Work, workSchema } from '@gloaming/shared/works';
+import { type PartSummary, type Work, workAvailability, workSchema } from '@gloaming/shared/works';
 
 import {
-  BOOK_DETAIL_DEFAULT_CATEGORY,
   type BookChapter,
   type BookDetail,
   languageLabelFromCode,
-  readingStatusFromProgress,
-  teaserFromDescription,
+  readingStatusFromState,
 } from '@/features/book-detail/book-detail-model';
+import { getLibraryItem } from '@/features/library/library-public';
+import { getReadingState } from '@/features/reader/reader-api';
 import { getWorkParts } from '@/features/reader/reader-parts-public';
-import { buildShelfItemMap, getShelf } from '@/features/shelf/shelf-public';
 import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 
@@ -76,7 +75,7 @@ function partStatsFields(part: PartSummary): Pick<BookChapter, 'estimatedMinutes
 
 export function chaptersFromParts(parts: PartSummary[], state: ReadingState | null): BookChapter[] {
   const sorted = [...parts].sort((a, b) => a.sortOrder - b.sortOrder);
-  const readingStatus = state ? readingStatusFromProgress(state.status, state.progressRatio) : 'unread';
+  const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
 
   if (readingStatus === 'unread') {
     return sorted.map((part, i) => ({
@@ -117,12 +116,17 @@ export function chaptersFromParts(parts: PartSummary[], state: ReadingState | nu
   });
 }
 
-export function toBookDetail(work: Work, parts: PartSummary[], shelfItem: ShelfItem | undefined): BookDetail {
-  const state = shelfItem?.state ?? null;
+export function toBookDetail(
+  work: Work,
+  parts: PartSummary[],
+  libraryItem: LibraryItem | null,
+  state: ReadingState | null,
+): BookDetail {
   const progressRatio = state?.progressRatio ?? null;
-  const readingStatus = state ? readingStatusFromProgress(state.status, progressRatio) : 'unread';
-  const teaser = teaserFromDescription(work.description);
+  const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
+  const teaser = work.sourceSummary?.trim() || work.description;
   const readingStats = resolveWorkReadingStats(work, parts);
+  const availability = workAvailability(work.processingStatus, parts.length);
 
   return {
     id: work.id,
@@ -130,16 +134,58 @@ export function toBookDetail(work: Work, parts: PartSummary[], shelfItem: ShelfI
     author: work.author,
     difficultyScore: readingStats.difficultyScore,
     difficultyLabel: readingStats.difficultyLabel,
-    category: work.category ?? BOOK_DETAIL_DEFAULT_CATEGORY,
-    tags: work.tags,
     estimatedMinutes: readingStats.estimatedMinutes,
     suggestedVocabSize: readingStats.suggestedVocabSize,
     teaser,
-    sourceLabel: 'official',
+    sourceNotes: work.sourceNotes,
     language: work.language,
     languageLabel: languageLabelFromCode(work.language, DEFAULT_LOCALE),
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
-    shelfStatus: shelfItem ? 'on_shelf' : 'available',
+    libraryStatus: libraryItem ? 'in_library' : 'available',
+    libraryItem,
+    availability,
+    isReadable: availability === 'ready',
+    readingStatus,
+    progressRatio: readingStatus === 'unread' ? null : progressRatio,
+    lastReadAt: toIsoString(state?.lastReadAt),
+    completedAt: toIsoString(state?.completedAt),
+    chapters: chaptersFromParts(parts, state),
+    relatedIds: [],
+  };
+}
+
+export function toPersonalBookDetail(
+  libraryItem: LibraryItem,
+  partsData: ReaderPartsData | null,
+  state: ReadingState | null,
+): BookDetail {
+  const parts = partsData?.parts ?? [];
+  const progressRatio = state?.progressRatio ?? null;
+  const readingStatus = state ? readingStatusFromState(state.status) : 'unread';
+  const work = libraryItem.work;
+  const totalWords = parts.reduce((total, part) => total + (part.wordCount ?? 0), 0);
+  const estimatedMinutes =
+    libraryItem.personalMetadata?.estimatedMinutes ??
+    (totalWords > 0 ? estimatedMinutesFromWordCount(totalWords) : null);
+  const difficultyScore = libraryItem.personalMetadata?.difficultyScore ?? null;
+  const language = libraryItem.personalMetadata?.language ?? '';
+
+  return {
+    id: work.id,
+    title: work.title,
+    author: libraryItem.personalMetadata?.author ?? '',
+    difficultyScore,
+    difficultyLabel: difficultyScore != null ? difficultyLabelFromScore(difficultyScore) : null,
+    estimatedMinutes,
+    suggestedVocabSize: libraryItem.personalMetadata?.suggestedVocabSize ?? null,
+    teaser: work.description,
+    language,
+    languageLabel: languageLabelFromCode(language),
+    coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
+    libraryStatus: 'in_library',
+    libraryItem,
+    availability: libraryItem.availability,
+    isReadable: libraryItem.availability === 'ready' && parts.length > 0,
     readingStatus,
     progressRatio: readingStatus === 'unread' ? null : progressRatio,
     lastReadAt: toIsoString(state?.lastReadAt),
@@ -154,20 +200,37 @@ export type BookDetailQueryResult = {
 };
 
 export async function fetchBookDetail(workId: string, init?: { signal?: AbortSignal }): Promise<BookDetailQueryResult> {
-  const work = await getPublishedWork(workId, init);
-  const [shelfData, partsData] = await Promise.all([
-    getShelf(init).catch((error: unknown) => {
-      if (error instanceof ApiRequestError && error.status === 401) {
-        return null;
-      }
-      throw error;
-    }),
-    getWorkParts(workId, init),
-  ]);
+  const libraryItem = await getLibraryItem(workId, init).catch((error: unknown) => {
+    if (error instanceof ApiRequestError && (error.status === 401 || error.status === 404)) {
+      return null;
+    }
+    throw error;
+  });
+  const personalItem = libraryItem?.libraryItemKind === 'personal' ? libraryItem : null;
+  if (personalItem) {
+    if (personalItem.availability !== 'ready') {
+      return { book: toPersonalBookDetail(personalItem, null, personalItem.state) };
+    }
+    const [partsData, state] = await Promise.all([getWorkParts(workId, init), getOptionalReadingState(workId, init)]);
+    return { book: toPersonalBookDetail(personalItem, partsData, state) };
+  }
 
-  const shelfMap = shelfData ? buildShelfItemMap(shelfData) : new Map<string, ShelfItem>();
-  const book = toBookDetail(work, partsData.parts, shelfMap.get(workId));
+  const [work, partsData, state] = await Promise.all([
+    getPublishedWork(workId, init),
+    getWorkParts(workId, init),
+    getOptionalReadingState(workId, init),
+  ]);
+  const book = toBookDetail(work, partsData.parts, libraryItem, state);
   return { book };
+}
+
+function getOptionalReadingState(workId: string, init?: { signal?: AbortSignal }): Promise<ReadingState | null> {
+  return getReadingState(workId, init).catch((error: unknown) => {
+    if (error instanceof ApiRequestError && error.status === 401) {
+      return null;
+    }
+    throw error;
+  });
 }
 
 export function useBookDetailQuery(workId: string, options?: { enabled?: boolean }) {

@@ -534,6 +534,7 @@ Depth from **tonal layering** and hairline outlines — not heavy drop shadows.
 - **Reading / shelf cards:** warm `bg-paper` or `bg-surface-container-*`, `rounded-2xl`, prefer tonal edge over heavy border.
 - **Translation / help popovers:** `bg-card`, `rounded-xl`, hairline border; serif for lemma, sans for notes.
 - **Chips:** `rounded-full`, `bg-brand-soft` / `bg-accent`, accent-foreground text — small only.
+- **Filled control appearance (opt-in):** `Input`, `Textarea`, `SelectTrigger`, `InputGroup`/`ComboboxInput` accept `appearance="filled"` (default `"default"` keeps the outline look everywhere else). Filled uses the existing `surface-container` token as a tonal background with a transparent edge; focus keeps the fill and adds a **2px `ring` + offset gap**; `aria-invalid` shows a destructive edge + ring without losing focus; disabled uses `surface-container-low` + secondary text (legible, no whole-group opacity drop); read-only keeps primary text with a neutral edge, distinct from disabled; forced-colors mode falls back to system borders (`CanvasText`) and a system focus outline (`Highlight`). Only scoped personal-settings and admin-config pages opt in — do not flip the global default. Saved secrets are a **read-only masked summary** with an explicit replace entry (see `components/ui/secret-field.tsx`): the mask is display text and never part of a payload; an empty replacement preserves the saved key; cancelling the replacement clears only the key draft.
 - **Sidebar active:** soft accent wash + thin primary bar on the leading edge. (Legacy; learner chrome uses **Site nav** below.)
 - **Site nav (top chrome) — locked:** Shared header for landing + learner pages. Implement via `components/navigation/*` (`SiteNav`, `DesktopNav`, shared `nav-config`) + `@utility site-nav-link` in `globals.css`; do not restyle ad hoc per page.
   - **Brand lockup:** mark + serif wordmark `Gloaming` (`BrandMark` `appearance="editorial"`).
@@ -546,7 +547,7 @@ Depth from **tonal layering** and hairline outlines — not heavy drop shadows.
   - Temp Stitch HTML may disagree (14px / 1px underline on some screens) — **this contract wins**.
 - **App bottom nav (mobile learner shell) — locked:** Only inside `AppShell` (`MobileBottomNav`). Not on Landing, Auth, Reader, or Admin.
   - **Tabs:** 书架 → 发现 → 历史 → 更多 (labels from `nav-config`; hrefs shared with desktop primary links).
-  - **更多:** opens a bottom Sheet for extensions — **no** `/more` route. Future account/settings rows. Theme mode is **not** hosted here (top `SiteNav` icon). Placeholder-only rows may remain for not-yet-shipped items.
+  - **更多:** opens the existing `/more` page for extensions. Product decision (2026-11-01): keep the route and page behavior; do **not** replace it with a bottom Sheet. Future account/settings rows. Theme mode is **not** hosted here (top `SiteNav` icon). Placeholder-only rows may remain for not-yet-shipped items.
   - **Height:** **56px** tab row + `env(safe-area-inset-bottom)`.
   - **AppShell** exposes `--app-shell-bottom` so page sticky CTAs (e.g. book detail) sit above the tab bar; `md+` sets it to `0`.
   - **Active:** `primary` icon + label; idle `muted-foreground`. Quiet — no floating island / glow.
@@ -567,6 +568,13 @@ Depth from **tonal layering** and hairline outlines — not heavy drop shadows.
 | Paper texture                      | Same asset; **Dark opacity reduction**.                                                                                                                                                                                        |
 | Reading typography                 | Families/sizes unchanged; colors via tokens → **auto follows**.                                                                                                                                                                |
 
+### Selection & focus indicators (locked)
+
+- **Selected / current state is a square 2px bar, never a border.** Draw it with a `before:` / `after:` pseudo-element at the shared edge: the bottom edge for tab-like filters and pagination, the left edge for list rows (provider list, reader TOC). A single-side `border` on a rounded surface follows the corner radius and reads as a U or a bracket, and it shifts the box when the state toggles.
+- **One focus signal only.** A control shows either a border or a ring on focus, never both. Filled controls (`data-appearance="filled"`) keep the border transparent while focused and show the 2px offset ring; the outline recipe's focusing border is neutralized in the theme layer, not in the primitive.
+- **Do not edit `components/ui` for page-level visuals.** Prefer usage-site Tailwind classes. If a shared slot genuinely needs a fix, add an attribute-scoped rule to the override block at the end of `apps/web/app/globals.css` and explain why. Changing shared primitive source requires explicit task authorization ([`rules/frontend.md`](rules/frontend.md)).
+- **Guard:** `apps/web/test/design-guards.spec.ts` fails on single-side border indicators, double focus rings, and consumer overrides of the tab indicator offset. Extend its allowlist only for structural exceptions, with a comment.
+
 ---
 
 ## Third-party theme strategy
@@ -582,7 +590,7 @@ Depth from **tonal layering** and hairline outlines — not heavy drop shadows.
 
 ## Interaction philosophy
 
-**Scope:** Product and interaction judgment for all Gloaming UI — what to show, what to merge, what to delete. **Visual polish** (typography, color, spacing, composition, anti-slop) stays in the sections above and in Taste skills. **AI execution checklists** live in [`.cursor/rules/frontend.mdc`](.cursor/rules/frontend.mdc).
+**Scope:** Product and interaction judgment for all Gloaming UI — what to show, what to merge, what to delete. **Visual polish** (typography, color, spacing, composition, anti-slop) stays in the sections above. **Frontend engineering boundaries** live in [`rules/frontend.md`](rules/frontend.md).
 
 **Priority ladder (default):**
 
@@ -598,7 +606,38 @@ Every visible element must earn its place — label, description, helper text, b
 
 > If removing an element would not clearly hurt comprehension, discoverability, or function, prefer removing it.
 
-“Complete expression” is not the same as good design. Prefer one precise signal over three polite repeats.
+Simplicity means reducing the effort needed to understand and act, not minimizing text, controls, or features. Keep text that names an action, communicates a meaningful state, describes useful content, explains an error or recovery, or states a necessary condition. Remove duplicate titles, explanations, and decorative copy. Ask what the page title, section, field, grouping, and control state already tell the user before adding another explanation.
+
+### Self-explanatory hierarchy
+
+Use familiar naming, placement, grouping, spacing, scale, contrast, and interaction states to make the page understandable at a glance. Prefer whitespace and clear hierarchy; add a border, background, or container only when it clarifies a relationship that spacing alone cannot. Use existing Paper-First semantic tokens and surface hierarchy. Avoid nested cards, decorative statistics, and repeated headings; follow the existing one-important-action-per-region rule.
+
+When a control or section is hard to understand, first improve its structure, label, or behavior. Keep explanatory copy when it helps with unfamiliar tasks, reading context, accessibility, or discoverability.
+
+### Action discovery and disclosure
+
+For learner-facing surfaces, use concepts and names users recognize instead of internal domain terms. Admin surfaces may retain established operator vocabulary as described under **Admin workbench density**.
+
+- Keep frequent and essential actions visible in the context where users need them.
+- Put infrequent or advanced actions in a nearby menu, popover, or settings surface; do not bury a common task behind multiple layers.
+- Before activation, make the action's outcome reasonably predictable through its visible name, placement, and current state. Use the feedback specified for that action; do not infer new persistence, confirmation, or side effects for visual simplicity.
+- Reuse the same user-facing names and state meanings across learner surfaces.
+
+### Icons, labels, and access
+
+Use an icon alone only for a widely recognized action whose meaning remains clear in context. Give every icon-only control an accessible name. Use a visible concise label for ambiguous, domain-specific, or consequential actions; do not rely on a tooltip or hover to explain a core action. Tooltips may add context, but keyboard and mobile users must be able to discover and use the same core functions.
+
+### Design review checks
+
+For learner-facing surfaces, review from a first-time user's perspective. Apply **Admin workbench density** to operator surfaces.
+
+1. Can they find the primary task and understand the current state from the page structure, labels, and visible state?
+2. Can they predict the result of each prominent action before activating it?
+3. Does every text element add distinct value, and does every container clarify a real relationship?
+4. Are essential and frequent actions visible without depending on a tooltip, hover, or deep menu?
+5. Can keyboard and mobile users discover and complete the same core tasks?
+
+Use **Information economy** when deciding whether explanatory copy adds distinct value.
 
 ### Interaction compression
 
@@ -631,12 +670,6 @@ Do not restate what the control already communicates.
 
 Accessibility: use `aria-label` / visually hidden text when a control lacks a visible name — not a duplicate visible status word.
 
-### Semantic redundancy
-
-Separate **visual layering** (panel vs field) from **semantic repetition** (saying the same fact in label + description + badge + helper).
-
-Ask: **What does the user already know from page title, tab, section, field name, or control state?** Do not explain again “for safety.”
-
 ### Admin workbench density
 
 Admin (`/admin/**`) serves operators who already understand Provider, Model, API Key, Enable/Disable, Refresh, Configuration.
@@ -656,11 +689,11 @@ Admin (`/admin/**`) serves operators who already understand Provider, Model, API
 3. Minimum interactions — fewest controls that complete the task
 4. Context inference — what do title / tab / grouping already tell them?
 5. Merge related actions into shared control contexts
-6. Delete redundant elements (checklist in frontend.mdc)
-7. Visual polish — tokens above + Taste skills for hierarchy and composition
+6. Delete redundant elements (review checks above)
+7. Visual polish — tokens and visual contracts above for hierarchy and composition
 ```
 
-Taste skills own **visual quality**; this section owns **product / interaction quality**. They complement each other — do not replace Taste with more prose here.
+The visual contracts above own **visual quality**; this section owns **product / interaction quality**. They complement each other.
 
 ---
 
@@ -690,4 +723,4 @@ Taste skills own **visual quality**; this section owns **product / interaction q
 - Don’t add labels, descriptions, badges, cards, or buttons “to be complete” when context or the control already carries the meaning — see **Interaction philosophy**.
 - Don’t let UI simplification infer product behavior (auto-save, automatic fetch, implicit confirm, etc.) — see **UI vs product behavior** under Interaction compression.
 
-**UI composition:** Prefer shadcn atoms, then Tailwind polish, then limited native markup. Apply **Remove → Simplify → Combine → Clarify → Polish** before visual polish. Atom ladder and Base UI gotchas: `.cursor/rules/frontend.mdc`.
+**UI composition:** Prefer shadcn atoms, then Tailwind polish, then limited native markup. Apply **Remove → Simplify → Combine → Clarify → Polish** before visual polish. Engineering boundaries: [`rules/frontend.md`](rules/frontend.md); component operating guidance belongs to the applicable Skill and current configuration.

@@ -1,0 +1,163 @@
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
+
+import type { Locale } from '@gloaming/i18n';
+import {
+  libraryBrowseDataSchema,
+  type LibraryBrowseQuery,
+  type LibraryData,
+  type UserTag,
+  userTagListSchema,
+  userTagSchema,
+} from '@gloaming/shared/library';
+import { userTagTranslationsResultSchema } from '@gloaming/shared/library';
+import {
+  EPUB_UPLOAD_MAX_BYTES,
+  personalWorkDeleteResultSchema,
+  type PersonalWorkUpdate,
+  type PersonalWorkUpdateResult,
+  personalWorkUpdateResultSchema,
+  type PersonalWorkUploadResult,
+  personalWorkUploadResultSchema,
+} from '@gloaming/shared/works';
+
+import { getLibrary } from '@/features/library/library-public';
+import { apiRequest, formatApiError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
+
+export const libraryQueryKey = {
+  all: ['library'] as const,
+  tags: ['library', 'tags'] as const,
+};
+
+export function useLibraryBrowseQuery(query: Omit<LibraryBrowseQuery, 'page'>) {
+  const { data: session } = authClient.useSession();
+  return useInfiniteQuery({
+    queryKey: [...libraryQueryKey.all, 'browse', session?.user.id ?? null, query],
+    enabled: Boolean(session?.user.id),
+    initialPageParam: 1,
+    queryFn: ({ pageParam, signal }) => {
+      const params = new URLSearchParams({
+        source: query.source,
+        status: query.status,
+        sort: query.sort,
+        page: String(pageParam),
+      });
+      if (query.tag) params.set('tag', query.tag);
+      if (query.q) params.set('q', query.q);
+      return apiRequest(`/api/library/browse?${params}`, { schema: libraryBrowseDataSchema, signal });
+    },
+    getNextPageParam: (last, pages) => (last.hasMore ? pages.length + 1 : undefined),
+    refetchInterval: (result) =>
+      result.state.data?.pages.some((page) => page.items.some((item) => item.availability === 'processing'))
+        ? 2000
+        : false,
+  });
+}
+
+export function useUserTagsQuery(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: libraryQueryKey.tags,
+    queryFn: ({ signal }) => apiRequest('/api/library/tags', { schema: userTagListSchema, signal }),
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function libraryRefetchInterval(data?: LibraryData): number | false {
+  return data?.items.some((item) => item.availability === 'processing') ? 2000 : false;
+}
+
+export function useLibraryQuery(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: libraryQueryKey.all,
+    queryFn: ({ signal }) => getLibrary({ signal }),
+    refetchInterval: (query) => libraryRefetchInterval(query.state.data),
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export const formatLibraryApiError = formatApiError;
+
+export async function addToLibrary(workId: string): Promise<void> {
+  await apiRequest(`/api/library/${encodeURIComponent(workId)}`, { method: 'POST', schema: z.undefined() });
+}
+
+export async function removeFromLibrary(workId: string): Promise<void> {
+  await apiRequest(`/api/library/${encodeURIComponent(workId)}`, { method: 'DELETE', schema: z.undefined() });
+}
+
+export async function updatePersonalWork(workId: string, patch: PersonalWorkUpdate): Promise<PersonalWorkUpdateResult> {
+  return apiRequest(`/api/works/${encodeURIComponent(workId)}`, {
+    method: 'PATCH',
+    json: patch,
+    schema: personalWorkUpdateResultSchema,
+  });
+}
+
+export async function deletePersonalWork(workId: string): Promise<void> {
+  await apiRequest(`/api/works/${encodeURIComponent(workId)}`, {
+    method: 'DELETE',
+    schema: personalWorkDeleteResultSchema,
+  });
+}
+
+export async function createUserTag(name: string, locale: Locale): Promise<UserTag> {
+  return apiRequest('/api/library/tags', {
+    method: 'POST',
+    json: { name, locale },
+    schema: userTagSchema,
+  });
+}
+
+export async function renameUserTag(tagId: string, name: string, locale: Locale): Promise<UserTag> {
+  return apiRequest(`/api/library/tags/${encodeURIComponent(tagId)}`, {
+    method: 'PATCH',
+    json: { name, locale },
+    schema: userTagSchema,
+  });
+}
+
+export async function completeUserTagTranslations(tagId: string) {
+  return apiRequest(`/api/library/tags/${encodeURIComponent(tagId)}/translations/complete`, {
+    method: 'POST',
+    schema: userTagTranslationsResultSchema,
+  });
+}
+
+export async function deleteUserTag(tagId: string): Promise<void> {
+  await apiRequest(`/api/library/tags/${encodeURIComponent(tagId)}`, { method: 'DELETE', schema: z.undefined() });
+}
+
+export async function assignUserTag(workId: string, tagId: string): Promise<void> {
+  await apiRequest(`/api/library/${encodeURIComponent(workId)}/tags/${encodeURIComponent(tagId)}`, {
+    method: 'PUT',
+    schema: z.undefined(),
+  });
+}
+
+export async function unassignUserTag(workId: string, tagId: string): Promise<void> {
+  await apiRequest(`/api/library/${encodeURIComponent(workId)}/tags/${encodeURIComponent(tagId)}`, {
+    method: 'DELETE',
+    schema: z.undefined(),
+  });
+}
+
+export function personalEpubValidationError(file: Pick<File, 'name' | 'size'>): 'format' | 'size' | null {
+  if (file.name.split('.').pop()?.toLowerCase() !== 'epub') {
+    return 'format';
+  }
+  if (file.size > EPUB_UPLOAD_MAX_BYTES) {
+    return 'size';
+  }
+  return null;
+}
+
+export async function uploadPersonalEpub(file: File): Promise<PersonalWorkUploadResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiRequest('/api/works', {
+    method: 'POST',
+    body: formData,
+    schema: personalWorkUploadResultSchema,
+  });
+}

@@ -3,48 +3,25 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_LOCALE } from '@gloaming/i18n';
 import { workSchema } from '@gloaming/shared/works';
 
-import { chaptersFromParts, toBookDetail } from '@/features/book-detail/book-detail-api';
+import { chaptersFromParts, toBookDetail, toPersonalBookDetail } from '@/features/book-detail/book-detail-api';
 import {
-  BOOK_DETAIL_DEFAULT_CATEGORY,
   chapterOrdinalLabel,
   chapterStatusLabel,
   difficultyStarCount,
-  formatBookCategory,
   formatChapterTitle,
   formatMinutes,
   formatRelativeReadTime,
   formatSuggestedVocabSize,
   languageLabelFromCode,
   primaryReadLabel,
-  readingStatusFromProgress,
-  taxonomyDisplayName,
+  readingStatusFromState,
   teaserFromDescription,
 } from '@/features/book-detail/book-detail-model';
-
-const taxonomyTag = {
-  id: 'tag-fiction',
-  names: { 'zh-CN': '小说', 'en-US': 'Fiction' },
-  origin: 'manual' as const,
-};
-
-const taxonomyCategory = {
-  id: 'category-fiction',
-  names: { 'zh-CN': '虚构文学', 'en-US': 'Fiction' },
-  origin: 'manual' as const,
-};
-
-const taxonomyTagSecond = {
-  id: 'tag-adventure',
-  names: { 'zh-CN': '冒险', 'en-US': 'Adventure' },
-  origin: 'manual' as const,
-};
-
-const taxonomySource = {
-  id: 'source-gutenberg',
-  name: 'Gutenberg',
-  origin: 'extracted' as const,
-  matchRule: 'gutenberg.org',
-};
+import {
+  legacyWorkDetailRedirect,
+  resolveWorkDetailReturnTo,
+  workDetailHref,
+} from '@/lib/navigation/work-detail-return';
 
 describe('book-detail-model', () => {
   it('maps reading status to primary CTA labels', () => {
@@ -75,11 +52,10 @@ describe('book-detail-model', () => {
     expect(difficultyStarCount(5)).toBe(5);
   });
 
-  it('derives reading status from shelf/reader state', () => {
-    expect(readingStatusFromProgress('completed', 100)).toBe('completed');
-    expect(readingStatusFromProgress('in_progress', 40)).toBe('in_progress');
-    expect(readingStatusFromProgress('in_progress', 0)).toBe('unread');
-    expect(readingStatusFromProgress(null, null)).toBe('unread');
+  it('derives reading status from independent reader state', () => {
+    expect(readingStatusFromState('completed')).toBe('completed');
+    expect(readingStatusFromState('in_progress')).toBe('in_progress');
+    expect(readingStatusFromState(null)).toBe('unread');
   });
 
   it('builds teaser from description', () => {
@@ -109,17 +85,32 @@ describe('book-detail-model', () => {
     expect(formatChapterTitle({ index: 3, title: '' }, DEFAULT_LOCALE)).toBe('第 3 章');
     expect(formatChapterTitle({ index: 3, title: 'Custom' }, DEFAULT_LOCALE)).toBe('Custom');
   });
+});
 
-  it('formats taxonomy category labels for the active locale with fallback', () => {
-    expect(formatBookCategory(taxonomyTag, 'zh-CN')).toBe('小说');
-    expect(formatBookCategory(taxonomyTag, 'en-US')).toBe('Fiction');
-    expect(formatBookCategory(BOOK_DETAIL_DEFAULT_CATEGORY, DEFAULT_LOCALE)).toBe('读物');
+describe('Work detail return path', () => {
+  it('allows Library, History, and the same Work Reader while preserving query', () => {
+    expect(resolveWorkDetailReturnTo('/library?source=personal', 'w1')).toBe('/library?source=personal');
+    expect(resolveWorkDetailReturnTo('/reading-history?range=week', 'w1')).toBe('/reading-history?range=week');
+    expect(resolveWorkDetailReturnTo('/discover', 'w1')).toBe('/discover');
+    expect(resolveWorkDetailReturnTo('/read/w1?part=p2', 'w1')).toBe('/read/w1?part=p2');
+    expect(workDetailHref('w1', '/read/w1?part=p2')).toBe('/works/w1?returnTo=%2Fread%2Fw1%3Fpart%3Dp2');
+    expect(legacyWorkDetailRedirect('w1', '/reading-history')).toBe('/works/w1?returnTo=%2Freading-history');
   });
 
-  it('resolves taxonomy tag display names without treating fallback as full translation', () => {
-    const zhOnly = { id: 'tag-zh', names: { 'zh-CN': '冒险' }, origin: 'manual' as const };
-    expect(taxonomyDisplayName(taxonomyTag, 'en-US')).toBe('Fiction');
-    expect(taxonomyDisplayName(zhOnly, 'en-US')).toBe('冒险');
+  it('rejects external, malformed, cross-Work, and unapproved destinations', () => {
+    for (const value of [
+      'https://example.com',
+      '//example.com',
+      '/\\example.com',
+      '/read/w2?part=p2',
+      '/library/../discover',
+      '/settings',
+      '/library%ZZ',
+      '/library#section',
+    ]) {
+      expect(resolveWorkDetailReturnTo(value, 'w1')).toBe('/library');
+    }
+    expect(resolveWorkDetailReturnTo(undefined, 'w1')).toBe('/library');
   });
 });
 
@@ -160,14 +151,14 @@ describe('chaptersFromParts', () => {
     },
   ];
 
-  it('marks all unread without shelf state', () => {
+  it('marks all unread without reading state', () => {
     const chapters = chaptersFromParts(parts, null);
     expect(chapters.map((c) => c.status)).toEqual(['unread', 'unread', 'unread']);
     expect(chapters[0]?.estimatedMinutes).toBe(1);
     expect(chapters[0]?.wordCount).toBe(100);
   });
 
-  it('marks current and prior chapters from shelf progress', () => {
+  it('marks current and prior chapters from reading progress', () => {
     const chapters = chaptersFromParts(parts, {
       status: 'in_progress',
       currentPartId: 'p2',
@@ -201,12 +192,8 @@ describe('toBookDetail', () => {
     author: 'Author',
     description: 'Desc',
     language: 'en',
-    status: 'published' as const,
+    processingStatus: 'ready' as const,
     visibility: 'catalog' as const,
-    originKind: 'admin_epub' as const,
-    tags: [taxonomyTag],
-    category: taxonomyCategory,
-    sources: [taxonomySource],
     coverAssetId: null,
     wordCount: null,
     estimatedMinutes: null,
@@ -217,6 +204,12 @@ describe('toBookDetail', () => {
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };
+
+  it('falls back to the work description when the source summary is empty', () => {
+    expect(toBookDetail({ ...work, sourceSummary: null }, [], null, null).teaser).toBe('Desc');
+    expect(toBookDetail({ ...work, sourceSummary: '  ' }, [], null, null).teaser).toBe('Desc');
+    expect(toBookDetail({ ...work, sourceSummary: 'Source summary' }, [], null, null).teaser).toBe('Source summary');
+  });
 
   it('derives estimated minutes from part word counts when work stats are missing', () => {
     const parts = [
@@ -233,73 +226,145 @@ describe('toBookDetail', () => {
       },
     ];
 
-    const book = toBookDetail(work, parts, undefined);
+    const book = toBookDetail(work, parts, null, null);
     expect(book.estimatedMinutes).toBe(2);
     expect(book.suggestedVocabSize).toBeNull();
-    expect(book.sourceLabel).toBe('official');
     expect(book.language).toBe('en');
-    expect(book.tags[0]?.id).toBe('tag-fiction');
-    expect(book.category).toEqual(taxonomyCategory);
+    expect(book).not.toHaveProperty('category');
+    expect(book).not.toHaveProperty('tags');
+    expect(book).not.toHaveProperty('sourceLabel');
+    expect(workSchema.shape).not.toHaveProperty('tags');
+    expect(workSchema.shape).not.toHaveProperty('category');
+    expect(workSchema.shape).not.toHaveProperty('sources');
   });
 
-  it('uses work.category for book category instead of the first tag', () => {
-    const parts = [
-      {
-        id: 'p1',
-        workId: 'w1',
-        sortOrder: 0,
-        kind: 'chapter' as const,
-        title: 'One',
-        wordCount: 100,
-        estimatedMinutes: 1,
-        createdAt: '2026-01-01',
-        updatedAt: '2026-01-01',
-      },
-    ];
+  const parts = [
+    {
+      id: 'p1',
+      workId: 'w1',
+      sortOrder: 0,
+      kind: 'chapter' as const,
+      title: 'One',
+      wordCount: 400,
+      estimatedMinutes: 2,
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    },
+  ];
 
-    const book = toBookDetail(
+  it('offers a reading entry for parse-completed Works that have parts', () => {
+    for (const processingStatus of ['parsed', 'metadata', 'ready'] as const) {
+      const book = toBookDetail({ ...work, processingStatus }, parts, null, null);
+      expect(book.availability).toBe('ready');
+      expect(book.isReadable).toBe(true);
+      expect(book.chapters).toHaveLength(1);
+    }
+  });
+
+  it('withholds the reading entry for unfinished or failed Works and empty parts', () => {
+    for (const processingStatus of ['uploaded', 'processing', 'failed'] as const) {
+      const book = toBookDetail({ ...work, processingStatus }, parts, null, null);
+      expect(book.availability).not.toBe('ready');
+      expect(book.isReadable).toBe(false);
+    }
+    const empty = toBookDetail(work, [], null, null);
+    expect(empty.isReadable).toBe(false);
+  });
+
+  it('uses the Reading State status for detail copy even at zero percent', () => {
+    const book = toBookDetail(work, [], null, {
+      status: 'in_progress',
+      currentPartId: null,
+      completedThroughSortOrder: -1,
+      progressRatio: 0,
+      totalPartCount: 1,
+      lastReadAt: '2026-08-28T12:00:00.000Z',
+      completedAt: null,
+    });
+    expect(book.readingStatus).toBe('in_progress');
+    expect(book.progressRatio).toBe(0);
+  });
+});
+
+describe('toPersonalBookDetail', () => {
+  const entry = {
+    work: {
+      id: 'personal-1',
+      title: 'Private Book',
+      description: 'A personal book',
+      coverAssetId: null,
+      publishedAt: null,
+    },
+    state: null,
+    availability: 'ready' as const,
+    libraryItemKind: 'personal' as const,
+    personalMetadata: { author: 'Local Author' },
+    canRemoveFromLibrary: false,
+    userTags: [],
+  };
+  const parts = [
+    {
+      id: 'part-1',
+      workId: 'personal-1',
+      sortOrder: 0,
+      kind: 'chapter' as const,
+      title: 'Chapter One',
+      wordCount: 500,
+      estimatedMinutes: 3,
+      createdAt: '2026-01-01',
+      updatedAt: '2026-01-01',
+    },
+  ];
+
+  it('keeps private Work identity, owner metadata, and zero-progress ReadingState', () => {
+    const book = toPersonalBookDetail(
+      entry,
+      { work: entry.work, parts },
       {
-        ...work,
-        category: taxonomyCategory,
-        tags: [taxonomyTag, taxonomyTagSecond],
+        status: 'in_progress',
+        currentPartId: 'part-1',
+        completedThroughSortOrder: -1,
+        progressRatio: 0,
+        totalPartCount: 1,
+        lastReadAt: '2026-08-28T12:00:00.000Z',
+        completedAt: null,
       },
-      parts,
-      undefined,
     );
 
-    expect(book.category).toEqual(taxonomyCategory);
-    expect(book.category).not.toEqual(book.tags[0]);
-    expect(book.tags.map((tag) => tag.id)).toEqual(['tag-fiction', 'tag-adventure']);
+    expect(book).toMatchObject({
+      id: 'personal-1',
+      author: 'Local Author',
+      libraryStatus: 'in_library',
+      readingStatus: 'in_progress',
+      progressRatio: 0,
+      isReadable: true,
+    });
+    expect(book.libraryItem?.libraryItemKind).toBe('personal');
+    expect(book.chapters.map((chapter) => chapter.status)).toEqual(['current']);
   });
 
-  it('falls back to default category when work.category is null', () => {
-    const parts = [
+  it('does not expose a Reader action while a personal Work is processing', () => {
+    const book = toPersonalBookDetail({ ...entry, availability: 'processing' }, null, null);
+    expect(book.availability).toBe('processing');
+    expect(book.isReadable).toBe(false);
+    expect(book.chapters).toEqual([]);
+  });
+
+  it('uses stored personal metadata and reading statistics', () => {
+    const book = toPersonalBookDetail(
       {
-        id: 'p1',
-        workId: 'w1',
-        sortOrder: 0,
-        kind: 'chapter' as const,
-        title: 'One',
-        wordCount: 100,
-        estimatedMinutes: 1,
-        createdAt: '2026-01-01',
-        updatedAt: '2026-01-01',
+        ...entry,
+        personalMetadata: {
+          author: 'Local Author',
+          language: 'en',
+          difficultyScore: 3,
+          suggestedVocabSize: 2500,
+          estimatedMinutes: 42,
+        },
       },
-    ];
-
-    const book = toBookDetail({ ...work, category: null, tags: [taxonomyTag] }, parts, undefined);
-
-    expect(book.category).toBe(BOOK_DETAIL_DEFAULT_CATEGORY);
-    expect(book.tags).toEqual([taxonomyTag]);
-  });
-
-  it('rejects legacy string taxonomy fields on published work payloads', () => {
-    expect(() =>
-      workSchema.parse({
-        ...work,
-        tags: ['Fiction'],
-        sources: ['Gutenberg'],
-      }),
-    ).toThrow();
+      { work: entry.work, parts },
+      null,
+    );
+    expect(book).toMatchObject({ language: 'en', difficultyScore: 3, suggestedVocabSize: 2500, estimatedMinutes: 42 });
   });
 });

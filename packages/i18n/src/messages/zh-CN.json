@@ -15,22 +15,30 @@
     "paginationNext": "下一页",
     "paginationGoToPrevious": "转到上一页",
     "paginationGoToNext": "转到下一页",
-    "paginationMorePages": "更多页"
+    "paginationMorePages": "更多页",
+    "secret": {
+      "replace": "更换密钥",
+      "cancelReplace": "取消更换",
+      "newKey": "新密钥",
+      "keepHint": "留空保留原密钥",
+      "configured": "已配置"
+    }
   },
   "nav": {
     "wordmark": "Gloaming",
     "brandHomeAria": "返回 Gloaming 首页",
     "discover": "发现",
-    "shelf": "我的书架",
-    "shelfShort": "书架",
+    "library": "书库",
+    "libraryShort": "书库",
     "history": "阅读历史",
     "historyShort": "历史",
     "more": "更多",
     "signIn": "登录",
     "account": "账户菜单",
     "accountCenter": "账户",
+    "settings": "阅读设置",
     "signOut": "退出登录",
-    "admin": "管理后台",
+    "admin": "实例配置",
     "themeAppearance": "外观",
     "themeLight": "浅色",
     "themeDark": "深色",
@@ -47,6 +55,131 @@
     "accountSettings": "账户设置",
     "menuAria": "更多菜单",
     "metaTitle": "更多 · Gloaming Reader"
+  },
+  "settings": {
+    "title": "阅读设置",
+    "metaTitle": "阅读设置 · Gloaming Reader",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "已保存",
+    "cancel": "取消",
+    "edit": "编辑",
+    "delete": "删除",
+    "loading": "正在加载设置…",
+    "signInRequired": "请先登录后管理个人设置。",
+    "tabsAria": "设置类别",
+    "personalTagging": {
+      "title": "个人 EPUB 整理",
+      "toggle": "个人 EPUB 就绪后自动整理标签",
+      "description": "仅对之后上传的书籍使用你自有 AI 服务中“阅读辅助”所设置的模型，不会处理已有书籍。",
+      "providerUnavailable": "请在自有 AI 服务中为“阅读辅助”设置模型后再使用此功能。",
+      "runState": {
+        "queued": "标签整理已排队",
+        "processing": "正在整理标签",
+        "completed": "上次标签整理已完成",
+        "skipped": "上次标签整理已跳过",
+        "failed": "上次标签整理失败"
+      },
+      "runError": {
+        "generic": "标签整理未能完成，请稍后重试。",
+        "attempts_exhausted": "标签整理多次尝试后仍未完成。",
+        "worker_attempts_exhausted": "标签整理运行被中断，未能完成。"
+      }
+    },
+    "serviceMode": "服务来源",
+    "defaultService": "默认服务",
+    "validation": {
+      "required": "请填写此项。",
+      "url": "请输入有效的网址。"
+    },
+    "secret": {
+      "saved": "已配置",
+      "leaveBlank": "留空以保留已保存的密钥",
+      "replace": "更换密钥",
+      "newKey": "新密钥",
+      "cancelReplace": "取消更换"
+    },
+    "ai": {
+      "title": "AI",
+      "service": "AI 服务",
+      "serviceType": "服务类型",
+      "notAvailableYet": "暂未接入",
+      "providerName": "服务名称",
+      "baseUrl": "API 地址",
+      "apiKey": "API 密钥",
+      "advanced": "高级配置",
+      "proxyUrl": "代理地址",
+      "proxyUrlHint": "可选。留空时，若实例侧已为相同 API 地址配置代理，将自动沿用。",
+      "thinkingParam": "思考参数名",
+      "noProviders": "尚未配置自有 AI 服务。",
+      "confirmDefault": "保存后将停用自有 AI 服务，后续请求使用默认服务。",
+      "confirmOwn": "保存后启用自有 AI 服务。",
+      "providers": "服务配置",
+      "addProvider": "添加服务",
+      "models": "模型",
+      "provider": "服务",
+      "providerRequired": "请先添加服务。",
+      "noModels": "此服务还没有模型。",
+      "addModel": "添加模型",
+      "testCostNotice": "测试会发起一次真实模型调用，服务商可能会计费。",
+      "testConnection": "测试连通",
+      "testingConnection": "测试中…",
+      "testSucceeded": "连接成功 · {latencyMs} 毫秒",
+      "testFailed": "连接失败：{message}",
+      "modelName": "显示名称",
+      "modelId": "模型标识",
+      "connectionType": "接口类型",
+      "capabilities": "阅读能力",
+      "purpose": {
+        "assist": "阅读辅助",
+        "translate": "翻译",
+        "metadata": "作品信息整理"
+      },
+      "notSet": "未设置（使用默认服务）",
+      "unavailableModel": "当前模型不可用，请重新选择。",
+      "unavailableOption": "· 不可用",
+      "defaultOnUnset": "未设置个人模型的能力会使用默认服务；已保存的模型只能更换，无法清除。",
+      "defaultSummary": "覆盖阅读辅助、翻译与作品信息整理。",
+      "ownSummary": "已启用自有 AI 服务。",
+      "disabled": "已停用",
+      "addProviderEntry": "添加并启用服务商",
+      "addModelEntry": "添加并启用模型",
+      "saveModel": "保存模型",
+      "cancelChanges": "取消修改",
+      "editProvider": "编辑服务商",
+      "replaceKey": "更换密钥",
+      "connectionsAndModels": "连接与模型",
+      "keyNotSet": "未配置",
+      "ownService": "自有 AI 服务",
+      "modeOwn": "自有 AI 服务 · 已启用 {count} 个服务商",
+      "modeDefault": "默认服务 · 未启用任何服务商",
+      "purposeSaveFailed": "保存失败，草稿已保留，请重试"
+    },
+    "tts": {
+      "title": "朗读",
+      "defaultDescription": "后续朗读请求使用默认服务。",
+      "region": "区域",
+      "voice": {
+        "default": "默认声音",
+        "us": "美式英语",
+        "uk": "英式英语"
+      },
+      "defaultSummary": "平台提供的朗读声音，无需配置。",
+      "ownSummary": "已配置自有朗读服务，保存后生效。",
+      "ownService": "自有服务"
+    },
+    "readingServices": {
+      "title": "阅读服务"
+    },
+    "current": "当前：{source}",
+    "change": "更改",
+    "ownAi": {
+      "title": "自有 AI 服务",
+      "description": "先为阅读能力选择模型；连接与模型在下方管理。",
+      "enter": "配置自有 AI 服务",
+      "empty": "尚未添加服务商与模型",
+      "back": "返回阅读设置"
+    }
   },
   "auth": {
     "signOutFailed": "退出登录失败，请稍后重试",
@@ -119,6 +252,7 @@
       "success": "密码已更新",
       "invalidToken": "重置链接无效或已过期，请重新申请",
       "failed": "重置失败，请重新申请链接",
+      "requestNewLink": "申请新的重置链接",
       "backToProduct": "返回首页"
     },
     "verifyEmail": {
@@ -129,7 +263,7 @@
       "failed": "验证失败，请重新申请邮件",
       "failedToast": "验证失败",
       "successToast": "邮箱已确认",
-      "goToShelf": "进入书架",
+      "goToLibrary": "进入书库",
       "backToSignIn": "返回登录",
       "backToHome": "返回首页"
     },
@@ -140,7 +274,7 @@
       "signUpTab": "注册",
       "forgotPasswordTitle": "找回密码",
       "reasonSave": "登录后保存你正在阅读的内容。",
-      "reasonBookmark": "登录后把内容加入你的书架。",
+      "reasonBookmark": "登录后将内容加入你的书库。",
       "reasonSync": "登录后同步你的阅读进度。",
       "reasonAi": "登录后可在阅读器内使用查词、翻译和解释。",
       "reasonBilingual": "登录后使用双语对照。",
@@ -213,46 +347,123 @@
   },
   "landing": {
     "meta": {
-      "title": "Gloaming Reader — 正文内提供帮助的阅读环境",
-      "description": "阅读作品，按需查词、翻译并保存阅读进度。"
+      "title": "Gloaming · 安静的真实阅读环境",
+      "description": "读自己选的原文；卡住时在正文旁弄懂，然后继续读。"
     },
     "cta": {
-      "signInToRead": "登录后开始阅读",
-      "goToShelf": "进入书架"
+      "startReading": "开始阅读",
+      "signInToRead": "开始阅读",
+      "goToLibrary": "进入书库",
+      "browseDiscover": "先去发现逛书"
     },
-    "hero": {
-      "title": "阅读作品，遇到问题时再查词、翻译或提问。",
-      "subtitle": "结果留在正文旁，阅读进度自动保存。"
+    "shot": {
+      "reader": "[真实截图占位：阅读器正文]",
+      "help": "[真实截图占位：正文旁帮助]",
+      "discover": "[真实截图占位：发现 / 上传]",
+      "readerHelp": "[真实截图占位：阅读器 + 旁侧帮助]",
+      "library": "[真实截图占位：书库 · 继续阅读]"
     },
-    "contrast": {
-      "title": "遇到难句，不应每次都离开正文。",
-      "punch": "查词、翻译和解释都在阅读器内完成，没有独立的聊天或课程模式。"
+    "opening": {
+      "eyebrow": "沉浸式阅读环境",
+      "titleLine1": "真实原文值得读，",
+      "titleLine2": "但经常读不下去。",
+      "body1": "想读一份自己选的材料时，一卡住就得跳出页面去查词、开翻译、问聊天工具。回来以后，阅读已经断了。",
+      "body2": "Gloaming 想做一个安静的阅读环境：活动仍然是读书；只有卡住时，在正文旁帮一把，然后继续读。现在以英文电子书为主。"
     },
-    "product": {
-      "title": "在正文旁使用查词、翻译与解释。",
-      "readerTitle": "阅读器",
-      "readerImageAlt": "Gloaming Reader 阅读界面",
-      "companionTitle": "正文内工具",
-      "companionBody": "选中文字后可查词、翻译段落或请求句子解释，结果在正文旁显示。",
-      "companionCardTitle": "句子解释",
-      "companionCardBody": "结合上下文解释所选句子，包括词义以及该句与前后文的关系。",
-      "shelfTitle": "书架",
-      "shelfBody": "把正在阅读的作品集中在书架中。",
-      "shelfImageAlt": "Gloaming Shelf 书架界面"
+    "problem": {
+      "eyebrow": "The Reality",
+      "title": "真正难的，不是找不到内容，是读着读着就断了。",
+      "lead": "问题往往不是生词太难，而是每次遇到，工具都在打断你想享受的阅读沉浸。",
+      "items": {
+        "1": {
+          "title": "查一下，就要离开正在读的那一页",
+          "body": "切换词典 App 或标签页，复制粘贴。等你弄懂这个词，刚刚建立的语境和情绪已经烟消云散。"
+        },
+        "2": {
+          "title": "一求助，就变成上课、刷词，或跟模型聊天",
+          "body": "弹出语法考题、记忆曲线和长篇大论的对话框。原本只想静静读书，却被拖入了机械的学习流程。"
+        },
+        "3": {
+          "title": "下次打开，又不知道接着读哪一份、停在哪一页",
+          "body": "缺少专为长文阅读打磨的连续感，书本四散在各处，进度遗失，最后不得不从头放弃。"
+        }
+      },
+      "panelTitle": "解释"
+    },
+    "solution": {
+      "eyebrow": "The Solution",
+      "title": "我们怎么解决",
+      "lead": "把精力全放在“阅读本身”上。从选书、弄懂难句到下次接续，全流程保持克制与从容。",
+      "beatA": {
+        "label": "Beat A",
+        "title": "先把内容放进来",
+        "body": "可以从发现里挑选书目，也可以上传自己的文件，收进书库。我们不生产“学习用短文”当主内容。",
+        "points": {
+          "1": "发现里有公共领域书目，可按分类浏览",
+          "2": "也可上传自己的 EPUB，收进私人书库"
+        }
+      },
+      "beatB": {
+        "label": "Beat B",
+        "title": "卡住时在正文旁弄懂，然后继续读",
+        "body": "选中一段后，可以查词、翻译，或结合上下文解释。需要时也能听朗读，或打开对照。默认仍是原文；关掉帮助，内容照样能读。",
+        "points": {
+          "1": "帮助留在正文旁，不必跳出页面",
+          "2": "需要时可以听朗读",
+          "3": "需要时可以打开双语对照，也可随时关掉"
+        }
+      },
+      "beatC": {
+        "label": "Beat C",
+        "title": "回家先继续未读完的",
+        "body": "书库不是学习仪表盘。打开就能看到继续阅读；你放进来的和你收藏的，都在一起。",
+        "points": {
+          "1": "首屏「继续阅读」回到上次停下的位置",
+          "2": "没有打卡徽章，也没有背诵计划通知"
+        }
+      }
+    },
+    "boundaries": {
+      "eyebrow": "Our Boundaries",
+      "title": "我们故意不做的事",
+      "lead": "保护读者的注意力，比塞进更多功能更重要。",
+      "items": {
+        "1": {
+          "title": "不做课程树和练习作业",
+          "body": "你不必通关升级；真实原文本身就是材料。"
+        },
+        "2": {
+          "title": "不做打卡和羞耻 streak",
+          "body": "读书出于志趣，而不是数字绑架。"
+        },
+        "3": {
+          "title": "不以背单词为主业",
+          "body": "主业是把原文读下去，不是收集词表。"
+        },
+        "4": {
+          "title": "聊天不是首页",
+          "body": "首页是书架与正文；帮助只在需要时出现。"
+        }
+      }
     },
     "invite": {
-      "title": "从上次停留的位置继续阅读。",
-      "body": "登录后保存阅读进度、管理书架，并使用阅读器工具。"
+      "titleLine1": "找一份想读的原文，",
+      "titleLine2": "开始读下去。",
+      "body": "卡住时在正文旁弄懂，然后继续。不是上课，也不是去聊天。",
+      "footnote": "即开即读 · 支持导入自有文件 · 保持纯粹阅读"
+    },
+    "footer": {
+      "tagline": "安静的真实阅读环境"
     }
   },
   "admin": {
     "shell": {
       "subtitle": "管理后台",
       "contentSubtitle": "内容管理",
-      "navWorks": "作品",
       "navAssets": "对象存储占用",
+      "navDiscoverySources": "发现源",
+      "navPublicCategories": "公共分类",
       "navConfig": "配置",
-      "navTaxonomy": "标签、分类与来源",
       "navLogs": "日志",
       "signInPrompt": "请先登录后再进入管理后台。",
       "signIn": "登录",
@@ -264,10 +475,268 @@
       "openNavAria": "打开管理导航",
       "navSrOnly": "管理导航"
     },
+    "discoverySources": {
+      "page": {
+        "title": "发现源",
+        "subtitle": "Project Gutenberg 元数据覆盖与同步状态。",
+        "loadFailed": "无法加载发现源状态。",
+        "operationFailed": "操作失败"
+      },
+      "fields": {
+        "status": "同步状态",
+        "lastSync": "最近同步",
+        "lastSuccess": "最近成功同步",
+        "recordCount": "记录数",
+        "errorSummary": "最近错误"
+      },
+      "recordCount": "{count} 条记录",
+      "enabled": {
+        "label": "已启用"
+      },
+      "disabled": {
+        "label": "已停用"
+      },
+      "toggleEnableAria": "启用 Project Gutenberg 同步源",
+      "toggleDisableAria": "停用 Project Gutenberg 同步源",
+      "syncNow": "立即同步",
+      "forceRefresh": {
+        "label": "强制全量刷新",
+        "title": "要强制全量刷新吗？",
+        "description": "会重新下载并解析完整的 Gutenberg 快照，可能需要数分钟。",
+        "confirm": "开始全量刷新",
+        "cancel": "取消"
+      },
+      "queued": "排队中…",
+      "syncing": "同步中…",
+      "queuedHint": "任务已排队，等待处理。",
+      "pendingHint": "已有同步任务在后台运行。",
+      "missingRunDetail": "当前任务没有详细运行记录，较早创建的任务可能没有历史；后续新任务会记录阶段和结果。",
+      "disabledSyncHint": "来源已停用，暂时无法手动同步。",
+      "value": {
+        "never": "从未",
+        "elapsed": "{minutes} 分 {seconds} 秒"
+      },
+      "enum": {
+        "syncStatus": {
+          "idle": "空闲",
+          "queued": "排队中",
+          "syncing": "同步中",
+          "succeeded": "成功",
+          "failed": "失败"
+        },
+        "runStage": {
+          "queued": "排队中",
+          "downloading": "下载中",
+          "processing": "处理中",
+          "reconciling": "核对中",
+          "succeeded": "已成功",
+          "notModified": "无更新",
+          "skipped": "已跳过",
+          "failed": "已失败"
+        }
+      },
+      "toast": {
+        "queued": "已加入后台同步队列。",
+        "alreadyRunning": "已有同步任务正在运行。",
+        "disabled": "来源已停用，无法手动同步。"
+      },
+      "run": {
+        "title": "同步运行",
+        "empty": "暂无同步运行记录。",
+        "consumer": {
+          "available": "队列工作进程可用。",
+          "unavailable": "等待队列工作进程。",
+          "unknown": "工作进程可用性未知。"
+        },
+        "fields": {
+          "stage": "阶段",
+          "elapsed": "已用时",
+          "committedRecords": "已提交记录",
+          "committedBatches": "已提交批次",
+          "lastActivity": "最后活动",
+          "finished": "完成于"
+        },
+        "committedRecords": "已提交 {count} 条记录",
+        "committedBatches": "已提交 {count} 个批次",
+        "unavailableRecords": "{count} 条已标记为不可用",
+        "recent": {
+          "title": "最近运行",
+          "empty": "暂无最近运行。",
+          "error": "无法加载最近运行",
+          "retry": "重试"
+        }
+      }
+    },
+    "publicCategories": {
+      "sourceMappings": {
+        "title": "来源分类映射",
+        "description": "确认来源分类与公共分类的对应关系。AI 分析仅在点击时运行。",
+        "empty": "暂无来源分类。",
+        "analyze": "AI 分析",
+        "confirm": "确认使用建议",
+        "create": "创建建议分类",
+        "categoryLanguage": "建议分类的语言",
+        "chooseCategory": "选择已有公共分类",
+        "applyCategory": "应用所选分类",
+        "ignore": "暂不映射",
+        "reconcile": "更新已有作品关联",
+        "reconciling": "已有作品关联待更新；点击后将分批处理，关闭页面后可继续。",
+        "changed": "分类映射已改变，请刷新后重试。",
+        "mappedTo": "映射至",
+        "invalidProposal": "建议无效或与已有分类冲突，请人工检查并决定如何处理。",
+        "omittedDetails": "分类信息过多，部分含义未能参与分析；请人工检查后再决定是否创建分类。",
+        "done": "操作完成。",
+        "previous": "上一页",
+        "next": "下一页",
+        "page": "第 {page} 页",
+        "status": {
+          "pending": "待分析",
+          "analyzing": "分析中",
+          "review": "待确认",
+          "confirmed": "已确认",
+          "ignored": "暂不映射"
+        }
+      },
+      "page": {
+        "title": "公共分类",
+        "subtitle": "管理 Discover 发现页主分类（体裁），并关联 Gutenberg 书架。"
+      },
+      "organize": {
+        "action": "让 AI 归类未分配的来源分类",
+        "actionShort": "AI 归类未分配",
+        "pendingCount": "有 {count} 个未分配来源书架",
+        "pendingCountLoading": "正在统计未分配书架…",
+        "pending": "正在归类…",
+        "assigned": "已把 {count} 个来源分类归入现有主分类。",
+        "assignedLine": "{shelf} → {category}",
+        "none": "没有需要处理的未分配来源分类。",
+        "untouched": "还有 {count} 个来源分类没能归入。",
+        "proposalTitle": "已新建主分类",
+        "proposalShelves": "归入的来源分类",
+        "accept": "接受并创建",
+        "dismiss": "不采纳",
+        "accepted": "已创建主分类，并归入对应的来源分类。",
+        "emptyProposals": "这次没有建议新建主分类。"
+      },
+      "create": {
+        "new": "新建",
+        "formTitle": "新建主分类",
+        "namePlaceholder": "分类中文名称",
+        "localeLabel": "名称语言",
+        "submit": "创建分类",
+        "confirm": "确定",
+        "ready": "分类已就绪。"
+      },
+      "cancel": "取消",
+      "delete": {
+        "action": "删除分类",
+        "confirmTitle": "删除分类？",
+        "confirmDescription": "将永久删除“{name}”，并解除其已关联的 Gutenberg 书架；由这些书架派生的发现记录分类也会被移除。",
+        "confirm": "删除",
+        "deletedToast": "分类已删除。"
+      },
+      "search": {
+        "placeholder": "搜索分类…",
+        "empty": "没有匹配的分类。"
+      },
+      "list": {
+        "empty": "还没有公共分类。",
+        "selectHint": "选择一个分类以编辑名称并管理 Gutenberg 书架。"
+      },
+      "shelves": {
+        "title": "Gutenberg 书架关联",
+        "description": "将原始书架映射至当前体裁，更新客户端分类索引。",
+        "searchPlaceholder": "搜索书架名称或 Gutenberg 原始标签…",
+        "assignedTitle": "已纳入本分类",
+        "assignedTitleCount": "已纳入书架（{count}）",
+        "availableTitle": "未分配书架",
+        "availableTitleCount": "未分配书架（{count}）",
+        "uncheckToRemove": "取消勾选移出",
+        "checkToInclude": "勾选纳入",
+        "assignedEmpty": "尚未关联任何书架。",
+        "availableEmpty": "没有符合条件的未分配书架。",
+        "save": "保存书架关联",
+        "saved": "书架关联已保存。",
+        "loadFailed": "无法加载 Gutenberg 书架。",
+        "recordCount": "{count} 本",
+        "toggleAria": "纳入书架 {name}"
+      },
+      "recordCount": "{count} 条记录",
+      "provenance": {
+        "manual": "手动创建",
+        "ai": "AI 创建"
+      },
+      "labels": {
+        "title": "多语言名称",
+        "edit": "编辑名称",
+        "modify": "修改",
+        "summaryPrefix": "多语言名称：",
+        "summary": "多语言名称：{summary}",
+        "missing": "缺少名称：{locale}",
+        "untranslated": "未翻译",
+        "complete": "各语言名称已填写",
+        "save": "保存 {locale} 名称",
+        "name": "{locale} 分类名称",
+        "saved": "名称已保存。",
+        "nameExists": "该语言下已存在同名分类。"
+      },
+      "translate": {
+        "action": "补齐翻译",
+        "actionAria": "补齐 {name} 的缺失翻译",
+        "completed": "已补齐：{locales}",
+        "nothing": "没有需要补齐的翻译。"
+      },
+      "detail": {
+        "idLabel": "分类 ID",
+        "meaning": "含义",
+        "manualLocales": "手动名称语言：{locales}"
+      },
+      "records": {
+        "title": "已分配来源记录",
+        "searchPlaceholder": "搜索书名、作者或来源 ID",
+        "empty": "该分类还没有来源记录。",
+        "noMatch": "没有匹配的记录。",
+        "assign": "分配",
+        "assigned": "已分配",
+        "remove": "移除",
+        "removeConfirmTitle": "移除来源记录？",
+        "removeConfirmDescription": "将从该分类移除《{title}》，并记录手动抑制，自动分类不会恢复该分配。",
+        "removeAria": "从该分类移除 {title}",
+        "assignAria": "将 {title} 分配到该分类",
+        "assignedToast": "已分配到该分类。",
+        "removedToast": "已从该分类移除。",
+        "assignmentLimit": "该记录已有 3 个分类，无法再分配。",
+        "linked": "已生成作品",
+        "notLinked": "未生成作品",
+        "unavailable": "不可用"
+      },
+      "assign": {
+        "title": "添加来源记录",
+        "searchPlaceholder": "搜索可分配的书名或作者",
+        "hint": "输入至少 2 个字符后搜索。",
+        "noResults": "没有匹配的来源记录。",
+        "includesHiddenHint": "搜索范围包含未公开的来源记录。"
+      },
+      "pagination": {
+        "page": "第 {page} / {total} 页",
+        "prev": "上页",
+        "next": "下页"
+      },
+      "errors": {
+        "loadCategories": "无法加载分类列表。",
+        "loadRecords": "无法加载来源记录。",
+        "searchRecords": "无法搜索来源记录。",
+        "operationFailed": "操作失败"
+      }
+    },
     "config": {
       "tabAi": "AI",
       "tabTts": "语音",
-      "tabDictionary": "词典"
+      "tabDictionary": "词典",
+      "subAi": "AI 配置",
+      "subTts": "语音",
+      "subDictionary": "词典",
+      "subnavAria": "配置分区"
     },
     "ai": {
       "title": "AI 配置",
@@ -311,7 +780,8 @@
         "currentBindingUnavailable": "当前绑定（不可用）",
         "noBindableModels": "暂无可绑定模型",
         "searchOrSelectModel": "搜索或选择模型",
-        "noMatchingModels": "没有匹配的模型"
+        "noMatchingModels": "没有匹配的模型",
+        "notSetRow": "未设置"
       },
       "provider": {
         "filterAll": "全部",
@@ -341,8 +811,13 @@
           "apiKeyCurrent": "当前：{masked}",
           "thinkingParam": "思考参数名（可选）",
           "proxy": "代理",
+          "proxyUrl": "代理地址",
+          "balanceEndpoint": "余额查询路径",
+          "balanceAmountPath": "余额字段路径",
+          "balanceCurrencyPath": "币种字段路径",
           "balanceQuery": "余额查询",
-          "balanceEndpointPlaceholder": "https://… 或 /user/balance",
+          "balanceEndpointPlaceholder": "auth/key 或 /user/balance",
+          "balanceEndpointHint": "只填路径，将与 Base URL 自动拼接；粘贴同域完整链接时会转为路径",
           "balanceAmountPathPlaceholder": "balance 或 data.balance",
           "balanceCurrencyPathPlaceholder": "currency 或 data.currency",
           "add": "添加",
@@ -358,7 +833,11 @@
           "disabled": "停用",
           "editAria": "编辑 {label}",
           "deleteAria": "删除 {label}"
-        }
+        },
+        "listTitle": "服务商",
+        "testConnectivity": "测试连通",
+        "queryBalance": "查询余额",
+        "savedConfigOnly": "测试与余额查询均针对已保存配置。"
       },
       "model": {
         "platformModel": "平台模型",
@@ -404,8 +883,8 @@
       }
     },
     "tts": {
-      "title": "语音配置",
-      "subtitle": "密钥加密存储，页面仅显示脱敏信息。",
+      "title": "语音服务",
+      "subtitle": "为朗读功能提供语音合成。",
       "loadFailed": "配置加载失败",
       "audioPlayFailed": "音频播放失败，请检查浏览器权限",
       "toast": {
@@ -416,7 +895,8 @@
         "title": "服务配置",
         "configured": "已配置 · Key {masked}",
         "notConfigured": "尚未配置，首次保存需填写 Subscription Key",
-        "enableAria": "启用语音服务"
+        "enableAria": "启用语音服务",
+        "saveWithConfig": "保存后生效"
       },
       "fields": {
         "region": "Region",
@@ -431,16 +911,18 @@
         "ukVoicePlaceholder": "选择英音"
       },
       "test": {
-        "sectionTitle": "连通性测试",
+        "sectionTitle": "测试已保存配置",
         "testText": "测试文本",
         "role": "角色",
         "roleDefaultVoice": "默认音色",
         "rolePlaceholder": "选择角色",
         "run": "测试连通",
         "running": "测试中…",
-        "lastLatency": "最近耗时 {latencyMs} ms"
+        "lastLatency": "最近耗时 {latencyMs} ms",
+        "draftNotice": "上方配置有未保存修改：测试使用已保存的配置，不会提交这些修改。",
+        "sectionDescription": "测试只使用已保存的语音配置，不会提交上方的草稿修改。"
       },
-      "saveConfig": "保存配置"
+      "saveConfig": "保存语音配置"
     },
     "dictionary": {
       "title": "词典配置",
@@ -454,7 +936,8 @@
         "title": "服务",
         "configured": "已配置持久化设置",
         "notConfigured": "使用默认配置",
-        "enableAria": "启用词典服务"
+        "enableAria": "启用词典服务",
+        "saveWithConfig": "保存后生效"
       },
       "provider": {
         "label": "服务商",
@@ -485,7 +968,7 @@
         "cacheTtlDays": "词条缓存天数 (Redis & DB)"
       },
       "test": {
-        "sectionTitle": "连通性与查词测试",
+        "sectionTitle": "测试已保存配置",
         "sectionDescription": "验证词典接口连通性、音标与音频解析，以及 AI 中文释义补充。",
         "word": "测试单词",
         "wordPlaceholder": "输入英文单词，如 serendipity",
@@ -499,10 +982,13 @@
         "playPronunciation": "播放读音",
         "ipaFallback": "IPA",
         "contextExamplesHeading": "语境例句：",
-        "readingNote": "阅读提示：{note}"
+        "readingNote": "阅读提示：{note}",
+        "savedConfigNotice": "测试只使用已保存的配置，不会提交上方的草稿修改。",
+        "draftNotice": "上方配置有未保存修改：测试使用已保存的配置，不会提交这些修改。"
       },
-      "saveConfig": "保存配置",
-      "saving": "保存中..."
+      "saveConfig": "保存词典配置",
+      "saving": "保存中...",
+      "subtitle": "为查词提供释义与例句。"
     },
     "logs": {
       "centerTabAi": "AI 日志",
@@ -568,8 +1054,6 @@
         "refId": "关联 ID",
         "errorCode": "错误码",
         "errorMessage": "错误信息",
-        "requestSummary": "请求摘要",
-        "replySummary": "回复摘要",
         "providerBalancesTitle": "服务商余额",
         "providerAvailable": "可调用",
         "providerInsufficient": "余额不足",
@@ -606,9 +1090,8 @@
           "metadataEnrich": "元数据完善"
         },
         "ttsSource": {
-          "adminPartAudio": "章节音频",
-          "adminArticleAudio": "章节音频",
-          "adminTtsTest": "连通测试"
+          "adminTtsTest": "连通测试",
+          "readerSegment": "阅读分段"
         },
         "ttsRole": {
           "default": "默认",
@@ -646,235 +1129,14 @@
         "noData": "暂无数据",
         "select": "选择…",
         "searchExisting": "搜索已有选项…",
-        "unused": "未使用"
+        "unused": "未使用",
+        "cancelChanges": "取消修改",
+        "draftUnsaved": "有未保存修改"
       },
       "provenance": {
         "extracted": "提取",
         "ai": "AI 生成",
         "manual": "人工"
-      }
-    },
-    "works": {
-      "list": {
-        "title": "作品",
-        "subtitle": "上传、审查并发布官方作品。",
-        "upload": "上传作品",
-        "filterAria": "按状态筛选",
-        "loadFailed": "无法加载作品列表",
-        "emptyTitle": "还没有作品",
-        "emptyDescription": "上传一个 EPUB 开始维护内容。",
-        "retryStarted": "已重新开始处理",
-        "tableTitle": "标题",
-        "tableAuthor": "作者",
-        "tableStatus": "状态",
-        "tableChapters": "章节",
-        "tableUpdated": "更新",
-        "moreActionsAria": "更多操作：{title}",
-        "editWork": "编辑作品",
-        "preview": "预览",
-        "previewUnavailable": "暂不可预览",
-        "chaptersNotApplicable": "不适用"
-      },
-      "filter": {
-        "all": "全部",
-        "busy": "处理中",
-        "ready": "待发布",
-        "failed": "处理失败",
-        "published": "已发布"
-      },
-      "status": {
-        "uploaded": "待解析",
-        "processing": "解析中",
-        "processingEllipsis": "解析中…",
-        "parsed": "待完善元数据",
-        "metadata": "元数据完善中",
-        "metadataEllipsis": "元数据完善中…",
-        "tts": "音频生成中",
-        "ttsEllipsis": "音频生成中…",
-        "ready": "待发布",
-        "failed": "处理失败",
-        "published": "已发布"
-      },
-      "workflowStep": {
-        "parse": "内容解析",
-        "metadata": "元数据完善",
-        "tts": "音频生成"
-      },
-      "workflowMode": {
-        "chainAuto": "自动串联",
-        "chainManual": "手动分步",
-        "audioAuto": "自动音频",
-        "audioManual": "手动音频"
-      },
-      "workflowNav": {
-        "aria": "作品编辑步骤",
-        "upload": "上传",
-        "parse": "内容解析",
-        "metadata": "元数据完善",
-        "audio": "音频",
-        "publish": "发布"
-      },
-      "edit": {
-        "title": "编辑作品",
-        "uploadTitle": "上传作品",
-        "previewWork": "预览作品",
-        "backToEdit": "返回编辑",
-        "loadFailed": "无法加载作品详情：{error}",
-        "dropzoneAria": "上传 EPUB 文件",
-        "dropzoneTitle": "拖拽 EPUB 到此处，或点击选择",
-        "dropzoneHint": "带图 EPUB 会保留插图，无图占位会在解析时移除。",
-        "hashingFile": "正在校验「{fileName}」…",
-        "hashingHint": "计算文件哈希，检查是否已存在相同文件",
-        "uploadingFile": "正在上传「{fileName}」…",
-        "instantUploadDone": "秒传完成",
-        "workCreated": "作品已创建",
-        "retryGeneric": "已重试",
-        "stepStarted": "已开始「{step}」",
-        "stepRestarted": "已重新开始「{step}」",
-        "fileName": "文件名",
-        "fileSize": "大小",
-        "fileHash": "文件哈希",
-        "fileOrigin": "来源",
-        "originReused": "秒传复用",
-        "originUploaded": "本次上传",
-        "waitingFileInfo": "等待文件信息…",
-        "textWorkNoSource": "文本作品（内部种子），无源文件。",
-        "textWorkNoParse": "文本作品不经过 EPUB 解析。",
-        "startParse": "开始解析",
-        "parsingChapters": "正在解析章节内容…",
-        "parseTaskSubmitted": "已提交解析任务…",
-        "stepFailedPrefix": "「{step}」步骤失败：",
-        "unknownError": "处理失败，未知错误",
-        "chapterCount": "章节数",
-        "imageCount": "图片数",
-        "spineCount": "原始条目（spine）",
-        "navCount": "目录条目（nav）",
-        "publishedReparseHint": "作品已发布，如需重新解析请先下架。",
-        "confirmReparse": "将重新解析章节，并覆盖现有正文、图片与信息字段（含手工编辑），确定继续？",
-        "reparse": "重新解析",
-        "waitingParse": "等待解析…",
-        "textWorkNoAudio": "文本作品不参与音频流程。",
-        "waitingParseForAudio": "等待内容解析完成后再生成音频。",
-        "audioReadyChecklist": "全部有正文章节的默认美音已就绪",
-        "checklistTitleFilled": "标题已填写",
-        "checklistSources": "至少一个来源",
-        "checklistTags": "至少一个标签",
-        "checklistBody": "正文内容存在",
-        "publishBlockedFailed": "处理失败，修复后可发布。",
-        "publishBlockedIncomplete": "全部步骤完成后即可发布。",
-        "invalidFormat": "「{fileName}」格式暂不支持，当前仅支持 EPUB。",
-        "fileTooLarge": "「{fileName}」超过 50MB 大小限制"
-      },
-      "metadata": {
-        "fieldTitle": "标题",
-        "fieldAuthor": "作者",
-        "fieldDescription": "简介",
-        "fieldTags": "标签",
-        "fieldCategory": "分类",
-        "fieldSources": "来源",
-        "fieldWordCount": "总字数",
-        "fieldEstimatedMinutes": "预计阅读时间",
-        "fieldSuggestedVocab": "建议词汇量",
-        "fieldDifficulty": "难度（1–5）",
-        "fieldBody": "正文",
-        "authorOptional": "可留空",
-        "descriptionPlaceholder": "作品的简短介绍，展示在发现页",
-        "tagsPlaceholder": "搜索选择标签…",
-        "categoryPlaceholder": "选择分类…",
-        "sourcesPlaceholder": "搜索选择来源…（发布前至少选择一个）",
-        "suggestedVocabPlaceholder": "如 4000",
-        "minutesUnit": "{minutes} 分钟",
-        "manualStatsHint": "难度与建议词汇量为手动覆盖；重新解析不会改写这两项。",
-        "processingBody": "作品处理中，正文即将更新…",
-        "failedBody": "处理失败：{error}。可在上方步骤重试解析。",
-        "bodyFromParse": "正文由解析生成，包含 {count} 个章节，不可在此编辑。",
-        "viewPreview": "查看预览 →",
-        "noBody": "暂无正文内容。",
-        "vocabMustBePositive": "建议词汇量须为正整数",
-        "difficultyRange": "难度须为 {min}–{max} 的整数",
-        "statusFailed": "元数据完善失败",
-        "statusFailedGeneric": "处理失败",
-        "statusPending": "待完善",
-        "statusAwaitingStart": "待开始",
-        "statusEnriching": "完善中",
-        "statusPartial": "部分完成",
-        "statusDonePublished": "已完成（已发布）",
-        "statusDone": "已完成",
-        "enrichedAt": "完善于 {time}",
-        "hintEnriching": "正在根据正文内容补全信息，完成后即可逐项核对。",
-        "hintWaitingParseAuto": "等待内容解析完成后自动完善…",
-        "hintWaitingParseManual": "等待内容解析完成后再开始完善。",
-        "hintQueued": "已提交任务，正在排队…",
-        "hintAwaitingStart": "内容已解析。核对预览无误后，点击开始完善元数据（规则填充 + AI 补全）。",
-        "hintFailedHere": "{error}",
-        "hintStepFailed": "「{step}」步骤失败：{error}，可在对应步骤重试。",
-        "hintFailedGeneric": "处理失败：{error}",
-        "hintPartial": "{error}。可重新执行或手工编辑；发布时以当前内容为准。",
-        "hintPartialDefault": "部分字段未补全",
-        "partialFields": "未补全字段：{fields}",
-        "gap": {
-          "description": "简介",
-          "tags": "标签",
-          "category": "分类"
-        },
-        "hintDone": "系统已补全缺失信息，可逐项核对编辑；发布时以当前内容为准。",
-        "hintRulesOnly": "规则层已写入可用字段；可逐项核对编辑。",
-        "hintAutoFuture": "解析完成后，AI 将自动补全缺失的简介、标签与分类。",
-        "hintManualFuture": "解析完成后，需手动开始完善元数据。",
-        "startEnrich": "开始完善元数据",
-        "confirmReEnrich": "将重新运行元数据完善（规则填充 + AI 补全），确定继续？",
-        "confirmReEnrichReady": "将重新运行元数据完善，并覆盖 AI 生成的内容（不含手工编辑），确定继续？",
-        "reRun": "重新执行",
-        "unpublishToReEnrich": "如需重新完善请先下架作品。",
-        "enrichStarted": "已开始完善元数据",
-        "enrichRestarted": "已重新开始处理"
-      },
-      "preview": {
-        "loadFailed": "无法加载作品：{error}",
-        "coverAlt": "{title} 封面",
-        "chapterCount": " · 共 {count} 章",
-        "textWorkNoEpub": "文本作品（内部种子），无 EPUB 内容。",
-        "uploadedHint": "文件已上传，请在编辑页点击「开始解析」。",
-        "processingHint": "作品解析中，章节即将生成…",
-        "parseFailedTitle": "解析失败",
-        "backToEditReparse": "返回编辑重新解析",
-        "noChaptersTitle": "暂无章节内容",
-        "noChaptersHint": "完成解析后即可在此审查章节。",
-        "chapterFallback": "章节 {index}",
-        "readChapter": "阅读 →",
-        "loadingPart": "加载章节中…",
-        "partNotFound": "该章节不存在。",
-        "backToToc": "返回目录",
-        "toc": "目录",
-        "chapterPosition": "第 {current} / {total} 章",
-        "prevChapter": "上一章",
-        "nextChapter": "下一章"
-      },
-      "audio": {
-        "summary": "{total} 章 · 就绪 {ready} · 生成中 {generating} · 失败 {failed} · 过期 {stale} · 未生成 {none}",
-        "loadingSummary": "加载章节音频状态…",
-        "usVoice": "美音",
-        "ukVoice": "英音",
-        "generateFill": "生成/补齐",
-        "forceRegenerateAll": "强制全部重生成",
-        "noChapters": "暂无章节",
-        "forceTitle": "强制全部重生成？",
-        "forceDescription": "将覆盖当前「{role}」下全部 {total} 章音频并重新合成，耗时与费用较高。",
-        "confirmRegenerate": "确认重生成",
-        "queuedToast": "已排队 {enqueued} 章，跳过 {skipped} 章",
-        "forceQueuedToast": "已强制重排队 {enqueued} 章",
-        "retryQueuedToast": "已排队重试",
-        "noTitle": "（无标题）",
-        "pauseAria": "暂停 {title}",
-        "playAria": "播放 {title}",
-        "retryAria": "重试 {title}"
-      },
-      "audioTrackStatus": {
-        "none": "未生成",
-        "generating": "生成中",
-        "ready": "已就绪",
-        "stale": "已过期",
-        "failed": "失败"
       }
     },
     "assets": {
@@ -884,7 +1146,7 @@
         "lastScan": "最近扫描：{time} · {status} · {duration}",
         "scanComplete": "已完成",
         "scanIncomplete": "未完成",
-        "scanNow": "立即扫描",
+        "scanNow": "重新扫描",
         "scanning": "扫描中…",
         "operationFailed": "操作失败",
         "scanStorageFailed": "无法读取对象存储，请检查 S3 配置或网络连接。",
@@ -897,8 +1159,13 @@
         "orphanShare": "孤儿占比 {percent}",
         "releasable": "可释放 {bytes}",
         "orphanFound": "发现 {count} 个孤儿对象",
-        "viewOrphans": "查看孤儿对象",
-        "cleanupOrphans": "清理孤儿对象"
+        "cleanupOrphans": "清理孤儿对象",
+        "cleanupHistory": "清理记录",
+        "cleanupDetails": "详情"
+      },
+      "cleanupBanner": {
+        "title": "孤儿对象清理进行中",
+        "progress": "{processed} / {requested} · 已释放 {bytes}"
       },
       "summary": {
         "totalUsage": "总占用",
@@ -915,30 +1182,6 @@
         "empty": "暂无分类数据",
         "legend": "{bytes} · {count} 个"
       },
-      "largest": {
-        "title": "最大对象排行",
-        "empty": "暂无对象"
-      },
-      "table": {
-        "title": "对象明细",
-        "filterAll": "全部",
-        "filterReferenced": "正常",
-        "filterOrphan": "孤儿",
-        "filterLegacyDuplicate": "历史重复音频",
-        "filterMissing": "缺失",
-        "filterAllCategories": "全部分类",
-        "sortSize": "大小",
-        "sortLastModified": "修改时间",
-        "sortKey": "Key",
-        "sortPrefix": "排序：{label} {direction}",
-        "loadFailed": "加载失败",
-        "empty": "没有匹配的对象",
-        "colKey": "对象 Key",
-        "colType": "类型",
-        "colSize": "大小",
-        "colStatus": "状态",
-        "colLastModified": "最后修改"
-      },
       "cleanup": {
         "title": "孤儿对象清理",
         "progress": "{processed} / {requested} · 已释放 {bytes}",
@@ -946,8 +1189,7 @@
         "stats": "删除 {deleted} · 跳过 {skipped} · 失败 {failed}",
         "leftoverUncleaned": "任务执行结束，但仍有未清理对象",
         "afterCleanup": "清理后仍有孤儿 {orphan} · 缺失 {missing}",
-        "leftoverFailures": "还有 {count} 个失败对象未展开",
-        "retryFailed": "重试失败对象",
+        "retryFailed": "重试清理任务",
         "retrySubmitting": "重试提交中…",
         "inFlightHint": "任务在后台执行，可继续浏览本页。",
         "confirmTitle": "确认清理孤儿对象？",
@@ -962,17 +1204,10 @@
       },
       "enum": {
         "category": {
-          "audio": "音频",
           "cover": "封面",
           "image": "插图",
           "origin": "原始文件",
           "other": "其他"
-        },
-        "status": {
-          "referenced": "正常",
-          "orphan": "孤儿",
-          "missing": "缺失",
-          "legacyDuplicateAudio": "历史重复音频"
         },
         "cleanupJobStatus": {
           "queued": "排队中",
@@ -982,120 +1217,165 @@
           "failed": "失败"
         }
       }
-    },
-    "taxonomy": {
-      "page": {
-        "title": "标签、分类与来源",
-        "subtitle": "作品编辑和元数据完善会使用这里的内容。",
-        "kindAria": "维度类型"
-      },
-      "kind": {
-        "tag": "标签",
-        "category": "分类",
-        "source": "来源"
-      },
-      "panel": {
-        "searchPlaceholder": "搜索名称…",
-        "cleanupUnused": "清理未使用",
-        "createTag": "新建标签",
-        "createCategory": "新建分类",
-        "createSource": "新建来源",
-        "emptyNoMatch": "暂无{kind}",
-        "emptyNoMatchSearch": "没有匹配项",
-        "emptySearchHint": "换个关键词试试。",
-        "emptySourceHint": "上传作品后来源会自动创建，也可手动新建。",
-        "tableName": "名称",
-        "tableOrigin": "写入方式",
-        "tableUsage": "关联作品",
-        "tableMatchRule": "匹配规则",
-        "usageCount": "{count} 部",
-        "deleteSourceReserved": "来源为系统保留，不可删除",
-        "deleteInUse": "已被作品使用，不可删除",
-        "confirmDelete": "确定删除「{name}」？",
-        "confirmCleanupTag": "将删除所有未被任何作品使用的标签。这些记录不可恢复，确定继续？",
-        "confirmCleanupCategory": "将删除所有未被任何作品使用的分类。这些记录不可恢复，确定继续？",
-        "cleanupResult": "已清理 {count} 个未使用项",
-        "cleanupNone": "没有未使用的项",
-        "missingChinese": "缺失中文",
-        "missingEnglish": "缺失英文",
-        "tableChinese": "中文",
-        "tableEnglish": "英文",
-        "tableIndex": "序号",
-        "tableTranslationStatus": "翻译状态",
-        "tableUpdatedAt": "更新时间",
-        "translationComplete": "完整",
-        "translationFilterAll": "全部",
-        "translationFilterComplete": "完整翻译",
-        "translationFilterPartial": "部分翻译",
-        "translationPartial": "部分"
-      },
-      "sheet": {
-        "edit": "编辑",
-        "create": "新建",
-        "sourceDescription": "来源为系统保留数据，创建后不可删除。",
-        "otherDescription": "创建后即可在作品编辑与元数据完善中使用。",
-        "nameLabel": "名称",
-        "nameZhLabel": "中文名称",
-        "nameEnLabel": "英文名称",
-        "matchRuleLabel": "匹配规则",
-        "matchRulePlaceholder": "域名或关键词，如 gutenberg.org",
-        "matchRuleHint": "EPUB 的 dc:source 包含该规则时自动关联此来源；留空表示不自动匹配。",
-        "sourceNamePlaceholder": "如 Project Gutenberg",
-        "genericNamePlaceholder": "如 Fantasy"
-      },
-      "picker": {
-        "removeAria": "移除 {name}",
-        "usageWorks": "{count} 部作品",
-        "searchCategory": "搜索分类…",
-        "noCategory": "不分类",
-        "noCategories": "暂无分类"
-      }
     }
   },
   "content": {
     "common": {
       "retry": "重试",
       "viewBookDetailAria": "查看《{title}》详情",
+      "openReaderAria": "在阅读器中打开《{title}》",
       "findBookCta": "发现一本书开始阅读",
       "backToDiscover": "返回发现",
-      "backToShelf": "回到我的书架"
+      "backToLibrary": "回到书库",
+      "backToHistory": "回到阅读历史",
+      "backToReader": "回到阅读器"
     },
     "discover": {
       "title": "发现",
       "metaTitle": "发现 · Gloaming Reader",
       "loadFailed": "无法加载目录",
       "softRefreshing": "书目更新中…",
-      "filter": "筛选",
-      "filterSheetTitle": "分类与标签筛选",
-      "categoriesLabel": "分类",
-      "tagsLabel": "标签",
-      "allCategories": "全部分类",
-      "allTags": "全部标签",
-      "clearTags": "清除标签",
-      "tagsSelected": "已选 {count} 个",
-      "showResults": "显示结果",
-      "filterSheetActiveOnly": "暂无可选筛选项，当前筛选仍会生效。",
       "emptyTitle": "暂时没有可发现的内容",
-      "emptyDescription": "换个分类或稍后再试。",
-      "resetFilters": "清除筛选条件",
+      "emptyDescription": "稍后再来看看。",
+      "noMatchTitle": "没有符合条件的内容",
+      "noMatchDescription": "试试更换分类，或清除搜索与筛选条件。",
+      "clearFilters": "清除筛选",
+      "searchLabel": "搜索书目",
+      "searchPlaceholder": "搜索书名或作者",
+      "searchAction": "搜索",
+      "clearSearch": "清除搜索",
+      "categoriesFilterAria": "分类筛选",
+      "categoriesAria": "分类",
+      "allCategories": "全部",
+      "moreCategories": "更多分类",
+      "fewerCategories": "收起分类",
+      "activeFilters": "当前筛选：",
+      "clearCategoryFilter": "清除分类筛选：{category}",
+      "searchFilterChip": "搜索：{query}",
+      "addToLibrary": "加入书库",
+      "viewDetail": "查看详情",
+      "backToDiscover": "返回发现",
+      "descriptionTitle": "作品简介",
+      "descriptionEmpty": "暂无简介。",
+      "preparing": "正在准备…",
+      "preparingHint": "下载与解析完成后会出现在书库。",
+      "inLibrary": "已在书库",
+      "goToLibrary": "去书库",
+      "saveReady": "已加入书库",
+      "savePending": "已加入书库，正在准备内容",
+      "saveFailed": "加入书库失败，请重试",
+      "noEpubHint": "暂无可读 EPUB，暂时无法加入书库。",
+      "legacySectionLabel": "已发布书目",
+      "legacySectionDescription": "这些是已发布但尚无来源记录的书目。",
       "chapterCount": "{count} 章",
       "pagination": "分页",
-      "loadMore": "加载更多",
+      "noSearchResults": "没有符合条件的书籍",
       "prevPage": "上一页",
-      "nextPage": "下一页"
+      "nextPage": "下一页",
+      "currentPage": "第 {page} 页"
     },
-    "shelf": {
-      "title": "我的书架",
-      "metaTitle": "我的书架 · Gloaming Reader",
-      "loadFailed": "无法加载书架",
-      "emptyTitle": "你的书架还是空的",
+    "library": {
+      "readingFilter": "阅读状态",
+      "allStatuses": "全部",
+      "searchBooks": "搜索书名或作者",
+      "sortBooks": "书籍排序",
+      "sortAdded": "最近加入",
+      "sortRecent": "最近阅读",
+      "sortTitle": "书名",
+      "gridView": "网格视图",
+      "listView": "列表视图",
+      "loadMore": "加载更多",
+      "title": "书库",
+      "metaTitle": "书库 · Gloaming Reader",
+      "loadFailed": "无法加载书库",
+      "emptyTitle": "你的书库还是空的",
+      "uploadBook": "上传书籍",
+      "sourceFilterAria": "书籍来源",
+      "sourceGroupLabel": "来源",
+      "sourceAll": "全部",
+      "sourcePersonal": "我的上传",
+      "sourceSaved": "已保存",
+      "publishedYear": "{year} 年出版",
+      "uploading": "上传中…",
+      "uploadStarted": "已加入书库，正在处理",
+      "uploadDialogTitle": "上传书籍",
+      "uploadDialogDescription": "选择一本 EPUB 电子书，加入你的书库。",
+      "dropzoneAria": "选择或拖入 EPUB 文件",
+      "dropzoneTitle": "将 EPUB 拖到这里",
+      "dropzoneChoose": "或点击选择文件",
+      "dropzoneLimit": "支持 EPUB · 最大 {size}",
+      "fileReady": "{size} · 文件格式正确",
+      "invalidEpub": "请选择 EPUB 文件",
+      "epubTooLarge": "EPUB 文件不能超过 50 MB",
+      "processing": "正在整理书籍…",
+      "indeterminateProgress": "处理中",
+      "importFailed": "导入失败",
+      "failedHint": "暂时无法读取这本书。",
+      "processingFailed": "这本书处理失败",
+      "manageBookAria": "管理《{title}》",
+      "manageTags": "管理标签",
+      "manageTagsForBook": "管理标签",
+      "editBookInfo": "编辑书籍信息",
+      "deleteBook": "删除书籍",
+      "editBookTitle": "编辑书籍信息",
+      "bookTitle": "书名",
+      "bookAuthor": "作者",
+      "bookDescription": "简介",
+      "saveBookInfo": "保存更改",
+      "bookInfoSaved": "书籍信息已更新",
+      "deleteBookConfirmTitle": "删除这本书？",
+      "deleteBookConfirmDescription": "《{title}》及其阅读进度、对话和存储文件将被永久删除。",
+      "bookDeleted": "书籍已删除",
+      "newTag": "新建标签",
+      "renameTag": "重命名",
+      "deleteTag": "删除标签",
+      "tagName": "标签名称",
+      "saveTags": "保存标签",
+      "tagsSaved": "标签已更新",
+      "tagCreated": "标签已创建",
+      "tagTranslationsMissing": "多语言名称未补全",
+      "tagTranslationsComplete": "多语言名称已补全",
+      "completeTagTranslations": "补全名称",
+      "tagTranslationProviderUnavailable": "多语言名称未补全；请配置可用的 AI Provider。",
+      "tagRenamed": "标签已重命名",
+      "tagDeleted": "标签已删除",
+      "noTags": "暂无标签",
+      "noTagsInLibrary": "还没有标签",
+      "tagFilterAll": "全部",
+      "tagFilterAria": "按标签筛选书籍",
+      "tagGroupLabel": "我的标签",
+      "chooseCategoryTitle": "选择书籍分类",
+      "tagManagementTitle": "管理标签",
+      "usedInBooks": "用于 {count} 本书",
+      "tagDeleteConfirmTitle": "删除这个标签？",
+      "tagDeleteConfirmDescription": "此标签用于 {count} 本书。删除标签不会删除书籍。",
+      "tagDeleteConfirmDescriptionEmpty": "删除标签不会删除书籍。",
+      "tagNameRequired": "请输入标签名称",
+      "tagNameTooLong": "标签名称不能超过 80 个字符",
+      "createTag": "创建标签",
+      "cancel": "取消",
+      "save": "保存",
+      "filterNoMatches": "没有使用此标签的书籍",
+      "noMatchTitle": "当前分类下没有匹配的书籍",
+      "noMatchTruncated": "当前已加载的书籍中没有符合条件的结果",
+      "noSavedBooks": "还没有已保存的书",
+      "noUploadedBooks": "还没有上传的书",
+      "truncatedHint": "书库仅显示前 {count} 本书，可用标签或来源筛选查看其余书籍。",
+      "viewAllBooks": "查看全部书籍",
+      "clearFilter": "清除筛选",
+      "removeFromLibrary": "移出书库",
+      "removeConfirmTitle": "移出书库？",
+      "removeConfirmDescription": "此书将从书库移除，阅读进度和历史记录会保留。",
+      "removedFromLibrary": "已移出书库",
       "continueReading": "继续阅读",
-      "myCollection": "我的藏书",
+      "myBooks": "我的书",
+      "allBooks": "全部书籍",
       "readingInProgress": "阅读中",
       "progressRead": "已读 {ratio}%",
       "statusCompleted": "已读完",
       "statusNotStarted": "未开始",
-      "statusReadProgress": "已读 {ratio}%"
+      "statusReadProgress": "已读 {ratio}%",
+      "aiTagBadge": "AI 生成"
     },
     "history": {
       "title": "阅读历史",
@@ -1123,9 +1403,14 @@
       "lastReadOn": "最近阅读于 {date}"
     },
     "bookDetail": {
+      "sameAuthor": "同作者的其他作品",
+      "sameCategory": "同分类的其他作品",
+      "description": "作品简介",
+      "noDescription": "暂无作品简介。",
+      "descriptionExpand": "展开简介",
+      "descriptionCollapse": "收起简介",
+      "sourceNotes": "来源备注",
       "metaTitle": "书籍 · Gloaming Reader",
-      "sourceOfficial": "官方",
-      "defaultCategory": "读物",
       "languageOriginalEn": "英文原版",
       "languageOriginal": "原文",
       "chapterFallback": "第 {n} 章",
@@ -1144,10 +1429,10 @@
       "progressRead": "已阅读 {ratio}%",
       "lastReadPrefix": "上次阅读：{time}",
       "readingProgress": "阅读进度",
-      "addToShelf": "加入书架",
-      "addToShelfAria": "加入书架",
-      "onShelf": "已在书架",
-      "addedToShelfToast": "已加入书架",
+      "addToLibrary": "加入书库",
+      "addToLibraryAria": "加入书库",
+      "inLibrary": "已在书库",
+      "addedToLibraryToast": "已加入书库",
       "readInfo": "阅读信息",
       "difficulty": "难度",
       "difficultyAria": "难度 {label}，{filled} 星（共 {total} 星）",
@@ -1167,6 +1452,7 @@
       "difficultyPrefix": "难度: {label}"
     },
     "reader": {
+      "readingArea": "阅读正文",
       "unavailableTitle": "无法打开这本书",
       "unavailableDefault": "当前无法获取书籍内容，请稍后再试。",
       "chrome": {
@@ -1189,7 +1475,7 @@
         "lastChapter": "已是最后一章",
         "previousChapter": "上一章",
         "nextChapter": "下一章",
-        "finishAndReturn": "读完本书，返回书架"
+        "finishAndReturn": "读完本书，返回我的书库"
       },
       "selection": {
         "toolbarAria": "划词工具",
@@ -1204,18 +1490,21 @@
       },
       "toast": {
         "stateRefreshed": "阅读进度已同步，请从当前章节继续",
-        "noUsAudio": "暂无美音",
-        "noUkAudio": "暂无英音",
-        "noAudio": "暂无音频",
         "loginForBilingual": "登录后使用双语对照",
-        "sessionExpired": "登录已过期，请重新登录",
-        "audioPlayFailed": "音频播放失败，请重试"
+        "sessionExpired": "登录已过期，请重新登录"
       },
       "tts": {
         "play": "播放",
         "pause": "暂停",
+        "retry": "重试",
+        "unavailable": "语音未配置",
+        "segmentFailed": "本段播放失败，请重试",
         "playbackRate": "播放速度 {rate}，点击切换",
         "accentGroup": "口音",
+        "controlsGroup": "播放控制",
+        "expandControls": "展开播放控制",
+        "chapterProgress": "本章朗读进度",
+        "loadingAudio": "正在加载音频",
         "usShort": "美",
         "ukShort": "英",
         "usAria": "美音",
@@ -1299,12 +1588,11 @@
         "readingState": "未找到阅读状态",
         "llmProvider": "未找到 LLM 服务商",
         "llmModel": "未找到 LLM 模型",
-        "partAudio": "未找到章节音频",
         "cleanupJob": "未找到清理任务",
-        "taxonomyTag": "未找到标签",
-        "taxonomyCategory": "未找到分类",
-        "taxonomySource": "未找到来源",
-        "wordDefinition": "未找到单词「{word}」的词典释义"
+        "wordDefinition": "未找到单词「{word}」的词典释义",
+        "userTag": "未找到标签",
+        "sourceRecord": "未找到来源记录",
+        "publicCategory": "未找到分类"
       },
       "upload": {
         "fileTooLarge": "文件大小超过上限（{maxMb}MB）",
@@ -1317,50 +1605,9 @@
         "epubOnly": "仅支持 .epub 格式文件"
       },
       "work": {
-        "createFailed": "创建作品失败",
-        "createPartFailed": "创建章节失败",
-        "uploadEpubFailed": "上传 EPUB 失败",
+        "uploadEpubFailed": "上传书籍失败",
         "reserveParseFailed": "预留 EPUB 解析任务失败",
-        "publishIncomplete": "仅全部步骤完成的作品可以发布",
-        "unpublishNotPublished": "仅已发布作品可以下架",
-        "retryEpubOnly": "仅 EPUB 作品支持流程重试",
-        "unpublishBeforeRetry": "请先下架作品后再重试",
-        "noRetryableSteps": "没有可重试的步骤",
-        "processingInProgress": "作品正在处理中，请稍后再试",
-        "manualAudioRequired": "音频步骤未启用自动流程，请在作品页手动生成",
-        "stateChanged": "作品状态已变化，请刷新后再试",
-        "unpublishFirst": "请先下架",
-        "publish": {
-          "titleRequired": "发布前请填写标题",
-          "sourcesRequired": "发布前请至少关联一个来源",
-          "tagsRequired": "发布前请至少添加一个标签",
-          "bodyRequired": "发布前请填写正文",
-          "audioMissing": "章节「{partTitle}」缺少默认美音（Reader 默认口音，英音可选）",
-          "audioGenerating": "章节「{partTitle}」默认美音仍在生成中",
-          "audioStale": "章节「{partTitle}」默认美音已过期，请重新生成",
-          "audioFailed": "章节「{partTitle}」默认美音生成失败，请重试",
-          "audioNotReady": "章节「{partTitle}」默认美音未就绪"
-        }
-      },
-      "taxonomy": {
-        "invalidKind": "kind 必须是 tag / category / source",
-        "cleanupKindOnly": "cleanup 仅支持 tag / category",
-        "sourceDeleteForbidden": "来源为系统保留数据，不可删除；未命中来源可留空表示「未知」",
-        "tag": {
-          "nameExists": "标签「{name}」已存在",
-          "nameConflict": "标签名称已存在",
-          "inUse": "该标签已被 {usage} 个作品使用，不可删除；可修改名称"
-        },
-        "category": {
-          "nameExists": "分类「{name}」已存在",
-          "nameConflict": "分类名称已存在",
-          "inUse": "该分类已被 {usage} 个作品使用，不可删除；可修改名称"
-        },
-        "source": {
-          "nameExists": "来源「{name}」已存在",
-          "nameConflict": "来源名称已存在",
-          "inUse": "该来源已被 {usage} 个作品使用，不可删除；可修改名称"
-        }
+        "stateChanged": "作品状态已变化，请刷新后再试"
       },
       "tts": {
         "apiKeyRequired": "首次配置 TTS 需要提供 API Key",
@@ -1399,7 +1646,8 @@
       },
       "oss": {
         "notConfigured": "对象存储未配置",
-        "unavailable": "对象存储不可用"
+        "unavailable": "对象存储不可用",
+        "rangeNotSatisfiable": "请求的字节范围无效"
       },
       "dictionary": {
         "providerNotImplemented": "词典 Provider「{providerId}」尚未实现或不支持",
@@ -1423,6 +1671,7 @@
       },
       "assetManagement": {
         "scanSnapshotExpired": "扫描快照已过期或不存在，请重新扫描",
+        "scanReportNotFound": "暂无扫描结果，请先扫描",
         "scanIncomplete": "扫描未完成，无法清理；请缩小存储桶范围或稍后重试",
         "noOrphans": "没有可清理的孤立对象",
         "scanInProgress": "已有扫描正在进行",
@@ -1435,6 +1684,17 @@
         "revisionConflict": "阅读状态版本冲突",
         "noNextChapter": "没有下一章 — 请使用完成操作结束本书",
         "unsupportedAction": "不支持的操作"
+      },
+      "library": {
+        "userTagNameExists": "你已经有一个同名标签",
+        "sourceRecordNoEpubCandidate": "该来源暂无可读 EPUB，暂时无法加入书库"
+      },
+      "discovery": {
+        "publicCategoryNameExists": "该语言下已存在同名分类",
+        "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类",
+        "publicCategoryHasAssignments": "该分类仍被 {count} 条来源作品或来源映射引用，请先解除引用后再删除。",
+        "sourceCategoryMappingConflict": "映射已发生变化或建议不再有效，请刷新后重试。",
+        "publicCategoryTranslationBusy": "另一项分类或翻译任务正在执行，请稍后重试。"
       }
     }
   }

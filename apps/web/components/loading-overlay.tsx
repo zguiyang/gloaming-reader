@@ -14,7 +14,7 @@ type LoadingOverlayProps = {
 export function LoadingOverlay({ active, label, children, className }: LoadingOverlayProps) {
   return (
     <div className={cn('relative', className)} aria-busy={active}>
-      {children}
+      <div inert={active}>{children}</div>
       <div
         className={cn(
           'absolute inset-0 z-10 flex items-center justify-center',

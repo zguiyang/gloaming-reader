@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { t } from '@gloaming/i18n';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthDialog } from '@/features/auth';
 import { formatHistoryApiError, useReadingHistoryQuery } from '@/features/history/history-api';
 import { HistoryEmptyState } from '@/features/history/history-empty-state';
@@ -19,8 +20,8 @@ import { cn } from '@/lib/utils';
 function HistorySkeleton() {
   return (
     <div className="flex flex-col gap-10" aria-hidden>
-      <div className="h-24 animate-pulse rounded-xl bg-surface-container-high" />
-      <div className="h-48 animate-pulse rounded-2xl bg-surface-container-high" />
+      <Skeleton className="h-24 rounded-xl bg-surface-container-high" />
+      <Skeleton className="h-48 rounded-2xl bg-surface-container-high" />
     </div>
   );
 }
@@ -85,7 +86,7 @@ export function HistoryPage() {
         </>
       ) : (
         <div className="flex flex-col gap-10 md:gap-16">
-          <HistoryHeader />
+          <HistoryHeader spaced={false} />
           <HistorySummary portrait={data.portrait} />
           <HistoryHeatmap today={data.today} activity={data.activity} />
           <HistoryWorks works={data.works} />

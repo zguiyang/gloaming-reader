@@ -1,136 +1,110 @@
 # Engineering vocabulary
 
-Gloaming uses **product language** in UX and **engineering language** in code/APIs. This doc maps the two and records the **Reading Content** domain (ADR-001).
+Gloaming uses **product language** in UX and **engineering language** in code/APIs. This doc maps the two.
 
 **Domain SSOT:** [`docs/adr/001-reading-content-domain-model.md`](../adr/001-reading-content-domain-model.md)
 
 ---
 
-## Domain model
+## Domain model (ADR-001)
 
-| Product concept (UX)        | Engineering entity | Table / module (target)                                     |
-| --------------------------- | ------------------ | ----------------------------------------------------------- |
-| 一本书 / 一份阅读内容       | **ReadingWork**    | `reading_work`                                              |
-| 章节 / 阅读单元             | **ReadingPart**    | `reading_part`                                              |
-| 我的阅读状态 / 书架上的进度 | **ReadingState**   | `reading_state`                                             |
-| 文件 / 音频等资源           | **ContentAsset**   | `content_asset`                                             |
-| AI 对话（本书上下文）       | **Conversation**   | `conversation` (`subject_type = reading_work`)              |
-| 我的书架                    | **Shelf**          | Read model — `reading_state` JOIN `reading_work` (no table) |
+| Product concept (UX)          | Engineering entity  | Table / module                                                  |
+| ----------------------------- | ------------------- | --------------------------------------------------------------- |
+| 一本书 / 一份阅读内容         | **ReadingWork**     | `reading_work`                                                  |
+| 章节 / 阅读单元               | **ReadingPart**     | `reading_part`                                                  |
+| 保存到我的书库 / Library 成员 | **UserLibraryItem** | `user_library_item` (explicit catalog membership)               |
+| 阅读进度与位置                | **ReadingState**    | `reading_state` (progress only)                                 |
+| 来源书目 (not readable)       | **SourceRecord**    | local bibliography per source; never served as reading content  |
+| 文件 / 音频等资源             | **ContentAsset**    | `content_asset`                                                 |
+| AI 对话（本书上下文）         | **Conversation**    | `conversation` (`subject_type = reading_work`)                  |
+| 我的书库 (My Library)         | **Library**         | Read model — owned works ∪ `user_library_item`                  |
+| 继续阅读                      | **ContinueReading** | Read model — `reading_state` position, separate from membership |
+
+**Invariants:** saving does not start progress; removing membership retains progress; personal EPUB works are user-owned and private.
 
 UI copy may still say **书 / Book / 封面 / 章节** — intentional user metaphor, not legacy engineering names.
+
+### ReadingWork status vocabulary
+
+| Concept              | Field / API         | Values / rule                                                          |
+| -------------------- | ------------------- | ---------------------------------------------------------------------- |
+| Pipeline progress    | `processing_status` | `uploaded`, `processing`, `parsed`, `metadata`, `ready`, `failed` only |
+| Published to catalog | `published_at`      | non-null timestamp = catalog eligible; Discover filters this field     |
+
+Do **not** use `published` as a `processing_status` value.
+
+### Provider / settings scope
+
+| Scope    | `owner_user_id` | Tables                                          |
+| -------- | --------------- | ----------------------------------------------- |
+| Instance | `NULL`          | `llm_provider`, `llm_app_setting`, `tts_config` |
+| User     | user id         | same tables — no duplicate `user_llm_*` tables  |
 
 ---
 
 ## Product surfaces (user-facing)
 
-| Surface             | Route              | API                             | Meaning                           |
-| ------------------- | ------------------ | ------------------------------- | --------------------------------- |
-| **Discover**        | `/discover`        | `GET /api/catalog/works`        | Browse published official works   |
-| **Shelf**           | `/my-shelf`        | `GET /api/shelf`                | Continue reading + shelf items    |
-| **Reader**          | `/read/[workId]`   | `GET /api/reader/works/:workId` | Immersive reading session         |
-| **Reading History** | `/reading-history` | `GET /api/reading-history`      | Calm overview of reading activity |
+| Surface      | Route              | API                                                            | Meaning                                                        |
+| ------------ | ------------------ | -------------------------------------------------------------- | -------------------------------------------------------------- |
+| **Library**  | `/library`         | `GET /api/library`                                             | Owned works ∪ explicit saved items                             |
+| **Discover** | `/discover`        | `GET /api/discover/records`; existing `GET /api/catalog/works` | Source bibliography and published Work reads have distinct IDs |
+| **Reader**   | `/read/[workId]`   | `GET /api/reader/works/:workId`                                | Immersive reading session                                      |
+| **History**  | `/reading-history` | `GET /api/reading-history`                                     | Calm overview of reading activity                              |
+| Work detail  | `/works/[workId]`  | shared detail route                                            | Title/cover/meta; Read → `/read/[id]`                          |
 
-Part-scoped APIs: TTS / translate / assist use `partId` (+ `workId` for thread scope).
+Part-scoped APIs: TTS / translate / assist use `partId` (+ `workId` for thread scope). Lazy reader audio is Part-scoped too: `GET /api/reader/parts/:partId/audio/manifest`, `GET /api/reader/parts/:partId/audio/segments/:index`, and `GET /api/reader/parts/:partId/audio/segments/:index/audio` synthesize and serve per-segment audio on demand.
+
+**Library filter:** source + tag combined (AND), reflected in the URL; today it operates on a client-loaded subset, not full pagination.
+
+---
+
+## Content supply boundary
+
+Supply policy SSOT: [`content-strategy.md`](./content-strategy.md). Accepted direction: Hybrid source sync (local **SourceRecord** metadata; EPUB materialized only on save/read intent). Personal EPUB uploads use `POST /api/works` and remain user-owned and private. Admin has no Work-management surface.
 
 ---
 
 ## Shared package and workflow policy
 
-`@gloaming/shared` has no root public entrypoint. The only public entrypoints
-are `@gloaming/shared/<module>` owning-module subpaths (ADR-003). Consumers must
-import from the owning module; implementation deep imports such as
-`@gloaming/shared/src/...` remain forbidden. Shared exposes cross-layer DTOs,
-Zod schemas, controlled values, types, and pure functions. It does not own
-backend queue, retry, lease, or workflow runtime policy.
+`@gloaming/shared` has no root public entrypoint; the only public entrypoints are `@gloaming/shared/<module>` owning-module subpaths (ADR-003). Deep imports such as `@gloaming/shared/src/...` are forbidden. Shared exposes cross-layer DTOs, schemas, types, and pure functions; it does not own backend queue, retry, lease, or workflow runtime policy.
 
-`apps/backend` owns workflow policy and preserves the current manual pipeline
-and auto-chaining / auto-TTS **off** defaults (`WORKFLOW_AUTO_CHAIN = false`,
-`TTS_STEP_ENABLED = false`). Admin work responses expose a read-only policy
-projection for the management UI; Web code must render that projection rather
-than infer runtime behavior from shared compile-time flags.
-
-**Publish gate:** Before `publishWork`, every part with synthesizable text must
-have **ready default US** (`audio_us`, `PUBLISH_DEFAULT_AUDIO_ROLE = us`) whose
-`content_hash` matches the current part body. UK (`audio_uk`) is optional.
-Operators generate default US through admin TTS actions and the worker queue.
-Reader playback may degrade gracefully when audio is temporarily unavailable.
-
-This separation leaves the ADR-001 `ReadingWork` / `ReadingPart` /
-`ReadingState` / `ContentAsset` model and the `admin_epub` / `admin_text`
-origin boundary unchanged.
+`apps/backend` owns workflow policy and preserves auto-chaining **off** defaults (`WORKFLOW_AUTO_CHAIN = false`). Reader audio is generated lazily per segment at read time (no pre-generated whole-chapter audio assets, no workflow `tts` step) and degrades gracefully, for example when the speech provider is unavailable.
 
 ---
 
-## Current code = target domain (Phase 3A)
+## Current code vs target (honest matrix)
 
-| Layer                | Current (= Target, ADR-001)                       |
-| -------------------- | ------------------------------------------------- |
-| Content root         | **ReadingWork** / `reading_work`                  |
-| Text body            | **ReadingPart.body** (ordered parts)              |
-| Shelf / progress     | **ReadingState** / `reading_state`                |
-| TTS / audio rows     | **ContentAsset** (`kind = audio_us` / `audio_uk`) |
-| Discover API         | `GET /api/catalog/works`                          |
-| Admin CMS            | `/api/admin/works`                                |
-| Reader API           | `/api/reader/works/:workId`                       |
-| Conversation subject | `subject_type = reading_work`                     |
-
-**Phase 3A complete.** Admin EPUB ingest (`admin_epub`) is shipped. Do **not**
-reintroduce Article names — see Retired names below.
+| Layer / concern          | Current (repository reality)                                                    | Target (ADR-001)                               |
+| ------------------------ | ------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Content root             | **ReadingWork** / `reading_work` **done**                                       | same                                           |
+| Work pipeline field      | `processing_status` **done**                                                    | no legacy `status` column                      |
+| Publication              | `published_at` drives catalog visibility **done**                               | never in `processing_status`                   |
+| Library membership       | `user_library_item` + owned works **done**                                      | same; membership only                          |
+| `reading_state` role     | progress and activity; separate from membership                                 | position only; opening never saves             |
+| Source intake            | SourceRecord and save/import code exist; real user-loop acceptance remains open | metadata local, EPUB on intent                 |
+| Discover API             | SourceRecord API and Catalog Work API coexist                                   | SourceRecord IDs never substitute for Work IDs |
+| Conversation subject     | `subject_type = reading_work` **done**                                          | same                                           |
+| Admin content management | removed                                                                         | no Admin content-management surface            |
 
 ---
 
-## Shared API contracts
+## Content origins
 
-| Module                | Key types                                                         |
-| --------------------- | ----------------------------------------------------------------- |
-| `api/works` / catalog | `WorkSummary`, `DiscoverListData`, `AdminWork`                    |
-| `api/shelf`           | `ShelfData`, `ShelfItem` (`work` + `state`, not `article`)        |
-| `api/reader`          | `ReaderSessionData`, `UpdateReadingStateBody`, `ReaderAudioTrack` |
-| `api/reading-history` | `ReadingHistoryData`, completions with `workId`                   |
-| `api/content-assets`  | Part/work asset views (TTS admin)                                 |
-
----
-
-## Content origins (MVP)
-
-| `origin_kind`                     | MVP               | Role                                                                   |
-| --------------------------------- | ----------------- | ---------------------------------------------------------------------- |
-| `admin_epub`                      | **Yes — primary** | Official catalog supply: upload → process → publish                    |
-| `admin_text`                      | Internal only     | Dev/test seed: 1 work + 1 part (`kind=body`); **not** product identity |
-| `user_epub`, `user_pdf`, `web`, … | No (Phase 1b+)    | Reserved in schema; not implemented in MVP                             |
+| `origin_kind`     | Role                                                                                    |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| `NULL`            | Catalog work; no source identity claimed                                                |
+| `user_epub`       | `/api/works` → shared EPUB parser → private owner Work                                  |
+| Source provenance | Stored on the linked SourceRecord; no additional Work origin kind is currently declared |
 
 ---
 
 ## Retired names (do not reintroduce)
 
-**Legacy content model**
-
-- `Article`, `article`, `articleId`, `AdminArticle`
-- `reading_progress`, `ReadingProgress`
-- `article_audio`, `ArticleAudio`, `ArticleLevel`
+- `Article`, `articleId`, `AdminArticle`; `reading_progress`; `article_audio`, `ArticleLevel`
 - `seriesId`, `seriesOrder`, `ARTICLE_BODY_MAX_WORDS`
 - `GET /api/articles`, `/api/admin/articles`, `/api/reader/articles/:articleId`
-- Legacy shared root or deep imports — use `@gloaming/shared/<module>` owning
-  module subpaths (ADR-003).
-
-**Legacy product modules**
-
-- `Learn*`, `/api/learn/*` — old Learning Platform
-- `Progress*`, `/api/progress` — old progress dashboard
-- `CatalogArticle*` — use `Discover*` / `WorkSummary`
-- Short Article Library as product identity — see [`docs/archive/feature-short-article-library-v1.md`](../archive/feature-short-article-library-v1.md)
-
-**Removed study loop (code gone)**
-
-- Practice / Review modules, lesson/course entities as product surfaces
-
----
-
-## Revision log
-
-| Date       | Change                                                                           |
-| ---------- | -------------------------------------------------------------------------------- |
-| 2026-08-24 | Phase 3A complete — Current = Target API/domain table; forbidden list retained.  |
-| 2026-08-24 | Rewritten for ReadingWork domain (ADR-001); Article retired; target API table.   |
-| 2026-08-24 | Prior version listed Article as MVP 1a entity.                                   |
-| (revision) | Admin EPUB ingest marked shipped; publish default-US gate; auto-TTS remains off. |
+- `reading_work.status` values `published` / `tts` as pipeline states
+- Legacy shared root or deep imports — use `@gloaming/shared/<module>` subpaths (ADR-003)
+- `Learn*`, `/api/learn/*`; `Progress*`, `/api/progress`; `CatalogArticle*`
+- Short Article Library as product identity
+- Practice / Review modules; lesson/course entities as product surfaces

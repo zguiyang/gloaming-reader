@@ -5,6 +5,8 @@ import {
   mergeReadingCompletion,
   mergeReadingPosition,
   NO_CHAPTERS_COMPLETED,
+  READING_STATE_ACTIONS,
+  readingStateSchema,
   updateReadingStateBodySchema,
 } from './reader.ts';
 
@@ -95,6 +97,54 @@ describe('updateReadingStateBodySchema', () => {
       partId: 'p2',
       expectedRevision: 3,
     });
+  });
+
+  it('supports save_position only with a complete anchor', () => {
+    expect(READING_STATE_ACTIONS).toContain('save_position');
+    expect(updateReadingStateBodySchema.safeParse({ action: 'save_position' }).success).toBe(false);
+    expect(
+      updateReadingStateBodySchema.parse({ action: 'save_position', anchor: { partId: 'p1', ratio: 0.42 } }),
+    ).toEqual({ action: 'save_position', anchor: { partId: 'p1', ratio: 0.42 } });
+    expect(
+      updateReadingStateBodySchema.safeParse({ action: 'save_position', anchor: { partId: 'p1', ratio: 1.5 } }).success,
+    ).toBe(false);
+    expect(
+      updateReadingStateBodySchema.safeParse({ action: 'save_position', anchor: { partId: '', ratio: 0.5 } }).success,
+    ).toBe(false);
+  });
+
+  it('rejects an anchor on chapter-changing actions', () => {
+    expect(
+      updateReadingStateBodySchema.safeParse({ action: 'open', anchor: { partId: 'p1', ratio: 0.5 } }).success,
+    ).toBe(false);
+    expect(
+      updateReadingStateBodySchema.safeParse({
+        action: 'navigate',
+        partId: 'p2',
+        anchor: { partId: 'p2', ratio: 0.5 },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('readingStateSchema', () => {
+  const base = {
+    status: 'in_progress' as const,
+    currentPartId: null,
+    completedThroughSortOrder: NO_CHAPTERS_COMPLETED,
+    progressRatio: 0,
+    totalPartCount: 0,
+    lastReadAt: '2026-01-01T00:00:00.000Z',
+    completedAt: null,
+  };
+
+  it('keeps anchor optional for legacy responses and validates a paired anchor', () => {
+    expect(readingStateSchema.safeParse(base).success).toBe(true);
+    expect(readingStateSchema.parse({ ...base, anchor: { partId: 'p1', ratio: 0.25 } }).anchor).toEqual({
+      partId: 'p1',
+      ratio: 0.25,
+    });
+    expect(readingStateSchema.safeParse({ ...base, anchor: { partId: 'p1', ratio: -0.1 } }).success).toBe(false);
   });
 });
 

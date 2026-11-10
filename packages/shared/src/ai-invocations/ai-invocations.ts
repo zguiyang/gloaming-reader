@@ -97,18 +97,18 @@ export type AiInvocationListQuery = z.infer<typeof aiInvocationListQuerySchema>;
 
 export const aiInvocationRequestSummarySchema = z.object({
   messageCount: z.number().int().optional(),
-  selectionPreview: z.string().optional(),
   selectionLength: z.number().int().optional(),
   toolNames: z.array(z.string()).optional(),
   toolRoundCount: z.number().int().optional(),
   actionId: z.string().optional(),
   phase: z.string().optional(),
+  workId: z.string().optional(),
+  neededFields: z.string().optional(),
 });
 
 export type AiInvocationRequestSummaryDto = z.infer<typeof aiInvocationRequestSummarySchema>;
 
 export const aiInvocationResponseSummarySchema = z.object({
-  replyPreview: z.string().optional(),
   replyLength: z.number().int().optional(),
 });
 

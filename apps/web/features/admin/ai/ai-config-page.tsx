@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { AdminSegmentedTabsList, AdminSegmentedTabsTrigger } from '@/features/admin/admin-segmented-tabs';
 import {
   adminLlmQueryKey,
@@ -309,7 +309,7 @@ export function AiConfigPage() {
   });
 
   return (
-    <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto max-w-6xl">
+    <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 max-w-6xl">
       <div className="min-w-0">
         <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.ai.title')}</h1>
       </div>
@@ -324,7 +324,7 @@ export function AiConfigPage() {
           <AdminSegmentedTabsTrigger value="providers">{t(locale, 'admin.ai.tabProviders')}</AdminSegmentedTabsTrigger>
         </AdminSegmentedTabsList>
 
-        <div className="mt-8">
+        <TabsContent value={activeTab} className="mt-8">
           {isPending ? (
             <>
               <Skeleton className="h-40 w-full rounded-2xl bg-muted/70" />
@@ -347,6 +347,7 @@ export function AiConfigPage() {
                 }))
               }
               onSave={(key) => purposeMutation.mutate(key)}
+              savingKey={purposeMutation.isPending ? (purposeMutation.variables ?? null) : null}
             />
           ) : (
             <AiProviderWorkspace
@@ -378,7 +379,7 @@ export function AiConfigPage() {
               isModelSaving={createModelMutation.isPending || updateModelMutation.isPending}
             />
           )}
-        </div>
+        </TabsContent>
       </Tabs>
 
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>

@@ -17,15 +17,14 @@ function renderCover(props: WorkCoverProps): string {
 }
 
 describe('WorkCover appearances', () => {
-  it('standard without image shows official badge, spine, fallback title, and className', () => {
+  it('standard without image shows a neutral fallback, spine, title, and className', () => {
     const html = renderCover({
       title: 'Ocean Tales',
-      tags: ['story'],
       appearance: 'standard',
       className: 'aspect-[2/3] w-48',
     });
 
-    expect(html).toContain('官方');
+    expect(html).not.toContain('官方');
     expect(html).toContain('Ocean Tales');
     expect(html).toContain('w-1.5');
     expect(html).toContain('rounded-l-md');
@@ -58,7 +57,6 @@ describe('WorkCover appearances', () => {
   it('standard with image renders the cover URL and omits fallback chrome', () => {
     const html = renderCover({
       title: 'Ocean Tales',
-      tags: ['story'],
       coverImageUrl: '/api/assets/cover-1',
       appearance: 'standard',
     });

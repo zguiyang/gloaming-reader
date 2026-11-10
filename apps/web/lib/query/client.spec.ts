@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ApiRequestError } from '@/lib/api-request';
+import { API_INVALID_RESPONSE_CODE, ApiRequestError } from '@/lib/api-request';
 
 import { shouldRetryQuery } from './client';
 
@@ -10,6 +10,16 @@ describe('shouldRetryQuery', () => {
     expect(shouldRetryQuery(0, notFound)).toBe(false);
     expect(shouldRetryQuery(0, new ApiRequestError({ message: '未登录', status: 401 }))).toBe(false);
     expect(shouldRetryQuery(0, new ApiRequestError({ message: '冲突', status: 409 }))).toBe(false);
+  });
+
+  it('does not retry deterministic invalid response contract errors', () => {
+    const invalidResponse = new ApiRequestError({
+      message: '响应格式无效',
+      status: 502,
+      code: API_INVALID_RESPONSE_CODE,
+    });
+    expect(shouldRetryQuery(0, invalidResponse)).toBe(false);
+    expect(shouldRetryQuery(2, invalidResponse)).toBe(false);
   });
 
   it('retries network errors and 5xx up to three times', () => {

@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { t } from '@gloaming/i18n';
 
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { useLocale } from '@/lib/locale-context';
 
@@ -54,13 +54,14 @@ export function HistoryEmptyState() {
       <h2 className="font-heading mt-10 text-2xl font-semibold tracking-tight text-foreground md:text-[2rem] md:leading-10">
         {t(locale, 'content.history.emptyTitle')}
       </h2>
-      <Button
-        nativeButton={false}
-        className="mt-6 h-12 rounded-full px-10 text-base hover:bg-brand-deep active:scale-[0.98]"
-        render={<Link href={AUTH_ROUTES.discover} />}
+      <Link
+        href={AUTH_ROUTES.discover}
+        className={buttonVariants({
+          className: 'mt-6 h-12 rounded-full px-10 text-base hover:bg-brand-deep active:scale-[0.98]',
+        })}
       >
         {t(locale, 'content.common.findBookCta')}
-      </Button>
+      </Link>
     </div>
   );
 }

@@ -1,0 +1,207 @@
+'use client';
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { toast } from 'sonner';
+
+import { t } from '@gloaming/i18n';
+import { DEFAULT_TTS_VOICES, TTS_VOICE_PRESETS, type TtsConfigView } from '@gloaming/shared/tts';
+
+import { Button } from '@/components/ui/button';
+import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { SecretField } from '@/components/ui/secret-field';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatUserSettingsApiError, putUserTtsConfig, userSettingsQueryKey } from '@/features/settings/settings-api';
+import { useLocale } from '@/lib/locale-context';
+
+export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsConfigView; hideTitle?: boolean }) {
+  const { locale } = useLocale();
+  const queryClient = useQueryClient();
+  const [region, setRegion] = useState(config.region);
+  const [apiKey, setApiKey] = useState('');
+  const [defaultVoice, setDefaultVoice] = useState(config.defaultVoice || DEFAULT_TTS_VOICES.defaultVoice);
+  const [usVoice, setUsVoice] = useState(config.usVoice || DEFAULT_TTS_VOICES.usVoice);
+  const [ukVoice, setUkVoice] = useState(config.ukVoice || DEFAULT_TTS_VOICES.ukVoice);
+  const [enabled, setEnabled] = useState(config.configured ? config.isEnabled : false);
+  const [isReplacingKey, setIsReplacingKey] = useState(false);
+  const [regionError, setRegionError] = useState('');
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      if (!region.trim()) throw new Error(t(locale, 'settings.validation.required'));
+      if (!config.apiKeySet && !apiKey.trim()) throw new Error(t(locale, 'settings.validation.required'));
+      return putUserTtsConfig({
+        region: region.trim(),
+        ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+        isEnabled: enabled,
+        defaultVoice,
+        usVoice,
+        ukVoice,
+      });
+    },
+    onSuccess: async (next) => {
+      queryClient.setQueryData(userSettingsQueryKey.tts(), next);
+      await queryClient.invalidateQueries({ queryKey: userSettingsQueryKey.tts() });
+      setApiKey('');
+      setIsReplacingKey(false);
+      toast.success(t(locale, 'settings.saved'));
+    },
+    onError: (error) => toast.error(formatUserSettingsApiError(error)),
+  });
+
+  function chooseDefault() {
+    // Local mode selection only; the payload shape and persistence stay unchanged.
+    setEnabled(false);
+  }
+
+  return (
+    <section className="flex flex-col gap-5">
+      <div>
+        {!hideTitle ? <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.tts.title')}</h2> : null}
+        <div className="flex flex-wrap gap-2" role="group" aria-label={t(locale, 'settings.serviceMode')}>
+          <Button
+            type="button"
+            variant={!enabled ? 'default' : 'outline'}
+            aria-pressed={!enabled}
+            onClick={chooseDefault}
+          >
+            {t(locale, 'settings.defaultService')}
+          </Button>
+          <Button
+            type="button"
+            variant={enabled ? 'default' : 'outline'}
+            aria-pressed={enabled}
+            onClick={() => setEnabled(true)}
+          >
+            {t(locale, 'settings.tts.ownService')}
+          </Button>
+        </div>
+      </div>
+      {!enabled ? (
+        <p className="text-sm text-muted-foreground">{t(locale, 'settings.tts.defaultDescription')}</p>
+      ) : (
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!region.trim()) {
+              setRegionError(t(locale, 'settings.validation.required'));
+              return;
+            }
+            setRegionError('');
+            saveMutation.mutate();
+          }}
+        >
+          <FieldGroup className="gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field data-invalid={Boolean(regionError) || undefined}>
+                <FieldLabel htmlFor="settings-tts-region">{t(locale, 'settings.tts.region')}</FieldLabel>
+                <Input
+                  id="settings-tts-region"
+                  appearance="filled"
+                  className="h-11"
+                  aria-invalid={Boolean(regionError) || undefined}
+                  aria-describedby={regionError ? 'settings-tts-region-error' : undefined}
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                />
+                <FieldError id="settings-tts-region-error">{regionError}</FieldError>
+              </Field>
+              <SecretField
+                id="settings-tts-key"
+                label={t(locale, 'settings.ai.apiKey')}
+                isSet={config.apiKeySet}
+                masked={config.apiKeyMasked}
+                value={apiKey}
+                onChange={setApiKey}
+                disabled={saveMutation.isPending}
+                replacing={isReplacingKey}
+                onReplace={() => setIsReplacingKey(true)}
+                onCancelReplace={() => {
+                  setApiKey('');
+                  setIsReplacingKey(false);
+                }}
+                placeholderWhenSet={t(locale, 'settings.secret.leaveBlank')}
+                copy={{
+                  replaceLabel: t(locale, 'common.secret.newKey'),
+                  replaceAction: t(locale, 'common.secret.replace'),
+                  cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
+                  keepHint: t(locale, 'common.secret.keepHint'),
+                  configuredLabel: t(locale, 'common.secret.configured'),
+                }}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {(
+                [
+                  ['default', defaultVoice, setDefaultVoice],
+                  ['us', usVoice, setUsVoice],
+                  ['uk', ukVoice, setUkVoice],
+                ] as const
+              ).map(([key, value, setter]) => (
+                <Field key={key}>
+                  <FieldLabel htmlFor={`settings-tts-${key}`}>{t(locale, `settings.tts.voice.${key}`)}</FieldLabel>
+                  <Select
+                    value={value}
+                    items={[
+                      ...TTS_VOICE_PRESETS.filter((preset) => key === 'default' || preset.role === key).map(
+                        (preset) => ({ value: preset.voice, label: preset.label }),
+                      ),
+                      ...(!TTS_VOICE_PRESETS.some(
+                        (preset) => preset.voice === value && (key === 'default' || preset.role === key),
+                      ) && value
+                        ? [{ value, label: value }]
+                        : []),
+                    ]}
+                    onValueChange={(next) => {
+                      if (next) setter(next);
+                    }}
+                  >
+                    <SelectTrigger id={`settings-tts-${key}`} appearance="filled" className="h-11 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {TTS_VOICE_PRESETS.filter((preset) => key === 'default' || preset.role === key).map(
+                          (preset) => (
+                            <SelectItem key={preset.voice} value={preset.voice}>
+                              {preset.label}
+                            </SelectItem>
+                          ),
+                        )}
+                        {!TTS_VOICE_PRESETS.some(
+                          (preset) => preset.voice === value && (key === 'default' || preset.role === key),
+                        ) && value ? (
+                          <SelectItem value={value}>{value}</SelectItem>
+                        ) : null}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              ))}
+            </div>
+          </FieldGroup>
+          <div>
+            <Button type="submit" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? t(locale, 'settings.saving') : t(locale, 'settings.save')}
+            </Button>
+          </div>
+        </form>
+      )}
+      {config.configured && !enabled ? (
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">{t(locale, 'settings.tts.defaultDescription')}</p>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
+          >
+            {t(locale, 'settings.save')}
+          </Button>
+        </div>
+      ) : null}
+    </section>
+  );
+}

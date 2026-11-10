@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { t } from '@gloaming/i18n';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { APP_NAME, AUTH_ROUTES } from '@/constants';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -47,22 +47,21 @@ export function ReaderUnavailable({ onRetry, message }: ReaderUnavailableProps) 
             <RefreshCwIcon className="size-4" strokeWidth={1.5} aria-hidden />
             {t(locale, 'content.bookDetail.reload')}
           </Button>
-          <Button
-            nativeButton={false}
-            variant="outline"
-            className="h-11 rounded-xl border-2 border-outline/50 px-8 text-muted-foreground"
-            render={<Link href={AUTH_ROUTES.discover} />}
+          <Link
+            href={AUTH_ROUTES.discover}
+            className={buttonVariants({
+              variant: 'outline',
+              className: 'h-11 rounded-xl border-2 border-outline/50 px-8 text-muted-foreground',
+            })}
           >
             {t(locale, 'content.common.backToDiscover')}
-          </Button>
-          <Button
-            nativeButton={false}
-            variant="ghost"
-            className="h-11 rounded-xl px-6 text-muted-foreground"
-            render={<Link href={AUTH_ROUTES.shelf} />}
+          </Link>
+          <Link
+            href={AUTH_ROUTES.library}
+            className={buttonVariants({ variant: 'ghost', className: 'h-11 rounded-xl px-6 text-muted-foreground' })}
           >
-            {t(locale, 'content.common.backToShelf')}
-          </Button>
+            {t(locale, 'content.common.backToLibrary')}
+          </Link>
         </div>
       </main>
     </div>

@@ -1,3 +1,4 @@
+export { normalizeBalanceEndpoint } from './balance-endpoint.ts';
 export type {
   CreateLlmModelBody,
   CreateLlmProviderBody,
@@ -37,7 +38,7 @@ export {
   updateLlmProviderBodySchema,
 } from './llm-config.ts';
 export type { AiPurposeName, AiSettingKey } from './llm-config-keys.ts';
-export { AI_PURPOSE_TO_SETTING_KEY, AI_SETTING_KEY_VALUES } from './llm-config-keys.ts';
+export { AI_PURPOSE_TO_SETTING_KEY, AI_SETTING_KEY_VALUES, isAiSettingKey } from './llm-config-keys.ts';
 export type { LlmApiFamilyDefinition, LlmProviderOptionalField, LlmWireVariantDefinition } from './wire-registry.ts';
 export {
   assertWireVariantForFamily,
