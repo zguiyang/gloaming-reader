@@ -90,6 +90,7 @@
   --ease-out-soft: var(--ease-out);
   --animate-loading-soft-ring: loading-soft-ring 2.2s var(--ease-out) infinite;
   --animate-loading-page: loading-page 1.15s ease-in-out infinite;
+  --animate-book-page-turn: book-page-turn 2.4s var(--ease-out) infinite;
   --animate-reader-disc-spin: reader-disc-spin 16s linear infinite;
   --drop-shadow-icon: 0 1px 2px rgb(0 0 0 / 0.65);
   --max-width-reading-column: var(--reading-column);
@@ -122,6 +123,22 @@
   50% {
     transform: scaleY(1);
     opacity: 1;
+  }
+}
+
+/* Soft editorial page turn — hinged at the spine, settles, then repeats. */
+@keyframes book-page-turn {
+  0% {
+    transform: rotateY(0deg);
+  }
+  42% {
+    transform: rotateY(-158deg);
+  }
+  58% {
+    transform: rotateY(-158deg);
+  }
+  100% {
+    transform: rotateY(0deg);
   }
 }
 
