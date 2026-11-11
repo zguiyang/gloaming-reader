@@ -1,6 +1,7 @@
 'use client';
 
 import { Settings, UserCircleIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
@@ -15,6 +16,7 @@ import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export function MorePage() {
+  const router = useRouter();
   const { locale } = useLocale();
   const { openLogin } = useAuthDialog();
   const session = authClient.useSession();
@@ -38,7 +40,8 @@ export function MorePage() {
       return;
     }
     toast.success(t(locale, 'auth.signOutSuccess'));
-    window.location.assign('/');
+    router.replace('/');
+    router.refresh();
   }
 
   return (

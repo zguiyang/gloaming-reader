@@ -1,6 +1,7 @@
 'use client';
 
 import { LogOutIcon, Settings, Settings2, UserCircleIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { t } from '@gloaming/i18n';
@@ -24,6 +25,7 @@ import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 export function useNavAccount() {
+  const router = useRouter();
   const { locale } = useLocale();
   const navCopy = getNavCopy(locale);
   const { data, isPending } = authClient.useSession();
@@ -41,7 +43,8 @@ export function useNavAccount() {
       return;
     }
     toast.success(t(locale, 'auth.signOutSuccess'));
-    window.location.assign('/');
+    router.replace('/');
+    router.refresh();
   }
 
   return {
@@ -85,6 +88,7 @@ export function AccountMenu({
   onSignOut,
   triggerClassName,
 }: AccountMenuProps) {
+  const router = useRouter();
   const { locale, setLocale, localeOptions } = useLocale();
   const navCopy = getNavCopy(locale);
   const accountAriaLabel = t(locale, 'nav.accountMenuAria', {
@@ -92,6 +96,11 @@ export function AccountMenu({
     email,
     account: navCopy.account,
   });
+
+  function goTo(href: string) {
+    onOpenChange(false);
+    router.push(href);
+  }
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -155,10 +164,7 @@ export function AccountMenu({
             'text-foreground outline-none select-none',
             'data-highlighted:bg-muted',
           )}
-          onClick={() => {
-            onOpenChange(false);
-            window.location.assign(AUTH_ROUTES.account);
-          }}
+          onClick={() => goTo(AUTH_ROUTES.account)}
         >
           <UserCircleIcon className="size-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
           {t(locale, 'nav.accountCenter')}
@@ -169,10 +175,7 @@ export function AccountMenu({
             'text-foreground outline-none select-none',
             'data-highlighted:bg-muted',
           )}
-          onClick={() => {
-            onOpenChange(false);
-            window.location.assign(AUTH_ROUTES.settings);
-          }}
+          onClick={() => goTo(AUTH_ROUTES.settings)}
         >
           <Settings className="size-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
           {t(locale, 'nav.settings')}
@@ -184,9 +187,7 @@ export function AccountMenu({
               'text-foreground outline-none select-none',
               'data-highlighted:bg-muted',
             )}
-            onClick={() => {
-              window.location.assign(ADMIN_ROUTES.assets);
-            }}
+            onClick={() => goTo(ADMIN_ROUTES.assets)}
           >
             <Settings2 className="size-4 text-muted-foreground" strokeWidth={1.5} aria-hidden />
             {navCopy.admin}
