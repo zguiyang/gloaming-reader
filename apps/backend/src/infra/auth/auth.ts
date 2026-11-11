@@ -7,6 +7,7 @@ import { AUTH_PASSWORD_POLICY, AUTH_USER_ROLE, AUTH_USERNAME_POLICY, isValidUser
 
 import { bindAuthDatabaseForAdapter, resolveRoleForNewUser } from '@/infra/auth/bootstrap';
 import { buildVerificationUrl, logDevAuthLink, sendAuthMail } from '@/infra/auth/mail';
+import { authSecondaryStorage } from '@/infra/auth/secondary-storage';
 import { env } from '@/infra/config/env';
 import { db } from '@/infra/db';
 
@@ -45,6 +46,16 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
+  // Redis absorbs repeated get-session / middleware lookups (Seoul-local);
+  // Postgres remains the durable session store so revoke/sign-out stay immediate.
+  secondaryStorage: authSecondaryStorage,
+  session: {
+    storeSessionInDatabase: true,
+  },
+  // Keep verification tokens queryable in Postgres (admin/tests/mail flows).
+  verification: {
+    storeInDatabase: true,
+  },
   socialProviders,
   emailAndPassword: {
     enabled: true,

@@ -18,13 +18,44 @@ function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 }
 
-function cookieHeader(response: Response): string {
+function setCookieEntries(response: Response): string[] {
   const getSetCookie = (response.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie?.();
   if (getSetCookie?.length) {
-    return getSetCookie.map((entry) => entry.split(';')[0]).join('; ');
+    return getSetCookie;
   }
   const single = response.headers.get('set-cookie');
-  return single ? single.split(';')[0]! : '';
+  return single ? [single] : [];
+}
+
+function cookieHeader(response: Response): string {
+  return setCookieEntries(response)
+    .map((entry) => entry.split(';')[0])
+    .filter(Boolean)
+    .join('; ');
+}
+
+/** Apply Set-Cookie onto an existing jar (clears Max-Age=0 / empty values). */
+function applySetCookie(existing: string, response: Response): string {
+  const jar = new Map<string, string>();
+  for (const part of existing.split('; ').filter(Boolean)) {
+    const index = part.indexOf('=');
+    if (index <= 0) continue;
+    jar.set(part.slice(0, index), part.slice(index + 1));
+  }
+  for (const entry of setCookieEntries(response)) {
+    const pair = entry.split(';')[0] ?? '';
+    const index = pair.indexOf('=');
+    if (index <= 0) continue;
+    const name = pair.slice(0, index);
+    const value = pair.slice(index + 1);
+    const cleared = !value || /Max-Age=0/i.test(entry) || /Expires=.*1970/i.test(entry);
+    if (cleared) {
+      jar.delete(name);
+    } else {
+      jar.set(name, value);
+    }
+  }
+  return [...jar.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
 }
 
 async function signUp(input: { email: string; username: string; name: string }) {
@@ -178,7 +209,7 @@ describe('Better Auth HTTP', () => {
     expect(signOut.status).toBe(200);
 
     const meAfter = await app.request('/api/me', {
-      headers: { cookie },
+      headers: { cookie: applySetCookie(cookie, signOut) },
     });
     expect(meAfter.status).toBe(401);
   });

@@ -58,16 +58,21 @@ export async function listCatalogWorks(query: CatalogListQuery): Promise<Catalog
   const orderBy = publishedListOrderBy(query);
   const offset = (query.page - 1) * query.pageSize;
 
-  const [countRow] = await db.select({ value: count() }).from(readingWorkTable).where(where);
+  const [countRow, rows] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(readingWorkTable)
+      .where(where)
+      .then((result) => result[0]),
+    db
+      .select()
+      .from(readingWorkTable)
+      .where(where)
+      .orderBy(...orderBy)
+      .limit(query.pageSize)
+      .offset(offset),
+  ]);
   const total = Number(countRow?.value ?? 0);
-
-  const rows = await db
-    .select()
-    .from(readingWorkTable)
-    .where(where)
-    .orderBy(...orderBy)
-    .limit(query.pageSize)
-    .offset(offset);
 
   const partCountsByWork = await loadPartCountsByWorkIds(rows.map((row) => row.id));
   return {

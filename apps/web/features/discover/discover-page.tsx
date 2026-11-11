@@ -231,10 +231,10 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
           {recordsItems.length > 0 ? (
             <LoadingOverlay active={recordsList.isSoftRefreshing} label={t(locale, 'content.discover.softRefreshing')}>
               <div className="md:hidden">
-                <DiscoverGrid items={mobileItems} />
+                <DiscoverGrid items={mobileItems} userId={userId} />
               </div>
               <div className="hidden md:block">
-                <DiscoverGrid items={recordsItems} />
+                <DiscoverGrid items={recordsItems} userId={userId} />
               </div>
               <DiscoverPagination
                 page={recordsList.page}

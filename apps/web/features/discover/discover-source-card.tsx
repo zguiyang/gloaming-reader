@@ -30,6 +30,8 @@ type DiscoverSourceCardProps = {
   item: DiscoverItem;
   detailMode?: boolean;
   actionsOnly?: boolean;
+  /** Viewer id lifted from the page session atom — avoids per-card useSession. */
+  userId?: string | null;
 };
 
 type SaveActionState = 'saving' | null;
@@ -48,7 +50,32 @@ const SOURCE_RECORD_NO_EPUB_CANDIDATE_CODE = 'api.errors.library.sourceRecordNoE
  * SourceRecord has no readable Work yet, so its action is an explicit Save
  * Intent that materializes on demand.
  */
-export function DiscoverSourceCard({ item, detailMode = false, actionsOnly = false }: DiscoverSourceCardProps) {
+export function DiscoverSourceCard({
+  item,
+  detailMode = false,
+  actionsOnly = false,
+  userId: userIdProp,
+}: DiscoverSourceCardProps) {
+  // Grid pages pass userId from one upstream session read; standalone cards hydrate once here.
+  if (userIdProp !== undefined) {
+    return (
+      <DiscoverSourceCardContent
+        key={userIdProp ?? 'anonymous'}
+        item={item}
+        detailMode={detailMode}
+        actionsOnly={actionsOnly}
+        userId={userIdProp}
+      />
+    );
+  }
+  return <DiscoverSourceCardWithSession item={item} detailMode={detailMode} actionsOnly={actionsOnly} />;
+}
+
+function DiscoverSourceCardWithSession({
+  item,
+  detailMode = false,
+  actionsOnly = false,
+}: Omit<DiscoverSourceCardProps, 'userId'>) {
   const { data } = authClient.useSession();
   const userId = data?.user.id ?? null;
   return (
@@ -76,7 +103,7 @@ function DiscoverSourceCardContent({
     result: SourceRecordSaveResult;
     seenData: SourceRecordSaveStatus | undefined;
   } | null>(null);
-  const statusQuery = useSourceRecordSaveStatusQuery(item.id);
+  const statusQuery = useSourceRecordSaveStatusQuery(item.id, { userId });
 
   // A POST result only bridges until the status query reports data of its own:
   // once the query data object changes, the server read is authoritative again.

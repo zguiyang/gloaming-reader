@@ -92,21 +92,20 @@ function toWorkSummary(row: WorkRow) {
 
 /** Library membership comes only from ownership or an explicit catalog save. */
 export async function getLibrary(userId: string): Promise<LibraryData> {
-  const [currentRow] = await db
-    .select({ state: readingStateTable, work: readingWorkTable })
-    .from(readingStateTable)
-    .innerJoin(readingWorkTable, eq(readingStateTable.workId, readingWorkTable.id))
-    .where(
-      and(
-        eq(readingStateTable.userId, userId),
-        eq(readingStateTable.status, 'in_progress'),
-        workReadAccessSql(workReadActorFromIdentity({ id: userId })),
-      ),
-    )
-    .orderBy(desc(readingStateTable.lastReadAt), desc(readingStateTable.id))
-    .limit(1);
-
-  const [ownedRows, savedRows, [ownedCount], [savedCount]] = await Promise.all([
+  const [[currentRow], ownedRows, savedRows, [ownedCount], [savedCount]] = await Promise.all([
+    db
+      .select({ state: readingStateTable, work: readingWorkTable })
+      .from(readingStateTable)
+      .innerJoin(readingWorkTable, eq(readingStateTable.workId, readingWorkTable.id))
+      .where(
+        and(
+          eq(readingStateTable.userId, userId),
+          eq(readingStateTable.status, 'in_progress'),
+          workReadAccessSql(workReadActorFromIdentity({ id: userId })),
+        ),
+      )
+      .orderBy(desc(readingStateTable.lastReadAt), desc(readingStateTable.id))
+      .limit(1),
     db
       .select({
         work: readingWorkTable,

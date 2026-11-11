@@ -242,10 +242,12 @@ async function listSourceRecordPage(
   const rows = countMode === 'probe' ? fetchedRows.slice(0, query.pageSize) : fetchedRows;
 
   const recordIds = rows.map((row) => row.record.id);
-  const categoriesByRecord = await loadCategorySummariesByRecordIds(recordIds, locale);
   const workIds = rows.map((row) => row.record.workId);
-  const detailIds = await loadViewerDetailAvailability(workIds, access.actor);
-  const coverUrls = access.viewerCovers ? await loadViewerCoverUrls(workIds, access.actor) : null;
+  const [categoriesByRecord, detailIds, coverUrls] = await Promise.all([
+    loadCategorySummariesByRecordIds(recordIds, locale),
+    loadViewerDetailAvailability(workIds, access.actor),
+    access.viewerCovers ? loadViewerCoverUrls(workIds, access.actor) : Promise.resolve(null),
+  ]);
 
   const items = rows.map((row) => ({
     ...toSourceRecordItem(
@@ -352,9 +354,11 @@ export async function getSourceRecord(
   }
 
   const actor = options.actor ?? anonymousWorkReadActor();
-  const categoriesByRecord = await loadCategorySummariesByRecordIds([row.record.id], locale);
-  const coverUrls = await loadViewerCoverUrls([row.record.workId], actor);
-  const detailIds = await loadViewerDetailAvailability([row.record.workId], actor);
+  const [categoriesByRecord, coverUrls, detailIds] = await Promise.all([
+    loadCategorySummariesByRecordIds([row.record.id], locale),
+    loadViewerCoverUrls([row.record.workId], actor),
+    loadViewerDetailAvailability([row.record.workId], actor),
+  ]);
   return {
     ...toSourceRecordDetail(
       row.record,

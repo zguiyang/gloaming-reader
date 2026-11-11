@@ -127,20 +127,25 @@ async function listWorks(actor: WorkReadActor, userId: string): Promise<ReadingH
 export async function getReadingHistory(actor: WorkReadActor, userId: string): Promise<ReadingHistoryData> {
   const today = calendarDateInTimeZone();
 
-  const activity = await listEngagedActivity(userId);
+  const [activity, completedWorks, lookedUpWords, works] = await Promise.all([
+    listEngagedActivity(userId),
+    countCompletedWorks(userId),
+    countLookedUpWords(userId),
+    listWorks(actor, userId),
+  ]);
   const dateSet = new Set(activity.map((day) => day.date));
 
   const portrait: ReadingHistorySummary = {
     consecutiveDays: consecutiveReadingDays(today, dateSet),
     readingDays: activity.length,
-    completedWorks: await countCompletedWorks(userId),
-    lookedUpWords: await countLookedUpWords(userId),
+    completedWorks,
+    lookedUpWords,
   };
 
   return {
     today,
     activity,
-    works: await listWorks(actor, userId),
+    works,
     portrait,
   };
 }

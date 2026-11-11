@@ -32,7 +32,10 @@ function mapUser(raw: unknown): User | null {
   return parsed.success ? parsed.data : null;
 }
 
-/** Soft session UX via BA `useSession` → backend get-session. */
+/**
+ * Soft session UX via BA's shared client store (one get-session hydrate, many subscribers).
+ * Prefer lifting `userId` into feature trees instead of nesting extra session reads.
+ */
 export function useSession(): SessionState {
   const session = baClient.useSession();
   const isMounted = useSyncExternalStore(subscribeToHydration, getClientHydrationSnapshot, getServerHydrationSnapshot);

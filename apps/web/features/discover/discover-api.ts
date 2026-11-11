@@ -146,9 +146,13 @@ export function saveStatusRefetchInterval(query: { state: { data?: SourceRecordS
  * be parsing) and polls while the server reports `pending`. Enabled only for
  * authenticated viewers; anonymous visitors simply never query.
  */
-export function useSourceRecordSaveStatusQuery(sourceRecordId: string, options?: { enabled?: boolean }) {
-  const { data: authData } = authClient.useSession();
-  const userId = authData?.user.id ?? null;
+export function useSourceRecordSaveStatusQuery(
+  sourceRecordId: string,
+  options?: { enabled?: boolean; userId?: string | null },
+) {
+  // Prefer an explicit viewer id from the page; fall back to the shared BA atom once.
+  const session = authClient.useSession();
+  const userId = options?.userId !== undefined ? options.userId : (session.data?.user.id ?? null);
   return useQuery({
     queryKey: discoverQueryKey.saveStatus(sourceRecordId, userId),
     queryFn: ({ signal }) => fetchSourceRecordSaveStatus(sourceRecordId, { signal }),
@@ -157,9 +161,12 @@ export function useSourceRecordSaveStatusQuery(sourceRecordId: string, options?:
   });
 }
 
-export function useDiscoverRecordsQuery(params: DiscoverListParams, options?: { enabled?: boolean }) {
-  const { data: authData } = authClient.useSession();
-  const userId = authData?.user.id ?? null;
+export function useDiscoverRecordsQuery(
+  params: DiscoverListParams,
+  options?: { enabled?: boolean; userId?: string | null },
+) {
+  const session = authClient.useSession();
+  const userId = options?.userId !== undefined ? options.userId : (session.data?.user.id ?? null);
   return useQuery({
     queryKey: discoverQueryKey.records(params, userId),
     queryFn: ({ signal }) => fetchDiscoverRecords(params, { signal }),
