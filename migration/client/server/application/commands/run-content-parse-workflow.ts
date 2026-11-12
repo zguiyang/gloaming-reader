@@ -12,7 +12,6 @@ import {
   runContentParse,
   startParseWorkflowLease,
 } from '@/server/domains/ingest/parser';
-import { recordPersonalTagRunOnParseReady } from '@/server/domains/library/tags/personal-ai-tagging';
 import { computePartReadingStats, computeWorkReadingStats } from '@/server/domains/reading';
 import {
   claimWorkflowStep,
@@ -153,7 +152,6 @@ async function finalizeContentParseWorkflow(
           .update(readingWorkTable)
           .set({ originMeta: sql`${readingWorkTable.originMeta} - 'workflowParseArtifacts'` })
           .where(eq(readingWorkTable.id, workId));
-        await recordPersonalTagRunOnParseReady(tx, workId);
         return true;
       });
       if (!completed) return false;

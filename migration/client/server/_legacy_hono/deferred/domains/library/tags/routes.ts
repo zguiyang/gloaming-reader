@@ -9,7 +9,10 @@ import { type AuthVariables, requireAuth } from '@/server/infra/http/middleware/
 import { sendValidationError } from '@/server/infra/http/response';
 import { HTTP_STATUS } from '@/server/shared/constants';
 
-import { getPersonalTaggingPreference, setPersonalTaggingPreference } from './personal-ai-tagging';
+import {
+  getPersonalTaggingPreference,
+  setPersonalTaggingPreference,
+} from '@/server/domains/library/tags/personal-ai-tagging';
 import {
   assignUserTag,
   completeUserTagTranslations,

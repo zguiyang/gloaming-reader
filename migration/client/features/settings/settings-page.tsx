@@ -30,7 +30,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
 import { useAuthDialog } from '@/features/auth';
 import {
   createUserLlmModel,
@@ -38,13 +37,10 @@ import {
   deleteUserLlmModel,
   deleteUserLlmProvider,
   formatUserSettingsApiError,
-  getPersonalTaggingPreference,
   getUserTtsConfig,
   listUserLlmModels,
   listUserLlmProviders,
   listUserLlmSettings,
-  personalTaggingRunErrorKey,
-  putPersonalTaggingPreference,
   putUserLlmSetting,
   testUserLlmModel,
   updateUserLlmModel,
@@ -344,11 +340,6 @@ export function SettingsPage() {
     queryFn: ({ signal }) => getUserTtsConfig(signal),
     enabled: Boolean(session.data?.user),
   });
-  const personalTaggingQuery = useQuery({
-    queryKey: userSettingsQueryKey.personalTagging(),
-    queryFn: ({ signal }) => getPersonalTaggingPreference(signal),
-    enabled: Boolean(session.data?.user),
-  });
   const providers = providersQuery.data ?? [];
   const [modelTestResults, setModelTestResults] = useState<Record<string, ModelTestResult>>({});
   const modelsQueries = useQueries({
@@ -552,15 +543,6 @@ export function SettingsPage() {
         delete next[key];
         return next;
       });
-      toast.success(t(locale, 'settings.saved'));
-    },
-    onError: (error) => toast.error(formatUserSettingsApiError(error)),
-  });
-
-  const personalTaggingMutation = useMutation({
-    mutationFn: (enabled: boolean) => putPersonalTaggingPreference(enabled),
-    onSuccess: async (preference) => {
-      queryClient.setQueryData(userSettingsQueryKey.personalTagging(), preference);
       toast.success(t(locale, 'settings.saved'));
     },
     onError: (error) => toast.error(formatUserSettingsApiError(error)),
@@ -1201,42 +1183,6 @@ export function SettingsPage() {
               </div>
             ) : null}
           </div>
-        ) : null}
-      </section>
-
-      {/* EPUB organization: instantly saved preference toggle */}
-      <section className="mb-8 border-b border-border/40 pb-6">
-        <h2 className="font-heading mb-3 text-xl font-semibold">{t(locale, 'settings.personalTagging.title')}</h2>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <label htmlFor="settings-personal-tagging" className="text-sm text-foreground">
-            {t(locale, 'settings.personalTagging.toggle')}
-          </label>
-          <Switch
-            id="settings-personal-tagging"
-            checked={personalTaggingQuery.data?.enabled ?? false}
-            disabled={personalTaggingQuery.isPending || personalTaggingMutation.isPending}
-            onCheckedChange={(checked) => personalTaggingMutation.mutate(checked)}
-          />
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">{t(locale, 'settings.personalTagging.description')}</p>
-        {personalTaggingQuery.data?.enabled && !personalTaggingQuery.data.providerAvailable ? (
-          <p role="status" className="mt-2 text-sm text-muted-foreground">
-            {t(locale, 'settings.personalTagging.providerUnavailable')}
-          </p>
-        ) : null}
-        {personalTaggingQuery.data?.enabled &&
-        personalTaggingQuery.data.providerAvailable &&
-        personalTaggingQuery.data.latestRunState ? (
-          <p role="status" className="mt-2 text-sm text-muted-foreground">
-            {personalTaggingQuery.data.latestRunState === 'failed'
-              ? t(locale, personalTaggingRunErrorKey(personalTaggingQuery.data.latestRunErrorCode))
-              : t(locale, `settings.personalTagging.runState.${personalTaggingQuery.data.latestRunState}`)}
-          </p>
-        ) : null}
-        {personalTaggingQuery.error ? (
-          <p role="alert" className="mt-2 text-sm text-destructive">
-            {formatUserSettingsApiError(personalTaggingQuery.error)}
-          </p>
         ) : null}
       </section>
 

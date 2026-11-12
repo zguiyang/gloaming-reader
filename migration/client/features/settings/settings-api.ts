@@ -23,48 +23,13 @@ import { apiRequest, formatApiError } from '@/lib/api-request';
 const providerListSchema = z.array(llmProviderSchema);
 const modelListSchema = z.array(llmModelSchema);
 const settingListSchema = z.array(llmAppSettingSchema);
-const personalTaggingPreferenceSchema = z.object({
-  enabled: z.boolean(),
-  generation: z.number().int().nonnegative(),
-  providerAvailable: z.boolean(),
-  latestRunState: z.enum(['queued', 'processing', 'completed', 'skipped', 'failed']).nullable(),
-  /** Optional so an older backend payload without the field still validates. */
-  latestRunErrorCode: z.string().nullable().optional(),
-});
-export type PersonalTaggingPreference = z.infer<typeof personalTaggingPreferenceSchema>;
-
-const personalTaggingRunErrorKeys: Record<string, string> = {
-  attempts_exhausted: 'settings.personalTagging.runError.attempts_exhausted',
-  worker_attempts_exhausted: 'settings.personalTagging.runError.worker_attempts_exhausted',
-};
-
-/** Known failure reasons get their own copy; unknown or missing codes fall back to the generic failure text. */
-export function personalTaggingRunErrorKey(errorCode: string | null | undefined): string {
-  return (
-    (errorCode ? personalTaggingRunErrorKeys[errorCode] : undefined) ?? 'settings.personalTagging.runError.generic'
-  );
-}
-
 export const userSettingsQueryKey = {
   all: ['user-settings'] as const,
   providers: () => [...userSettingsQueryKey.all, 'llm', 'providers'] as const,
   models: () => [...userSettingsQueryKey.all, 'llm', 'models'] as const,
   settings: () => [...userSettingsQueryKey.all, 'llm', 'settings'] as const,
   tts: () => [...userSettingsQueryKey.all, 'tts'] as const,
-  personalTagging: () => [...userSettingsQueryKey.all, 'personal-tagging'] as const,
 };
-
-export async function getPersonalTaggingPreference(signal?: AbortSignal): Promise<PersonalTaggingPreference> {
-  return apiRequest('/api/settings/personal-tagging', { schema: personalTaggingPreferenceSchema, signal });
-}
-
-export async function putPersonalTaggingPreference(enabled: boolean): Promise<PersonalTaggingPreference> {
-  return apiRequest('/api/settings/personal-tagging', {
-    method: 'PUT',
-    schema: personalTaggingPreferenceSchema,
-    json: { enabled },
-  });
-}
 
 export async function listUserLlmProviders(signal?: AbortSignal): Promise<LlmProvider[]> {
   return apiRequest('/api/settings/llm/providers', { schema: providerListSchema, signal });
