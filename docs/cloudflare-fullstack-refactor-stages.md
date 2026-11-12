@@ -45,7 +45,7 @@ P0  规则对齐（消冲突）                 ✅ 已完成
 P1  Next-on-Workers 前置可行性         ✅ 已完成（绿场探针；见 Appendix A）
 P2  旁路新树 + 迁入切片 backlog        ✅ backlog 已写入 §4；执行仍需逐片授权
 P3  migration/ 建树 → 迁前端 → 迁后端 → 瘦身  ← N3∥N4 本地切流已就绪；N5 另授权
-P4  `client/` 上 Workers 真实兼容       迁入差不多之后（未开始）
+P4  `client/` 上 Workers 真实兼容       🔄 P4-V1 进行中（vinext 构建 + Preview 薄路径）
 ```
 
 | 阶段   | 目的                                              | 产出                                   | 明确不做                         |
@@ -58,7 +58,9 @@ P4  `client/` 上 Workers 真实兼容       迁入差不多之后（未开始�
 
 **P3 本地进度（2026-11-12）：** N0–N2 脚手架/壳已落地；本波完成 **N3∥N4 本地切流**——`client/` 含全量 UI + Next Route Handlers（无嵌 Hono）+ 同包 BullMQ worker 第二进程；T1（AI SDK）/ T2（Azure Speech REST）在迁入路径生效。巩固波：对照表 [`PROCESS_COMPARE.md`](./PROCESS_COMPARE.md)、T3 清单 [`T3-DEPENDENCY-INVENTORY.md`](./T3-DEPENDENCY-INVENTORY.md)、限流 [`RATE_LIMIT.md`](./RATE_LIMIT.md)、assist tools 已接 AI SDK。详见 [`LOCAL_RUN.md`](./LOCAL_RUN.md)。
 
-**N5（2026-11-12）：** 根 `apps/*` 与根 `packages/*` 已迁至 **`archive/`**；**step ③ 根提升已完成**（`migration/` 信封已取消，`client/` + `packages/` 为产品根 workspace）。**未做：** R5 Jobs 终态书面定案、**P4** Workers。
+**N5（2026-11-12）：** 根 `apps/*` 与根 `packages/*` 已迁至 **`archive/`**；**step ③ 根提升已完成**（`migration/` 信封已取消，`client/` + `packages/` 为产品根 workspace）。**未做：** R5 Jobs 终态书面定案。
+
+**P4-V1（2026-11-12）：** 对象 **`client/`**（非 `migration/client`）。`vinext init --platform=cloudflare` + `pnpm build:workers` 本地通过；非生产 Preview `p4-v1-smoke` 已部署。详见 [`research/cf-workers-p4-v1-findings.md`](./research/cf-workers-p4-v1-findings.md)。**未做：** P4-V2 鉴权/DB/Free CPU 实测。
 
 ---
 
@@ -242,10 +244,10 @@ P4  `client/` 上 Workers 真实兼容       迁入差不多之后（未开始�
 
 #### D. 平台（后置）
 
-| ID        | 切片                                      | 何时             | 说明                     |
-| --------- | ----------------------------------------- | ---------------- | ------------------------ |
-| **P4-V1** | `migration/client` → Workers 构建/Preview | N4/N5 差不多之后 | 对象是新树，不是旧三件套 |
-| **P4-V2** | 真实鉴权/session/DB 与 Free CPU           | P4-V1 前后       | P1 探针不能代替          |
+| ID        | 切片                                 | 何时          | 说明                     |
+| --------- | ------------------------------------ | ------------- | ------------------------ |
+| **P4-V1** | **`client/`** → Workers 构建/Preview | N5 根提升之后 | 对象是新树，不是旧三件套 |
+| **P4-V2** | 真实鉴权/session/DB 与 Free CPU      | P4-V1 前后    | P1 探针不能代替          |
 
 **明确后置：** EPUB 重解析落点；是否启用 Jobs / CF Queues。
 
@@ -286,10 +288,12 @@ P4  `client/` 上 Workers 真实兼容       迁入差不多之后（未开始�
 
 ## 6. P4 — 平台迁与真实兼容性（迁入差不多之后）
 
-**前置：** 维护者判定 `migration/client` 主路径已迁得差不多（通常 N4 后，N5 可并行或略后）。  
-**对象：** `migration/` 新结构，**不是**旧 `web+api+worker`。  
+**前置：** N5 后产品根为 **`client/` + `packages/`**（`migration/` 信封已取消）。  
+**对象：** **`client/`** 新结构，**不是** `archive/` 旧 `web+api+worker`。  
 **内容：** Workers 构建/Preview、关键路径、鉴权/DB 与 Free CPU（P4-V1/V2）。  
 **禁止：** 用旧三件套或 P1 探针冒充 P4 证据。
+
+**P4-V1 状态（2026-11-12）：** 进行中 — vinext 并存路径已入库（`client/vite.config.ts` 等）；`pnpm build:workers` 冒烟；Preview 见 [P4-V1 findings](./research/cf-workers-p4-v1-findings.md)。默认交付仍为 `pnpm dev` + `pnpm jobs`（Node）。
 
 ---
 
