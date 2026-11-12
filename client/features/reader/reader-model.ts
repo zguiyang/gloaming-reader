@@ -1,8 +1,8 @@
 /** Reader UI types — aligned with split reader APIs. */
 
-import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
-import type { ReadingAnchor, ReadingStateStatus } from '@gloaming/shared/reader';
-import type { PartSummary } from '@gloaming/shared/works';
+import { DEFAULT_LOCALE, type Locale, t } from '@/i18n';
+import type { ReadingAnchor, ReadingStateStatus } from '@/shared/reader';
+import type { PartSummary } from '@/shared/works';
 
 export type ReaderInlineAssistKind = 'explain' | 'translate' | 'ask';
 

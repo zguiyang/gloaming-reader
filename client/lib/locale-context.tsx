@@ -2,7 +2,7 @@
 
 import { createContext, type ReactNode, useContext, useEffect } from 'react';
 
-import { type Locale, SUPPORTED_LOCALES, t } from '@gloaming/i18n';
+import { type Locale, SUPPORTED_LOCALES, t } from '@/i18n';
 
 import { getClientLocale, setClientLocaleCookie } from './client-locale';
 

@@ -1,4 +1,4 @@
-import { conversationListQuerySchema, createConversationBodySchema } from '@gloaming/shared/conversations';
+import { conversationListQuerySchema, createConversationBodySchema } from '@/shared/conversations';
 
 import { createConversation, listConversations } from '@/server/domains/conversations/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

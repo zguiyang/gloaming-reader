@@ -4,8 +4,8 @@ import { BookOpenIcon, SparklesIcon, Volume2Icon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import type { DictionaryEntry } from '@gloaming/shared/dictionary';
+import { t } from '@/i18n';
+import type { DictionaryEntry } from '@/shared/dictionary';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

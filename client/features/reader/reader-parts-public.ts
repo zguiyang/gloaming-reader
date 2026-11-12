@@ -1,4 +1,4 @@
-import { type ReaderPartsData, readerPartsDataSchema } from '@gloaming/shared/reader';
+import { type ReaderPartsData, readerPartsDataSchema } from '@/shared/reader';
 
 import { apiRequest } from '@/lib/api-request';
 

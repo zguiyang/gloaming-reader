@@ -3,8 +3,8 @@
 import { HistoryIcon, MessageSquarePlusIcon, QuoteIcon, XIcon } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 
-import { type Locale, t } from '@gloaming/i18n';
-import type { ConversationSummary } from '@gloaming/shared/conversations';
+import { type Locale, t } from '@/i18n';
+import type { ConversationSummary } from '@/shared/conversations';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

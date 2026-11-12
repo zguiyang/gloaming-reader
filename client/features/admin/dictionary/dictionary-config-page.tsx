@@ -5,14 +5,14 @@ import { TriangleAlert, Volume2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { type Locale, t } from '@gloaming/i18n';
+import { type Locale, t } from '@/i18n';
 import {
   DICTIONARY_PROVIDER_CUSTOM,
   DICTIONARY_PROVIDER_FREE,
   DICTIONARY_PROVIDER_YOUDAO,
   type DictionaryConfigView,
   type TestDictionaryResult,
-} from '@gloaming/shared/dictionary';
+} from '@/shared/dictionary';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';

@@ -1,8 +1,4 @@
-import {
-  type BilingualCachePayload,
-  bilingualCachePayloadSchema,
-  type TranslatePartBody,
-} from '@gloaming/shared/translate';
+import { type BilingualCachePayload, bilingualCachePayloadSchema, type TranslatePartBody } from '@/shared/translate';
 
 import { composePromptMessages, PROMPT_ROLE, PROMPT_SCENE, streamAi } from '@/server/domains/ai';
 import {

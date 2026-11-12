@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react';
 
-import { t } from '@gloaming/i18n';
-import type { DictionaryEntry } from '@gloaming/shared/dictionary';
+import { t } from '@/i18n';
+import type { DictionaryEntry } from '@/shared/dictionary';
 
 import { Popover, PopoverContent } from '@/components/ui/popover';
 import { ReaderDictionaryCard } from '@/features/reader/dictionary/reader-dictionary-card';

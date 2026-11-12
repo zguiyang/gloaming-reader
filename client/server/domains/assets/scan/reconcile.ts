@@ -6,7 +6,7 @@ import {
   type AssetCategorySummary,
   type AssetScanReport,
   classifyAssetKey,
-} from '@gloaming/shared/assets';
+} from '@/shared/assets';
 
 import type { ReferencedKeyIndex } from '@/server/domains/assets/management/referenced-keys';
 import type { ObjectListItem } from '@/server/infra/storage';

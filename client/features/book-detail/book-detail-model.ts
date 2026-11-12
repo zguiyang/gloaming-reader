@@ -1,5 +1,5 @@
-import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
-import type { LibraryItem } from '@gloaming/shared/library';
+import { DEFAULT_LOCALE, type Locale, t } from '@/i18n';
+import type { LibraryItem } from '@/shared/library';
 
 /** Reading lifecycle for book detail CTA / progress chrome. */
 export type BookReadingStatus = 'unread' | 'in_progress' | 'completed';

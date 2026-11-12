@@ -1,4 +1,4 @@
-import { readerAudioManifestQuerySchema } from '@gloaming/shared/reader';
+import { readerAudioManifestQuerySchema } from '@/shared/reader';
 
 import { getReaderAudioManifest } from '@/server/domains/reader-audio/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

@@ -1,2 +1,2 @@
-/** Re-export for `@/server@/server/db/schema` imports. */
+/** Re-export for `@/server/db/schema` imports. */
 export * from './schema.ts';

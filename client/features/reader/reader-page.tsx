@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { useAuthDialog } from '@/features/auth';
 import { ReaderAiDrawer } from '@/features/reader/assist/reader-ai-drawer';

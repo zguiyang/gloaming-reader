@@ -4,8 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { type Locale, t } from '@gloaming/i18n';
-import type { LibraryItem } from '@gloaming/shared/library';
+import { type Locale, t } from '@/i18n';
+import type { LibraryItem } from '@/shared/library';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

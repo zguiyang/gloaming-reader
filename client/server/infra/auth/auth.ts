@@ -3,7 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { username } from 'better-auth/plugins';
 
 import * as schema from '@/server/db/schema';
-import { AUTH_PASSWORD_POLICY, AUTH_USER_ROLE, AUTH_USERNAME_POLICY, isValidUsername } from '@gloaming/shared/auth';
+import { AUTH_PASSWORD_POLICY, AUTH_USER_ROLE, AUTH_USERNAME_POLICY, isValidUsername } from '@/shared/auth';
 
 import { bindAuthDatabaseForAdapter, resolveRoleForNewUser } from '@/server/infra/auth/bootstrap';
 import { buildVerificationUrl, logDevAuthLink, sendAuthMail } from '@/server/infra/auth/mail';

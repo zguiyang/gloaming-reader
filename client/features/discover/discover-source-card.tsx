@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import type { SourceRecordSaveResult, SourceRecordSaveStatus } from '@gloaming/shared/library';
+import { t } from '@/i18n';
+import type { SourceRecordSaveResult, SourceRecordSaveStatus } from '@/shared/library';
 
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';

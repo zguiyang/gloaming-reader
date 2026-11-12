@@ -11,7 +11,7 @@ import {
   READING_STATE_ANCHOR_KIND,
   type ReadingState,
   type UpdateReadingStateBody,
-} from '@gloaming/shared/reader';
+} from '@/shared/reader';
 
 import { touchReadingDay } from '@/server/domains/reading/history';
 import { toReadingState } from '@/server/domains/reading/reader/reading-state';

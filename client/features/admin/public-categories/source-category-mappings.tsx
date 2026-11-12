@@ -5,8 +5,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-import { type Locale, t } from '@gloaming/i18n';
-import { type PublicCategoryManagementItem, sourceCategoryMappingListSchema } from '@gloaming/shared/discovery';
+import { type Locale, t } from '@/i18n';
+import { type PublicCategoryManagementItem, sourceCategoryMappingListSchema } from '@/shared/discovery';
 
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

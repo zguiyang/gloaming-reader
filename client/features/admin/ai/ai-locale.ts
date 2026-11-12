@@ -1,6 +1,6 @@
-import { type Locale, t } from '@gloaming/i18n';
-import type { LlmApiFamily } from '@gloaming/shared/llm';
-import { getWireFamilyDefinition, getWireVariantLabel } from '@gloaming/shared/llm';
+import { type Locale, t } from '@/i18n';
+import type { LlmApiFamily } from '@/shared/llm';
+import { getWireFamilyDefinition, getWireVariantLabel } from '@/shared/llm';
 
 function protocolFamilyKey(apiFamily: LlmApiFamily): string {
   return `admin.ai.protocol.family.${apiFamily}`;

@@ -1,4 +1,4 @@
-import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
+import { EPUB_UPLOAD_MAX_BYTES } from '@/shared/works';
 
 export const EPUB_ERROR_CODES = {
   INVALID_ARCHIVE: 'EPUB_INVALID_ARCHIVE',

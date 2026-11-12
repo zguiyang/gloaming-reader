@@ -3,7 +3,7 @@
 import { SearchIcon, XIcon } from 'lucide-react';
 import { type FormEvent } from 'react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group';

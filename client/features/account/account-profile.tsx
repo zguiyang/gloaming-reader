@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { formatAccountCreatedAt, resolveAccountUsername } from '@/features/account/account-model';
 import { useLocale } from '@/lib/locale-context';

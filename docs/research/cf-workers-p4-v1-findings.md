@@ -78,7 +78,7 @@ From build graph + Preview behaviour + [`T3-DEPENDENCY-INVENTORY.md`](../T3-DEPE
 
 - Install vinext with **pnpm** from repo root; allow **`workerd`** build scripts (`pnpm approve-builds`) if rolldown/workerd fails.
 - **`npx vinext build`** without local install failed on rolldown bindings in sandbox — use workspace install.
-- Monorepo: vinext init ran inside `client/`; workspace packages `@gloaming/shared` / `@gloaming/i18n` still transpile via `next.config.ts` / vinext.
+- Monorepo: vinext init ran inside `client/`; contracts/i18n live as `client/shared/` and `client/i18n/` (`@/…` aliases).
 
 ## Next steps (P4-V2)
 

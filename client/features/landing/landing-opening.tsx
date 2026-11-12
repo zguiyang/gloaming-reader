@@ -1,6 +1,6 @@
 'use client';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { LandingDiscoverLink, LandingPrimaryCta } from '@/features/landing/landing-auth';
 import { LandingReveal } from '@/features/landing/landing-motion';

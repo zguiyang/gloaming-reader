@@ -17,7 +17,7 @@ import type {
   SourceRecordAuthor,
   SourceRecordAvailability,
   SourceRecordSourceMeta,
-} from '@gloaming/shared/discovery';
+} from '@/shared/discovery';
 
 import { buildPublicCategory, decideCategoryAssignment } from '@/server/domains/discovery/categories/policy';
 import {

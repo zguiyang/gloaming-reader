@@ -1,7 +1,7 @@
 'use client';
 
-import { t } from '@gloaming/i18n';
-import type { AiInvocationLog } from '@gloaming/shared/ai-invocations';
+import { t } from '@/i18n';
+import type { AiInvocationLog } from '@/shared/ai-invocations';
 
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';

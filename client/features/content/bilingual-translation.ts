@@ -1,4 +1,4 @@
-import type { TranslateSentenceEn } from '@gloaming/shared/translate';
+import type { TranslateSentenceEn } from '@/shared/translate';
 
 /** View-facing bilingual translation payload for content rendering. */
 export type BilingualTranslationData = {

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import * as cheerio from 'cheerio';
 
-import { normalizeTtsInput } from '@gloaming/shared/tts';
+import { normalizeTtsInput } from '@/shared/tts';
 
 import { reindexLeafParagraphOrdinals } from '@/server/domains/works/content';
 

@@ -5,8 +5,8 @@ import { Grid2X2Icon, ListIcon, SearchIcon } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
-import { t } from '@gloaming/i18n';
-import { resolveUserTagName } from '@gloaming/shared/library';
+import { t } from '@/i18n';
+import { resolveUserTagName } from '@/shared/library';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

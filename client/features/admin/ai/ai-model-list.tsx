@@ -2,9 +2,9 @@
 
 import { Pencil, Trash2 } from 'lucide-react';
 
-import { t } from '@gloaming/i18n';
-import type { LlmModel, LlmProvider } from '@gloaming/shared/llm';
-import { getWireFamilyDefinition } from '@gloaming/shared/llm';
+import { t } from '@/i18n';
+import type { LlmModel, LlmProvider } from '@/shared/llm';
+import { getWireFamilyDefinition } from '@/shared/llm';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

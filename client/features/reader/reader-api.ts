@@ -13,9 +13,9 @@ import {
   readingStateDataSchema,
   type ReadingStateStatus,
   type UpdateReadingStateBody,
-} from '@gloaming/shared/reader';
-import type { TtsVoiceRole } from '@gloaming/shared/tts';
-import type { PartSummary } from '@gloaming/shared/works';
+} from '@/shared/reader';
+import type { TtsVoiceRole } from '@/shared/tts';
+import type { PartSummary } from '@/shared/works';
 
 import type { ReaderViewModel } from '@/features/reader/reader-model';
 import { getWorkParts } from '@/features/reader/reader-parts-public';

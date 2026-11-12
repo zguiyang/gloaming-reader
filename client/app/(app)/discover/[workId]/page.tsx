@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { getClientLocale, LOCALE_COOKIE_NAME } from '@/lib/client-locale';
 import { legacyWorkDetailRedirect } from '@/lib/navigation/work-detail-return';

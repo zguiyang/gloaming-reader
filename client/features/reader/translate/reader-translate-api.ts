@@ -1,4 +1,4 @@
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 import {
   TRANSLATE_SSE_EVENT,
   type TranslatePartBody,
@@ -11,7 +11,7 @@ import {
   translateSseSentenceSchema,
   type TranslateSseTitle,
   translateSseTitleSchema,
-} from '@gloaming/shared/translate';
+} from '@/shared/translate';
 
 import { ApiRequestError } from '@/lib/api-request';
 import { getClientLocale } from '@/lib/client-locale';

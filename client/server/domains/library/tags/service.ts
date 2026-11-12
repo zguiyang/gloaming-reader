@@ -11,8 +11,8 @@ import {
   userWorkTag as userWorkTagTable,
   userWorkTagSuppression as userWorkTagSuppressionTable,
 } from '@/server/db';
-import { type Locale, SUPPORTED_LOCALES } from '@gloaming/i18n';
-import type { UserTag, UserTagManagementItem } from '@gloaming/shared/library';
+import { type Locale, SUPPORTED_LOCALES } from '@/i18n';
+import type { UserTag, UserTagManagementItem } from '@/shared/library';
 
 import { invokeAi } from '@/server/domains/ai';
 import { normalizeTagName } from '@/server/domains/library/tags/normalization';

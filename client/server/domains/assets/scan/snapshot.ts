@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { type AssetScanReport, assetScanReportSchema } from '@gloaming/shared/assets';
+import { type AssetScanReport, assetScanReportSchema } from '@/shared/assets';
 
 import { snapshotTtlSeconds } from '@/server/domains/assets/scan/config';
 import { getRedis } from '@/server/infra/cache';

@@ -1,5 +1,5 @@
-import { type Locale, t } from '@gloaming/i18n';
-import type { LibraryItem } from '@gloaming/shared/library';
+import { type Locale, t } from '@/i18n';
+import type { LibraryItem } from '@/shared/library';
 
 /**
  * Normalized title key for contextual duplicate detection within the currently

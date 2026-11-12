@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 
 import { ttsConfig as ttsConfigTable } from '@/server/db';
-import { type PutTtsConfigBody, TTS_PROVIDER_AZURE, type TtsConfigView } from '@gloaming/shared/tts';
+import { type PutTtsConfigBody, TTS_PROVIDER_AZURE, type TtsConfigView } from '@/shared/tts';
 
 import { emptyConfigView, toConfigView } from '@/server/domains/tts/config/service';
 import type { TtsConfigRow } from '@/server/domains/tts/config/store';

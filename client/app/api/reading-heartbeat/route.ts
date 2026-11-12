@@ -1,4 +1,4 @@
-import { readingHeartbeatBodySchema } from '@gloaming/shared/reading-history';
+import { readingHeartbeatBodySchema } from '@/shared/reading-history';
 
 import { recordReadingHeartbeat } from '@/server/domains/reading/history/heartbeat';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

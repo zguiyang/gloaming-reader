@@ -3,12 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, lt, sql } from 'drizzle-orm';
 
 import { readingDay as readingDayTable, readingHeartbeat as readingHeartbeatTable } from '@/server/db';
-import type { ReadingHeartbeatBody, ReadingHeartbeatResult } from '@gloaming/shared/reading-history';
+import type { ReadingHeartbeatBody, ReadingHeartbeatResult } from '@/shared/reading-history';
 import {
   calendarDateInTimeZone,
   READING_DAY_ENGAGED_SECONDS_CAP,
   READING_HEARTBEAT_MAX_CREDIT_SECONDS,
-} from '@gloaming/shared/reading-history';
+} from '@/shared/reading-history';
 
 import { db } from '@/server/infra/db';
 

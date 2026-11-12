@@ -1,4 +1,4 @@
-import { listWireFamilies } from '@gloaming/shared/llm';
+import { listWireFamilies } from '@/shared/llm';
 
 export async function getWireRegistry() {
   return { families: listWireFamilies() };

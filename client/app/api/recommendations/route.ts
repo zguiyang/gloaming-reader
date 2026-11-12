@@ -1,4 +1,4 @@
-import { recommendationsQuerySchema } from '@gloaming/shared/recommendations';
+import { recommendationsQuerySchema } from '@/shared/recommendations';
 
 import { getRecommendations } from '@/server/domains/recommendations/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

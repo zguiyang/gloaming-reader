@@ -5,8 +5,8 @@ import { PlusIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import { type LibraryItem, resolveUserTagName, type UserTagManagementItem } from '@gloaming/shared/library';
+import { t } from '@/i18n';
+import { type LibraryItem, resolveUserTagName, type UserTagManagementItem } from '@/shared/library';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

@@ -2,8 +2,8 @@
 
 import { XIcon } from 'lucide-react';
 
-import { t } from '@gloaming/i18n';
-import type { AssetCleanupJob } from '@gloaming/shared/assets';
+import { t } from '@/i18n';
+import type { AssetCleanupJob } from '@/shared/assets';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';

@@ -4,7 +4,7 @@ import { CheckCircle2Icon, ChevronDownIcon, CircleIcon, PlayIcon } from 'lucide-
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';

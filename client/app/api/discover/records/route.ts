@@ -1,4 +1,4 @@
-import { sourceRecordListQuerySchema } from '@gloaming/shared/discovery';
+import { sourceRecordListQuerySchema } from '@/shared/discovery';
 
 import { listSourceRecords } from '@/server/domains/discovery/read-model';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

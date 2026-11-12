@@ -97,11 +97,11 @@ pnpm --filter @gloaming/client start:jobs
 
 ## Package placement (this cutover)
 
-| Module                 | Placement                                               | Why                                                  |
-| ---------------------- | ------------------------------------------------------- | ---------------------------------------------------- |
-| DB schema / migrations | `client/server/db/` (inlined)                           | Only server consumer in new tree                     |
-| UI↔server contracts    | Prefer `client/shared/`; `packages/shared` transitional | Do not expand packages/shared for app-only contracts |
-| i18n                   | `packages/i18n`                                         | Large import surface; keep transitional package      |
+| Module                 | Placement                       | Why                                        |
+| ---------------------- | ------------------------------- | ------------------------------------------ |
+| DB schema / migrations | `client/server/db/` (inlined)   | Only server consumer in new tree           |
+| UI↔server contracts    | `client/shared/` (`@/shared/*`) | Domain subfolders (auth, works, reader, …) |
+| i18n                   | `client/i18n/` (`@/i18n`)       | Message JSON + `t()` for UI and server     |
 
 ## Consolidation docs (this wave)
 

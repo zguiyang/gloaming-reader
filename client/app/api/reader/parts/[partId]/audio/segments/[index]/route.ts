@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { readerAudioSegmentQuerySchema } from '@gloaming/shared/reader';
+import { readerAudioSegmentQuerySchema } from '@/shared/reader';
 
 import { getReaderAudioSegment } from '@/server/domains/reader-audio/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

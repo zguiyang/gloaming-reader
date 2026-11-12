@@ -26,21 +26,12 @@ const ACCEPTED_MODULES = [
   'works',
 ] as const;
 
-describe('shared package exports', () => {
-  it('declares only official module subpaths', () => {
-    const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
-      exports: Record<string, string>;
-    };
-
-    expect(packageJson.exports['.']).toBeUndefined();
-    expect(Object.keys(packageJson.exports).sort()).toEqual(ACCEPTED_MODULES.map((name) => `./${name}`).sort());
+describe('shared module layout', () => {
+  it('declares only official domain folders with index entrypoints', () => {
     for (const moduleName of ACCEPTED_MODULES) {
-      expect(packageJson.exports[`./${moduleName}`]).toBe(`./src/${moduleName}/index.ts`);
+      readFileSync(new URL(`./${moduleName}/index.ts`, import.meta.url), 'utf8');
     }
-    expect(
-      Object.values(packageJson.exports).some((target) => target.includes('/src/') && !target.endsWith('/index.ts')),
-    ).toBe(false);
-    expect(Object.keys(packageJson.exports).some((key) => key.includes('/src/'))).toBe(false);
+    expect(ACCEPTED_MODULES).toHaveLength(19);
   });
 });
 
@@ -50,6 +41,7 @@ describe('shared module entrypoints', () => {
       const source = readFileSync(new URL(`./${moduleName}/index.ts`, import.meta.url), 'utf8');
       expect(source).not.toMatch(/export\s+\*/);
       expect(source).toMatch(/export\s*\{/);
+      expect(source).not.toMatch(/from ['"]@\/shared['"]/);
       expect(source).not.toMatch(/from ['"]@gloaming\/shared['"]/);
       expect(source).not.toMatch(/from ['"]\.\.\/index\.ts['"]/);
       for (const fromMatch of source.matchAll(/from\s+['"]([^'"]+)['"]/g)) {

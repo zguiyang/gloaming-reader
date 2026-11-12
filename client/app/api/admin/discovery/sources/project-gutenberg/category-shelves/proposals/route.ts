@@ -1,4 +1,4 @@
-import { acceptShelfCategoryProposalSchema } from '@gloaming/shared/discovery';
+import { acceptShelfCategoryProposalSchema } from '@/shared/discovery';
 
 import { acceptShelfCategoryProposal } from '@/server/domains/discovery/categories';
 import { jsonFromThrown, jsonValidationError } from '@/server/infra/http/next-json';

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { type AssistAskBody } from '@gloaming/shared/assist';
+import { type AssistAskBody } from '@/shared/assist';
 
 import {
   type AiStreamDeltaEvent,

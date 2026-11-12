@@ -1,11 +1,11 @@
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 import {
   ASSIST_SSE_EVENT,
   type AssistAskBody,
   assistSseDeltaSchema,
   assistSseDoneSchema,
   assistSseErrorSchema,
-} from '@gloaming/shared/assist';
+} from '@/shared/assist';
 
 import { ApiRequestError } from '@/lib/api-request';
 import { getClientLocale } from '@/lib/client-locale';

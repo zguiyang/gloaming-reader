@@ -2,8 +2,8 @@
 
 import { Cell, Pie, PieChart } from 'recharts';
 
-import { t } from '@gloaming/i18n';
-import type { AssetCategorySummary } from '@gloaming/shared/assets';
+import { t } from '@/i18n';
+import type { AssetCategorySummary } from '@/shared/assets';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';

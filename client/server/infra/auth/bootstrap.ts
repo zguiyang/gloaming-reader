@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { count, eq, sql } from 'drizzle-orm';
 
 import * as schema from '@/server/db/schema';
-import { AUTH_ADMIN_ROLE, AUTH_USER_ROLE, type AuthRole } from '@gloaming/shared/auth';
+import { AUTH_ADMIN_ROLE, AUTH_USER_ROLE, type AuthRole } from '@/shared/auth';
 
 import type { db } from '@/server/infra/db';
 

@@ -3,7 +3,7 @@ import {
   type DictionaryDefinition,
   type DictionaryMeaning,
   type DictionaryPhonetic,
-} from '@gloaming/shared/dictionary';
+} from '@/shared/dictionary';
 
 import {
   appErrorFromUpstreamDictionaryStatus,

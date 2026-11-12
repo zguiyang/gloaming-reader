@@ -1,4 +1,4 @@
-import { AUTH_USER_ROLE } from '@gloaming/shared/auth';
+import { AUTH_USER_ROLE } from '@/shared/auth';
 
 /** Minimal identity for Work read authorization — no HTTP or session types. */
 export type WorkReadActor = {

@@ -3,7 +3,7 @@ import {
   type ReadingState,
   readingStateSchema,
   type UpdateReadingStateBody,
-} from '@gloaming/shared/reader';
+} from '@/shared/reader';
 
 import { apiRequest, ApiRequestError } from '@/lib/api-request';
 

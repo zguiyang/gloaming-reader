@@ -1,4 +1,4 @@
-import { EPUB_UPLOAD_MAX_BYTES, personalWorkUploadResultSchema } from '@gloaming/shared/works';
+import { EPUB_UPLOAD_MAX_BYTES, personalWorkUploadResultSchema } from '@/shared/works';
 
 import { createPersonalEpubWork } from '@/server/domains/works/personal/personal-epub-upload';
 import { AppError } from '@/server/shared/errors/app-error';

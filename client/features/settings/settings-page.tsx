@@ -5,7 +5,7 @@ import { ChevronDownIcon } from 'lucide-react';
 import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 import {
   type AiSettingKey,
   LLM_API_FAMILIES,
@@ -13,7 +13,7 @@ import {
   type LlmApiFamily,
   type LlmModel,
   type LlmProvider,
-} from '@gloaming/shared/llm';
+} from '@/shared/llm';
 
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';

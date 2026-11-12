@@ -1,5 +1,10 @@
 # Shared packages and contracts
 
+**Live product (`client/`):** contracts live in `client/shared/` (import
+`@/shared/<module>`); i18n in `client/i18n/` (`@/i18n`). There is no root
+`packages/*` workspace. Legacy `@gloaming/shared` / `@gloaming/i18n` remain under
+`archive/` for the old three-app stack.
+
 Identify the owning package and public module from definitions, declared
 exports, consumers, and accepted decisions. Apply
 [architecture rules](architecture.md) when changing boundaries.

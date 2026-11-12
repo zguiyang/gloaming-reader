@@ -4,8 +4,8 @@ import { CheckIcon, Loader2Icon, SearchIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import { type GutenbergShelfTerm, type PublicCategoryManagementItem } from '@gloaming/shared/discovery';
+import { t } from '@/i18n';
+import { type GutenbergShelfTerm, type PublicCategoryManagementItem } from '@/shared/discovery';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';

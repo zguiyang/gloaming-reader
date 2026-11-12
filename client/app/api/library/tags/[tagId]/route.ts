@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '@gloaming/i18n';
-import { userTagWriteSchema } from '@gloaming/shared/library';
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '@/i18n';
+import { userTagWriteSchema } from '@/shared/library';
 
 import { deleteUserTag, renameUserTag } from '@/server/domains/library/tags/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

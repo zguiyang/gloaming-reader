@@ -1,7 +1,7 @@
 'use client';
 
-import { t } from '@gloaming/i18n';
-import type { AssetScanReport } from '@gloaming/shared/assets';
+import { t } from '@/i18n';
+import type { AssetScanReport } from '@/shared/assets';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';

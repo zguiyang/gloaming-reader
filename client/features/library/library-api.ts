@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 
-import type { Locale } from '@gloaming/i18n';
+import type { Locale } from '@/i18n';
 import {
   libraryBrowseDataSchema,
   type LibraryBrowseQuery,
@@ -9,8 +9,8 @@ import {
   type UserTag,
   userTagListSchema,
   userTagSchema,
-} from '@gloaming/shared/library';
-import { userTagTranslationsResultSchema } from '@gloaming/shared/library';
+} from '@/shared/library';
+import { userTagTranslationsResultSchema } from '@/shared/library';
 import {
   EPUB_UPLOAD_MAX_BYTES,
   personalWorkDeleteResultSchema,
@@ -19,7 +19,7 @@ import {
   personalWorkUpdateResultSchema,
   type PersonalWorkUploadResult,
   personalWorkUploadResultSchema,
-} from '@gloaming/shared/works';
+} from '@/shared/works';
 
 import { getLibrary } from '@/features/library/library-public';
 import { apiRequest, formatApiError } from '@/lib/api-request';

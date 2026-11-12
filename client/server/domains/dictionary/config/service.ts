@@ -5,7 +5,7 @@ import {
   DEFAULT_DICTIONARY_CONFIG,
   type DictionaryConfigView,
   type PutDictionaryConfigBody,
-} from '@gloaming/shared/dictionary';
+} from '@/shared/dictionary';
 
 import { isDictionaryProviderRegistered } from '@/server/domains/dictionary/providers/registry';
 import { getRedis } from '@/server/infra/cache';

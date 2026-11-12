@@ -4,7 +4,7 @@ import { BookOpenIcon, RefreshCwIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { BookDetailRecommendations } from '@/features/book-detail/book-detail-recommendations';

@@ -1,7 +1,7 @@
 import { count, eq } from 'drizzle-orm';
 
 import { user as userTable } from '@/server/db';
-import { AUTH_ADMIN_ROLE, AUTH_PASSWORD_POLICY, AUTH_USERNAME_POLICY, isValidUsername } from '@gloaming/shared/auth';
+import { AUTH_ADMIN_ROLE, AUTH_PASSWORD_POLICY, AUTH_USERNAME_POLICY, isValidUsername } from '@/shared/auth';
 
 import { auth } from '@/server/infra/auth/auth';
 import { withAdminBootstrap } from '@/server/infra/auth/bootstrap';

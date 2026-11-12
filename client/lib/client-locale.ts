@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, type Locale, resolveLocale } from '@gloaming/i18n';
+import { DEFAULT_LOCALE, type Locale, resolveLocale } from '@/i18n';
 
 /** Cookie name for persisted UI locale preference. */
 export const LOCALE_COOKIE_NAME = 'gloaming.locale';

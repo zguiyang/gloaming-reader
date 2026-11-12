@@ -1,4 +1,4 @@
-import { type Locale, SUPPORTED_LOCALES, t } from '@gloaming/i18n';
+import { type Locale, SUPPORTED_LOCALES, t } from '@/i18n';
 import {
   isPublicCategoryTranslationMissing,
   normalizePublicCategoryName,
@@ -6,8 +6,8 @@ import {
   type PublicCategoryProvenance,
   resolvePublicCategoryName,
   type SourceRecordItem,
-} from '@gloaming/shared/discovery';
-import { buildPaginationMeta, DEFAULT_PAGE, type PaginationMeta } from '@gloaming/shared/pagination';
+} from '@/shared/discovery';
+import { buildPaginationMeta, DEFAULT_PAGE, type PaginationMeta } from '@/shared/pagination';
 
 /** Bounded client-side page size over the full admin category list. */
 export const PUBLIC_CATEGORY_ADMIN_PAGE_SIZE = 8;

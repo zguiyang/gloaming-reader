@@ -1,5 +1,5 @@
-import { SUPPORTED_LOCALES } from '@gloaming/i18n';
-import type { PublicCategory } from '@gloaming/shared/discovery';
+import { SUPPORTED_LOCALES } from '@/i18n';
+import type { PublicCategory } from '@/shared/discovery';
 
 /** Bounded SourceRecord evidence used for classification; never the EPUB body. */
 export type ClassifiableSourceRecord = {

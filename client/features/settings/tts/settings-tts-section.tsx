@@ -4,8 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import { DEFAULT_TTS_VOICES, TTS_VOICE_PRESETS, type TtsConfigView } from '@gloaming/shared/tts';
+import { t } from '@/i18n';
+import { DEFAULT_TTS_VOICES, TTS_VOICE_PRESETS, type TtsConfigView } from '@/shared/tts';
 
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';

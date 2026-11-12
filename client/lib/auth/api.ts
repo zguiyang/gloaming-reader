@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { AUTH_ROUTES } from '@/constants';
 import { getClientLocale } from '@/lib/client-locale';

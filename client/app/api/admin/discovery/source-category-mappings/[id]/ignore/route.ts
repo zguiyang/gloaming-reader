@@ -1,4 +1,4 @@
-import { sourceCategoryMappingRevisionSchema } from '@gloaming/shared/discovery';
+import { sourceCategoryMappingRevisionSchema } from '@/shared/discovery';
 
 import { ignoreSourceCategoryMapping } from '@/server/domains/discovery/categories';
 import { jsonFromThrown, jsonValidationError } from '@/server/infra/http/next-json';

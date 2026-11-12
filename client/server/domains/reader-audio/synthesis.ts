@@ -1,4 +1,4 @@
-import { type TtsWordTiming, validateAzureWordTimings } from '@gloaming/shared/tts';
+import { type TtsWordTiming, validateAzureWordTimings } from '@/shared/tts';
 
 import type { TtsConfigRow } from '@/server/domains/provider-scope';
 import { recordTtsInvocation } from '@/server/domains/tts/log';

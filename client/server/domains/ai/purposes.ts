@@ -1,4 +1,4 @@
-import { AI_PURPOSE_TO_SETTING_KEY, type AiPurposeName, type AiSettingKey } from '@gloaming/shared/llm';
+import { AI_PURPOSE_TO_SETTING_KEY, type AiPurposeName, type AiSettingKey } from '@/shared/llm';
 
 export const AI_PURPOSE = AI_PURPOSE_TO_SETTING_KEY;
 export type AiPurpose = AiPurposeName;

@@ -1,4 +1,4 @@
-import { testDictionaryBodySchema } from '@gloaming/shared/dictionary';
+import { testDictionaryBodySchema } from '@/shared/dictionary';
 
 import { testDictionary } from '@/server/domains/dictionary/lookup/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

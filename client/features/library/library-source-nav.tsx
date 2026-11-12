@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import type { UserTagManagementItem } from '@gloaming/shared/library';
+import { t } from '@/i18n';
+import type { UserTagManagementItem } from '@/shared/library';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

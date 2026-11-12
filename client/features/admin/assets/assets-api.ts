@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { AssetCleanupJob, AssetCleanupJobAccepted, AssetScanReport } from '@gloaming/shared/assets';
-import { assetCleanupJobAcceptedSchema, assetCleanupJobSchema, assetScanReportSchema } from '@gloaming/shared/assets';
+import type { AssetCleanupJob, AssetCleanupJobAccepted, AssetScanReport } from '@/shared/assets';
+import { assetCleanupJobAcceptedSchema, assetCleanupJobSchema, assetScanReportSchema } from '@/shared/assets';
 
 import { shouldPollCleanupJob } from '@/features/admin/assets/assets-cleanup-state';
 import { apiRequest, ApiRequestError, formatApiError } from '@/lib/api-request';

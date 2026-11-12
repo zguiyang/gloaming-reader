@@ -1,4 +1,4 @@
-import { DICTIONARY_PROVIDER_FREE, DICTIONARY_PROVIDER_YOUDAO } from '@gloaming/shared/dictionary';
+import { DICTIONARY_PROVIDER_FREE, DICTIONARY_PROVIDER_YOUDAO } from '@/shared/dictionary';
 
 import { FreeDictionaryProvider } from '@/server/domains/dictionary/providers/free-dictionary';
 import type { DictionaryProvider } from '@/server/domains/dictionary/providers/types';

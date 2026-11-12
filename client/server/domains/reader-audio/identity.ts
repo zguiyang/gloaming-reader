@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { TtsVoiceRole } from '@gloaming/shared/tts';
+import type { TtsVoiceRole } from '@/shared/tts';
 
 import { SEGMENT_PIPELINE_VERSION } from '@/server/domains/reader-audio/segmenter';
 

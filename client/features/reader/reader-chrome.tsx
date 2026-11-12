@@ -3,7 +3,7 @@
 import { ArrowLeftIcon, HeadphonesIcon, LanguagesIcon, MenuIcon, SparklesIcon, TypeIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Button } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';

@@ -3,11 +3,10 @@
 **Status:** Accepted  
 **Date:** 2026-09-07  
 **Amended:** 2026-09-08 (root facade removal)
-**Scope:** `@gloaming/shared` package public entrypoints only
+**Scope:** `client/shared/` public entrypoints only (inlined; import `@/shared/<area>`)
 
 Related: [`rules/packages.md`](../../rules/packages.md) ·
-[`packages/shared/package.json`](../../packages/shared/package.json) ·
-[`packages/shared/src/public-exports.spec.ts`](../../packages/shared/src/public-exports.spec.ts)
+[`client/shared/public-exports.spec.ts`](../../client/shared/public-exports.spec.ts)
 
 ---
 

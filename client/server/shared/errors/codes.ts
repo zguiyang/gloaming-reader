@@ -1,4 +1,4 @@
-/** Stable API error codes — also used as {@link @gloaming/i18n} translation keys. */
+/** Stable API error codes — also used as i18n translation keys (`@/i18n`). */
 export const ERROR_CODES = {
   UNAUTHORIZED: 'api.errors.unauthorized',
   FORBIDDEN: 'api.errors.forbidden',

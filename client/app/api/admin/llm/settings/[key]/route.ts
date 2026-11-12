@@ -1,4 +1,4 @@
-import { putLlmAppSettingBodySchema } from '@gloaming/shared/llm';
+import { putLlmAppSettingBodySchema } from '@/shared/llm';
 
 import * as llmSettingsService from '@/server/domains/llm/config/settings/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

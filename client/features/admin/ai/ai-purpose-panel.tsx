@@ -2,9 +2,9 @@
 
 import { useMemo } from 'react';
 
-import { type Locale, t } from '@gloaming/i18n';
-import type { AiSettingKey, LlmAppSettingView, LlmModel, LlmProvider } from '@gloaming/shared/llm';
-import { isRuntimeImplemented } from '@gloaming/shared/llm';
+import { type Locale, t } from '@/i18n';
+import type { AiSettingKey, LlmAppSettingView, LlmModel, LlmProvider } from '@/shared/llm';
+import { isRuntimeImplemented } from '@/shared/llm';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

@@ -1,4 +1,4 @@
-import { type AssetCleanupJob, type AssetCleanupJobStatus } from '@gloaming/shared/assets';
+import { type AssetCleanupJob, type AssetCleanupJobStatus } from '@/shared/assets';
 
 import { snapshotTtlSeconds } from '@/server/domains/assets/scan/config';
 import { getRedis } from '@/server/infra/cache';

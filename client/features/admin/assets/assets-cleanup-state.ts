@@ -1,4 +1,4 @@
-import type { AssetCleanupJob, AssetCleanupJobStatus, AssetCleanupJobVerification } from '@gloaming/shared/assets';
+import type { AssetCleanupJob, AssetCleanupJobStatus, AssetCleanupJobVerification } from '@/shared/assets';
 
 export const ASSET_CLEANUP_JOB_STORAGE_KEY = 'gloaming.admin.assets.cleanupJob.v1';
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { SUPPORTED_LOCALES } from '@gloaming/i18n';
-import { PUBLIC_CATEGORY_ASSIGNMENT_LIMIT, PUBLIC_CATEGORY_NAME_MAX_CHARS } from '@gloaming/shared/discovery';
+import { SUPPORTED_LOCALES } from '@/i18n';
+import { PUBLIC_CATEGORY_ASSIGNMENT_LIMIT, PUBLIC_CATEGORY_NAME_MAX_CHARS } from '@/shared/discovery';
 
 /**
  * The only four public classification decisions. `NO_MATCH` is surfaced to

@@ -1,4 +1,4 @@
-import { ttsInvocationStatsQuerySchema } from '@gloaming/shared/tts-invocations';
+import { ttsInvocationStatsQuerySchema } from '@/shared/tts-invocations';
 
 import { getTtsInvocationStats } from '@/server/domains/tts/log';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

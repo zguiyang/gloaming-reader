@@ -6,7 +6,7 @@ import {
   type DictionaryEntry,
   type TestDictionaryBody,
   type TestDictionaryResult,
-} from '@gloaming/shared/dictionary';
+} from '@/shared/dictionary';
 
 import { getDictionaryConfig, loadConfigRow } from '@/server/domains/dictionary/config/service';
 import {

@@ -1,4 +1,4 @@
-import type { TranslationParams } from '@gloaming/i18n';
+import type { TranslationParams } from '@/i18n';
 
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { ERROR_CODES, type ErrorCode } from '@/server/shared/errors/codes';

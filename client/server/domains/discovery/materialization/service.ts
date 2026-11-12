@@ -8,7 +8,7 @@ import {
   sourceRecord as sourceRecordTable,
   type SourceRecordMaterializationStatus,
 } from '@/server/db/schema';
-import type { WorkProcessingStatus } from '@gloaming/shared/works';
+import type { WorkProcessingStatus } from '@/shared/works';
 
 import { releaseUploadedObject } from '@/server/domains/assets/uploads';
 import { joinAuthors } from '@/server/domains/ingest/epub';

@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { ActivityCalendar, type ThemeInput } from 'react-activity-calendar';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import {
   attachHistoryCalendarLatestSnap,

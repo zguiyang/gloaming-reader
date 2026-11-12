@@ -1,6 +1,6 @@
 'use client';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { LandingReveal } from '@/features/landing/landing-motion';
 import { LandingShot } from '@/features/landing/landing-shot';

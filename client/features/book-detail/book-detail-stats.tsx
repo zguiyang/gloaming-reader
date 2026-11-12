@@ -2,7 +2,7 @@
 
 import { StarIcon } from 'lucide-react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import type { BookDetail } from '@/features/book-detail/book-detail-model';
 import { difficultyStarCount, formatMinutes, formatSuggestedVocabSize } from '@/features/book-detail/book-detail-model';

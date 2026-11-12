@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

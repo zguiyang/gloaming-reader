@@ -6,7 +6,7 @@ import {
   TTS_VOICE_PRESETS,
   type TtsConfigView,
   type TtsVoicePreset,
-} from '@gloaming/shared/tts';
+} from '@/shared/tts';
 
 import { loadConfigRow, TTS_CONFIG_ID, type TtsConfigRow } from '@/server/domains/tts/config/store';
 import { db } from '@/server/infra/db';

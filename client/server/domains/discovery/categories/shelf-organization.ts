@@ -1,5 +1,5 @@
-import type { ShelfOrganizationResult } from '@gloaming/shared/discovery';
-import { normalizePublicCategoryName } from '@gloaming/shared/discovery';
+import type { ShelfOrganizationResult } from '@/shared/discovery';
+import { normalizePublicCategoryName } from '@/shared/discovery';
 
 import { invokeAi } from '@/server/domains/ai';
 import {

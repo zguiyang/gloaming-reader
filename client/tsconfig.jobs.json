@@ -7,6 +7,6 @@
     "plugins": [],
     "jsx": "react-jsx"
   },
-  "include": ["jobs/**/*.ts", "server/**/*.ts", "lib/**/*.ts"],
+  "include": ["jobs/**/*.ts", "server/**/*.ts", "lib/**/*.ts", "shared/**/*.ts", "i18n/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts", ".next"]
 }

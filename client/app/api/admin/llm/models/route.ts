@@ -1,4 +1,4 @@
-import { createLlmModelBodySchema, llmModelListQuerySchema } from '@gloaming/shared/llm';
+import { createLlmModelBodySchema, llmModelListQuerySchema } from '@/shared/llm';
 
 import * as llmModelsService from '@/server/domains/llm/config/models/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

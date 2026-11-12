@@ -6,20 +6,20 @@ import {
   type SourceRecordListData,
   sourceRecordListDataSchema,
   type SourceRecordListQuery,
-} from '@gloaming/shared/discovery';
+} from '@/shared/discovery';
 import {
   type SourceRecordSaveResult,
   sourceRecordSaveResultSchema,
   type SourceRecordSaveStatus,
   sourceRecordSaveStatusSchema,
-} from '@gloaming/shared/library';
-import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
+} from '@/shared/library';
+import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@/shared/pagination';
 import {
   type CatalogListData,
   catalogListDataSchema,
   type CatalogListQuery,
   DEFAULT_CATALOG_SORT_BY,
-} from '@gloaming/shared/works';
+} from '@/shared/works';
 
 import { DISCOVER_PAGE_SIZE } from '@/features/discover/discover-model';
 import { apiRequest, formatApiError } from '@/lib/api-request';

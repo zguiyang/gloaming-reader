@@ -10,8 +10,8 @@ import {
   sourceRecordSaveIntent as saveIntentTable,
   userLibraryItem as userLibraryItemTable,
 } from '@/server/db/schema';
-import type { SourceRecordSaveStatus } from '@gloaming/shared/library';
-import { isWorkParseCompleted } from '@gloaming/shared/works';
+import type { SourceRecordSaveStatus } from '@/shared/library';
+import { isWorkParseCompleted } from '@/shared/works';
 
 import { hasSelectableEpubCandidate } from '@/server/domains/discovery/materialization';
 import { db } from '@/server/infra/db';

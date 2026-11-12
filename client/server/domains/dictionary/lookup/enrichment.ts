@@ -6,7 +6,7 @@ import type {
   DictionaryDefinition,
   DictionaryEntry,
   DictionaryMeaning,
-} from '@gloaming/shared/dictionary';
+} from '@/shared/dictionary';
 
 import { invokeAi } from '@/server/domains/ai';
 import { toGenericDictionaryEntry } from '@/server/domains/dictionary/lookup/generic-entry';

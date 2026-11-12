@@ -6,13 +6,8 @@ import {
   llmProvider as llmProviderTable,
   ttsConfig as ttsConfigTable,
 } from '@/server/db';
-import {
-  type AiSettingKey,
-  assertWireVariantForFamily,
-  isLlmApiFamily,
-  isRuntimeImplemented,
-} from '@gloaming/shared/llm';
-import { TTS_PROVIDER_AZURE } from '@gloaming/shared/tts';
+import { type AiSettingKey, assertWireVariantForFamily, isLlmApiFamily, isRuntimeImplemented } from '@/shared/llm';
+import { TTS_PROVIDER_AZURE } from '@/shared/tts';
 
 import type { ProviderRuntimeActor } from '@/server/domains/provider-scope/types';
 import { db } from '@/server/infra/db';

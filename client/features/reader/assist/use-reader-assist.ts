@@ -4,8 +4,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import type { AssistAskBody } from '@gloaming/shared/assist';
-import type { ConversationDetail, ConversationSummary } from '@gloaming/shared/conversations';
+import type { AssistAskBody } from '@/shared/assist';
+import type { ConversationDetail, ConversationSummary } from '@/shared/conversations';
 
 import { streamAssistAsk } from '@/features/reader/assist/reader-assist-api';
 import {

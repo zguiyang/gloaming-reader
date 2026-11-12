@@ -1,4 +1,4 @@
-import { type Locale, t } from '@gloaming/i18n';
+import { type Locale, t } from '@/i18n';
 
 import { getClientLocale } from '@/lib/client-locale';
 

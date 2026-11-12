@@ -4,8 +4,8 @@ import { ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import type { ShelfOrganizationProposal, ShelfOrganizationResult } from '@gloaming/shared/discovery';
+import { t } from '@/i18n';
+import type { ShelfOrganizationProposal, ShelfOrganizationResult } from '@/shared/discovery';
 
 import {
   formatPublicCategoriesApiError,

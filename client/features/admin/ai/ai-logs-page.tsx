@@ -4,14 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { ScrollText } from 'lucide-react';
 import { useState } from 'react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 import {
   AI_INVOCATION_DEFAULT_PAGE_SIZE,
   type AiInvocationLog,
   type AiInvocationStats,
   aiInvocationWindowForDays,
-} from '@gloaming/shared/ai-invocations';
-import { DEFAULT_PAGE } from '@gloaming/shared/pagination';
+} from '@/shared/ai-invocations';
+import { DEFAULT_PAGE } from '@/shared/pagination';
 
 import { LoadingOverlay } from '@/components/loading-overlay';
 import { Badge } from '@/components/ui/badge';

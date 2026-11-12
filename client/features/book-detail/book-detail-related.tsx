@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { AUTH_ROUTES } from '@/constants';
 import { formatMinutes, type RelatedBookCard } from '@/features/book-detail/book-detail-model';

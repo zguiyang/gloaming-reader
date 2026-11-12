@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
 import { contentAsset as contentAssetTable, readingWork as readingWorkTable } from '@/server/db';
-import type { WorkProcessingStatus, WorkVisibility } from '@gloaming/shared/works';
-import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
+import type { WorkProcessingStatus, WorkVisibility } from '@/shared/works';
+import { EPUB_UPLOAD_MAX_BYTES } from '@/shared/works';
 
 import { type ContentParseLane, JOB_CONTENT_PARSE } from '@/jobs/content-parse';
 import {

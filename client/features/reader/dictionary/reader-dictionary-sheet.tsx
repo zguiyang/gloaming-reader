@@ -1,7 +1,7 @@
 'use client';
 
-import { t } from '@gloaming/i18n';
-import type { DictionaryEntry } from '@gloaming/shared/dictionary';
+import { t } from '@/i18n';
+import type { DictionaryEntry } from '@/shared/dictionary';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ReaderDictionaryCard } from '@/features/reader/dictionary/reader-dictionary-card';

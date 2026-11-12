@@ -1,4 +1,4 @@
-import { updateReadingStateBodySchema } from '@gloaming/shared/reader';
+import { updateReadingStateBodySchema } from '@/shared/reader';
 
 import { getReadingState, updateReadingState } from '@/server/domains/reading/reader';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

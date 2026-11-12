@@ -1,4 +1,4 @@
-import { publicCategoryListQuerySchema } from '@gloaming/shared/discovery';
+import { publicCategoryListQuerySchema } from '@/shared/discovery';
 
 import { listPublicCategories } from '@/server/domains/discovery/categories';
 import { resolveRequestLocale } from '@/server/infra/http/locale';

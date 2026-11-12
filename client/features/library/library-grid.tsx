@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import type { LibraryItem, UserTagManagementItem } from '@gloaming/shared/library';
+import type { LibraryItem, UserTagManagementItem } from '@/shared/library';
 
 import { LibraryBookCard } from '@/features/library/library-book-card';
 

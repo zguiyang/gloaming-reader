@@ -1,4 +1,4 @@
-import { SUPPORTED_LOCALES } from '@gloaming/i18n';
+import { SUPPORTED_LOCALES } from '@/i18n';
 import {
   canonicalizePublicCategoryName,
   type CategorySourceRecordListQuery,
@@ -9,7 +9,7 @@ import {
   type PublicCategoryManagementItem,
   type PublicCategoryProvenance,
   type SourceRecordListData,
-} from '@gloaming/shared/discovery';
+} from '@/shared/discovery';
 
 import { translateMissingPublicCategoryLabels } from '@/server/domains/discovery/categories/classification';
 import type { PublicClassificationDeferredReason } from '@/server/domains/discovery/categories/classification-contract';

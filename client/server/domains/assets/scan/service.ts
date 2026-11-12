@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { ASSET_SCAN_OBJECT_LIMIT, type AssetScanReport } from '@gloaming/shared/assets';
+import { ASSET_SCAN_OBJECT_LIMIT, type AssetScanReport } from '@/shared/assets';
 
 import { acquireLock, releaseLock, startLockRenewal } from '@/server/domains/assets/management/lock-store';
 import { collectReferencedStorageKeys } from '@/server/domains/assets/management/referenced-keys';

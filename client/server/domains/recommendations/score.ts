@@ -1,4 +1,4 @@
-import type { RecommendationStrategy } from '@gloaming/shared/recommendations';
+import type { RecommendationStrategy } from '@/shared/recommendations';
 export type RecommendationFeatures = {
   id: string;
   language: string;

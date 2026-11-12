@@ -1,4 +1,4 @@
-import { type AssetCleanupJob, type AssetCleanupJobAccepted } from '@gloaming/shared/assets';
+import { type AssetCleanupJob, type AssetCleanupJobAccepted } from '@/shared/assets';
 
 import {
   applyCleanupRetryState,

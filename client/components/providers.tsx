@@ -4,7 +4,7 @@ import { ThemeProvider, useTheme } from 'next-themes';
 import { type ReactNode, useSyncExternalStore } from 'react';
 import { Toaster } from 'sonner';
 
-import type { Locale } from '@gloaming/i18n';
+import type { Locale } from '@/i18n';
 
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AuthDialogProvider } from '@/features/auth';

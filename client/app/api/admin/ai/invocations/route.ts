@@ -1,4 +1,4 @@
-import { aiInvocationListQuerySchema } from '@gloaming/shared/ai-invocations';
+import { aiInvocationListQuerySchema } from '@/shared/ai-invocations';
 
 import { listInvocations } from '@/server/domains/ai/invocations/log';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

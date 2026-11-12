@@ -2,8 +2,8 @@
 
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 
-import { t } from '@gloaming/i18n';
-import type { PartSummary } from '@gloaming/shared/works';
+import { t } from '@/i18n';
+import type { PartSummary } from '@/shared/works';
 
 import { Button } from '@/components/ui/button';
 import { adjacentPart } from '@/features/reader/reader-model';

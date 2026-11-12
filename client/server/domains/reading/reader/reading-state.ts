@@ -7,7 +7,7 @@ import {
   type ReadingAnchor,
   readingAnchorSchema,
   type ReadingState,
-} from '@gloaming/shared/reader';
+} from '@/shared/reader';
 
 export type ReadingStateRow = typeof readingStateTable.$inferSelect;
 

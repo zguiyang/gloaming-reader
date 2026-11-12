@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
-import type { Locale } from '@gloaming/i18n';
+import type { Locale } from '@/i18n';
 import {
   type GutenbergShelfTermListData,
   gutenbergShelfTermListDataSchema,
@@ -11,8 +11,8 @@ import {
   shelfOrganizationResultSchema,
   type SourceRecordListData,
   sourceRecordListDataSchema,
-} from '@gloaming/shared/discovery';
-import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@gloaming/shared/pagination';
+} from '@/shared/discovery';
+import { DEFAULT_PAGE, DEFAULT_SORT_ORDER } from '@/shared/pagination';
 
 import {
   isAssignmentSearchReady,

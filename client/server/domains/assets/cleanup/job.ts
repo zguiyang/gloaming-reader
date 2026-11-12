@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { ASSET_SCAN_OBJECT_LIMIT, type AssetCleanupJobVerification } from '@gloaming/shared/assets';
+import { ASSET_SCAN_OBJECT_LIMIT, type AssetCleanupJobVerification } from '@/shared/assets';
 
 import {
   CLEANUP_BATCH_SIZE,

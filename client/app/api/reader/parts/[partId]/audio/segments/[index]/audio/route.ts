@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { ttsVoiceRoleValues } from '@gloaming/shared/tts';
+import { ttsVoiceRoleValues } from '@/shared/tts';
 
 import { streamReaderAudioSegment } from '@/server/domains/reader-audio/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

@@ -3,8 +3,8 @@
 import DOMPurify from 'dompurify';
 import { type KeyboardEvent, type MouseEvent, type ReactNode, useMemo } from 'react';
 
-import { t } from '@gloaming/i18n';
-import type { TranslateSentenceEn } from '@gloaming/shared/translate';
+import { t } from '@/i18n';
+import type { TranslateSentenceEn } from '@/shared/translate';
 
 import type { BilingualTranslationData } from '@/features/content/bilingual-translation';
 import { useLocale } from '@/lib/locale-context';

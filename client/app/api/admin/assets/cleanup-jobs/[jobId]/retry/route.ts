@@ -1,4 +1,4 @@
-import { assetCleanupRequestSchema } from '@gloaming/shared/assets';
+import { assetCleanupRequestSchema } from '@/shared/assets';
 
 import * as assetCleanupService from '@/server/domains/assets/cleanup/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

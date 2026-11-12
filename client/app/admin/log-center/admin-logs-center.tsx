@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Tabs } from '@/components/ui/tabs';
 import { ADMIN_ROUTES } from '@/constants';

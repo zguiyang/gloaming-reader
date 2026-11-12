@@ -8,7 +8,7 @@ import {
   discoverySyncRunHistorySchema,
   discoverySyncTriggerResultSchema,
   isDiscoverySyncRunPending,
-} from '@gloaming/shared/discovery';
+} from '@/shared/discovery';
 
 import { apiRequest, formatApiError } from '@/lib/api-request';
 

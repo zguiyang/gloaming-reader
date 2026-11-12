@@ -1,4 +1,4 @@
-import { ASSIST_SSE_EVENT, assistAskBodySchema } from '@gloaming/shared/assist';
+import { ASSIST_SSE_EVENT, assistAskBodySchema } from '@/shared/assist';
 
 import { streamAssistAsk } from '@/server/domains/assist/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

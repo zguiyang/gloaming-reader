@@ -7,9 +7,9 @@ import {
   readingState as readingStateTable,
   readingWork as readingWorkTable,
 } from '@/server/db';
-import type { ReadingStateStatus } from '@gloaming/shared/reader';
-import type { ReadingHistoryData, ReadingHistorySummary, ReadingHistoryWork } from '@gloaming/shared/reading-history';
-import { calendarDateInTimeZone } from '@gloaming/shared/reading-history';
+import type { ReadingStateStatus } from '@/shared/reader';
+import type { ReadingHistoryData, ReadingHistorySummary, ReadingHistoryWork } from '@/shared/reading-history';
+import { calendarDateInTimeZone } from '@/shared/reading-history';
 
 import type { WorkReadActor } from '@/server/domains/works/access';
 import { workReadAccessSql } from '@/server/domains/works/access';

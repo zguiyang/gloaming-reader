@@ -3,7 +3,7 @@
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import {
   ReaderAudioController,

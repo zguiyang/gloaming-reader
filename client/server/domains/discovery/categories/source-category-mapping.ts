@@ -16,9 +16,9 @@ import {
   sourceRecordPublicCategory,
   sourceRecordPublicCategorySuppression,
 } from '@/server/db/schema';
-import { type Locale, SUPPORTED_LOCALES } from '@gloaming/i18n';
-import { normalizePublicCategoryName, publicCategoryNameSchema } from '@gloaming/shared/discovery';
-import { sourceCategoryMappingListSchema } from '@gloaming/shared/discovery';
+import { type Locale, SUPPORTED_LOCALES } from '@/i18n';
+import { normalizePublicCategoryName, publicCategoryNameSchema } from '@/shared/discovery';
+import { sourceCategoryMappingListSchema } from '@/shared/discovery';
 
 import { invokeAi } from '@/server/domains/ai';
 import { buildSourceMappingContext } from '@/server/domains/discovery/categories/classification-prompt';

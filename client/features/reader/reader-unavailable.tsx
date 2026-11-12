@@ -3,7 +3,7 @@
 import { BookOpenIcon, RefreshCwIcon } from 'lucide-react';
 import Link from 'next/link';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { APP_NAME, AUTH_ROUTES } from '@/constants';

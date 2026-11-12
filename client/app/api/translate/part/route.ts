@@ -1,4 +1,4 @@
-import { TRANSLATE_SSE_EVENT, translatePartBodySchema } from '@gloaming/shared/translate';
+import { TRANSLATE_SSE_EVENT, translatePartBodySchema } from '@/shared/translate';
 
 import { streamTranslatePart } from '@/server/domains/translate/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

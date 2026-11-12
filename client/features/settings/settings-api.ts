@@ -15,8 +15,8 @@ import {
   testLlmProviderResultSchema,
   type UpdateLlmModelBody,
   type UpdateLlmProviderBody,
-} from '@gloaming/shared/llm';
-import { type PutTtsConfigBody, ttsConfigSchema, type TtsConfigView } from '@gloaming/shared/tts';
+} from '@/shared/llm';
+import { type PutTtsConfigBody, ttsConfigSchema, type TtsConfigView } from '@/shared/tts';
 
 import { apiRequest, formatApiError } from '@/lib/api-request';
 

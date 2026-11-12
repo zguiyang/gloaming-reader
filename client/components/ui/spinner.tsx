@@ -1,6 +1,6 @@
 import { Loader2Icon } from 'lucide-react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { getClientLocale } from '@/lib/client-locale';
 import { cn } from '@/lib/utils';

@@ -1,5 +1,5 @@
-import { type Locale, t } from '@gloaming/i18n';
-import type { AssetCategory, AssetCategorySummary, AssetCleanupJobStatus } from '@gloaming/shared/assets';
+import { type Locale, t } from '@/i18n';
+import type { AssetCategory, AssetCategorySummary, AssetCleanupJobStatus } from '@/shared/assets';
 
 const CATEGORY_KEYS: Record<AssetCategory, string> = {
   cover: 'cover',

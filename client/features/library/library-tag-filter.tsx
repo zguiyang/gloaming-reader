@@ -1,6 +1,6 @@
 'use client';
 
-import { resolveUserTagName, type UserTagManagementItem } from '@gloaming/shared/library';
+import { resolveUserTagName, type UserTagManagementItem } from '@/shared/library';
 
 import { Button } from '@/components/ui/button';
 import { useLocale } from '@/lib/locale-context';

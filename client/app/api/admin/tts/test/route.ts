@@ -1,4 +1,4 @@
-import { testTtsBodySchema } from '@gloaming/shared/tts';
+import { testTtsBodySchema } from '@/shared/tts';
 
 import { testTts } from '@/server/domains/tts/config/test-connection';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

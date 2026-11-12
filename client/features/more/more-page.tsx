@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import { type Locale, t } from '@gloaming/i18n';
+import { type Locale, t } from '@/i18n';
 
 import type { HistoryViewModel } from '@/features/history/history-model';
 import { useLocale } from '@/lib/locale-context';

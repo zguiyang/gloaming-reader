@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { getClientLocale } from '@/lib/client-locale';
 import { applyRequestLocale } from '@/lib/request-language';

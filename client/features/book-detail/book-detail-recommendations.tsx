@@ -1,7 +1,7 @@
 'use client';
 
-import { type Locale, t } from '@gloaming/i18n';
-import type { RecommendationStrategy } from '@gloaming/shared/recommendations';
+import { type Locale, t } from '@/i18n';
+import type { RecommendationStrategy } from '@/shared/recommendations';
 
 import {
   useRecommendationsQuery,

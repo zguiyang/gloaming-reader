@@ -14,7 +14,8 @@ client/
   features/               # product UI
   components/             # design-system + shell widgets
   lib/                    # client / RSC runtime glue only
-  shared/                 # ★ in-app UI ↔ server contracts
+  shared/                 # ★ UI ↔ server contracts (former packages/shared)
+  i18n/                   # ★ locale messages + t() (former packages/i18n)
   jobs/                   # ★ BullMQ Jobs face (entry + processors; second OS process)
   server/                 # server-only modules
     db/                   # ★ inlined Drizzle schema + migrations (not packages/db)
@@ -25,23 +26,23 @@ client/
   public/
 ```
 
-## Two tiers of “shared”
+## Contracts and i18n
 
-| Location             | Consumers                                           | Put here                                                       | Do not put                                  |
-| -------------------- | --------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------- |
-| **`client/shared/`** | Same app: `features/*`, `app/api`, `server/domains` | DTOs, Zod, error codes, API path constants, pure types/helpers | React, Next Request types, DB, secrets      |
-| **`packages/*`**     | Cross-package or costly transitional (e.g. i18n)    | Authoritative contracts/i18n when package boundary is needed   | UI, Route Handlers, infra, **db** (inlined) |
-| **`client/lib/`**    | Browser / RSC glue                                  | Auth client, fetch, React Query, locale, utils                 | Contract SSOT, server domains               |
+| Location             | Import alias | Consumers                                          | Put here                                                       |
+| -------------------- | ------------ | -------------------------------------------------- | -------------------------------------------------------------- |
+| **`client/shared/`** | `@/shared/…` | `features/*`, `app/api`, `server/domains`, `jobs/` | DTOs, Zod, error codes, API path constants, pure types/helpers |
+| **`client/i18n/`**   | `@/i18n`     | UI + server (messages, `t()`, locale resolution)   | Message JSON, locale helpers                                   |
+| **`client/lib/`**    | `@/lib/…`    | Browser / RSC glue                                 | Auth client, fetch, React Query, locale context, utils         |
 
-Promote to `packages/*` only when a second consumer appears. Do not keep permanent `file:` deps pointing at `archive/packages/*`.
+Do not put React, Route Handler types, DB access, or secrets in `shared/` or `i18n/`.
 
 ## Dependency direction
 
 ```text
-features  ──►  shared, lib, components, constants
-app/api   ──►  server (+ shared)
-server    ──►  shared, server/infra, server/db, @gloaming/* packages
-shared    ──✘──  features | server | components
+features  ──►  shared, i18n, lib, components, constants
+app/api   ──►  server (+ shared, i18n)
+server    ──►  shared, i18n, server/infra, server/db
+shared    ──✘──  features | server | components | i18n UI glue
 lib       ──✘──  server/domains
 ```
 

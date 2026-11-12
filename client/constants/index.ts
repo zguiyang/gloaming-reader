@@ -1,4 +1,4 @@
-export { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+export { AUTH_ADMIN_ROLE } from '@/shared/auth';
 export const APP_NAME = 'Gloaming Reader' as const;
 
 export const AUTH_ROUTES = {

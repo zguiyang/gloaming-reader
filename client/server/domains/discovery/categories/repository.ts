@@ -12,8 +12,8 @@ import {
   sourceRecordPublicCategory as sourceRecordPublicCategoryTable,
   sourceRecordPublicCategorySuppression as sourceRecordPublicCategorySuppressionTable,
 } from '@/server/db/schema';
-import type { PublicCategoryProvenance, PublicCategorySummary } from '@gloaming/shared/discovery';
-import { DISCOVERY_DEFAULT_LANGUAGE } from '@gloaming/shared/discovery';
+import type { PublicCategoryProvenance, PublicCategorySummary } from '@/shared/discovery';
+import { DISCOVERY_DEFAULT_LANGUAGE } from '@/shared/discovery';
 
 import { buildPublicCategory, toPublicCategorySummary } from '@/server/domains/discovery/categories/policy';
 import { publicDiscoverableRecordWhere } from '@/server/domains/discovery/read-model/visibility';

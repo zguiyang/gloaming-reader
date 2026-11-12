@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 
-import { type Locale, t } from '@gloaming/i18n';
-import { PUBLIC_CATEGORY_NAME_MAX_CHARS, type PublicCategoryManagementItem } from '@gloaming/shared/discovery';
+import { type Locale, t } from '@/i18n';
+import { PUBLIC_CATEGORY_NAME_MAX_CHARS, type PublicCategoryManagementItem } from '@/shared/discovery';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

@@ -7,7 +7,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Providers } from '@/components/providers';
 import { APP_NAME } from '@/constants';

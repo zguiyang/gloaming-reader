@@ -29,18 +29,19 @@ pnpm --filter @gloaming/client db:migrate
 | `features/`             | Product UI (parity with `apps/web`)                       |
 | `components/`           | UI primitives + navigation chrome                         |
 | `lib/`                  | Client/RSC glue (auth client, query, locale, api-request) |
-| `shared/`               | In-app UI ↔ server contracts                              |
+| `shared/`               | UI ↔ server contracts (`@/shared/*`)                      |
+| `i18n/`                 | Locale messages + `t()` (`@/i18n`)                        |
 | `jobs/`                 | BullMQ entry + processors (second OS process)             |
 | `server/`               | Domains, infra, application/commands, **inlined `db/`**   |
 | `constants/`, `public/` | App constants and static assets                           |
 
-## Package placement
+## Contract placement
 
-| Module           | Where                                                                   | Note                                        |
-| ---------------- | ----------------------------------------------------------------------- | ------------------------------------------- |
-| DB               | `server/db/`                                                            | Inlined — only this app consumes it         |
-| i18n             | `@gloaming/i18n` in `packages/i18n`                                     | Transitional                                |
-| Shared contracts | `@gloaming/shared` + prefer `client/shared/` for new app-only contracts | Do not expand packages for single-app needs |
+| Module           | Where                           | Note                                |
+| ---------------- | ------------------------------- | ----------------------------------- |
+| DB               | `server/db/`                    | Inlined — only this app consumes it |
+| i18n             | `i18n/` via `@/i18n`            | Message JSON + `t()`                |
+| Shared contracts | `shared/` via `@/shared/<area>` | Zod/types per domain subfolder      |
 
 ## Non-goals (this tree)
 

@@ -3,9 +3,9 @@
 import { ChevronDown, Globe, Wallet } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
-import { t } from '@gloaming/i18n';
-import type { LlmApiFamily, LlmProvider } from '@gloaming/shared/llm';
-import { getWireFamilyDefinition, providerSupportsOptionalField } from '@gloaming/shared/llm';
+import { t } from '@/i18n';
+import type { LlmApiFamily, LlmProvider } from '@/shared/llm';
+import { getWireFamilyDefinition, providerSupportsOptionalField } from '@/shared/llm';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

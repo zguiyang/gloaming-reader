@@ -2,8 +2,8 @@ import { and, asc, count, desc, eq, ilike, notExists, type SQL } from 'drizzle-o
 
 import { readingWork as readingWorkTable } from '@/server/db';
 import { sourceRecord as sourceRecordTable } from '@/server/db/schema';
-import { buildPaginationMeta } from '@gloaming/shared/pagination';
-import { type CatalogListData, type CatalogListQuery, type Work } from '@gloaming/shared/works';
+import { buildPaginationMeta } from '@/shared/pagination';
+import { type CatalogListData, type CatalogListQuery, type Work } from '@/shared/works';
 
 import type { WorkReadActor } from '@/server/domains/works/access';
 import { publicCatalogWorkSql, workReadAccessSql } from '@/server/domains/works/access';

@@ -1,4 +1,4 @@
-import { libraryBrowseQuerySchema } from '@gloaming/shared/library';
+import { libraryBrowseQuerySchema } from '@/shared/library';
 
 import { browseLibrary } from '@/server/domains/library/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

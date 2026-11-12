@@ -4,8 +4,8 @@ import { RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
-import { t } from '@gloaming/i18n';
-import type { AssetCleanupJobStatus, AssetScanReport } from '@gloaming/shared/assets';
+import { t } from '@/i18n';
+import type { AssetCleanupJobStatus, AssetScanReport } from '@/shared/assets';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

@@ -1,4 +1,4 @@
-import type { TestTtsBody, TestTtsResult } from '@gloaming/shared/tts';
+import type { TestTtsBody, TestTtsResult } from '@/shared/tts';
 
 import { recordTtsInvocation } from '@/server/domains/tts/log';
 import { synthesizeInstanceTts } from '@/server/domains/tts/synthesis/service';

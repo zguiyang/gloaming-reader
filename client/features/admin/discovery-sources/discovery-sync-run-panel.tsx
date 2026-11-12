@@ -1,12 +1,8 @@
 import { Hourglass } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { t } from '@gloaming/i18n';
-import type {
-  DiscoverySyncRunHistory,
-  DiscoverySyncRunProgress,
-  DiscoverySyncRunSummary,
-} from '@gloaming/shared/discovery';
+import { t } from '@/i18n';
+import type { DiscoverySyncRunHistory, DiscoverySyncRunProgress, DiscoverySyncRunSummary } from '@/shared/discovery';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

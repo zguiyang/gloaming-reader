@@ -1,4 +1,4 @@
-import { catalogListQuerySchema } from '@gloaming/shared/works';
+import { catalogListQuerySchema } from '@/shared/works';
 
 import { listCatalogWorks } from '@/server/domains/works/catalog';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

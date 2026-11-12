@@ -54,7 +54,7 @@ PostgreSQL, Redis, and S3-compatible object storage are external dependencies. R
    pnpm worker
    ```
 
-   Both paths load the compiled backend through the `tsx` loader (`node --import tsx`), because the workspace packages (`@gloaming/db`, `@gloaming/shared`, `@gloaming/i18n`) publish TypeScript sources — their package exports point to `src/*.ts` with extensionless relative imports that plain Node cannot resolve.
+   Both paths load server code through the `tsx` loader (`node --import tsx`), resolving `@/` path aliases to TypeScript sources under `client/` (including `shared/` and `i18n/`).
 
 3. Configure private service networking. Set `API_INTERNAL_URL` for `web` to the private `api` address, normally `http://api:3333`. Expose a public domain only for `web`.
 4. Keep `api` and `worker` running with automatic restart. A stopped worker leaves queued jobs pending.

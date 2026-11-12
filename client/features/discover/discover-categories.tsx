@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 
-import { t } from '@gloaming/i18n';
-import type { PublicCategoryListItem } from '@gloaming/shared/discovery';
+import { t } from '@/i18n';
+import type { PublicCategoryListItem } from '@/shared/discovery';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

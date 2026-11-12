@@ -1,7 +1,7 @@
 import { and, eq, or, sql } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@/server/db';
-import type { WorkProcessingStatus } from '@gloaming/shared/works';
+import type { WorkProcessingStatus } from '@/shared/works';
 
 import { db } from '@/server/infra/db';
 

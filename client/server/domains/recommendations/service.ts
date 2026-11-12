@@ -1,8 +1,8 @@
 import { desc, eq } from 'drizzle-orm';
 
 import { readingState as readingStateTable, readingWork as readingWorkTable } from '@/server/db';
-import type { RecommendationsData, RecommendationsQuery } from '@gloaming/shared/recommendations';
-import type { Work } from '@gloaming/shared/works';
+import type { RecommendationsData, RecommendationsQuery } from '@/shared/recommendations';
+import type { Work } from '@/shared/works';
 
 import { type RecommendationFeatures, resolveRecommendationOrder } from '@/server/domains/recommendations/score';
 import { publicCatalogWorkSql } from '@/server/domains/works/access';

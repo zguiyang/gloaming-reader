@@ -1,7 +1,7 @@
 'use client';
 
-import { t } from '@gloaming/i18n';
-import type { AssetCleanupJob } from '@gloaming/shared/assets';
+import { t } from '@/i18n';
+import type { AssetCleanupJob } from '@/shared/assets';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

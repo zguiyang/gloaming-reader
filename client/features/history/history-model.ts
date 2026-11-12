@@ -1,9 +1,5 @@
-import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
-import type {
-  ReadingHistoryActivityDay,
-  ReadingHistoryData,
-  ReadingHistoryWork,
-} from '@gloaming/shared/reading-history';
+import { DEFAULT_LOCALE, type Locale, t } from '@/i18n';
+import type { ReadingHistoryActivityDay, ReadingHistoryData, ReadingHistoryWork } from '@/shared/reading-history';
 
 export type HistoryViewModel = {
   today: string;

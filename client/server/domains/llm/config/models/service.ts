@@ -10,7 +10,7 @@ import {
   type LlmModel,
   type LlmModelListQuery,
   type UpdateLlmModelBody,
-} from '@gloaming/shared/llm';
+} from '@/shared/llm';
 
 import { parseApiFamily } from '@/server/domains/llm/config/api-family';
 import { settingReferencesModel } from '@/server/domains/llm/config/settings/references';

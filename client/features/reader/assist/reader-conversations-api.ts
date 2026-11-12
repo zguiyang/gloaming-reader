@@ -5,7 +5,7 @@ import {
   conversationDetailSchema,
   type ConversationListData,
   conversationListDataSchema,
-} from '@gloaming/shared/conversations';
+} from '@/shared/conversations';
 
 import { apiRequest } from '@/lib/api-request';
 

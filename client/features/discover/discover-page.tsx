@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from 'react';
 
-import { t } from '@gloaming/i18n';
-import type { PublicCategoryListItem, SourceRecordItem, SourceRecordListData } from '@gloaming/shared/discovery';
-import type { CatalogListData, CatalogWork } from '@gloaming/shared/works';
+import { t } from '@/i18n';
+import type { PublicCategoryListItem, SourceRecordItem, SourceRecordListData } from '@/shared/discovery';
+import type { CatalogListData, CatalogWork } from '@/shared/works';
 
 import { LoadingOverlay } from '@/components/loading-overlay';
 import { Button } from '@/components/ui/button';

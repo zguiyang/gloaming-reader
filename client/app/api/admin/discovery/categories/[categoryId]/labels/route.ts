@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { SUPPORTED_LOCALES } from '@gloaming/i18n';
-import { publicCategoryWriteSchema } from '@gloaming/shared/discovery';
+import { SUPPORTED_LOCALES } from '@/i18n';
+import { publicCategoryWriteSchema } from '@/shared/discovery';
 
 import { updateManagedCategoryLabel } from '@/server/domains/discovery/categories';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

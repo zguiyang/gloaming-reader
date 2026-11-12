@@ -1,7 +1,7 @@
 import { and, eq, type SQL, sql } from 'drizzle-orm';
 
 import { discoverySource, sourceRecord } from '@/server/db/schema';
-import { DISCOVERY_DEFAULT_LANGUAGE } from '@gloaming/shared/discovery';
+import { DISCOVERY_DEFAULT_LANGUAGE } from '@/shared/discovery';
 
 /**
  * Public Discover visibility rules, shared by the record list and the public

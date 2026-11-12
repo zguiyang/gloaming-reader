@@ -3,8 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 
-import { t } from '@gloaming/i18n';
-import { type SourceRecordDetail, sourceRecordDetailSchema, type SourceRecordItem } from '@gloaming/shared/discovery';
+import { t } from '@/i18n';
+import { type SourceRecordDetail, sourceRecordDetailSchema, type SourceRecordItem } from '@/shared/discovery';
 
 import { Button } from '@/components/ui/button';
 import { chaptersFromParts } from '@/features/book-detail/book-detail-api';

@@ -1,5 +1,5 @@
 import type { readingPart as readingPartTable, readingWork as readingWorkTable } from '@/server/db';
-import { type Part, type Work } from '@gloaming/shared/works';
+import { type Part, type Work } from '@/shared/works';
 
 export type WorkRow = typeof readingWorkTable.$inferSelect;
 export type PartRow = typeof readingPartTable.$inferSelect;

@@ -3,8 +3,8 @@
 import { Wallet } from 'lucide-react';
 import { useState } from 'react';
 
-import { t } from '@gloaming/i18n';
-import type { LlmProvider, ProviderBalanceResult } from '@gloaming/shared/llm';
+import { t } from '@/i18n';
+import type { LlmProvider, ProviderBalanceResult } from '@/shared/llm';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

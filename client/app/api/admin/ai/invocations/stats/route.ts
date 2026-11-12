@@ -1,4 +1,4 @@
-import { aiInvocationStatsQuerySchema } from '@gloaming/shared/ai-invocations';
+import { aiInvocationStatsQuerySchema } from '@/shared/ai-invocations';
 
 import { getInvocationStats } from '@/server/domains/ai/invocations/log';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

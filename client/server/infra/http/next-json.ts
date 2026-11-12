@@ -1,4 +1,4 @@
-import { t, type TranslationParams } from '@gloaming/i18n';
+import { t, type TranslationParams } from '@/i18n';
 
 import { getClientLocale } from '@/lib/client-locale';
 import { AppError, type ValidationDetail } from '@/server/shared/errors/app-error';

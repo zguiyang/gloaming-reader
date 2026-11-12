@@ -1,5 +1,5 @@
-import { type Locale, t } from '@gloaming/i18n';
-import type { DiscoverySourceSyncStatus, DiscoverySyncRunStage } from '@gloaming/shared/discovery';
+import { type Locale, t } from '@/i18n';
+import type { DiscoverySourceSyncStatus, DiscoverySyncRunStage } from '@/shared/discovery';
 
 const SYNC_STATUS_KEYS: Record<DiscoverySourceSyncStatus, string> = {
   idle: 'idle',

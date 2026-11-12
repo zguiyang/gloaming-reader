@@ -1,6 +1,6 @@
 'use client';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { RouteLoading } from '@/components/route-loading';
 import { useLocale } from '@/lib/locale-context';

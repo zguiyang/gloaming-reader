@@ -8,7 +8,7 @@ import type {
   DiscoverySyncRunHistory,
   DiscoverySyncRunProgress,
   DiscoverySyncRunSummary,
-} from '@gloaming/shared/discovery';
+} from '@/shared/discovery';
 
 import { JOB_DISCOVERY_SYNC } from '@/jobs/discovery-sync';
 import {

@@ -1,4 +1,4 @@
-import { isLlmApiFamily, type LlmApiFamily } from '@gloaming/shared/llm';
+import { isLlmApiFamily, type LlmApiFamily } from '@/shared/llm';
 
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';

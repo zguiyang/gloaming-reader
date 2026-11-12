@@ -1,4 +1,4 @@
-import { putTtsConfigBodySchema } from '@gloaming/shared/tts';
+import { putTtsConfigBodySchema } from '@/shared/tts';
 
 import { getConfig, putConfig } from '@/server/domains/tts/config/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

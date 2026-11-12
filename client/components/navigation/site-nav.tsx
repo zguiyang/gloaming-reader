@@ -3,7 +3,7 @@
 import { BookUpIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { BrandMark } from '@/components/brand-mark';
 import { AccountMenu, useNavAccount } from '@/components/navigation/account-menu';

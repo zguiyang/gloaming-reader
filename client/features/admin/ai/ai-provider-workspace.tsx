@@ -3,9 +3,9 @@
 import { Plug, Plus, Trash2, Wallet } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 
-import { type Locale, t } from '@gloaming/i18n';
-import type { LlmApiFamily, LlmModel, LlmProvider, ProviderBalanceResult } from '@gloaming/shared/llm';
-import { getWireFamilyDefinition, listWireFamilies } from '@gloaming/shared/llm';
+import { type Locale, t } from '@/i18n';
+import type { LlmApiFamily, LlmModel, LlmProvider, ProviderBalanceResult } from '@/shared/llm';
+import { getWireFamilyDefinition, listWireFamilies } from '@/shared/llm';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

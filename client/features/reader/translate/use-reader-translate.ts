@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import type { TranslateSentenceEn } from '@gloaming/shared/translate';
+import { t } from '@/i18n';
+import type { TranslateSentenceEn } from '@/shared/translate';
 
 import { streamTranslatePart } from '@/features/reader/translate/reader-translate-api';
 import { ApiRequestError } from '@/lib/api-request';

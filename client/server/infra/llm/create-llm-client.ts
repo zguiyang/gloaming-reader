@@ -1,7 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LanguageModel } from 'ai';
 
-import { isRuntimeImplemented } from '@gloaming/shared/llm';
+import { isRuntimeImplemented } from '@/shared/llm';
 
 import { buildProxiedFetch } from '@/server/infra/llm/proxy';
 import type { ResolvedLlm } from '@/server/infra/llm/resolve';

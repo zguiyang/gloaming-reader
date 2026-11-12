@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

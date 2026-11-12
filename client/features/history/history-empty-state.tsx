@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { buttonVariants } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';

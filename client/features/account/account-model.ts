@@ -1,4 +1,4 @@
-import type { Locale } from '@gloaming/i18n';
+import type { Locale } from '@/i18n';
 
 import type { LinkedAccount } from '@/lib/auth/api';
 import type { User } from '@/lib/validations/auth';

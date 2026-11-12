@@ -8,7 +8,7 @@ Logical server modules inside the Next deployable. HTTP transport stays thin in 
 | `infra/`       | Auth, DB, cache, storage, LLM, TTS adapters — no domain workflows               |
 | `application/` | Optional orchestration (e.g. job-related); empty until authorized               |
 
-**May import:** `../shared`, `infra`, and `@gloaming/*` packages under `packages/`.
+**May import:** `@/shared`, `@/i18n`, and `server/infra` (not `features/`).
 
 **Must not:** leak into `features/` or client bundles; do not nest Hono as the long-term API host.
 

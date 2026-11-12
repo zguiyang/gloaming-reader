@@ -1,11 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import { type Locale, resolveLocale, SUPPORTED_LOCALES } from '@gloaming/i18n';
-import {
-  normalizePublicCategoryName,
-  PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
-  type PublicCategory,
-} from '@gloaming/shared/discovery';
+import { type Locale, resolveLocale, SUPPORTED_LOCALES } from '@/i18n';
+import { normalizePublicCategoryName, PUBLIC_CATEGORY_ASSIGNMENT_LIMIT, type PublicCategory } from '@/shared/discovery';
 
 import { invokeAi } from '@/server/domains/ai';
 import {

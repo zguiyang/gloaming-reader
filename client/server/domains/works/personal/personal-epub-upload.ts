@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { WorkProcessingStatus } from '@gloaming/shared/works';
+import type { WorkProcessingStatus } from '@/shared/works';
 
 import {
   createEpubIngestWork,

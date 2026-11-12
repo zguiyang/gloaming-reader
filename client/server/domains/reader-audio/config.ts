@@ -1,4 +1,4 @@
-import type { TtsVoiceRole } from '@gloaming/shared/tts';
+import type { TtsVoiceRole } from '@/shared/tts';
 
 import type { TtsConfigRow } from '@/server/domains/provider-scope';
 import { resolveScopedTtsConfigRow, runtimeActorFromUserId } from '@/server/domains/provider-scope';

@@ -4,8 +4,8 @@ import { PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import type { PublicCategoryManagementItem, SourceRecordItem } from '@gloaming/shared/discovery';
+import { t } from '@/i18n';
+import type { PublicCategoryManagementItem, SourceRecordItem } from '@/shared/discovery';
 
 import {
   AlertDialog,

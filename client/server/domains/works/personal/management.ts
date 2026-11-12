@@ -11,7 +11,7 @@ import {
   readingWork as readingWorkTable,
   uploadedObject as uploadedObjectTable,
 } from '@/server/db';
-import type { PersonalWorkUpdate } from '@gloaming/shared/works';
+import type { PersonalWorkUpdate } from '@/shared/works';
 
 import {
   collectFormalKeysFromContentAssetRow,

@@ -4,8 +4,8 @@ import { Download, RefreshCw } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import type { DiscoverySourceSyncStatus } from '@gloaming/shared/discovery';
+import { t } from '@/i18n';
+import type { DiscoverySourceSyncStatus } from '@/shared/discovery';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {

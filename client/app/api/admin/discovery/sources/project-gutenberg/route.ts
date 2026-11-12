@@ -1,4 +1,4 @@
-import { discoverySourceEnabledUpdateSchema } from '@gloaming/shared/discovery';
+import { discoverySourceEnabledUpdateSchema } from '@/shared/discovery';
 
 import {
   getProjectGutenbergSourceStatus,

@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Fragment, type ReactNode, Suspense, useState } from 'react';
 
-import { type Locale, t } from '@gloaming/i18n';
-import { isAdminRole } from '@gloaming/shared/auth';
+import { type Locale, t } from '@/i18n';
+import { isAdminRole } from '@/shared/auth';
 
 import { BrandMark } from '@/components/brand-mark';
 import { GlobalLoading } from '@/components/global-loading';

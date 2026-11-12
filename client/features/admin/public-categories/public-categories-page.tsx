@@ -4,8 +4,8 @@ import { PlusIcon, SearchIcon } from 'lucide-react';
 import { type FormEvent, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { type Locale, SUPPORTED_LOCALES, t } from '@gloaming/i18n';
-import { PUBLIC_CATEGORY_NAME_MAX_CHARS } from '@gloaming/shared/discovery';
+import { type Locale, SUPPORTED_LOCALES, t } from '@/i18n';
+import { PUBLIC_CATEGORY_NAME_MAX_CHARS } from '@/shared/discovery';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {

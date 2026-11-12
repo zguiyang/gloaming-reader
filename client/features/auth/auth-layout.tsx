@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { BrandMark } from '@/components/brand-mark';
 import { Button } from '@/components/ui/button';

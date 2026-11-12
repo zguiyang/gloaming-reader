@@ -1,5 +1,5 @@
-import type { PublicCategorySummary, SourceRecordItem } from '@gloaming/shared/discovery';
-import type { CatalogWork } from '@gloaming/shared/works';
+import type { PublicCategorySummary, SourceRecordItem } from '@/shared/discovery';
+import type { CatalogWork } from '@/shared/works';
 
 /**
  * Discover membership only; reading progress is carried by the linked Work and

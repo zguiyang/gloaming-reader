@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
 import { readingState as readingStateTable } from '@/server/db';
-import { calendarDateInTimeZone } from '@gloaming/shared/reading-history';
+import { calendarDateInTimeZone } from '@/shared/reading-history';
 
 import { insertReadingDays } from '@/server/domains/reading/history/heartbeat';
 import { db } from '@/server/infra/db';

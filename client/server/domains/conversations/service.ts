@@ -21,8 +21,8 @@ import {
   type ConversationSummary,
   type ConversationSurface,
   type CreateConversationBody,
-} from '@gloaming/shared/conversations';
-import { buildPaginationMeta } from '@gloaming/shared/pagination';
+} from '@/shared/conversations';
+import { buildPaginationMeta } from '@/shared/pagination';
 
 import type { WorkReadActor } from '@/server/domains/works/access';
 import { assertCanReadWork, workReadAccessSql } from '@/server/domains/works/access';

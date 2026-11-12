@@ -6,8 +6,8 @@ import {
   type AiInvocationStats,
   type AiInvocationStatsQuery,
   aiInvocationStatsSchema,
-} from '@gloaming/shared/ai-invocations';
-import { DEFAULT_PAGE, type PaginationMeta } from '@gloaming/shared/pagination';
+} from '@/shared/ai-invocations';
+import { DEFAULT_PAGE, type PaginationMeta } from '@/shared/pagination';
 
 import { apiRequest, formatApiError } from '@/lib/api-request';
 

@@ -1,16 +1,16 @@
 import { and, count, desc, eq, ilike, inArray, isNotNull, or, type SQL, sql } from 'drizzle-orm';
 
 import { discoverySource, readingWork, sourceRecord } from '@/server/db/schema';
-import { DEFAULT_LOCALE } from '@gloaming/i18n';
+import { DEFAULT_LOCALE } from '@/i18n';
 import type {
   CategorySourceRecordListQuery,
   SourceRecordDetail,
   SourceRecordItem,
   SourceRecordListData,
   SourceRecordListQuery,
-} from '@gloaming/shared/discovery';
-import { buildPaginationMeta } from '@gloaming/shared/pagination';
-import { WORK_PARSE_COMPLETED_STATUSES } from '@gloaming/shared/works';
+} from '@/shared/discovery';
+import { buildPaginationMeta } from '@/shared/pagination';
+import { WORK_PARSE_COMPLETED_STATUSES } from '@/shared/works';
 
 import { loadCategorySummariesByRecordIds } from '@/server/domains/discovery/categories/repository';
 import { hasSelectableEpubCandidate } from '@/server/domains/discovery/materialization/epub-candidate';

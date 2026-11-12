@@ -2,11 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import {
-  type DictionaryEntry,
-  type LookupDictionaryQuery,
-  lookupDictionaryResultSchema,
-} from '@gloaming/shared/dictionary';
+import { type DictionaryEntry, type LookupDictionaryQuery, lookupDictionaryResultSchema } from '@/shared/dictionary';
 
 import { apiRequest, ApiRequestError } from '@/lib/api-request';
 

@@ -413,7 +413,7 @@ export const llmProvider = pgTable(
   'llm_provider',
   {
     id: text('id').primaryKey(),
-    /** Wire API family for this provider; immutable after create. See `@gloaming/shared/llm`. */
+    /** Wire API family for this provider; immutable after create. See `@/shared/llm`. */
     apiFamily: text('api_family').notNull().default('openai'),
     name: text('name').notNull(),
     baseUrl: text('base_url').notNull(),

@@ -14,7 +14,7 @@ import {
   isLlmApiFamily,
   type LlmAppSettingView,
   type PutLlmAppSettingBody,
-} from '@gloaming/shared/llm';
+} from '@/shared/llm';
 
 import { parseApiFamily } from '@/server/domains/llm/config/api-family';
 import { isModelRuntimeReady } from '@/server/domains/llm/runtime/readiness';

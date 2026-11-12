@@ -1,4 +1,4 @@
-import { saveCategoryShelfTermsSchema } from '@gloaming/shared/discovery';
+import { saveCategoryShelfTermsSchema } from '@/shared/discovery';
 
 import { saveCategoryShelfTerms } from '@/server/domains/discovery/categories';
 import { jsonFromThrown, jsonValidationError } from '@/server/infra/http/next-json';

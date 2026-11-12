@@ -1,4 +1,4 @@
-import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
+import { EPUB_UPLOAD_MAX_BYTES } from '@/shared/works';
 
 import { PROJECT_GUTENBERG_USER_AGENT } from '../gutenberg/constants';
 import { isOfficialGutenbergEpubUrl } from './epub-candidate';

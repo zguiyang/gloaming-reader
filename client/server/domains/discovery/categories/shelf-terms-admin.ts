@@ -9,7 +9,7 @@ import {
   sourceRecord,
   sourceRecordPublicCategory,
 } from '@/server/db/schema';
-import type { GutenbergShelfTermListData } from '@gloaming/shared/discovery';
+import type { GutenbergShelfTermListData } from '@/shared/discovery';
 
 import { getCategoryRow } from '@/server/domains/discovery/categories/repository';
 import {

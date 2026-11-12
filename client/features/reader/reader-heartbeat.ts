@@ -7,7 +7,7 @@ import {
   READING_HEARTBEAT_MAX_CREDIT_SECONDS,
   type ReadingHeartbeatBody,
   readingHeartbeatBodySchema,
-} from '@gloaming/shared/reading-history';
+} from '@/shared/reading-history';
 
 function creditSeconds(elapsedMs: number): number {
   const seconds = Math.floor(elapsedMs / 1000);

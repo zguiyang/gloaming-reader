@@ -12,7 +12,7 @@ import {
   useState,
 } from 'react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Button } from '@/components/ui/button';
 import {

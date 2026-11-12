@@ -31,12 +31,12 @@ Gloaming is not Duolingo, LingQ, Anki, a ChatGPT reading plugin, or an AI conten
 
 ## Stack (local default)
 
-| Layer    | Tech                                                                                         |
-| -------- | -------------------------------------------------------------------------------------------- |
-| App      | **Next.js** (`client/`) — UI, `/api/*` Route Handlers, Better Auth, Drizzle                  |
-| Jobs     | Same package — BullMQ worker (`jobs/`, second process)                                       |
-| Data     | PostgreSQL, Redis (port **6380**), S3-compatible object storage                              |
-| Packages | `packages/*` (`@gloaming/shared`, `@gloaming/i18n`); DB schema inlined in `client/server/db` |
+| Layer            | Tech                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| App              | **Next.js** (`client/`) — UI, `/api/*` Route Handlers, Better Auth, Drizzle                |
+| Jobs             | Same package — BullMQ worker (`jobs/`, second process)                                     |
+| Data             | PostgreSQL, Redis (port **6380**), S3-compatible object storage                            |
+| Contracts / i18n | `client/shared/`, `client/i18n/` (`@/shared/*`, `@/i18n`); DB schema in `client/server/db` |
 
 The former Hono API + separate web app live under [`archive/`](./archive/) for comparison only (N5 demote).
 

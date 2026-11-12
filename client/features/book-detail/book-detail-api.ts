@@ -5,11 +5,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { DEFAULT_LOCALE } from '@gloaming/i18n';
-import type { LibraryItem } from '@gloaming/shared/library';
-import type { ReaderPartsData, ReadingState } from '@gloaming/shared/reader';
-import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
-import { type PartSummary, type Work, workAvailability, workSchema } from '@gloaming/shared/works';
+import { DEFAULT_LOCALE } from '@/i18n';
+import type { LibraryItem } from '@/shared/library';
+import type { ReaderPartsData, ReadingState } from '@/shared/reader';
+import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@/shared/reading-stats';
+import { type PartSummary, type Work, workAvailability, workSchema } from '@/shared/works';
 
 import {
   type BookChapter,

@@ -1,4 +1,4 @@
-import { type Locale, resolveLocale } from '@gloaming/i18n';
+import { type Locale, resolveLocale } from '@/i18n';
 
 /** Resolve the request locale from the Accept-Language header. */
 export function resolveRequestLocale(request: Request): Locale {

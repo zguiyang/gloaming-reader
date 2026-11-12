@@ -4,7 +4,7 @@ import { BookmarkIcon, BookOpenIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, 
 import Link from 'next/link';
 import { type ReactNode, useState } from 'react';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';

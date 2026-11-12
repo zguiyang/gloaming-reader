@@ -3,7 +3,7 @@
 import { keepPreviousData, type QueryKey, useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
-import { type PaginationMeta } from '@gloaming/shared/pagination';
+import { type PaginationMeta } from '@/shared/pagination';
 
 import { useMinimumHold } from '@/lib/query/use-minimum-hold';
 

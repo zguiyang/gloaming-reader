@@ -16,7 +16,7 @@ import {
   type TestLlmProviderBody,
   type TestLlmProviderResult,
   type UpdateLlmProviderBody,
-} from '@gloaming/shared/llm';
+} from '@/shared/llm';
 
 import { invokeAi } from '@/server/domains/ai';
 import { parseApiFamily } from '@/server/domains/llm/config/api-family';

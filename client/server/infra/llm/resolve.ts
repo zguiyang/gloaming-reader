@@ -1,8 +1,8 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import { llmModel as llmModelTable, llmProvider as llmProviderTable } from '@/server/db';
-import type { LlmApiFamily } from '@gloaming/shared/llm';
-import { assertWireVariantForFamily, isLlmApiFamily, isRuntimeImplemented } from '@gloaming/shared/llm';
+import type { LlmApiFamily } from '@/shared/llm';
+import { assertWireVariantForFamily, isLlmApiFamily, isRuntimeImplemented } from '@/shared/llm';
 
 import { db } from '@/server/infra/db';
 import { decryptApiKey } from '@/server/infra/llm/crypto';

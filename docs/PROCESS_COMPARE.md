@@ -10,7 +10,7 @@ Local cutover target for `client/` (not Cloudflare).
 | Process count (local) | **3** (web + api + worker)                | **2** (Next + worker)                                                     |
 | Auth                  | Better Auth on Hono; web may proxy `/api` | Better Auth via `toNextJsHandler` same-origin `/api/auth`                 |
 | Shared DB schema      | `@gloaming/db` package                    | **Inlined** `client/server/db/`                                           |
-| Contracts             | `@gloaming/shared` (archived)             | Transitional `packages/shared` + prefer `client/shared/` for app-only     |
+| Contracts             | `@gloaming/shared` (archived)             | `client/shared/` (`@/shared/*`) inlined in the Next app                   |
 | AI                    | LangChain path (legacy)                   | Vercel AI SDK on live path                                                |
 | TTS                   | Speech SDK (legacy)                       | Azure Speech REST                                                         |
 | Data plane            | Postgres + Redis + S3                     | Same                                                                      |

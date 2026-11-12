@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
-import type { ReaderAudioManifest, ReaderAudioManifestSegment, ReaderAudioSegment } from '@gloaming/shared/reader';
-import type { TtsVoiceRole } from '@gloaming/shared/tts';
+import type { ReaderAudioManifest, ReaderAudioManifestSegment, ReaderAudioSegment } from '@/shared/reader';
+import type { TtsVoiceRole } from '@/shared/tts';
 
 import type { ReaderAudioConfig } from '@/server/domains/reader-audio/config';
 import { resolveReaderAudioConfig } from '@/server/domains/reader-audio/config';

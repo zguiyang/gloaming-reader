@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { dictionaryEntry as dictionaryEntryTable } from '@/server/db';
-import type { DictionaryEntry } from '@gloaming/shared/dictionary';
+import type { DictionaryEntry } from '@/shared/dictionary';
 
 import type { RawProviderResult } from '@/server/domains/dictionary/providers/types';
 import { getRedis } from '@/server/infra/cache';

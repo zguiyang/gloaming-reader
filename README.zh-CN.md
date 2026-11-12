@@ -31,12 +31,12 @@ Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不�
 
 ## 技术栈（本地默认路径）
 
-| 层   | 技术                                                                        |
-| ---- | --------------------------------------------------------------------------- |
-| 应用 | **Next.js**（`client/`）— UI、`/api/*` Route Handlers、Better Auth、Drizzle |
-| Jobs | 同包 BullMQ worker（`jobs/`，第二个进程）                                   |
-| 数据 | PostgreSQL、Redis（端口 **6380**）、S3 兼容对象存储                         |
-| 包   | `packages/*`；数据库 schema 内联在 `client/server/db`                       |
+| 层          | 技术                                                                        |
+| ----------- | --------------------------------------------------------------------------- |
+| 应用        | **Next.js**（`client/`）— UI、`/api/*` Route Handlers、Better Auth、Drizzle |
+| Jobs        | 同包 BullMQ worker（`jobs/`，第二个进程）                                   |
+| 数据        | PostgreSQL、Redis（端口 **6380**）、S3 兼容对象存储                         |
+| 契约 / i18n | `client/shared/`、`client/i18n/`；数据库 schema 在 `client/server/db`       |
 
 原 Hono API + 独立 web 应用在 [`archive/`](./archive/)（N5 降级，仅对照）。
 

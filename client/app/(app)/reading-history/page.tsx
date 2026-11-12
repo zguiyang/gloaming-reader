@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { HistoryPage } from '@/features/history';
 import { getClientLocale, LOCALE_COOKIE_NAME } from '@/lib/client-locale';

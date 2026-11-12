@@ -1,7 +1,7 @@
 import type { DayPickerLocale } from 'react-day-picker/locale';
 import { enUS, zhCN } from 'react-day-picker/locale';
 
-import { type Locale, t } from '@gloaming/i18n';
+import { type Locale, t } from '@/i18n';
 
 const AI_SOURCE_KEYS: Record<string, string> = {
   'assist.ask': 'assistAsk',

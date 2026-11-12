@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 
-import { isAdminRole } from '@gloaming/shared/auth';
+import { isAdminRole } from '@/shared/auth';
 
 import { auth, type AuthSession, type AuthSessionUser } from '@/server/infra/auth/auth';
 

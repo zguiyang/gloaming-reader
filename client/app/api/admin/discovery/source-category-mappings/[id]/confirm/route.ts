@@ -1,4 +1,4 @@
-import { sourceCategoryMappingConfirmSchema } from '@gloaming/shared/discovery';
+import { sourceCategoryMappingConfirmSchema } from '@/shared/discovery';
 
 import { confirmSourceCategoryMapping } from '@/server/domains/discovery/categories';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { and, asc, count, desc, eq, gte, lte, type SQL, sql } from 'drizzle-orm';
 
 import { readingPart as readingPartTable, ttsInvocationLog as ttsInvocationLogTable } from '@/server/db';
-import { buildPaginationMeta } from '@gloaming/shared/pagination';
-import { type TtsVoiceRole } from '@gloaming/shared/tts';
+import { buildPaginationMeta } from '@/shared/pagination';
+import { type TtsVoiceRole } from '@/shared/tts';
 import {
   resolveTtsInvocationWindow,
   type TtsInvocationListData,
@@ -13,7 +13,7 @@ import {
   type TtsInvocationStats,
   type TtsInvocationStatsQuery,
   type TtsInvocationStatus,
-} from '@gloaming/shared/tts-invocations';
+} from '@/shared/tts-invocations';
 
 import { db } from '@/server/infra/db';
 

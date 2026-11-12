@@ -3,8 +3,8 @@
 import { BookOpenIcon } from 'lucide-react';
 import Link from 'next/link';
 
-import { type Locale, t } from '@gloaming/i18n';
-import type { ContinueReadingItem } from '@gloaming/shared/library';
+import { type Locale, t } from '@/i18n';
+import type { ContinueReadingItem } from '@/shared/library';
 
 import { buttonVariants } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';

@@ -2,7 +2,7 @@ import {
   personalWorkDeleteResultSchema,
   personalWorkUpdateResultSchema,
   personalWorkUpdateSchema,
-} from '@gloaming/shared/works';
+} from '@/shared/works';
 
 import { deletePersonalWork, updatePersonalWork } from '@/server/domains/works/personal/management';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

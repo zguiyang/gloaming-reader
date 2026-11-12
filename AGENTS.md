@@ -10,8 +10,10 @@ development.
 Gloaming is an AI-native environment for authentic English reading with
 contextual AI support. Do not revive legacy `Article` models, aliases,
 `reading_progress`, `article_audio`, or lesson/course entities, or redefine the
-product as a Short Article Library. Cross-app contracts belong in
-`@gloaming/shared`, and database schema belongs in `@gloaming/db`. Logical
+product as a Short Article Library. Cross-app contracts for the live product live in `client/shared/` (import
+`@/shared/*`); legacy `@gloaming/shared` remains under `archive/`. Database
+schema is inlined in `client/server/db` (legacy `@gloaming/db` under `archive/`).
+Logical
 server-domain boundaries may remain even when deploy topology merges. When
 changing persistent domain models or public contracts, identify the current
 authoritative model, preserve established invariants, and verify affected
@@ -134,7 +136,7 @@ Read only the rules relevant to the current task:
   [Deploy and API topology](#deploy-and-api-topology-transition) section,
   [Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md),
   and [stage plan / P1 charter](docs/cloudflare-fullstack-refactor-stages.md)
-  (product at repo root—`client` + `packages/`; legacy under `archive/`; Workers real
+  (product at repo root—`client/` only; legacy under `archive/`; Workers real
   compatibility only after that—do not treat `archive/apps/*` as the CF migration object).
 - Backend services and APIs: [backend rules](rules/backend.md).
 - Web and UI: [frontend rules](rules/frontend.md) and, for UI work,

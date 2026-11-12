@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, type Locale, t } from '@gloaming/i18n';
+import { DEFAULT_LOCALE, type Locale, t } from '@/i18n';
 
 import { AUTH_ROUTES } from '@/constants';
 

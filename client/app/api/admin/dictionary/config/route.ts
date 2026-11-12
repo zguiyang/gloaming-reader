@@ -1,4 +1,4 @@
-import { putDictionaryConfigBodySchema } from '@gloaming/shared/dictionary';
+import { putDictionaryConfigBodySchema } from '@/shared/dictionary';
 
 import { getDictionaryConfig, putDictionaryConfig } from '@/server/domains/dictionary/config/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

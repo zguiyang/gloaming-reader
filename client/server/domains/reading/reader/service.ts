@@ -2,8 +2,8 @@ import { and, eq } from 'drizzle-orm';
 
 import type { readingPart as readingPartTable } from '@/server/db';
 import { readingState as readingStateTable } from '@/server/db';
-import { type ReaderPartData, type ReaderPartsData, type ReadingState } from '@gloaming/shared/reader';
-import { estimatedMinutesFromWordCount } from '@gloaming/shared/reading-stats';
+import { type ReaderPartData, type ReaderPartsData, type ReadingState } from '@/shared/reader';
+import { estimatedMinutesFromWordCount } from '@/shared/reading-stats';
 
 import { resolveReaderAudioConfig } from '@/server/domains/reader-audio';
 import { toReadingState } from '@/server/domains/reading/reader/reading-state';

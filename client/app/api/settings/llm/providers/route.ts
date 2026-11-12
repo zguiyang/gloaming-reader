@@ -1,4 +1,4 @@
-import { createLlmProviderBodySchema } from '@gloaming/shared/llm';
+import { createLlmProviderBodySchema } from '@/shared/llm';
 
 import * as userLlmConfig from '@/server/domains/llm/config/user/service';
 import { rejectOwnerUserIdInPayload } from '@/server/domains/provider-scope';

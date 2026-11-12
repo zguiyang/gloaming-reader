@@ -13,7 +13,7 @@ import {
   type TtsVoiceRole,
   type TtsWordTiming,
   validateAzureWordTimings,
-} from '@gloaming/shared/tts';
+} from '@/shared/tts';
 
 import {
   resolveInstanceTtsConfigRow,

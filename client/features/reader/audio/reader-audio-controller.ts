@@ -1,4 +1,4 @@
-import type { ReaderAudioManifest, ReaderAudioSegment } from '@gloaming/shared/reader';
+import type { ReaderAudioManifest, ReaderAudioSegment } from '@/shared/reader';
 
 import type { SegmentTimingInput } from '@/features/reader/audio/reader-audio-sync';
 import {

@@ -1,4 +1,4 @@
-import { SUPPORTED_LOCALES } from '@gloaming/i18n';
+import { SUPPORTED_LOCALES } from '@/i18n';
 import {
   type PublicCategory,
   type PublicCategoryListItem,
@@ -6,7 +6,7 @@ import {
   type PublicCategoryProvenance,
   type PublicCategorySummary,
   resolvePublicCategoryName,
-} from '@gloaming/shared/discovery';
+} from '@/shared/discovery';
 
 /** Label row shape needed to assemble the shared `PublicCategory` contract. */
 export type PublicCategoryLabelInput = {

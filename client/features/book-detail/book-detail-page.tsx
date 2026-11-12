@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { AUTH_ROUTES } from '@/constants';

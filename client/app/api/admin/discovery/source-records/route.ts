@@ -1,4 +1,4 @@
-import { categorySourceRecordListQuerySchema } from '@gloaming/shared/discovery';
+import { categorySourceRecordListQuerySchema } from '@/shared/discovery';
 
 import { listAdminSourceRecords } from '@/server/domains/discovery/read-model';
 import { resolveRequestLocale } from '@/server/infra/http/locale';

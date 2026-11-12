@@ -4,7 +4,7 @@ import { LogOutIcon, Settings, Settings2, UserCircleIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
+import { t } from '@/i18n';
 
 import { getNavCopy } from '@/components/navigation/nav-config';
 import {

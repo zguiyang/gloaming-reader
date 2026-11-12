@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-import type { DictionaryEntry } from '@gloaming/shared/dictionary';
+import type { DictionaryEntry } from '@/shared/dictionary';
 
 import { ReaderDictionaryPopover } from '@/features/reader/dictionary/reader-dictionary-popover';
 import { ReaderDictionarySheet } from '@/features/reader/dictionary/reader-dictionary-sheet';

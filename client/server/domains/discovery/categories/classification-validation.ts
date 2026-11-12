@@ -1,11 +1,11 @@
-import type { Locale } from '@gloaming/i18n';
+import type { Locale } from '@/i18n';
 import {
   canonicalizePublicCategoryName,
   normalizePublicCategoryName,
   PUBLIC_CATEGORY_ASSIGNMENT_LIMIT,
   type PublicCategory,
   publicCategoryNameSchema,
-} from '@gloaming/shared/discovery';
+} from '@/shared/discovery';
 
 import type {
   PublicCategoryTranslationOutput,

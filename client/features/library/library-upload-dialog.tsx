@@ -5,8 +5,8 @@ import { FileUpIcon, XIcon } from 'lucide-react';
 import { type ChangeEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { t } from '@gloaming/i18n';
-import { EPUB_UPLOAD_MAX_BYTES } from '@gloaming/shared/works';
+import { t } from '@/i18n';
+import { EPUB_UPLOAD_MAX_BYTES } from '@/shared/works';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';

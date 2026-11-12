@@ -1,4 +1,4 @@
-import { normalizePublicCategoryName, publicCategoryNameSchema } from '@gloaming/shared/discovery';
+import { normalizePublicCategoryName, publicCategoryNameSchema } from '@/shared/discovery';
 
 /** New main categories suggested in one batch. Keeps the vocabulary broad. */
 export const SHELF_ORGANIZATION_MAX_PROPOSALS = 3;

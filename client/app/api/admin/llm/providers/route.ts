@@ -1,4 +1,4 @@
-import { createLlmProviderBodySchema } from '@gloaming/shared/llm';
+import { createLlmProviderBodySchema } from '@/shared/llm';
 
 import * as llmProvidersService from '@/server/domains/llm/config/providers/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';

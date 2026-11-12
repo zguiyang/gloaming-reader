@@ -1,4 +1,4 @@
-import { type LibraryData, libraryDataSchema, type LibraryItem, libraryItemSchema } from '@gloaming/shared/library';
+import { type LibraryData, libraryDataSchema, type LibraryItem, libraryItemSchema } from '@/shared/library';
 
 import { apiRequest } from '@/lib/api-request';
 

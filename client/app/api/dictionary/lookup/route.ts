@@ -1,4 +1,4 @@
-import { lookupDictionaryQuerySchema } from '@gloaming/shared/dictionary';
+import { lookupDictionaryQuerySchema } from '@/shared/dictionary';
 
 import { lookupWord } from '@/server/domains/dictionary/lookup/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';

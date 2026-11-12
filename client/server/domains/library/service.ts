@@ -15,8 +15,8 @@ import {
   type LibraryBrowseQuery,
   type LibraryData,
   type LibraryItem,
-} from '@gloaming/shared/library';
-import { workAvailability } from '@gloaming/shared/works';
+} from '@/shared/library';
+import { workAvailability } from '@/shared/works';
 
 import { loadUserTagsByWorkIds } from '@/server/domains/library/tags/service';
 import { toReadingState } from '@/server/domains/reading';

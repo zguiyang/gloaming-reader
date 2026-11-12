@@ -7,8 +7,8 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { SUPPORTED_LOCALES, t } from '@gloaming/i18n';
-import { isUserTagTranslationMissing, resolveUserTagName, type UserTagManagementItem } from '@gloaming/shared/library';
+import { SUPPORTED_LOCALES, t } from '@/i18n';
+import { isUserTagTranslationMissing, resolveUserTagName, type UserTagManagementItem } from '@/shared/library';
 
 import {
   AlertDialog,
