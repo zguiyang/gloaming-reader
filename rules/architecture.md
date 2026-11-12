@@ -9,14 +9,14 @@ review. Use a relevant structure Skill for execution methods.
 Accepted deploy/API direction:
 [Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md).
 
-- **Current deploy unit:** `client/` — one Next application (UI + HTTP APIs) with
-  an optional same-package BullMQ worker (`client/jobs/`). Legacy
-  `web+api+worker` sources live under `archive/apps/*` for comparison only.
+- **Current deploy unit:** repo-root single Next package (UI + HTTP APIs) with
+  an optional same-package BullMQ worker (`jobs/`). Legacy `web+api+worker`
+  sources live under `archive/apps/*` for comparison only.
 - **Target platform:** same Next deploy unit on managed data plane; Cloudflare
   Workers compatibility is a gated P4 track (P4-V1 build/Preview done; P4-V2 not).
 - **Logical boundaries remain:** a single deploy unit does **not** authorize
-  folding server domain logic into UI modules, dissolving `client/shared/` or
-  `client/server/db` ownership, or inventing a new shared kitchen-sink layer.
+  folding server domain logic into UI modules, dissolving `shared/` or
+  `server/db` ownership, or inventing a new shared kitchen-sink layer.
 - **Hono** is not in the live tree and is not the long-term API host. Do not
   reintroduce nested Hono inside Next unless the guidance is amended.
 - **Jobs / queues** are optional for open-source delivery. Do not treat BullMQ

@@ -60,9 +60,11 @@ P4  `client/` 上 Workers 真实兼容       🔄 P4-V1 进行中（vinext 构�
 
 **N5（2026-11-12）：** 根 `apps/*` 与根 `packages/*` 已迁至 **`archive/`**；**step ③ 根提升已完成**（`migration/` 信封已取消）。
 
-**Packages inline（2026-11-12）：** 根 `packages/i18n` + `packages/shared` 已收进 **`client/i18n/`**、**`client/shared/`**；根 workspace 仅 **`client`**。**未做：** R5 Jobs 终态书面定案。
+**Packages inline（2026-11-12）：** 根 `packages/i18n` + `packages/shared` 已收进应用内 **`i18n/`**、**`shared/`**。
 
-**P4-V1（2026-11-12）：** 对象 **`client/`**（非 `migration/client`）。`vinext init --platform=cloudflare` + `pnpm build:workers` 本地通过；非生产 Preview `p4-v1-smoke` 已部署。详见 [`research/cf-workers-p4-v1-findings.md`](./research/cf-workers-p4-v1-findings.md)。**未做：** P4-V2 鉴权/DB/Free CPU 实测。
+**单包根（2026-11-12）：** 取消假 monorepo：`client/` 内容提升到仓库根；单一 `package.json`；`pnpm-workspace.yaml` 仅保留 `allowBuilds`（不是多包 workspace）。**未做：** R5 Jobs 终态书面定案。
+
+**P4-V1（2026-11-12）：** 对象为现网 Next 树。`vinext` + `pnpm build:workers` 本地通过；非生产 Preview `p4-v1-smoke` 已部署。详见 [`research/cf-workers-p4-v1-findings.md`](./research/cf-workers-p4-v1-findings.md)。**未做：** P4-V2 鉴权/DB/Free CPU 实测。
 
 ---
 
@@ -183,11 +185,11 @@ P4  `client/` 上 Workers 真实兼容       🔄 P4-V1 进行中（vinext 构�
     （eslint/prettier/tsconfig 等共享配置：在 migration 内自备副本或可提取的根配置）
 ```
 
-应用内 `client/shared/` 与跨包 `packages/*` 的分工见 [`client/STRUCTURE.md`](../client/STRUCTURE.md)。
+应用内 `shared/` 与历史 packages 的分工见 [`STRUCTURE.md`](../STRUCTURE.md)。
 
 #### 4.1.1 共享包与共享配置（必虑）
 
-（历史约定）迁入期曾保留根级 shared/db/i18n 与 eslint/prettier/`tsconfig.base` 对照。**现状：** 契约已内联 `client/shared` + `client/i18n`；`tsconfig.base` 仅留在 `archive/`。原约定摘录：
+（历史约定）迁入期曾保留根级 shared/db/i18n 与 eslint/prettier/`tsconfig.base` 对照。**现状：** 契约已内联根级 `shared` + `i18n`；`tsconfig.base` 仅留在 `archive/`；现网为单包。原约定摘录：
 
 | 策略                     | 做法                                                                                                                                                                                                                                                                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -290,8 +292,8 @@ P4  `client/` 上 Workers 真实兼容       🔄 P4-V1 进行中（vinext 构�
 
 ## 6. P4 — 平台迁与真实兼容性（迁入差不多之后）
 
-**前置：** N5 后产品根为 **`client/` + `packages/`**（`migration/` 信封已取消）。  
-**对象：** **`client/`** 新结构，**不是** `archive/` 旧 `web+api+worker`。  
+**前置：** N5 + 单包根之后，产品在**仓库根**（`migration/` 信封已取消）。  
+**对象：** 现网 Next 树，**不是** `archive/` 旧 `web+api+worker`。  
 **内容：** Workers 构建/Preview、关键路径、鉴权/DB 与 Free CPU（P4-V1/V2）。  
 **禁止：** 用旧三件套或 P1 探针冒充 P4 证据。
 

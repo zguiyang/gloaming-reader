@@ -1,8 +1,8 @@
-# Cloudflare Workers path (`client/`)
+# Cloudflare Workers path
 
 **Status:** P4-V1 evidence lane (not default open-source delivery).
 
-Default local delivery remains **Next.js + optional Jobs process** — see [`LOCAL_RUN.md`](./LOCAL_RUN.md).
+Default local delivery remains **Next.js + optional Jobs process** at the repo root — see [`LOCAL_RUN.md`](./LOCAL_RUN.md).
 
 ## Scripts
 
@@ -36,7 +36,6 @@ Do **not** treat Preview success on these paths as auth/DB/Free-CPU fitness; tha
 Authenticated Cloudflare account required (`cf auth list` / `cf auth login`). Use **preview** only unless explicitly authorized for production traffic:
 
 ```bash
-cd client
 pnpm run build:workers
 pnpm exec vinext-cloudflare previews deploy --preview-name <name>
 ```

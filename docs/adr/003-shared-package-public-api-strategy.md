@@ -2,14 +2,14 @@
 
 **Status:** Accepted  
 **Date:** 2026-09-07  
-**Amended:** 2026-09-08 (root facade removal); 2026-11-12 (inlined into `client/shared/`)
-**Scope:** `client/shared/` public entrypoints (import `@/shared/<area>`)
+**Amended:** 2026-09-08 (root facade removal); 2026-11-12 (inlined into `shared/`)
+**Scope:** `shared/` public entrypoints (import `@/shared/<area>`)
 
 Related: [`rules/packages.md`](../../rules/packages.md) ·
-[`client/shared/public-exports.spec.ts`](../../client/shared/public-exports.spec.ts)
+[`shared/public-exports.spec.ts`](../../shared/public-exports.spec.ts)
 
-**Current location (2026-11-12):** The live contract tree is **`client/shared/`**
-with path alias `@/shared/<module>`. There is no root `@gloaming/shared`
+**Current location (2026-11-12):** The live contract tree is **`shared/`** at the
+repo root with path alias `@/shared/<module>`. There is no `@gloaming/shared`
 workspace package. Historical package names and `apps/web` / `apps/backend`
 wording below describe the decision's origin; apply the same module-map rules to
 the inlined tree. Archived package sources: `archive/packages/shared`.

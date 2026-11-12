@@ -31,14 +31,14 @@ Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不�
 
 ## 技术栈（本地默认路径）
 
-| 层          | 技术                                                                        |
-| ----------- | --------------------------------------------------------------------------- |
-| 应用        | **Next.js**（`client/`）— UI、`/api/*` Route Handlers、Better Auth、Drizzle |
-| Jobs        | 同包 BullMQ worker（`jobs/`，第二个进程）                                   |
-| 数据        | PostgreSQL、Redis（端口 **6380**）、S3 兼容对象存储                         |
-| 契约 / i18n | `client/shared/`、`client/i18n/`；数据库 schema 在 `client/server/db`       |
+| 层          | 技术                                                                     |
+| ----------- | ------------------------------------------------------------------------ |
+| 应用        | **Next.js**（仓库根）— UI、`/api/*` Route Handlers、Better Auth、Drizzle |
+| Jobs        | 同包 BullMQ worker（`jobs/`，第二个进程）                                |
+| 数据        | PostgreSQL、Redis（端口 **6380**）、S3 兼容对象存储                      |
+| 契约 / i18n | `shared/`、`i18n/`；数据库 schema 在 `server/db`                         |
 
-原 Hono API + 独立 web 应用在 [`archive/`](./archive/)（N5 降级，仅对照）。
+仓库根是**单包** pnpm 工程（不是多包 monorepo）。原 Hono API + 独立 web 在 [`archive/`](./archive/)（仅对照）。
 
 ## 环境要求
 
@@ -64,7 +64,7 @@ pnpm compose:init
 docker compose up -d
 ```
 
-默认连接见 `client/.env.example`：
+默认连接见 `.env.example`：
 
 - Postgres：`127.0.0.1:5433`，库 `gloaming_backend`
 - Redis：`127.0.0.1:6380`
@@ -72,7 +72,7 @@ docker compose up -d
 ### 2. 环境变量
 
 ```bash
-cp client/.env.example client/.env
+cp .env.example .env
 ```
 
 `BETTER_AUTH_SECRET` 至少 16 个字符。设置 `FRONTEND_URL=http://localhost:3000`。API 为同源 `/api/*`，无需 `API_INTERNAL_URL`。

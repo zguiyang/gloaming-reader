@@ -31,14 +31,14 @@ Gloaming is not Duolingo, LingQ, Anki, a ChatGPT reading plugin, or an AI conten
 
 ## Stack (local default)
 
-| Layer            | Tech                                                                                       |
-| ---------------- | ------------------------------------------------------------------------------------------ |
-| App              | **Next.js** (`client/`) — UI, `/api/*` Route Handlers, Better Auth, Drizzle                |
-| Jobs             | Same package — BullMQ worker (`jobs/`, second process)                                     |
-| Data             | PostgreSQL, Redis (port **6380**), S3-compatible object storage                            |
-| Contracts / i18n | `client/shared/`, `client/i18n/` (`@/shared/*`, `@/i18n`); DB schema in `client/server/db` |
+| Layer            | Tech                                                                        |
+| ---------------- | --------------------------------------------------------------------------- |
+| App              | **Next.js** (repo root) — UI, `/api/*` Route Handlers, Better Auth, Drizzle |
+| Jobs             | Same package — BullMQ worker (`jobs/`, second process)                      |
+| Data             | PostgreSQL, Redis (port **6380**), S3-compatible object storage             |
+| Contracts / i18n | `shared/`, `i18n/` (`@/shared/*`, `@/i18n`); DB schema in `server/db`       |
 
-The former Hono API + separate web app live under [`archive/`](./archive/) for comparison only (N5 demote).
+Single pnpm package at the repo root (not a multi-package workspace). Former Hono API + separate web app live under [`archive/`](./archive/) for comparison only.
 
 ## Requirements
 
@@ -64,7 +64,7 @@ pnpm compose:init
 docker compose up -d
 ```
 
-Defaults (from compose / `client/.env.example`):
+Defaults (from compose / `.env.example`):
 
 - Postgres: `127.0.0.1:5433`, database `gloaming_backend` (`DATABASE_URL`)
 - Redis: `127.0.0.1:6380` (`REDIS_URL`)
@@ -72,7 +72,7 @@ Defaults (from compose / `client/.env.example`):
 ### 2. Environment
 
 ```bash
-cp client/.env.example client/.env
+cp .env.example .env
 ```
 
 Edit as needed. `BETTER_AUTH_SECRET` must be at least 16 characters:
@@ -114,7 +114,7 @@ pnpm run build:jobs
 
 ## Production deployment
 
-**Default narrative:** one Next app (`client/`) + optional jobs worker; data plane external. Legacy three-service Docker layout is documented for archived code — see [`docs/deployment.md`](./docs/deployment.md).
+**Default narrative:** one Next app at repo root + optional jobs worker; data plane external. Legacy three-service Docker layout is documented for archived code — see [`docs/deployment.md`](./docs/deployment.md).
 
 ## License
 

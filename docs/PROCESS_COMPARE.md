@@ -1,16 +1,16 @@
 # Process topology compare — old three vs new two
 
-Local cutover target for `client/` (not Cloudflare).
+Local cutover target for the repo-root Next app (not Cloudflare).
 
 | Concern               | Old (`archive/apps/*`)                    | New (repo root product)                                                   |
 | --------------------- | ----------------------------------------- | ------------------------------------------------------------------------- |
-| UI                    | `archive/apps/web` Next                   | `client/` Next                                                            |
+| UI                    | `archive/apps/web` Next                   | Repo-root Next                                                            |
 | HTTP API              | `archive/apps/backend` Hono               | Same Next app — `app/api/**` Route Handlers                               |
 | Jobs                  | Backend worker entry / separate process   | Same package — run `pnpm jobs` (`tsx`); package gate `build:jobs` (`tsc`) |
 | Process count (local) | **3** (web + api + worker)                | **2** (Next + worker)                                                     |
 | Auth                  | Better Auth on Hono; web may proxy `/api` | Better Auth via `toNextJsHandler` same-origin `/api/auth`                 |
-| Shared DB schema      | `@gloaming/db` package                    | **Inlined** `client/server/db/`                                           |
-| Contracts             | `@gloaming/shared` (archived)             | `client/shared/` (`@/shared/*`) inlined in the Next app                   |
+| Shared DB schema      | `@gloaming/db` package                    | **Inlined** `server/db/`                                                  |
+| Contracts             | `@gloaming/shared` (archived)             | `shared/` (`@/shared/*`) in the Next app                                  |
 | AI                    | LangChain path (legacy)                   | Vercel AI SDK on live path                                                |
 | TTS                   | Speech SDK (legacy)                       | Azure Speech REST                                                         |
 | Data plane            | Postgres + Redis + S3                     | Same                                                                      |
@@ -18,7 +18,7 @@ Local cutover target for `client/` (not Cloudflare).
 ## Intentionally unchanged this wave
 
 - Legacy `archive/apps/*` + `archive/packages/*` kept for comparison (**N5 demote**; not the default path).
-- Root workspace is **`client` only** (`shared/` + `i18n/` inlined; no root `packages/`).
+- Live install is a **single package** at the repo root (`shared/` + `i18n/` colocated; no product workspace packages).
 - Jobs remain BullMQ on Redis (local default); CF Queues undecided (**R5**).
 - No claim that the dual-process tree runs on Workers (**P4**).
 

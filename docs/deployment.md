@@ -4,22 +4,22 @@
 >
 > | Path                                  | Role                                                                                                                                                                                                               |
 > | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-> | **Default open-source local product** | `client/` — one Next app (UI + `/api/*`) + optional `jobs/` worker. See [LOCAL_RUN.md](./LOCAL_RUN.md).                                                                                                            |
+> | **Default open-source local product** | Repo-root single Next package (UI + `/api/*`) + optional `jobs/` worker. See [LOCAL_RUN.md](./LOCAL_RUN.md).                                                                                                       |
 > | **Archived legacy production layout** | `archive/apps/*` — former `web` + `api` + `worker` three-service Docker topology (below). Comparison / rollback reference only.                                                                                    |
 > | **Target delivery shape (not done)**  | One deployable Next app on managed data plane; Cloudflare Workers — see [cloudflare fullstack refactor guidance](./cloudflare-fullstack-refactor-guidance.md). **P4-V1** vinext build/Preview done; **P4-V2** not. |
 >
 > Do not read this file as claiming full Cloudflare Workers production readiness.
 
-## Default product (`client/`)
+## Default product (repo root)
 
 Operator outline (details: [LOCAL_RUN.md](./LOCAL_RUN.md)):
 
 | Process | Entry                                                              | Public           | Role                              |
 | ------- | ------------------------------------------------------------------ | ---------------- | --------------------------------- |
-| `web`   | `client/` — `pnpm build` / `next start` (or platform Next adapter) | Yes, port `3000` | UI + Route Handlers               |
+| `web`   | Repo root — `pnpm build` / `next start` (or platform Next adapter) | Yes, port `3000` | UI + Route Handlers               |
 | `jobs`  | Same package — `pnpm jobs` (`jobs/worker.ts`)                      | No               | BullMQ ingest, discovery, cleanup |
 
-Environment template: [`client/.env.example`](../client/.env.example). PostgreSQL, Redis, and S3-compatible storage are external. Same-origin APIs — no `API_INTERNAL_URL` between web and API.
+Environment template: [`.env.example`](../.env.example). PostgreSQL, Redis, and S3-compatible storage are external. Same-origin APIs — no `API_INTERNAL_URL` between web and API.
 
 Database migrations (repo root):
 

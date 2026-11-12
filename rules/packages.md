@@ -1,9 +1,9 @@
 # Shared contracts and i18n
 
-**Live product (`client/`):** contracts live in `client/shared/` (import
-`@/shared/<module>`); locale messages and `t()` live in `client/i18n/`
-(`@/i18n`). Database schema and migrations live in `client/server/db` (not a
-workspace package). There is **no** root `packages/*` workspace.
+**Live product (repo root):** contracts live in `shared/` (import
+`@/shared/<module>`); locale messages and `t()` live in `i18n/` (`@/i18n`).
+Database schema and migrations live in `server/db` (not a workspace package).
+This repository is a **single pnpm package** — not a multi-package monorepo.
 
 Legacy `@gloaming/shared` / `@gloaming/i18n` / `@gloaming/db` sources remain
 under `archive/packages/` for the old three-app stack only.
@@ -20,12 +20,12 @@ when changing boundaries.
 - A symbol belongs to the module defining its semantic contract, not the feature
   or directory consuming it. Mixed-domain imports stay separated by owner;
   co-use does not justify merging modules.
-- `client/shared/` owns UI ↔ server contracts and pure policy, not ORM, secrets,
-  application workflows, or backend runtime policy. `client/server/db` owns
-  database schema and migrations. Shared modules must not depend on `server/`,
-  `features/`, or React UI. Merging the deploy unit (UI + APIs in one Next app)
-  does not move schema into Shared, move runtime policy into Shared, or dissolve
-  these ownership boundaries.
+- `shared/` owns UI ↔ server contracts and pure policy, not ORM, secrets,
+  application workflows, or backend runtime policy. `server/db` owns database
+  schema and migrations. Shared modules must not depend on `server/`,
+  `features/`, or React UI. A single deploy unit does not move schema into
+  Shared, move runtime policy into Shared, or dissolve these ownership
+  boundaries.
 
 ## Public API and compatibility
 
@@ -41,19 +41,14 @@ when changing boundaries.
   existing consumers or migrate unrelated symbols because they share a file.
 - Adding, removing, merging, or renaming a Shared public module requires an
   accepted module-map decision or amendment and a compatibility strategy.
-  A root-policy change is a separate accepted decision, not an incidental module
-  lifecycle change.
 - Migrate intended application, test, script, documentation, and tooling
-  consumers; resolve stale entries/imports and any transition conditions before
-  claiming completion. Verify relevant consumer compatibility
-  (`client/shared/public-exports.spec.ts` and affected call sites).
+  consumers; resolve stale entries/imports before claiming completion. Verify
+  consumer compatibility (`shared/public-exports.spec.ts` and affected call
+  sites).
 
 ## Build and validation configuration
 
 - Discover TypeScript paths (`@/*`), import conventions, and validation-library
-  compatibility from `client/tsconfig.json` and existing checks. Do not impose
-  one application's setup on unrelated trees or add an unnecessary parallel
-  build/validation system for contracts that already live inside `client/`.
-- Keep TypeScript paths and compiler options in `client/tsconfig.json`. There is
-  no root shared `tsconfig.base.json` for the live tree (a copy remains under
-  `archive/` for the legacy stack only).
+  compatibility from root `tsconfig.json` and existing checks. Do not add an
+  unnecessary parallel build/validation system for contracts that already live
+  in this package.

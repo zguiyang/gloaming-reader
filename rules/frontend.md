@@ -9,7 +9,7 @@ stack. For module ownership or public entries, read
 
 | State       | Meaning                                                                                                                                              |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Current** | Next.js UI in **`client/`**. HTTP APIs are same-origin `/api/*` Route Handlers in the same app (no separate API origin / proxy in the default path). |
+| **Current** | Next.js UI at the **repo root**. HTTP APIs are same-origin `/api/*` Route Handlers in the same package (no separate API origin in the default path). |
 | **Target**  | Same Next app remains the UI + HTTP deploy unit on managed data plane; platform goal is Cloudflare Workers.                                          |
 
 Direction and prohibitions: [Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md). Product bans remain in [AGENTS.md](../AGENTS.md).
@@ -42,8 +42,8 @@ Direction and prohibitions: [Cloudflare fullstack refactor guidance](../docs/clo
   must not become an independent API/server source of truth. Preserve affected
   mutation, cache-refresh, pending, error, and interaction behavior; do not add
   a parallel state-management dependency without demonstrated need.
-- Form policy and cross-boundary contracts come from `client/shared/` public
-  modules (`@/shared/<module>`); do not redefine authentication bounds or DTOs in
+- Form policy and cross-boundary contracts come from `shared/` public modules
+  (`@/shared/<module>`); do not redefine authentication bounds or DTOs in
   feature code. See [package rules](packages.md) when changing these contracts.
 
 ## Client security and authentication

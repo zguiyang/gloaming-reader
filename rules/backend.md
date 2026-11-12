@@ -8,14 +8,14 @@ or dependency changes, also read [architecture rules](architecture.md).
 
 | State       | Meaning                                                                                                                                                                                                               |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Current** | HTTP APIs, auth assembly, and job enqueueing live in **`client/`** — Next Route Handlers under `app/api/**` calling `server/domains`. Optional BullMQ worker is the same package (`client/jobs/`).                    |
+| **Current** | HTTP APIs, auth assembly, and job enqueueing live at the **repo root** — Next Route Handlers under `app/api/**` calling `server/domains`. Optional BullMQ worker is the same package (`jobs/`).                       |
 | **Target**  | Same deploy unit on managed data plane; platform goal is Cloudflare Workers. Jobs remain **optional** for open-source delivery; if present, they share DB/Redis with the web app. Hono is not the long-term API host. |
 
 Deploy/API ownership direction and hard locks: [Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md). Product bans and safety remain in [AGENTS.md](../AGENTS.md).
 
 **While evolving toward Workers:**
 
-- Edit the owning path under `client/` unless a task explicitly moves a surface.
+- Edit the owning path at the repo root unless a task explicitly moves a surface.
 - Do not treat “embed Hono in Next” as the finished architecture. Nested Hono
   was removed from the live tree; do not reintroduce it.
 - Do not reintroduce always-on BullMQ / three-service delivery as the recommended
@@ -34,8 +34,8 @@ Deploy/API ownership direction and hard locks: [Cloudflare fullstack refactor gu
   return its response. Domain behavior must not depend on HTTP framework context
   or response helpers. Technical infrastructure must not import domain modules.
 - Runtime workflow, queue, retry, lease, and provider execution policy belongs
-  to the server application runtime (`client/server/**` and `client/jobs/**`),
-  not shared contracts (`client/shared/`).
+  to the server application runtime (`server/**` and `jobs/**`), not shared
+  contracts (`shared/`).
 
 ## API and authorization contracts
 

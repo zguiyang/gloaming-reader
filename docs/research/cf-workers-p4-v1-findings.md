@@ -1,4 +1,4 @@
-# P4-V1 findings: `client/` on Cloudflare Workers (vinext)
+# P4-V1 findings: repo-root Next app on Cloudflare Workers (vinext)
 
 **Date:** 2026-11-12  
 **Status:** P4-V1 in progress — build + thin Preview evidence; **not** P4-V2  
@@ -7,7 +7,7 @@
 
 ## Summary
 
-The promoted product tree **`client/`** can be **built with vinext** and deployed to a **non-production Worker Preview** without changing default Node scripts (`pnpm dev`, `pnpm jobs`). Marketing home and a **thin API smoke path** respond on Preview; **DB-backed readiness fails** at runtime (expected for P4-V1).
+The live product tree at the **repo root** can be **built with vinext** and deployed to a **non-production Worker Preview** without changing default Node scripts (`pnpm dev`, `pnpm jobs`). Marketing home and a **thin API smoke path** respond on Preview; **DB-backed readiness fails** at runtime (expected for P4-V1).
 
 **What this proves:** Workers-oriented tooling is wired in-repo; full app **bundle** compiles; static/marketing SSR + minimal route handlers can run on Workers Preview.
 

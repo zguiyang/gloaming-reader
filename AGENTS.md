@@ -12,11 +12,11 @@ contextual AI support. Do not revive legacy `Article` models, aliases,
 `reading_progress`, `article_audio`, or lesson/course entities, or redefine the
 product as a Short Article Library.
 
-**Live product tree is `client/`** (Next.js UI + `/api/*` Route Handlers +
-optional same-package `jobs/` worker). Cross-boundary contracts live in
-`client/shared/` (import `@/shared/*`); i18n in `client/i18n/` (`@/i18n`);
-database schema in `client/server/db`. Legacy three-app sources and former
-workspace packages remain under `archive/` for comparison only.
+**Live product is the repository root** — a single Next.js package (UI + `/api/*`
+Route Handlers + optional `jobs/` worker). Cross-boundary contracts live in
+`shared/` (import `@/shared/*`); i18n in `i18n/` (`@/i18n`); database schema in
+`server/db`. Legacy three-app sources and former workspace packages remain under
+`archive/` for comparison only.
 
 Logical server-domain boundaries remain even when the deploy unit is a single
 Next app. When changing persistent domain models or public contracts, identify
@@ -36,10 +36,10 @@ guidance above wins for target delivery shape. Product bans (no legacy Article
 revival, no unauthorized business-semantic changes) and safety rules in this
 file still win.
 
-| State       | Meaning                                                                                                                                                                                                                                                                                          |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Current** | Default open-source path is **`client/`** (Next + Route Handlers + same-package `jobs/` worker). Legacy `web` + `api` + `worker` and former root packages are under **`archive/`** only; [deployment.md](docs/deployment.md) documents both. **P4-V1** vinext build/Preview done; **P4-V2** not. |
-| **Target**  | One deployable Next app = UI + all HTTP APIs; data plane on free SaaS (Supabase / Redis / R2); Jobs not in the default open-source topology; platform goal is Cloudflare Workers.                                                                                                                |
+| State       | Meaning                                                                                                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Current** | Single-package Next app at repo root + optional `jobs/` worker. Legacy `web` + `api` + `worker` are under **`archive/`** only. **P4-V1** vinext build/Preview done; **P4-V2** not. |
+| **Target**  | One deployable Next app = UI + all HTTP APIs; data plane on free SaaS (Supabase / Redis / R2); Jobs not in the default open-source topology; platform goal is Cloudflare Workers.  |
 
 **Do not** (unless the guidance is amended and a task explicitly authorizes it):
 
@@ -51,8 +51,9 @@ file still win.
 - Pretend open items in the guidance (Free CPU fitness, on-demand source capability, EPUB re-parse placement, Jobs/Queues) are already decided
 - Equate deploy merge with collapsing domain logic into UI modules
 - Treat `archive/apps/*` as the Cloudflare migration object
+- Reintroduce a multi-package pnpm workspace for the live product
 
-Discover owners from current source under `client/`. Prefer moving toward the
+Discover owners from current source at the repo root. Prefer moving toward the
 target platform shape only under an explicit task with scope and gates. Do not
 invent a completed Workers migration.
 
@@ -106,7 +107,7 @@ invent a completed Workers migration.
   preservation and recovery, and safe cleanup mechanism. Before creation,
   verify the target repository, intended base ref, branch state, worktree
   registration, and isolation; verify ignore protection for project-local
-  directories. Failed safety checks mean
+  epochs. Failed safety checks mean
   stop. Do not change ignore configuration or choose another unmanaged location
   without explicit user authorization.
 - A delegated write task must use its assigned isolated workspace. Workers do
@@ -141,23 +142,23 @@ Read only the rules relevant to the current task:
   [Deploy and API topology](#deploy-and-api-topology-transition) section,
   [Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md),
   and [stage plan](docs/cloudflare-fullstack-refactor-stages.md)
-  (live product = repo-root `client/`; legacy under `archive/`; Workers real
+  (live product = repo root single package; legacy under `archive/`; Workers real
   compatibility only after gated P4 work).
 - Backend services and APIs: [backend rules](rules/backend.md).
 - Web and UI: [frontend rules](rules/frontend.md) and, for UI work,
   [DESIGN.md](DESIGN.md).
 - Shared contracts and i18n: [package rules](rules/packages.md)
-  (`client/shared/`, `client/i18n/`, `client/server/db`).
+  (`shared/`, `i18n/`, `server/db`).
 - Module ownership, public boundaries, or major structural changes:
   [architecture rules](rules/architecture.md) and the relevant Skill.
   Follow their decision boundaries for architectural changes; do
   not impose it on ordinary local edits.
 - Local run and deploy narratives:
   [LOCAL_RUN.md](docs/LOCAL_RUN.md), [deployment.md](docs/deployment.md).
-- Client layout map: [client/STRUCTURE.md](client/STRUCTURE.md).
-- `client/AGENTS.md` is **Next.js-generated** framework notice only (recreated by
-  `next dev`). Project policy lives in **this** file and `rules/` — do not treat
-  `client/AGENTS.md` as a second product rulebook.
+- Layout map: [STRUCTURE.md](STRUCTURE.md).
+- Next.js may regenerate a short `AGENTS.md` notice block; product policy
+  remains this file + `rules/` — do not treat framework notices as a second
+  product rulebook.
 
 Consult current source and configuration for implementation details. Use Skills
 for operating procedures and tools for their capabilities and access checks.
