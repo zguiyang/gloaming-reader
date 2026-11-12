@@ -20,13 +20,11 @@ import {
 } from '@/server/domains/assets/management/referenced-keys';
 import { acquireLockWithWait, releaseLock, startLockRenewal } from '@/server/infra/cache/lock';
 import { db } from '@/server/infra/db';
-import { enqueueCleanup } from '@/server/infra/queue';
 import { deleteManyObjects } from '@/server/infra/storage';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-export const JOB_PERSONAL_WORK_CLEANUP = 'personal-work-cleanup';
 const UPLOAD_DEDUPE_LOCK_PREFIX = 'gloaming:upload:dedupe:';
 const UPLOAD_LOCK_TTL_SECONDS = 300;
 
@@ -191,22 +189,16 @@ export async function deletePersonalWork(userId: string, workId: string): Promis
       return { keys: [...keys], uploadContentHash };
     });
 
+    // No per-delete Jobs entry: remove unreferenced keys in-request. Any leftover
+    // orphans are recovered later by the asset-cleanup scan job.
     if (cleanup.keys.length > 0) {
-      try {
-        await enqueueCleanup(JOB_PERSONAL_WORK_CLEANUP, cleanup, {
-          attempts: 5,
-          backoff: { type: 'exponential', delay: 2_000 },
-          jobId: `${JOB_PERSONAL_WORK_CLEANUP}-${workId}`,
-        });
-      } catch {
-        renewal?.stop();
-        renewal = null;
-        if (locked && uploadLockKey) {
-          await releaseLock(uploadLockKey, lockToken);
-          locked = false;
-        }
-        await processPersonalWorkCleanup(cleanup);
+      renewal?.stop();
+      renewal = null;
+      if (locked && uploadLockKey) {
+        await releaseLock(uploadLockKey, lockToken);
+        locked = false;
       }
+      await processPersonalWorkCleanup(cleanup);
     }
     return { id: workId, deleted: true };
   } finally {
