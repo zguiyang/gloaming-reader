@@ -27,8 +27,10 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    ".cloudflare/types"
+    "**/*.mts"
+    // ".cloudflare/types" stays excluded: generated runtime types declare a
+    // global Element (HTMLRewriter) that conflicts with the DOM lib and breaks
+    // typecheck whenever the generated file exists.
   ],
   "exclude": ["node_modules", "archive", "**/*.spec.ts", "**/*.test.ts"]
 }
