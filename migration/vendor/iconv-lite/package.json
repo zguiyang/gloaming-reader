@@ -1,0 +1,14 @@
+{
+  "name": "iconv-lite",
+  "version": "0.6.3",
+  "description": "Vendored iconv-lite without bundled .idea (Cursor blocks creating .idea dirs)",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "license": "MIT",
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "dependencies": {
+    "safer-buffer": ">=2.1.2"
+  }
+}

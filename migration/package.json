@@ -9,5 +9,16 @@
     "build": "pnpm --filter @gloaming/client build",
     "lint": "pnpm --filter @gloaming/client lint",
     "typecheck": "pnpm --filter @gloaming/client typecheck"
+  },
+  "workspaces": [
+    "client",
+    "packages/*",
+    "vendor/*"
+  ],
+  "dependencies": {
+    "iconv-lite": "workspace:*"
+  },
+  "overrides": {
+    "iconv-lite": "workspace:*"
   }
 }

@@ -1,0 +1,1698 @@
+{
+  "common": {
+    "appName": "Gloaming Reader",
+    "siteDescription": "Read works with in-text lookup, translation, and saved progress.",
+    "api": {
+      "requestFailed": "Request failed",
+      "invalidResponse": "Invalid response format",
+      "requestFailedRetry": "Request failed. Please try again later."
+    },
+    "loading": "Loading…",
+    "greeting": "Hello, {name}",
+    "close": "Close",
+    "pagination": "Pagination",
+    "paginationPrevious": "Previous",
+    "paginationNext": "Next",
+    "paginationGoToPrevious": "Go to previous page",
+    "paginationGoToNext": "Go to next page",
+    "paginationMorePages": "More pages",
+    "secret": {
+      "replace": "Replace key",
+      "cancelReplace": "Cancel replacement",
+      "newKey": "New key",
+      "keepHint": "Leave blank to keep the current key",
+      "configured": "Configured"
+    }
+  },
+  "nav": {
+    "wordmark": "Gloaming",
+    "brandHomeAria": "Gloaming home",
+    "discover": "Discover",
+    "library": "Library",
+    "libraryShort": "Library",
+    "history": "Reading history",
+    "historyShort": "History",
+    "more": "More",
+    "signIn": "Sign in",
+    "account": "Account menu",
+    "accountCenter": "Account",
+    "settings": "Reading settings",
+    "signOut": "Sign out",
+    "admin": "Instance configuration",
+    "themeAppearance": "Appearance",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "siteHeader": "Site header",
+    "mainNav": "Main navigation",
+    "interfaceLanguage": "Interface language",
+    "localeZhCN": "简体中文",
+    "localeEnUS": "English",
+    "defaultReaderName": "Reader",
+    "accountMenuAria": "{username}, {email}, {account}"
+  },
+  "more": {
+    "accountSettings": "Account settings",
+    "menuAria": "More menu",
+    "metaTitle": "More · Gloaming Reader"
+  },
+  "settings": {
+    "title": "Reading settings",
+    "metaTitle": "Reading settings · Gloaming Reader",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "loading": "Loading settings…",
+    "signInRequired": "Sign in to manage personal settings.",
+    "tabsAria": "Settings categories",
+    "personalTagging": {
+      "title": "Personal EPUB organization",
+      "toggle": "Organize tags after a Personal EPUB is ready",
+      "description": "Uses the Reading assistance model from your own AI service for future uploads only. Existing books are not processed.",
+      "providerUnavailable": "Set a model for Reading assistance in your own AI service to use this feature.",
+      "runState": {
+        "queued": "Tagging queued",
+        "processing": "Tagging in progress",
+        "completed": "Last tagging run completed",
+        "skipped": "Last tagging run skipped",
+        "failed": "Last tagging run failed"
+      },
+      "runError": {
+        "generic": "Tagging did not complete. Please try again later.",
+        "attempts_exhausted": "Tagging did not complete after repeated attempts.",
+        "worker_attempts_exhausted": "The tagging run was interrupted and did not complete."
+      }
+    },
+    "serviceMode": "Service source",
+    "defaultService": "Default service",
+    "validation": {
+      "required": "This field is required.",
+      "url": "Enter a valid URL."
+    },
+    "secret": {
+      "saved": "Configured",
+      "leaveBlank": "Leave blank to keep the saved key",
+      "replace": "Replace key",
+      "newKey": "New key",
+      "cancelReplace": "Cancel replacement"
+    },
+    "ai": {
+      "title": "AI",
+      "service": "AI service",
+      "serviceType": "Service type",
+      "notAvailableYet": "Not available yet",
+      "providerName": "Service name",
+      "baseUrl": "API URL",
+      "apiKey": "API key",
+      "advanced": "Advanced settings",
+      "proxyUrl": "Proxy URL",
+      "proxyUrlHint": "Optional. Leave empty to reuse the instance proxy for the same API URL when one is configured.",
+      "thinkingParam": "Thinking parameter name",
+      "noProviders": "No own AI service is configured yet.",
+      "confirmDefault": "Save to turn off your own AI service. Future requests will use the default service.",
+      "confirmOwn": "Save to turn on your own AI service.",
+      "providers": "Service configuration",
+      "addProvider": "Add service",
+      "models": "Models",
+      "provider": "Service",
+      "providerRequired": "Add a service first.",
+      "noModels": "This service has no models yet.",
+      "addModel": "Add model",
+      "testCostNotice": "Testing sends a real model request and may incur provider charges.",
+      "testConnection": "Test connection",
+      "testingConnection": "Testing…",
+      "testSucceeded": "Connected · {latencyMs} ms",
+      "testFailed": "Connection failed: {message}",
+      "modelName": "Display name",
+      "modelId": "Model identifier",
+      "connectionType": "API type",
+      "capabilities": "Reading capabilities",
+      "purpose": {
+        "assist": "Reading assistance",
+        "translate": "Translation",
+        "metadata": "Work details"
+      },
+      "notSet": "Not set (uses default service)",
+      "unavailableModel": "This model is unavailable. Choose another one.",
+      "unavailableOption": "· Unavailable",
+      "defaultOnUnset": "Capabilities without a personal model use the default service; a saved model can be replaced, not cleared.",
+      "defaultSummary": "Covers reading assistance, translation, and work details.",
+      "ownSummary": "Your own AI service is enabled.",
+      "disabled": "Disabled",
+      "addProviderEntry": "Add and enable provider",
+      "addModelEntry": "Add and enable model",
+      "saveModel": "Save model",
+      "cancelChanges": "Discard changes",
+      "editProvider": "Edit provider",
+      "replaceKey": "Replace key",
+      "connectionsAndModels": "Connections and models",
+      "keyNotSet": "Not configured",
+      "ownService": "Own AI service",
+      "modeOwn": "Own AI service · {count} providers enabled",
+      "modeDefault": "Default service · no providers enabled",
+      "purposeSaveFailed": "Save failed, draft kept. Please retry."
+    },
+    "tts": {
+      "title": "Read aloud",
+      "defaultDescription": "Future read-aloud requests will use the default service.",
+      "region": "Region",
+      "voice": {
+        "default": "Default voice",
+        "us": "US English",
+        "uk": "UK English"
+      },
+      "defaultSummary": "Read-aloud voices provided by the platform; no setup needed.",
+      "ownSummary": "Your own read-aloud service is configured and applies after saving.",
+      "ownService": "Own service"
+    },
+    "readingServices": {
+      "title": "Reading services"
+    },
+    "current": "Current: {source}",
+    "change": "Change",
+    "ownAi": {
+      "title": "Own AI service",
+      "description": "Choose a model for each reading capability first; manage connections and models below.",
+      "enter": "Configure own AI service",
+      "empty": "No providers or models added yet",
+      "back": "Back to reading settings"
+    }
+  },
+  "auth": {
+    "signOutFailed": "Sign out failed. Please try again.",
+    "signOutSuccess": "Signed out",
+    "meta": {
+      "verifyEmailTitle": "Confirm email — Gloaming",
+      "resetPasswordTitle": "Reset password — Gloaming",
+      "socialAuthErrorTitle": "Sign-in could not be completed — Gloaming"
+    },
+    "signIn": {
+      "title": "Sign in",
+      "loginLabel": "Email or username",
+      "loginPlaceholder": "you@example.com",
+      "loginPlaceholderEmbedded": "Email or username",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "••••••••",
+      "passwordPlaceholderEmbedded": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "success": "Signed in",
+      "verificationRequired": "Please open the verification link in your email before signing in.",
+      "resendVerification": "Resend verification email",
+      "resendVerificationSending": "Sending…",
+      "resendVerificationSuccess": "Verification email sent",
+      "resendVerificationEmailHint": "Sign in with your registered email to resend verification, or register with email on the sign-up tab."
+    },
+    "signUp": {
+      "title": "Sign up",
+      "nameLabel": "Display name",
+      "namePlaceholder": "What should we call you?",
+      "namePlaceholderEmbedded": "Display name",
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "Letters or numbers for login",
+      "usernamePlaceholderEmbedded": "Username",
+      "emailLabel": "Email",
+      "emailPlaceholder": "you@example.com",
+      "emailPlaceholderEmbedded": "Email",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "At least 8 characters",
+      "passwordPlaceholderEmbedded": "Password (at least 8 characters)",
+      "submit": "Create account",
+      "submitting": "Creating…",
+      "sentTitle": "Check your email",
+      "sentDescription": "Sent to {email}, valid for about 1 hour.",
+      "resend": "Send again",
+      "resending": "Sending…",
+      "resendSuccess": "Verification email resent"
+    },
+    "forgotPassword": {
+      "title": "Reset password",
+      "description": "Enter your registered email to receive a reset link.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Email you registered with",
+      "emailPlaceholderEmbedded": "Registered email",
+      "submit": "Send email",
+      "submitting": "Sending…",
+      "sentTitle": "Reset link sent",
+      "sentDescription": "Use the link in your email to set a new password.",
+      "enterDifferentEmail": "Enter a different email",
+      "backToSignIn": "Back to sign in"
+    },
+    "resetPassword": {
+      "title": "Set new password",
+      "passwordLabel": "New password",
+      "passwordPlaceholder": "At least 8 characters",
+      "confirmLabel": "Confirm password",
+      "submit": "Save new password",
+      "submitting": "Saving…",
+      "success": "Password updated",
+      "invalidToken": "Reset link is invalid or expired. Please request a new one.",
+      "failed": "Reset failed. Please request a new link.",
+      "requestNewLink": "Request a new reset link",
+      "backToProduct": "Back to home"
+    },
+    "verifyEmail": {
+      "titlePending": "Verifying…",
+      "titleSuccess": "Email confirmed",
+      "titleError": "Confirmation failed",
+      "invalidToken": "Verification link is invalid or expired",
+      "failed": "Verification failed. Please request a new email.",
+      "failedToast": "Verification failed",
+      "successToast": "Email confirmed",
+      "goToLibrary": "Go to Library",
+      "backToSignIn": "Back to sign in",
+      "backToHome": "Back to home"
+    },
+    "dialog": {
+      "closeAria": "Close sign-in dialog",
+      "tablistAria": "Authentication mode",
+      "signInTab": "Sign in",
+      "signUpTab": "Sign up",
+      "forgotPasswordTitle": "Reset password",
+      "reasonSave": "Sign in to save what you're reading.",
+      "reasonBookmark": "Sign in to add content to your Library.",
+      "reasonSync": "Sign in to sync your reading progress.",
+      "reasonAi": "Sign in to use lookup, translation, and explanation in the reader.",
+      "reasonBilingual": "Sign in to use bilingual view.",
+      "reasonHistory": "Sign in to save your reading history."
+    },
+    "social": {
+      "dividerAria": "Or continue with a third-party account",
+      "or": "or",
+      "github": "Continue with GitHub",
+      "errorTitle": "Sign-in could not be completed",
+      "errorDescription": "We couldn't complete GitHub sign-in. Please try again.",
+      "accountNotLinked": "This GitHub email matches an unverified Gloaming account. Verify that account's email first, then try again.",
+      "emailNotFound": "GitHub did not provide an email address for this account.",
+      "emailNotVerified": "This GitHub email has not been verified yet.",
+      "backToPrevious": "Back to where you were",
+      "backToProduct": "Back to discover"
+    },
+    "api": {
+      "requestFailed": "Request failed",
+      "invalidAuthResponse": "Invalid auth response"
+    },
+    "errors": {
+      "invalidInput": "Please check your input",
+      "signInFailed": "Sign in failed",
+      "signUpFailed": "Sign up failed",
+      "sendFailed": "Could not send. Please try again later.",
+      "tooManyRequests": "Too many requests. Please try again later.",
+      "passwordMismatch": "Passwords do not match",
+      "invalidPassword": "Incorrect password.",
+      "invalidToken": "This link is invalid or has expired."
+    }
+  },
+  "account": {
+    "title": "Account settings",
+    "metaTitle": "Account · Gloaming Reader",
+    "profile": {
+      "sectionTitle": "Profile",
+      "displayName": "Display name",
+      "username": "Username",
+      "email": "Email",
+      "emailVerified": "Email verification",
+      "emailVerifiedYes": "Verified",
+      "emailVerifiedNo": "Not verified",
+      "createdAt": "Joined"
+    },
+    "password": {
+      "sectionTitle": "Change password",
+      "currentLabel": "Current password",
+      "newLabel": "New password",
+      "confirmLabel": "Confirm new password",
+      "submit": "Save new password",
+      "submitting": "Saving…",
+      "success": "Password updated",
+      "failed": "Could not change password. Please try again later.",
+      "oauthOnly": "This account uses a third-party sign-in and has no password to change.",
+      "minLengthHint": "At least 8 characters.",
+      "accountsLoadFailed": "Could not confirm account type right now. Please try again later."
+    },
+    "email": {
+      "sectionTitle": "Change email",
+      "currentLabel": "Current email",
+      "newLabel": "New email",
+      "hint": "We will send a verification link to the new address. Your sign-in email updates only after you confirm it.",
+      "submit": "Send verification email",
+      "submitting": "Sending…",
+      "success": "Verification email sent. Open the link in your new inbox to finish.",
+      "failed": "Could not send. Please try again later.",
+      "sameAsCurrent": "New email must be different from your current email"
+    }
+  },
+  "landing": {
+    "meta": {
+      "title": "Gloaming · A quiet place for real reading",
+      "description": "Read source texts you chose. When stuck, get help beside the page—then keep reading."
+    },
+    "cta": {
+      "startReading": "Start reading",
+      "signInToRead": "Start reading",
+      "goToLibrary": "Go to Library",
+      "browseDiscover": "Browse Discover first"
+    },
+    "shot": {
+      "reader": "[Screenshot placeholder: reader]",
+      "help": "[Screenshot placeholder: in-text help]",
+      "discover": "[Screenshot placeholder: Discover / upload]",
+      "readerHelp": "[Screenshot placeholder: reader + side help]",
+      "library": "[Screenshot placeholder: Library · Continue]"
+    },
+    "opening": {
+      "eyebrow": "Immersive reading",
+      "titleLine1": "Real source texts are worth reading,",
+      "titleLine2": "but they’re hard to finish.",
+      "body1": "When you hit a hard passage, you leave the page to look something up, open a translator, or ask a chatbot. By the time you return, the reading is broken.",
+      "body2": "Gloaming is a quiet reading environment: the activity stays reading. Help appears beside the text only when you’re stuck—then you continue. English ebooks are the focus today."
+    },
+    "problem": {
+      "eyebrow": "The Reality",
+      "title": "The hard part isn’t finding content. It’s stopping mid-read.",
+      "lead": "It often isn’t that a word is too hard—it’s that every tool pulls you out of the page you wanted to stay in.",
+      "items": {
+        "1": {
+          "title": "One lookup, and you’ve left the page",
+          "body": "Switch apps, copy-paste, come back—and the context you just built is gone."
+        },
+        "2": {
+          "title": "Ask for help, and it turns into class, drills, or chat",
+          "body": "Quizzes, review curves, long dialogues. You only wanted to keep reading."
+        },
+        "3": {
+          "title": "Next time, you can’t find where you stopped",
+          "body": "Books scatter, progress fades, and it’s easier to give up than to resume."
+        }
+      },
+      "panelTitle": "Explain"
+    },
+    "solution": {
+      "eyebrow": "The Solution",
+      "title": "How we solve it",
+      "lead": "Keep the energy on reading itself—from choosing a text, through hard lines, to picking up again.",
+      "beatA": {
+        "label": "Beat A",
+        "title": "Bring content in first",
+        "body": "Browse the catalog in Discover, or upload your own file into your Library. We don’t invent “learning articles” as the main content.",
+        "points": {
+          "1": "Public-domain titles you can browse by category",
+          "2": "Upload your own EPUB into a private library"
+        }
+      },
+      "beatB": {
+        "label": "Beat B",
+        "title": "When stuck, understand beside the text—then continue",
+        "body": "Select a passage to look up, translate, or explain in context. Listen when you want, or open a parallel view. The default stays the source text; turn help off and the text still reads.",
+        "points": {
+          "1": "Help stays beside the page—no app switching",
+          "2": "Listen when you need it",
+          "3": "Open bilingual view when useful, hide it anytime"
+        }
+      },
+      "beatC": {
+        "label": "Beat C",
+        "title": "Come home to what you left unfinished",
+        "body": "Library isn’t a study dashboard. Open it and continue reading—uploads and saved titles live together.",
+        "points": {
+          "1": "Continue Reading returns you to where you stopped",
+          "2": "No streak badges, no vocab homework alerts"
+        }
+      }
+    },
+    "boundaries": {
+      "eyebrow": "Our Boundaries",
+      "title": "What we deliberately don’t do",
+      "lead": "Protecting attention matters more than packing features.",
+      "items": {
+        "1": {
+          "title": "No course trees or homework",
+          "body": "You don’t level up through drills. Real source text is the material."
+        },
+        "2": {
+          "title": "No shame streaks",
+          "body": "Reading is interest, not a number holding you hostage."
+        },
+        "3": {
+          "title": "Vocab collecting isn’t the main job",
+          "body": "The job is finishing the page—not building a word deck."
+        },
+        "4": {
+          "title": "Chat is not the home screen",
+          "body": "Home is the shelf and the text. Help appears only when asked."
+        }
+      }
+    },
+    "invite": {
+      "titleLine1": "Find a source text you want,",
+      "titleLine2": "and keep reading.",
+      "body": "When stuck, understand beside the page—then continue. Not a class. Not a chat.",
+      "footnote": "Open and read · Import your own files · Keep reading first"
+    },
+    "footer": {
+      "tagline": "A quiet place for real reading"
+    }
+  },
+  "admin": {
+    "shell": {
+      "subtitle": "Admin",
+      "contentSubtitle": "Content management",
+      "navAssets": "Object storage usage",
+      "navDiscoverySources": "Discovery sources",
+      "navPublicCategories": "Public categories",
+      "navConfig": "Configuration",
+      "navLogs": "Logs",
+      "signInPrompt": "Sign in to access the admin console.",
+      "signIn": "Sign in",
+      "forbiddenEyebrow": "Access denied",
+      "forbiddenTitle": "Cannot access admin",
+      "forbiddenDescription": "This account does not have admin permissions. The admin console is for content maintainers only—you can still return home to keep reading.",
+      "backHome": "Back to home",
+      "home": "Home",
+      "openNavAria": "Open admin navigation",
+      "navSrOnly": "Admin navigation"
+    },
+    "discoverySources": {
+      "page": {
+        "title": "Discovery sources",
+        "subtitle": "Project Gutenberg metadata coverage and sync status.",
+        "loadFailed": "Could not load the discovery source status.",
+        "operationFailed": "Operation failed"
+      },
+      "fields": {
+        "status": "Sync status",
+        "lastSync": "Last sync",
+        "lastSuccess": "Last successful sync",
+        "recordCount": "Records",
+        "errorSummary": "Last error"
+      },
+      "recordCount": "{count} records",
+      "enabled": {
+        "label": "Enabled"
+      },
+      "disabled": {
+        "label": "Disabled"
+      },
+      "toggleEnableAria": "Enable Project Gutenberg sync source",
+      "toggleDisableAria": "Disable Project Gutenberg sync source",
+      "syncNow": "Sync now",
+      "forceRefresh": {
+        "label": "Force full refresh",
+        "title": "Force a full refresh?",
+        "description": "This re-downloads and re-parses the complete Gutenberg snapshot and may take several minutes.",
+        "confirm": "Start full refresh",
+        "cancel": "Cancel"
+      },
+      "queued": "Queued…",
+      "syncing": "Syncing…",
+      "queuedHint": "The task is queued and waiting to be processed.",
+      "pendingHint": "A sync is already running in the background.",
+      "missingRunDetail": "This task has no detailed run record; tasks created earlier may have no history. New tasks will record their stage and outcome.",
+      "disabledSyncHint": "Manual sync is unavailable while this source is disabled.",
+      "value": {
+        "never": "Never",
+        "elapsed": "{minutes}m {seconds}s"
+      },
+      "enum": {
+        "syncStatus": {
+          "idle": "Idle",
+          "queued": "Queued",
+          "syncing": "Syncing",
+          "succeeded": "Succeeded",
+          "failed": "Failed"
+        },
+        "runStage": {
+          "queued": "Queued",
+          "downloading": "Downloading",
+          "processing": "Processing",
+          "reconciling": "Reconciling",
+          "succeeded": "Succeeded",
+          "notModified": "Not modified",
+          "skipped": "Skipped",
+          "failed": "Failed"
+        }
+      },
+      "toast": {
+        "queued": "Background sync queued.",
+        "alreadyRunning": "A sync is already running.",
+        "disabled": "Sync is unavailable while this source is disabled."
+      },
+      "run": {
+        "title": "Sync run",
+        "empty": "No sync run has been recorded yet.",
+        "consumer": {
+          "available": "A queue worker is available.",
+          "unavailable": "Waiting for a queue worker.",
+          "unknown": "Worker availability unknown."
+        },
+        "fields": {
+          "stage": "Stage",
+          "elapsed": "Elapsed",
+          "committedRecords": "Committed records",
+          "committedBatches": "Committed batches",
+          "lastActivity": "Last activity",
+          "finished": "Finished"
+        },
+        "committedRecords": "{count} records committed",
+        "committedBatches": "{count} batches committed",
+        "unavailableRecords": "{count} marked unavailable",
+        "recent": {
+          "title": "Recent runs",
+          "empty": "No recent runs.",
+          "error": "Could not load recent runs",
+          "retry": "Retry"
+        }
+      }
+    },
+    "publicCategories": {
+      "sourceMappings": {
+        "title": "Source category mappings",
+        "description": "Review how source categories map to public categories. AI runs only when requested.",
+        "empty": "No source categories yet.",
+        "analyze": "Analyze with AI",
+        "confirm": "Confirm suggestion",
+        "create": "Create suggested category",
+        "categoryLanguage": "Suggested category language",
+        "chooseCategory": "Choose an existing category",
+        "applyCategory": "Apply selected category",
+        "ignore": "Leave unmapped",
+        "reconcile": "Update existing work associations",
+        "reconciling": "Existing work associations need updating. Processing runs in batches and can resume if you close this page.",
+        "changed": "The source mapping changed. Refresh and try again.",
+        "mappedTo": "Mapped to",
+        "invalidProposal": "The suggestion is invalid or conflicts with an existing category. Review it and decide how to proceed.",
+        "omittedDetails": "Some category meanings were omitted to fit the input. Review the suggestion before creating a category.",
+        "done": "Action completed.",
+        "previous": "Previous",
+        "next": "Next",
+        "page": "Page {page}",
+        "status": {
+          "pending": "Pending",
+          "analyzing": "Analyzing",
+          "review": "Needs review",
+          "confirmed": "Confirmed",
+          "ignored": "Unmapped"
+        }
+      },
+      "page": {
+        "title": "Public categories",
+        "subtitle": "Manage Discover genres and link Gutenberg Category shelves."
+      },
+      "organize": {
+        "action": "Let AI place unassigned source categories",
+        "actionShort": "AI place unassigned",
+        "pendingCount": "{count} unassigned source shelves",
+        "pendingCountLoading": "Counting unassigned shelves…",
+        "pending": "Placing…",
+        "assigned": "Placed {count} source categories into existing main categories.",
+        "assignedLine": "{shelf} → {category}",
+        "none": "No unassigned source categories to place.",
+        "untouched": "{count} source categories could not be placed.",
+        "proposalTitle": "Created main category",
+        "proposalShelves": "Source categories to include",
+        "accept": "Accept and create",
+        "dismiss": "Dismiss",
+        "accepted": "Created the main category and placed its source categories.",
+        "emptyProposals": "No new main category was suggested."
+      },
+      "create": {
+        "new": "New",
+        "formTitle": "New main category",
+        "namePlaceholder": "Category name",
+        "localeLabel": "Name language",
+        "submit": "Create category",
+        "confirm": "Add",
+        "ready": "Category ready."
+      },
+      "cancel": "Cancel",
+      "delete": {
+        "action": "Delete category",
+        "confirmTitle": "Delete category?",
+        "confirmDescription": "This permanently deletes \"{name}\" and detaches its linked Gutenberg shelves. Discover record assignments derived from those shelves are removed.",
+        "confirm": "Delete",
+        "deletedToast": "Category deleted."
+      },
+      "search": {
+        "placeholder": "Search names",
+        "empty": "No matching categories."
+      },
+      "list": {
+        "empty": "No public categories yet.",
+        "selectHint": "Select a category to edit its names and Gutenberg shelves."
+      },
+      "shelves": {
+        "title": "Gutenberg shelf links",
+        "description": "Link Category: bookshelf strings to this genre. Saving updates Discover assignments immediately.",
+        "searchPlaceholder": "Search shelf name or Gutenberg raw tag…",
+        "assignedTitle": "In this category",
+        "assignedTitleCount": "Included shelves ({count})",
+        "availableTitle": "Unassigned shelves",
+        "availableTitleCount": "Unassigned shelves ({count})",
+        "uncheckToRemove": "Uncheck to remove",
+        "checkToInclude": "Check to include",
+        "assignedEmpty": "No shelves linked yet.",
+        "availableEmpty": "No unassigned shelves match the search.",
+        "save": "Save shelf links",
+        "saved": "Shelf links saved.",
+        "loadFailed": "Could not load Gutenberg shelves.",
+        "recordCount": "{count} books",
+        "toggleAria": "Include shelf {name}"
+      },
+      "recordCount": "{count} records",
+      "provenance": {
+        "manual": "Manual",
+        "ai": "AI"
+      },
+      "labels": {
+        "title": "Localized names",
+        "edit": "Edit name",
+        "modify": "Edit",
+        "summaryPrefix": "Localized names:",
+        "summary": "Localized names: {summary}",
+        "missing": "Missing name: {locale}",
+        "untranslated": "Untranslated",
+        "complete": "All names filled in",
+        "save": "Save {locale} name",
+        "name": "Category name ({locale})",
+        "saved": "Name saved.",
+        "nameExists": "A category with that name already exists for this language."
+      },
+      "translate": {
+        "action": "Complete translations",
+        "actionAria": "Complete missing translations for {name}",
+        "completed": "Filled in: {locales}",
+        "nothing": "No missing translations."
+      },
+      "detail": {
+        "idLabel": "Category ID",
+        "meaning": "Meaning",
+        "manualLocales": "Manually edited names: {locales}"
+      },
+      "records": {
+        "title": "Assigned source records",
+        "searchPlaceholder": "Search title, author, or source ID",
+        "empty": "No source records in this category yet.",
+        "noMatch": "No matching records.",
+        "assign": "Assign",
+        "assigned": "Assigned",
+        "remove": "Remove",
+        "removeConfirmTitle": "Remove source record?",
+        "removeConfirmDescription": "This removes “{title}” from the category and records manual suppression so automatic classification will not restore it.",
+        "removeAria": "Remove {title} from this category",
+        "assignAria": "Assign {title} to this category",
+        "assignedToast": "Assigned to this category.",
+        "removedToast": "Removed from this category.",
+        "assignmentLimit": "This record already has 3 categories and cannot take another.",
+        "linked": "Work created",
+        "notLinked": "No work yet",
+        "unavailable": "Unavailable"
+      },
+      "assign": {
+        "title": "Add source records",
+        "searchPlaceholder": "Search assignable titles or authors",
+        "hint": "Type at least 2 characters to search.",
+        "noResults": "No matching source records.",
+        "includesHiddenHint": "Search includes records hidden from public Discover."
+      },
+      "pagination": {
+        "page": "Page {page} of {total}",
+        "prev": "Previous",
+        "next": "Next"
+      },
+      "errors": {
+        "loadCategories": "Could not load categories.",
+        "loadRecords": "Could not load source records.",
+        "searchRecords": "Could not search source records.",
+        "operationFailed": "Operation failed"
+      }
+    },
+    "config": {
+      "tabAi": "AI",
+      "tabTts": "Speech",
+      "tabDictionary": "Dictionary",
+      "subAi": "AI config",
+      "subTts": "Speech",
+      "subDictionary": "Dictionary",
+      "subnavAria": "Config sections"
+    },
+    "ai": {
+      "title": "AI configuration",
+      "tabPurposes": "Purpose bindings",
+      "tabProviders": "Providers & models",
+      "toast": {
+        "providerAdded": "Provider added",
+        "providerSaved": "Provider saved",
+        "modelAdded": "Model added",
+        "modelSaved": "Model saved",
+        "providerDeleted": "Provider deleted",
+        "modelDeleted": "Model deleted",
+        "purposeSaved": "Default model saved for purpose",
+        "testComplete": "Connectivity test complete",
+        "balanceUpdated": "Balance updated"
+      },
+      "errors": {
+        "selectModelFirst": "Select a model first"
+      },
+      "test": {
+        "success": "Connected · {modelLabel} · {latencyMs} ms"
+      },
+      "delete": {
+        "providerTitle": "Delete provider?",
+        "modelTitle": "Delete model?",
+        "providerDescription": "This removes all models under \"{name}\". Deletion fails if any purpose still references them.",
+        "modelDescription": "This removes model \"{label}\". Deletion fails if any purpose still references it.",
+        "confirm": "Delete"
+      },
+      "purpose": {
+        "assist": "Reading assistant",
+        "translate": "Bilingual translation",
+        "metadataEnrich": "Metadata enrichment",
+        "notConfigured": "Not configured",
+        "modelDeleted": "Model deleted",
+        "modelDisabled": "Model disabled",
+        "providerDisabled": "Provider disabled",
+        "runtimeNotSupported": "Runtime not supported yet",
+        "bindingNotRunnable": "Current binding cannot run",
+        "unknownProvider": "Unknown provider",
+        "currentBindingUnavailable": "Current binding (unavailable)",
+        "noBindableModels": "No bindable models",
+        "searchOrSelectModel": "Search or select a model",
+        "noMatchingModels": "No matching models",
+        "notSetRow": "Not set"
+      },
+      "provider": {
+        "filterAll": "All",
+        "filterAria": "Filter by API family",
+        "add": "Add",
+        "selectFamilyHint": "Choose an API family (cannot be changed after creation)",
+        "emptyTitle": "No providers yet",
+        "modelsCount": "{count} models",
+        "runtimeNotSupported": "Runtime not supported yet",
+        "enabledAria": "{name} enabled state",
+        "testConnectivityAria": "Test connectivity",
+        "queryBalanceAria": "Query balance",
+        "deleteProviderAria": "Delete provider",
+        "modelsSection": "Models",
+        "addModelAria": "Add model",
+        "validation": {
+          "nameRequired": "Provider name is required",
+          "baseUrlRequired": "Base URL is required",
+          "baseUrlInvalid": "Base URL format is invalid",
+          "apiKeyRequired": "API key is required when creating a provider"
+        },
+        "form": {
+          "name": "Name",
+          "baseUrl": "Base URL",
+          "apiKey": "API Key",
+          "apiKeyPlaceholderEdit": "Leave blank to keep unchanged",
+          "apiKeyCurrent": "Current: {masked}",
+          "thinkingParam": "Thinking parameter name (optional)",
+          "proxy": "Proxy",
+          "proxyUrl": "Proxy URL",
+          "balanceEndpoint": "Balance endpoint path",
+          "balanceAmountPath": "Balance amount field path",
+          "balanceCurrencyPath": "Currency field path",
+          "balanceQuery": "Balance query",
+          "balanceEndpointPlaceholder": "auth/key or /user/balance",
+          "balanceEndpointHint": "Path only; appended to Base URL. Same-origin full URLs are stored as a path.",
+          "balanceAmountPathPlaceholder": "balance or data.balance",
+          "balanceCurrencyPathPlaceholder": "currency or data.currency",
+          "add": "Add",
+          "save": "Save"
+        },
+        "modelList": {
+          "empty": "No models under this provider yet.",
+          "displayName": "Display name",
+          "modelId": "Model ID",
+          "apiMode": "API mode",
+          "status": "Status",
+          "enabled": "Enabled",
+          "disabled": "Disabled",
+          "editAria": "Edit {label}",
+          "deleteAria": "Delete {label}"
+        },
+        "listTitle": "Providers",
+        "testConnectivity": "Test connectivity",
+        "queryBalance": "Query balance",
+        "savedConfigOnly": "Connectivity tests and balance queries always use the saved configuration."
+      },
+      "model": {
+        "platformModel": "Platform model",
+        "searchOrSelectPlatform": "Search or select a platform model",
+        "refreshThenSelect": "Refresh, then select",
+        "refreshPlatformListAria": "Refresh platform model list",
+        "refreshingPlatformListAria": "Refreshing platform model list",
+        "noMatchingModels": "No matching models",
+        "displayName": "Display name",
+        "modelId": "Model ID",
+        "apiMode": "API mode",
+        "temperature": "Temperature",
+        "maxTokens": "Max tokens",
+        "callable": "Enabled model",
+        "saveModel": "Save model",
+        "addModel": "Add model",
+        "validation": {
+          "modelIdRequired": "Upstream model id is required",
+          "labelRequired": "Display name is required",
+          "wireVariantInvalid": "Select a valid API mode",
+          "temperatureRange": "Temperature must be between 0 and 2",
+          "maxTokensPositive": "maxTokens must be a positive integer"
+        }
+      },
+      "protocol": {
+        "family": {
+          "openai": "OpenAI compatible",
+          "anthropic": "Anthropic (Claude)",
+          "gemini": "Google Gemini"
+        },
+        "wireVariant": {
+          "openai": {
+            "chat-completions": "Chat Completions",
+            "responses": "Responses API"
+          },
+          "anthropic": {
+            "messages": "Messages API"
+          },
+          "gemini": {
+            "generate-content": "Generate Content"
+          }
+        }
+      }
+    },
+    "tts": {
+      "title": "Speech service",
+      "subtitle": "Text-to-speech for read-aloud.",
+      "loadFailed": "Failed to load configuration",
+      "audioPlayFailed": "Could not play audio — check browser permissions",
+      "toast": {
+        "saved": "Speech settings saved",
+        "testSuccess": "Connected · {voice} · {latencyMs} ms"
+      },
+      "service": {
+        "title": "Service settings",
+        "configured": "Configured · Key {masked}",
+        "notConfigured": "Not configured — Subscription Key required on first save",
+        "enableAria": "Enable speech service",
+        "saveWithConfig": "Applies after saving"
+      },
+      "fields": {
+        "region": "Region",
+        "subscriptionKey": "Subscription Key",
+        "apiKeyPlaceholderKeep": "Leave blank to keep the current key",
+        "apiKeyPlaceholderRequired": "Required",
+        "defaultVoice": "Default voice",
+        "defaultVoicePlaceholder": "Select default voice",
+        "usVoice": "US English",
+        "usVoicePlaceholder": "Select US voice",
+        "ukVoice": "UK English",
+        "ukVoicePlaceholder": "Select UK voice"
+      },
+      "test": {
+        "sectionTitle": "Test saved configuration",
+        "testText": "Test text",
+        "role": "Role",
+        "roleDefaultVoice": "Default voice",
+        "rolePlaceholder": "Select role",
+        "run": "Test connectivity",
+        "running": "Testing…",
+        "lastLatency": "Last run {latencyMs} ms",
+        "draftNotice": "Unsaved changes above: tests use the saved configuration and never submit these changes.",
+        "sectionDescription": "Tests use the saved speech configuration and never submit draft changes above."
+      },
+      "saveConfig": "Save speech settings"
+    },
+    "dictionary": {
+      "title": "Dictionary configuration",
+      "audioPlayFailed": "Could not play audio — check browser permissions or the audio URL",
+      "toast": {
+        "saved": "Dictionary settings saved",
+        "testSuccess": "Lookup succeeded · {word} · {latencyMs} ms",
+        "testSuccessFallback": "Lookup succeeded (fallback) · {word} · {latencyMs} ms · actual source {source}"
+      },
+      "service": {
+        "title": "Service",
+        "configured": "Persistent settings configured",
+        "notConfigured": "Using defaults",
+        "enableAria": "Enable dictionary service",
+        "saveWithConfig": "Applies after saving"
+      },
+      "provider": {
+        "label": "Provider",
+        "placeholder": "Select provider",
+        "youdao": "Youdao Open API (Chinese definitions, US/UK audio)",
+        "free": "Free Dictionary API (English definitions, may need a proxy)",
+        "customLegacy": "Custom provider (not implemented)",
+        "unknownLegacy": "Unknown provider \"{id}\" (not implemented)",
+        "unsupportedHint": "Provider \"{id}\" is not implemented. Switch to Youdao or Free Dictionary before saving.",
+        "displayYoudao": "Youdao Dictionary",
+        "displayFree": "Free Dictionary",
+        "displayCustom": "Custom provider",
+        "displayUnknown": "Unknown \"{id}\"",
+        "displayUnknownPlain": "Unknown"
+      },
+      "aiEnrichment": {
+        "title": "AI enrichment",
+        "description": "Add Chinese glosses and examples from the current chapter (requires AI configuration).",
+        "enableAria": "Enable AI enrichment"
+      },
+      "fields": {
+        "customEndpoint": "Custom API endpoint (optional)",
+        "customEndpointPlaceholder": "Uses the public API by default; set a proxy or private deployment URL here",
+        "apiKey": "API key (optional)",
+        "apiKeyPlaceholderKeep": "Key set ({masked}) — leave blank to keep",
+        "apiKeyPlaceholderOptional": "Optional",
+        "timeoutMs": "Request timeout (ms)",
+        "cacheTtlDays": "Entry cache TTL (days, Redis & DB)"
+      },
+      "test": {
+        "sectionTitle": "Test saved configuration",
+        "sectionDescription": "Verify provider connectivity, phonetics/audio parsing, and AI Chinese gloss enrichment.",
+        "word": "Test word",
+        "wordPlaceholder": "Enter an English word, e.g. serendipity",
+        "contextSentence": "Sample context sentence (optional)",
+        "contextPlaceholder": "Sentence containing the word to test AI enrichment",
+        "run": "Test lookup",
+        "running": "Testing lookup…",
+        "latency": "Latency:",
+        "sourceUnknown": "Actual source unknown",
+        "fallbackDescription": "The configured provider failed; fallback provider used: {source}.",
+        "playPronunciation": "Play pronunciation",
+        "ipaFallback": "IPA",
+        "contextExamplesHeading": "Context examples:",
+        "readingNote": "Reading note: {note}",
+        "savedConfigNotice": "Tests use the saved configuration and never submit draft changes above.",
+        "draftNotice": "Unsaved changes above: tests use the saved configuration and never submit these changes."
+      },
+      "saveConfig": "Save dictionary settings",
+      "saving": "Saving…",
+      "subtitle": "Provides definitions and examples for word lookup."
+    },
+    "logs": {
+      "centerTabAi": "AI logs",
+      "centerTabTts": "Speech logs",
+      "emptyValue": "—",
+      "latencyMs": "{ms} ms",
+      "costPlaceholder": "—",
+      "costNotPricedHint": "Not priced",
+      "paginationSummary": "{total} total · page {page} / {totalPages} · {pageSize} per page",
+      "prevPage": "Previous",
+      "nextPage": "Next",
+      "listRefreshing": "Updating list…",
+      "filters": {
+        "rangePresetAria": "Quick time range",
+        "statusFilterAria": "Filter by status",
+        "presetDays": "{days} days",
+        "custom": "Custom",
+        "timeLabel": "Time",
+        "startTime": "Start time",
+        "endTime": "End time",
+        "rangeSeparator": "to",
+        "statusAll": "All",
+        "statusSuccess": "Success",
+        "statusFailure": "Failed"
+      },
+      "table": {
+        "time": "Time",
+        "source": "Source",
+        "type": "Type",
+        "status": "Status",
+        "model": "Model",
+        "tokens": "Tokens",
+        "actions": "Actions",
+        "segment": "Segment",
+        "voice": "Voice",
+        "latency": "Latency",
+        "error": "Error"
+      },
+      "status": {
+        "success": "Success",
+        "failure": "Failed"
+      },
+      "ai": {
+        "title": "AI invocation logs",
+        "statsInputTokens": "Input tokens",
+        "statsOutputTokens": "Output tokens",
+        "statsCost": "Cost",
+        "loadFailedTitle": "Could not load invocation logs",
+        "emptyTitle": "No logs match these filters",
+        "emptyDescription": "Try adjusting the time range or status.",
+        "detailAction": "Details",
+        "detailTitle": "Invocation details",
+        "detailSource": "Source",
+        "detailPurpose": "Purpose",
+        "detailModel": "Model",
+        "detailLatency": "Latency",
+        "tokenSectionTitle": "Token usage",
+        "tokenTotal": "Total",
+        "tokenInput": "Input tokens",
+        "tokenOutput": "Output tokens",
+        "costLine": "Cost {amount}",
+        "refType": "Reference type",
+        "refId": "Reference ID",
+        "errorCode": "Error code",
+        "errorMessage": "Error message",
+        "providerBalancesTitle": "Provider balances",
+        "providerAvailable": "Available",
+        "providerInsufficient": "Insufficient balance",
+        "providerRefresh": "Refresh",
+        "providerRetry": "Retry",
+        "providerQuerying": "Querying",
+        "providerQueryBalance": "Query balance",
+        "providerQueryFailed": "Query failed"
+      },
+      "tts": {
+        "title": "Speech invocation logs",
+        "statsSuccess": "Success",
+        "statsFailure": "Failed",
+        "statsTotal": "Total",
+        "loadFailedTitle": "Could not load speech logs",
+        "emptyTitle": "No speech logs match these filters",
+        "emptyDescription": "Try adjusting the time range or status.",
+        "cached": "Cached"
+      },
+      "enum": {
+        "aiSource": {
+          "assistAsk": "Reading question",
+          "assistAskFollowups": "Follow-up suggestions",
+          "translatePart": "Bilingual translation",
+          "translateArticle": "Bilingual translation",
+          "adminProviderTest": "Connectivity test",
+          "metadataEnrichFill": "Metadata enrichment",
+          "dictionaryEnrichment": "Dictionary AI enrichment"
+        },
+        "aiPurpose": {
+          "unbound": "Unassigned",
+          "assist": "Reading assistant",
+          "translate": "Bilingual translation",
+          "metadataEnrich": "Metadata enrichment"
+        },
+        "ttsSource": {
+          "adminTtsTest": "Connectivity test",
+          "readerSegment": "Reader segment"
+        },
+        "ttsRole": {
+          "default": "Default",
+          "us": "US English",
+          "uk": "UK English"
+        }
+      }
+    },
+    "content": {
+      "common": {
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…",
+        "edit": "Edit",
+        "delete": "Delete",
+        "more": "More",
+        "actions": "Actions",
+        "notFilled": "Not filled",
+        "notAvailable": "Not available",
+        "required": "This field is required",
+        "saved": "Saved",
+        "created": "Created",
+        "deleted": "Deleted",
+        "publish": "Publish",
+        "unpublish": "Unpublish",
+        "published": "Published",
+        "unpublished": "Unpublished",
+        "confirmDeleteWork": "Delete this work?",
+        "confirmDeleteWorkPermanent": "Delete this work? This cannot be undone.",
+        "backToList": "Back to list",
+        "queuing": "Queuing…",
+        "loading": "Loading…",
+        "nameRequired": "Name is required",
+        "noMatch": "No matches",
+        "noData": "No data yet",
+        "select": "Select…",
+        "searchExisting": "Search existing options…",
+        "unused": "Unused",
+        "cancelChanges": "Discard changes",
+        "draftUnsaved": "Unsaved changes"
+      },
+      "provenance": {
+        "extracted": "Extracted",
+        "ai": "AI generated",
+        "manual": "Manual"
+      }
+    },
+    "assets": {
+      "page": {
+        "title": "Object storage usage",
+        "subtitle": "Object storage scan results, not vendor billing.",
+        "lastScan": "Last scan: {time} · {status} · {duration}",
+        "scanComplete": "Complete",
+        "scanIncomplete": "Incomplete",
+        "scanNow": "Rescan",
+        "scanning": "Scanning…",
+        "operationFailed": "Operation failed",
+        "scanStorageFailed": "Could not read object storage. Check S3 configuration or network.",
+        "cleanupEnqueueFailed": "Could not create cleanup job. Scan again and retry.",
+        "cleanupRetryFailed": "Could not retry cleanup job.",
+        "emptyTitle": "No asset scan yet",
+        "scanIncompleteTitle": "Scan incomplete",
+        "scanIncompleteDescription": "Object count hit the limit; cleanup is unavailable for this scan. Narrow storage scope and scan again.",
+        "orphanOverviewTitle": "Orphan overview",
+        "orphanShare": "Orphan share {percent}",
+        "releasable": "Releasable {bytes}",
+        "orphanFound": "Found {count} orphan objects",
+        "cleanupOrphans": "Clean up orphan objects",
+        "cleanupHistory": "Cleanup history",
+        "cleanupDetails": "Details"
+      },
+      "cleanupBanner": {
+        "title": "Orphan cleanup in progress",
+        "progress": "{processed} / {requested} · released {bytes}"
+      },
+      "summary": {
+        "totalUsage": "Total usage",
+        "referenced": "Referenced",
+        "orphan": "Orphan objects",
+        "missing": "Missing objects",
+        "objectCount": "{count} objects",
+        "orphanDetail": "{count} objects · {percent}% of total",
+        "missingDescription": "Referenced in database but missing in object storage",
+        "missingCount": "{count}"
+      },
+      "chart": {
+        "title": "Usage breakdown",
+        "empty": "No category data",
+        "legend": "{bytes} · {count}"
+      },
+      "cleanup": {
+        "title": "Orphan cleanup",
+        "progress": "{processed} / {requested} · released {bytes}",
+        "progressAria": "Cleanup progress",
+        "stats": "Deleted {deleted} · skipped {skipped} · failed {failed}",
+        "leftoverUncleaned": "Job finished but some objects were not cleaned up",
+        "afterCleanup": "Orphans remaining {orphan} · missing {missing}",
+        "retryFailed": "Retry cleanup job",
+        "retrySubmitting": "Retry submitting…",
+        "inFlightHint": "Job runs in the background; you can keep browsing this page.",
+        "confirmTitle": "Clean up orphan objects?",
+        "confirmDescription": "About to delete:\n{count} objects · {bytes}\nThese objects have no database references and cannot be recovered. A background job starts immediately; track progress on this page. The server re-checks references before deletion and skips newly referenced objects.",
+        "confirmAction": "Confirm cleanup",
+        "submitting": "Submitting…"
+      },
+      "format": {
+        "durationZero": "0 ms",
+        "durationMs": "{ms} ms",
+        "durationSeconds": "{seconds} s"
+      },
+      "enum": {
+        "category": {
+          "cover": "Cover",
+          "image": "Illustration",
+          "origin": "Original file",
+          "other": "Other"
+        },
+        "cleanupJobStatus": {
+          "queued": "Queued",
+          "running": "Running",
+          "completed": "Completed",
+          "partial": "Partial failure",
+          "failed": "Failed"
+        }
+      }
+    }
+  },
+  "content": {
+    "common": {
+      "retry": "Retry",
+      "viewBookDetailAria": "View details for {title}",
+      "openReaderAria": "Open {title} in the reader",
+      "findBookCta": "Discover a book to read",
+      "backToDiscover": "Back to Discover",
+      "backToLibrary": "Back to Library",
+      "backToHistory": "Back to Reading History",
+      "backToReader": "Back to Reader"
+    },
+    "discover": {
+      "title": "Discover",
+      "metaTitle": "Discover · Gloaming Reader",
+      "loadFailed": "Could not load catalog",
+      "softRefreshing": "Updating catalog…",
+      "emptyTitle": "Nothing to discover yet",
+      "emptyDescription": "Check back later.",
+      "noMatchTitle": "No matching titles",
+      "noMatchDescription": "Try another category, or clear the search and filters.",
+      "clearFilters": "Clear filters",
+      "searchLabel": "Search titles",
+      "searchPlaceholder": "Search by title or author",
+      "searchAction": "Search",
+      "clearSearch": "Clear search",
+      "categoriesFilterAria": "Category filter",
+      "categoriesAria": "Categories",
+      "allCategories": "All",
+      "moreCategories": "More categories",
+      "fewerCategories": "Fewer categories",
+      "activeFilters": "Filtering by",
+      "clearCategoryFilter": "Clear category filter: {category}",
+      "searchFilterChip": "Search: {query}",
+      "addToLibrary": "Add to Library",
+      "viewDetail": "View details",
+      "backToDiscover": "Back to Discover",
+      "descriptionTitle": "About this book",
+      "descriptionEmpty": "No description available.",
+      "preparing": "Preparing…",
+      "preparingHint": "It will appear in your Library once download and parsing finish.",
+      "inLibrary": "In Library",
+      "goToLibrary": "Go to Library",
+      "saveReady": "Added to your Library",
+      "savePending": "Added to your Library; preparing the content",
+      "saveFailed": "Could not add to Library. Please try again.",
+      "noEpubHint": "No readable EPUB is available yet.",
+      "legacySectionLabel": "Published catalog",
+      "legacySectionDescription": "Titles already published without a source record.",
+      "chapterCount": "{count} chapters",
+      "pagination": "Pagination",
+      "noSearchResults": "No books match these filters",
+      "prevPage": "Previous",
+      "nextPage": "Next",
+      "currentPage": "Page {page}"
+    },
+    "library": {
+      "readingFilter": "Reading status",
+      "allStatuses": "All",
+      "searchBooks": "Search titles or authors",
+      "sortBooks": "Sort books",
+      "sortAdded": "Recently added",
+      "sortRecent": "Recently read",
+      "sortTitle": "Title",
+      "gridView": "Grid view",
+      "listView": "List view",
+      "loadMore": "Load more",
+      "title": "Library",
+      "metaTitle": "Library · Gloaming Reader",
+      "loadFailed": "Could not load your library",
+      "emptyTitle": "Your library is empty",
+      "uploadBook": "Upload book",
+      "sourceFilterAria": "Book source",
+      "sourceGroupLabel": "Source",
+      "sourceAll": "All",
+      "sourcePersonal": "My uploads",
+      "sourceSaved": "Saved",
+      "publishedYear": "Published {year}",
+      "uploading": "Uploading…",
+      "uploadStarted": "Added to Library. Processing has started.",
+      "uploadDialogTitle": "Upload book",
+      "uploadDialogDescription": "Choose an EPUB book to add to your Library.",
+      "dropzoneAria": "Choose or drop an EPUB file",
+      "dropzoneTitle": "Drop an EPUB here",
+      "dropzoneChoose": "or choose a file",
+      "dropzoneLimit": "EPUB only · Up to {size}",
+      "fileReady": "{size} · File format looks good",
+      "invalidEpub": "Choose an EPUB file.",
+      "epubTooLarge": "The EPUB must be 50 MB or smaller.",
+      "processing": "Arranging your book…",
+      "indeterminateProgress": "In progress",
+      "importFailed": "Import failed",
+      "failedHint": "This book could not be read just now.",
+      "processingFailed": "This book could not be processed",
+      "manageBookAria": "Manage {title}",
+      "manageTags": "Manage tags",
+      "manageTagsForBook": "Manage tags",
+      "editBookInfo": "Edit book information",
+      "deleteBook": "Delete book",
+      "editBookTitle": "Edit book information",
+      "bookTitle": "Title",
+      "bookAuthor": "Author",
+      "bookDescription": "Description",
+      "saveBookInfo": "Save changes",
+      "bookInfoSaved": "Book information updated",
+      "deleteBookConfirmTitle": "Delete this book?",
+      "deleteBookConfirmDescription": "“{title}” and its reading progress, conversations, and stored files will be permanently deleted.",
+      "bookDeleted": "Book deleted",
+      "newTag": "New tag",
+      "renameTag": "Rename",
+      "deleteTag": "Delete tag",
+      "tagName": "Tag name",
+      "saveTags": "Save tags",
+      "tagsSaved": "Tags updated",
+      "tagCreated": "Tag created",
+      "tagTranslationsMissing": "Translations missing",
+      "tagTranslationsComplete": "Translations completed",
+      "completeTagTranslations": "Complete names",
+      "tagTranslationProviderUnavailable": "Translations are incomplete. Configure an available AI provider to complete them.",
+      "tagRenamed": "Tag renamed",
+      "tagDeleted": "Tag deleted",
+      "noTags": "No tags yet",
+      "noTagsInLibrary": "No tags yet",
+      "tagFilterAll": "All",
+      "tagFilterAria": "Filter books by tag",
+      "tagGroupLabel": "My tags",
+      "chooseCategoryTitle": "Choose a category",
+      "tagManagementTitle": "Manage tags",
+      "usedInBooks": "Used by {count} books",
+      "tagDeleteConfirmTitle": "Delete this tag?",
+      "tagDeleteConfirmDescription": "This tag is used by {count} books. Deleting it will not delete any books.",
+      "tagDeleteConfirmDescriptionEmpty": "Deleting this tag will not delete any books.",
+      "tagNameRequired": "Enter a tag name",
+      "tagNameTooLong": "Tag names must be 80 characters or fewer",
+      "createTag": "Create tag",
+      "cancel": "Cancel",
+      "save": "Save",
+      "filterNoMatches": "No books use this tag",
+      "noMatchTitle": "No books match this category",
+      "noMatchTruncated": "No matches in the currently loaded books",
+      "noSavedBooks": "No saved books yet",
+      "noUploadedBooks": "No uploads yet",
+      "truncatedHint": "Only the first {count} books are shown. Use a tag or source filter to see the rest.",
+      "viewAllBooks": "View all books",
+      "clearFilter": "Clear filters",
+      "removeFromLibrary": "Remove from Library",
+      "removeConfirmTitle": "Remove from Library?",
+      "removeConfirmDescription": "This book will leave your Library. Reading progress and history will be kept.",
+      "removedFromLibrary": "Removed from Library",
+      "continueReading": "Continue reading",
+      "myBooks": "My books",
+      "allBooks": "All books",
+      "readingInProgress": "Reading",
+      "progressRead": "{ratio}% read",
+      "statusCompleted": "Finished",
+      "statusNotStarted": "Not started",
+      "statusReadProgress": "{ratio}% read",
+      "aiTagBadge": "AI"
+    },
+    "history": {
+      "title": "Reading history",
+      "metaTitle": "Reading history · Gloaming Reader",
+      "loadFailed": "Could not load reading history",
+      "emptyTitle": "No reading history yet",
+      "readingRecord": "Reading days in the past year",
+      "readingDaysCount": "{count} reading days",
+      "distribution": "Reading distribution",
+      "distributionSubtitle": "Past year · {count} reading days",
+      "legendLess": "Less",
+      "legendMore": "More",
+      "tooltipNotRead": "No reading",
+      "engagedMinutes": "~{minutes} min",
+      "statReadingDays": "Total reading days",
+      "statConsecutive": "Streak",
+      "statConsecutiveValue": "{days} days",
+      "statCompletedWorks": "Finished works",
+      "statLookedUpWords": "Lookups",
+      "statLookedUpWordsMobile": "Word lookups",
+      "worksRead": "Works read",
+      "statusCompleted": "Finished",
+      "statusInProgress": "Reading",
+      "completedOn": "Finished on {date}",
+      "lastReadOn": "Last read on {date}"
+    },
+    "bookDetail": {
+      "sameAuthor": "More by this author",
+      "sameCategory": "More in this category",
+      "description": "About this book",
+      "noDescription": "No description available yet.",
+      "descriptionExpand": "Read more",
+      "descriptionCollapse": "Show less",
+      "sourceNotes": "Source notes",
+      "metaTitle": "Book · Gloaming Reader",
+      "languageOriginalEn": "English original",
+      "languageOriginal": "Original",
+      "chapterFallback": "Chapter {n}",
+      "readStart": "Start reading",
+      "readContinue": "Continue reading",
+      "readAgain": "Read again",
+      "relativeToday": "Today {time}",
+      "relativeYesterday": "Yesterday {time}",
+      "minutes": "{minutes} min",
+      "hours": "{hours} hr",
+      "hoursAndMinutes": "{hours} hr {minutes} min",
+      "chapterStatusRead": "Read",
+      "chapterStatusCurrent": "Reading",
+      "chapterStatusUnread": "Unread",
+      "progressCompleted": "Finished",
+      "progressRead": "{ratio}% read",
+      "lastReadPrefix": "Last read: {time}",
+      "readingProgress": "Reading progress",
+      "addToLibrary": "Add to Library",
+      "addToLibraryAria": "Add to Library",
+      "inLibrary": "In Library",
+      "addedToLibraryToast": "Added to Library",
+      "readInfo": "Reading info",
+      "difficulty": "Difficulty",
+      "difficultyAria": "Difficulty {label}, {filled} of {total} stars",
+      "estimatedMinutes": "Est. reading time",
+      "suggestedVocab": "Suggested vocabulary",
+      "suggestedVocabApprox": "~{size}",
+      "toc": "Contents",
+      "tocChapterCount": "{count} chapters",
+      "tocExpand": "Show all chapters",
+      "tocCollapse": "Show fewer chapters",
+      "chapterMeta": "~{minutes} min · {words} words",
+      "unavailableTitle": "Could not open this book",
+      "unavailableDefault": "Book content is unavailable right now. Please try again later.",
+      "reload": "Reload",
+      "recommendationsColdStart": "New arrivals",
+      "recommendationsPersonalized": "Related works",
+      "difficultyPrefix": "Difficulty: {label}"
+    },
+    "reader": {
+      "readingArea": "Reading text",
+      "unavailableTitle": "Could not open this book",
+      "unavailableDefault": "Book content is unavailable right now. Please try again later.",
+      "chrome": {
+        "back": "Back",
+        "toc": "Contents",
+        "bilingual": "Bilingual view",
+        "fontSizeSmall": "Font size: Small",
+        "fontSizeMedium": "Font size: Medium",
+        "fontSizeLarge": "Font size: Large",
+        "aiAssist": "AI assist",
+        "listen": "Listen"
+      },
+      "toc": {
+        "label": "Contents",
+        "collapse": "Close contents",
+        "viewBookDetail": "View book details"
+      },
+      "chapterNav": {
+        "upNext": "Up next",
+        "lastChapter": "Last chapter",
+        "previousChapter": "Previous chapter",
+        "nextChapter": "Next chapter",
+        "finishAndReturn": "Finish book, return to My Library"
+      },
+      "selection": {
+        "toolbarAria": "Selection tools",
+        "explain": "Explain",
+        "askAi": "Ask AI",
+        "lookup": "Look up",
+        "translateSelection": "Translate selection"
+      },
+      "bilingual": {
+        "loading": "Loading bilingual view…",
+        "error": "Could not load bilingual view. Try again."
+      },
+      "toast": {
+        "stateRefreshed": "Reading progress synced. Continue from the current chapter.",
+        "loginForBilingual": "Sign in to use bilingual view",
+        "sessionExpired": "Session expired — please sign in again"
+      },
+      "tts": {
+        "play": "Play",
+        "pause": "Pause",
+        "retry": "Retry",
+        "unavailable": "Read-aloud is not configured yet",
+        "segmentFailed": "Couldn't play this segment. Try again.",
+        "playbackRate": "Playback speed {rate}, tap to change",
+        "accentGroup": "Accent",
+        "controlsGroup": "Playback controls",
+        "expandControls": "Expand playback controls",
+        "chapterProgress": "Chapter listening progress",
+        "loadingAudio": "Loading audio",
+        "usShort": "US",
+        "ukShort": "UK",
+        "usAria": "US accent",
+        "ukAria": "UK accent"
+      },
+      "dictionary": {
+        "sheetTitle": "Dictionary — {word}",
+        "cardAria": "Word card",
+        "playPronunciation": "Tap to hear pronunciation",
+        "contextHeading": "In this book",
+        "translationPrefix": "Translation: ",
+        "notFoundTitle": "No dictionary entry found for \"{word}\"",
+        "lookupFailed": "Dictionary lookup failed. Try again.",
+        "retry": "Retry",
+        "close": "Close",
+        "askAiDeepDive": "Ask AI for more",
+        "noAudio": "No pronunciation audio",
+        "audioPlayFailed": "Audio playback failed. Try again."
+      },
+      "assist": {
+        "inlineAria": "AI quick answer",
+        "inlineQuestionAria": "Ask about the selected text",
+        "questionPlaceholder": "Ask about the selected text…",
+        "cancel": "Cancel",
+        "send": "Send",
+        "close": "Close",
+        "continueInDrawer": "Continue in panel",
+        "continueUnavailable": "This answer was not saved and cannot continue",
+        "historyTitle": "History",
+        "historyLoading": "Loading history…",
+        "historyError": "Could not load conversation history",
+        "historyRetry": "Retry",
+        "historyEmptyTitle": "No conversations yet",
+        "historyEmptyHint": "Explain or ask about text — conversations will appear here.",
+        "threadEmptyTitle": "Ask about the text",
+        "removeQuote": "Remove quote",
+        "placeholderWithQuote": "Ask about the quoted text…",
+        "placeholderDefault": "Ask about the text…",
+        "sending": "Sending…",
+        "companionTitle": "Reading assistant",
+        "historyAria": "Conversation history",
+        "newConversationAria": "New AI conversation",
+        "closePanelAria": "Close AI panel",
+        "untitledConversation": "Untitled conversation",
+        "promptTranslate": "Translate: {text}",
+        "promptAsk": "Ask: {text}",
+        "promptExplain": "Explain: {text}",
+        "wordDeepDivePrompt": "Explain the meaning and usage of \"{word}\" in the current context."
+      },
+      "translate": {
+        "noResponseBody": "The translation response was empty."
+      },
+      "api": {
+        "unauthorized": "Unauthorized — please sign in again",
+        "translateFailed": "Translation request failed",
+        "requestFailed": "Request failed",
+        "invalidResponse": "Invalid response format",
+        "noResponseBody": "The response was empty.",
+        "aiUnavailable": "AI unavailable",
+        "translateRequestFailed": "Translation request failed"
+      }
+    }
+  },
+  "api": {
+    "errors": {
+      "unauthorized": "Unauthorized",
+      "forbidden": "Forbidden",
+      "internalServerError": "Internal server error",
+      "tooManyRequests": "Too many requests. Please try again later.",
+      "validationFailed": "Validation failed",
+      "validation": {
+        "invalidInput": "Invalid input"
+      },
+      "notFound": {
+        "work": "Work not found",
+        "part": "Part not found",
+        "conversation": "Conversation not found",
+        "readingState": "Reading state not found",
+        "llmProvider": "LLM provider not found",
+        "llmModel": "LLM model not found",
+        "cleanupJob": "Cleanup job not found",
+        "wordDefinition": "No dictionary definition found for \"{word}\"",
+        "userTag": "Tag not found",
+        "sourceRecord": "Source record not found",
+        "publicCategory": "Category not found"
+      },
+      "upload": {
+        "fileTooLarge": "File size exceeds the limit ({maxMb}MB)",
+        "fileRequired": "Please select an EPUB file to upload",
+        "fileNameRequired": "Please provide a file name",
+        "invalidHash": "Invalid file hash",
+        "unsupportedFormat": "Only {formats} files are supported",
+        "unsupportedMime": "Unsupported file type",
+        "contentInvalid": "{reason}",
+        "epubOnly": "Only .epub files are supported"
+      },
+      "work": {
+        "uploadEpubFailed": "Failed to upload book",
+        "reserveParseFailed": "Failed to reserve EPUB parse enqueue",
+        "stateChanged": "Work state changed; refresh and try again"
+      },
+      "tts": {
+        "apiKeyRequired": "API key is required for first-time TTS setup",
+        "notConfigured": "TTS is not configured",
+        "disabled": "TTS is disabled",
+        "unsupportedProvider": "Unsupported TTS provider",
+        "textRequired": "TTS text is required",
+        "invalidCredentials": "TTS credentials are invalid",
+        "synthesisFailed": "TTS synthesis failed"
+      },
+      "ai": {
+        "unavailable": "AI unavailable",
+        "modelNotConfigured": "{label} model not configured"
+      },
+      "llm": {
+        "familyNotImplemented": "LLM API family \"{apiFamily}\" is registered but runtime support is not implemented.",
+        "unknownApiFamily": "Unknown API family",
+        "thinkingNotSupported": "Thinking parameters are not supported for this API family",
+        "wireVariantInvalid": "Wire variant is not valid for this provider API family",
+        "modelIdExists": "Model id already exists for this provider",
+        "modelReferenced": "Model is referenced by app settings",
+        "unknownSettingKey": "Unknown setting key",
+        "modelOrProviderDisabled": "Model or provider is disabled",
+        "providerDisabled": "Provider is disabled",
+        "noEnabledModel": "No enabled model on this provider",
+        "apiKeyDecryptFailed": "Failed to decrypt API key; re-save the provider",
+        "invalidApiFamily": "Provider API family is invalid",
+        "modelListNotSupported": "Model list fetch is not supported for this API family",
+        "modelListFetchFailed": "Failed to fetch model list; this platform may not support it — add models manually"
+      },
+      "outboundUrl": {
+        "invalid": "{label} format is invalid",
+        "scheme": "{label} must use http or https",
+        "credentials": "{label} must not include a username or password",
+        "privateNetwork": "{label} must not point to a private or local address"
+      },
+      "oss": {
+        "notConfigured": "Object storage is not configured",
+        "unavailable": "Object storage is unavailable",
+        "rangeNotSatisfiable": "Requested range is not satisfiable"
+      },
+      "dictionary": {
+        "providerNotImplemented": "Dictionary provider \"{providerId}\" is not implemented or supported",
+        "providerSaveNotSupported": "Dictionary provider \"{providerId}\" is not implemented or supported and cannot be saved",
+        "queryDisabled": "Dictionary lookup is disabled in admin settings",
+        "upstreamError": "Dictionary provider returned an error",
+        "requestTimeout": "Dictionary provider request timed out",
+        "fetchFailed": "Failed to fetch from dictionary provider",
+        "transportFailure": "Unexpected dictionary provider transport failure",
+        "invalidJson": "Dictionary provider returned invalid JSON",
+        "malformedResponse": "Dictionary provider returned a malformed response",
+        "payloadFailure": "Unexpected dictionary provider payload failure"
+      },
+      "conversation": {
+        "mismatchSurface": "Conversation does not match surface",
+        "mismatchWork": "Conversation does not match work"
+      },
+      "contentAsset": {
+        "noTextToSynthesize": "Part has no text to synthesize",
+        "partNotInWork": "Part does not belong to work"
+      },
+      "assetManagement": {
+        "scanSnapshotExpired": "Scan snapshot expired or not found; please scan again",
+        "scanReportNotFound": "No scan report available; please scan first",
+        "scanIncomplete": "Incomplete scan cannot be cleaned up; rescan with a smaller bucket or retry later",
+        "noOrphans": "No orphan objects to clean up",
+        "scanInProgress": "A scan is already in progress",
+        "cleanupAlreadyCompleted": "Cleanup already completed for this scan; scan again to start a new job",
+        "cleanupRetryExisting": "Cleanup already finished with failures; retry the existing job",
+        "cleanupJobNotFound": "Cleanup job not found",
+        "noFailedObjects": "Cleanup job has no failed objects to retry"
+      },
+      "reader": {
+        "revisionConflict": "Reading state revision conflict",
+        "noNextChapter": "No next chapter — use finish to complete the book",
+        "unsupportedAction": "Unsupported action"
+      },
+      "library": {
+        "userTagNameExists": "You already have a tag with that name",
+        "sourceRecordNoEpubCandidate": "No readable EPUB is available for this source yet, so it cannot be saved to your library"
+      },
+      "discovery": {
+        "publicCategoryNameExists": "A category with that name already exists for this language",
+        "publicCategoryLimitExceeded": "A source record can have at most {limit} categories",
+        "publicCategoryHasAssignments": "This category has {count} source record or source mapping reference(s). Remove them before deleting it.",
+        "sourceCategoryMappingConflict": "This mapping changed or the suggestion is no longer valid. Refresh and try again.",
+        "publicCategoryTranslationBusy": "Another classification or translation task is running. Try again in a moment."
+      }
+    }
+  }
+}

@@ -1,3 +1,10 @@
 packages:
   - client
   - packages/*
+  - vendor/*
+
+allowBuilds:
+  esbuild: true
+
+overrides:
+  iconv-lite: workspace:*
