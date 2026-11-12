@@ -2,7 +2,7 @@
 
 **Status:** P4-V1 evidence lane (not default open-source delivery).
 
-Default local delivery remains **Next.js + optional Jobs process** — see [`docs/LOCAL_RUN.md`](../../docs/LOCAL_RUN.md).
+Default local delivery remains **Next.js + optional Jobs process** — see [`LOCAL_RUN.md`](./LOCAL_RUN.md).
 
 ## Scripts
 

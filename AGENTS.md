@@ -155,6 +155,9 @@ Read only the rules relevant to the current task:
 - Local run and deploy narratives:
   [LOCAL_RUN.md](docs/LOCAL_RUN.md), [deployment.md](docs/deployment.md).
 - Client layout map: [client/STRUCTURE.md](client/STRUCTURE.md).
+- `client/AGENTS.md` is **Next.js-generated** framework notice only (recreated by
+  `next dev`). Project policy lives in **this** file and `rules/` — do not treat
+  `client/AGENTS.md` as a second product rulebook.
 
 Consult current source and configuration for implementation details. Use Skills
 for operating procedures and tools for their capabilities and access checks.

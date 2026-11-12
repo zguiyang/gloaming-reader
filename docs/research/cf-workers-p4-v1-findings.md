@@ -55,9 +55,7 @@ The promoted product tree **`client/`** can be **built with vinext** and deploye
 | Root `package.json`                                                                 | `check:workers`, `build:workers` forwarders                                                                                                                          |
 | `client/app/api/cf-smoke/route.ts`                                                  | Thin smoke route (no DB)                                                                                                                                             |
 | `client/server/domains/ai/prompts/service.ts`                                       | Rename `__dirname` → `moduleDir` (vinext check)                                                                                                                      |
-| `client/docs/CLOUDFLARE-WORKERS.md`                                                 | Operator notes                                                                                                                                                       |
-| `spikes/README.md`                                                                  | Points P4-V1 at `client/` (no duplicate app)                                                                                                                         |
-| `client/.gitignore`                                                                 | `.vinext/`, `.cloudflare/` (from init)                                                                                                                               |
+| [`docs/CLOUDFLARE-WORKERS.md`](../CLOUDFLARE-WORKERS.md)                            | Operator notes (moved from `client/docs/`)                                                                                                                           |
 
 ## Blockers for full product on Workers (inputs for P4-V2)
 
@@ -99,4 +97,4 @@ From build graph + Preview behaviour + [`T3-DEPENDENCY-INVENTORY.md`](../T3-DEPE
 
 - P1: [`cf-workers-p1-findings.md`](./cf-workers-p1-findings.md)
 - Stages: [`../cloudflare-fullstack-refactor-stages.md`](../cloudflare-fullstack-refactor-stages.md) §6
-- Operator doc: [`../../client/docs/CLOUDFLARE-WORKERS.md`](../../client/docs/CLOUDFLARE-WORKERS.md)
+- Operator doc: [`../CLOUDFLARE-WORKERS.md`](../CLOUDFLARE-WORKERS.md)

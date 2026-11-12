@@ -4,10 +4,11 @@ Next.js app: **UI + `/api/*` Route Handlers** + BullMQ Jobs (`jobs/`, second pro
 
 ## Docs
 
-- **[STRUCTURE.md](./STRUCTURE.md)** — directories, two-tier shared, dependency rules
+- **[STRUCTURE.md](./STRUCTURE.md)** — directories, shared/i18n, dependency rules
 - **Local run:** [`../docs/LOCAL_RUN.md`](../docs/LOCAL_RUN.md)
+- **Workers (P4-V1):** [`../docs/CLOUDFLARE-WORKERS.md`](../docs/CLOUDFLARE-WORKERS.md)
 - Parent: [`../README.md`](../README.md)
-- Stages: [`../../docs/cloudflare-fullstack-refactor-stages.md`](../../docs/cloudflare-fullstack-refactor-stages.md)
+- Stages: [`../docs/cloudflare-fullstack-refactor-stages.md`](../docs/cloudflare-fullstack-refactor-stages.md)
 
 ## Commands
 
