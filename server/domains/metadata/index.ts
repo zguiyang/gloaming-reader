@@ -1,1 +1,8 @@
-/** Work metadata completion is owned by source-enrich (follow-up). */
+export {
+  authorsOverlap,
+  enrichPersonalWorkFromSources,
+  isEmptyOrWeakDescription,
+  normalizeForMatch,
+  pickConfidentMatch,
+  type SourceMetadataEnrichResult,
+} from './source-enrich';

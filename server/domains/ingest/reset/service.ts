@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import {
   contentAsset as contentAssetTable,
@@ -103,6 +103,7 @@ export async function resetParseStepOutputs(work: WorkRow, claim?: ParseClaim): 
         description: '',
         coverAssetId: null,
         descriptionProvenance: null,
+        originMeta: sql`${readingWorkTable.originMeta} - 'opdsMatch' - 'sourceCoverUrl'`,
       })
       .where(eq(readingWorkTable.id, work.id));
     return cleanup;

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 
 import { contentAsset as contentAssetTable, type ContentAssetMeta, readingWork as readingWorkTable } from '@/server/db';
 
@@ -32,7 +32,7 @@ export type WorkCoverRefreshJobData = {
 };
 
 export type WorkCoverRefreshSkipReason =
-  'invalid_payload' | 'work_missing' | 'work_failed' | 'personal_work' | 'unchanged' | 'concurrent_update';
+  'invalid_payload' | 'work_missing' | 'work_failed' | 'unchanged' | 'concurrent_update';
 
 export type WorkCoverRefreshResult =
   | { ok: true; workId: string; outcome: 'updated'; sourceCoverUrl: string }
@@ -259,7 +259,6 @@ export async function processWorkCoverRefresh(
     .select({
       id: readingWorkTable.id,
       processingStatus: readingWorkTable.processingStatus,
-      ownerUserId: readingWorkTable.ownerUserId,
       originMeta: readingWorkTable.originMeta,
     })
     .from(readingWorkTable)
@@ -268,7 +267,6 @@ export async function processWorkCoverRefresh(
 
   if (!work) return skip('work_missing');
   if (work.processingStatus === 'failed') return skip('work_failed');
-  if (work.ownerUserId !== null) return skip('personal_work');
   if (sourceCoverUrlOf(work) === sourceCoverUrl) return skip('unchanged');
 
   const timeoutMs = options.timeoutMs ?? WORK_COVER_DOWNLOAD_TIMEOUT_MS;
@@ -296,15 +294,9 @@ export async function processWorkCoverRefresh(
     const [locked] = await tx
       .select({ id: readingWorkTable.id, originMeta: readingWorkTable.originMeta })
       .from(readingWorkTable)
-      .where(
-        and(
-          eq(readingWorkTable.id, workId),
-          isNull(readingWorkTable.ownerUserId),
-          ne(readingWorkTable.processingStatus, 'failed'),
-        ),
-      )
+      .where(and(eq(readingWorkTable.id, workId), ne(readingWorkTable.processingStatus, 'failed')))
       .for('update');
-    // Missing, failed, personal, or already refreshed by a concurrent attempt.
+    // Missing, failed, or already refreshed by a concurrent attempt.
     if (!locked) return 'ineligible';
     if (sourceCoverUrlOf(locked) === sourceCoverUrl) return 'unchanged';
 

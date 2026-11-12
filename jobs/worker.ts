@@ -6,6 +6,11 @@ import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from
 import type { PingJobData } from '@/jobs/ping';
 import { JOB_PING, processPing } from '@/jobs/ping';
 import {
+  JOB_SOURCE_METADATA_ENRICH,
+  processSourceMetadataEnrich,
+  type SourceMetadataEnrichJobData,
+} from '@/jobs/source-metadata-enrich';
+import {
   JOB_SOURCE_RECORD_MATERIALIZE,
   processSourceRecordMaterialize,
   type SourceRecordMaterializeJobData,
@@ -42,6 +47,8 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
       return processPing(job.data as PingJobData);
     case JOB_CONTENT_PARSE:
       return processContentParse(job.data as ContentParseJobData);
+    case JOB_SOURCE_METADATA_ENRICH:
+      return processSourceMetadataEnrich(job.data as SourceMetadataEnrichJobData);
     case JOB_SOURCE_RECORD_MATERIALIZE:
       return processSourceRecordMaterialize(job.data as SourceRecordMaterializeJobData);
     case JOB_WORK_COVER_REFRESH:
