@@ -27,8 +27,8 @@
 
 ```text
 P0  规则对齐（消冲突）           ✅ 已完成
-P1  Workers 可行性窄 spike       ← 下一步执行面（先章程，再实验）
-P2  迁移切片与门禁（可执行 backlog）
+P1  Workers 可行性窄 spike       ✅ 已完成（见 Appendix A / research note）
+P2  迁移切片与门禁（可执行 backlog）  ← 下一步
 P3+ 按切片改代码（API 归属、TTS REST、AI SDK、按需 Discover…）
 ```
 
@@ -137,18 +137,18 @@ P1 有结论后再写细。预期内容（预告，不提前锁死）：
 
 ---
 
-## Appendix A — P1 findings（占位）
+## Appendix A — P1 findings
 
-> P1 结束后在此填写，或改为链接到 `docs/research/` 下的笔记。
+详细记录：[research/cf-workers-p1-findings.md](./research/cf-workers-p1-findings.md)
 
-| 项                          | 结果                       |
-| --------------------------- | -------------------------- |
-| 日期                        |                            |
-| 适配链（OpenNext / vinext） |                            |
-| 本地构建/dev                |                            |
-| Preview / Free CPU / 1102   | 未测 / 通过 / 失败（摘要） |
-| Blockers                    |                            |
-| 对 P2 的建议                |                            |
+| 项                          | 结果                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 日期                        | 2026-11-12                                                                                                                                                   |
+| 适配链（OpenNext / vinext） | **vinext** 绿场探针通过；未测 OpenNext                                                                                                                       |
+| 本地构建/dev                | `vite build` + `vite preview` 通过（`/`、`/api/hello`、`/api/smoke`）                                                                                        |
+| Preview / Free CPU / 1102   | Preview 部署成功；浏览器访问上述路径 **无 1102**。本机 CLI 对 `*.workers.dev` 443 超时（网络路径问题，≠ CPU 失败）。**未**证明真实登录/DB 路径适合 Free 10ms |
+| Blockers                    | 现网三服务、Hono、BullMQ、原生 Speech SDK、LangChain、重 Node；绿场成功 ≠ 现网可直接迁                                                                       |
+| 对 P2 的建议                | 先对真实 `apps/web` 做 `vinext check`；切片迁 API / TTS REST / AI SDK / 按需 Discover；把真实鉴权路径的 Free CPU 单列为门禁                                  |
 
 ## Related
 
