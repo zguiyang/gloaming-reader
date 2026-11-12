@@ -250,7 +250,7 @@ AI SDK 流式 ± Workers AI / 外部 LLM HTTP
 
 ## Related
 
-- Stage order and P1 spike charter:
+- Stage order (**`migration/` staging tree → migrate UI → migrate API → slim old apps; Workers last**; shared packages: see stages §4.1.1) and P1 charter:
   [`cloudflare-fullstack-refactor-stages.md`](./cloudflare-fullstack-refactor-stages.md)
 - Current deploy topology (to be superseded for the target state): [`deployment.md`](./deployment.md)
 - Agent / product boundaries + transition priority:

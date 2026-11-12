@@ -133,7 +133,11 @@ Read only the rules relevant to the current task:
 - Deploy/API topology transition: this file’s
   [Deploy and API topology](#deploy-and-api-topology-transition) section,
   [Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md),
-  and [stage plan / P1 charter](docs/cloudflare-fullstack-refactor-stages.md).
+  and [stage plan / P1 charter](docs/cloudflare-fullstack-refactor-stages.md)
+  (side-by-side `migration/` extract staging tree first—self-contained
+  `client` + packages; migrate UI then API; slim old apps later; Workers real
+  compatibility only after that—do not treat today’s `web+api+worker` as the CF
+  migration object).
 - Backend services and APIs: [backend rules](rules/backend.md).
 - Web and UI: [frontend rules](rules/frontend.md) and, for UI work,
   [DESIGN.md](DESIGN.md).
