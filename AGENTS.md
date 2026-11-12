@@ -131,8 +131,9 @@ Detailed project rules are maintained in the project-owned `rules/` directory.
 Read only the rules relevant to the current task:
 
 - Deploy/API topology transition: this file’s
-  [Deploy and API topology](#deploy-and-api-topology-transition) section and
-  [Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md).
+  [Deploy and API topology](#deploy-and-api-topology-transition) section,
+  [Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md),
+  and [stage plan / P1 charter](docs/cloudflare-fullstack-refactor-stages.md).
 - Backend services and APIs: [backend rules](rules/backend.md).
 - Web and UI: [frontend rules](rules/frontend.md) and, for UI work,
   [DESIGN.md](DESIGN.md).

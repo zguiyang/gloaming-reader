@@ -250,6 +250,8 @@ AI SDK 流式 ± Workers AI / 外部 LLM HTTP
 
 ## Related
 
+- Stage order and P1 spike charter:
+  [`cloudflare-fullstack-refactor-stages.md`](./cloudflare-fullstack-refactor-stages.md)
 - Current deploy topology (to be superseded for the target state): [`deployment.md`](./deployment.md)
 - Agent / product boundaries + transition priority:
   [`../AGENTS.md`](../AGENTS.md) (Deploy and API topology)
