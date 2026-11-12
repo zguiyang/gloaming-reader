@@ -12,12 +12,12 @@
     "dev:web": "pnpm --filter @gloaming/web dev",
     "build": "pnpm --filter @gloaming/backend build && pnpm --filter @gloaming/web build",
     "build:backend": "pnpm --filter @gloaming/backend build",
-    "lint": "pnpm --filter @gloaming/backend lint && eslint apps/web packages/shared packages/i18n packages/db",
+    "lint": "pnpm --filter @gloaming/backend lint && eslint apps/web packages/shared packages/i18n packages/db --max-warnings 0",
     "lint:backend": "pnpm --filter @gloaming/backend lint",
-    "lint:web": "eslint apps/web",
-    "lint:shared": "eslint packages/shared",
-    "lint:i18n": "eslint packages/i18n",
-    "lint:db": "eslint packages/db",
+    "lint:web": "eslint apps/web --max-warnings 0",
+    "lint:shared": "eslint packages/shared --max-warnings 0",
+    "lint:i18n": "eslint packages/i18n --max-warnings 0",
+    "lint:db": "eslint packages/db --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm --filter @gloaming/shared typecheck && pnpm --filter @gloaming/i18n typecheck && pnpm --filter @gloaming/db typecheck && pnpm --filter @gloaming/backend typecheck && pnpm --filter @gloaming/web typecheck",
@@ -42,7 +42,7 @@
   },
   "lint-staged": {
     "*.{js,jsx,mjs,ts,tsx}": [
-      "eslint --fix",
+      "eslint --fix --max-warnings 0",
       "prettier --write"
     ],
     "*.{json,css,md,yml,yaml}": [

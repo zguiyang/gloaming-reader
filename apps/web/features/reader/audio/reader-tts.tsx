@@ -32,7 +32,6 @@ import { cn } from '@/lib/utils';
 const CARD_SIZE = 48;
 /** Artwork inside the leading circle, leaving a hair of card surface as a matte. */
 const AVATAR_INSET = 2;
-const AVATAR_SIZE = CARD_SIZE - AVATAR_INSET * 2;
 /** Gap from the circle’s trailing edge to the controls. */
 const CONTROL_GAP = 8;
 /** Where controls begin, measured from the leading edge. */

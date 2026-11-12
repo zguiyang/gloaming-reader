@@ -315,12 +315,4 @@ export default defineConfig([
       ],
     },
   },
-
-  {
-    files: ['apps/backend/src/domains/**/service.ts'],
-    rules: {
-      // Structural drift signal only — not an automatic split rule.
-      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
-    },
-  },
 ]);
