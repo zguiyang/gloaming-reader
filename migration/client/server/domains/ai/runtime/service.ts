@@ -6,6 +6,7 @@ import { resolveModelRowId } from '@/server/domains/ai/runtime/purpose-model';
 import type {
   AiInvokeOptions,
   AiInvokeResult,
+  AiMessageInput,
   AiStreamEvent,
   AiStreamOptions,
   AiToolHandle,
@@ -33,6 +34,25 @@ function toAiSdkTools(handles: AiToolHandle[] | undefined) {
       }),
     ]),
   );
+}
+
+/** AI SDK rejects system role in `messages` unless allowed; prefer `instructions`. */
+function toAiSdkPrompt(messages: AiMessageInput[]) {
+  const systemParts: string[] = [];
+  const conversation: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+  for (const message of messages) {
+    if (message.role === 'system') {
+      if (message.content.trim()) {
+        systemParts.push(message.content);
+      }
+      continue;
+    }
+    conversation.push({ role: message.role, content: message.content });
+  }
+  return {
+    ...(systemParts.length > 0 ? { instructions: systemParts.join('\n\n') } : {}),
+    messages: conversation,
+  };
 }
 
 export type {
@@ -73,12 +93,10 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
     });
 
     const tools = toAiSdkTools(options.tools);
+    const prompt = toAiSdkPrompt(options.messages);
     const result = await generateText({
       model,
-      messages: options.messages.map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
+      ...prompt,
       maxOutputTokens: options.maxTokens ?? resolved.maxTokens ?? undefined,
       ...(tools
         ? {
@@ -153,12 +171,10 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
     });
 
     const tools = toAiSdkTools(options.tools);
+    const prompt = toAiSdkPrompt(options.messages);
     const result = streamText({
       model,
-      messages: options.messages.map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
+      ...prompt,
       abortSignal: options.signal,
       ...(tools
         ? {
