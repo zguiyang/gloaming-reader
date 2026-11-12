@@ -86,7 +86,7 @@ Set `FRONTEND_URL=http://localhost:3000`. APIs are same-origin `/api/*` (no `API
 ### 3. Install and migrate (repo root)
 
 ```bash
-pnpm install   # or: bun install
+pnpm install
 pnpm db:migrate
 ```
 

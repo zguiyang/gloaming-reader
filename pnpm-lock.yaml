@@ -4,16 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-overrides:
-  iconv-lite: workspace:*
-
 importers:
 
   .:
-    dependencies:
-      iconv-lite:
-        specifier: workspace:*
-        version: link:vendor/iconv-lite
     devDependencies:
       '@commitlint/cli':
         specifier: ^21.2.1
@@ -133,8 +126,8 @@ importers:
         specifier: ^5.11.0
         version: 5.12.0
       iconv-lite:
-        specifier: workspace:*
-        version: link:../vendor/iconv-lite
+        specifier: ^0.6.3
+        version: 0.6.3
       ioredis:
         specifier: ^5.6.1
         version: 5.11.1(supports-color@10.2.2)
@@ -286,12 +279,6 @@ importers:
       vite:
         specifier: ^8.3.0
         version: 8.3.0(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1)
-
-  vendor/iconv-lite:
-    dependencies:
-      safer-buffer:
-        specifier: '>=2.1.2'
-        version: 2.1.2
 
 packages:
 
@@ -4322,6 +4309,10 @@ packages:
     resolution: {integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==}
     engines: {node: '>=18'}
     hasBin: true
+
+  iconv-lite@0.6.3:
+    resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
+    engines: {node: '>=0.10.0'}
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
@@ -9745,7 +9736,7 @@ snapshots:
 
   encoding-sniffer@0.2.1:
     dependencies:
-      iconv-lite: link:vendor/iconv-lite
+      iconv-lite: 0.6.3
       whatwg-encoding: 3.1.1
 
   end-of-stream@1.4.5:
@@ -10787,6 +10778,10 @@ snapshots:
   human-signals@8.0.1: {}
 
   husky@9.1.7: {}
+
+  iconv-lite@0.6.3:
+    dependencies:
+      safer-buffer: 2.1.2
 
   ignore@5.3.2: {}
 
@@ -13414,7 +13409,7 @@ snapshots:
 
   whatwg-encoding@3.1.1:
     dependencies:
-      iconv-lite: link:vendor/iconv-lite
+      iconv-lite: 0.6.3
 
   whatwg-mimetype@4.0.0: {}
 

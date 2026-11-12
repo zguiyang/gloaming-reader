@@ -80,7 +80,7 @@ cp client/.env.example client/.env
 ### 3. 安装与迁移（仓库根目录）
 
 ```bash
-pnpm install   # 或 bun install
+pnpm install
 pnpm db:migrate
 ```
 

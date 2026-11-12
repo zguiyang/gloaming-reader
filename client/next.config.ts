@@ -7,7 +7,7 @@ import type { NextConfig } from 'next';
  */
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  /** Cheerio → encoding-sniffer expects iconv-lite at bundle time (vendored workspace pkg). */
+  /** Cheerio → encoding-sniffer expects iconv-lite at bundle time. */
   serverExternalPackages: ['iconv-lite'],
   turbopack: {
     rules: {

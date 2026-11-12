@@ -38,18 +38,16 @@ Optional: Resend, GitHub OAuth, Azure TTS / LLM provider credentials for AI path
 Open the app with the same host as `FRONTEND_URL` when possible (`localhost` vs `127.0.0.1`); local auth also trusts the swap and ports 3000/3001.  
 Ensure `client/public/gloaming-mark.png` is present (copied from `archive/apps/web/public` if needed).
 
-3. Install from **repo root**. Prefer Bun if Cursor sandbox blocks pnpm extracts that ship `.idea` / `.claude` dirs:
+3. Install from **repo root** with pnpm:
 
 ```bash
-bun install
-# or: pnpm install
+pnpm install
 ```
 
 4. Migrate DB (schema lives in **`client/server/db`**, not `packages/db`):
 
 ```bash
 pnpm --filter @gloaming/client db:migrate
-# or from client/: bun run db:migrate
 ```
 
 ## Start
@@ -119,10 +117,9 @@ pnpm --filter @gloaming/client start:jobs
 - Worker is still BullMQ + Redis (Node process) — acceptable for local open-source; **not** claimed Workers-compatible (P4 / R5 still open).
 - Some smoke paths may fail without LLM / Azure / S3 keys — tolerate and continue; do not treat partial smoke as N5/P4 go-ahead.
 - N5 (delete/slim old apps) and P4 (CF) are **out of scope**.
-- Install: Cursor may block pnpm extracting packages with `.idea`; Bun + vendored `iconv-lite` is the local workaround.
 
 ## Verification already done in-tree
 
-- `bunx tsc --noEmit` in `client` — re-run after consolidation edits
-- `bun run build` (`NODE_ENV=production next build`) — previously pass; re-run if packaging changes
+- `pnpm --filter @gloaming/client typecheck` — re-run after consolidation edits
+- `pnpm --filter @gloaming/client build` — previously pass; re-run if packaging changes
 - Live compose smoke depends on your local Docker + `.env` secrets

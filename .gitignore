@@ -48,7 +48,6 @@ openspec/
 .output.txt
 .opencode/
 .claude/
-.codex/
 .orca/
 .agents/*
 !.agents/skills/
