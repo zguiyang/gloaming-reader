@@ -8,7 +8,11 @@
     "dev": "pnpm --filter @gloaming/client dev",
     "build": "pnpm --filter @gloaming/client build",
     "lint": "pnpm --filter @gloaming/client lint",
-    "typecheck": "pnpm --filter @gloaming/client typecheck"
+    "typecheck": "pnpm --filter @gloaming/client typecheck",
+    "dev:jobs": "pnpm --filter @gloaming/client dev:jobs",
+    "jobs": "pnpm --filter @gloaming/client jobs",
+    "build:jobs": "pnpm --filter @gloaming/client build:jobs",
+    "start:jobs": "pnpm --filter @gloaming/client start:jobs"
   },
   "workspaces": [
     "client",

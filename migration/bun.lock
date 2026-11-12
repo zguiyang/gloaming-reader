@@ -50,7 +50,6 @@
         "react-dom": "19.3.0",
         "recharts": "^3.10.1",
         "resend": "^4.8.0",
-        "safer-buffer": "^2.1.2",
         "shadcn": "^4.23.0",
         "sharp": "0.34.5",
         "sonner": "^2.0.8",

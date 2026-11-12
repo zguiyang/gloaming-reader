@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,8 +10,22 @@ function asDotenvProcessEnv(processEnv: NodeJS.ProcessEnv): DotenvPopulateInput 
   return processEnv as DotenvPopulateInput;
 }
 
-const envFilePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env');
-const testEnvFilePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../.env.test');
+/**
+ * Resolve client env files for `node --import tsx jobs/worker.ts` and any
+ * compiled layout under `dist/`. Prefer an existing file under `process.cwd()`
+ * (start Jobs from `migration/client`), then the historical module-relative path
+ * (`server/infra/config` → package root).
+ */
+function resolveClientEnvPath(fileName: '.env' | '.env.test'): string {
+  const candidates = [
+    resolve(process.cwd(), fileName),
+    resolve(dirname(fileURLToPath(import.meta.url)), '../../../', fileName),
+  ];
+  return candidates.find((path) => existsSync(path)) ?? candidates[0]!;
+}
+
+const envFilePath = resolveClientEnvPath('.env');
+const testEnvFilePath = resolveClientEnvPath('.env.test');
 
 const TEST_DATABASE_NAME = 'gloaming_test';
 
