@@ -21,6 +21,8 @@
     "db:migrate": "pnpm --filter @gloaming/client db:migrate",
     "db:push": "pnpm --filter @gloaming/client exec drizzle-kit push --config server/db/drizzle.config.ts",
     "jobs": "pnpm --filter @gloaming/client jobs",
+    "check:workers": "pnpm --filter @gloaming/client check:workers",
+    "build:workers": "pnpm --filter @gloaming/client build:workers",
     "start:jobs": "pnpm --filter @gloaming/client start:jobs",
     "compose:init": "test -f docker-compose.yaml || cp docker-compose.yaml.example docker-compose.yaml",
     "prepare": "husky"

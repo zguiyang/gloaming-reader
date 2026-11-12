@@ -4,13 +4,13 @@ import { fileURLToPath } from 'node:url';
 
 import { ASSIST_ACTION_TEMPLATE, type PromptRoleId, type PromptSceneId } from '@/server/domains/ai/prompts/ids';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const moduleDir = dirname(fileURLToPath(import.meta.url));
 
 function promptsRoot(): string {
-  if (existsSync(join(__dirname, 'roles'))) {
-    return __dirname;
+  if (existsSync(join(moduleDir, 'roles'))) {
+    return moduleDir;
   }
-  return join(__dirname, '../../prompts');
+  return join(moduleDir, '../../prompts');
 }
 
 const templateCache = new Map<string, string>();
