@@ -1,0 +1,1 @@
+ALTER TABLE "llm_provider" ADD COLUMN "proxy_url" text;

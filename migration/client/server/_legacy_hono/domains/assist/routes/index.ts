@@ -1,0 +1,61 @@
+import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
+
+import { ASSIST_SSE_EVENT } from '@gloaming/shared/assist';
+
+import * as assistService from '@/server/domains/assist/service';
+import { validateAssistAsk } from '@/server/domains/assist/validator';
+import { workReadActorFromIdentity } from '@/server/domains/works/access';
+import { type AuthVariables, requireAuth } from '@/server/infra/http/middleware/auth';
+import { aiRateLimit } from '@/server/infra/http/middleware/rate-limit';
+import { formatThrownError } from '@/server/infra/http/response';
+
+export const assistRoutes = new Hono<{ Variables: AuthVariables }>();
+
+assistRoutes.post('/api/assist/ask', requireAuth, validateAssistAsk, aiRateLimit('assist'), async (c) => {
+  const user = c.get('user');
+  const body = c.req.valid('json');
+
+  c.header('X-Accel-Buffering', 'no');
+  c.header('Cache-Control', 'no-cache, no-transform');
+
+  return streamSSE(c, async (stream) => {
+    const abort = new AbortController();
+    stream.onAbort(() => {
+      abort.abort();
+    });
+
+    try {
+      const actor = workReadActorFromIdentity(user);
+      for await (const event of assistService.streamAssistAsk(actor, user!.id, body, { signal: abort.signal })) {
+        if (abort.signal.aborted) {
+          return;
+        }
+        if (event.type === 'delta') {
+          await stream.writeSSE({
+            event: ASSIST_SSE_EVENT.delta,
+            data: JSON.stringify({ text: event.text }),
+          });
+          continue;
+        }
+        await stream.writeSSE({
+          event: ASSIST_SSE_EVENT.done,
+          data: JSON.stringify({
+            reply: event.content,
+            model: { label: event.model.label },
+            ...(event.suggestions?.length ? { suggestions: event.suggestions } : {}),
+            ...(event.conversationId ? { conversationId: event.conversationId } : {}),
+          }),
+        });
+      }
+    } catch (error) {
+      if (abort.signal.aborted) {
+        return;
+      }
+      await stream.writeSSE({
+        event: ASSIST_SSE_EVENT.error,
+        data: JSON.stringify(formatThrownError(c, error)),
+      });
+    }
+  });
+});

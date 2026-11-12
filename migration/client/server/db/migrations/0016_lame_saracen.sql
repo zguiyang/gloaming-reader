@@ -1,0 +1,1 @@
+ALTER TABLE "llm_model" ADD COLUMN "protocol" text DEFAULT 'chat-completions' NOT NULL;

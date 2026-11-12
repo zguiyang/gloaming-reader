@@ -1,0 +1,200 @@
+import { Queue } from 'bullmq';
+import { Redis } from 'ioredis';
+
+import type { PingJobData } from '@/server/application/jobs/ping';
+import { JOB_PING } from '@/server/application/jobs/ping';
+import type { WorkCoverRefreshJobData } from '@/server/application/jobs/work-cover-refresh';
+import { JOB_WORK_COVER_REFRESH } from '@/server/application/jobs/work-cover-refresh';
+import { commonEnv } from '@/server/infra/config/env-common';
+import { queueLogger } from '@/server/infra/logging/logger';
+
+export const QUEUE_NAME = 'gloaming';
+export const DISCOVERY_SYNC_QUEUE_NAME = 'gloaming-discovery-sync';
+export const DISCOVERY_IMPORT_QUEUE_NAME = 'gloaming-discovery-import';
+export const CLEANUP_QUEUE_NAME = 'gloaming-asset-cleanup';
+export const PERSONAL_TAG_QUEUE_NAME = 'gloaming-personal-tags';
+export const PUBLIC_CLASSIFICATION_QUEUE_NAME = 'gloaming-public-classification';
+
+const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
+
+let connection: Redis | null = null;
+let queue: Queue | null = null;
+let discoverySyncQueue: Queue | null = null;
+let discoveryImportQueue: Queue | null = null;
+let cleanupQueue: Queue | null = null;
+let personalTagQueue: Queue | null = null;
+let publicClassificationQueue: Queue | null = null;
+
+/** Dedicated BullMQ Redis client. Do not reuse `getRedis()`. */
+export function getQueueConnection(): Redis {
+  if (connection) {
+    return connection;
+  }
+
+  connection = new Redis(commonEnv.REDIS_URL, { maxRetriesPerRequest: null });
+  connection.on('error', (err) => {
+    queueLogger.error({ err }, 'Queue Redis connection error');
+  });
+  return connection;
+}
+
+function createNamedQueue(name: string): Queue {
+  return new Queue(name, {
+    connection: getQueueConnection(),
+    defaultJobOptions: jobCleanup,
+  });
+}
+
+export function getQueue(): Queue {
+  if (queue) {
+    return queue;
+  }
+
+  queue = createNamedQueue(QUEUE_NAME);
+  return queue;
+}
+
+/** Dedicated queue for administrator-triggered Gutenberg snapshot sync jobs. */
+export function getDiscoverySyncQueue(): Queue {
+  if (discoverySyncQueue) return discoverySyncQueue;
+  discoverySyncQueue = createNamedQueue(DISCOVERY_SYNC_QUEUE_NAME);
+  return discoverySyncQueue;
+}
+
+/** Dedicated queue for SourceRecord materialization and EPUB parsing. */
+export function getDiscoveryImportQueue(): Queue {
+  if (discoveryImportQueue) return discoveryImportQueue;
+  discoveryImportQueue = createNamedQueue(DISCOVERY_IMPORT_QUEUE_NAME);
+  return discoveryImportQueue;
+}
+
+export function getCleanupQueue(): Queue {
+  if (cleanupQueue) {
+    return cleanupQueue;
+  }
+
+  cleanupQueue = createNamedQueue(CLEANUP_QUEUE_NAME);
+  return cleanupQueue;
+}
+
+export function getPersonalTagQueue(): Queue {
+  if (personalTagQueue) return personalTagQueue;
+  personalTagQueue = createNamedQueue(PERSONAL_TAG_QUEUE_NAME);
+  return personalTagQueue;
+}
+
+/** Separate AI-heavy queue so classification never blocks sync/materialization jobs. */
+export function getPublicClassificationQueue(): Queue {
+  if (publicClassificationQueue) return publicClassificationQueue;
+  publicClassificationQueue = createNamedQueue(PUBLIC_CLASSIFICATION_QUEUE_NAME);
+  return publicClassificationQueue;
+}
+
+export type EnqueueJobOptions = {
+  attempts?: number;
+  backoff?: { type: 'exponential'; delay: number };
+  jobId?: string;
+  removeOnComplete?: boolean | number;
+  removeOnFail?: boolean | number;
+};
+
+async function addJob(target: Queue, name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
+  const job = await target.add(name, data, {
+    attempts: jobOptions?.attempts,
+    backoff: jobOptions?.backoff,
+    jobId: jobOptions?.jobId,
+    removeOnComplete: jobOptions?.removeOnComplete,
+    removeOnFail: jobOptions?.removeOnFail,
+  });
+  if (!job.id) {
+    throw new Error(`Job ${name} was added without an id`);
+  }
+  return job.id;
+}
+
+export async function enqueue(name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
+  return addJob(getQueue(), name, data, jobOptions);
+}
+
+export async function enqueueDiscoverySync(
+  name: string,
+  data: unknown,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getDiscoverySyncQueue(), name, data, jobOptions);
+}
+
+export async function enqueueDiscoveryImport(
+  name: string,
+  data: unknown,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getDiscoveryImportQueue(), name, data, jobOptions);
+}
+
+export async function enqueueCleanup(name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
+  return addJob(getCleanupQueue(), name, data, jobOptions);
+}
+
+export async function enqueuePersonalTagging(
+  name: string,
+  data: unknown,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getPersonalTagQueue(), name, data, jobOptions);
+}
+
+export async function enqueuePublicClassification(
+  name: string,
+  data: unknown,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getPublicClassificationQueue(), name, data, jobOptions);
+}
+
+/**
+ * Source-cover write-back onto an already-materialized Work. Runs on the main
+ * `gloaming` queue so the full worker (never the discovery-only modes) applies it.
+ */
+export async function enqueueWorkCoverRefresh(
+  data: WorkCoverRefreshJobData,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getQueue(), JOB_WORK_COVER_REFRESH, data, jobOptions);
+}
+
+export async function enqueuePing(data?: PingJobData): Promise<string> {
+  const payload: PingJobData = data ?? { requestedAt: new Date().toISOString() };
+  return enqueue(JOB_PING, payload);
+}
+
+export async function closeQueue(): Promise<void> {
+  if (discoverySyncQueue) {
+    await discoverySyncQueue.close();
+    discoverySyncQueue = null;
+  }
+  if (discoveryImportQueue) {
+    await discoveryImportQueue.close();
+    discoveryImportQueue = null;
+  }
+  if (publicClassificationQueue) {
+    await publicClassificationQueue.close();
+    publicClassificationQueue = null;
+  }
+  if (personalTagQueue) {
+    await personalTagQueue.close();
+    personalTagQueue = null;
+  }
+  if (cleanupQueue) {
+    await cleanupQueue.close();
+    cleanupQueue = null;
+  }
+  if (queue) {
+    await queue.close();
+    queue = null;
+  }
+  if (connection) {
+    await connection.quit();
+    connection = null;
+  }
+}

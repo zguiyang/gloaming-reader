@@ -1,0 +1,4 @@
+Title: {{titleEn}}
+
+Sentences:
+{{sentenceList}}

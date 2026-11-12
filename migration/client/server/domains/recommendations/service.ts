@@ -1,0 +1,114 @@
+import { desc, eq } from 'drizzle-orm';
+
+import { readingState as readingStateTable, readingWork as readingWorkTable } from '@/server/db';
+import type { RecommendationsData, RecommendationsQuery } from '@gloaming/shared/recommendations';
+import type { Work } from '@gloaming/shared/works';
+
+import { type RecommendationFeatures, resolveRecommendationOrder } from '@/server/domains/recommendations/score';
+import { publicCatalogWorkSql } from '@/server/domains/works/access';
+import { db } from '@/server/infra/db';
+
+type WorkRow = typeof readingWorkTable.$inferSelect;
+
+function toIso(value: Date): string {
+  return value.toISOString();
+}
+
+function toWork(row: WorkRow): Work {
+  return {
+    id: row.id,
+    title: row.title,
+    author: row.author,
+    description: row.description,
+    language: row.language,
+    processingStatus: row.processingStatus as Work['processingStatus'],
+    visibility: row.visibility as Work['visibility'],
+    coverAssetId: row.coverAssetId,
+    wordCount: row.wordCount,
+    estimatedMinutes: row.estimatedMinutes,
+    suggestedVocabSize: row.suggestedVocabSize,
+    difficultyScore: row.difficultyScore,
+    statsProvenance: row.statsProvenance,
+    publishedAt: row.publishedAt ? toIso(row.publishedAt) : null,
+    createdAt: toIso(row.createdAt),
+    updatedAt: toIso(row.updatedAt),
+  };
+}
+
+function toFeatures(row: WorkRow): RecommendationFeatures {
+  return {
+    id: row.id,
+    language: row.language,
+    difficultyScore: row.difficultyScore,
+    suggestedVocabSize: row.suggestedVocabSize,
+    estimatedMinutes: row.estimatedMinutes,
+    publishedAt: row.publishedAt,
+  };
+}
+
+export async function getRecommendations(userId: string, query: RecommendationsQuery): Promise<RecommendationsData> {
+  const exclude = new Set<string>();
+  if (query.excludeWorkId) {
+    exclude.add(query.excludeWorkId);
+  }
+
+  const stateRows = await db
+    .select({
+      workId: readingStateTable.workId,
+      status: readingStateTable.status,
+      lastReadAt: readingStateTable.lastReadAt,
+    })
+    .from(readingStateTable)
+    .where(eq(readingStateTable.userId, userId));
+
+  for (const row of stateRows) {
+    exclude.add(row.workId);
+  }
+
+  const publishedRows = await db
+    .select()
+    .from(readingWorkTable)
+    .where(publicCatalogWorkSql())
+    .orderBy(desc(readingWorkTable.publishedAt), desc(readingWorkTable.id));
+
+  const featuresById = new Map<string, RecommendationFeatures>();
+  for (const row of publishedRows) {
+    featuresById.set(row.id, toFeatures(row));
+  }
+
+  const shelfWorkIds = stateRows.map((row) => row.workId);
+  const shelfWorks = shelfWorkIds
+    .map((id) => featuresById.get(id))
+    .filter((row): row is RecommendationFeatures => row != null);
+
+  let current: RecommendationFeatures | null = null;
+  const inProgress = stateRows
+    .filter((row) => row.status === 'in_progress')
+    .sort((a, b) => b.lastReadAt.getTime() - a.lastReadAt.getTime() || b.workId.localeCompare(a.workId));
+  const currentId = inProgress[0]?.workId;
+  if (currentId) {
+    current = featuresById.get(currentId) ?? null;
+  }
+
+  const candidates = publishedRows
+    .filter((row) => !exclude.has(row.id))
+    .map((row) => featuresById.get(row.id))
+    .filter((row): row is RecommendationFeatures => row != null);
+
+  const plan = resolveRecommendationOrder({
+    limit: query.limit,
+    current,
+    shelfWorks,
+    candidates,
+  });
+
+  const selectedRows = plan.orderedIds
+    .map((id) => publishedRows.find((row) => row.id === id))
+    .filter((row): row is WorkRow => row != null);
+
+  return {
+    strategy: plan.strategy,
+    anchorWorkId: plan.anchorWorkId,
+    items: selectedRows.map((row) => toWork(row)),
+  };
+}
