@@ -9,17 +9,19 @@ review. Use a relevant structure Skill for execution methods.
 Accepted deploy/API direction:
 [Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md).
 
-- **Target deploy unit:** a single Next application (UI + HTTP APIs), not the
-  current `web+api+worker` trio as the open-source default.
-- **Logical boundaries remain:** merging deploy units does **not** authorize
-  folding server domain logic into UI modules, deleting `@gloaming/shared` /
-  `@gloaming/db` contracts, or inventing a new shared kitchen-sink layer.
-- **Hono** may exist in current source; it is not the target long-term API host.
-  Nesting Hono inside Next is at most a migration tactic, never the recorded end
-  state, unless the guidance is amended.
-- **Jobs / queues** are optional and deferred by default. Do not treat BullMQ
-  worker presence as required architecture for open-source delivery.
-- **Current vs target mismatch** is expected during the transition. Report it;
+- **Current deploy unit:** `client/` — one Next application (UI + HTTP APIs) with
+  an optional same-package BullMQ worker (`client/jobs/`). Legacy
+  `web+api+worker` sources live under `archive/apps/*` for comparison only.
+- **Target platform:** same Next deploy unit on managed data plane; Cloudflare
+  Workers compatibility is a gated P4 track (P4-V1 build/Preview done; P4-V2 not).
+- **Logical boundaries remain:** a single deploy unit does **not** authorize
+  folding server domain logic into UI modules, dissolving `client/shared/` or
+  `client/server/db` ownership, or inventing a new shared kitchen-sink layer.
+- **Hono** is not in the live tree and is not the long-term API host. Do not
+  reintroduce nested Hono inside Next unless the guidance is amended.
+- **Jobs / queues** are optional for open-source delivery. Do not treat BullMQ
+  worker presence as required Cloudflare architecture.
+- **Current vs target mismatch** (Node/Jobs vs Workers) is expected. Report it;
   do not silently pick “code today” or “target doc” and proceed on high-impact
   moves without an explicit task and gates.
 
@@ -53,9 +55,9 @@ Accepted deploy/API direction:
 - Public entries expose explicit intentional symbols; do not use `export *` to
   avoid deciding the public surface. A barrel is optional, and separate public
   entries may serve distinct transport and client-runtime boundaries.
-- Package imports use declared public exports rather than relative imports
-  across packages or implementation deep imports. Package-specific accepted
-  decisions govern the public module map; see [package rules](packages.md).
+- Cross-boundary contract imports use `@/shared/<module>` (and `@/i18n`) rather
+  than deep relative imports into private Shared sources. Accepted decisions
+  govern the public module map; see [package rules](packages.md).
 - A temporary private-boundary import requires a recorded owner, target public
   entry, affected scope, and exit condition. It is a transition exception, not
   an implicit permission or a completed migration.

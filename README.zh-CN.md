@@ -42,11 +42,11 @@ Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不�
 
 ## 环境要求
 
-| 工具    | 版本                             |
-| ------- | -------------------------------- |
-| Node.js | ≥ 24.0.0                         |
-| pnpm    | ≥ 10.0.0（或在仓库根目录用 Bun） |
-| Docker  | 可选，用于本地 Postgres + Redis  |
+| 工具    | 版本                                  |
+| ------- | ------------------------------------- |
+| Node.js | ≥ 24.0.0                              |
+| pnpm    | ≥ 10.0.0（见根目录 `packageManager`） |
+| Docker  | 可选，用于本地 Postgres + Redis       |
 
 ## 本地开发
 

@@ -1,8 +1,0 @@
-{
-  "typescript.preferences.importModuleSpecifierEnding": "minimal",
-  "javascript.preferences.importModuleSpecifierEnding": "minimal",
-  "npm.packageManager": "pnpm",
-  "npm.scriptRunner": "pnpm",
-  "npm.exclude": ["**/.next/**", "**/dist/**"],
-  "npm.autoDetect": "off"
-}

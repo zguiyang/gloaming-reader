@@ -2,13 +2,13 @@
 
 > **Status (2026-11 N5 demote):**
 >
-> | Path                                  | Role                                                                                                                                                                                       |
-> | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-> | **Default open-source local product** | `client/` — one Next app (UI + `/api/*`) + optional `jobs/` worker. See [LOCAL_RUN.md](./LOCAL_RUN.md).                                                                                    |
-> | **Archived legacy production layout** | `archive/apps/*` — former `web` + `api` + `worker` three-service Docker topology (below). Comparison / rollback reference only.                                                            |
-> | **Target delivery shape (not done)**  | One deployable Next app on managed data plane; Cloudflare Workers — see [cloudflare fullstack refactor guidance](./cloudflare-fullstack-refactor-guidance.md). **P4 Workers not started.** |
+> | Path                                  | Role                                                                                                                                                                                                               |
+> | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+> | **Default open-source local product** | `client/` — one Next app (UI + `/api/*`) + optional `jobs/` worker. See [LOCAL_RUN.md](./LOCAL_RUN.md).                                                                                                            |
+> | **Archived legacy production layout** | `archive/apps/*` — former `web` + `api` + `worker` three-service Docker topology (below). Comparison / rollback reference only.                                                                                    |
+> | **Target delivery shape (not done)**  | One deployable Next app on managed data plane; Cloudflare Workers — see [cloudflare fullstack refactor guidance](./cloudflare-fullstack-refactor-guidance.md). **P4-V1** vinext build/Preview done; **P4-V2** not. |
 >
-> Do not read this file as claiming Cloudflare Workers migration (P4) is complete.
+> Do not read this file as claiming full Cloudflare Workers production readiness.
 
 ## Default product (`client/`)
 

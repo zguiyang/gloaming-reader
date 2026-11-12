@@ -58,7 +58,9 @@ P4  `client/` 上 Workers 真实兼容       🔄 P4-V1 进行中（vinext 构�
 
 **P3 本地进度（2026-11-12）：** N0–N2 脚手架/壳已落地；本波完成 **N3∥N4 本地切流**——`client/` 含全量 UI + Next Route Handlers（无嵌 Hono）+ 同包 BullMQ worker 第二进程；T1（AI SDK）/ T2（Azure Speech REST）在迁入路径生效。巩固波：对照表 [`PROCESS_COMPARE.md`](./PROCESS_COMPARE.md)、T3 清单 [`T3-DEPENDENCY-INVENTORY.md`](./T3-DEPENDENCY-INVENTORY.md)、限流 [`RATE_LIMIT.md`](./RATE_LIMIT.md)、assist tools 已接 AI SDK。详见 [`LOCAL_RUN.md`](./LOCAL_RUN.md)。
 
-**N5（2026-11-12）：** 根 `apps/*` 与根 `packages/*` 已迁至 **`archive/`**；**step ③ 根提升已完成**（`migration/` 信封已取消，`client/` + `packages/` 为产品根 workspace）。**未做：** R5 Jobs 终态书面定案。
+**N5（2026-11-12）：** 根 `apps/*` 与根 `packages/*` 已迁至 **`archive/`**；**step ③ 根提升已完成**（`migration/` 信封已取消）。
+
+**Packages inline（2026-11-12）：** 根 `packages/i18n` + `packages/shared` 已收进 **`client/i18n/`**、**`client/shared/`**；根 workspace 仅 **`client`**。**未做：** R5 Jobs 终态书面定案。
 
 **P4-V1（2026-11-12）：** 对象 **`client/`**（非 `migration/client`）。`vinext init --platform=cloudflare` + `pnpm build:workers` 本地通过；非生产 Preview `p4-v1-smoke` 已部署。详见 [`research/cf-workers-p4-v1-findings.md`](./research/cf-workers-p4-v1-findings.md)。**未做：** P4-V2 鉴权/DB/Free CPU 实测。
 

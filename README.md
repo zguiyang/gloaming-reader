@@ -45,7 +45,7 @@ The former Hono API + separate web app live under [`archive/`](./archive/) for c
 | Tool    | Version                              |
 | ------- | ------------------------------------ |
 | Node.js | ≥ 24.0.0                             |
-| pnpm    | ≥ 10.0.0 (or Bun at repo root)       |
+| pnpm    | ≥ 10.0.0 (see root `packageManager`) |
 | Docker  | optional, for local Postgres + Redis |
 
 ## Local development

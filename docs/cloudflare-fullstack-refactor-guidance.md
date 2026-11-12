@@ -17,16 +17,16 @@
 
 ### 0.2 已锁定（改这些必须先改本文并经人确认）
 
-| ID  | 锁定项                                                                                          |
-| --- | ----------------------------------------------------------------------------------------------- |
-| L1  | **Web = API**；目标态 **不用 Hono**（不「嵌 Hono 进 Next」当终态）                              |
-| L2  | 默认交付 **单一应用**；Jobs **非默认**；若要则可自建机 + **共享 DB/Redis**                      |
-| L3  | 第三方 **不做全量同步主路径**，改为 **按需**                                                    |
-| L4  | 公共对象 **R2 自定义域公网读**；个人上传 **要做**，用 **私有 + 预签名**（或等价），不是关闭上传 |
-| L5  | TTS：**Azure Speech REST**（`fetch`/SSML）；**去掉原生 Speech SDK**；**不默认 Workers AI**      |
-| L6  | AI：**Vercel AI SDK（`ai` + `@ai-sdk/openai`）**；**不强求 / 不默认保留 LangChain**             |
-| L7  | 体感延迟开源阶段可接受约 **1s 内**；但 **Free CPU 配额 ≠ 体感**（超配额是失败不是变慢）         |
-| L8  | 部署合并 ≠ 逻辑糊进 UI；**server 领域与 `@gloaming/shared` / `@gloaming/db` 边界可保留**        |
+| ID  | 锁定项                                                                                                                               |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| L1  | **Web = API**；目标态 **不用 Hono**（不「嵌 Hono 进 Next」当终态）                                                                   |
+| L2  | 默认交付 **单一应用**；Jobs **非默认**；若要则可自建机 + **共享 DB/Redis**                                                           |
+| L3  | 第三方 **不做全量同步主路径**，改为 **按需**                                                                                         |
+| L4  | 公共对象 **R2 自定义域公网读**；个人上传 **要做**，用 **私有 + 预签名**（或等价），不是关闭上传                                      |
+| L5  | TTS：**Azure Speech REST**（`fetch`/SSML）；**去掉原生 Speech SDK**；**不默认 Workers AI**                                           |
+| L6  | AI：**Vercel AI SDK（`ai` + `@ai-sdk/openai`）**；**不强求 / 不默认保留 LangChain**                                                  |
+| L7  | 体感延迟开源阶段可接受约 **1s 内**；但 **Free CPU 配额 ≠ 体感**（超配额是失败不是变慢）                                              |
+| L8  | 部署合并 ≠ 逻辑糊进 UI；**server 领域与 `client/shared/` / `client/server/db` 边界可保留**（原 `@gloaming/shared` / `@gloaming/db`） |
 
 ### 0.3 明确禁止（常见跑偏）
 
@@ -250,7 +250,7 @@ AI SDK 流式 ± Workers AI / 外部 LLM HTTP
 
 ## Related
 
-- Stage order (**`migration/` staging tree → migrate UI → migrate API → slim old apps; Workers last**; shared packages: see stages §4.1.1) and P1 charter:
+- Stage order (historical **`migration/`** staging → promote to root `client/`; Workers last; contracts now inlined under `client/shared` + `client/i18n`) and P1 charter:
   [`cloudflare-fullstack-refactor-stages.md`](./cloudflare-fullstack-refactor-stages.md)
 - Current deploy topology (to be superseded for the target state): [`deployment.md`](./deployment.md)
 - Agent / product boundaries + transition priority:

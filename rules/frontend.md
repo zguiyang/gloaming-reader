@@ -7,20 +7,26 @@ stack. For module ownership or public entries, read
 
 ## Current vs target (Web and APIs)
 
-| State       | Meaning                                                                                                                                           |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Current** | Next.js UI in `apps/web`; many APIs are reached via `/api/*` proxy to the separate backend. Treat proxy + separate API origin as runtime reality. |
-| **Target**  | One Next app serves UI **and** all HTTP APIs. Deploying the frontend deploys the API surface.                                                     |
+| State       | Meaning                                                                                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Current** | Next.js UI in **`client/`**. HTTP APIs are same-origin `/api/*` Route Handlers in the same app (no separate API origin / proxy in the default path). |
+| **Target**  | Same Next app remains the UI + HTTP deploy unit on managed data plane; platform goal is Cloudflare Workers.                                          |
 
 Direction and prohibitions: [Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md). Product bans remain in [AGENTS.md](../AGENTS.md).
 
-**While migrating:**
+**While evolving toward Workers:**
 
-- Do not assume a permanent private `api` service or rebuild features that require a second public API origin.
-- Do not collapse domain/server modules into client components just because deploy units merge.
-- Prefer same-origin API access patterns that remain valid when Route Handlers own the paths.
-- Media: public objects may use public R2 domain URLs; personal uploads remain in scope (private + presigned or equivalent)—do not ship “upload disabled” as the target product stance.
-- Label stubs honestly when a flow still depends on the current proxy/backend split.
+- Do not assume a permanent private `api` service or rebuild features that require
+  a second public API origin. Legacy `archive/apps/web` proxy + Hono is comparison
+  only.
+- Do not collapse domain/server modules into client components just because deploy
+  units already merged.
+- Prefer same-origin API access patterns (`/api/*` via `lib/` helpers).
+- Media: public objects may use public R2 domain URLs; personal uploads remain in
+  scope (private + presigned or equivalent)—do not ship “upload disabled” as the
+  target product stance.
+- Label stubs honestly when a flow is incomplete; do not imply backend persistence
+  that is not implemented.
 
 ## Composition and dependencies
 
@@ -36,9 +42,9 @@ Direction and prohibitions: [Cloudflare fullstack refactor guidance](../docs/clo
   must not become an independent API/server source of truth. Preserve affected
   mutation, cache-refresh, pending, error, and interaction behavior; do not add
   a parallel state-management dependency without demonstrated need.
-- Form policy and cross-app contracts come from their owning shared public
-  modules; do not redefine authentication bounds or DTOs in the web application.
-  See [package rules](packages.md) when changing these contracts.
+- Form policy and cross-boundary contracts come from `client/shared/` public
+  modules (`@/shared/<module>`); do not redefine authentication bounds or DTOs in
+  feature code. See [package rules](packages.md) when changing these contracts.
 
 ## Client security and authentication
 

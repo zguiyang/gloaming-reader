@@ -2,6 +2,7 @@
   "name": "@gloaming/client",
   "version": "0.1.0",
   "private": true,
+  "description": "Gloaming Reader Next app — UI, /api Route Handlers, and optional jobs worker",
   "scripts": {
     "dev": "next dev",
     "build": "NODE_ENV=production next build",

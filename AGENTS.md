@@ -10,15 +10,19 @@ development.
 Gloaming is an AI-native environment for authentic English reading with
 contextual AI support. Do not revive legacy `Article` models, aliases,
 `reading_progress`, `article_audio`, or lesson/course entities, or redefine the
-product as a Short Article Library. Cross-app contracts for the live product live in `client/shared/` (import
-`@/shared/*`); legacy `@gloaming/shared` remains under `archive/`. Database
-schema is inlined in `client/server/db` (legacy `@gloaming/db` under `archive/`).
-Logical
-server-domain boundaries may remain even when deploy topology merges. When
-changing persistent domain models or public contracts, identify the current
-authoritative model, preserve established invariants, and verify affected
-producers and consumers. Do not change core business semantics without task
-authorization.
+product as a Short Article Library.
+
+**Live product tree is `client/`** (Next.js UI + `/api/*` Route Handlers +
+optional same-package `jobs/` worker). Cross-boundary contracts live in
+`client/shared/` (import `@/shared/*`); i18n in `client/i18n/` (`@/i18n`);
+database schema in `client/server/db`. Legacy three-app sources and former
+workspace packages remain under `archive/` for comparison only.
+
+Logical server-domain boundaries remain even when the deploy unit is a single
+Next app. When changing persistent domain models or public contracts, identify
+the current authoritative model, preserve established invariants, and verify
+affected producers and consumers. Do not change core business semantics without
+task authorization.
 
 ## Deploy and API topology (transition)
 
@@ -32,24 +36,25 @@ guidance above wins for target delivery shape. Product bans (no legacy Article
 revival, no unauthorized business-semantic changes) and safety rules in this
 file still win.
 
-| State       | Meaning                                                                                                                                                                                                                                                                                                 |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Current** | Default open-source local path is **`client/`** (Next + Route Handlers + same-package `jobs/` worker). Legacy `web` + `api` + `worker` sources are under **`archive/apps/*`** for comparison only; [deployment.md](docs/deployment.md) documents both. Not the forever target; **P4 Workers not done.** |
-| **Target**  | One deployable Next app = UI + all HTTP APIs; data plane on free SaaS (Supabase / Redis / R2); Jobs not in the default open-source topology; platform goal is Cloudflare Workers.                                                                                                                       |
+| State       | Meaning                                                                                                                                                                                                                                                                                          |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Current** | Default open-source path is **`client/`** (Next + Route Handlers + same-package `jobs/` worker). Legacy `web` + `api` + `worker` and former root packages are under **`archive/`** only; [deployment.md](docs/deployment.md) documents both. **P4-V1** vinext build/Preview done; **P4-V2** not. |
+| **Target**  | One deployable Next app = UI + all HTTP APIs; data plane on free SaaS (Supabase / Redis / R2); Jobs not in the default open-source topology; platform goal is Cloudflare Workers.                                                                                                                |
 
 **Do not** (unless the guidance is amended and a task explicitly authorizes it):
 
-- Treat nested Hono-in-Next as the final API architecture
+- Treat nested Hono-in-Next as the final API architecture (Hono is not in the live tree)
 - Restore `web+api+worker` / always-on BullMQ as the recommended open-source default
 - Revive Gutenberg **full** sync as the main discovery path
 - Default TTS/LLM onto Workers AI for “edge” or “free”
 - Claim personal upload is out of scope
 - Pretend open items in the guidance (Free CPU fitness, on-demand source capability, EPUB re-parse placement, Jobs/Queues) are already decided
 - Equate deploy merge with collapsing domain logic into UI modules
+- Treat `archive/apps/*` as the Cloudflare migration object
 
-During the transition, discover owners from current source. Prefer moving toward
-the target shape only under an explicit task with scope and gates. Do not invent
-a completed migration.
+Discover owners from current source under `client/`. Prefer moving toward the
+target platform shape only under an explicit task with scope and gates. Do not
+invent a completed Workers migration.
 
 ## Safety and data
 
@@ -90,12 +95,12 @@ a completed migration.
   and design decisions.
 - The supervising agent decides whether isolation is needed, allocates the
   workspace, reviews results, integrates changes, and coordinates cleanup.
-  Orca manages task worktree creation, registration, and cleanup. Use the
-  applicable Orca Skill and supported tools for these operations. Agents reuse
-  the assigned workspace; do not create additional worktrees through Codex,
-  other platforms, or raw Git without explicit user authorization. If Orca
-  cannot safely provide the required isolation, stop and report. A safety or
-  permission refusal must not be bypassed.
+  Orca manages task worktree creation, registration, and cleanup when used. Use
+  the applicable Orca Skill and supported tools for these operations. Agents
+  reuse the assigned workspace; do not create additional worktrees through other
+  platforms or raw Git without explicit user authorization. If isolation cannot
+  be provided safely, stop and report. A safety or permission refusal must not
+  be bypassed.
 - Reuse a suitable assigned isolated workspace before requesting another.
   Confirm the actual path, project/task ownership, lifecycle manager, work
   preservation and recovery, and safe cleanup mechanism. Before creation,
@@ -132,22 +137,24 @@ a completed migration.
 Detailed project rules are maintained in the project-owned `rules/` directory.
 Read only the rules relevant to the current task:
 
-- Deploy/API topology transition: this file’s
+- Deploy/API topology: this file’s
   [Deploy and API topology](#deploy-and-api-topology-transition) section,
   [Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md),
-  and [stage plan / P1 charter](docs/cloudflare-fullstack-refactor-stages.md)
-  (product at repo root—`client/` only; legacy under `archive/`; Workers real
-  compatibility only after that—do not treat `archive/apps/*` as the CF migration object).
+  and [stage plan](docs/cloudflare-fullstack-refactor-stages.md)
+  (live product = repo-root `client/`; legacy under `archive/`; Workers real
+  compatibility only after gated P4 work).
 - Backend services and APIs: [backend rules](rules/backend.md).
 - Web and UI: [frontend rules](rules/frontend.md) and, for UI work,
   [DESIGN.md](DESIGN.md).
-- Shared packages and contracts: [package rules](rules/packages.md).
+- Shared contracts and i18n: [package rules](rules/packages.md)
+  (`client/shared/`, `client/i18n/`, `client/server/db`).
 - Module ownership, public boundaries, or major structural changes:
   [architecture rules](rules/architecture.md) and the relevant Skill.
   Follow their decision boundaries for architectural changes; do
   not impose it on ordinary local edits.
-- Current three-service operations (until superseded):
-  [deployment.md](docs/deployment.md).
+- Local run and deploy narratives:
+  [LOCAL_RUN.md](docs/LOCAL_RUN.md), [deployment.md](docs/deployment.md).
+- Client layout map: [client/STRUCTURE.md](client/STRUCTURE.md).
 
 Consult current source and configuration for implementation details. Use Skills
 for operating procedures and tools for their capabilities and access checks.

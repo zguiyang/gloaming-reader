@@ -17,7 +17,8 @@ Local cutover target for `client/` (not Cloudflare).
 
 ## Intentionally unchanged this wave
 
-- Legacy `archive/apps/web` + `archive/apps/backend` kept for comparison (**N5 demote**; not the default path).
+- Legacy `archive/apps/*` + `archive/packages/*` kept for comparison (**N5 demote**; not the default path).
+- Root workspace is **`client` only** (`shared/` + `i18n/` inlined; no root `packages/`).
 - Jobs remain BullMQ on Redis (local default); CF Queues undecided (**R5**).
 - No claim that the dual-process tree runs on Workers (**P4**).
 

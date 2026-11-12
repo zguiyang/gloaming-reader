@@ -1,13 +1,16 @@
-# Shared packages and contracts
+# Shared contracts and i18n
 
 **Live product (`client/`):** contracts live in `client/shared/` (import
-`@/shared/<module>`); i18n in `client/i18n/` (`@/i18n`). There is no root
-`packages/*` workspace. Legacy `@gloaming/shared` / `@gloaming/i18n` remain under
-`archive/` for the old three-app stack.
+`@/shared/<module>`); locale messages and `t()` live in `client/i18n/`
+(`@/i18n`). Database schema and migrations live in `client/server/db` (not a
+workspace package). There is **no** root `packages/*` workspace.
 
-Identify the owning package and public module from definitions, declared
-exports, consumers, and accepted decisions. Apply
-[architecture rules](architecture.md) when changing boundaries.
+Legacy `@gloaming/shared` / `@gloaming/i18n` / `@gloaming/db` sources remain
+under `archive/packages/` for the old three-app stack only.
+
+Identify the owning module and public entry from definitions, declared exports,
+consumers, and accepted decisions. Apply [architecture rules](architecture.md)
+when changing boundaries.
 
 ## Ownership
 
@@ -17,17 +20,19 @@ exports, consumers, and accepted decisions. Apply
 - A symbol belongs to the module defining its semantic contract, not the feature
   or directory consuming it. Mixed-domain imports stay separated by owner;
   co-use does not justify merging modules.
-- `@gloaming/shared` owns cross-app contracts and pure policy, not ORM, secrets,
-  application workflows, or backend runtime policy. `@gloaming/db` owns database
-  schema and migrations. Packages must not depend on application implementation.
-  Merging the deploy unit (Web = API) does not move schema into Shared, move
-  runtime policy into Shared, or dissolve these package boundaries.
+- `client/shared/` owns UI ↔ server contracts and pure policy, not ORM, secrets,
+  application workflows, or backend runtime policy. `client/server/db` owns
+  database schema and migrations. Shared modules must not depend on `server/`,
+  `features/`, or React UI. Merging the deploy unit (UI + APIs in one Next app)
+  does not move schema into Shared, move runtime policy into Shared, or dissolve
+  these ownership boundaries.
 
 ## Public API and compatibility
 
-- Shared uses semantic module subpaths and has no root facade. Consumers use the
-  owning module's declared public entry. Do not restore a Shared root entry or expose
-  private source files to bypass this boundary.
+- Shared uses semantic module subfolders with explicit `index.ts` entries and has
+  no root facade. Consumers import `@/shared/<module>` from the owning module.
+  Do not restore a Shared root barrel or expose private source files to bypass
+  this boundary.
 - Declare deliberate public module exports, not one export per implementation
   file. Entry symbols remain explicit; use the current module map and accepted
   records rather than copying a fixed export list into rules.
@@ -40,13 +45,15 @@ exports, consumers, and accepted decisions. Apply
   lifecycle change.
 - Migrate intended application, test, script, documentation, and tooling
   consumers; resolve stale entries/imports and any transition conditions before
-  claiming completion. Verify relevant package and consumer compatibility.
+  claiming completion. Verify relevant consumer compatibility
+  (`client/shared/public-exports.spec.ts` and affected call sites).
 
 ## Build and validation configuration
 
-- Discover source/build mode, TypeScript inheritance, import conventions, and
-  validation-library compatibility from package/workspace configuration and
-  existing checks. Do not impose one application's setup on every package or
-  add an unnecessary parallel build/validation system.
-- Keep application-specific aliases and compiler options in their application;
-  do not add app aliases to the shared workspace TypeScript base.
+- Discover TypeScript paths (`@/*`), import conventions, and validation-library
+  compatibility from `client/tsconfig.json` and existing checks. Do not impose
+  one application's setup on unrelated trees or add an unnecessary parallel
+  build/validation system for contracts that already live inside `client/`.
+- Keep application-specific aliases and compiler options in `client/`; do not
+  add app aliases to the root `tsconfig.base.json` unless the whole workspace
+  truly needs them.

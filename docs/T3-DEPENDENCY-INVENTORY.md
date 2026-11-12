@@ -16,7 +16,7 @@
 | **Better Auth + Drizzle adapter**    | `server/infra/auth`                              | Keep                          | Cookie/session + Node crypto paths need P4 verification.                                                           |
 | **`rate-limiter-flexible`**          | Next HTTP rate limit helper                      | Keep with Redis               | Same Redis story as above.                                                                                         |
 | **`iconv-lite`**                     | npm dep (cheerio / encoding)                     | Keep                          | Externalize in Next; not Workers-specific.                                                                         |
-| **Hono / LangChain / Speech SDK**    | _(removed from extract tree)_                    | Not in live graph             | Compare against `apps/backend` if needed; must stay out of live graph.                                             |
+| **Hono / LangChain / Speech SDK**    | `archive/apps/backend` only                      | Not in live graph             | Must stay out of the live `client/` graph.                                                                         |
 
 ## Explicit non-claims
 

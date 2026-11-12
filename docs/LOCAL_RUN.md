@@ -44,7 +44,7 @@ Ensure `client/public/gloaming-mark.png` is present (copied from `archive/apps/w
 pnpm install
 ```
 
-4. Migrate DB (schema lives in **`client/server/db`**, not `packages/db`):
+4. Migrate DB (schema lives in **`client/server/db`**):
 
 ```bash
 pnpm --filter @gloaming/client db:migrate
@@ -61,8 +61,8 @@ pnpm --filter @gloaming/client dev:jobs
 
 Jobs runtime uses **`tsx`** against `jobs/worker.ts` (no Next bundling):
 `node --import tsx` for one-shot runs, `tsx watch` for `dev:jobs`. Package gate
-is native TypeScript check (`tsc -p tsconfig.jobs.json`); workspace packages
-still ship `.ts` sources, so start stays on the tsx loader:
+is native TypeScript check (`tsc -p tsconfig.jobs.json`); start stays on the tsx
+loader (no separate jobs emit for production Node):
 
 ```bash
 pnpm --filter @gloaming/client build:jobs
@@ -111,7 +111,7 @@ pnpm --filter @gloaming/client start:jobs
 
 ## Known gaps / deferred
 
-- Legacy Hono / LangChain / Speech SDK sources were removed from the extract tree (not mounted; compare against `apps/backend` if needed).
+- Legacy Hono / LangChain / Speech SDK sources live under `archive/` only (not on the live path).
 - Assist tools are live AI SDK tools (`get_part_slice` / `search_part` / dictionary via `createPartAssistTools`) — **not** LangChain. AI invoke/stream uses Vercel AI SDK (T1). TTS uses Azure Speech REST (T2).
 - API rate limits: Next helpers on assist / translate / dictionary guest (`next-rate-limit.ts`); see [`RATE_LIMIT.md`](./RATE_LIMIT.md).
 - Worker is still BullMQ + Redis (Node process) — acceptable for local open-source; **not** claimed Workers-compatible (P4 / R5 still open).

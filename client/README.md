@@ -15,8 +15,9 @@ From repo root:
 
 ```bash
 pnpm --filter @gloaming/client dev
-pnpm --filter @gloaming/client dev:worker
+pnpm --filter @gloaming/client dev:jobs
 pnpm --filter @gloaming/client build
+pnpm --filter @gloaming/client build:jobs
 pnpm --filter @gloaming/client typecheck
 pnpm --filter @gloaming/client db:migrate
 ```
@@ -26,7 +27,7 @@ pnpm --filter @gloaming/client db:migrate
 | Path                    | Role                                                      |
 | ----------------------- | --------------------------------------------------------- |
 | `app/`                  | Pages + `app/api` thin transport                          |
-| `features/`             | Product UI (parity with `apps/web`)                       |
+| `features/`             | Product UI                                                |
 | `components/`           | UI primitives + navigation chrome                         |
 | `lib/`                  | Client/RSC glue (auth client, query, locale, api-request) |
 | `shared/`               | UI ↔ server contracts (`@/shared/*`)                      |
@@ -46,5 +47,5 @@ pnpm --filter @gloaming/client db:migrate
 ## Non-goals (this tree)
 
 - Nested Hono as API host
-- LangChain / Azure Speech **SDK** on the live path (removed from extract tree; compare against `apps/backend` if needed)
-- Claiming Cloudflare Workers readiness (P4)
+- LangChain / Azure Speech **SDK** on the live path (legacy under `archive/` only)
+- Claiming full Cloudflare Workers readiness (P4-V2 still open; P4-V1 is build/Preview only)

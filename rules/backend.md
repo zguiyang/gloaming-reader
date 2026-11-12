@@ -6,21 +6,25 @@ or dependency changes, also read [architecture rules](architecture.md).
 
 ## Current vs target (API placement)
 
-| State       | Meaning                                                                                                                                                                                                                           |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Current** | HTTP APIs, auth assembly, and job enqueueing live primarily in `apps/backend` (Hono). A separate worker process consumes BullMQ jobs. Web may proxy `/api/*`.                                                                     |
-| **Target**  | All HTTP APIs belong in the Next application (Route Handlers / server modules). Hono is not the long-term API framework. Jobs are **not** the default open-source topology; if added later, they share DB/Redis with the web app. |
+| State       | Meaning                                                                                                                                                                                                               |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Current** | HTTP APIs, auth assembly, and job enqueueing live in **`client/`** — Next Route Handlers under `app/api/**` calling `server/domains`. Optional BullMQ worker is the same package (`client/jobs/`).                    |
+| **Target**  | Same deploy unit on managed data plane; platform goal is Cloudflare Workers. Jobs remain **optional** for open-source delivery; if present, they share DB/Redis with the web app. Hono is not the long-term API host. |
 
 Deploy/API ownership direction and hard locks: [Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md). Product bans and safety remain in [AGENTS.md](../AGENTS.md).
 
-**While migrating:**
+**While evolving toward Workers:**
 
-- Edit the owning path that exists today unless a task explicitly moves a surface.
-- Do not treat “embed Hono in Next” as the finished architecture.
-- Do not reintroduce always-on BullMQ / three-service delivery as the recommended default.
-- Do not default TTS onto Workers AI; prefer Azure Speech REST (`fetch`/SSML) when replacing the native Speech SDK.
-- Do not default assist/LLM onto LangChain retention or Workers AI; target assist stack is Vercel AI SDK (`ai` + `@ai-sdk/openai`) when a task replaces the call layer.
-- Keep domain behavior free of HTTP-framework types; transport adapters stay thin whether the host is Hono today or Next Route Handlers later.
+- Edit the owning path under `client/` unless a task explicitly moves a surface.
+- Do not treat “embed Hono in Next” as the finished architecture. Nested Hono
+  was removed from the live tree; do not reintroduce it.
+- Do not reintroduce always-on BullMQ / three-service delivery as the recommended
+  default (legacy layout is under `archive/apps/*` for comparison only).
+- Do not default TTS onto Workers AI; prefer Azure Speech REST (`fetch`/SSML).
+- Do not default assist/LLM onto LangChain or Workers AI; assist stack is
+  Vercel AI SDK (`ai` + `@ai-sdk/openai`).
+- Keep domain behavior free of HTTP-framework types; transport adapters
+  (`app/api/**/route.ts`) stay thin.
 
 ## Application boundaries
 
@@ -30,9 +34,8 @@ Deploy/API ownership direction and hard locks: [Cloudflare fullstack refactor gu
   return its response. Domain behavior must not depend on HTTP framework context
   or response helpers. Technical infrastructure must not import domain modules.
 - Runtime workflow, queue, retry, lease, and provider execution policy belongs
-  to the server application runtime, not shared contracts. Under the target
-  topology, that policy lives with the single app (or an explicitly authorized
-  optional Jobs process)—not in `@gloaming/shared`.
+  to the server application runtime (`client/server/**` and `client/jobs/**`),
+  not shared contracts (`client/shared/`).
 
 ## API and authorization contracts
 
@@ -40,7 +43,7 @@ Deploy/API ownership direction and hard locks: [Cloudflare fullstack refactor gu
   login or registration. Preserve its native endpoint contract.
 - Every protected API enforces server-side authentication and the applicable
   role, ownership, and resource-access policy. Every admin API requires backend
-  admin authorization; client gates, hidden navigation, and web proxies are
+  admin authorization; client gates, hidden navigation, and proxies are
   insufficient. Verify affected allowed and denied access cases.
 - Validate structured input against the owning schemas before domain execution.
   Multipart and streaming boundaries also validate their transport constraints;

@@ -52,14 +52,16 @@ lib       ──✘──  server/domains
 
 ## Phase mapping
 
-| Slice     | Status                                                          |
-| --------- | --------------------------------------------------------------- |
-| **N0–N1** | Done — scaffold                                                 |
-| **N2**    | Done — shell / styles / route groups                            |
-| **N3**    | Done locally — features + pages vs `apps/web`                   |
-| **N4**    | Done locally — Route Handlers + server + `jobs/`; T1/T2 on path |
-| **N5**    | Not authorized — slim/delete old apps                           |
-| **P4**    | Not started — Workers                                           |
+| Slice      | Status                                                                  |
+| ---------- | ----------------------------------------------------------------------- |
+| **N0–N1**  | Done — scaffold                                                         |
+| **N2**     | Done — shell / styles / route groups                                    |
+| **N3**     | Done — features + pages                                                 |
+| **N4**     | Done — Route Handlers + server + `jobs/`; T1/T2 on path                 |
+| **N5**     | Done — legacy apps/packages under `archive/`; tree promoted to root     |
+| **Inline** | Done — `shared/` + `i18n/` colocated in `client/` (no root `packages/`) |
+| **P4-V1**  | Done — vinext Workers build + thin Preview                              |
+| **P4-V2**  | Not started — auth/DB/Free CPU fitness                                  |
 
 ## Explicit non-goals
 
