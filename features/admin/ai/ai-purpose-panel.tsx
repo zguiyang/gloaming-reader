@@ -48,7 +48,6 @@ type AiPurposePanelProps = {
 const PURPOSE_TITLE_KEYS: Record<AiSettingKey, string> = {
   'assist.default_model_id': 'admin.ai.purpose.assist',
   'translate.default_model_id': 'admin.ai.purpose.translate',
-  'metadata-enrich.default_model_id': 'admin.ai.purpose.metadataEnrich',
 };
 
 function purposeTitle(key: AiSettingKey, locale: Locale): string {

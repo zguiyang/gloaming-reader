@@ -1,2 +1,1 @@
-export { enrichWorkMetadata } from '@/server/domains/metadata/enrich';
-export { fillWorkMetadata } from '@/server/domains/metadata/fill';
+/** Work metadata completion is owned by source-enrich (follow-up). */

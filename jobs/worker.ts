@@ -3,7 +3,6 @@ import { Worker as BullWorker } from 'bullmq';
 
 import { JOB_ASSET_CLEANUP, processAssetCleanup } from '@/jobs/asset-cleanup';
 import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from '@/jobs/content-parse';
-import { JOB_METADATA_ENRICH, type MetadataEnrichJobData, processMetadataEnrich } from '@/jobs/metadata-enrich';
 import type { PingJobData } from '@/jobs/ping';
 import { JOB_PING, processPing } from '@/jobs/ping';
 import {
@@ -16,7 +15,6 @@ import {
   processWorkCoverRefresh,
   type WorkCoverRefreshJobData,
 } from '@/jobs/work-cover-refresh';
-import { JOB_METADATA_FILL, processWorkMetadataFill, type WorkMetadataFillJobData } from '@/jobs/work-metadata-fill';
 import { recoverStaleSaveIntents } from '@/server/domains/library/save-intent';
 import { commonEnv } from '@/server/infra/config/env-common';
 import { workerLogger } from '@/server/infra/logging/logger';
@@ -44,10 +42,6 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
       return processPing(job.data as PingJobData);
     case JOB_CONTENT_PARSE:
       return processContentParse(job.data as ContentParseJobData);
-    case JOB_METADATA_FILL:
-      return processWorkMetadataFill(job.data as WorkMetadataFillJobData);
-    case JOB_METADATA_ENRICH:
-      return processMetadataEnrich(job.data as MetadataEnrichJobData);
     case JOB_SOURCE_RECORD_MATERIALIZE:
       return processSourceRecordMaterialize(job.data as SourceRecordMaterializeJobData);
     case JOB_WORK_COVER_REFRESH:

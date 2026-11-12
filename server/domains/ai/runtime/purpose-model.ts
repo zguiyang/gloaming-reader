@@ -29,14 +29,7 @@ export async function resolveModelRowId(options: {
       ? await resolveUserOwnedAppSettingValue(key, options.userId)
       : await resolveScopedAppSettingValue(key, actor);
   if (!value) {
-    const label =
-      purpose === 'assist'
-        ? 'Assist'
-        : purpose === 'translate'
-          ? 'Translate'
-          : purpose === 'metadata-enrich'
-            ? 'Metadata enrich'
-            : 'AI';
+    const label = purpose === 'assist' ? 'Assist' : purpose === 'translate' ? 'Translate' : 'AI';
     throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.AI.MODEL_NOT_CONFIGURED, { label });
   }
 

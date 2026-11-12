@@ -90,22 +90,11 @@ async function clearDerivedAssetObjects(workId: string, cleanup: DerivedAssetsFo
   }
 }
 
-/** AI-output reset: AI-filled description. */
-export async function resetMetadataAiOutputs(work: WorkRow, client: DbClient = db): Promise<void> {
-  if (work.descriptionProvenance === 'ai') {
-    await client
-      .update(readingWorkTable)
-      .set({ description: '', descriptionProvenance: null })
-      .where(eq(readingWorkTable.id, work.id));
-  }
-}
-
-/** Re-parse reset: parts, derived assets, AI description, and filled metadata fields. */
+/** Re-parse reset: parts, derived assets, and filled metadata fields. */
 export async function resetParseStepOutputs(work: WorkRow, claim?: ParseClaim): Promise<void> {
   const reset = async (client: DbClient): Promise<DerivedAssetsForCleanup> => {
     const cleanup = await removeDerivedAssetRows(client, work.id);
     await client.delete(readingPartTable).where(eq(readingPartTable.workId, work.id));
-    await resetMetadataAiOutputs(work, client);
     await client
       .update(readingWorkTable)
       .set({

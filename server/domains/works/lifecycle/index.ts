@@ -1,4 +1,3 @@
-export { WORKFLOW_AUTO_CHAIN } from '@/server/domains/works/lifecycle/policy';
 export {
   claimWorkflowStep,
   completeWorkflowStep,

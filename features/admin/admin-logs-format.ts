@@ -9,14 +9,12 @@ const AI_SOURCE_KEYS: Record<string, string> = {
   'translate.part': 'translatePart',
   'translate.article': 'translateArticle',
   'admin.provider_test': 'adminProviderTest',
-  'metadata-enrich.fill': 'metadataEnrichFill',
   'dictionary:enrichment': 'dictionaryEnrichment',
 };
 
 const AI_PURPOSE_KEYS: Record<string, string> = {
   assist: 'assist',
   translate: 'translate',
-  'metadata-enrich': 'metadataEnrich',
 };
 
 const TTS_SOURCE_KEYS: Record<string, string> = {

@@ -145,7 +145,7 @@ export async function failWorkflowStep(
     .update(readingWorkTable)
     .set({
       processingStatus: 'failed',
-      originMeta: sql`(${readingWorkTable.originMeta} - 'metadataAt' - 'metadataEnrichGaps' - 'metadataEnrichError' - 'workflowClaimAttempt' - 'workflowClaimStep' - 'workflowClaimLeaseExpiresAt' - 'workflowEnqueueStep' - 'workflowEnqueueAttempt' - 'workflowEnqueueLeaseExpiresAt') || ${JSON.stringify({ failedStep: step, lastError: message, failedAt })}::jsonb`,
+      originMeta: sql`(${readingWorkTable.originMeta} - 'metadataAt' - 'workflowClaimAttempt' - 'workflowClaimStep' - 'workflowClaimLeaseExpiresAt' - 'workflowEnqueueStep' - 'workflowEnqueueAttempt' - 'workflowEnqueueLeaseExpiresAt') || ${JSON.stringify({ failedStep: step, lastError: message, failedAt })}::jsonb`,
     })
     .where(workflowClaimWhere(workId, step, retryJobToken, attemptToken))
     .returning({ id: readingWorkTable.id });
@@ -167,7 +167,7 @@ export async function failWorkflowEnqueue(
     .update(readingWorkTable)
     .set({
       processingStatus: 'failed',
-      originMeta: sql`(${readingWorkTable.originMeta} - 'metadataAt' - 'metadataEnrichGaps' - 'metadataEnrichError' - 'workflowClaimAttempt' - 'workflowClaimStep' - 'workflowClaimLeaseExpiresAt' - 'workflowEnqueueStep' - 'workflowEnqueueAttempt' - 'workflowEnqueueLeaseExpiresAt') || ${JSON.stringify({ failedStep: step, lastError: message, failedAt })}::jsonb`,
+      originMeta: sql`(${readingWorkTable.originMeta} - 'metadataAt' - 'workflowClaimAttempt' - 'workflowClaimStep' - 'workflowClaimLeaseExpiresAt' - 'workflowEnqueueStep' - 'workflowEnqueueAttempt' - 'workflowEnqueueLeaseExpiresAt') || ${JSON.stringify({ failedStep: step, lastError: message, failedAt })}::jsonb`,
     })
     .where(
       and(
@@ -204,7 +204,7 @@ export async function completeWorkflowStep(
     .update(readingWorkTable)
     .set({
       processingStatus: nextStatus,
-      originMeta: sql`(${readingWorkTable.originMeta} - 'failedStep' - 'lastError' - 'failedAt' - 'metadataEnrichError' - 'workflowClaimAttempt' - 'workflowClaimStep' - 'workflowClaimLeaseExpiresAt' - 'workflowEnqueueAttempt' - 'workflowEnqueueLeaseExpiresAt') || ${patch}::jsonb`,
+      originMeta: sql`(${readingWorkTable.originMeta} - 'failedStep' - 'lastError' - 'failedAt' - 'workflowClaimAttempt' - 'workflowClaimStep' - 'workflowClaimLeaseExpiresAt' - 'workflowEnqueueAttempt' - 'workflowEnqueueLeaseExpiresAt') || ${patch}::jsonb`,
     })
     .where(
       retryJobToken && claimStep && attemptToken

@@ -132,14 +132,13 @@
       "capabilities": "阅读能力",
       "purpose": {
         "assist": "阅读辅助",
-        "translate": "翻译",
-        "metadata": "作品信息整理"
+        "translate": "翻译"
       },
       "notSet": "未设置（使用默认服务）",
       "unavailableModel": "当前模型不可用，请重新选择。",
       "unavailableOption": "· 不可用",
       "defaultOnUnset": "未设置个人模型的能力会使用默认服务；已保存的模型只能更换，无法清除。",
-      "defaultSummary": "覆盖阅读辅助、翻译与作品信息整理。",
+      "defaultSummary": "覆盖阅读辅助与翻译。",
       "ownSummary": "已启用自有 AI 服务。",
       "disabled": "已停用",
       "addProviderEntry": "添加并启用服务商",
@@ -700,7 +699,6 @@
       "purpose": {
         "assist": "阅读助手",
         "translate": "双语翻译",
-        "metadataEnrich": "元数据完善",
         "notConfigured": "未配置",
         "modelDeleted": "模型已删除",
         "modelDisabled": "模型已停用",
@@ -1011,14 +1009,12 @@
           "translatePart": "双语翻译",
           "translateArticle": "双语翻译",
           "adminProviderTest": "连通测试",
-          "metadataEnrichFill": "元数据完善",
           "dictionaryEnrichment": "词典 AI 增强"
         },
         "aiPurpose": {
           "unbound": "未绑定",
           "assist": "阅读助手",
-          "translate": "双语翻译",
-          "metadataEnrich": "元数据完善"
+          "translate": "双语翻译"
         },
         "ttsSource": {
           "adminTtsTest": "连通测试",

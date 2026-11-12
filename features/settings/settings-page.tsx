@@ -78,7 +78,6 @@ const EMPTY_MODEL: ModelDraft = { modelId: '', label: '', wireVariant: 'chat-com
 const PURPOSES: Array<{ key: AiSettingKey; labelKey: string }> = [
   { key: 'assist.default_model_id', labelKey: 'assist' },
   { key: 'translate.default_model_id', labelKey: 'translate' },
-  { key: 'metadata-enrich.default_model_id', labelKey: 'metadata' },
 ];
 
 function SettingHeader() {

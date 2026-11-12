@@ -132,14 +132,13 @@
       "capabilities": "Reading capabilities",
       "purpose": {
         "assist": "Reading assistance",
-        "translate": "Translation",
-        "metadata": "Work details"
+        "translate": "Translation"
       },
       "notSet": "Not set (uses default service)",
       "unavailableModel": "This model is unavailable. Choose another one.",
       "unavailableOption": "· Unavailable",
       "defaultOnUnset": "Capabilities without a personal model use the default service; a saved model can be replaced, not cleared.",
-      "defaultSummary": "Covers reading assistance, translation, and work details.",
+      "defaultSummary": "Covers reading assistance and translation.",
       "ownSummary": "Your own AI service is enabled.",
       "disabled": "Disabled",
       "addProviderEntry": "Add and enable provider",
@@ -700,7 +699,6 @@
       "purpose": {
         "assist": "Reading assistant",
         "translate": "Bilingual translation",
-        "metadataEnrich": "Metadata enrichment",
         "notConfigured": "Not configured",
         "modelDeleted": "Model deleted",
         "modelDisabled": "Model disabled",
@@ -1011,14 +1009,12 @@
           "translatePart": "Bilingual translation",
           "translateArticle": "Bilingual translation",
           "adminProviderTest": "Connectivity test",
-          "metadataEnrichFill": "Metadata enrichment",
           "dictionaryEnrichment": "Dictionary AI enrichment"
         },
         "aiPurpose": {
           "unbound": "Unassigned",
           "assist": "Reading assistant",
-          "translate": "Bilingual translation",
-          "metadataEnrich": "Metadata enrichment"
+          "translate": "Bilingual translation"
         },
         "ttsSource": {
           "adminTtsTest": "Connectivity test",
