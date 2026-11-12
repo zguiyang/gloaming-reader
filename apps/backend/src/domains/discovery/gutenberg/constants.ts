@@ -5,11 +5,13 @@ export const PROJECT_GUTENBERG_SOURCE_KEY = 'project_gutenberg';
 export const PROJECT_GUTENBERG_SOURCE_TYPE = 'gutenberg_rdf';
 
 /**
- * Official machine-readable Project Gutenberg metadata snapshot.
- * This is the only upstream feed the adapter reads; it never crawls ebook pages
- * and never downloads EPUB candidates.
+ * Machine-readable Project Gutenberg metadata snapshot (same RDF tar.bz2 as the
+ * official feed). Prefer the PGLAF high-speed mirror: `www.gutenberg.org` often
+ * resets long downloads mid-stream (`UND_ERR_SOCKET` / "other side closed"),
+ * which fails discovery sync after partial progress. This adapter never crawls
+ * ebook pages and never downloads EPUB candidates.
  */
-export const PROJECT_GUTENBERG_RDF_SNAPSHOT_URL = 'https://www.gutenberg.org/cache/epub/feeds/rdf-files.tar.bz2';
+export const PROJECT_GUTENBERG_RDF_SNAPSHOT_URL = 'https://gutenberg.pglaf.org/cache/epub/feeds/rdf-files.tar.bz2';
 
 /** Identifies the Gloaming metadata sync when calling the Project Gutenberg feed. */
 export const PROJECT_GUTENBERG_USER_AGENT = 'Gloaming/0.1 (metadata sync)';
