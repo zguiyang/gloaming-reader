@@ -1,5 +1,15 @@
 # Deployment
 
+> **Status:** Describes the **current** production topology (`web` + `api` +
+> `worker`). It is **to be superseded** for the target open-source / Cloudflare
+> delivery shape. Do not treat this document as the forever architecture.
+>
+> **Target direction (not an execution checklist):** one Next app = UI + all
+> HTTP APIs; Jobs not default; see
+> [Cloudflare fullstack refactor guidance](./cloudflare-fullstack-refactor-guidance.md)
+> and [AGENTS.md](../AGENTS.md) (Deploy and API topology). Until an authorized
+> migration lands, operate and document the three-service layout below.
+
 Gloaming can run on a VPS or a PaaS that supports Docker services or supervised Node processes. The production application has three independent services:
 
 | Service  | Image / entrypoint                        | Public access    | Role                               |

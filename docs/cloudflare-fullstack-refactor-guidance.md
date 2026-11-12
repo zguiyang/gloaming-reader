@@ -251,4 +251,9 @@ AI SDK 流式 ± Workers AI / 外部 LLM HTTP
 ## Related
 
 - Current deploy topology (to be superseded for the target state): [`deployment.md`](./deployment.md)
-- Agent / product boundaries: [`../AGENTS.md`](../AGENTS.md)
+- Agent / product boundaries + transition priority:
+  [`../AGENTS.md`](../AGENTS.md) (Deploy and API topology)
+- Transition notes in rules: [`../rules/backend.md`](../rules/backend.md),
+  [`../rules/frontend.md`](../rules/frontend.md),
+  [`../rules/architecture.md`](../rules/architecture.md),
+  [`../rules/packages.md`](../rules/packages.md)

@@ -15,6 +15,8 @@ exports, consumers, and accepted decisions. Apply
 - `@gloaming/shared` owns cross-app contracts and pure policy, not ORM, secrets,
   application workflows, or backend runtime policy. `@gloaming/db` owns database
   schema and migrations. Packages must not depend on application implementation.
+  Merging the deploy unit (Web = API) does not move schema into Shared, move
+  runtime policy into Shared, or dissolve these package boundaries.
 
 ## Public API and compatibility
 

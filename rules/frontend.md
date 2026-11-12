@@ -5,6 +5,23 @@ from the affected application. Do not prescribe a new library from a remembered
 stack. For module ownership or public entries, read
 [architecture rules](architecture.md).
 
+## Current vs target (Web and APIs)
+
+| State       | Meaning                                                                                                                                           |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Current** | Next.js UI in `apps/web`; many APIs are reached via `/api/*` proxy to the separate backend. Treat proxy + separate API origin as runtime reality. |
+| **Target**  | One Next app serves UI **and** all HTTP APIs. Deploying the frontend deploys the API surface.                                                     |
+
+Direction and prohibitions: [Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md). Product bans remain in [AGENTS.md](../AGENTS.md).
+
+**While migrating:**
+
+- Do not assume a permanent private `api` service or rebuild features that require a second public API origin.
+- Do not collapse domain/server modules into client components just because deploy units merge.
+- Prefer same-origin API access patterns that remain valid when Route Handlers own the paths.
+- Media: public objects may use public R2 domain URLs; personal uploads remain in scope (private + presigned or equivalent)—do not ship “upload disabled” as the target product stance.
+- Label stubs honestly when a flow still depends on the current proxy/backend split.
+
 ## Composition and dependencies
 
 - Routes and layouts deliver and compose pages; business-capability behavior

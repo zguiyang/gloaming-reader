@@ -10,12 +10,44 @@ development.
 Gloaming is an AI-native environment for authentic English reading with
 contextual AI support. Do not revive legacy `Article` models, aliases,
 `reading_progress`, `article_audio`, or lesson/course entities, or redefine the
-product as a Short Article Library. Keep web and backend source separate;
-cross-app contracts belong in `@gloaming/shared`, and database schema belongs
-in `@gloaming/db`. When changing persistent domain models or public contracts,
-identify the current authoritative model, preserve established invariants, and
-verify affected producers and consumers. Do not change core business semantics
-without task authorization.
+product as a Short Article Library. Cross-app contracts belong in
+`@gloaming/shared`, and database schema belongs in `@gloaming/db`. Logical
+server-domain boundaries may remain even when deploy topology merges. When
+changing persistent domain models or public contracts, identify the current
+authoritative model, preserve established invariants, and verify affected
+producers and consumers. Do not change core business semantics without task
+authorization.
+
+## Deploy and API topology (transition)
+
+Accepted direction for deploy/API ownership lives in
+[Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md).
+That document is guidance and anti-drift for the refactor, not an execution
+checklist and not permission to start large deletions or route moves by itself.
+
+**Priority when sources conflict on deploy topology or API ownership:** the
+guidance above wins for target delivery shape. Product bans (no legacy Article
+revival, no unauthorized business-semantic changes) and safety rules in this
+file still win.
+
+| State       | Meaning                                                                                                                                                                           |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Current** | Separated `web` + `api` + `worker` is still what source and [deployment.md](docs/deployment.md) describe. Treat that as runtime reality, not the forever target.                  |
+| **Target**  | One deployable Next app = UI + all HTTP APIs; data plane on free SaaS (Supabase / Redis / R2); Jobs not in the default open-source topology; platform goal is Cloudflare Workers. |
+
+**Do not** (unless the guidance is amended and a task explicitly authorizes it):
+
+- Treat nested Hono-in-Next as the final API architecture
+- Restore `web+api+worker` / always-on BullMQ as the recommended open-source default
+- Revive Gutenberg **full** sync as the main discovery path
+- Default TTS/LLM onto Workers AI for “edge” or “free”
+- Claim personal upload is out of scope
+- Pretend open items in the guidance (Free CPU fitness, on-demand source capability, EPUB re-parse placement, Jobs/Queues) are already decided
+- Equate deploy merge with collapsing domain logic into UI modules
+
+During the transition, discover owners from current source. Prefer moving toward
+the target shape only under an explicit task with scope and gates. Do not invent
+a completed migration.
 
 ## Safety and data
 
@@ -98,6 +130,9 @@ without task authorization.
 Detailed project rules are maintained in the project-owned `rules/` directory.
 Read only the rules relevant to the current task:
 
+- Deploy/API topology transition: this file’s
+  [Deploy and API topology](#deploy-and-api-topology-transition) section and
+  [Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md).
 - Backend services and APIs: [backend rules](rules/backend.md).
 - Web and UI: [frontend rules](rules/frontend.md) and, for UI work,
   [DESIGN.md](DESIGN.md).
@@ -106,6 +141,8 @@ Read only the rules relevant to the current task:
   [architecture rules](rules/architecture.md) and the relevant Skill.
   Follow their decision boundaries for architectural changes; do
   not impose it on ordinary local edits.
+- Current three-service operations (until superseded):
+  [deployment.md](docs/deployment.md).
 
 Consult current source and configuration for implementation details. Use Skills
 for operating procedures and tools for their capabilities and access checks.

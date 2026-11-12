@@ -4,6 +4,25 @@ Apply this rule when changing ownership, dependencies, public boundaries, or
 module placement. Ordinary local edits do not require a separate architecture
 review. Use a relevant structure Skill for execution methods.
 
+## Deploy unit vs logical boundaries
+
+Accepted deploy/API direction:
+[Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md).
+
+- **Target deploy unit:** a single Next application (UI + HTTP APIs), not the
+  current `web+api+worker` trio as the open-source default.
+- **Logical boundaries remain:** merging deploy units does **not** authorize
+  folding server domain logic into UI modules, deleting `@gloaming/shared` /
+  `@gloaming/db` contracts, or inventing a new shared kitchen-sink layer.
+- **Hono** may exist in current source; it is not the target long-term API host.
+  Nesting Hono inside Next is at most a migration tactic, never the recorded end
+  state, unless the guidance is amended.
+- **Jobs / queues** are optional and deferred by default. Do not treat BullMQ
+  worker presence as required architecture for open-source delivery.
+- **Current vs target mismatch** is expected during the transition. Report it;
+  do not silently pick “code today” or “target doc” and proceed on high-impact
+  moves without an explicit task and gates.
+
 ## Ownership and dependency direction
 
 - Identify the current owner from definitions, imports, consumers, and accepted
