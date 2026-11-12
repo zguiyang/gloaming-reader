@@ -19,7 +19,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis — Hono reads `REDIS_URL` on the host (e.g. redis://127.0.0.1:6380).
+  # Redis — app / Jobs read `REDIS_URL` on the host (e.g. redis://127.0.0.1:6380).
   redis:
     image: redis:latest
     container_name: gloaming-redis

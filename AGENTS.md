@@ -30,10 +30,10 @@ guidance above wins for target delivery shape. Product bans (no legacy Article
 revival, no unauthorized business-semantic changes) and safety rules in this
 file still win.
 
-| State       | Meaning                                                                                                                                                                           |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Current** | Separated `web` + `api` + `worker` is still what source and [deployment.md](docs/deployment.md) describe. Treat that as runtime reality, not the forever target.                  |
-| **Target**  | One deployable Next app = UI + all HTTP APIs; data plane on free SaaS (Supabase / Redis / R2); Jobs not in the default open-source topology; platform goal is Cloudflare Workers. |
+| State       | Meaning                                                                                                                                                                                                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Current** | Default open-source local path is **`client/`** (Next + Route Handlers + same-package `jobs/` worker). Legacy `web` + `api` + `worker` sources are under **`archive/apps/*`** for comparison only; [deployment.md](docs/deployment.md) documents both. Not the forever target; **P4 Workers not done.** |
+| **Target**  | One deployable Next app = UI + all HTTP APIs; data plane on free SaaS (Supabase / Redis / R2); Jobs not in the default open-source topology; platform goal is Cloudflare Workers.                                                                                                                       |
 
 **Do not** (unless the guidance is amended and a task explicitly authorizes it):
 
@@ -134,10 +134,8 @@ Read only the rules relevant to the current task:
   [Deploy and API topology](#deploy-and-api-topology-transition) section,
   [Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md),
   and [stage plan / P1 charter](docs/cloudflare-fullstack-refactor-stages.md)
-  (side-by-side `migration/` extract staging tree first—self-contained
-  `client` + packages; migrate UI then API; slim old apps later; Workers real
-  compatibility only after that—do not treat today’s `web+api+worker` as the CF
-  migration object).
+  (product at repo root—`client` + `packages/`; legacy under `archive/`; Workers real
+  compatibility only after that—do not treat `archive/apps/*` as the CF migration object).
 - Backend services and APIs: [backend rules](rules/backend.md).
 - Web and UI: [frontend rules](rules/frontend.md) and, for UI work,
   [DESIGN.md](DESIGN.md).

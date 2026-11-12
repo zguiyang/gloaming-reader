@@ -7,59 +7,47 @@
   "packageManager": "pnpm@11.25.0+sha512.5cde925b4f075f725eb71fbae18a42ffe784524789f19b61c731cb8721ec28aaee160e01a8d5af4fedb2a42cdbf300efe23db356b0d4a17b4d63e11f8ab7c956",
   "prettier": "./prettier.config.js",
   "scripts": {
-    "dev:backend": "pnpm --filter @gloaming/backend dev",
-    "dev:worker": "pnpm --filter @gloaming/backend dev:worker",
-    "dev:web": "pnpm --filter @gloaming/web dev",
-    "build": "pnpm --filter @gloaming/backend build && pnpm --filter @gloaming/web build",
-    "build:backend": "pnpm --filter @gloaming/backend build",
-    "lint": "pnpm --filter @gloaming/backend lint && eslint apps/web packages/shared packages/i18n packages/db --max-warnings 0",
-    "lint:backend": "pnpm --filter @gloaming/backend lint",
-    "lint:web": "eslint apps/web --max-warnings 0",
-    "lint:shared": "eslint packages/shared --max-warnings 0",
-    "lint:i18n": "eslint packages/i18n --max-warnings 0",
-    "lint:db": "eslint packages/db --max-warnings 0",
+    "dev": "pnpm --filter @gloaming/client dev",
+    "dev:web": "pnpm --filter @gloaming/client dev",
+    "dev:jobs": "pnpm --filter @gloaming/client dev:jobs",
+    "build": "pnpm --filter @gloaming/client build",
+    "build:jobs": "pnpm --filter @gloaming/client build:jobs",
+    "lint": "pnpm --filter @gloaming/client lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "pnpm --filter @gloaming/shared typecheck && pnpm --filter @gloaming/i18n typecheck && pnpm --filter @gloaming/db typecheck && pnpm --filter @gloaming/backend typecheck && pnpm --filter @gloaming/web typecheck",
-    "typecheck:backend": "pnpm --filter @gloaming/backend typecheck",
-    "typecheck:db": "pnpm --filter @gloaming/db typecheck",
-    "typecheck:shared": "pnpm --filter @gloaming/shared typecheck",
-    "typecheck:i18n": "pnpm --filter @gloaming/i18n typecheck",
-    "typecheck:web": "pnpm --filter @gloaming/web typecheck",
-    "test": "pnpm --filter @gloaming/shared test && pnpm --filter @gloaming/i18n test && pnpm --filter @gloaming/backend test && pnpm --filter @gloaming/web test",
-    "test:backend": "pnpm --filter @gloaming/backend test",
-    "test:backend:integration": "pnpm --filter @gloaming/backend test:integration:worker",
-    "test:shared": "pnpm --filter @gloaming/shared test",
-    "test:i18n": "pnpm --filter @gloaming/i18n test",
-    "test:web": "pnpm --filter @gloaming/web test",
-    "db:generate": "pnpm --filter @gloaming/db db:generate",
-    "db:migrate": "pnpm --filter @gloaming/db db:migrate",
-    "db:migrate:test": "sh -c 'set -a && . apps/backend/.env.test && set +a && test -n \"$TEST_DATABASE_URL\" && export DATABASE_URL=\"$TEST_DATABASE_URL\" && pnpm db:migrate'",
-    "seed:dev": "pnpm --filter @gloaming/backend seed:dev",
-    "db:push": "pnpm --filter @gloaming/db db:push",
+    "typecheck": "pnpm --filter @gloaming/client typecheck",
+    "test": "echo \"No root tests; run pnpm --filter @gloaming/client test when added\"",
+    "db:generate": "pnpm --filter @gloaming/client db:generate",
+    "db:migrate": "pnpm --filter @gloaming/client db:migrate",
+    "db:push": "pnpm --filter @gloaming/client exec drizzle-kit push --config server/db/drizzle.config.ts",
+    "jobs": "pnpm --filter @gloaming/client jobs",
+    "start:jobs": "pnpm --filter @gloaming/client start:jobs",
     "compose:init": "test -f docker-compose.yaml || cp docker-compose.yaml.example docker-compose.yaml",
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{js,jsx,mjs,ts,tsx}": [
+    "{eslint.config.mjs,prettier.config.js,commitlint.config.js}": [
       "eslint --fix --max-warnings 0 --no-warn-ignored",
       "prettier --write"
     ],
-    "migration/client/**/*.{js,jsx,mjs,ts,tsx}": [
+    "client/**/*.{js,jsx,mjs,ts,tsx}": [
+      "pnpm --filter @gloaming/client exec eslint --fix --max-warnings 0",
+      "prettier --write"
+    ],
+    "packages/**/*.{js,jsx,mjs,ts,tsx}": [
+      "eslint --fix --max-warnings 0 --no-warn-ignored",
       "prettier --write"
     ],
     "*.{json,css,md,yml,yaml}": [
       "prettier --write"
     ]
   },
+  "dependencies": {
+    "iconv-lite": "workspace:*"
+  },
   "devDependencies": {
     "@commitlint/cli": "^21.2.1",
     "@commitlint/config-conventional": "^21.2.0",
-    "@gloaming/backend": "workspace:*",
-    "@gloaming/db": "workspace:*",
-    "@gloaming/i18n": "workspace:*",
-    "@gloaming/shared": "workspace:*",
-    "@gloaming/web": "workspace:*",
     "@eslint/js": "^9.39.1",
     "@types/node": "^22.19.7",
     "eslint": "^9.39.1",

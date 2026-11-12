@@ -1,9 +1,14 @@
 packages:
-  - apps/*
+  - client
   - packages/*
+  - vendor/*
+
 allowBuilds:
   esbuild: true
   msgpackr-extract: true
   nodejieba: true
   sharp: true
   unrs-resolver: true
+
+overrides:
+  iconv-lite: workspace:*

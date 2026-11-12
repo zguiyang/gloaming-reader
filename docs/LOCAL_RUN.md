@@ -1,15 +1,15 @@
-# Local full-stack runbook (`migration/client`)
+# Local full-stack runbook (`client`)
 
 Run the **new** tree locally: Next (UI + Route Handlers) + same-package BullMQ worker.  
-**Not** Cloudflare / vinext / OpenNext (that is P4). Old `apps/web` + `apps/backend` remain for comparison.
+**Not** Cloudflare / vinext / OpenNext (that is P4). Legacy `archive/apps/web` + `archive/apps/backend` remain for comparison (N5 demote).
 
 ## Processes
 
-| Old (three)                | New (two)                                                                        |
-| -------------------------- | -------------------------------------------------------------------------------- |
-| `apps/web` (Next)          | `migration/client` Next — UI **and** `/api/*`                                    |
-| `apps/backend` HTTP (Hono) | _(folded into Next Route Handlers)_                                              |
-| `apps/backend` worker      | `pnpm --filter @gloaming/client jobs` (`client/jobs/`; second OS process; `tsx`) |
+| Old (three)                        | New (two)                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------------- |
+| `archive/apps/web` (Next)          | `client` Next — UI **and** `/api/*`                                              |
+| `archive/apps/backend` HTTP (Hono) | _(folded into Next Route Handlers)_                                              |
+| `archive/apps/backend` worker      | `pnpm --filter @gloaming/client jobs` (`client/jobs/`; second OS process; `tsx`) |
 
 Shared data plane: Postgres + Redis + S3 (same as today).
 
@@ -21,7 +21,7 @@ Shared data plane: Postgres + Redis + S3 (same as today).
 docker compose up -d
 ```
 
-Default compose ports used by `migration/client/.env.example`:
+Default compose ports used by `client/.env.example`:
 
 - Postgres `127.0.0.1:5433` → container `5432`
 - Redis `127.0.0.1:6380` → container `6379`
@@ -29,24 +29,23 @@ Default compose ports used by `migration/client/.env.example`:
 2. Copy env and fill secrets:
 
 ```bash
-cp migration/client/.env.example migration/client/.env
+cp client/.env.example client/.env
 ```
 
 Required: `DATABASE_URL`, `REDIS_URL`, `BETTER_AUTH_SECRET`, `FRONTEND_URL=http://localhost:3000`, S3 keys, `LLM_CONFIG_ENCRYPTION_KEY`.  
 Optional: Resend, GitHub OAuth, Azure TTS / LLM provider credentials for AI paths.  
 **Do not** set `API_INTERNAL_URL` — APIs are same-origin `/api/*`.  
 Open the app with the same host as `FRONTEND_URL` when possible (`localhost` vs `127.0.0.1`); local auth also trusts the swap and ports 3000/3001.  
-Ensure `client/public/gloaming-mark.png` is present (copied from `apps/web/public`).
+Ensure `client/public/gloaming-mark.png` is present (copied from `archive/apps/web/public` if needed).
 
-3. Install **inside** `migration/` (separate workspace). Prefer Bun if Cursor sandbox blocks pnpm extracts that ship `.idea` / `.claude` dirs:
+3. Install from **repo root**. Prefer Bun if Cursor sandbox blocks pnpm extracts that ship `.idea` / `.claude` dirs:
 
 ```bash
-cd migration
 bun install
 # or: pnpm install
 ```
 
-4. Migrate DB (schema lives in **`client/server/db`**, not `migration/packages/db`):
+4. Migrate DB (schema lives in **`client/server/db`**, not `packages/db`):
 
 ```bash
 pnpm --filter @gloaming/client db:migrate
@@ -55,7 +54,7 @@ pnpm --filter @gloaming/client db:migrate
 
 ## Start
 
-Two terminals from `migration/`:
+Two terminals from repo root:
 
 ```bash
 pnpm --filter @gloaming/client dev
@@ -98,11 +97,11 @@ pnpm --filter @gloaming/client start:jobs
 
 ## Package placement (this cutover)
 
-| Module                 | Placement                                                         | Why                                                  |
-| ---------------------- | ----------------------------------------------------------------- | ---------------------------------------------------- |
-| DB schema / migrations | `client/server/db/` (inlined)                                     | Only server consumer in new tree                     |
-| UI↔server contracts    | Prefer `client/shared/`; `migration/packages/shared` transitional | Do not expand packages/shared for app-only contracts |
-| i18n                   | `migration/packages/i18n`                                         | Large import surface; keep transitional package      |
+| Module                 | Placement                                               | Why                                                  |
+| ---------------------- | ------------------------------------------------------- | ---------------------------------------------------- |
+| DB schema / migrations | `client/server/db/` (inlined)                           | Only server consumer in new tree                     |
+| UI↔server contracts    | Prefer `client/shared/`; `packages/shared` transitional | Do not expand packages/shared for app-only contracts |
+| i18n                   | `packages/i18n`                                         | Large import surface; keep transitional package      |
 
 ## Consolidation docs (this wave)
 
@@ -114,7 +113,7 @@ pnpm --filter @gloaming/client start:jobs
 
 ## Known gaps / deferred
 
-- Hono route sources kept under `client/server/_legacy_hono/` for reference; **not** mounted.
+- Legacy Hono / LangChain / Speech SDK sources were removed from the extract tree (not mounted; compare against `apps/backend` if needed).
 - Assist tools are live AI SDK tools (`get_part_slice` / `search_part` / dictionary via `createPartAssistTools`) — **not** LangChain. AI invoke/stream uses Vercel AI SDK (T1). TTS uses Azure Speech REST (T2).
 - API rate limits: Next helpers on assist / translate / dictionary guest (`next-rate-limit.ts`); see [`RATE_LIMIT.md`](./RATE_LIMIT.md).
 - Worker is still BullMQ + Redis (Node process) — acceptable for local open-source; **not** claimed Workers-compatible (P4 / R5 still open).
@@ -124,6 +123,6 @@ pnpm --filter @gloaming/client start:jobs
 
 ## Verification already done in-tree
 
-- `bunx tsc --noEmit` in `migration/client` — re-run after consolidation edits
+- `bunx tsc --noEmit` in `client` — re-run after consolidation edits
 - `bun run build` (`NODE_ENV=production next build`) — previously pass; re-run if packaging changes
 - Live compose smoke depends on your local Docker + `.env` secrets

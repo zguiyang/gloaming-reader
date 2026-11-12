@@ -8,4 +8,4 @@ Contracts used by both `features/` (and other UI) and `server/` / `app/api`.
 
 **Must not import from:** `features/`, `server/`, or `components/`.
 
-For cross-package authority (`client` + future `jobs`, or extractable packages), use `migration/packages/*` instead. See [STRUCTURE.md](../STRUCTURE.md).
+For cross-package authority (`client` + future `jobs`, or extractable packages), use `packages/*` instead. See [STRUCTURE.md](../STRUCTURE.md).

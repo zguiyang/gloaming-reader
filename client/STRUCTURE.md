@@ -1,13 +1,13 @@
 # `@gloaming/client` directory structure
 
-Target layout for the Next app under `migration/client` (UI + all HTTP APIs + same-package Jobs).  
+Target layout for the Next app under `client/` (UI + all HTTP APIs + same-package Jobs).  
 Parent stages: [`docs/cloudflare-fullstack-refactor-stages.md`](../../docs/cloudflare-fullstack-refactor-stages.md).  
 Direction locks: L8 — deploy merge does **not** collapse server domains into UI modules.
 
 ## Tree
 
 ```text
-migration/client/
+client/
   app/                    # App Router: pages, layouts, Route Handlers
     (app)/ (auth)/ (reader)/ admin/
     api/                  # thin HTTP transport → server/domains
@@ -21,20 +21,19 @@ migration/client/
     domains/
     infra/                # includes queue adapter used by Jobs
     application/          # commands (not job processors)
-    _legacy_hono/         # quarantined Hono/LangChain reference — not mounted
   constants/
   public/
 ```
 
 ## Two tiers of “shared”
 
-| Location                   | Consumers                                           | Put here                                                       | Do not put                                  |
-| -------------------------- | --------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------- |
-| **`client/shared/`**       | Same app: `features/*`, `app/api`, `server/domains` | DTOs, Zod, error codes, API path constants, pure types/helpers | React, Next Request types, DB, secrets      |
-| **`migration/packages/*`** | Cross-package or costly transitional (e.g. i18n)    | Authoritative contracts/i18n when package boundary is needed   | UI, Route Handlers, infra, **db** (inlined) |
-| **`client/lib/`**          | Browser / RSC glue                                  | Auth client, fetch, React Query, locale, utils                 | Contract SSOT, server domains               |
+| Location             | Consumers                                           | Put here                                                       | Do not put                                  |
+| -------------------- | --------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------- |
+| **`client/shared/`** | Same app: `features/*`, `app/api`, `server/domains` | DTOs, Zod, error codes, API path constants, pure types/helpers | React, Next Request types, DB, secrets      |
+| **`packages/*`**     | Cross-package or costly transitional (e.g. i18n)    | Authoritative contracts/i18n when package boundary is needed   | UI, Route Handlers, infra, **db** (inlined) |
+| **`client/lib/`**    | Browser / RSC glue                                  | Auth client, fetch, React Query, locale, utils                 | Contract SSOT, server domains               |
 
-Promote to `migration/packages/*` only when a second consumer appears. Do not keep permanent `file:` deps pointing at monorepo root `packages/*`.
+Promote to `packages/*` only when a second consumer appears. Do not keep permanent `file:` deps pointing at `archive/packages/*`.
 
 ## Dependency direction
 

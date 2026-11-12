@@ -1,22 +1,46 @@
 # Deployment
 
-> **Status:** Describes the **current** production topology (`web` + `api` +
-> `worker`). It is **to be superseded** for the target open-source / Cloudflare
-> delivery shape. Do not treat this document as the forever architecture.
+> **Status (2026-11 N5 demote):**
 >
-> **Target direction (not an execution checklist):** one Next app = UI + all
-> HTTP APIs; Jobs not default; see
-> [Cloudflare fullstack refactor guidance](./cloudflare-fullstack-refactor-guidance.md)
-> and [AGENTS.md](../AGENTS.md) (Deploy and API topology). Until an authorized
-> migration lands, operate and document the three-service layout below.
+> | Path                                  | Role                                                                                                                                                                                       |
+> | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+> | **Default open-source local product** | `client/` — one Next app (UI + `/api/*`) + optional `jobs/` worker. See [LOCAL_RUN.md](./LOCAL_RUN.md).                                                                                    |
+> | **Archived legacy production layout** | `archive/apps/*` — former `web` + `api` + `worker` three-service Docker topology (below). Comparison / rollback reference only.                                                            |
+> | **Target delivery shape (not done)**  | One deployable Next app on managed data plane; Cloudflare Workers — see [cloudflare fullstack refactor guidance](./cloudflare-fullstack-refactor-guidance.md). **P4 Workers not started.** |
+>
+> Do not read this file as claiming Cloudflare Workers migration (P4) is complete.
 
-Gloaming can run on a VPS or a PaaS that supports Docker services or supervised Node processes. The production application has three independent services:
+## Default product (`client/`)
 
-| Service  | Image / entrypoint                        | Public access    | Role                               |
-| -------- | ----------------------------------------- | ---------------- | ---------------------------------- |
-| `web`    | `apps/web/Dockerfile`                     | Yes, port `3000` | Next.js app and `/api/*` proxy     |
-| `api`    | `apps/backend/Dockerfile` + `pnpm start`  | No, port `3333`  | Hono API, auth, and job enqueueing |
-| `worker` | `apps/backend/Dockerfile` + `pnpm worker` | No               | BullMQ jobs, ingest, and cleanup   |
+Operator outline (details: [LOCAL_RUN.md](./LOCAL_RUN.md)):
+
+| Process | Entry                                                              | Public           | Role                              |
+| ------- | ------------------------------------------------------------------ | ---------------- | --------------------------------- |
+| `web`   | `client/` — `pnpm build` / `next start` (or platform Next adapter) | Yes, port `3000` | UI + Route Handlers               |
+| `jobs`  | Same package — `pnpm jobs` (`jobs/worker.ts`)                      | No               | BullMQ ingest, discovery, cleanup |
+
+Environment template: [`client/.env.example`](../client/.env.example). PostgreSQL, Redis, and S3-compatible storage are external. Same-origin APIs — no `API_INTERNAL_URL` between web and API.
+
+Database migrations (repo root):
+
+```bash
+pnpm install
+pnpm db:migrate
+```
+
+---
+
+## Archived: three-service layout (`archive/apps/*`)
+
+The following described the **former** default production topology before N5 demote. Paths now live under `archive/`.
+
+Gloaming can run on a VPS or a PaaS that supports Docker services or supervised Node processes. That legacy application had three independent services:
+
+| Service  | Image / entrypoint                                | Public access    | Role                               |
+| -------- | ------------------------------------------------- | ---------------- | ---------------------------------- |
+| `web`    | `archive/apps/web/Dockerfile`                     | Yes, port `3000` | Next.js app and `/api/*` proxy     |
+| `api`    | `archive/apps/backend/Dockerfile` + `pnpm start`  | No, port `3333`  | Hono API, auth, and job enqueueing |
+| `worker` | `archive/apps/backend/Dockerfile` + `pnpm worker` | No               | BullMQ jobs, ingest, and cleanup   |
 
 PostgreSQL, Redis, and S3-compatible object storage are external dependencies. Resend is used for transactional email and Azure Speech is used for TTS.
 
@@ -41,7 +65,7 @@ Discover Save materialization and EPUB parsing use the separate `gloaming-discov
 
 ## Environment variables
 
-Use [`apps/web/.env.example`](../apps/web/.env.example), [`apps/backend/.env.example`](../apps/backend/.env.example), and [`apps/backend/.env.worker.example`](../apps/backend/.env.worker.example) as the source of variable names. Inject values through the platform secret manager; never commit them.
+Use [`archive/apps/web/.env.example`](../archive/apps/web/.env.example), [`archive/apps/backend/.env.example`](../archive/apps/backend/.env.example), and [`archive/apps/backend/.env.worker.example`](../archive/apps/backend/.env.worker.example) as the source of variable names. Inject values through the platform secret manager; never commit them.
 
 `web`:
 

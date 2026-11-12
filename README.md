@@ -29,87 +29,92 @@ Choose authentic English → Read → Contextual help when stuck → Keep readin
 
 Gloaming is not Duolingo, LingQ, Anki, a ChatGPT reading plugin, or an AI content factory. V1 spec: [`docs/product/mvp-scope.md`](./docs/product/mvp-scope.md). Development priorities: [`docs/product/roadmap.md`](./docs/product/roadmap.md).
 
-## Stack
+## Stack (local default)
 
-| Layer    | Tech                                                                                          |
-| -------- | --------------------------------------------------------------------------------------------- |
-| API      | Hono, Better Auth, Drizzle, PostgreSQL, Redis (port **6380**), session cookie (port **3333**) |
-| Web      | Next.js App Router, React, TanStack Query/Form, Tailwind CSS v4 (port **3000**)               |
-| Packages | pnpm workspace (`apps/*`, `packages/*`); `@gloaming/shared`, `@gloaming/db`                   |
+| Layer    | Tech                                                                                         |
+| -------- | -------------------------------------------------------------------------------------------- |
+| App      | **Next.js** (`client/`) — UI, `/api/*` Route Handlers, Better Auth, Drizzle                  |
+| Jobs     | Same package — BullMQ worker (`jobs/`, second process)                                       |
+| Data     | PostgreSQL, Redis (port **6380**), S3-compatible object storage                              |
+| Packages | `packages/*` (`@gloaming/shared`, `@gloaming/i18n`); DB schema inlined in `client/server/db` |
+
+The former Hono API + separate web app live under [`archive/`](./archive/) for comparison only (N5 demote).
 
 ## Requirements
 
 | Tool    | Version                              |
 | ------- | ------------------------------------ |
 | Node.js | ≥ 24.0.0                             |
-| pnpm    | ≥ 10.0.0                             |
+| pnpm    | ≥ 10.0.0 (or Bun at repo root)       |
 | Docker  | optional, for local Postgres + Redis |
 
 ## Local development
 
+Full runbook: [`docs/LOCAL_RUN.md`](./docs/LOCAL_RUN.md).
+
 ```bash
 git clone <repository-url>
-cd gloaming
-pnpm install
+cd gloaming-reader
 ```
 
-### 1. Start Postgres and Redis
+### 1. Start Postgres and Redis (repo root)
 
 ```bash
 pnpm compose:init
 docker compose up -d
 ```
 
-Defaults (from compose / `.env.example`):
+Defaults (from compose / `client/.env.example`):
 
 - Postgres: `127.0.0.1:5433`, database `gloaming_backend` (`DATABASE_URL`)
 - Redis: `127.0.0.1:6380` (`REDIS_URL`)
 
-### 2. Environment files
+### 2. Environment
 
 ```bash
-cp apps/backend/.env.example apps/backend/.env
-cp apps/web/.env.example apps/web/.env
+cp client/.env.example client/.env
 ```
 
-Edit the backend environment as needed. `BETTER_AUTH_SECRET` must be at least 16 characters:
+Edit as needed. `BETTER_AUTH_SECRET` must be at least 16 characters:
 
 ```bash
 openssl rand -base64 32
 ```
 
-### 3. Run DB migrations
+Set `FRONTEND_URL=http://localhost:3000`. APIs are same-origin `/api/*` (no `API_INTERNAL_URL`).
+
+### 3. Install and migrate (repo root)
 
 ```bash
+pnpm install   # or: bun install
 pnpm db:migrate
-# or during early development: pnpm db:push
 ```
 
-### 4. Run apps
+### 4. Run (two processes)
 
 ```bash
-# Terminal 1: API http://localhost:3333
-pnpm run dev:backend
+# Terminal 1 — Next http://localhost:3000
+pnpm dev
 
-# Terminal 2: Web http://localhost:3000
-pnpm run dev:web
+# Terminal 2 — BullMQ worker
+pnpm dev:jobs
 ```
 
 Open **http://localhost:3000**.
 
-## Common commands
+## Common commands (repo root)
 
 ```bash
 pnpm run lint
 pnpm run format:check
 pnpm run typecheck
-pnpm run test
 pnpm run build
+pnpm run build:jobs
 ```
 
 ## Production deployment
 
-The production application consists of `web`, `api`, and `worker` services. PostgreSQL, Redis, and S3-compatible object storage are external services. Build and deployment instructions: [`docs/deployment.md`](./docs/deployment.md).
+**Default narrative:** one Next app (`client/`) + optional jobs worker; data plane external. Legacy three-service Docker layout is documented for archived code — see [`docs/deployment.md`](./docs/deployment.md).
 
 ## License
 

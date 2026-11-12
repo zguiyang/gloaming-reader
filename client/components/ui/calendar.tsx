@@ -22,7 +22,6 @@ function Calendar({
 }) {
   const defaultClassNames = getDefaultClassNames();
 
-  /* eslint-disable @typescript-eslint/naming-convention -- react-day-picker component slots */
   const dayPickerComponents = {
     Root: ({ className, rootRef, ...props }: React.ComponentProps<'div'> & { rootRef?: React.Ref<HTMLDivElement> }) => {
       return <div data-slot="calendar" ref={rootRef} className={cn(className)} {...props} />;
@@ -52,7 +51,6 @@ function Calendar({
     },
     ...components,
   };
-  /* eslint-enable @typescript-eslint/naming-convention */
 
   return (
     <DayPicker

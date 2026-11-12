@@ -13,7 +13,7 @@ function asDotenvProcessEnv(processEnv: NodeJS.ProcessEnv): DotenvPopulateInput 
 /**
  * Resolve client env files for `node --import tsx jobs/worker.ts` and any
  * compiled layout under `dist/`. Prefer an existing file under `process.cwd()`
- * (start Jobs from `migration/client`), then the historical module-relative path
+ * (start Jobs from `client/`), then the historical module-relative path
  * (`server/infra/config` → package root).
  */
 function resolveClientEnvPath(fileName: '.env' | '.env.test'): string {

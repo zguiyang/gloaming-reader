@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention -- fast-xml-parser attribute keys (@_*) are non-negotiable */
 import * as cheerio from 'cheerio';
 
 import {

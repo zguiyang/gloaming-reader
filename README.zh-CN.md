@@ -29,88 +29,82 @@ Gloaming 意为“暮色”，指昼夜交界的微光，也对应一个安静�
 
 Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不是 AI 内容工厂。V1 规格：[`docs/product/mvp-scope.md`](./docs/product/mvp-scope.md)。开发优先级：[`docs/product/roadmap.md`](./docs/product/roadmap.md)。
 
-## 技术栈
+## 技术栈（本地默认路径）
 
-| 层     | 技术                                                                                            |
-| ------ | ----------------------------------------------------------------------------------------------- |
-| API    | Hono、Better Auth、Drizzle、PostgreSQL、Redis（端口 **6380**）、session cookie（端口 **3333**） |
-| Web    | Next.js App Router、React、TanStack Query/Form、Tailwind CSS v4（端口 **3000**）                |
-| 包管理 | pnpm workspace（`apps/*`、`packages/*`）；`@gloaming/shared`、`@gloaming/db`                    |
+| 层   | 技术                                                                        |
+| ---- | --------------------------------------------------------------------------- |
+| 应用 | **Next.js**（`client/`）— UI、`/api/*` Route Handlers、Better Auth、Drizzle |
+| Jobs | 同包 BullMQ worker（`jobs/`，第二个进程）                                   |
+| 数据 | PostgreSQL、Redis（端口 **6380**）、S3 兼容对象存储                         |
+| 包   | `packages/*`；数据库 schema 内联在 `client/server/db`                       |
+
+原 Hono API + 独立 web 应用在 [`archive/`](./archive/)（N5 降级，仅对照）。
 
 ## 环境要求
 
-| 工具    | 版本                            |
-| ------- | ------------------------------- |
-| Node.js | ≥ 24.0.0                        |
-| pnpm    | ≥ 10.0.0                        |
-| Docker  | 可选，用于本地 Postgres + Redis |
+| 工具    | 版本                             |
+| ------- | -------------------------------- |
+| Node.js | ≥ 24.0.0                         |
+| pnpm    | ≥ 10.0.0（或在仓库根目录用 Bun） |
+| Docker  | 可选，用于本地 Postgres + Redis  |
 
 ## 本地开发
 
+完整说明：[`docs/LOCAL_RUN.md`](./docs/LOCAL_RUN.md)。
+
 ```bash
 git clone <repository-url>
-cd gloaming
-pnpm install
+cd gloaming-reader
 ```
 
-### 1. 启动 Postgres 和 Redis
+### 1. 启动 Postgres 与 Redis（仓库根目录）
 
 ```bash
 pnpm compose:init
 docker compose up -d
 ```
 
-默认连接（来自 compose / `.env.example`）：
+默认连接见 `client/.env.example`：
 
-- Postgres：`127.0.0.1:5433`，数据库 `gloaming_backend`（`DATABASE_URL`）
-- Redis：`127.0.0.1:6380`（`REDIS_URL`）
+- Postgres：`127.0.0.1:5433`，库 `gloaming_backend`
+- Redis：`127.0.0.1:6380`
 
-### 2. 配置环境变量
+### 2. 环境变量
 
 ```bash
-cp apps/backend/.env.example apps/backend/.env
-cp apps/web/.env.example apps/web/.env
+cp client/.env.example client/.env
 ```
 
-按需编辑 backend 环境变量。`BETTER_AUTH_SECRET` 至少 16 个字符：
+`BETTER_AUTH_SECRET` 至少 16 个字符。设置 `FRONTEND_URL=http://localhost:3000`。API 为同源 `/api/*`，无需 `API_INTERNAL_URL`。
+
+### 3. 安装与迁移（仓库根目录）
 
 ```bash
-openssl rand -base64 32
-```
-
-### 3. 运行数据库迁移
-
-```bash
+pnpm install   # 或 bun install
 pnpm db:migrate
-# 或开发期：pnpm db:push
 ```
 
-### 4. 启动应用
+### 4. 运行（两个进程）
 
 ```bash
-# 终端 1：API http://localhost:3333
-pnpm run dev:backend
-
-# 终端 2：Web http://localhost:3000
-pnpm run dev:web
+pnpm dev        # Next → http://localhost:3000
+pnpm dev:jobs   # BullMQ worker
 ```
 
-浏览器打开 **http://localhost:3000**。
-
-## 常用命令
+## 常用命令（仓库根）
 
 ```bash
 pnpm run lint
 pnpm run format:check
 pnpm run typecheck
-pnpm run test
 pnpm run build
+pnpm run build:jobs
 ```
 
 ## 生产部署
 
-生产应用由 `web`、`api`、`worker` 三个服务组成；PostgreSQL、Redis 和 S3 兼容对象存储使用外部服务。部署说明见 [`docs/deployment.md`](./docs/deployment.md)。
+默认叙事：单 Next 应用 + 可选 jobs worker。旧三服务部署说明见 [`docs/deployment.md`](./docs/deployment.md)（含归档对照）。
 
-## License
+## 许可证
 
 见 [LICENSE](./LICENSE)。

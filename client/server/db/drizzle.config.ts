@@ -9,7 +9,7 @@ config({ path: resolve(clientRoot, '.env'), override: false });
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL is required (set in migration/client/.env)');
+  throw new Error('DATABASE_URL is required (set in client/.env)');
 }
 
 export default defineConfig({

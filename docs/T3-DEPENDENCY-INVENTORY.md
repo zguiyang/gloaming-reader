@@ -1,4 +1,4 @@
-# T3 — Workers-hostile dependency inventory (`migration/client`)
+# T3 — Workers-hostile dependency inventory (`client/`)
 
 **Status:** Working inventory (not a Workers readiness claim).  
 **Scope:** What the local full-stack tree uses today vs what P4 must revisit.
@@ -15,8 +15,8 @@
 | **Vercel AI SDK + `@ai-sdk/openai`** | `domains/ai/runtime`                             | Keep (T1 done)                            | Compatible in principle; outbound fetch + secrets.                                                                 |
 | **Better Auth + Drizzle adapter**    | `server/infra/auth`                              | Keep                                      | Cookie/session + Node crypto paths need P4 verification.                                                           |
 | **`rate-limiter-flexible`**          | Next HTTP rate limit helper                      | Keep with Redis                           | Same Redis story as above.                                                                                         |
-| **Vendored `iconv-lite`**            | `migration/vendor`                               | Install workaround (Cursor `.idea` block) | Irrelevant to runtime shape.                                                                                       |
-| **Hono / LangChain / Speech SDK**    | `_legacy_hono/` only                             | Not mounted                               | Must stay out of live graph.                                                                                       |
+| **Vendored `iconv-lite`**            | `vendor/`                                        | Install workaround (Cursor `.idea` block) | Irrelevant to runtime shape.                                                                                       |
+| **Hono / LangChain / Speech SDK**    | _(removed from extract tree)_                    | Not in live graph                         | Compare against `apps/backend` if needed; must stay out of live graph.                                             |
 
 ## Explicit non-claims
 

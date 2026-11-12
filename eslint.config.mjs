@@ -1,79 +1,13 @@
 import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
 import eslintConfigPrettier from 'eslint-config-prettier';
-import boundaries from 'eslint-plugin-boundaries';
-import importX from 'eslint-plugin-import-x';
-import simpleImportSort from 'eslint-plugin-simple-import-sort';
-import globals from 'globals';
-import tseslint from 'typescript-eslint';
 
-const nodeSourceFiles = [
-  'packages/shared/**/*.{js,mjs,ts}',
-  'packages/i18n/**/*.{js,mjs,ts}',
-  'packages/db/**/*.{js,mjs,ts}',
-  'apps/backend/**/*.{js,mjs,ts}',
-];
+import clientEslint from './client/eslint.config.mjs';
 
-/** Node packages/apps TypeScript files covered by a TSConfig project (excludes shared *.spec.ts). */
-const typedNodeFiles = [
-  'packages/shared/src/**/*.ts',
-  'packages/i18n/src/**/*.ts',
-  'packages/db/src/**/*.ts',
-  'apps/backend/src/**/*.ts',
-  'apps/backend/tests/**/*.ts',
-];
-
-const nextFiles = ['apps/web/**/*.{js,jsx,mjs,ts,tsx}'];
-
-const typedNextFiles = ['apps/web/**/*.{ts,tsx}'];
-
-const allSourceFiles = [...nodeSourceFiles, ...nextFiles];
-
-const namingConventionBase = [
-  {
-    selector: 'default',
-    format: ['camelCase'],
-    leadingUnderscore: 'allow',
-    trailingUnderscore: 'allow',
-  },
-  {
-    selector: 'variable',
-    filter: {
-      regex: '^__',
-      match: true,
-    },
-    format: null,
-  },
-  { selector: 'typeLike', format: ['PascalCase'] },
-  {
-    selector: 'function',
-    format: ['camelCase', 'PascalCase'],
-    leadingUnderscore: 'allow',
-  },
-  {
-    selector: 'variable',
-    format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
-    leadingUnderscore: 'allow',
-  },
-  { selector: 'enumMember', format: ['PascalCase', 'UPPER_CASE'] },
-  { selector: 'import', format: ['camelCase', 'PascalCase'] },
-  { selector: 'objectLiteralProperty', format: null },
-  {
-    selector: 'typeProperty',
-    format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
-    leadingUnderscore: 'allow',
-  },
-];
-
-/** Scope Next flat configs to apps/web only (they default to repo-wide globs). */
-function scopeToWeb(configs) {
-  return configs.map((config) => ({
-    ...config,
-    files: nextFiles,
-  }));
-}
+/**
+ * Root ESLint: repo tooling + product tree (`client/`). Legacy tree under `archive/` is not linted by default.
+ */
+const rootToolingFiles = ['eslint.config.mjs', 'prettier.config.js', 'commitlint.config.js'];
 
 export default defineConfig([
   globalIgnores([
@@ -83,238 +17,34 @@ export default defineConfig([
     '**/out/**',
     '**/build/**',
     '**/*.tsbuildinfo',
-    'apps/web/next-env.d.ts',
     '.trellis/**',
     '.pnpm-store/**',
-    '**/vitest.config.ts',
-    '**/postcss.config.mjs',
-    '**/drizzle.config.ts',
-    // Extract staging tree has its own eslint (migration/client); keep root lint scoped.
-    'migration/**',
+    'archive/**',
+    '.agents/**',
   ]),
 
-  {
-    files: allSourceFiles,
-    plugins: {
-      'simple-import-sort': simpleImportSort,
-      'import-x': importX,
-      boundaries,
-      '@typescript-eslint': tseslint.plugin,
-    },
-    settings: {
-      'boundaries/elements': [
-        { type: 'web', pattern: 'apps/web/**' },
-        { type: 'backend', pattern: 'apps/backend/**' },
-        { type: 'shared', pattern: 'packages/shared/**' },
-        { type: 'i18n', pattern: 'packages/i18n/**' },
-        { type: 'db', pattern: 'packages/db/**' },
-      ],
-    },
-    rules: {
-      'simple-import-sort/imports': [
-        'error',
-        {
-          groups: [['^\\u0000'], ['^node:'], ['^@?\\w'], ['^@gloaming/'], ['^@/'], ['^\\.']],
-        },
-      ],
-      'simple-import-sort/exports': 'error',
-      'import-x/no-cycle': 'error',
-      'import-x/no-unused-modules': 'warn',
-      'import-x/order': 'off',
-      'import/order': 'off',
-      'sort-imports': 'off',
-      // Ban .js/.mjs/.cjs/.jsx suffixes in TS/TSX imports (targets are almost always TS modules).
-      // Real .js modules are rare — use eslint-disable-next-line with a one-line reason if needed.
-      // Complements: allowImportingTsExtensions (shared tsconfig) + vscode importModuleSpecifierEnding: minimal.
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              regex: '\\.(js|mjs|cjs|jsx)$',
-              message: 'Do not use JavaScript extensions in TypeScript imports; use .ts/.tsx or omit the extension.',
-            },
-            {
-              group: ['@gloaming/shared/src/**'],
-              message: 'Do not deep-import package implementation; use declared @gloaming/shared package entrypoints.',
-            },
-            {
-              group: ['@gloaming/db/src/**'],
-              message: 'Do not deep-import package implementation; use declared @gloaming/db package entrypoints.',
-            },
-            {
-              group: ['@gloaming/i18n/src/**'],
-              message: 'Do not deep-import package implementation; use declared @gloaming/i18n package entrypoints.',
-            },
-          ],
-        },
-      ],
-      'boundaries/dependencies': [
-        'error',
-        {
-          default: 'allow',
-          policies: [
-            {
-              from: { element: { type: 'web' } },
-              disallow: { to: { element: { type: 'backend' } } },
-            },
-            {
-              from: { element: { type: 'backend' } },
-              disallow: { to: { element: { type: 'web' } } },
-            },
-            {
-              from: { element: { type: 'shared' } },
-              disallow: { to: { element: { types: { anyOf: ['web', 'backend', 'db', 'i18n'] } } } },
-            },
-            {
-              from: { element: { type: 'i18n' } },
-              disallow: { to: { element: { types: { anyOf: ['web', 'backend', 'db', 'shared'] } } } },
-            },
-            {
-              from: { element: { type: 'db' } },
-              disallow: { to: { element: { types: { anyOf: ['web', 'backend', 'shared', 'i18n'] } } } },
-            },
-          ],
-        },
-      ],
-      '@typescript-eslint/naming-convention': ['error', ...namingConventionBase],
-      '@typescript-eslint/consistent-type-imports': [
-        'error',
-        {
-          prefer: 'type-imports',
-          fixStyle: 'separate-type-imports',
-        },
-      ],
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: 'ExportNamedDeclaration[exportKind="value"] > ExportSpecifier[exportKind="type"]',
-          message:
-            'Split mixed type and value exports into separate `export type { ... }` and `export { ... }` declarations.',
-        },
-      ],
-    },
-  },
+  ...clientEslint,
 
   {
-    files: nodeSourceFiles,
-    extends: [js.configs.recommended, ...tseslint.configs.recommended, eslintConfigPrettier],
-    languageOptions: {
-      ecmaVersion: 2023,
-      sourceType: 'module',
-      globals: {
-        ...globals.node,
-      },
-    },
+    files: ['**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-unused-vars': [
-        'error',
+        'warn',
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
         },
       ],
-      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
 
   {
-    files: typedNodeFiles,
-    ignores: ['packages/shared/src/**/*.spec.ts', 'packages/i18n/src/**/*.spec.ts'],
+    files: rootToolingFiles,
+    extends: [js.configs.recommended, eslintConfigPrettier],
     languageOptions: {
-      parser: tseslint.parser,
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
-    rules: {
-      '@typescript-eslint/consistent-type-exports': [
-        'error',
-        {
-          fixMixedExportsWithInlineTypeSpecifier: false,
-        },
-      ],
-    },
-  },
-
-  ...scopeToWeb(nextVitals),
-  ...scopeToWeb(nextTs),
-  {
-    files: nextFiles,
-    languageOptions: {
-      parser: tseslint.parser,
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
-    settings: {
-      next: {
-        rootDir: 'apps/web',
-      },
-    },
-    rules: {
-      '@typescript-eslint/naming-convention': [
-        'error',
-        ...namingConventionBase,
-        {
-          selector: 'variable',
-          types: ['boolean'],
-          format: ['camelCase', 'PascalCase'],
-          prefix: ['is', 'has', 'can', 'should', 'enable'],
-        },
-      ],
-    },
-  },
-  {
-    files: typedNextFiles,
-    languageOptions: {
-      parser: tseslint.parser,
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
-    settings: {
-      next: {
-        rootDir: 'apps/web',
-      },
-    },
-    rules: {
-      '@typescript-eslint/consistent-type-exports': [
-        'error',
-        {
-          fixMixedExportsWithInlineTypeSpecifier: false,
-        },
-      ],
-    },
-  },
-  {
-    files: nextFiles,
-    ...eslintConfigPrettier,
-  },
-
-  {
-    files: ['apps/backend/src/infra/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              regex: '\\.(js|mjs|cjs|jsx)$',
-              message: 'Do not use JavaScript extensions in TypeScript imports; use .ts/.tsx or omit the extension.',
-            },
-            {
-              group: ['@/domains/**'],
-              message:
-                'Backend infra must not import domain modules; depend on application wiring, public domain entrypoints, or shared contracts instead.',
-            },
-          ],
-        },
-      ],
+      ecmaVersion: 2023,
+      sourceType: 'module',
     },
   },
 ]);

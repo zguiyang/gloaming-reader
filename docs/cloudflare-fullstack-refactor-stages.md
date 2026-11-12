@@ -45,7 +45,7 @@ P0  规则对齐（消冲突）                 ✅ 已完成
 P1  Next-on-Workers 前置可行性         ✅ 已完成（绿场探针；见 Appendix A）
 P2  旁路新树 + 迁入切片 backlog        ✅ backlog 已写入 §4；执行仍需逐片授权
 P3  migration/ 建树 → 迁前端 → 迁后端 → 瘦身  ← N3∥N4 本地切流已就绪；N5 另授权
-P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未开始）
+P4  `client/` 上 Workers 真实兼容       迁入差不多之后（未开始）
 ```
 
 | 阶段   | 目的                                              | 产出                                   | 明确不做                         |
@@ -56,7 +56,9 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未�
 | **P3** | 旁路 `migration/`、迁 UI/API、换方案、再瘦身      | 可运行的 `migration/client` 与对照策略 | 不把「上 CF 冒烟」当本阶段主线   |
 | **P4** | 对 **`migration/` 新结构**做 Workers 真实兼容验证 | 平台结论（Free / Paid / 再降复杂度）   | 不对未迁完的旧三件套做兼容鉴定   |
 
-**P3 本地进度（2026-11-12）：** N0–N2 脚手架/壳已落地；本波完成 **N3∥N4 本地切流**——`migration/client` 含全量 UI + Next Route Handlers（无嵌 Hono）+ 同包 BullMQ worker 第二进程；T1（AI SDK）/ T2（Azure Speech REST）在迁入路径生效。巩固波：对照表 [`migration/PROCESS_COMPARE.md`](../migration/PROCESS_COMPARE.md)、T3 清单 [`migration/T3-DEPENDENCY-INVENTORY.md`](../migration/T3-DEPENDENCY-INVENTORY.md)、限流 [`migration/RATE_LIMIT.md`](../migration/RATE_LIMIT.md)、assist tools 已接 AI SDK。详见 [`migration/LOCAL_RUN.md`](../migration/LOCAL_RUN.md)。**未做：** N5 删旧 apps、R5 Jobs 终态书面定案、**P4** Workers。
+**P3 本地进度（2026-11-12）：** N0–N2 脚手架/壳已落地；本波完成 **N3∥N4 本地切流**——`client/` 含全量 UI + Next Route Handlers（无嵌 Hono）+ 同包 BullMQ worker 第二进程；T1（AI SDK）/ T2（Azure Speech REST）在迁入路径生效。巩固波：对照表 [`PROCESS_COMPARE.md`](./PROCESS_COMPARE.md)、T3 清单 [`T3-DEPENDENCY-INVENTORY.md`](./T3-DEPENDENCY-INVENTORY.md)、限流 [`RATE_LIMIT.md`](./RATE_LIMIT.md)、assist tools 已接 AI SDK。详见 [`LOCAL_RUN.md`](./LOCAL_RUN.md)。
+
+**N5（2026-11-12）：** 根 `apps/*` 与根 `packages/*` 已迁至 **`archive/`**；**step ③ 根提升已完成**（`migration/` 信封已取消，`client/` + `packages/` 为产品根 workspace）。**未做：** R5 Jobs 终态书面定案、**P4** Workers。
 
 ---
 
@@ -177,7 +179,7 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未�
     （eslint/prettier/tsconfig 等共享配置：在 migration 内自备副本或可提取的根配置）
 ```
 
-应用内 `client/shared/` 与跨包 `migration/packages/*` 的分工见 [`migration/client/STRUCTURE.md`](../migration/client/STRUCTURE.md)。
+应用内 `client/shared/` 与跨包 `packages/*` 的分工见 [`client/STRUCTURE.md`](../client/STRUCTURE.md)。
 
 #### 4.1.1 共享包与共享配置（必虑）
 
@@ -190,7 +192,7 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未�
 | **共享包落点**           | 仍是跨 client（及将来 jobs）边界的契约/DB/i18n → 放进 `migration/packages/*` 并保持权威源在新树；**仅 client 内 UI↔server 共用**的契约 → 放 `client/shared/`；其它仅 client 使用且无第二消费者的代码可先放 `client` 内，证明复用后再提升到 `migration/packages`（L8：部署合并 ≠ 糊掉边界） |
 | **迁共享包节奏**         | N0 可只建空 `migration/packages/` 或最小 stub；N2–N4 按真实 import **按需拷贝/改写**进新树，并切到 AI SDK / TTS REST / 去 Workers 不友好依赖；禁止「新 client 长期 `file:../../packages/shared` 指回旧树」作为终态（提取会断）                                                             |
 | **共享配置**             | eslint / prettier / tsconfig / DESIGN 相关 token：**在 `migration/` 内放可提取副本**（可从根复制起步）；过渡期允许暂时 extends 根文件，但 N5/提取前必须收束到 migration 内                                                                                                                 |
-| **双 workspace**         | 过渡期根 workspace 与 `migration/` workspace **并存**；根脚本默认仍指向旧 apps；新树用 `pnpm --dir migration …`（或文档化等价命令）                                                                                                                                                        |
+| **双 workspace**         | 根 workspace 仅仓库工具；产品 workspace 在 **`migration/`**（N5 demote 后根脚本默认 `pnpm --dir migration …` 或根脚本转发）                                                                                                                                                                |
 
 **N0 不做的事：** 改坏根 `pnpm-workspace.yaml` 导致旧 `apps/web|backend` 装不了；把 Jobs/BullMQ/Hono 独立服务接进 `migration/`。
 
