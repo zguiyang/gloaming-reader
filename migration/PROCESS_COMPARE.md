@@ -6,7 +6,7 @@ Local cutover target for `migration/client` (not Cloudflare).
 | --------------------- | ----------------------------------------- | ------------------------------------------------------------------------------- |
 | UI                    | `apps/web` Next                           | `migration/client` Next                                                         |
 | HTTP API              | `apps/backend` Hono                       | Same Next app — `app/api/**` Route Handlers                                     |
-| Jobs                  | Backend worker entry / separate process   | Same package — `pnpm worker` / `server/worker.ts`                               |
+| Jobs                  | Backend worker entry / separate process   | Same package — run `pnpm jobs` (`tsx`); package gate `build:jobs` (`tsc`)       |
 | Process count (local) | **3** (web + api + worker)                | **2** (Next + worker)                                                           |
 | Auth                  | Better Auth on Hono; web may proxy `/api` | Better Auth via `toNextJsHandler` same-origin `/api/auth`                       |
 | Shared DB schema      | `@gloaming/db` package                    | **Inlined** `client/server/db/`                                                 |

@@ -4,8 +4,7 @@ Extract staging tree for the next Gloaming repo root. Contents of this directory
 
 ## Layout
 
-- `client/` — Next.js app (**UI + all HTTP APIs** + same-package worker entry). Target tree: [`client/STRUCTURE.md`](./client/STRUCTURE.md).
-- `jobs/` — empty placeholder (Jobs run as `client` second process for local open-source; CF Queues undecided — R5).
+- `client/` — Next.js app (**UI + all HTTP APIs** + same-package Jobs at `client/jobs/`). Target tree: [`client/STRUCTURE.md`](./client/STRUCTURE.md).
 - `packages/` — transitional workspace packages (`shared`, `i18n`). **No `packages/db`** — schema is inlined at `client/server/db/`. See [`packages/README.md`](./packages/README.md).
 - [`LOCAL_RUN.md`](./LOCAL_RUN.md) — local dual-process runbook + smoke checklist.
 
@@ -18,7 +17,7 @@ cd migration
 bun install   # or pnpm install — see LOCAL_RUN.md if pnpm extract fails
 pnpm --filter @gloaming/client db:migrate
 pnpm --filter @gloaming/client dev
-pnpm --filter @gloaming/client dev:worker
+pnpm --filter @gloaming/client dev:jobs
 ```
 
 Do not point the new client at root `packages/*` via permanent `file:` deps.

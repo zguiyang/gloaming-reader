@@ -5,11 +5,11 @@ Run the **new** tree locally: Next (UI + Route Handlers) + same-package BullMQ w
 
 ## Processes
 
-| Old (three)                | New (two)                                                                 |
-| -------------------------- | ------------------------------------------------------------------------- |
-| `apps/web` (Next)          | `migration/client` Next — UI **and** `/api/*`                             |
-| `apps/backend` HTTP (Hono) | _(folded into Next Route Handlers)_                                       |
-| `apps/backend` worker      | `pnpm --filter @gloaming/client worker` (same package, second OS process) |
+| Old (three)                | New (two)                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `apps/web` (Next)          | `migration/client` Next — UI **and** `/api/*`                                    |
+| `apps/backend` HTTP (Hono) | _(folded into Next Route Handlers)_                                              |
+| `apps/backend` worker      | `pnpm --filter @gloaming/client jobs` (`client/jobs/`; second OS process; `tsx`) |
 
 Shared data plane: Postgres + Redis + S3 (same as today).
 
@@ -59,8 +59,20 @@ Two terminals from `migration/`:
 
 ```bash
 pnpm --filter @gloaming/client dev
-pnpm --filter @gloaming/client dev:worker
+pnpm --filter @gloaming/client dev:jobs
 ```
+
+Jobs runtime uses **`tsx`** against `jobs/worker.ts` (no Next bundling):
+`node --import tsx` for one-shot runs, `tsx watch` for `dev:jobs`. Package gate
+is native TypeScript check (`tsc -p tsconfig.jobs.json`); workspace packages
+still ship `.ts` sources, so start stays on the tsx loader:
+
+```bash
+pnpm --filter @gloaming/client build:jobs
+pnpm --filter @gloaming/client start:jobs
+```
+
+(`dev:worker` / `worker` remain aliases of `dev:jobs` / `jobs`.)
 
 - UI: http://localhost:3000
 - Health: `GET /api/health/live`, `GET /api/health/ready`

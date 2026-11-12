@@ -5,7 +5,7 @@
 
 | Dependency / pattern                 | Where                                            | Local open-source                         | Workers (P4)                                                                                                       |
 | ------------------------------------ | ------------------------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **BullMQ + Redis queues**            | `server/worker.ts`, `server/infra/queue`         | **Keep** as second OS process             | Must replace or isolate (Queues / external worker / paid long tasks). Do **not** pretend Free Workers runs BullMQ. |
+| **BullMQ + Redis queues**            | `jobs/worker.ts`, `server/infra/queue`           | **Keep** as second OS process             | Must replace or isolate (Queues / external worker / paid long tasks). Do **not** pretend Free Workers runs BullMQ. |
 | **`pg` / Drizzle**                   | `server/infra/db`, `server/db`                   | Keep (Node)                               | Needs Workers-compatible Postgres driver / Hyperdrive / external fetch DB — decide in P4.                          |
 | **`ioredis`**                        | cache, queue, auth secondary storage, rate limit | Keep                                      | Edge Redis client or HTTP Redis; session secondary storage redesign.                                               |
 | **`sharp`**                          | ingest / image optimize                          | Keep for Node worker/API                  | Native binary — isolate to Jobs or replace.                                                                        |

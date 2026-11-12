@@ -145,8 +145,8 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未�
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 旁路信封       | 仓库根下建 **`migration/`**：迁出**暂存区**。迁入期间对照旧 `apps/*` / `packages/*`；**将来把 `migration/` 内的内容提取为新仓库根**（信封目录名本身不必进新产品名） |
 | 旧树不动       | 保持现有 `apps/web`、`apps/backend`、根 `packages/*`、根 workspace **现状可跑**，便于对照、防漏改                                                                   |
-| 本阶段新树要有 | 自有 **pnpm workspace** + **`client`**（最新 Next + shadcn；将来 UI+API）+ 空 **`jobs/`** 占位 + 自有 **`packages/`**（见 §4.1.1）                                  |
-| Jobs           | 空目录占位；**本阶段不实现、不接线**                                                                                                                                |
+| 本阶段新树要有 | 自有 **pnpm workspace** + **`client`**（最新 Next + shadcn；将来 UI+API）+ 自有 **`packages/`**（见 §4.1.1）                                                        |
+| Jobs           | 同包面：`client/jobs/`（入口+处理器）；**非** `migration/jobs/` 旁路占位；非默认 CF 拓扑（R5）                                                                      |
 | Backend        | **暂不**在新树建独立 backend/worker 包；API 后续进 `client`                                                                                                         |
 | 迁入顺序       | ① Next+shadcn+样式基础 → ② 前端 → ③ 后端进 `client` → ④ 再瘦身旧交付                                                                                                |
 | 依赖纪律       | 不装 LangChain → AI SDK（L6）；TTS → Azure Speech REST/HTTP（L5）；审查 Workers 不友好依赖（T3）                                                                    |
@@ -171,8 +171,8 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未�
       server/                        # domains | infra | application | db（内化）| worker.ts
       constants/ | public/
       STRUCTURE.md                   # 目录约定与依赖方向
-    jobs/                            # 空占位；本阶段 Jobs 跑在 client 同包 worker（非默认 CF 拓扑）
     packages/                        # 过渡：shared + i18n；**无** packages/db（schema 在 client/server/db）
+                                     # Jobs 面：`client/jobs/`（同包第二进程；非默认 CF 拓扑；R5 仍开）
     LOCAL_RUN.md                     # 本地双进程跑通说明
     （eslint/prettier/tsconfig 等共享配置：在 migration 内自备副本或可提取的根配置）
 ```
@@ -233,10 +233,10 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未�
 
 #### C. 产品路径（可并行调研，合入不抢 N0–N3）
 
-| ID     | 切片            | 目的                                               | 门禁                          |
-| ------ | --------------- | -------------------------------------------------- | ----------------------------- |
-| **R4** | Discover 按需   | L3；源无按需则改范围                               | 禁止偷回全量 Gutenberg 主路径 |
-| **R5** | Jobs 策略书面化 | `migration/jobs/` 空占位 +「非默认」说明；实现后置 | 不假装 Queues/EPUB 落点已定   |
+| ID     | 切片            | 目的                                              | 门禁                          |
+| ------ | --------------- | ------------------------------------------------- | ----------------------------- |
+| **R4** | Discover 按需   | L3；源无按需则改范围                              | 禁止偷回全量 Gutenberg 主路径 |
+| **R5** | Jobs 策略书面化 | 本地：`client/jobs/` 同包第二进程；CF Queues 仍开 | 不假装 Queues/EPUB 落点已定   |
 
 #### D. 平台（后置）
 
