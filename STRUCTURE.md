@@ -55,8 +55,12 @@ lib       ──✘──  server/domains
 
 ## Package layout
 
-This repo is a **single pnpm package** (`package.json` at root).  
-`pnpm-workspace.yaml` exists only to declare `allowBuilds` for native deps (not a multi-package workspace).
+This repo is a **single pnpm package** (`package.json` at root). There is **no**
+multi-package workspace (`packages:` list).
+
+pnpm 11 stores dependency build approvals in `pnpm-workspace.yaml` (`allowBuilds`
+for `sharp` / `esbuild` / `workerd` / …). That file is **not** a monorepo
+manifest here—deleting it makes `pnpm install` recreate placeholders.
 
 ## Explicit non-goals
 

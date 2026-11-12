@@ -1,4 +1,5 @@
-# Not a multi-package workspace. pnpm 11 keeps allowBuilds here for native deps.
+# pnpm 11 project settings only — NOT a multi-package workspace (no packages:).
+# Required for native dependency lifecycle scripts (sharp/esbuild/workerd/…).
 allowBuilds:
   esbuild: true
   msgpackr-extract: true
