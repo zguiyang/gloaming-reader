@@ -510,9 +510,10 @@ export type DiscoverySourceEnabledUpdate = z.infer<typeof discoverySourceEnabled
 /**
  * Manual sync trigger outcome. `already_running` means a queued/syncing run is
  * still pending; `disabled` means the source `enabled=false` and no new run was
- * claimed. Both are accepted without enqueuing a second job.
+ * claimed. `unavailable` means Jobs no longer runs full catalog sync (on-demand
+ * discovery path). The first two are accepted without enqueuing a second job.
  */
-export const DISCOVERY_SYNC_TRIGGER_RESULTS = ['queued', 'already_running', 'disabled'] as const;
+export const DISCOVERY_SYNC_TRIGGER_RESULTS = ['queued', 'already_running', 'disabled', 'unavailable'] as const;
 export type DiscoverySyncTriggerResult = (typeof DISCOVERY_SYNC_TRIGGER_RESULTS)[number];
 export const discoverySyncTriggerResultSchema = z.object({
   result: z.enum(DISCOVERY_SYNC_TRIGGER_RESULTS),

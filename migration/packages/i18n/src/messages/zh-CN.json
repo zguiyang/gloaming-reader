@@ -538,7 +538,8 @@
       "toast": {
         "queued": "已加入后台同步队列。",
         "alreadyRunning": "已有同步任务正在运行。",
-        "disabled": "来源已停用，无法手动同步。"
+        "disabled": "来源已停用，无法手动同步。",
+        "unavailable": "全量目录同步已停用；发现改为按需，不再入 Jobs 队列。"
       },
       "run": {
         "title": "同步运行",

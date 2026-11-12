@@ -538,7 +538,8 @@
       "toast": {
         "queued": "Background sync queued.",
         "alreadyRunning": "A sync is already running.",
-        "disabled": "Sync is unavailable while this source is disabled."
+        "disabled": "Sync is unavailable while this source is disabled.",
+        "unavailable": "Full catalog sync is disabled; discovery is on-demand and no longer queued to Jobs."
       },
       "run": {
         "title": "Sync run",

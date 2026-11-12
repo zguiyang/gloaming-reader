@@ -95,9 +95,11 @@ export function DiscoverySourcesPage() {
         return;
       }
       toast.warning(
-        accepted.result === 'disabled'
-          ? t(locale, 'admin.discoverySources.toast.disabled')
-          : t(locale, 'admin.discoverySources.toast.alreadyRunning'),
+        accepted.result === 'unavailable'
+          ? t(locale, 'admin.discoverySources.toast.unavailable')
+          : accepted.result === 'disabled'
+            ? t(locale, 'admin.discoverySources.toast.disabled')
+            : t(locale, 'admin.discoverySources.toast.alreadyRunning'),
       );
     } catch (error) {
       toast.error(formatDiscoverySourcesApiError(error) || operationFailed);

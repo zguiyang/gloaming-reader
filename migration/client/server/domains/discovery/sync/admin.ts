@@ -19,12 +19,8 @@ import {
 } from '@/server/domains/discovery/gutenberg/constants';
 import type { DiscoverySourceRow, DiscoverySyncRunRow } from '@/server/domains/discovery/sync/repository';
 import {
-  claimSourceQueued,
   countSourceRecords,
-  createDiscoverySyncRun,
   ensureDiscoverySource,
-  failDiscoverySyncRunQueued,
-  failQueuedClaim,
   getLatestDiscoverySyncRun,
   listDiscoverySyncRuns,
   recoverStaleDiscoverySyncRun,
@@ -33,7 +29,7 @@ import {
 } from '@/server/domains/discovery/sync/repository';
 import { db } from '@/server/infra/db';
 import { rootLogger } from '@/server/infra/logging/logger';
-import { enqueueDiscoverySync, getDiscoverySyncQueue } from '@/server/infra/queue';
+import { getDiscoverySyncQueue } from '@/server/infra/queue';
 
 const logger = rootLogger.child({ module: 'DiscoverySourceAdmin' });
 
@@ -246,78 +242,10 @@ export async function setProjectGutenbergSourceEnabled(enabled: boolean): Promis
 }
 
 /**
- * Requests one manual Project Gutenberg metadata sync. Returns immediately after
- * enqueuing the background snapshot sync. A disabled source is never claimed, and
- * a pending run keeps its claim, so repeated triggers return `disabled` or
- * `already_running` instead of stacking jobs. A stale queued claim with no
- * live queue job — or a stale syncing run — is first recovered as a timed-out
- * failure; that recovery alone does not start a new run — this trigger then
- * claims (issuing a fresh claim generation token) and enqueues one.
- *
- * `input.force` (only the literal `true`) marks the job as a full refresh: the
- * run then skips the conditional `If-Modified-Since` request. Every other input
- * keeps the job data byte-identical to a pre-force delivery — queue name, job
- * id rule, and claim semantics are untouched.
+ * Full Gutenberg catalog sync is no longer queued to Jobs (on-demand discovery).
+ * Kept as a stable admin API that reports `unavailable` instead of enqueuing.
  */
 export async function requestProjectGutenbergSync(input: { force?: boolean } = {}): Promise<DiscoverySyncAccepted> {
-  const force = input.force === true;
-  const source = await recoverStaleRun(await loadProjectGutenbergSource());
-  if (!source.enabled) {
-    return { result: 'disabled' };
-  }
-  const claimedAt = await claimSourceQueued(source.id);
-  if (!claimedAt) {
-    // Re-read: the source may have been disabled between the check and the claim.
-    const current = await loadProjectGutenbergSource();
-    return { result: current.enabled ? 'already_running' : 'disabled' };
-  }
-  // Durable run row for this claim generation, created before the job is
-  // enqueued so "queued but never started" is observable. Idempotent on the
-  // claim token; the run's own guarded create is a no-op for the same token.
-  await createDiscoverySyncRun({ sourceId: source.id, claimToken: claimedAt, now: new Date() });
-
-  try {
-    await enqueueDiscoverySync(
-      JOB_DISCOVERY_SYNC,
-      {
-        sourceKey: PROJECT_GUTENBERG_SOURCE_KEY,
-        claimedAt: claimedAt.toISOString(),
-        // Added only on the explicit opt-in, so a default trigger's job data
-        // stays exactly as before force support existed.
-        ...(force ? { force: true } : {}),
-      },
-      { attempts: 1, jobId: discoverySyncJobId(PROJECT_GUTENBERG_SOURCE_KEY, claimedAt) },
-    );
-  } catch {
-    // Sanitized summary only: enqueue failures may carry connection details.
-    // Owner-guarded: only the exact claim issued above can be failed here, and
-    // the run row closes with the same sanitized summary in one transaction.
-    const finishedAt = new Date();
-    await db.transaction(async (tx) => {
-      const failed = await failQueuedClaim(
-        source.id,
-        claimedAt,
-        'the Project Gutenberg metadata sync could not be queued',
-        finishedAt,
-        tx,
-      );
-      if (failed) {
-        // The run row is closed with the same sanitized summary, fenced on the
-        // same queued claim guard, in the same transaction: an enqueue failure
-        // never reached `syncing`, so it is driven by the claim token alone.
-        await failDiscoverySyncRunQueued({
-          sourceId: source.id,
-          claimToken: claimedAt,
-          errorSummary: 'the Project Gutenberg metadata sync could not be queued',
-          finishedAt,
-          executor: tx,
-        });
-      }
-    });
-    logger.warn({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Failed to enqueue Gutenberg metadata sync');
-    throw new Error('Failed to enqueue the Project Gutenberg metadata sync');
-  }
-
-  logger.info({ sourceKey: PROJECT_GUTENBERG_SOURCE_KEY }, 'Gutenberg metadata sync enqueued');
-  return { result: 'queued' };
+  void input;
+  return { result: 'unavailable' };
 }
