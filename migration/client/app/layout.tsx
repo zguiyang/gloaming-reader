@@ -5,24 +5,49 @@ import '@fontsource-variable/noto-serif-sc';
 import './globals.css';
 
 import type { Metadata } from 'next';
+import { cookies, headers } from 'next/headers';
+
+import { t } from '@gloaming/i18n';
 
 import { Providers } from '@/components/providers';
+import { APP_NAME } from '@/constants';
+import { getClientLocale, LOCALE_COOKIE_NAME } from '@/lib/client-locale';
 
 /**
  * Fonts: Fontsource variable packages (self-hosted woff2 via npm).
  * Avoid `next/font/google` — compile-time gstatic fetches hang behind fake-IP proxies.
  */
 
-export const metadata: Metadata = {
-  title: 'Gloaming client (migration scaffold)',
-  description: 'Infrastructure smoke shell for the migration/ extract tree.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies();
+  const headerStore = await headers();
+  const locale = getClientLocale({
+    cookieValue: cookieStore.get(LOCALE_COOKIE_NAME)?.value,
+    acceptLanguage: headerStore.get('accept-language'),
+  });
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return {
+    title: APP_NAME,
+    description: t(locale, 'common.siteDescription'),
+  };
+}
+
+export default async function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const cookieStore = await cookies();
+  const headerStore = await headers();
+  const locale = getClientLocale({
+    cookieValue: cookieStore.get(LOCALE_COOKIE_NAME)?.value,
+    acceptLanguage: headerStore.get('accept-language'),
+  });
+
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body>
-        <Providers>{children}</Providers>
+    <html lang={locale} className="h-full antialiased" suppressHydrationWarning>
+      <body className="flex min-h-full flex-col">
+        <Providers locale={locale}>{children}</Providers>
       </body>
     </html>
   );

@@ -1,0 +1,37 @@
+export { AUTH_ADMIN_ROLE } from '@gloaming/shared/auth';
+export const APP_NAME = 'Gloaming Reader' as const;
+
+export const AUTH_ROUTES = {
+  resetPassword: '/reset-password',
+  verifyEmail: '/verify-email',
+  socialAuthError: '/auth-error',
+  library: '/library',
+  /** Discover catalog. */
+  discover: '/discover',
+  /** ReadingWork detail; Catalog and Personal works share this page. */
+  workDetail: (id: string) => `/works/${id}` as const,
+  history: '/reading-history',
+  more: '/more',
+  account: '/account',
+  settings: '/settings',
+  /** Immersive reader. */
+  read: '/read',
+  readBook: (id: string, partId?: string) =>
+    partId ? (`/read/${id}?part=${encodeURIComponent(partId)}` as const) : (`/read/${id}` as const),
+} as const;
+
+export const ADMIN_ROUTES = {
+  root: '/admin',
+  assets: '/admin/assets',
+  discoverySources: '/admin/discovery-sources',
+  publicCategories: '/admin/public-categories',
+  config: '/admin/config',
+  configTab: (tab: 'ai' | 'tts' | 'dictionary') => `/admin/config?tab=${tab}` as const,
+  logs: '/admin/log-center',
+  logsTab: (tab: 'ai' | 'tts') => `/admin/log-center?tab=${tab}` as const,
+  ai: '/admin/ai',
+  aiLogs: '/admin/ai-logs',
+  tts: '/admin/tts',
+  ttsLogs: '/admin/tts-logs',
+  dictionary: '/admin/dictionary',
+} as const;

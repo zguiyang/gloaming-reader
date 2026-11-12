@@ -1,6 +1,27 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+/* streamdown lives under client/node_modules */
+@source '../node_modules/streamdown/dist/*.js';
+
+@keyframes library-cover-sheen {
+  0%,
+  100% {
+    transform: translateX(-110%);
+  }
+  50% {
+    transform: translateX(110%);
+  }
+}
+
+@keyframes library-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -468,6 +489,119 @@
 
   .dark body::before {
     opacity: 0.012;
+  }
+}
+
+/* Reading content — normalized HTML from the ingest pipeline.
+   Scoped typography only: document flow owns spacing (no flex-gap stacking).
+   `.reading-body` declares lang="en" (reading content is English) so
+   hyphenation dictionaries apply regardless of the UI locale. */
+@layer components {
+  .reading-body {
+    /* Container for measure-gated justification: the column narrows on mobile
+       and when the AI drawer / TOC sidebar is open — a viewport media query
+       cannot see that, an inline-size container can. */
+    container-type: inline-size;
+  }
+
+  .reading-body p {
+    margin: 0 0 0.95em;
+    /* Hyphenation is what keeps justified English from stretching into rivers
+       of inter-word space; without it justify does more harm than good. */
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    hyphenate-limit-chars: 6 3 3;
+  }
+
+  /* Justify only at a comfortable measure (~32rem ≈ 50+ characters at 20px).
+       Narrow columns (mobile, drawer-open desktop) stay ragged-right — this is
+       the fix for the large inter-word gaps, not a typography identity change:
+       wide reading columns keep the book-like justified look. */
+  @container (min-width: 32rem) {
+    .reading-body p {
+      text-align: justify;
+    }
+  }
+
+  .reading-body h1,
+  .reading-body h2,
+  .reading-body h3 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--foreground);
+    text-align: left;
+  }
+
+  /* Opening chapter heading — direct child or first nested title wrapper. */
+  .reading-body > :is(h1, h2):first-of-type,
+  .reading-body > div:first-child > :is(h1, h2):first-of-type {
+    margin-top: 0;
+    text-align: center;
+    font-size: 1.75em;
+    line-height: 1.25;
+  }
+
+  .reading-body h1 {
+    font-size: 1.6em;
+    line-height: 1.3;
+    margin: 1.4em 0 0.55em;
+  }
+
+  .reading-body h2 {
+    font-size: 1.35em;
+    line-height: 1.35;
+    margin: 1.25em 0 0.45em;
+  }
+
+  .reading-body h3 {
+    font-size: 1.15em;
+    line-height: 1.4;
+    margin: 1.1em 0 0.4em;
+  }
+
+  .reading-body ul,
+  .reading-body ol {
+    margin: 0 0 0.95em;
+    padding-left: 1.5em;
+  }
+
+  .reading-body li {
+    margin: 0.3em 0;
+    text-align: left;
+  }
+
+  .reading-body blockquote {
+    margin: 0 0 0.95em;
+    padding-left: 1em;
+    border-left: 2px solid var(--outline);
+    color: var(--muted-foreground);
+    font-style: italic;
+  }
+
+  .reading-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.75rem;
+    display: block;
+    margin: 0.85em auto;
+  }
+
+  .reading-body a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .reading-body hr {
+    margin: 1.75em auto;
+    border: none;
+    border-top: 1px solid var(--outline);
+    width: 4rem;
+  }
+
+  .reading-body ruby {
+    ruby-align: center;
   }
 }
 

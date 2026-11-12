@@ -1,24 +1,33 @@
-import { Button } from '@/components/ui/button';
-import { ThemeModeToggle } from '@/components/theme-mode-toggle';
+import type { Metadata } from 'next';
+import { cookies, headers } from 'next/headers';
 
-export default function Page() {
+import { t } from '@gloaming/i18n';
+
+import { SiteNav } from '@/components/navigation';
+import { LandingNavEntrance, LandingPage } from '@/features/landing';
+import { getClientLocale, LOCALE_COOKIE_NAME } from '@/lib/client-locale';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies();
+  const headerStore = await headers();
+  const locale = getClientLocale({
+    cookieValue: cookieStore.get(LOCALE_COOKIE_NAME)?.value,
+    acceptLanguage: headerStore.get('accept-language'),
+  });
+
+  return {
+    title: t(locale, 'landing.meta.title'),
+    description: t(locale, 'landing.meta.description'),
+  };
+}
+
+export default function Home() {
   return (
-    <main className="container flex min-h-svh flex-col justify-center gap-8 py-16">
-      <div className="flex flex-col gap-3">
-        <p className="font-heading text-sm font-medium tracking-wide text-muted-foreground">migration/client</p>
-        <h1 className="font-heading text-4xl font-semibold tracking-tight text-foreground">Infrastructure smoke</h1>
-        <p className="max-w-prose text-muted-foreground">
-          Next + shadcn + Gloaming theme tokens are wired. No product pages yet — this shell only proves the extract
-          tree can start.
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="button">Primary</Button>
-        <Button type="button" variant="secondary">
-          Secondary
-        </Button>
-        <ThemeModeToggle />
-      </div>
-    </main>
+    <div className="relative z-10 flex min-h-full flex-1 flex-col">
+      <LandingNavEntrance>
+        <SiteNav />
+      </LandingNavEntrance>
+      <LandingPage />
+    </div>
   );
 }
