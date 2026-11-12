@@ -9,16 +9,16 @@ import { toast } from 'sonner';
 import { t } from '@/i18n';
 import type { SourceRecordSaveResult, SourceRecordSaveStatus } from '@/shared/library';
 
-import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { useAuthDialog } from '@/features/auth';
 import {
   discoverQueryKey,
+  saveDiscoverCandidateToLibrary,
   saveSourceRecordToLibrary,
   useSourceRecordSaveStatusQuery,
 } from '@/features/discover/discover-api';
-import { categoryDisplayName, type DiscoverItem } from '@/features/discover/discover-model';
+import type { DiscoverItem } from '@/features/discover/discover-model';
 import { WorkCover } from '@/features/work-cover';
 import { ApiRequestError, isUnauthorizedError } from '@/lib/api-request';
 import { authClient } from '@/lib/auth';
@@ -103,7 +103,8 @@ function DiscoverSourceCardContent({
     result: SourceRecordSaveResult;
     seenData: SourceRecordSaveStatus | undefined;
   } | null>(null);
-  const statusQuery = useSourceRecordSaveStatusQuery(item.id, { userId });
+  const [resolvedSourceRecordId, setResolvedSourceRecordId] = useState<string | null>(item.sourceRecordId);
+  const statusQuery = useSourceRecordSaveStatusQuery(resolvedSourceRecordId, { userId });
 
   // A POST result only bridges until the status query reports data of its own:
   // once the query data object changes, the server read is authoritative again.
@@ -132,11 +133,21 @@ function DiscoverSourceCardContent({
     }
     setAction('saving');
     try {
-      const result = await saveSourceRecordToLibrary(item.id);
-      // An older GET (for example, the pre-save `none` read) must not overwrite
-      // this POST result and stop polling after the import has been queued.
-      await queryClient.cancelQueries({ queryKey: discoverQueryKey.saveStatus(item.id, userId), exact: true });
-      queryClient.setQueryData(discoverQueryKey.saveStatus(item.id, userId), {
+      const result = resolvedSourceRecordId
+        ? await saveSourceRecordToLibrary(resolvedSourceRecordId)
+        : await saveDiscoverCandidateToLibrary({
+            sourceKey: item.sourceKey,
+            externalId: item.externalId,
+          });
+      const upsertedId =
+        'sourceRecordId' in result && typeof result.sourceRecordId === 'string' ? result.sourceRecordId : null;
+      const sourceRecordId = resolvedSourceRecordId ?? upsertedId;
+      if (sourceRecordId) {
+        setResolvedSourceRecordId(sourceRecordId);
+      }
+      const statusKey = sourceRecordId ?? item.externalId;
+      await queryClient.cancelQueries({ queryKey: discoverQueryKey.saveStatus(statusKey, userId), exact: true });
+      queryClient.setQueryData(discoverQueryKey.saveStatus(statusKey, userId), {
         status: result.status,
         workId: result.workId,
         failureReason: null,
@@ -233,18 +244,6 @@ function DiscoverSourceCardContent({
             <p className="mt-1 min-h-[1lh] line-clamp-1 text-xs text-muted-foreground md:text-[13px]">
               {item.author ?? ''}
             </p>
-
-            {item.categories.length > 0 ? (
-              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label={t(locale, 'content.discover.categoriesAria')}>
-                {item.categories.map((category) => (
-                  <li key={category.id}>
-                    <Badge variant="secondary" className="rounded-full bg-accent font-normal text-accent-foreground">
-                      {categoryDisplayName(category)}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
           </>
         )}
 

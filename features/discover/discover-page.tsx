@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 
 import { t } from '@/i18n';
-import type { PublicCategoryListItem, SourceRecordItem, SourceRecordListData } from '@/shared/discovery';
+import type { DiscoveryFacet, SourceRecordItem, SourceRecordListData } from '@/shared/discovery';
 import type { CatalogListData, CatalogWork } from '@/shared/works';
 
 import { LoadingOverlay } from '@/components/loading-overlay';
@@ -15,15 +15,15 @@ import {
   fetchDiscoverLegacyWorks,
   fetchDiscoverRecords,
   formatDiscoverApiError,
-  useDiscoverCategoriesQuery,
+  useDiscoverFacetsQuery,
+  useDiscoverSourcesQuery,
 } from '@/features/discover/discover-api';
-import { DiscoverCategories } from '@/features/discover/discover-categories';
 import { DiscoverEmptyState } from '@/features/discover/discover-empty-state';
+import { DiscoverFacets } from '@/features/discover/discover-facets';
 import { DiscoverGrid } from '@/features/discover/discover-grid';
 import { DiscoverHeader } from '@/features/discover/discover-header';
 import { DiscoverLegacyGrid } from '@/features/discover/discover-legacy-grid';
 import {
-  categoryDisplayName,
   DISCOVER_PAGE_SIZE,
   type DiscoverLegacyWork,
   hasActiveDiscoverFilter,
@@ -32,6 +32,7 @@ import {
 } from '@/features/discover/discover-model';
 import { DiscoverPagination } from '@/features/discover/discover-pagination';
 import { DiscoverSearch } from '@/features/discover/discover-search';
+import { DiscoverSources } from '@/features/discover/discover-sources';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
@@ -71,8 +72,6 @@ function DiscoverErrorState({ message, onRetry }: { message: string; onRetry: ()
 export function DiscoverPage() {
   const { data } = authClient.useSession();
   const userId = data?.user.id ?? null;
-  // Remount the paginated observer and card action state at identity boundaries;
-  // keepPreviousData must not bridge covers from a different viewer.
   return <DiscoverPageContent key={userId ?? 'anonymous'} userId={userId} />;
 }
 
@@ -80,12 +79,24 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
   const { locale } = useLocale();
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [selectedSourceKey, setSelectedSourceKey] = useState<string | null>(null);
+  const [facetBySource, setFacetBySource] = useState<Record<string, string | null>>({});
   const [page, setPage] = useState(1);
   const [legacyPage, setLegacyPage] = useState(1);
 
-  const categoriesQuery = useDiscoverCategoriesQuery();
-  const categories: PublicCategoryListItem[] = categoriesQuery.data?.items ?? [];
+  const sourcesQuery = useDiscoverSourcesQuery();
+  const sources = useMemo(() => sourcesQuery.data?.items ?? [], [sourcesQuery.data?.items]);
+  const sourceKey = useMemo(() => {
+    if (sources.length === 0) return null;
+    if (selectedSourceKey && sources.some((source) => source.sourceKey === selectedSourceKey)) {
+      return selectedSourceKey;
+    }
+    return sources[0]?.sourceKey ?? null;
+  }, [sources, selectedSourceKey]);
+  const facetId = sourceKey ? (facetBySource[sourceKey] ?? null) : null;
+
+  const facetsQuery = useDiscoverFacetsQuery(sourceKey);
+  const facets: DiscoveryFacet[] = facetsQuery.data?.items ?? [];
 
   function resetListView() {
     setPage(1);
@@ -111,15 +122,23 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
     resetListView();
   }
 
-  function handleSelectCategory(next: string | null) {
-    setCategoryId(next);
+  function handleSelectSource(next: string) {
+    setSelectedSourceKey(next);
+    resetListView();
+  }
+
+  function handleSelectFacet(next: string | null) {
+    if (!sourceKey) return;
+    setFacetBySource((current) => ({ ...current, [sourceKey]: next }));
     resetListView();
   }
 
   function handleClearFilters() {
     setSearchDraft('');
     setAppliedQuery('');
-    setCategoryId(null);
+    if (sourceKey) {
+      setFacetBySource((current) => ({ ...current, [sourceKey]: null }));
+    }
     resetListView();
   }
 
@@ -128,9 +147,10 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
       page,
       pageSize: DISCOVER_PAGE_SIZE,
       q: appliedQuery || undefined,
-      categoryId: categoryId ?? undefined,
+      sourceKey: sourceKey ?? undefined,
+      facetId: facetId ?? undefined,
     }),
-    [page, appliedQuery, categoryId],
+    [page, appliedQuery, sourceKey, facetId],
   );
 
   const legacyParams = useMemo(
@@ -144,12 +164,10 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
     page,
     onPageChange: handlePageChange,
     softRefreshMinMs: LIST_REFRESH_MIN_MS,
+    enabled: Boolean(sourceKey),
   });
 
-  // Compatibility path: already-published Catalog Works without a SourceRecord.
-  // Category filtering is SourceRecord-only, so legacy works are omitted while a
-  // category is selected; otherwise they render alongside the SourceRecord list.
-  const isLegacyEnabled = categoryId === null;
+  const isLegacyEnabled = facetId === null && Boolean(sourceKey);
 
   const legacyList = usePaginatedQuery<CatalogWork, CatalogListData>({
     queryKey: discoverQueryKey.legacyWorks(legacyParams),
@@ -164,20 +182,13 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
     toDiscoverLegacyWork(work, coverUrlFromAssetId(work.coverAssetId)),
   );
 
-  const mobileItems = recordsItems;
-  const legacyMobileItems = legacyItems;
+  const selectedFacetLabel = facetId ? (facets.find((facet) => facet.id === facetId)?.name ?? facetId) : null;
 
-  const selectedCategoryLabel = categoryId
-    ? (() => {
-        const match = categories.find((category) => category.id === categoryId);
-        return match ? categoryDisplayName(match) : categoryId;
-      })()
-    : null;
-
-  const isFiltered = hasActiveDiscoverFilter({ query: appliedQuery, categoryId });
-  const isRecordsUnavailable = recordsList.isError && !recordsList.data;
+  const isFiltered = hasActiveDiscoverFilter(appliedQuery, facetId);
+  const noSources = sourcesQuery.isSuccess && sources.length === 0 && !sourcesQuery.isFetching;
+  const isRecordsUnavailable = Boolean(sourceKey) && recordsList.isError && !recordsList.data;
   const isRecordsSettled = recordsList.query.isSuccess && !recordsList.query.isPlaceholderData;
-  const isRecordsEmpty = isRecordsSettled && recordsList.items.length === 0;
+  const isRecordsEmpty = Boolean(sourceKey) && isRecordsSettled && recordsList.items.length === 0;
 
   const isLegacyFailed = legacyList.isError && !legacyList.data;
   const isLegacySettled = legacyList.query.isSuccess && !legacyList.query.isPlaceholderData;
@@ -203,23 +214,42 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
           onSubmit={handleSearchSubmit}
           onClear={handleClearSearch}
         />
-        <DiscoverCategories
-          categories={categories}
-          selectedCategoryId={categoryId}
-          onSelect={handleSelectCategory}
-          isLoading={categoriesQuery.isLoading}
-          isError={categoriesQuery.isError && !categoriesQuery.data}
-          onRetry={() => void categoriesQuery.refetch()}
+        <DiscoverSources
+          sources={sources}
+          selectedSourceKey={sourceKey}
+          onSelect={handleSelectSource}
+          isLoading={sourcesQuery.isLoading}
+          isError={sourcesQuery.isError && !sourcesQuery.data}
+          onRetry={() => void sourcesQuery.refetch()}
         />
+        {sourceKey ? (
+          <DiscoverFacets
+            facets={facets}
+            selectedFacetId={facetId}
+            onSelect={handleSelectFacet}
+            isLoading={facetsQuery.isLoading}
+            isError={facetsQuery.isError && !facetsQuery.data}
+            onRetry={() => void facetsQuery.refetch()}
+          />
+        ) : null}
         <DiscoverActiveFilters
           query={appliedQuery}
-          categoryLabel={selectedCategoryLabel}
+          facetLabel={selectedFacetLabel}
           onClearQuery={handleClearSearch}
-          onClearCategory={() => handleSelectCategory(null)}
+          onClearFacet={() => handleSelectFacet(null)}
         />
       </div>
 
-      {recordsList.isInitialLoading ? (
+      {sourcesQuery.isLoading ? (
+        <DiscoverSkeleton />
+      ) : noSources ? (
+        <div className="flex flex-col items-center py-16 text-center">
+          <h2 className="font-heading text-2xl font-semibold">{t(locale, 'content.discover.noSourcesTitle')}</h2>
+          <p className="mt-4 max-w-md text-muted-foreground">{t(locale, 'content.discover.noSourcesDescription')}</p>
+        </div>
+      ) : !sourceKey ? (
+        <DiscoverSkeleton />
+      ) : recordsList.isInitialLoading ? (
         <DiscoverSkeleton />
       ) : isRecordsUnavailable ? (
         <DiscoverErrorState
@@ -231,7 +261,7 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
           {recordsItems.length > 0 ? (
             <LoadingOverlay active={recordsList.isSoftRefreshing} label={t(locale, 'content.discover.softRefreshing')}>
               <div className="md:hidden">
-                <DiscoverGrid items={mobileItems} userId={userId} />
+                <DiscoverGrid items={recordsItems} userId={userId} />
               </div>
               <div className="hidden md:block">
                 <DiscoverGrid items={recordsItems} userId={userId} />
@@ -271,7 +301,7 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
                       </p>
                     </div>
                     <div className="md:hidden">
-                      <DiscoverLegacyGrid items={legacyMobileItems} />
+                      <DiscoverLegacyGrid items={legacyItems} />
                     </div>
                     <div className="hidden md:block">
                       <DiscoverLegacyGrid items={legacyItems} />

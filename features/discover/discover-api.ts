@@ -1,8 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
 
 import {
-  type PublicCategoryListData,
-  publicCategoryListDataSchema,
+  type DiscoveryFacetListData,
+  discoveryFacetListDataSchema,
+  type DiscoverySourceListData,
+  discoverySourceListDataSchema,
   type SourceRecordListData,
   sourceRecordListDataSchema,
   type SourceRecordListQuery,
@@ -26,16 +29,19 @@ import { apiRequest, formatApiError } from '@/lib/api-request';
 import { authClient } from '@/lib/auth';
 
 /** Filters Discover owns; `language` stays the backend English-first default. */
-export type DiscoverListParams = Partial<Pick<SourceRecordListQuery, 'page' | 'pageSize' | 'q' | 'categoryId'>>;
+export type DiscoverListParams = Partial<
+  Pick<SourceRecordListQuery, 'page' | 'pageSize' | 'q' | 'facetId' | 'sourceKey'>
+>;
 
-/** Compatibility Catalog read parameters; it never carries a SourceRecord category. */
+/** Compatibility Catalog read parameters. */
 export type DiscoverLegacyParams = Partial<Pick<CatalogListQuery, 'page' | 'pageSize' | 'q'>>;
 
 export const discoverQueryKey = {
   all: ['discover'] as const,
   records: (params: DiscoverListParams, userId: string | null) =>
     [...discoverQueryKey.all, 'records', userId, params] as const,
-  categories: () => [...discoverQueryKey.all, 'categories'] as const,
+  sources: () => [...discoverQueryKey.all, 'sources'] as const,
+  facets: (sourceKey?: string | null) => [...discoverQueryKey.all, 'facets', sourceKey ?? null] as const,
   legacyWorks: (params: DiscoverLegacyParams) => [...discoverQueryKey.all, 'legacy-works', params] as const,
   saveStatus: (sourceRecordId: string, userId: string | null) =>
     [...discoverQueryKey.all, 'save-status', userId, sourceRecordId] as const,
@@ -43,7 +49,10 @@ export const discoverQueryKey = {
 
 const DEFAULT_RECORD_SORT_BY = 'sourceUpdatedAt' as const;
 
-/** Builds the query string for `GET /api/discover/records`. Exported for pure unit tests. */
+const discoverSaveResultSchema = sourceRecordSaveResultSchema.extend({
+  sourceRecordId: z.string().optional(),
+});
+
 export function buildDiscoverRecordsQuery(params: DiscoverListParams): string {
   const search = new URLSearchParams();
   search.set('page', String(params.page ?? DEFAULT_PAGE));
@@ -53,17 +62,15 @@ export function buildDiscoverRecordsQuery(params: DiscoverListParams): string {
   if (params.q) {
     search.set('q', params.q);
   }
-  if (params.categoryId) {
-    search.set('categoryId', params.categoryId);
+  if (params.sourceKey) {
+    search.set('sourceKey', params.sourceKey);
+  }
+  if (params.facetId) {
+    search.set('facetId', params.facetId);
   }
   return search.toString();
 }
 
-/**
- * Builds the compatibility `GET /api/catalog/works` query. The `sourceLink=unlinked`
- * filter keeps already-published ReadingWorks visible without duplicating a Work
- * already represented by a SourceRecord.
- */
 export function buildDiscoverLegacyQuery(params: DiscoverLegacyParams): string {
   const search = new URLSearchParams();
   search.set('page', String(params.page ?? DEFAULT_PAGE));
@@ -88,9 +95,20 @@ export async function fetchDiscoverRecords(
   });
 }
 
-export async function fetchDiscoverCategories(init?: { signal?: AbortSignal }): Promise<PublicCategoryListData> {
-  return apiRequest('/api/discover/categories', {
-    schema: publicCategoryListDataSchema,
+export async function fetchDiscoverSources(init?: { signal?: AbortSignal }): Promise<DiscoverySourceListData> {
+  return apiRequest('/api/discover/sources', {
+    schema: discoverySourceListDataSchema,
+    signal: init?.signal,
+  });
+}
+
+export async function fetchDiscoverFacets(
+  sourceKey?: string,
+  init?: { signal?: AbortSignal },
+): Promise<DiscoveryFacetListData> {
+  const qs = sourceKey ? `?sourceKey=${encodeURIComponent(sourceKey)}` : '';
+  return apiRequest(`/api/discover/facets${qs}`, {
+    schema: discoveryFacetListDataSchema,
     signal: init?.signal,
   });
 }
@@ -106,11 +124,19 @@ export async function fetchDiscoverLegacyWorks(
   });
 }
 
-/**
- * Explicit SourceRecord Save Intent. The user action creates the durable intent;
- * the backend returns `pending` (import queued) or `ready` (readable Work and
- * Library membership already exist). This never auto-saves or navigates.
- */
+/** Save a remote Discover candidate (upsert SourceRecord + Save Intent). */
+export async function saveDiscoverCandidateToLibrary(input: {
+  sourceKey: string;
+  externalId: string;
+}): Promise<SourceRecordSaveResult & { sourceRecordId?: string }> {
+  return apiRequest('/api/library/discover', {
+    method: 'POST',
+    json: input,
+    schema: discoverSaveResultSchema,
+  });
+}
+
+/** Save when a persisted SourceRecord id is already known. */
 export async function saveSourceRecordToLibrary(sourceRecordId: string): Promise<SourceRecordSaveResult> {
   return apiRequest(`/api/library/source-records/${encodeURIComponent(sourceRecordId)}`, {
     method: 'POST',
@@ -118,7 +144,6 @@ export async function saveSourceRecordToLibrary(sourceRecordId: string): Promise
   });
 }
 
-/** Owner-scoped Save Intent status; `status` is authoritative over linked ids. */
 export async function fetchSourceRecordSaveStatus(
   sourceRecordId: string,
   init?: { signal?: AbortSignal },
@@ -129,35 +154,23 @@ export async function fetchSourceRecordSaveStatus(
   });
 }
 
-/** Poll cadence while the server reports an in-flight import. */
 export const SOURCE_RECORD_SAVE_POLL_MS = 2_000;
 
-/**
- * Poll only while `pending`; `ready`, `failed`, and `none` settle immediately.
- * Exported as a pure function for unit tests.
- */
 export function saveStatusRefetchInterval(query: { state: { data?: SourceRecordSaveStatus } }): number | false {
   return query.state.data?.status === 'pending' ? SOURCE_RECORD_SAVE_POLL_MS : false;
 }
 
-/**
- * Refresh recovery for the Save Intent: hydrates pending/failed/ready state on
- * mount (a linked `linkedWorkId` never short-circuits this — the Work may still
- * be parsing) and polls while the server reports `pending`. Enabled only for
- * authenticated viewers; anonymous visitors simply never query.
- */
 export function useSourceRecordSaveStatusQuery(
-  sourceRecordId: string,
+  sourceRecordId: string | null,
   options?: { enabled?: boolean; userId?: string | null },
 ) {
-  // Prefer an explicit viewer id from the page; fall back to the shared BA atom once.
   const session = authClient.useSession();
   const userId = options?.userId !== undefined ? options.userId : (session.data?.user.id ?? null);
   return useQuery({
-    queryKey: discoverQueryKey.saveStatus(sourceRecordId, userId),
-    queryFn: ({ signal }) => fetchSourceRecordSaveStatus(sourceRecordId, { signal }),
+    queryKey: discoverQueryKey.saveStatus(sourceRecordId ?? 'none', userId),
+    queryFn: ({ signal }) => fetchSourceRecordSaveStatus(sourceRecordId!, { signal }),
     refetchInterval: saveStatusRefetchInterval,
-    enabled: (options?.enabled ?? true) && userId !== null,
+    enabled: (options?.enabled ?? true) && userId !== null && Boolean(sourceRecordId),
   });
 }
 
@@ -170,16 +183,23 @@ export function useDiscoverRecordsQuery(
   return useQuery({
     queryKey: discoverQueryKey.records(params, userId),
     queryFn: ({ signal }) => fetchDiscoverRecords(params, { signal }),
-    // Pagination may reuse this viewer's results, never another viewer's covers.
     placeholderData: (data, previousQuery) => (previousQuery?.queryKey[2] === userId ? data : undefined),
     enabled: options?.enabled ?? true,
   });
 }
 
-export function useDiscoverCategoriesQuery() {
+export function useDiscoverSourcesQuery() {
   return useQuery({
-    queryKey: discoverQueryKey.categories(),
-    queryFn: ({ signal }) => fetchDiscoverCategories({ signal }),
+    queryKey: discoverQueryKey.sources(),
+    queryFn: ({ signal }) => fetchDiscoverSources({ signal }),
+  });
+}
+
+export function useDiscoverFacetsQuery(sourceKey?: string | null) {
+  return useQuery({
+    queryKey: discoverQueryKey.facets(sourceKey),
+    queryFn: ({ signal }) => fetchDiscoverFacets(sourceKey ?? undefined, { signal }),
+    enabled: Boolean(sourceKey),
   });
 }
 
