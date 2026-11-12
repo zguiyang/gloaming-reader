@@ -56,7 +56,7 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未�
 | **P3** | 旁路 `migration/`、迁 UI/API、换方案、再瘦身      | 可运行的 `migration/client` 与对照策略 | 不把「上 CF 冒烟」当本阶段主线   |
 | **P4** | 对 **`migration/` 新结构**做 Workers 真实兼容验证 | 平台结论（Free / Paid / 再降复杂度）   | 不对未迁完的旧三件套做兼容鉴定   |
 
-**P3 本地进度（2026-11-12）：** N0–N2 脚手架/壳已落地；本波完成 **N3∥N4 本地切流**——`migration/client` 含全量 UI + Next Route Handlers（无嵌 Hono）+ 同包 BullMQ worker 第二进程；T1（AI SDK）/ T2（Azure Speech REST）在迁入路径生效。详见 [`migration/LOCAL_RUN.md`](../migration/LOCAL_RUN.md)。**未做：** N5 删旧 apps、R5 Jobs 终态书面定案、**P4** Workers。
+**P3 本地进度（2026-11-12）：** N0–N2 脚手架/壳已落地；本波完成 **N3∥N4 本地切流**——`migration/client` 含全量 UI + Next Route Handlers（无嵌 Hono）+ 同包 BullMQ worker 第二进程；T1（AI SDK）/ T2（Azure Speech REST）在迁入路径生效。巩固波：对照表 [`migration/PROCESS_COMPARE.md`](../migration/PROCESS_COMPARE.md)、T3 清单 [`migration/T3-DEPENDENCY-INVENTORY.md`](../migration/T3-DEPENDENCY-INVENTORY.md)、限流 [`migration/RATE_LIMIT.md`](../migration/RATE_LIMIT.md)、assist tools 已接 AI SDK。详见 [`migration/LOCAL_RUN.md`](../migration/LOCAL_RUN.md)。**未做：** N5 删旧 apps、R5 Jobs 终态书面定案、**P4** Workers。
 
 ---
 
@@ -225,11 +225,11 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未�
 
 #### B. 技术方案与依赖（迁入时强制，可与 N2–N4 同 PR 纪律）
 
-| ID     | 切片                                       | 目的                                                              | 何时                                                      | 门禁                                                                 |
-| ------ | ------------------------------------------ | ----------------------------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
-| **T1** | AI：LangChain → Vercel AI SDK              | 新树**不引入** LangChain；assist 用 `ai` + `@ai-sdk/openai`（L6） | ✅ 迁入路径已切（旧 LangChain 仅 `_legacy_hono` 对照）    | 不默认 Workers AI；保留「解析模型行 → OpenAI 兼容 HTTP」外壳若仍需要 |
-| **T2** | TTS：原生 SDK → Azure Speech **REST**/HTTP | `fetch` + SSML（L5）                                              | ✅ `server/infra/tts` REST                                | 不默认 Workers AI；密钥仅服务端                                      |
-| **T3** | Workers 不友好依赖审查                     | 列出并替换/隔离原生 Node、长驻、不兼容 edge/Workers 的库          | 进行中：本地仍用 BullMQ 第二进程；**未**宣称 Workers 就绪 | 未处理项不得假装「已可上 Workers」；上 CF 仍属 P4                    |
+| ID     | 切片                                       | 目的                                                              | 何时                                                                                                                                          | 门禁                                                                 |
+| ------ | ------------------------------------------ | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **T1** | AI：LangChain → Vercel AI SDK              | 新树**不引入** LangChain；assist 用 `ai` + `@ai-sdk/openai`（L6） | ✅ 迁入路径已切（旧 LangChain 仅 `_legacy_hono` 对照）                                                                                        | 不默认 Workers AI；保留「解析模型行 → OpenAI 兼容 HTTP」外壳若仍需要 |
+| **T2** | TTS：原生 SDK → Azure Speech **REST**/HTTP | `fetch` + SSML（L5）                                              | ✅ `server/infra/tts` REST                                                                                                                    | 不默认 Workers AI；密钥仅服务端                                      |
+| **T3** | Workers 不友好依赖审查                     | 列出并替换/隔离原生 Node、长驻、不兼容 edge/Workers 的库          | 清单已写 [`migration/T3-DEPENDENCY-INVENTORY.md`](../migration/T3-DEPENDENCY-INVENTORY.md)；本地仍用 BullMQ 第二进程；**未**宣称 Workers 就绪 | 未处理项不得假装「已可上 Workers」；上 CF 仍属 P4                    |
 
 #### C. 产品路径（可并行调研，合入不抢 N0–N3）
 

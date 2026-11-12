@@ -3,6 +3,7 @@ import { lookupDictionaryQuerySchema } from '@gloaming/shared/dictionary';
 import { lookupWord } from '@/server/domains/dictionary/lookup/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonError, jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { enforceGuestRateLimit } from '@/server/infra/http/next-rate-limit';
 import { getRequestIdentity } from '@/server/infra/http/next-session';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
@@ -12,6 +13,13 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const identity = await getRequestIdentity(request);
+    const guestBlocked = await enforceGuestRateLimit(request, 'dictionaryLookup', {
+      isAuthenticated: Boolean(identity.user),
+    });
+    if (guestBlocked) {
+      return guestBlocked;
+    }
+
     const url = new URL(request.url);
     const parsed = lookupDictionaryQuerySchema.safeParse(Object.fromEntries(url.searchParams.entries()));
     if (!parsed.success) {

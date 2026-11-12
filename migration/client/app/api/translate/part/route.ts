@@ -3,19 +3,28 @@ import { TRANSLATE_SSE_EVENT, translatePartBodySchema } from '@gloaming/shared/t
 import { streamTranslatePart } from '@/server/domains/translate/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonFromThrown, jsonValidationError } from '@/server/infra/http/next-json';
+import { acquireAiRateLimit, withAiRateLimitRelease } from '@/server/infra/http/next-rate-limit';
 import { assertAuthenticated, getRequestIdentity } from '@/server/infra/http/next-session';
 import { encodeSseMessage, formatThrownErrorBody, sseResponseHeaders } from '@/server/infra/http/next-sse';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
+  let lease: { release: () => Promise<void> } | undefined;
   try {
     const identity = await getRequestIdentity(request);
     assertAuthenticated(identity);
 
+    const limited = await acquireAiRateLimit(request, 'translate', identity.user.id);
+    if (!limited.ok) {
+      return limited.response;
+    }
+    lease = limited.lease;
+
     const raw = await request.json().catch(() => null);
     const parsed = translatePartBodySchema.safeParse(raw);
     if (!parsed.success) {
+      await lease.release();
       return jsonValidationError(
         request,
         parsed.error.issues.map((issue) => ({
@@ -84,8 +93,11 @@ export async function POST(request: Request) {
       },
     });
 
-    return new Response(stream, { headers: sseResponseHeaders() });
+    return withAiRateLimitRelease(new Response(stream, { headers: sseResponseHeaders() }), lease);
   } catch (error) {
+    if (lease) {
+      await lease.release();
+    }
     return jsonFromThrown(request, error);
   }
 }

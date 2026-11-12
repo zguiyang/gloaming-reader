@@ -19,10 +19,11 @@ export type AiInvocationSummaryExtra = {
   neededFields?: string;
 };
 
-/** Tool handle — Wave 2 keeps tools optional; LangChain types removed. */
+/** Tool handle for Vercel AI SDK — domains supply Zod schemas + execute. */
 export type AiToolHandle = {
   name: string;
   description?: string;
+  inputSchema: ZodTypeAny;
   execute: (input: unknown) => Promise<unknown>;
 };
 

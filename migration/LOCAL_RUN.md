@@ -92,16 +92,26 @@ pnpm --filter @gloaming/client dev:worker
 | UI↔server contracts    | Prefer `client/shared/`; `migration/packages/shared` transitional | Do not expand packages/shared for app-only contracts |
 | i18n                   | `migration/packages/i18n`                                         | Large import surface; keep transitional package      |
 
+## Consolidation docs (this wave)
+
+| Doc                                                          | Purpose                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| [`PROCESS_COMPARE.md`](./PROCESS_COMPARE.md)                 | Old three-process vs new two-process                                |
+| [`T3-DEPENDENCY-INVENTORY.md`](./T3-DEPENDENCY-INVENTORY.md) | Workers-hostile deps inventory (input to P4, not a readiness claim) |
+| [`RATE_LIMIT.md`](./RATE_LIMIT.md)                           | Better Auth + Next guest/AI rate-limit strategy                     |
+
 ## Known gaps / deferred
 
-- Hono route sources kept under `client/server/_legacy_hono/` for reference; **not** mounted. Rate-limit middleware not yet ported to Next.
-- Assist tools are stubbed (no LangChain); AI invoke/stream uses Vercel AI SDK (T1). TTS uses Azure Speech REST (T2).
+- Hono route sources kept under `client/server/_legacy_hono/` for reference; **not** mounted.
+- Assist tools are live AI SDK tools (`get_part_slice` / `search_part` / dictionary via `createPartAssistTools`) — **not** LangChain. AI invoke/stream uses Vercel AI SDK (T1). TTS uses Azure Speech REST (T2).
+- API rate limits: Next helpers on assist / translate / dictionary guest (`next-rate-limit.ts`); see [`RATE_LIMIT.md`](./RATE_LIMIT.md).
 - Worker is still BullMQ + Redis (Node process) — acceptable for local open-source; **not** claimed Workers-compatible (P4 / R5 still open).
+- Some smoke paths may fail without LLM / Azure / S3 keys — tolerate and continue; do not treat partial smoke as N5/P4 go-ahead.
 - N5 (delete/slim old apps) and P4 (CF) are **out of scope**.
 - Install: Cursor may block pnpm extracting packages with `.idea`; Bun + vendored `iconv-lite` is the local workaround.
 
 ## Verification already done in-tree
 
-- `bunx tsc --noEmit` in `migration/client` — pass
-- `bun run build` (`NODE_ENV=production next build`) — pass
+- `bunx tsc --noEmit` in `migration/client` — re-run after consolidation edits
+- `bun run build` (`NODE_ENV=production next build`) — previously pass; re-run if packaging changes
 - Live compose smoke depends on your local Docker + `.env` secrets

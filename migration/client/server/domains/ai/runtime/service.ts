@@ -1,4 +1,4 @@
-import { generateText, streamText } from 'ai';
+import { generateText, stepCountIs, streamText, tool } from 'ai';
 import type { z, ZodTypeAny } from 'zod';
 
 import { recordInvocation } from '@/server/domains/ai/invocations/log';
@@ -8,6 +8,7 @@ import type {
   AiInvokeResult,
   AiStreamEvent,
   AiStreamOptions,
+  AiToolHandle,
 } from '@/server/domains/ai/runtime/types';
 import { createLlmClient, type ResolvedLlm, resolveLlmByModelRowId } from '@/server/infra/llm';
 import { rootLogger } from '@/server/infra/logging/logger';
@@ -16,6 +17,23 @@ import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 const aiLogger = rootLogger.child({ module: 'Ai' });
+const DEFAULT_MAX_TOOL_ROUNDS = 5;
+
+function toAiSdkTools(handles: AiToolHandle[] | undefined) {
+  if (!handles?.length) {
+    return undefined;
+  }
+  return Object.fromEntries(
+    handles.map((handle) => [
+      handle.name,
+      tool({
+        description: handle.description,
+        inputSchema: handle.inputSchema,
+        execute: async (input) => handle.execute(input),
+      }),
+    ]),
+  );
+}
 
 export type {
   AiInvokeOptions,
@@ -54,6 +72,7 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
       jsonObject: options.jsonObject,
     });
 
+    const tools = toAiSdkTools(options.tools);
     const result = await generateText({
       model,
       messages: options.messages.map((message) => ({
@@ -61,6 +80,12 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
         content: message.content,
       })),
       maxOutputTokens: options.maxTokens ?? resolved.maxTokens ?? undefined,
+      ...(tools
+        ? {
+            tools,
+            stopWhen: stepCountIs(options.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS),
+          }
+        : {}),
     });
 
     const usage = {
@@ -127,6 +152,7 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
       enableThinking: options.enableThinking,
     });
 
+    const tools = toAiSdkTools(options.tools);
     const result = streamText({
       model,
       messages: options.messages.map((message) => ({
@@ -134,6 +160,12 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
         content: message.content,
       })),
       abortSignal: options.signal,
+      ...(tools
+        ? {
+            tools,
+            stopWhen: stepCountIs(options.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS),
+          }
+        : {}),
     });
 
     let content = '';
