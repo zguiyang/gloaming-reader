@@ -1,6 +1,6 @@
 # `@gloaming/client` directory structure
 
-Target layout for the Next app under `migration/client` (UI + all HTTP APIs + same-package worker).  
+Target layout for the Next app under `migration/client` (UI + all HTTP APIs + same-package Jobs).  
 Parent stages: [`docs/cloudflare-fullstack-refactor-stages.md`](../../docs/cloudflare-fullstack-refactor-stages.md).  
 Direction locks: L8 — deploy merge does **not** collapse server domains into UI modules.
 
@@ -15,12 +15,12 @@ migration/client/
   components/             # design-system + shell widgets
   lib/                    # client / RSC runtime glue only
   shared/                 # ★ in-app UI ↔ server contracts
+  jobs/                   # ★ BullMQ Jobs face (entry + processors; second OS process)
   server/                 # server-only modules
     db/                   # ★ inlined Drizzle schema + migrations (not packages/db)
     domains/
-    infra/
-    application/          # jobs + commands
-    worker.ts             # BullMQ entry (second OS process)
+    infra/                # includes queue adapter used by Jobs
+    application/          # commands (not job processors)
     _legacy_hono/         # quarantined Hono/LangChain reference — not mounted
   constants/
   public/
@@ -52,14 +52,14 @@ lib       ──✘──  server/domains
 
 ## Phase mapping
 
-| Slice     | Status                                                         |
-| --------- | -------------------------------------------------------------- |
-| **N0–N1** | Done — scaffold                                                |
-| **N2**    | Done — shell / styles / route groups                           |
-| **N3**    | Done locally — features + pages vs `apps/web`                  |
-| **N4**    | Done locally — Route Handlers + server + worker; T1/T2 on path |
-| **N5**    | Not authorized — slim/delete old apps                          |
-| **P4**    | Not started — Workers                                          |
+| Slice     | Status                                                          |
+| --------- | --------------------------------------------------------------- |
+| **N0–N1** | Done — scaffold                                                 |
+| **N2**    | Done — shell / styles / route groups                            |
+| **N3**    | Done locally — features + pages vs `apps/web`                   |
+| **N4**    | Done locally — Route Handlers + server + `jobs/`; T1/T2 on path |
+| **N5**    | Not authorized — slim/delete old apps                           |
+| **P4**    | Not started — Workers                                           |
 
 ## Explicit non-goals
 

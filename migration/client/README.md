@@ -1,6 +1,6 @@
 # `@gloaming/client`
 
-Next.js app: **UI + `/api/*` Route Handlers** + BullMQ worker entry (`server/worker.ts`, second process).
+Next.js app: **UI + `/api/*` Route Handlers** + BullMQ Jobs (`jobs/`, second process).
 
 ## Docs
 
@@ -23,15 +23,16 @@ pnpm --filter @gloaming/client db:migrate
 
 ## Layout (short)
 
-| Path                    | Role                                                             |
-| ----------------------- | ---------------------------------------------------------------- |
-| `app/`                  | Pages + `app/api` thin transport                                 |
-| `features/`             | Product UI (parity with `apps/web`)                              |
-| `components/`           | UI primitives + navigation chrome                                |
-| `lib/`                  | Client/RSC glue (auth client, query, locale, api-request)        |
-| `shared/`               | In-app UI ↔ server contracts                                     |
-| `server/`               | Domains, infra, application/jobs, **inlined `db/`**, `worker.ts` |
-| `constants/`, `public/` | App constants and static assets                                  |
+| Path                    | Role                                                      |
+| ----------------------- | --------------------------------------------------------- |
+| `app/`                  | Pages + `app/api` thin transport                          |
+| `features/`             | Product UI (parity with `apps/web`)                       |
+| `components/`           | UI primitives + navigation chrome                         |
+| `lib/`                  | Client/RSC glue (auth client, query, locale, api-request) |
+| `shared/`               | In-app UI ↔ server contracts                              |
+| `jobs/`                 | BullMQ entry + processors (second OS process)             |
+| `server/`               | Domains, infra, application/commands, **inlined `db/`**   |
+| `constants/`, `public/` | App constants and static assets                           |
 
 ## Package placement
 

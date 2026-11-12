@@ -20,7 +20,7 @@ import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 const logger = rootLogger.child({ module: 'AssetManagement' });
 
-/** Must match `JOB_ASSET_CLEANUP` in jobs/asset-cleanup.ts */
+/** Must match `JOB_ASSET_CLEANUP` in `@/jobs/asset-cleanup`. */
 const CLEANUP_JOB_NAME = 'asset-cleanup';
 
 export async function enqueueOrphanCleanup(scanId: string): Promise<AssetCleanupJobAccepted> {

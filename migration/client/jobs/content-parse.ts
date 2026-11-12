@@ -6,7 +6,7 @@ import { eq } from 'drizzle-orm';
 import { readingWork as readingWorkTable } from '@/server/db';
 
 import { runContentParseWorkflow } from '@/server/application/commands/run-content-parse-workflow';
-import { JOB_METADATA_FILL } from '@/server/application/jobs/work-metadata-fill';
+import { JOB_METADATA_FILL } from '@/jobs/work-metadata-fill';
 import { isEpubValidationError } from '@/server/domains/ingest/epub';
 import {
   cleanSaveIntentFailureReason,

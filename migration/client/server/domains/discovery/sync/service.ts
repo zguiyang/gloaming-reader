@@ -1,6 +1,6 @@
 import type { SourceRecordSourceMeta } from '@/server/db/schema';
 
-import { coverUrlHost, workCoverRefreshJobId } from '@/server/application/jobs/work-cover-refresh';
+import { coverUrlHost, workCoverRefreshJobId } from '@/jobs/work-cover-refresh';
 import {
   isGutenbergCategoryBookshelf,
   normalizeSourceCategory,

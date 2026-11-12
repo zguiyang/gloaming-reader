@@ -1,10 +1,10 @@
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 
-import type { PingJobData } from '@/server/application/jobs/ping';
-import { JOB_PING } from '@/server/application/jobs/ping';
-import type { WorkCoverRefreshJobData } from '@/server/application/jobs/work-cover-refresh';
-import { JOB_WORK_COVER_REFRESH } from '@/server/application/jobs/work-cover-refresh';
+import type { PingJobData } from '@/jobs/ping';
+import { JOB_PING } from '@/jobs/ping';
+import type { WorkCoverRefreshJobData } from '@/jobs/work-cover-refresh';
+import { JOB_WORK_COVER_REFRESH } from '@/jobs/work-cover-refresh';
 import { commonEnv } from '@/server/infra/config/env-common';
 import { queueLogger } from '@/server/infra/logging/logger';
 

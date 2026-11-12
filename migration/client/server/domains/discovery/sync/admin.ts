@@ -10,7 +10,7 @@ import type {
   DiscoverySyncRunSummary,
 } from '@gloaming/shared/discovery';
 
-import { JOB_DISCOVERY_SYNC } from '@/server/application/jobs/discovery-sync';
+import { JOB_DISCOVERY_SYNC } from '@/jobs/discovery-sync';
 import {
   PROJECT_GUTENBERG_SOURCE_KEY,
   PROJECT_GUTENBERG_SOURCE_TYPE,

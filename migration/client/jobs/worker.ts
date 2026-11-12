@@ -1,39 +1,27 @@
 import type { Job, Worker } from 'bullmq';
 import { Worker as BullWorker } from 'bullmq';
 
-import { JOB_ASSET_CLEANUP, processAssetCleanup } from '@/server/application/jobs/asset-cleanup';
-import {
-  type ContentParseJobData,
-  JOB_CONTENT_PARSE,
-  processContentParse,
-} from '@/server/application/jobs/content-parse';
-import {
-  JOB_METADATA_ENRICH,
-  type MetadataEnrichJobData,
-  processMetadataEnrich,
-} from '@/server/application/jobs/metadata-enrich';
-import type { PingJobData } from '@/server/application/jobs/ping';
-import { JOB_PING, processPing } from '@/server/application/jobs/ping';
+import { JOB_ASSET_CLEANUP, processAssetCleanup } from '@/jobs/asset-cleanup';
+import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from '@/jobs/content-parse';
+import { JOB_METADATA_ENRICH, type MetadataEnrichJobData, processMetadataEnrich } from '@/jobs/metadata-enrich';
+import type { PingJobData } from '@/jobs/ping';
+import { JOB_PING, processPing } from '@/jobs/ping';
 import {
   JOB_PUBLIC_CLASSIFICATION,
   processPublicClassification,
   type PublicClassificationJobData,
-} from '@/server/application/jobs/public-classification';
+} from '@/jobs/public-classification';
 import {
   JOB_SOURCE_RECORD_MATERIALIZE,
   processSourceRecordMaterialize,
   type SourceRecordMaterializeJobData,
-} from '@/server/application/jobs/source-record-materialize';
+} from '@/jobs/source-record-materialize';
 import {
   JOB_WORK_COVER_REFRESH,
   processWorkCoverRefresh,
   type WorkCoverRefreshJobData,
-} from '@/server/application/jobs/work-cover-refresh';
-import {
-  JOB_METADATA_FILL,
-  processWorkMetadataFill,
-  type WorkMetadataFillJobData,
-} from '@/server/application/jobs/work-metadata-fill';
+} from '@/jobs/work-cover-refresh';
+import { JOB_METADATA_FILL, processWorkMetadataFill, type WorkMetadataFillJobData } from '@/jobs/work-metadata-fill';
 import { dispatchDuePublicClassifications } from '@/server/domains/discovery/categories';
 import { recoverStaleSaveIntents } from '@/server/domains/library/save-intent';
 import { commonEnv } from '@/server/infra/config/env-common';

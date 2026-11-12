@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@/server/db';
 
-import { JOB_METADATA_ENRICH } from '@/server/application/jobs/metadata-enrich';
+import { JOB_METADATA_ENRICH } from '@/jobs/metadata-enrich';
 import { resetMetadataAiOutputs } from '@/server/domains/ingest/reset';
 import { fillWorkMetadata } from '@/server/domains/metadata';
 import {
