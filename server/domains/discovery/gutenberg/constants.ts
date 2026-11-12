@@ -1,54 +1,41 @@
-/** Stable discovery source identity for the Project Gutenberg RDF feed (ADR DS-02). */
+/** Stable discovery source identity for Project Gutenberg (on-demand OPDS). */
 export const PROJECT_GUTENBERG_SOURCE_KEY = 'project_gutenberg';
 
 /** Adapter/protocol family recorded on the DiscoverySource row. */
-export const PROJECT_GUTENBERG_SOURCE_TYPE = 'gutenberg_rdf';
+export const PROJECT_GUTENBERG_SOURCE_TYPE = 'gutenberg_opds';
 
-/**
- * Machine-readable Project Gutenberg metadata snapshot (same RDF tar.bz2 as the
- * official feed). Prefer the PGLAF high-speed mirror: `www.gutenberg.org` often
- * resets long downloads mid-stream (`UND_ERR_SOCKET` / "other side closed"),
- * which fails discovery sync after partial progress. This adapter never crawls
- * ebook pages and never downloads EPUB candidates.
- */
-export const PROJECT_GUTENBERG_RDF_SNAPSHOT_URL = 'https://gutenberg.pglaf.org/cache/epub/feeds/rdf-files.tar.bz2';
+/** Official Project Gutenberg OPDS origin. */
+export const PROJECT_GUTENBERG_OPDS_ORIGIN = 'https://www.gutenberg.org';
 
-/** Identifies the Gloaming metadata sync when calling the Project Gutenberg feed. */
-export const PROJECT_GUTENBERG_USER_AGENT = 'Gloaming/0.1 (metadata sync)';
+/** Popular / default Discover feed (download-ranked). */
+export const PROJECT_GUTENBERG_OPDS_POPULAR_PATH = '/ebooks/search.opds/?sort_order=downloads';
 
-/** Conservative initial multi-row upsert size; Worker F benchmarks PostgreSQL throughput. */
-export const PROJECT_GUTENBERG_UPSERT_BATCH_SIZE = 500;
+/** OpenSearch-compatible search feed path; append `query=` and optional `start_index=`. */
+export const PROJECT_GUTENBERG_OPDS_SEARCH_PATH = '/ebooks/search.opds/';
 
-/**
- * Hard wall-clock limit for one background sync run. The worker aborts the
- * snapshot stream past this limit so a hung upstream fetch cannot leave the
- * source stuck in `syncing`; the run is then reported as a timed-out failure.
- */
-export const PROJECT_GUTENBERG_SYNC_TIMEOUT_MS = 30 * 60 * 1000;
+/** Per-ebook acquisition feed: `/ebooks/{id}.opds`. */
+export function projectGutenbergOpdsBookPath(externalId: string): string {
+  return `/ebooks/${encodeURIComponent(externalId)}.opds`;
+}
 
-/** A `queued` claim older than this is treated as lost (e.g. the worker died before starting). */
-export const PROJECT_GUTENBERG_STALE_QUEUED_MS = 10 * 60 * 1000;
+/** Category bookshelf acquisition feed: `/ebooks/bookshelf/{id}.opds`. */
+export function projectGutenbergOpdsBookshelfPath(bookshelfId: string): string {
+  return `/ebooks/bookshelf/${encodeURIComponent(bookshelfId)}.opds`;
+}
 
-/**
- * A `syncing` run older than this is treated as lost. Always kept above
- * {@link PROJECT_GUTENBERG_SYNC_TIMEOUT_MS} plus a grace window so a live,
- * still-executing run is never misjudged and restarted.
- */
-export const PROJECT_GUTENBERG_STALE_SYNCING_MS = PROJECT_GUTENBERG_SYNC_TIMEOUT_MS + 15 * 60 * 1000;
+/** Identifies Gloaming when calling Project Gutenberg OPDS. */
+export const PROJECT_GUTENBERG_USER_AGENT = 'Gloaming/0.1 (on-demand OPDS discovery)';
 
-/** Upper bound for a single decompressed RDF tar member held in memory. */
-export const GUTENBERG_TAR_MEMBER_MAX_BYTES = 16 * 1024 * 1024;
+/** Upstream OPDS request timeout. */
+export const PROJECT_GUTENBERG_OPDS_TIMEOUT_MS = 20_000;
 
-/**
- * Decompressed bytes tolerated after the tar terminator (blocking-factor padding).
- * A larger trailing region is treated as a malformed archive instead of being drained forever.
- */
-export const GUTENBERG_TAR_TRAILING_MAX_BYTES = 4 * 1024 * 1024;
+/** Short TTL for popular / facet list responses (ms). */
+export const PROJECT_GUTENBERG_OPDS_CACHE_TTL_MS = 5 * 60_000;
 
-/** Bounded bzip2 stderr retained for a sanitized operational error summary. */
-export const GUTENBERG_BZIP2_STDERR_MAX_BYTES = 4 * 1024;
+/** OPDS page size reported by Gutenberg (`opensearch:itemsPerPage`). */
+export const PROJECT_GUTENBERG_OPDS_PAGE_SIZE = 25;
 
-/** Conventional Project Gutenberg cover candidate URL (never downloaded by this layer). */
+/** Conventional Project Gutenberg cover candidate URL. */
 export function projectGutenbergCoverUrl(externalId: string): string {
   return `https://www.gutenberg.org/cache/epub/${externalId}/pg${externalId}.cover.medium.jpg`;
 }

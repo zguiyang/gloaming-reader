@@ -478,95 +478,25 @@
     "discoverySources": {
       "page": {
         "title": "Discovery sources",
-        "subtitle": "Project Gutenberg metadata coverage and sync status.",
-        "loadFailed": "Could not load the discovery source status.",
+        "subtitle": "Enable or disable the remote catalogs available on Discover. Sources are on-demand; there is no full catalog sync.",
+        "loadFailed": "Could not load discovery sources.",
         "operationFailed": "Operation failed"
       },
       "fields": {
-        "status": "Sync status",
-        "lastSync": "Last sync",
-        "lastSuccess": "Last successful sync",
-        "recordCount": "Records",
-        "errorSummary": "Last error"
+        "sourceKey": "Source key",
+        "sourceType": "Adapter"
       },
-      "recordCount": "{count} records",
+      "names": {
+        "project_gutenberg": "Project Gutenberg"
+      },
       "enabled": {
         "label": "Enabled"
       },
       "disabled": {
         "label": "Disabled"
       },
-      "toggleEnableAria": "Enable Project Gutenberg sync source",
-      "toggleDisableAria": "Disable Project Gutenberg sync source",
-      "syncNow": "Sync now",
-      "forceRefresh": {
-        "label": "Force full refresh",
-        "title": "Force a full refresh?",
-        "description": "This re-downloads and re-parses the complete Gutenberg snapshot and may take several minutes.",
-        "confirm": "Start full refresh",
-        "cancel": "Cancel"
-      },
-      "queued": "Queued…",
-      "syncing": "Syncing…",
-      "queuedHint": "The task is queued and waiting to be processed.",
-      "pendingHint": "A sync is already running in the background.",
-      "missingRunDetail": "This task has no detailed run record; tasks created earlier may have no history. New tasks will record their stage and outcome.",
-      "disabledSyncHint": "Manual sync is unavailable while this source is disabled.",
-      "value": {
-        "never": "Never",
-        "elapsed": "{minutes}m {seconds}s"
-      },
-      "enum": {
-        "syncStatus": {
-          "idle": "Idle",
-          "queued": "Queued",
-          "syncing": "Syncing",
-          "succeeded": "Succeeded",
-          "failed": "Failed"
-        },
-        "runStage": {
-          "queued": "Queued",
-          "downloading": "Downloading",
-          "processing": "Processing",
-          "reconciling": "Reconciling",
-          "succeeded": "Succeeded",
-          "notModified": "Not modified",
-          "skipped": "Skipped",
-          "failed": "Failed"
-        }
-      },
-      "toast": {
-        "queued": "Background sync queued.",
-        "alreadyRunning": "A sync is already running.",
-        "disabled": "Sync is unavailable while this source is disabled.",
-        "unavailable": "Full catalog sync is disabled; discovery is on-demand and no longer queued to Jobs."
-      },
-      "run": {
-        "title": "Sync run",
-        "empty": "No sync run has been recorded yet.",
-        "consumer": {
-          "available": "A queue worker is available.",
-          "unavailable": "Waiting for a queue worker.",
-          "unknown": "Worker availability unknown."
-        },
-        "fields": {
-          "stage": "Stage",
-          "elapsed": "Elapsed",
-          "committedRecords": "Committed records",
-          "committedBatches": "Committed batches",
-          "lastActivity": "Last activity",
-          "finished": "Finished"
-        },
-        "committedRecords": "{count} records committed",
-        "committedBatches": "{count} batches committed",
-        "unavailableRecords": "{count} marked unavailable",
-        "recent": {
-          "title": "Recent runs",
-          "empty": "No recent runs.",
-          "error": "Could not load recent runs",
-          "retry": "Retry"
-        }
-      }
+      "toggleEnableAria": "Enable {name}",
+      "toggleDisableAria": "Disable {name}"
     },
     "publicCategories": {
       "sourceMappings": {
@@ -1273,7 +1203,13 @@
       "noSearchResults": "No books match these filters",
       "prevPage": "Previous",
       "nextPage": "Next",
-      "currentPage": "Page {page}"
+      "currentPage": "Page {page}",
+      "sourcesFilterAria": "Source filter",
+      "sourcesAria": "Sources",
+      "noSourcesTitle": "No discovery sources enabled",
+      "noSourcesDescription": "Ask an administrator to enable a source, or check back later.",
+      "sourceFilterChip": "Source: {source}",
+      "clearSourceFilter": "Clear source filter: {source}"
     },
     "library": {
       "readingFilter": "Reading status",

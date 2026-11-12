@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Globe, HardDrive, Menu, ScrollText, Settings, Tags } from 'lucide-react';
+import { ArrowLeft, HardDrive, Library, Menu, ScrollText, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Fragment, type ReactNode, Suspense, useState } from 'react';
@@ -40,14 +40,8 @@ function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
     {
       href: ADMIN_ROUTES.discoverySources,
       label: t(locale, 'admin.shell.navDiscoverySources'),
-      icon: Globe,
+      icon: Library,
       isActive: pathname === ADMIN_ROUTES.discoverySources || pathname.startsWith(`${ADMIN_ROUTES.discoverySources}/`),
-    },
-    {
-      href: ADMIN_ROUTES.publicCategories,
-      label: t(locale, 'admin.shell.navPublicCategories'),
-      icon: Tags,
-      isActive: pathname === ADMIN_ROUTES.publicCategories || pathname.startsWith(`${ADMIN_ROUTES.publicCategories}/`),
     },
     {
       href: ADMIN_ROUTES.config,

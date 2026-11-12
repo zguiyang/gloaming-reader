@@ -9,19 +9,15 @@ import { commonEnv } from '@/server/infra/config/env-common';
 import { queueLogger } from '@/server/infra/logging/logger';
 
 export const QUEUE_NAME = 'gloaming';
-export const DISCOVERY_SYNC_QUEUE_NAME = 'gloaming-discovery-sync';
 export const DISCOVERY_IMPORT_QUEUE_NAME = 'gloaming-discovery-import';
 export const CLEANUP_QUEUE_NAME = 'gloaming-asset-cleanup';
-export const PUBLIC_CLASSIFICATION_QUEUE_NAME = 'gloaming-public-classification';
 
 const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
 
 let connection: Redis | null = null;
 let queue: Queue | null = null;
-let discoverySyncQueue: Queue | null = null;
 let discoveryImportQueue: Queue | null = null;
 let cleanupQueue: Queue | null = null;
-let publicClassificationQueue: Queue | null = null;
 
 /** Dedicated BullMQ Redis client. Do not reuse `getRedis()`. */
 export function getQueueConnection(): Redis {
@@ -52,13 +48,6 @@ export function getQueue(): Queue {
   return queue;
 }
 
-/** Dedicated queue for administrator-triggered Gutenberg snapshot sync jobs. */
-export function getDiscoverySyncQueue(): Queue {
-  if (discoverySyncQueue) return discoverySyncQueue;
-  discoverySyncQueue = createNamedQueue(DISCOVERY_SYNC_QUEUE_NAME);
-  return discoverySyncQueue;
-}
-
 /** Dedicated queue for SourceRecord materialization and EPUB parsing. */
 export function getDiscoveryImportQueue(): Queue {
   if (discoveryImportQueue) return discoveryImportQueue;
@@ -73,13 +62,6 @@ export function getCleanupQueue(): Queue {
 
   cleanupQueue = createNamedQueue(CLEANUP_QUEUE_NAME);
   return cleanupQueue;
-}
-
-/** Separate AI-heavy queue so classification never blocks sync/materialization jobs. */
-export function getPublicClassificationQueue(): Queue {
-  if (publicClassificationQueue) return publicClassificationQueue;
-  publicClassificationQueue = createNamedQueue(PUBLIC_CLASSIFICATION_QUEUE_NAME);
-  return publicClassificationQueue;
 }
 
 export type EnqueueJobOptions = {
@@ -108,14 +90,6 @@ export async function enqueue(name: string, data: unknown, jobOptions?: EnqueueJ
   return addJob(getQueue(), name, data, jobOptions);
 }
 
-export async function enqueueDiscoverySync(
-  name: string,
-  data: unknown,
-  jobOptions?: EnqueueJobOptions,
-): Promise<string> {
-  return addJob(getDiscoverySyncQueue(), name, data, jobOptions);
-}
-
 export async function enqueueDiscoveryImport(
   name: string,
   data: unknown,
@@ -128,17 +102,9 @@ export async function enqueueCleanup(name: string, data: unknown, jobOptions?: E
   return addJob(getCleanupQueue(), name, data, jobOptions);
 }
 
-export async function enqueuePublicClassification(
-  name: string,
-  data: unknown,
-  jobOptions?: EnqueueJobOptions,
-): Promise<string> {
-  return addJob(getPublicClassificationQueue(), name, data, jobOptions);
-}
-
 /**
  * Source-cover write-back onto an already-materialized Work. Runs on the main
- * `gloaming` queue so the full worker (never the discovery-only modes) applies it.
+ * `gloaming` queue so the full worker applies it.
  */
 export async function enqueueWorkCoverRefresh(
   data: WorkCoverRefreshJobData,
@@ -153,17 +119,9 @@ export async function enqueuePing(data?: PingJobData): Promise<string> {
 }
 
 export async function closeQueue(): Promise<void> {
-  if (discoverySyncQueue) {
-    await discoverySyncQueue.close();
-    discoverySyncQueue = null;
-  }
   if (discoveryImportQueue) {
     await discoveryImportQueue.close();
     discoveryImportQueue = null;
-  }
-  if (publicClassificationQueue) {
-    await publicClassificationQueue.close();
-    publicClassificationQueue = null;
   }
   if (cleanupQueue) {
     await cleanupQueue.close();

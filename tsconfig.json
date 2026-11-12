@@ -30,5 +30,5 @@
     "**/*.mts",
     ".cloudflare/types"
   ],
-  "exclude": ["node_modules", "**/*.spec.ts", "**/*.test.ts"]
+  "exclude": ["node_modules", "archive", "**/*.spec.ts", "**/*.test.ts"]
 }

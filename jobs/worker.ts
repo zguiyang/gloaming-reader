@@ -7,11 +7,6 @@ import { JOB_METADATA_ENRICH, type MetadataEnrichJobData, processMetadataEnrich 
 import type { PingJobData } from '@/jobs/ping';
 import { JOB_PING, processPing } from '@/jobs/ping';
 import {
-  JOB_PUBLIC_CLASSIFICATION,
-  processPublicClassification,
-  type PublicClassificationJobData,
-} from '@/jobs/public-classification';
-import {
   JOB_SOURCE_RECORD_MATERIALIZE,
   processSourceRecordMaterialize,
   type SourceRecordMaterializeJobData,
@@ -22,7 +17,6 @@ import {
   type WorkCoverRefreshJobData,
 } from '@/jobs/work-cover-refresh';
 import { JOB_METADATA_FILL, processWorkMetadataFill, type WorkMetadataFillJobData } from '@/jobs/work-metadata-fill';
-import { dispatchDuePublicClassifications } from '@/server/domains/discovery/categories';
 import { recoverStaleSaveIntents } from '@/server/domains/library/save-intent';
 import { commonEnv } from '@/server/infra/config/env-common';
 import { workerLogger } from '@/server/infra/logging/logger';
@@ -31,35 +25,17 @@ import {
   closeQueue,
   DISCOVERY_IMPORT_QUEUE_NAME,
   getQueueConnection,
-  PUBLIC_CLASSIFICATION_QUEUE_NAME,
   QUEUE_NAME,
 } from '@/server/infra/queue';
 
 export const CLEANUP_WORKER_CONCURRENCY = 1;
-export const PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY = 1;
 
-export const PUBLIC_CLASSIFICATION_ONLY_FLAG = '--public-classification-only';
 export const DISCOVERY_IMPORT_ONLY_FLAG = '--discovery-import-only';
-export const NO_PUBLIC_CLASSIFICATION_FLAG = '--no-public-classification';
 
-export type WorkerMode = 'full' | 'public-classification-only' | 'discovery-import-only';
+export type WorkerMode = 'full' | 'discovery-import-only';
 
 export function resolveWorkerMode(argv: readonly string[] = process.argv): WorkerMode {
-  if (argv.includes(DISCOVERY_IMPORT_ONLY_FLAG)) return 'discovery-import-only';
-  return argv.includes(PUBLIC_CLASSIFICATION_ONLY_FLAG) ? 'public-classification-only' : 'full';
-}
-
-export function publicClassificationEnabled(mode: WorkerMode, argv: readonly string[] = process.argv): boolean {
-  if (!argv.includes(NO_PUBLIC_CLASSIFICATION_FLAG)) return true;
-  if (mode !== 'full') throw new Error(`${NO_PUBLIC_CLASSIFICATION_FLAG} is only supported in full worker mode`);
-  return false;
-}
-
-export async function dispatchPublicClassificationsIfEnabled(
-  enabled: boolean,
-  dispatch: typeof dispatchDuePublicClassifications = dispatchDuePublicClassifications,
-): Promise<void> {
-  if (enabled) await dispatch();
+  return argv.includes(DISCOVERY_IMPORT_ONLY_FLAG) ? 'discovery-import-only' : 'full';
 }
 
 export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
@@ -118,29 +94,14 @@ export function createWorkers(
   mode: WorkerMode = 'full',
   options: {
     discoveryImportQueueName?: string;
-    publicClassificationEnabled?: boolean;
   } = {},
 ): {
   worker?: Worker;
   cleanupWorker?: Worker;
-  publicClassificationWorker?: Worker;
   discoveryImportWorker?: Worker;
 } {
   const connection = getQueueConnection();
   const discoveryImportQueueName = options.discoveryImportQueueName ?? DISCOVERY_IMPORT_QUEUE_NAME;
-
-  const createPublicClassificationWorker = () => {
-    const publicClassificationWorker = new BullWorker(
-      PUBLIC_CLASSIFICATION_QUEUE_NAME,
-      async (job) => {
-        if (job.name !== JOB_PUBLIC_CLASSIFICATION) throw new Error(`Unknown public classification job: ${job.name}`);
-        return processPublicClassification(job.data as PublicClassificationJobData);
-      },
-      { connection, concurrency: PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY },
-    );
-    attachWorkerEvents(publicClassificationWorker, PUBLIC_CLASSIFICATION_QUEUE_NAME);
-    return publicClassificationWorker;
-  };
 
   const createDiscoveryImportWorker = () => {
     const discoveryImportWorker = new BullWorker(
@@ -151,10 +112,6 @@ export function createWorkers(
     attachWorkerEvents(discoveryImportWorker, discoveryImportQueueName);
     return discoveryImportWorker;
   };
-
-  if (mode === 'public-classification-only') {
-    return { publicClassificationWorker: createPublicClassificationWorker() };
-  }
 
   if (mode === 'discovery-import-only') {
     return { discoveryImportWorker: createDiscoveryImportWorker() };
@@ -171,20 +128,14 @@ export function createWorkers(
   attachWorkerEvents(worker, QUEUE_NAME);
   attachWorkerEvents(cleanupWorker, CLEANUP_QUEUE_NAME);
 
-  const publicClassificationWorker =
-    options.publicClassificationEnabled === false ? undefined : createPublicClassificationWorker();
   const discoveryImportWorker = createDiscoveryImportWorker();
 
-  return { worker, cleanupWorker, publicClassificationWorker, discoveryImportWorker };
+  return { worker, cleanupWorker, discoveryImportWorker };
 }
 
 async function main(): Promise<void> {
   const mode = resolveWorkerMode();
-  const classificationEnabled = publicClassificationEnabled(mode);
-  const publicClassificationOnly = mode === 'public-classification-only';
-  const { worker, cleanupWorker, publicClassificationWorker, discoveryImportWorker } = createWorkers(mode, {
-    publicClassificationEnabled: classificationEnabled,
-  });
+  const { worker, cleanupWorker, discoveryImportWorker } = createWorkers(mode);
   if (mode === 'discovery-import-only') {
     workerLogger.info({ queue: DISCOVERY_IMPORT_QUEUE_NAME, mode }, 'Worker listening');
     let shuttingDown = false;
@@ -200,23 +151,15 @@ async function main(): Promise<void> {
     process.on('SIGTERM', () => void shutdown('SIGTERM'));
     return;
   }
+
   let dispatcherRunning = false;
   const dispatch = async () => {
     if (dispatcherRunning) return;
     dispatcherRunning = true;
-    if (!publicClassificationOnly) {
-      try {
-        // Bounded stale Save Intent recovery: re-queue lost materialization
-        // jobs and time out intents whose deadline passed (see save-intent).
-        await recoverStaleSaveIntents();
-      } catch (error) {
-        workerLogger.warn({ err: error }, 'Save intent recovery pass failed');
-      }
-    }
     try {
-      await dispatchPublicClassificationsIfEnabled(classificationEnabled);
+      await recoverStaleSaveIntents();
     } catch (error) {
-      workerLogger.warn({ err: error }, 'Public classification outbox recovery pass failed');
+      workerLogger.warn({ err: error }, 'Save intent recovery pass failed');
     } finally {
       dispatcherRunning = false;
     }
@@ -232,7 +175,6 @@ async function main(): Promise<void> {
       cleanupQueue: CLEANUP_QUEUE_NAME,
       nodeEnv: commonEnv.NODE_ENV,
       mode,
-      publicClassificationEnabled: classificationEnabled,
     },
     'Worker listening',
   );
@@ -246,7 +188,7 @@ async function main(): Promise<void> {
     clearInterval(dispatchTimer);
     workerLogger.info({ signal }, 'Worker shutting down');
     await Promise.all(
-      [worker, cleanupWorker, publicClassificationWorker, discoveryImportWorker]
+      [worker, cleanupWorker, discoveryImportWorker]
         .filter((created): created is Worker => created !== undefined)
         .map((created) => created.close()),
     );

@@ -1,398 +1,206 @@
-import { and, count, desc, eq, ilike, inArray, isNotNull, or, type SQL, sql } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
-import { discoverySource, readingWork, sourceRecord } from '@/server/db/schema';
-import { DEFAULT_LOCALE } from '@/i18n';
+import {
+  discoverySource as discoverySourceTable,
+  readingWork as readingWorkTable,
+  sourceRecord as sourceRecordTable,
+} from '@/server/db/schema';
 import type {
-  CategorySourceRecordListQuery,
+  DiscoveryFacetListData,
   SourceRecordDetail,
   SourceRecordItem,
   SourceRecordListData,
   SourceRecordListQuery,
 } from '@/shared/discovery';
-import { buildPaginationMeta } from '@/shared/pagination';
-import { WORK_PARSE_COMPLETED_STATUSES } from '@/shared/works';
+import { DEFAULT_SOURCE_RECORD_SORT_BY } from '@/shared/discovery';
+import { DEFAULT_SORT_ORDER } from '@/shared/pagination';
+import { isWorkParseCompleted } from '@/shared/works';
 
-import { loadCategorySummariesByRecordIds } from '@/server/domains/discovery/categories/repository';
-import { hasSelectableEpubCandidate } from '@/server/domains/discovery/materialization/epub-candidate';
+import { PROJECT_GUTENBERG_SOURCE_KEY } from '@/server/domains/discovery/gutenberg/constants';
 import {
-  availableRecordFilter,
-  enabledSourceFilter,
-  publicDiscoverableRecordWhere,
-} from '@/server/domains/discovery/read-model/visibility';
-import { anonymousWorkReadActor, workReadAccessSql, type WorkReadActor } from '@/server/domains/works/access';
+  getGutenbergOpdsRecord,
+  listGutenbergDiscoveryFacets,
+  listGutenbergOpdsRecords,
+} from '@/server/domains/discovery/gutenberg/opds-adapter';
+import { findSourceRecordByExternalId } from '@/server/domains/discovery/persist/source-record';
+import { assertDiscoverySourceEnabled, listEnabledDiscoverySources } from '@/server/domains/discovery/sources/service';
+import type { WorkReadActor } from '@/server/domains/works/access';
+import { canReadWork } from '@/server/domains/works/access';
 import { db } from '@/server/infra/db';
 import { NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-type DiscoverySourceRow = typeof discoverySource.$inferSelect;
-type SourceRecordRow = typeof sourceRecord.$inferSelect;
-
-function escapeIlikePattern(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
-}
-
-/** Matches title, author display names, and the source-scoped external id. */
-function searchFilter(term: string): SQL {
-  const pattern = `%${escapeIlikePattern(term)}%`;
-  return or(
-    ilike(sourceRecord.title, pattern),
-    ilike(sourceRecord.externalId, pattern),
-    sql`EXISTS (
-      SELECT 1 FROM jsonb_array_elements(${sourceRecord.authors}) AS author
-      WHERE author->>'name' ILIKE ${pattern}
-    )`,
-  )!;
-}
-
-/** Matches records that carry a public category assignment. */
-function categoryFilter(categoryId: string): SQL {
-  return sql`EXISTS (
-    SELECT 1 FROM source_record_public_category assigned
-    WHERE assigned.source_record_id = ${sourceRecord.id} AND assigned.category_id = ${categoryId}
-  )`;
-}
-
-function listWhere(query: SourceRecordListQuery): SQL {
-  // Shared visibility scope (availability + enabled source + content language);
-  // the public category counts use the same predicate.
-  const parts: SQL[] = [publicDiscoverableRecordWhere(query.language)];
-  if (query.q) {
-    parts.push(searchFilter(query.q));
-  }
-  if (query.categoryId) {
-    parts.push(categoryFilter(query.categoryId));
-  }
-  return and(...parts)!;
-}
-
-function listOrderBy(query: Pick<SourceRecordListQuery, 'sortBy' | 'sortOrder'>): SQL[] {
-  const column =
-    query.sortBy === 'title'
-      ? sourceRecord.title
-      : query.sortBy === 'updatedAt'
-        ? sourceRecord.updatedAt
-        : sourceRecord.sourceUpdatedAt;
-  const primary = query.sortOrder === 'asc' ? sql`${column} asc nulls last` : sql`${column} desc nulls last`;
-  return [primary, desc(sourceRecord.id)];
-}
-
-function toSourceRecordItem(
-  record: SourceRecordRow,
-  source: DiscoverySourceRow,
-  viewerCoverUrl: string | null,
-  detailAvailable: boolean,
-): SourceRecordItem {
-  return {
-    sourceRecordId: record.id,
-    linkedWorkId: record.workId,
-    sourceId: record.sourceId,
-    sourceKey: source.sourceKey,
-    sourceType: source.sourceType,
-    externalId: record.externalId,
-    title: record.title,
-    authors: record.authors,
-    languages: record.languages,
-    description: record.description,
-    coverUrl: viewerCoverUrl ?? record.coverUrl,
-    availability: record.availability,
-    sourceUpdatedAt: record.sourceUpdatedAt,
-    lastSeenAt: record.lastSeenAt,
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
-    // Computed from the selected `content_candidates` row only; the candidates
-    // themselves stay off the list DTO and appear solely on the detail projection.
-    isSaveable: hasSelectableEpubCandidate({ contentCandidates: record.contentCandidates }),
-    // Viewer-specific read-model gate; never derived from `linkedWorkId` alone.
-    detailAvailable,
-  };
-}
-
-function toSourceRecordDetail(
-  record: SourceRecordRow,
-  source: DiscoverySourceRow,
-  viewerCoverUrl: string | null,
-  detailAvailable: boolean,
-): SourceRecordDetail {
-  return {
-    ...toSourceRecordItem(record, source, viewerCoverUrl, detailAvailable),
-    rightsStatement: record.rightsStatement,
-    contentCandidates: record.contentCandidates,
-    sourceMeta: record.sourceMeta,
-  };
-}
-
-/**
- * Local cover asset URLs for linked Works this viewer may read, decided solely
- * by the central Work Access Policy (the same rule the asset gateway enforces).
- * A Work that is not provably readable for the viewer keeps the source cover
- * URL, so a public browse page never renders an asset its viewer cannot fetch.
- */
-async function loadViewerCoverUrls(workIds: Array<string | null>, actor: WorkReadActor): Promise<Map<string, string>> {
-  const ids = [...new Set(workIds.filter((id): id is string => Boolean(id)))];
-  if (ids.length === 0) {
-    return new Map();
-  }
-  const access = workReadAccessSql(actor);
-  if (!access) {
-    return new Map();
-  }
-  const rows = await db
-    .select({ id: readingWork.id, coverAssetId: readingWork.coverAssetId })
-    .from(readingWork)
-    .where(and(inArray(readingWork.id, ids), isNotNull(readingWork.coverAssetId), access));
-  return new Map(rows.map((row) => [row.id, `/api/assets/${row.coverAssetId}`]));
-}
-
-/**
- * Linked Works this viewer can open right now: parse completed **and** the
- * central Work Access Policy grants this actor read access (the predicate is
- * reused unchanged — no new permission semantics). Unlinked records and Works
- * still importing/failed are absent from the set, so `detailAvailable` stays
- * `false` for them.
- */
-async function loadViewerDetailAvailability(workIds: Array<string | null>, actor: WorkReadActor): Promise<Set<string>> {
-  const ids = [...new Set(workIds.filter((id): id is string => Boolean(id)))];
-  if (ids.length === 0) {
-    return new Set();
-  }
-  const access = workReadAccessSql(actor);
-  if (!access) {
-    return new Set();
-  }
-  const rows = await db
-    .select({ id: readingWork.id })
-    .from(readingWork)
-    .where(
-      and(
-        inArray(readingWork.id, ids),
-        inArray(readingWork.processingStatus, [...WORK_PARSE_COMPLETED_STATUSES]),
-        access,
-      ),
-    );
-  return new Set(rows.map((row) => row.id));
-}
-
-export type SourceRecordReadOptions = {
-  /** Locale for the public category display summaries; defaults to the product locale. */
+type DiscoverReadOptions = {
   locale?: string;
-  /**
-   * Viewer whose Work access decides whether a linked Work's local cover asset
-   * replaces the source cover URL and whether `detailAvailable` is true.
-   * Defaults to anonymous (public-only covers, no unpublished detail entry).
-   */
-  actor?: WorkReadActor;
-};
-
-/** Sort/pagination columns shared by every SourceRecord list surface. */
-type SourceRecordPageQuery = Pick<SourceRecordListQuery, 'page' | 'pageSize' | 'sortBy' | 'sortOrder'>;
-
-/**
- * Admin candidate-search query: the public list controls without any visibility
- * or content-language constraint. The admin read model resolves the rows.
- */
-export type AdminSourceRecordListQuery = SourceRecordPageQuery & Pick<SourceRecordListQuery, 'q'>;
-
-/** Viewer-scoped Work access inputs shared by every SourceRecord list surface. */
-type ListViewerAccess = {
-  /** Viewer whose Work access decides covers and detail availability. */
   actor: WorkReadActor;
-  /** Whether viewer-local cover assets are projected (public Discover only). */
-  viewerCovers: boolean;
 };
 
-/**
- * `exact` runs a full COUNT for admin UIs that show total pages.
- * `probe` skips COUNT and fetches pageSize+1 to derive hasMore for public Discover.
- */
-type ListCountMode = 'exact' | 'probe';
-
-/** Shared page query for the public, category, and admin SourceRecord list surfaces. */
-async function listSourceRecordPage(
-  where: SQL,
-  query: SourceRecordPageQuery,
-  locale: string,
-  access: ListViewerAccess,
-  countMode: ListCountMode,
-): Promise<SourceRecordListData> {
-  const offset = (query.page - 1) * query.pageSize;
-  const fetchLimit = countMode === 'probe' ? query.pageSize + 1 : query.pageSize;
-
-  const countPromise =
-    countMode === 'exact'
-      ? db
-          .select({ value: count() })
-          .from(sourceRecord)
-          .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
-          .where(where)
-      : Promise.resolve(null);
-
-  const [countRows, fetchedRows] = await Promise.all([
-    countPromise,
-    db
-      .select({ record: sourceRecord, source: discoverySource })
-      .from(sourceRecord)
-      .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
-      .where(where)
-      .orderBy(...listOrderBy(query))
-      .limit(fetchLimit)
-      .offset(offset),
-  ]);
-
-  const hasMore = countMode === 'probe' ? fetchedRows.length > query.pageSize : false;
-  const rows = countMode === 'probe' ? fetchedRows.slice(0, query.pageSize) : fetchedRows;
-
-  const recordIds = rows.map((row) => row.record.id);
-  const workIds = rows.map((row) => row.record.workId);
-  const [categoriesByRecord, detailIds, coverUrls] = await Promise.all([
-    loadCategorySummariesByRecordIds(recordIds, locale),
-    loadViewerDetailAvailability(workIds, access.actor),
-    access.viewerCovers ? loadViewerCoverUrls(workIds, access.actor) : Promise.resolve(null),
-  ]);
-
-  const items = rows.map((row) => ({
-    ...toSourceRecordItem(
-      row.record,
-      row.source,
-      coverUrls?.get(row.record.workId ?? '') ?? null,
-      detailIds.has(row.record.workId ?? ''),
-    ),
-    categories: categoriesByRecord.get(row.record.id) ?? [],
-  }));
-
-  const exactTotal = countMode === 'exact' ? Number(countRows?.[0]?.value ?? 0) : null;
-  // Probe path: lower-bound total so existing pagination meta stays valid without a COUNT.
-  const total = exactTotal ?? (query.page - 1) * query.pageSize + items.length;
-  const basePagination = buildPaginationMeta({
-    page: query.page,
-    pageSize: query.pageSize,
-    total,
-    sortBy: query.sortBy,
-    sortOrder: query.sortOrder,
-  });
-
-  if (countMode === 'exact') {
-    return {
-      items,
-      hasMore: query.page < basePagination.totalPages,
-      pagination: basePagination,
-    };
-  }
-
+function emptyList(query: SourceRecordListQuery): SourceRecordListData {
   return {
-    items,
-    hasMore,
+    items: [],
+    hasMore: false,
     pagination: {
-      ...basePagination,
-      totalPages: hasMore ? query.page + 1 : query.page,
+      page: query.page,
+      pageSize: query.pageSize,
+      total: 0,
+      totalPages: 0,
+      sortBy: query.sortBy ?? DEFAULT_SOURCE_RECORD_SORT_BY,
+      sortOrder: query.sortOrder ?? DEFAULT_SORT_ORDER,
     },
   };
+}
+
+async function resolveActiveSourceKey(requested?: string): Promise<string | null> {
+  const enabled = await listEnabledDiscoverySources();
+  if (enabled.items.length === 0) return null;
+  if (requested) {
+    return enabled.items.some((item) => item.sourceKey === requested) ? requested : null;
+  }
+  return enabled.items[0]?.sourceKey ?? null;
+}
+
+async function enrichItemsWithLocalState(
+  items: SourceRecordItem[],
+  actor: WorkReadActor,
+  sourceKey: string,
+): Promise<SourceRecordItem[]> {
+  if (items.length === 0) return items;
+
+  const externalIds = items.map((item) => item.externalId);
+  const rows = await db
+    .select({
+      id: sourceRecordTable.id,
+      externalId: sourceRecordTable.externalId,
+      workId: sourceRecordTable.workId,
+      sourceId: sourceRecordTable.sourceId,
+      processingStatus: readingWorkTable.processingStatus,
+    })
+    .from(sourceRecordTable)
+    .innerJoin(discoverySourceTable, eq(sourceRecordTable.sourceId, discoverySourceTable.id))
+    .leftJoin(readingWorkTable, eq(sourceRecordTable.workId, readingWorkTable.id))
+    .where(and(eq(discoverySourceTable.sourceKey, sourceKey), inArray(sourceRecordTable.externalId, externalIds)));
+
+  const byExternalId = new Map(rows.map((row) => [row.externalId, row]));
+
+  return Promise.all(
+    items.map(async (item) => {
+      const local = byExternalId.get(item.externalId);
+      if (!local) return item;
+
+      let detailAvailable = false;
+      if (local.workId && local.processingStatus && isWorkParseCompleted(local.processingStatus)) {
+        detailAvailable = await canReadWork(actor, local.workId);
+      }
+
+      return {
+        ...item,
+        sourceRecordId: local.id,
+        sourceId: local.sourceId,
+        linkedWorkId: local.workId,
+        detailAvailable,
+      };
+    }),
+  );
+}
+
+export async function listDiscoveryFacets(sourceKey?: string): Promise<DiscoveryFacetListData> {
+  const active = await resolveActiveSourceKey(sourceKey);
+  if (!active || active !== PROJECT_GUTENBERG_SOURCE_KEY) {
+    return { items: [] };
+  }
+  return { items: listGutenbergDiscoveryFacets() };
 }
 
 export async function listSourceRecords(
   query: SourceRecordListQuery,
-  options: SourceRecordReadOptions = {},
+  options: DiscoverReadOptions,
 ): Promise<SourceRecordListData> {
-  const actor = options.actor ?? anonymousWorkReadActor();
-  return listSourceRecordPage(
-    listWhere(query),
-    query,
-    options.locale ?? DEFAULT_LOCALE,
-    {
-      actor,
-      viewerCovers: true,
-    },
-    'probe',
-  );
-}
+  void options.locale;
+  const sourceKey = await resolveActiveSourceKey(query.sourceKey);
+  if (!sourceKey) {
+    return emptyList(query);
+  }
 
-/** Admin search has no public visibility or language constraint; only `q` narrows it. */
-function adminListWhere(query: AdminSourceRecordListQuery): SQL {
-  return query.q ? searchFilter(query.q) : sql`true`;
-}
+  if (sourceKey === PROJECT_GUTENBERG_SOURCE_KEY) {
+    const remote = await listGutenbergOpdsRecords({
+      page: query.page,
+      pageSize: query.pageSize,
+      q: query.q,
+      facetId: query.facetId,
+      language: query.language,
+    });
+    const items = await enrichItemsWithLocalState(remote.items, options.actor, sourceKey);
+    return { ...remote, items };
+  }
 
-/**
- * Admin paginated candidate search over every SourceRecord of every
- * DiscoverySource. Unlike the public Discover list it never filters by record
- * availability, source enabled state, or content language, so instance
- * management can assign categories to records that are not publicly
- * discoverable. It still reads only `source_record` (plus its owning
- * DiscoverySource metadata), so personal/private EPUB works are never
- * candidates.
- */
-export async function listAdminSourceRecords(
-  query: AdminSourceRecordListQuery,
-  options: SourceRecordReadOptions = {},
-): Promise<SourceRecordListData> {
-  // Admin search never renders viewer-local covers; `detailAvailable` still
-  // follows this actor's Work access (the Admin role grants none by itself).
-  return listSourceRecordPage(
-    adminListWhere(query),
-    query,
-    options.locale ?? DEFAULT_LOCALE,
-    {
-      actor: options.actor ?? anonymousWorkReadActor(),
-      viewerCovers: false,
-    },
-    'exact',
-  );
+  return emptyList(query);
 }
 
 export async function getSourceRecord(
-  sourceRecordId: string,
-  options: SourceRecordReadOptions = {},
+  sourceRecordIdOrExternalId: string,
+  options: DiscoverReadOptions,
 ): Promise<SourceRecordDetail> {
-  const locale = options.locale ?? DEFAULT_LOCALE;
-  const [row] = await db
-    .select({ record: sourceRecord, source: discoverySource })
-    .from(sourceRecord)
-    .innerJoin(discoverySource, eq(sourceRecord.sourceId, discoverySource.id))
-    .where(and(eq(sourceRecord.id, sourceRecordId), availableRecordFilter(), enabledSourceFilter()))
+  void options.locale;
+
+  const [byId] = await db
+    .select({
+      record: sourceRecordTable,
+      sourceKey: discoverySourceTable.sourceKey,
+      enabled: discoverySourceTable.enabled,
+    })
+    .from(sourceRecordTable)
+    .innerJoin(discoverySourceTable, eq(sourceRecordTable.sourceId, discoverySourceTable.id))
+    .where(eq(sourceRecordTable.id, sourceRecordIdOrExternalId))
     .limit(1);
 
-  if (!row) {
+  if (byId) {
+    if (!byId.enabled) {
+      throw new NotFoundError(ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
+    }
+    if (byId.sourceKey !== PROJECT_GUTENBERG_SOURCE_KEY) {
+      throw new NotFoundError(ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
+    }
+    const detail = await getGutenbergOpdsRecord(byId.record.externalId);
+    const [enriched] = await enrichItemsWithLocalState(
+      [
+        {
+          ...detail,
+          sourceRecordId: byId.record.id,
+          sourceId: byId.record.sourceId,
+          linkedWorkId: byId.record.workId,
+        },
+      ],
+      options.actor,
+      byId.sourceKey,
+    );
+    return {
+      ...detail,
+      ...enriched,
+      contentCandidates:
+        byId.record.contentCandidates.length > 0 ? byId.record.contentCandidates : detail.contentCandidates,
+      sourceMeta: Object.keys(byId.record.sourceMeta).length > 0 ? byId.record.sourceMeta : detail.sourceMeta,
+      rightsStatement: byId.record.rightsStatement ?? detail.rightsStatement,
+    };
+  }
+
+  if (!/^\d+$/.test(sourceRecordIdOrExternalId)) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
   }
 
-  const actor = options.actor ?? anonymousWorkReadActor();
-  const [categoriesByRecord, coverUrls, detailIds] = await Promise.all([
-    loadCategorySummariesByRecordIds([row.record.id], locale),
-    loadViewerCoverUrls([row.record.workId], actor),
-    loadViewerDetailAvailability([row.record.workId], actor),
-  ]);
-  return {
-    ...toSourceRecordDetail(
-      row.record,
-      row.source,
-      coverUrls.get(row.record.workId ?? '') ?? null,
-      detailIds.has(row.record.workId ?? ''),
-    ),
-    categories: categoriesByRecord.get(row.record.id) ?? [],
-  };
-}
-
-/**
- * Admin paginated view of one category's assignments. Unlike the public list it
- * does not filter by availability, source-enabled state, or content language, so
- * instance management sees every assigned SourceRecord. Category summaries are
- * still the minimal localized projection.
- */
-export async function listCategorySourceRecords(
-  categoryId: string,
-  query: CategorySourceRecordListQuery,
-  options: SourceRecordReadOptions = {},
-): Promise<SourceRecordListData> {
-  const parts: SQL[] = [categoryFilter(categoryId)];
-  if (query.q) {
-    parts.push(searchFilter(query.q));
-  }
-  return listSourceRecordPage(
-    and(...parts)!,
-    query,
-    options.locale ?? DEFAULT_LOCALE,
-    {
-      actor: options.actor ?? anonymousWorkReadActor(),
-      viewerCovers: false,
-    },
-    'exact',
+  await assertDiscoverySourceEnabled(PROJECT_GUTENBERG_SOURCE_KEY);
+  const detail = await getGutenbergOpdsRecord(sourceRecordIdOrExternalId);
+  const local = await findSourceRecordByExternalId(PROJECT_GUTENBERG_SOURCE_KEY, sourceRecordIdOrExternalId);
+  const [enriched] = await enrichItemsWithLocalState(
+    [
+      {
+        ...detail,
+        sourceRecordId: local?.id ?? null,
+        sourceId: local?.sourceId ?? null,
+        linkedWorkId: local?.workId ?? null,
+      },
+    ],
+    options.actor,
+    PROJECT_GUTENBERG_SOURCE_KEY,
   );
+  return { ...detail, ...enriched };
 }

@@ -18,7 +18,6 @@ export const ERROR_CODES = {
     WORD_DEFINITION: 'api.errors.notFound.wordDefinition',
     USER_TAG: 'api.errors.notFound.userTag',
     SOURCE_RECORD: 'api.errors.notFound.sourceRecord',
-    PUBLIC_CATEGORY: 'api.errors.notFound.publicCategory',
   },
 
   UPLOAD: {
@@ -135,15 +134,6 @@ export const ERROR_CODES = {
   LIBRARY: {
     USER_TAG_NAME_EXISTS: 'api.errors.library.userTagNameExists',
     SOURCE_RECORD_NO_EPUB_CANDIDATE: 'api.errors.library.sourceRecordNoEpubCandidate',
-  },
-
-  DISCOVERY: {
-    PUBLIC_CATEGORY_NAME_EXISTS: 'api.errors.discovery.publicCategoryNameExists',
-    PUBLIC_CATEGORY_LIMIT_EXCEEDED: 'api.errors.discovery.publicCategoryLimitExceeded',
-    PUBLIC_CATEGORY_HAS_ASSIGNMENTS: 'api.errors.discovery.publicCategoryHasAssignments',
-    SOURCE_CATEGORY_MAPPING_CONFLICT: 'api.errors.discovery.sourceCategoryMappingConflict',
-    /** Admin "complete translations" clicked while the instance lock is held. */
-    PUBLIC_CATEGORY_TRANSLATION_BUSY: 'api.errors.discovery.publicCategoryTranslationBusy',
   },
 } as const;
 

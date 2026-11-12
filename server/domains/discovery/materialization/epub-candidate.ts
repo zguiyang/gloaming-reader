@@ -1,9 +1,9 @@
 import type { SourceRecordContentCandidate } from '@/server/db/schema';
 
 /**
- * Deterministic, side-effect-free EPUB candidate selection over *already-synced*
- * SourceRecord metadata. It never crawls, downloads, or resolves redirects; it
- * only ranks the `content_candidates` the metadata sync already stored.
+ * Deterministic, side-effect-free EPUB candidate selection over SourceRecord
+ * `content_candidates` (typically from on-demand OPDS acquisition links). It
+ * never crawls, downloads, or resolves redirects; it only ranks stored URLs.
  *
  * Preference (see `variantRank`), lowest rank wins:
  *   1. Standard EPUB (`epub`) before EPUB 3 (`epub3`).
@@ -12,7 +12,7 @@ import type { SourceRecordContentCandidate } from '@/server/db/schema';
  *      metadata always selects the same candidate regardless of input order.
  */
 
-/** Official Project Gutenberg content host; mirrors the metadata snapshot adapter. */
+/** Official Project Gutenberg content host. */
 const GUTENBERG_HOSTNAME = 'www.gutenberg.org';
 
 /**

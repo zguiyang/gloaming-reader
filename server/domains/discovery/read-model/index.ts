@@ -1,6 +1,1 @@
-export {
-  getSourceRecord,
-  listAdminSourceRecords,
-  listCategorySourceRecords,
-  listSourceRecords,
-} from './source-records';
+export { getSourceRecord, listDiscoveryFacets, listSourceRecords } from './source-records';

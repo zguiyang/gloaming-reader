@@ -1,268 +1,114 @@
 'use client';
 
-import { Download, RefreshCw } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@/i18n';
-import type { DiscoverySourceSyncStatus } from '@/shared/discovery';
+import type { DiscoverySourceSummary } from '@/shared/discovery';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import {
   formatDiscoverySourcesApiError,
-  isDiscoverySyncPending,
-  useDiscoverySourceStatusQuery,
-  useDiscoverySyncRunHistoryQuery,
+  useDiscoverySourcesQuery,
   useSetDiscoverySourceEnabledMutation,
-  useTriggerDiscoverySourceSyncMutation,
 } from '@/features/admin/discovery-sources/discovery-sources-api';
-import {
-  discoverySyncStatusLabel,
-  formatDiscoveryTimestamp,
-} from '@/features/admin/discovery-sources/discovery-sources-format';
-import { DiscoverySyncRunPanel } from '@/features/admin/discovery-sources/discovery-sync-run-panel';
 import { useLocale } from '@/lib/locale-context';
 
-type StatusFieldProps = {
-  label: string;
-  children: ReactNode;
-};
-
-function StatusField({ label, children }: StatusFieldProps) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <dt className="text-xs font-medium tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="text-sm text-foreground">{children}</dd>
-    </div>
-  );
+function sourceDisplayName(sourceKey: string, locale: Parameters<typeof t>[0]): string {
+  const key = `admin.discoverySources.names.${sourceKey}` as const;
+  const label = t(locale, key);
+  return label === key ? sourceKey : label;
 }
 
-function statusBadgeVariant(status: DiscoverySourceSyncStatus): 'secondary' | 'destructive' | 'outline' {
-  if (status === 'succeeded') return 'secondary';
-  if (status === 'failed') return 'destructive';
-  return 'outline';
-}
-
-function PageHeading() {
+function SourceRow({ source }: { source: DiscoverySourceSummary }) {
   const { locale } = useLocale();
+  const enabledMutation = useSetDiscoverySourceEnabledMutation();
+  const name = sourceDisplayName(source.sourceKey, locale);
+
   return (
-    <header className="flex flex-col gap-1">
-      <h1 className="text-2xl font-semibold tracking-tight">{t(locale, 'admin.discoverySources.page.title')}</h1>
-      <p className="text-sm text-muted-foreground">{t(locale, 'admin.discoverySources.page.subtitle')}</p>
-    </header>
+    <div className="flex items-center justify-between gap-4 border-b border-border/60 py-4 last:border-b-0">
+      <div className="flex min-w-0 flex-col gap-1">
+        <h2 className="truncate text-base font-semibold text-foreground">{name}</h2>
+        <p className="text-sm text-muted-foreground">
+          {t(locale, 'admin.discoverySources.fields.sourceKey')}: {source.sourceKey}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {t(locale, 'admin.discoverySources.fields.sourceType')}: {source.sourceType}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <span className="text-sm text-muted-foreground">
+          {t(locale, source.enabled ? 'admin.discoverySources.enabled.label' : 'admin.discoverySources.disabled.label')}
+        </span>
+        <Switch
+          checked={source.enabled}
+          disabled={enabledMutation.isPending}
+          onCheckedChange={(enabled) => {
+            enabledMutation.mutate(
+              { sourceKey: source.sourceKey, enabled },
+              {
+                onError: (error) => {
+                  toast.error(
+                    formatDiscoverySourcesApiError(error) || t(locale, 'admin.discoverySources.page.operationFailed'),
+                  );
+                },
+              },
+            );
+          }}
+          aria-label={
+            source.enabled
+              ? t(locale, 'admin.discoverySources.toggleDisableAria', { name })
+              : t(locale, 'admin.discoverySources.toggleEnableAria', { name })
+          }
+        />
+      </div>
+    </div>
   );
 }
 
 export function DiscoverySourcesPage() {
   const { locale } = useLocale();
-  const [isForceRefreshOpen, setIsForceRefreshOpen] = useState(false);
-  const statusQuery = useDiscoverySourceStatusQuery();
-  const historyQuery = useDiscoverySyncRunHistoryQuery(statusQuery.data);
-  const enabledMutation = useSetDiscoverySourceEnabledMutation();
-  const syncMutation = useTriggerDiscoverySourceSyncMutation();
-  const status = statusQuery.data;
-  const operationFailed = t(locale, 'admin.discoverySources.page.operationFailed');
-
-  async function toggleEnabled(enabled: boolean) {
-    try {
-      await enabledMutation.mutateAsync(enabled);
-    } catch (error) {
-      toast.error(formatDiscoverySourcesApiError(error) || operationFailed);
-    }
-  }
-
-  async function runSync(options: { force?: boolean } = {}) {
-    try {
-      const accepted = await syncMutation.mutateAsync(options);
-      if (accepted.result === 'queued') {
-        toast.success(t(locale, 'admin.discoverySources.toast.queued'));
-        return;
-      }
-      toast.warning(
-        accepted.result === 'unavailable'
-          ? t(locale, 'admin.discoverySources.toast.unavailable')
-          : accepted.result === 'disabled'
-            ? t(locale, 'admin.discoverySources.toast.disabled')
-            : t(locale, 'admin.discoverySources.toast.alreadyRunning'),
-      );
-    } catch (error) {
-      toast.error(formatDiscoverySourcesApiError(error) || operationFailed);
-    }
-  }
-
-  if (statusQuery.isPending) {
-    return (
-      <div className="flex flex-col gap-6">
-        <PageHeading />
-        <Skeleton className="h-56 rounded-2xl" />
-      </div>
-    );
-  }
-
-  if (!status) {
-    return (
-      <div className="flex flex-col gap-6">
-        <PageHeading />
-        <Alert variant="destructive">
-          <AlertTitle>{operationFailed}</AlertTitle>
-          <AlertDescription>
-            {formatDiscoverySourcesApiError(statusQuery.error) || t(locale, 'admin.discoverySources.page.loadFailed')}
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  const isSyncPending = isDiscoverySyncPending(status.syncStatus);
-  const isSourceDisabled = !status.enabled;
-  // A pending source with no tracked run means pre-run-tracking or a lost run
-  // row; state that honestly without asserting a failure or a guaranteed age.
-  const hasMissingRunDetail = isSyncPending && status.currentRun.run === null;
+  const sourcesQuery = useDiscoverySourcesQuery();
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeading />
+    <div className="flex w-full max-w-[720px] flex-col gap-8">
+      <header className="flex flex-col gap-2">
+        <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
+          {t(locale, 'admin.discoverySources.page.title')}
+        </h1>
+        <p className="text-sm leading-6 text-muted-foreground">{t(locale, 'admin.discoverySources.page.subtitle')}</p>
+      </header>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <CardTitle>Project Gutenberg</CardTitle>
-              <p className="font-mono text-xs text-muted-foreground">{status.sourceType}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {status.enabled
-                  ? t(locale, 'admin.discoverySources.enabled.label')
-                  : t(locale, 'admin.discoverySources.disabled.label')}
-              </span>
-              <Switch
-                checked={status.enabled}
-                disabled={enabledMutation.isPending}
-                onCheckedChange={(checked) => void toggleEnabled(checked)}
-                aria-label={t(
-                  locale,
-                  status.enabled
-                    ? 'admin.discoverySources.toggleDisableAria'
-                    : 'admin.discoverySources.toggleEnableAria',
-                )}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatusField label={t(locale, 'admin.discoverySources.fields.status')}>
-              <Badge variant={statusBadgeVariant(status.syncStatus)}>
-                {discoverySyncStatusLabel(status.syncStatus, locale)}
-              </Badge>
-            </StatusField>
-            <StatusField label={t(locale, 'admin.discoverySources.fields.lastSync')}>
-              {formatDiscoveryTimestamp(status.syncFinishedAt, locale)}
-            </StatusField>
-            <StatusField label={t(locale, 'admin.discoverySources.fields.lastSuccess')}>
-              {formatDiscoveryTimestamp(status.lastSuccessAt, locale)}
-            </StatusField>
-            <StatusField label={t(locale, 'admin.discoverySources.fields.recordCount')}>
-              {t(locale, 'admin.discoverySources.recordCount', { count: status.recordCount })}
-            </StatusField>
-          </dl>
-
-          {status.lastErrorSummary ? (
-            <Alert variant="destructive">
-              <AlertTitle>{t(locale, 'admin.discoverySources.fields.errorSummary')}</AlertTitle>
-              <AlertDescription>{status.lastErrorSummary}</AlertDescription>
-            </Alert>
-          ) : null}
-
-          <div className="flex flex-wrap items-center gap-3">
+      {sourcesQuery.isPending ? (
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      ) : sourcesQuery.isError ? (
+        <Alert variant="destructive">
+          <AlertTitle>{t(locale, 'admin.discoverySources.page.loadFailed')}</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3">
+            <span>{formatDiscoverySourcesApiError(sourcesQuery.error)}</span>
             <Button
-              onClick={() => void runSync()}
-              disabled={isSyncPending || isSourceDisabled || syncMutation.isPending}
-            >
-              {syncMutation.isPending ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}
-              {status.syncStatus === 'queued'
-                ? t(locale, 'admin.discoverySources.queued')
-                : isSyncPending
-                  ? t(locale, 'admin.discoverySources.syncing')
-                  : t(locale, 'admin.discoverySources.syncNow')}
-            </Button>
-            {isSourceDisabled ? (
-              <p className="text-sm text-muted-foreground">{t(locale, 'admin.discoverySources.disabledSyncHint')}</p>
-            ) : status.syncStatus === 'queued' ? (
-              <p className="text-sm text-muted-foreground">{t(locale, 'admin.discoverySources.queuedHint')}</p>
-            ) : isSyncPending ? (
-              <p className="text-sm text-muted-foreground">{t(locale, 'admin.discoverySources.pendingHint')}</p>
-            ) : null}
-            <Button
+              type="button"
               variant="outline"
-              onClick={() => setIsForceRefreshOpen(true)}
-              disabled={isSyncPending || isSourceDisabled || syncMutation.isPending}
-              data-testid="force-full-refresh"
+              size="sm"
+              className="w-fit"
+              onClick={() => void sourcesQuery.refetch()}
             >
-              <Download data-icon="inline-start" />
-              {t(locale, 'admin.discoverySources.forceRefresh.label')}
+              {t(locale, 'content.common.retry')}
             </Button>
-            {hasMissingRunDetail ? (
-              <p className="text-sm text-muted-foreground" data-testid="missing-run-detail">
-                {t(locale, 'admin.discoverySources.missingRunDetail')}
-              </p>
-            ) : null}
-          </div>
-        </CardContent>
-      </Card>
-
-      <AlertDialog
-        open={isForceRefreshOpen}
-        onOpenChange={(open) => {
-          setIsForceRefreshOpen(open);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t(locale, 'admin.discoverySources.forceRefresh.title')}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t(locale, 'admin.discoverySources.forceRefresh.description')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t(locale, 'admin.discoverySources.forceRefresh.cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              data-testid="force-full-refresh-confirm"
-              onClick={() => {
-                setIsForceRefreshOpen(false);
-                void runSync({ force: true });
-              }}
-            >
-              {t(locale, 'admin.discoverySources.forceRefresh.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <DiscoverySyncRunPanel
-        progress={status.currentRun}
-        history={historyQuery.data}
-        historyPending={historyQuery.isPending}
-        historyError={historyQuery.isError}
-        onRetryHistory={() => void historyQuery.refetch()}
-      />
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <section className="flex flex-col">
+          {(sourcesQuery.data?.items ?? []).map((source) => (
+            <SourceRow key={source.sourceKey} source={source} />
+          ))}
+        </section>
+      )}
     </div>
   );
 }
