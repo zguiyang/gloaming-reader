@@ -3,12 +3,19 @@ node_modules
 dist
 build
 tmp
+out
 .next
+
+# Next / vinext (client app)
+client/next-env.d.ts
+client/.vinext/
+client/.cloudflare/
 
 # Secrets
 .env
 .env.*
 !.env.example
+!client/.env.example
 !.env.test.example
 !.env.worker.example
 
