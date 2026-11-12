@@ -46,7 +46,7 @@ PostgreSQL, Redis, and S3-compatible object storage are external dependencies. R
 
 ## Deploy the services
 
-1. Connect the repository to the platform and use the repository root as the build context. The Dockerfiles depend on the pnpm workspace and root `tsconfig.base.json`.
+1. Connect the repository to the platform and use the repository root as the build context. Archived Dockerfiles expect the legacy workspace layout under `archive/` (including `archive/tsconfig.base.json`).
 2. Create one `web`, one `api`, and one `worker` service. The `api` and `worker` use the same image. Prefer keeping the image `CMD` and selecting the entrypoint with `GLOAMING_SERVICE` (`api` by default; set `GLOAMING_SERVICE=worker` on the worker service). You can also override the command explicitly:
 
    ```bash

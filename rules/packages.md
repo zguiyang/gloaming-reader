@@ -54,6 +54,6 @@ when changing boundaries.
   compatibility from `client/tsconfig.json` and existing checks. Do not impose
   one application's setup on unrelated trees or add an unnecessary parallel
   build/validation system for contracts that already live inside `client/`.
-- Keep application-specific aliases and compiler options in `client/`; do not
-  add app aliases to the root `tsconfig.base.json` unless the whole workspace
-  truly needs them.
+- Keep TypeScript paths and compiler options in `client/tsconfig.json`. There is
+  no root shared `tsconfig.base.json` for the live tree (a copy remains under
+  `archive/` for the legacy stack only).
