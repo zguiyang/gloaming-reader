@@ -60,7 +60,7 @@ Part-scoped APIs: TTS / translate / assist use `partId` (+ `workId` for thread s
 
 ## Content supply boundary
 
-Supply policy SSOT: [`content-strategy.md`](./content-strategy.md). Accepted direction: Hybrid source sync (local **SourceRecord** metadata; EPUB materialized only on save/read intent). Personal EPUB uploads use `POST /api/works` and remain user-owned and private. Admin has no Work-management surface.
+Supply policy SSOT: [`content-strategy.md`](./content-strategy.md). Accepted direction: on-demand remote discovery (V1 Gutenberg official OPDS); persist `SourceRecord` and materialize EPUB only on save/read intent. Personal EPUB uploads use `POST /api/works` and remain user-owned and private. Admin has no Work-management surface.
 
 ---
 

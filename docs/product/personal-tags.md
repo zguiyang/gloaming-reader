@@ -2,7 +2,7 @@
 
 Owner of the **personal tag** module requirements: naming, translation, assignment, and deletion semantics for private per-user Library organization.
 
-Related: [`mvp-scope.md`](./mvp-scope.md) · [`content-strategy.md`](./content-strategy.md) · [`public-categories.md`](./public-categories.md) · [`roadmap.md`](./roadmap.md)
+Related: [`mvp-scope.md`](./mvp-scope.md) · [`content-strategy.md`](./content-strategy.md) · [`roadmap.md`](./roadmap.md)
 
 ## 1. Identity and scope
 

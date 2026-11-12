@@ -94,7 +94,7 @@ The purpose of reading assistance and organization AI:
 | Opt-in personal tag organization and name translation        | Overwrite the user's manual organization         |
 | Instance public classification for finding authentic content | Turn classification into generated lessons       |
 
-EPUB parsing into ReadingParts is content infrastructure, not an AI lesson-generation feature. Provider and ownership boundaries for organization are defined in [Personal tags](./personal-tags.md) and [Public categories](./public-categories.md).
+EPUB parsing into ReadingParts is content infrastructure, not an AI lesson-generation feature. Provider and ownership boundaries for personal organization are defined in [Personal tags](./personal-tags.md).
 
 Extra check: **If AI is off, does reading still work?** If no, redesign.
 

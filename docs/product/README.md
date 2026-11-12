@@ -4,25 +4,24 @@ English is the **single language** for product and engineering documentation in 
 
 ## Find a doc by task
 
-| Task you are doing                                     | Doc                                                                                                                              |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| Find an entity, table, or API name                     | [`engineering-vocabulary.md`](./engineering-vocabulary.md) + [ADR-001](../adr/001-reading-content-domain-model.md) (domain SSOT) |
-| Decide what content enters Gloaming and how            | [`content-strategy.md`](./content-strategy.md)                                                                                   |
-| Check V1 must / must-not                               | [`mvp-scope.md`](./mvp-scope.md)                                                                                                 |
-| Wire a screen, route, or return path                   | [`prototype-flows.md`](./prototype-flows.md)                                                                                     |
-| Know what is next / still open                         | [`roadmap.md`](./roadmap.md)                                                                                                     |
-| Positioning, personas, what Gloaming is NOT            | [`product-vision.md`](./product-vision.md)                                                                                       |
-| Judge a product principle in review                    | [`product-principles.md`](./product-principles.md)                                                                               |
-| Work on personal tags (CRUD, translation, scope)       | [`personal-tags.md`](./personal-tags.md)                                                                                         |
-| Work on public categories (admin CRUD, classification) | [`public-categories.md`](./public-categories.md)                                                                                 |
-| Understand why authentic reading                       | [`learning-philosophy.md`](./learning-philosophy.md)                                                                             |
-| Choose a metric                                        | [`success-metrics.md`](./success-metrics.md)                                                                                     |
-| Decide whether to build a feature                      | [`feature-decision-guide.md`](./feature-decision-guide.md)                                                                       |
-| Pre-merge design walkthrough                           | [`design-guardrails.md`](./design-guardrails.md)                                                                                 |
+| Task you are doing                               | Doc                                                                                                                              |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Find an entity, table, or API name               | [`engineering-vocabulary.md`](./engineering-vocabulary.md) + [ADR-001](../adr/001-reading-content-domain-model.md) (domain SSOT) |
+| Decide what content enters Gloaming and how      | [`content-strategy.md`](./content-strategy.md)                                                                                   |
+| Check V1 must / must-not                         | [`mvp-scope.md`](./mvp-scope.md)                                                                                                 |
+| Wire a screen, route, or return path             | [`prototype-flows.md`](./prototype-flows.md)                                                                                     |
+| Know what is next / still open                   | [`roadmap.md`](./roadmap.md)                                                                                                     |
+| Positioning, personas, what Gloaming is NOT      | [`product-vision.md`](./product-vision.md)                                                                                       |
+| Judge a product principle in review              | [`product-principles.md`](./product-principles.md)                                                                               |
+| Work on personal tags (CRUD, translation, scope) | [`personal-tags.md`](./personal-tags.md)                                                                                         |
+| Understand why authentic reading                 | [`learning-philosophy.md`](./learning-philosophy.md)                                                                             |
+| Choose a metric                                  | [`success-metrics.md`](./success-metrics.md)                                                                                     |
+| Decide whether to build a feature                | [`feature-decision-guide.md`](./feature-decision-guide.md)                                                                       |
+| Pre-merge design walkthrough                     | [`design-guardrails.md`](./design-guardrails.md)                                                                                 |
 
 ## Surfaces
 
-Users: **Library, Discover, Reader, History, Settings, Account**. Admin: **instance operations, public classifications, provider, storage, jobs**. Navigation and journeys: [`prototype-flows.md`](./prototype-flows.md). Visual tokens: [`DESIGN.md`](../../DESIGN.md).
+Users: **Library, Discover, Reader, History, Settings, Account**. Admin: **instance operations, provider, storage, jobs**. Navigation and journeys: [`prototype-flows.md`](./prototype-flows.md). Visual tokens: [`DESIGN.md`](../../DESIGN.md).
 
 ## One-liner (SSOT)
 

@@ -17,7 +17,7 @@ This document is the **capability** target (must / must-not).
 3. **Unstick** with on-demand, **passage-grounded** AI
 4. **Translate** a sentence or passage when needed
 5. **Listen** to the current part with on-demand segmented TTS (starts at the current segment, prefetches ahead, degrades gracefully)
-6. **Organize** their Library with personal tags (CRUD + name translation) and browse admin-defined public categories
+6. **Organize** their Library with personal tags (CRUD + name translation)
 7. **Keep reading** — no quiz, no review homework, no streak to protect
 
 Returning users land on **continue the unfinished book**, not a study dashboard. **North star:** effective reading minutes of authentic English.
@@ -26,7 +26,7 @@ Returning users land on **continue the unfinished book**, not a study dashboard.
 
 ## 2. Surfaces
 
-User: **Library, Discover, Reader, History, Settings, Account**. Admin: **instance operations, public classifications, provider, storage, jobs** — operations only, no content authoring. Shared: Work detail `/works/[id]` → Read `/read/[id]` (see [`prototype-flows.md`](./prototype-flows.md)).
+User: **Library, Discover, Reader, History, Settings, Account**. Admin: **instance operations, provider, storage, jobs** — operations only, no content authoring. Shared: Work detail `/works/[id]` → Read `/read/[id]` (see [`prototype-flows.md`](./prototype-flows.md)).
 
 ---
 
@@ -36,13 +36,12 @@ User: **Library, Discover, Reader, History, Settings, Account**. Admin: **instan
 | ------------------ | ------------------------------------------------------------------------------------------------------------------- |
 | Auth session       | Better Auth cookie session; first-party session via Next `/api` proxy                                               |
 | Library            | Owned personal works ∪ explicit saved catalog membership (`UserLibraryItem`)                                        |
-| Discover           | Browse catalog; explicit save creates membership, not progress                                                      |
+| Discover           | On-demand remote source browse/search (OPDS); explicit save creates membership, not progress                        |
 | Reading experience | Typography; part navigation; resume part + anchor via **ReadingState**                                              |
 | AI reading assist  | Selection → explain in **this passage**; thread scoped to `reading_work`                                            |
 | Translation        | Sentence or passage; bilingual view never replaces English as default                                               |
 | TTS                | On-demand segmented TTS for the current part — starts at the current segment, prefetches ahead, degrades gracefully |
 | Personal tags      | Per-user tag CRUD, localized name translation, assignment (see [`personal-tags.md`](./personal-tags.md))            |
-| Public categories  | Admin CRUD + user browse (see [`public-categories.md`](./public-categories.md))                                     |
 | Personal EPUB      | User-owned, private; shared parser → private Work (see [`content-strategy.md`](./content-strategy.md))              |
 
 ---
@@ -87,7 +86,7 @@ Full navigation SSOT: [`prototype-flows.md`](./prototype-flows.md). There is no 
 ## 7. AI and content constraints
 
 - **Reading assist** is scoped to in-text help and translation of the **current part**; no always-on companion chat.
-- **Organization AI** is separate from reading assistance: personal automatic tagging requires user opt-in and BYOK; public classification uses instance configuration. See [`personal-tags.md`](./personal-tags.md) and [`public-categories.md`](./public-categories.md).
+- **Organization AI** is separate from reading assistance: personal automatic tagging requires user opt-in and BYOK. See [`personal-tags.md`](./personal-tags.md).
 - Content stance: [`content-strategy.md`](./content-strategy.md) (personal EPUB; accepted source supply direction).
 - **Degrade path:** the work still opens and reads if AI or TTS is off.
 - Planning aids: [`feature-decision-guide.md`](./feature-decision-guide.md) · [`design-guardrails.md`](./design-guardrails.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md).
