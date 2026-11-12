@@ -81,10 +81,13 @@ New sources and user-defined OPDS feeds require separate decisions but share the
 ```text
 User uploads EPUB → private ReadingWork (processing)
   → Parse → ReadingPart[] → ContentAsset (origin_file)
-  → Library → Reader → Resume via ReadingState
+  → ready → Library → Reader → Resume via ReadingState
+  → (async) OPDS title(+author) match on enabled sources
+       → hit: fill empty/weak metadata (description, cover, …); never replace EPUB
+       → miss: leave fields empty / OPF as-is
 ```
 
-Parse failures must be explicit. Do not LLM-“simplify” the book.
+Parse failures must be explicit. Do not LLM-“simplify” the book. Do not use AI to invent Work metadata.
 
 ### 5.2 Source save (on-demand)
 
@@ -102,6 +105,7 @@ Failure → retryable intent (no fake readiness)
 Crawl the web → auto-AI “course” → ship to users
 LLM rewrites this novel into units with quizzes
 AI-generated article library as main shelf filler
+AI Work metadata enrichment from book body / TOC excerpts
 Full third-party catalog sync into Postgres as Discover prerequisite
 Gloaming public-category classification of the remote catalog
 ```

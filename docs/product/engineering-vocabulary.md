@@ -68,7 +68,7 @@ Supply policy SSOT: [`content-strategy.md`](./content-strategy.md). Accepted dir
 
 `@gloaming/shared` has no root public entrypoint; the only public entrypoints are `@gloaming/shared/<module>` owning-module subpaths (ADR-003). Deep imports such as `@gloaming/shared/src/...` are forbidden. Shared exposes cross-layer DTOs, schemas, types, and pure functions; it does not own backend queue, retry, lease, or workflow runtime policy.
 
-`apps/backend` owns workflow policy and preserves auto-chaining **off** defaults (`WORKFLOW_AUTO_CHAIN = false`). Reader audio is generated lazily per segment at read time (no pre-generated whole-chapter audio assets, no workflow `tts` step) and degrades gracefully, for example when the speech provider is unavailable.
+Parse advances personal uploads to `ready` and catalog imports to `parsed` without a Work AI metadata-enrich step. Personal uploads may asynchronously fill empty metadata from enabled OPDS sources by title(+author). Reader audio is generated lazily per segment at read time (no pre-generated whole-chapter audio assets, no workflow `tts` step) and degrades gracefully, for example when the speech provider is unavailable.
 
 ---
 
