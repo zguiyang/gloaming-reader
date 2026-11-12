@@ -1,6 +1,4 @@
-packages:
-  - client
-
+# Not a multi-package workspace. pnpm 11 keeps allowBuilds here for native deps.
 allowBuilds:
   esbuild: true
   msgpackr-extract: true

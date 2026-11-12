@@ -1,32 +1,22 @@
-import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
-import eslintConfigPrettier from 'eslint-config-prettier';
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
 
-import clientEslint from './client/eslint.config.mjs';
-
-/**
- * Root ESLint: repo tooling + product tree (`client/`). Legacy tree under `archive/` is not linted by default.
- */
-const rootToolingFiles = ['eslint.config.mjs', 'prettier.config.js', 'commitlint.config.js'];
-
-export default defineConfig([
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
   globalIgnores([
-    '**/node_modules/**',
-    '**/dist/**',
-    '**/.next/**',
-    '**/out/**',
-    '**/build/**',
-    '**/*.tsbuildinfo',
-    '.trellis/**',
-    '.pnpm-store/**',
+    '.next/**',
+    'out/**',
+    'build/**',
+    'dist/**',
+    'next-env.d.ts',
     'archive/**',
     '.agents/**',
+    'node_modules/**',
   ]),
-
-  ...clientEslint,
-
   {
-    files: ['**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-unused-vars': [
         'warn',
@@ -38,13 +28,6 @@ export default defineConfig([
       ],
     },
   },
-
-  {
-    files: rootToolingFiles,
-    extends: [js.configs.recommended, eslintConfigPrettier],
-    languageOptions: {
-      ecmaVersion: 2023,
-      sourceType: 'module',
-    },
-  },
 ]);
+
+export default eslintConfig;

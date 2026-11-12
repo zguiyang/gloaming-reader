@@ -6,16 +6,15 @@ tmp
 out
 .next
 
-# Next / vinext (client app)
-client/next-env.d.ts
-client/.vinext/
-client/.cloudflare/
+# Next / vinext
+next-env.d.ts
+.vinext/
+.cloudflare/
 
 # Secrets
 .env
 .env.*
 !.env.example
-!client/.env.example
 !.env.test.example
 !.env.worker.example
 
