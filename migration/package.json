@@ -1,0 +1,13 @@
+{
+  "name": "gloaming-migration",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "dev": "pnpm --filter @gloaming/client dev",
+    "build": "pnpm --filter @gloaming/client build",
+    "lint": "pnpm --filter @gloaming/client lint",
+    "typecheck": "pnpm --filter @gloaming/client typecheck"
+  }
+}

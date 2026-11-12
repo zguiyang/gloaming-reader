@@ -89,6 +89,8 @@ export default defineConfig([
     '**/vitest.config.ts',
     '**/postcss.config.mjs',
     '**/drizzle.config.ts',
+    // Extract staging tree has its own eslint (migration/client); keep root lint scoped.
+    'migration/**',
   ]),
 
   {

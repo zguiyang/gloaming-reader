@@ -1,0 +1,509 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-ui);
+  --font-serif: var(--font-display);
+  --font-heading: var(--font-display);
+  --font-mono: var(--gloaming-font-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Design-system surfaces & accent aliases — SSOT: /DESIGN.md */
+  --color-paper: var(--paper);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-deep: var(--brand-deep);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-primary-container: var(--primary-container);
+  --color-surface-tint: var(--surface-tint);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --shadow-card: var(--gloaming-shadow-card);
+  --ease-out-soft: var(--ease-out);
+  --animate-loading-soft-ring: loading-soft-ring 2.2s var(--ease-out) infinite;
+  --animate-loading-page: loading-page 1.15s ease-in-out infinite;
+  --animate-book-page-turn: book-page-turn 2.4s var(--ease-out) infinite;
+  --animate-reader-disc-spin: reader-disc-spin 16s linear infinite;
+  --drop-shadow-icon: 0 1px 2px rgb(0 0 0 / 0.65);
+  --max-width-reading-column: var(--reading-column);
+}
+
+@keyframes reader-disc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loading-soft-ring {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes loading-page {
+  0%,
+  100% {
+    transform: scaleY(0.72);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* Soft editorial page turn — hinged at the spine, settles, then repeats. */
+@keyframes book-page-turn {
+  0% {
+    transform: rotateY(0deg);
+  }
+  42% {
+    transform: rotateY(-158deg);
+  }
+  58% {
+    transform: rotateY(-158deg);
+  }
+  100% {
+    transform: rotateY(0deg);
+  }
+}
+
+/*
+  Theme tokens — SSOT: /DESIGN.md
+  Light: :root · Dark: .dark (next-themes sets class on <html>)
+  Hex literals are allowed only in these primitive theme blocks.
+*/
+:root {
+  color-scheme: light;
+
+  /* --- MD3 / design primitives (hex only here) --- */
+  --surface: #fff8f5;
+  --surface-dim: #e0d8d5;
+  --surface-bright: #fff8f5;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #faf2ee;
+  --surface-container: #f4ece8;
+  --surface-container-high: #eee7e3;
+  --surface-container-highest: #e9e1dd;
+  --surface-variant: #e9e1dd;
+  --on-surface: #1e1b19;
+  --on-surface-variant: #59413a;
+  --inverse-surface: #33302d;
+  --inverse-on-surface: #f7efeb;
+  --outline: #8d7168;
+  --outline-variant: #e1bfb5;
+  --surface-tint: #ac3400;
+
+  /* MD3 primary = deep ember; primary-container = CTA fill */
+  --md-primary: #9b2f00;
+  --on-primary: #ffffff;
+  --primary-container: #c2410c;
+  --on-primary-container: #ffece7;
+  --inverse-primary: #ffb59d;
+
+  --md-secondary: #615e55;
+  --on-secondary: #ffffff;
+  --secondary-container: #e7e2d6;
+  --on-secondary-container: #67645b;
+
+  --tertiary: #545553;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #6c6d6b;
+  --on-tertiary-container: #f1f0ed;
+
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #93000a;
+
+  --primary-fixed: #ffdbd0;
+  --primary-fixed-dim: #ffb59d;
+  --on-primary-fixed: #390c00;
+  --on-primary-fixed-variant: #832600;
+  --secondary-fixed: #e7e2d6;
+  --secondary-fixed-dim: #cac6bb;
+  --on-secondary-fixed: #1d1c15;
+  --on-secondary-fixed-variant: #49473e;
+  --tertiary-fixed: #e3e2e0;
+  --tertiary-fixed-dim: #c7c6c4;
+  --on-tertiary-fixed: #1a1c1a;
+  --on-tertiary-fixed-variant: #464745;
+
+  --md-background: #fff8f5;
+  --on-background: #1e1b19;
+
+  /* --- Compat aliases (resolve to primitives; no new hex) --- */
+  --canvas: var(--md-background);
+  --paper: var(--secondary-container);
+  --sidebar-wash: var(--surface-container-low);
+  --ink: var(--on-surface);
+  --brand: var(--primary-container);
+  --brand-soft: var(--primary-fixed);
+  --brand-deep: var(--md-primary);
+  --muted-wash: var(--surface-container);
+  --muted-ink: var(--on-surface-variant);
+  --border-warm: var(--outline-variant);
+
+  /* --- Semantic (shadcn) --- */
+  --background: var(--md-background);
+  --foreground: var(--on-surface);
+  --card: var(--surface-container-lowest);
+  --card-foreground: var(--on-surface);
+  --popover: var(--surface-container-lowest);
+  --popover-foreground: var(--on-surface);
+  --primary: var(--primary-container);
+  --primary-foreground: var(--on-primary);
+  --secondary: var(--secondary-container);
+  --secondary-foreground: var(--on-surface);
+  --muted: var(--muted-wash);
+  --muted-foreground: var(--muted-ink);
+  --accent: var(--brand-soft);
+  --accent-foreground: var(--brand-deep);
+  --destructive: var(--error);
+  --border: var(--border-warm);
+  --input: var(--border-warm);
+  --ring: var(--primary-container);
+
+  /* Text selection — soft ember wash */
+  --selection: color-mix(in oklab, var(--primary-container) 22%, transparent);
+  --selection-foreground: var(--on-surface);
+
+  /* Charts — warm neutrals only */
+  --chart-1: var(--primary-container);
+  --chart-2: var(--md-primary);
+  --chart-3: var(--md-secondary);
+  --chart-4: var(--secondary-fixed-dim);
+  --chart-5: var(--on-secondary-fixed-variant);
+
+  /* Sidebar */
+  --sidebar: var(--sidebar-wash);
+  --sidebar-foreground: var(--on-surface);
+  --sidebar-primary: var(--primary-container);
+  --sidebar-primary-foreground: var(--on-primary);
+  --sidebar-accent: var(--brand-soft);
+  --sidebar-accent-foreground: var(--brand-deep);
+  --sidebar-border: var(--border-warm);
+  --sidebar-ring: var(--primary-container);
+
+  /* Geometry, layout & motion */
+  --radius: 0.75rem;
+  --reading-column: 680px;
+  /* Page chrome ceiling — used by @utility container (max-width, not fixed width). */
+  --container-max: 1200px;
+  --gloaming-shadow-card: 0 4px 20px color-mix(in oklab, var(--on-surface) 8%, transparent);
+  --gloaming-shadow-float:
+    0 2px 6px color-mix(in oklab, var(--on-surface) 6%, transparent),
+    0 14px 32px color-mix(in oklab, var(--on-surface) 10%, transparent);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /*
+    Fonts — DESIGN.md stacks via @fontsource-variable.
+    Those packages register "* Variable" family names; using them avoids OS/system fallbacks.
+    Axes cover 400/500/600/700 (Source Sans 3 / Source Serif 4: 200–900; Noto Sans SC: 100–900).
+  */
+  --font-ui: 'Source Sans 3 Variable', 'Noto Sans SC Variable', sans-serif;
+  --font-display: 'Source Serif 4 Variable', 'Noto Serif SC Variable', serif;
+  --font-reading: 'Source Serif 4 Variable', 'Noto Serif SC Variable', serif;
+  --gloaming-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/*
+  Dark — warm paper-at-night. SSOT: DESIGN.md colorsDark.
+  next-themes sets class="dark" on <html>; matches @custom-variant dark (&:is(.dark *)).
+*/
+.dark {
+  color-scheme: dark;
+
+  --surface: #1c1816;
+  --surface-dim: #141210;
+  --surface-bright: #241f1c;
+  --surface-container-lowest: #2a2522;
+  --surface-container-low: #231f1c;
+  --surface-container: #2e2926;
+  --surface-container-high: #38322e;
+  --surface-container-highest: #423c37;
+  --surface-variant: #423c37;
+  --on-surface: #f0e8e3;
+  --on-surface-variant: #c4b0a7;
+  --inverse-surface: #f0e8e3;
+  --inverse-on-surface: #2a2522;
+  --outline: #9a8176;
+  --outline-variant: #5c4a42;
+  --surface-tint: #ff8a65;
+
+  --md-primary: #9b2f00;
+  --on-primary: #ffffff;
+  --primary-container: #d4541c;
+  --on-primary-container: #fff0eb;
+  --inverse-primary: #ffb59d;
+
+  --md-secondary: #cac6bb;
+  --on-secondary: #1d1c15;
+  --secondary-container: #2f2b26;
+  --on-secondary-container: #c4b0a7;
+
+  --tertiary: #c7c6c4;
+  --on-tertiary: #1a1c1a;
+  --tertiary-container: #3a3a38;
+  --on-tertiary-container: #e3e2e0;
+
+  --error: #ff8a80;
+  --on-error: #1c1816;
+  --error-container: #5c1818;
+  --on-error-container: #ffdad6;
+
+  --primary-fixed: #3d261c;
+  --primary-fixed-dim: #5a3224;
+  --on-primary-fixed: #ffdbd0;
+  --on-primary-fixed-variant: #ffb59d;
+  --secondary-fixed: #2f2b26;
+  --secondary-fixed-dim: #3a3530;
+  --on-secondary-fixed: #f0e8e3;
+  --on-secondary-fixed-variant: #c4b0a7;
+  --tertiary-fixed: #3a3a38;
+  --tertiary-fixed-dim: #464745;
+  --on-tertiary-fixed: #f0e8e3;
+  --on-tertiary-fixed-variant: #c7c6c4;
+
+  --md-background: #1c1816;
+  --on-background: #f0e8e3;
+
+  /* Compat aliases — same wiring as light except accent-foreground remap */
+  --canvas: var(--md-background);
+  --paper: var(--secondary-container);
+  --sidebar-wash: var(--surface-container-low);
+  --ink: var(--on-surface);
+  --brand: var(--primary-container);
+  --brand-soft: var(--primary-fixed);
+  --brand-deep: var(--md-primary);
+  --muted-wash: var(--surface-container);
+  --muted-ink: var(--on-surface-variant);
+  --border-warm: var(--outline-variant);
+
+  --background: var(--md-background);
+  --foreground: var(--on-surface);
+  --card: var(--surface-container-lowest);
+  --card-foreground: var(--on-surface);
+  --popover: var(--surface-container-lowest);
+  --popover-foreground: var(--on-surface);
+  --primary: var(--primary-container);
+  --primary-foreground: var(--on-primary);
+  --secondary: var(--secondary-container);
+  --secondary-foreground: var(--on-surface);
+  --muted: var(--muted-wash);
+  --muted-foreground: var(--muted-ink);
+  --accent: var(--brand-soft);
+  /* DESIGN.md: chip labels use light ember on deep wash */
+  --accent-foreground: var(--inverse-primary);
+  --destructive: var(--error);
+  --border: var(--border-warm);
+  --input: var(--border-warm);
+  --ring: var(--primary-container);
+
+  --selection: color-mix(in oklab, var(--primary-container) 28%, transparent);
+  --selection-foreground: var(--on-surface);
+
+  --chart-1: var(--primary-container);
+  --chart-2: var(--md-primary);
+  --chart-3: var(--md-secondary);
+  --chart-4: var(--secondary-fixed-dim);
+  --chart-5: var(--on-secondary-fixed-variant);
+
+  --sidebar: var(--sidebar-wash);
+  --sidebar-foreground: var(--on-surface);
+  --sidebar-primary: var(--primary-container);
+  --sidebar-primary-foreground: var(--on-primary);
+  --sidebar-accent: var(--brand-soft);
+  --sidebar-accent-foreground: var(--inverse-primary);
+  --sidebar-border: var(--border-warm);
+  --sidebar-ring: var(--primary-container);
+
+  /* Shadows mix black — avoid pale glow from light on-surface */
+  --gloaming-shadow-card: 0 4px 20px color-mix(in oklab, black 45%, transparent);
+  --gloaming-shadow-float:
+    0 2px 6px color-mix(in oklab, black 35%, transparent), 0 14px 32px color-mix(in oklab, black 50%, transparent);
+}
+
+@utility font-reading {
+  font-family: var(--font-reading);
+}
+
+@utility shadow-card {
+  box-shadow: var(--gloaming-shadow-card);
+}
+
+@utility shadow-float {
+  box-shadow: var(--gloaming-shadow-float);
+}
+
+/*
+  Page chrome width SSOT — prefer `container` over ad-hoc max-w-*.
+  Built-in Tailwind container steps max-width with breakpoints through lg.
+  From xl up, cap at --container-max (1200) for large / 2K–3K displays.
+*/
+@utility container {
+  margin-inline: auto;
+  padding-inline: 1.5rem; /* DESIGN.md margin-mobile */
+
+  @variant md {
+    padding-inline: 2rem; /* DESIGN.md gutter */
+  }
+
+  @variant xl {
+    max-width: var(--container-max);
+  }
+
+  @variant 2xl {
+    max-width: var(--container-max);
+  }
+}
+
+/*
+  Site nav link — SSOT: DESIGN.md «Site nav (top chrome)».
+  Use for desktop primary destinations in DesktopNav; do not recreate with text-sm / border-b.
+  Mobile primary destinations use MobileBottomNav (DESIGN.md «App bottom nav»).
+*/
+@utility site-nav-link {
+  font-family: var(--font-ui);
+  font-size: 1rem; /* body-ui */
+  line-height: 1.5rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  border-bottom: 2px solid transparent;
+  padding-bottom: 0.25rem;
+  transition:
+    color 200ms var(--ease-out),
+    border-color 200ms var(--ease-out);
+
+  &:hover {
+    color: var(--primary);
+  }
+
+  &[aria-current='page'],
+  &[data-active] {
+    font-weight: 700;
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  html {
+    @apply font-sans;
+  }
+
+  ::selection {
+    background: var(--selection);
+    color: var(--selection-foreground);
+  }
+
+  /* Optional paper grain — DESIGN.md Elevation (~3% light; ~1.2% dark) */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .dark body::before {
+    opacity: 0.012;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Theme-layer control overrides — SSOT for cross-cutting visual fixes that
+   must not change `components/ui` source (see DESIGN.md «Selection & focus
+   indicators»). Prefer usage-site className overrides first; keep this section
+   small, attribute-scoped, and justified.
+   --------------------------------------------------------------------------- */
+
+/*
+  Dialog scrim: the shared Dialog primitive tints its backdrop with `foreground`.
+  In dark mode that token is light, so the scrim reads as a white veil; Sheet and
+  AlertDialog use a black scrim. Align the shared slot here instead of editing
+  the primitive.
+*/
+[data-slot='dialog-overlay'] {
+  background-color: color-mix(in oklab, black 10%, transparent);
+}
+
+/*
+  Filled controls: the filled recipe draws a 2px ring with an offset gap. The
+  shared outline recipe also colors the 1px border on focus, which reads as a
+  second ring. Keep the border transparent while focused so exactly one focus
+  ring is visible (inputs, textareas, select triggers all expose the attribute).
+*/
+[data-appearance='filled']:focus-visible {
+  border-color: transparent;
+}

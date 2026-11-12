@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": false,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "declaration": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "incremental": true
+  }
+}
