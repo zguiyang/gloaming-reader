@@ -4,21 +4,27 @@ Extract staging tree for the next Gloaming repo root. Contents of this directory
 
 ## Layout
 
-- `client/` — Next.js app (UI + future HTTP APIs)
-- `jobs/` — empty placeholder (not used in this phase)
-- `packages/` — shared packages (ported on demand; empty for scaffold)
+- `client/` — Next.js app (**UI + all HTTP APIs** + same-package worker entry). Target tree: [`client/STRUCTURE.md`](./client/STRUCTURE.md).
+- `jobs/` — empty placeholder (Jobs run as `client` second process for local open-source; CF Queues undecided — R5).
+- `packages/` — transitional workspace packages (`shared`, `i18n`). **No `packages/db`** — schema is inlined at `client/server/db/`. See [`packages/README.md`](./packages/README.md).
+- [`LOCAL_RUN.md`](./LOCAL_RUN.md) — local dual-process runbook + smoke checklist.
+
+**In-app vs package shared:** UI↔server contracts used only inside the Next app live in `client/shared/`. Cross-package / extractable contracts live in `packages/*`. Prefer inlining single-consumer modules (e.g. db) into `client/`.
 
 ## Commands
 
 ```bash
-pnpm install
-pnpm dev
+cd migration
+bun install   # or pnpm install — see LOCAL_RUN.md if pnpm extract fails
+pnpm --filter @gloaming/client db:migrate
+pnpm --filter @gloaming/client dev
+pnpm --filter @gloaming/client dev:worker
 ```
 
-Run from this directory (`migration/`). Do not point the new client at root `packages/*` via permanent `file:` deps.
+Do not point the new client at root `packages/*` via permanent `file:` deps.
 
-## Notes
+## Status (local cutover)
 
-- `client` already depends on `ai` and `@ai-sdk/openai` for future assist work; no business wiring in the scaffold phase.
-- Design SSOT copy: `DESIGN.md` in this directory.
-- Theme tokens live in `client/app/globals.css` (ported from `apps/web`, without product reading styles).
+- N3 UI + N4 Route Handlers + worker: local path ready (compare old `apps/*`).
+- T1 AI SDK + T2 Azure Speech REST on migrated paths.
+- **Not done:** N5 slim/delete old apps, P4 Cloudflare Workers.

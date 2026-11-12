@@ -44,8 +44,8 @@
 P0  规则对齐（消冲突）                 ✅ 已完成
 P1  Next-on-Workers 前置可行性         ✅ 已完成（绿场探针；见 Appendix A）
 P2  旁路新树 + 迁入切片 backlog        ✅ backlog 已写入 §4；执行仍需逐片授权
-P3  migration/ 建树 → 迁前端 → 迁后端 → 瘦身  ← 授权后开工（旧 apps 对照并存）
-P4  migration/client 上 Workers 真实兼容       迁入差不多之后
+P3  migration/ 建树 → 迁前端 → 迁后端 → 瘦身  ← N3∥N4 本地切流已就绪；N5 另授权
+P4  migration/client 上 Workers 真实兼容       迁入差不多之后（未开始）
 ```
 
 | 阶段   | 目的                                              | 产出                                   | 明确不做                         |
@@ -55,6 +55,8 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后
 | **P2** | 把「`migration/` + 迁入 + 换方案」切成有门禁任务  | 切片 backlog + 每片通过标准            | 不发明未决项结论；不做提前平台迁 |
 | **P3** | 旁路 `migration/`、迁 UI/API、换方案、再瘦身      | 可运行的 `migration/client` 与对照策略 | 不把「上 CF 冒烟」当本阶段主线   |
 | **P4** | 对 **`migration/` 新结构**做 Workers 真实兼容验证 | 平台结论（Free / Paid / 再降复杂度）   | 不对未迁完的旧三件套做兼容鉴定   |
+
+**P3 本地进度（2026-11-12）：** N0–N2 脚手架/壳已落地；本波完成 **N3∥N4 本地切流**——`migration/client` 含全量 UI + Next Route Handlers（无嵌 Hono）+ 同包 BullMQ worker 第二进程；T1（AI SDK）/ T2（Azure Speech REST）在迁入路径生效。详见 [`migration/LOCAL_RUN.md`](../migration/LOCAL_RUN.md)。**未做：** N5 删旧 apps、R5 Jobs 终态书面定案、**P4** Workers。
 
 ---
 
@@ -163,24 +165,32 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后
     pnpm-workspace.yaml              # 只覆盖 migration 内包（自包含，便于提取）
     pnpm-lock.yaml                   # 与根 lockfile 分离（过渡期双 lock 可接受）
     client/                          # Next 最新 + shadcn；目标 UI + 全部 HTTP API
-    jobs/                            # 空占位；本阶段不用
-    packages/                        # 新树共享包（从旧 packages 按需迁入/演进）
-      shared/ | db/ | i18n/ | …      # 需要几个开几个；不必 N0 一次搬全
+      app/                           # 路由组 + app/api（薄运输；N4 已填）
+      features/ | components/ | lib/ # UI 分层（对齐 apps/web；N3 已填）
+      shared/                        # ★ 应用内 UI↔server 契约（非 packages）
+      server/                        # domains | infra | application | db（内化）| worker.ts
+      constants/ | public/
+      STRUCTURE.md                   # 目录约定与依赖方向
+    jobs/                            # 空占位；本阶段 Jobs 跑在 client 同包 worker（非默认 CF 拓扑）
+    packages/                        # 过渡：shared + i18n；**无** packages/db（schema 在 client/server/db）
+    LOCAL_RUN.md                     # 本地双进程跑通说明
     （eslint/prettier/tsconfig 等共享配置：在 migration 内自备副本或可提取的根配置）
 ```
+
+应用内 `client/shared/` 与跨包 `migration/packages/*` 的分工见 [`migration/client/STRUCTURE.md`](../migration/client/STRUCTURE.md)。
 
 #### 4.1.1 共享包与共享配置（必虑）
 
 现网有根级 `@gloaming/shared` / `@gloaming/db` / `@gloaming/i18n` 与根级 eslint/prettier/`tsconfig.base` 等。新树要能**对照旧实现迁**，又要能**整包提取成新仓库**，约定：
 
-| 策略                     | 做法                                                                                                                                                                                                                             |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **默认：新树自包含**     | `migration/` 使用**自己的** workspace + lockfile；提取时拷走 `migration/**` 即可成新根，不依赖外层 monorepo 路径                                                                                                                 |
-| **旧 packages 只读对照** | 迁功能时对照根 `packages/*` 与 `apps/*`；**不**在迁入中期让旧 apps 改依赖到 `migration/packages`（避免双向纠缠）                                                                                                                 |
-| **共享包落点**           | 仍是跨 client（及将来 jobs）边界的契约/DB/i18n → 放进 `migration/packages/*` 并保持权威源在新树；**仅 client 使用且无第二消费者**的代码 → 可先放 `client` 内，证明复用后再提升到 `migration/packages`（L8：部署合并 ≠ 糊掉边界） |
-| **迁共享包节奏**         | N0 可只建空 `migration/packages/` 或最小 stub；N2–N4 按真实 import **按需拷贝/改写**进新树，并切到 AI SDK / TTS REST / 去 Workers 不友好依赖；禁止「新 client 长期 `file:../../packages/shared` 指回旧树」作为终态（提取会断）   |
-| **共享配置**             | eslint / prettier / tsconfig / DESIGN 相关 token：**在 `migration/` 内放可提取副本**（可从根复制起步）；过渡期允许暂时 extends 根文件，但 N5/提取前必须收束到 migration 内                                                       |
-| **双 workspace**         | 过渡期根 workspace 与 `migration/` workspace **并存**；根脚本默认仍指向旧 apps；新树用 `pnpm --dir migration …`（或文档化等价命令）                                                                                              |
+| 策略                     | 做法                                                                                                                                                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **默认：新树自包含**     | `migration/` 使用**自己的** workspace + lockfile；提取时拷走 `migration/**` 即可成新根，不依赖外层 monorepo 路径                                                                                                                                                                           |
+| **旧 packages 只读对照** | 迁功能时对照根 `packages/*` 与 `apps/*`；**不**在迁入中期让旧 apps 改依赖到 `migration/packages`（避免双向纠缠）                                                                                                                                                                           |
+| **共享包落点**           | 仍是跨 client（及将来 jobs）边界的契约/DB/i18n → 放进 `migration/packages/*` 并保持权威源在新树；**仅 client 内 UI↔server 共用**的契约 → 放 `client/shared/`；其它仅 client 使用且无第二消费者的代码可先放 `client` 内，证明复用后再提升到 `migration/packages`（L8：部署合并 ≠ 糊掉边界） |
+| **迁共享包节奏**         | N0 可只建空 `migration/packages/` 或最小 stub；N2–N4 按真实 import **按需拷贝/改写**进新树，并切到 AI SDK / TTS REST / 去 Workers 不友好依赖；禁止「新 client 长期 `file:../../packages/shared` 指回旧树」作为终态（提取会断）                                                             |
+| **共享配置**             | eslint / prettier / tsconfig / DESIGN 相关 token：**在 `migration/` 内放可提取副本**（可从根复制起步）；过渡期允许暂时 extends 根文件，但 N5/提取前必须收束到 migration 内                                                                                                                 |
+| **双 workspace**         | 过渡期根 workspace 与 `migration/` workspace **并存**；根脚本默认仍指向旧 apps；新树用 `pnpm --dir migration …`（或文档化等价命令）                                                                                                                                                        |
 
 **N0 不做的事：** 改坏根 `pnpm-workspace.yaml` 导致旧 `apps/web|backend` 装不了；把 Jobs/BullMQ/Hono 独立服务接进 `migration/`。
 
@@ -204,22 +214,22 @@ P4  migration/client 上 Workers 真实兼容       迁入差不多之后
 
 #### A. 结构与迁入（主线，先做）
 
-| ID     | 切片                  | 目的                                                                              | 依赖                     | 触碰面                                    | 验证 / 通过标准                                                    | 回滚 / 并存         | 门禁                            |
-| ------ | --------------------- | --------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------- | ------------------------------------------------------------------ | ------------------- | ------------------------------- |
-| **N0** | `migration/` 脚手架   | 建自包含 workspace、`client/`、空 `jobs/`、空或最小 `packages/`；**不**接 backend | P1                       | `migration/**`、自有 lockfile             | `pnpm --dir migration install` 成功；根旧 apps 安装/启动面未被破坏 | 删整个 `migration/` | 遵循 §4.1.1；不改坏根 workspace |
-| **N1** | Next 最新 + shadcn    | `migration/client` 可跑空壳；组件基线就绪                                         | N0                       | Next、`components.json`、基础 layout      | client dev/build 通过；shadcn 可加组件                             | 丢弃 client 内容    | 对齐既有 DESIGN/UI 方向         |
-| **N2** | 迁基础样式与前端壳    | 样式 token、全局样式、壳布局 → `migration/client`                                 | N1                       | CSS/tokens、layout、providers             | 可对照 `apps/web`；不要求一次搬全业务                              | 旧 web 对照         | 不借机改产品语义                |
-| **N3** | 迁前端功能            | UI/feature → `migration/client`（可多 PR）                                        | N2                       | `apps/web` → `migration/client`           | 约定页可演示；可暂打旧 API                                         | 旧 web 并存         | 迁入清单；不做 CF 完成标准      |
-| **N4** | 迁后端进 client       | API → Route Handlers；按需迁 `migration/packages`                                 | N3 足够进度              | `apps/backend` → client server + packages | 契约/双跑；无嵌 Hono 终态                                          | 旧 api 并存         | L1；T1–T3；密钥不进客户端       |
-| **N5** | 瘦身旧交付 + 提取准备 | 旧 apps 降级；`migration/` 配置收束到可整包提取                                   | N4 差不多 + **明确授权** | 根脚本、`deployment.md`、migration 内配置 | 默认可切到新树叙事；提取清单齐                                     | 文档/分支可回滚     | 无授权不删默认三服务            |
+| ID     | 切片                  | 目的                                                                              | 依赖                     | 触碰面                                      | 验证 / 通过标准                                                           | 回滚 / 并存         | 门禁                            |
+| ------ | --------------------- | --------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------- | ------------------- | ------------------------------- |
+| **N0** | `migration/` 脚手架   | 建自包含 workspace、`client/`、空 `jobs/`、空或最小 `packages/`；**不**接 backend | P1                       | `migration/**`、自有 lockfile               | `pnpm --dir migration install` 成功；根旧 apps 安装/启动面未被破坏        | 删整个 `migration/` | 遵循 §4.1.1；不改坏根 workspace |
+| **N1** | Next 最新 + shadcn    | `migration/client` 可跑空壳；组件基线就绪                                         | N0                       | Next、`components.json`、基础 layout        | client dev/build 通过；shadcn 可加组件                                    | 丢弃 client 内容    | 对齐既有 DESIGN/UI 方向         |
+| **N2** | 迁基础样式与前端壳    | 样式 token、全局样式、壳布局 → `migration/client`                                 | N1 ✅                    | CSS/tokens、layout、providers、route groups | 可对照 `apps/web`；壳可 build；业务页可为占位（**已完成骨架**）           | 旧 web 对照         | 不借机改产品语义                |
+| **N3** | 迁前端功能            | UI/feature → `migration/client`（可多 PR）                                        | N2 ✅                    | `apps/web` → `migration/client`             | 约定页可演示；同源 `/api`（**本地整栈已对齐页面/feature**）               | 旧 web 并存         | 迁入清单；不做 CF 完成标准      |
+| **N4** | 迁后端进 client       | API → Route Handlers；按需迁 `migration/packages`                                 | N3 足够进度 ✅           | `apps/backend` → client server + packages   | 契约/双跑；无嵌 Hono 终态（**本地 Route Handlers + 同包 worker 已接线**） | 旧 api 并存         | L1；T1–T3；密钥不进客户端       |
+| **N5** | 瘦身旧交付 + 提取准备 | 旧 apps 降级；`migration/` 配置收束到可整包提取                                   | N4 差不多 + **明确授权** | 根脚本、`deployment.md`、migration 内配置   | 默认可切到新树叙事；提取清单齐                                            | 文档/分支可回滚     | 无授权不删默认三服务            |
 
 #### B. 技术方案与依赖（迁入时强制，可与 N2–N4 同 PR 纪律）
 
-| ID     | 切片                                       | 目的                                                              | 何时                                           | 门禁                                                                 |
-| ------ | ------------------------------------------ | ----------------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
-| **T1** | AI：LangChain → Vercel AI SDK              | 新树**不引入** LangChain；assist 用 `ai` + `@ai-sdk/openai`（L6） | 首次需要 AI 依赖的迁入即生效；最迟 N4 相关路径 | 不默认 Workers AI；保留「解析模型行 → OpenAI 兼容 HTTP」外壳若仍需要 |
-| **T2** | TTS：原生 SDK → Azure Speech **REST**/HTTP | `fetch` + SSML（L5）                                              | 首次迁 TTS 即生效                              | 不默认 Workers AI；密钥仅服务端                                      |
-| **T3** | Workers 不友好依赖审查                     | 列出并替换/隔离原生 Node、长驻、不兼容 edge/Workers 的库          | N0 起建清单；N1–N4 持续消项                    | 未处理项不得假装「已可上 Workers」；上 CF 仍属 P4                    |
+| ID     | 切片                                       | 目的                                                              | 何时                                                      | 门禁                                                                 |
+| ------ | ------------------------------------------ | ----------------------------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
+| **T1** | AI：LangChain → Vercel AI SDK              | 新树**不引入** LangChain；assist 用 `ai` + `@ai-sdk/openai`（L6） | ✅ 迁入路径已切（旧 LangChain 仅 `_legacy_hono` 对照）    | 不默认 Workers AI；保留「解析模型行 → OpenAI 兼容 HTTP」外壳若仍需要 |
+| **T2** | TTS：原生 SDK → Azure Speech **REST**/HTTP | `fetch` + SSML（L5）                                              | ✅ `server/infra/tts` REST                                | 不默认 Workers AI；密钥仅服务端                                      |
+| **T3** | Workers 不友好依赖审查                     | 列出并替换/隔离原生 Node、长驻、不兼容 edge/Workers 的库          | 进行中：本地仍用 BullMQ 第二进程；**未**宣称 Workers 就绪 | 未处理项不得假装「已可上 Workers」；上 CF 仍属 P4                    |
 
 #### C. 产品路径（可并行调研，合入不抢 N0–N3）
 

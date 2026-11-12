@@ -1,34 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# `@gloaming/client`
 
-## Getting Started
+Next.js app: **UI + `/api/*` Route Handlers** + BullMQ worker entry (`server/worker.ts`, second process).
 
-First, run the development server:
+## Docs
+
+- **[STRUCTURE.md](./STRUCTURE.md)** — directories, two-tier shared, dependency rules
+- **Local run:** [`../LOCAL_RUN.md`](../LOCAL_RUN.md)
+- Parent: [`../README.md`](../README.md)
+- Stages: [`../../docs/cloudflare-fullstack-refactor-stages.md`](../../docs/cloudflare-fullstack-refactor-stages.md)
+
+## Commands
+
+From `migration/`:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm --filter @gloaming/client dev
+pnpm --filter @gloaming/client dev:worker
+pnpm --filter @gloaming/client build
+pnpm --filter @gloaming/client typecheck
+pnpm --filter @gloaming/client db:migrate
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Layout (short)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Path                    | Role                                                             |
+| ----------------------- | ---------------------------------------------------------------- |
+| `app/`                  | Pages + `app/api` thin transport                                 |
+| `features/`             | Product UI (parity with `apps/web`)                              |
+| `components/`           | UI primitives + navigation chrome                                |
+| `lib/`                  | Client/RSC glue (auth client, query, locale, api-request)        |
+| `shared/`               | In-app UI ↔ server contracts                                     |
+| `server/`               | Domains, infra, application/jobs, **inlined `db/`**, `worker.ts` |
+| `constants/`, `public/` | App constants and static assets                                  |
 
-## Learn More
+## Package placement
 
-To learn more about Next.js, take a look at the following resources:
+| Module           | Where                                                                   | Note                                        |
+| ---------------- | ----------------------------------------------------------------------- | ------------------------------------------- |
+| DB               | `server/db/`                                                            | Inlined — only this app consumes it         |
+| i18n             | `@gloaming/i18n` in `migration/packages/i18n`                           | Transitional                                |
+| Shared contracts | `@gloaming/shared` + prefer `client/shared/` for new app-only contracts | Do not expand packages for single-app needs |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Non-goals (this tree)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Nested Hono as API host
+- LangChain / Azure Speech **SDK** on the live path (legacy under `server/_legacy_hono` for reference only)
+- Claiming Cloudflare Workers readiness (P4)
