@@ -12,7 +12,6 @@ export const QUEUE_NAME = 'gloaming';
 export const DISCOVERY_SYNC_QUEUE_NAME = 'gloaming-discovery-sync';
 export const DISCOVERY_IMPORT_QUEUE_NAME = 'gloaming-discovery-import';
 export const CLEANUP_QUEUE_NAME = 'gloaming-asset-cleanup';
-export const PERSONAL_TAG_QUEUE_NAME = 'gloaming-personal-tags';
 export const PUBLIC_CLASSIFICATION_QUEUE_NAME = 'gloaming-public-classification';
 
 const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
@@ -22,7 +21,6 @@ let queue: Queue | null = null;
 let discoverySyncQueue: Queue | null = null;
 let discoveryImportQueue: Queue | null = null;
 let cleanupQueue: Queue | null = null;
-let personalTagQueue: Queue | null = null;
 let publicClassificationQueue: Queue | null = null;
 
 /** Dedicated BullMQ Redis client. Do not reuse `getRedis()`. */
@@ -75,12 +73,6 @@ export function getCleanupQueue(): Queue {
 
   cleanupQueue = createNamedQueue(CLEANUP_QUEUE_NAME);
   return cleanupQueue;
-}
-
-export function getPersonalTagQueue(): Queue {
-  if (personalTagQueue) return personalTagQueue;
-  personalTagQueue = createNamedQueue(PERSONAL_TAG_QUEUE_NAME);
-  return personalTagQueue;
 }
 
 /** Separate AI-heavy queue so classification never blocks sync/materialization jobs. */
@@ -136,14 +128,6 @@ export async function enqueueCleanup(name: string, data: unknown, jobOptions?: E
   return addJob(getCleanupQueue(), name, data, jobOptions);
 }
 
-export async function enqueuePersonalTagging(
-  name: string,
-  data: unknown,
-  jobOptions?: EnqueueJobOptions,
-): Promise<string> {
-  return addJob(getPersonalTagQueue(), name, data, jobOptions);
-}
-
 export async function enqueuePublicClassification(
   name: string,
   data: unknown,
@@ -180,10 +164,6 @@ export async function closeQueue(): Promise<void> {
   if (publicClassificationQueue) {
     await publicClassificationQueue.close();
     publicClassificationQueue = null;
-  }
-  if (personalTagQueue) {
-    await personalTagQueue.close();
-    personalTagQueue = null;
   }
   if (cleanupQueue) {
     await cleanupQueue.close();

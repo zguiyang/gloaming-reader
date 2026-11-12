@@ -1,22 +1,12 @@
 import type { Job, Worker } from 'bullmq';
 import { Worker as BullWorker } from 'bullmq';
 
-import {
-  JOB_ASSET_CLEANUP,
-  JOB_PERSONAL_WORK_CLEANUP,
-  processAssetCleanup,
-  processPersonalWorkCleanupJob,
-} from '@/server/application/jobs/asset-cleanup';
+import { JOB_ASSET_CLEANUP, processAssetCleanup } from '@/server/application/jobs/asset-cleanup';
 import {
   type ContentParseJobData,
   JOB_CONTENT_PARSE,
   processContentParse,
 } from '@/server/application/jobs/content-parse';
-import {
-  type DiscoverySyncJobData,
-  JOB_DISCOVERY_SYNC,
-  processDiscoverySync,
-} from '@/server/application/jobs/discovery-sync';
 import {
   JOB_METADATA_ENRICH,
   type MetadataEnrichJobData,
@@ -46,41 +36,28 @@ import {
 } from '@/server/application/jobs/work-metadata-fill';
 import { dispatchDuePublicClassifications } from '@/server/domains/discovery/categories';
 import { recoverStaleSaveIntents } from '@/server/domains/library/save-intent';
-import {
-  dispatchQueuedPersonalTagRuns,
-  finalizeFailedPersonalTagRun,
-  JOB_PERSONAL_TAGGING,
-  type PersonalTaggingJobData,
-  processPersonalTaggingJob,
-} from '@/server/domains/library/tags/personal-ai-tagging';
-import type { PersonalWorkCleanupJobData } from '@/server/domains/works/personal/management';
 import { commonEnv } from '@/server/infra/config/env-common';
 import { workerLogger } from '@/server/infra/logging/logger';
 import {
   CLEANUP_QUEUE_NAME,
   closeQueue,
   DISCOVERY_IMPORT_QUEUE_NAME,
-  DISCOVERY_SYNC_QUEUE_NAME,
   getQueueConnection,
-  PERSONAL_TAG_QUEUE_NAME,
   PUBLIC_CLASSIFICATION_QUEUE_NAME,
   QUEUE_NAME,
 } from '@/server/infra/queue';
 
 export const CLEANUP_WORKER_CONCURRENCY = 1;
-export const PERSONAL_TAG_WORKER_CONCURRENCY = 2;
 export const PUBLIC_CLASSIFICATION_WORKER_CONCURRENCY = 1;
 
 export const PUBLIC_CLASSIFICATION_ONLY_FLAG = '--public-classification-only';
-export const DISCOVERY_SYNC_ONLY_FLAG = '--discovery-sync-only';
 export const DISCOVERY_IMPORT_ONLY_FLAG = '--discovery-import-only';
 export const NO_PUBLIC_CLASSIFICATION_FLAG = '--no-public-classification';
 
-export type WorkerMode = 'full' | 'public-classification-only' | 'discovery-sync-only' | 'discovery-import-only';
+export type WorkerMode = 'full' | 'public-classification-only' | 'discovery-import-only';
 
 export function resolveWorkerMode(argv: readonly string[] = process.argv): WorkerMode {
   if (argv.includes(DISCOVERY_IMPORT_ONLY_FLAG)) return 'discovery-import-only';
-  if (argv.includes(DISCOVERY_SYNC_ONLY_FLAG)) return 'discovery-sync-only';
   return argv.includes(PUBLIC_CLASSIFICATION_ONLY_FLAG) ? 'public-classification-only' : 'full';
 }
 
@@ -107,8 +84,6 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
       return processWorkMetadataFill(job.data as WorkMetadataFillJobData);
     case JOB_METADATA_ENRICH:
       return processMetadataEnrich(job.data as MetadataEnrichJobData);
-    case JOB_DISCOVERY_SYNC:
-      return processDiscoverySync(job.data as DiscoverySyncJobData);
     case JOB_SOURCE_RECORD_MATERIALIZE:
       return processSourceRecordMaterialize(job.data as SourceRecordMaterializeJobData);
     case JOB_WORK_COVER_REFRESH:
@@ -119,9 +94,6 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
 }
 
 export async function processCleanupJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
-  if (job.name === JOB_PERSONAL_WORK_CLEANUP) {
-    return processPersonalWorkCleanupJob(job.data as PersonalWorkCleanupJobData);
-  }
   if (job.name !== JOB_ASSET_CLEANUP) {
     throw new Error(`Unknown cleanup job name: ${job.name}`);
   }
@@ -157,20 +129,16 @@ function attachWorkerEvents(worker: Worker, queue: string): void {
 export function createWorkers(
   mode: WorkerMode = 'full',
   options: {
-    discoverySyncQueueName?: string;
     discoveryImportQueueName?: string;
     publicClassificationEnabled?: boolean;
   } = {},
 ): {
   worker?: Worker;
   cleanupWorker?: Worker;
-  personalTagWorker?: Worker;
   publicClassificationWorker?: Worker;
-  discoverySyncWorker?: Worker;
   discoveryImportWorker?: Worker;
 } {
   const connection = getQueueConnection();
-  const discoverySyncQueueName = options.discoverySyncQueueName ?? DISCOVERY_SYNC_QUEUE_NAME;
   const discoveryImportQueueName = options.discoveryImportQueueName ?? DISCOVERY_IMPORT_QUEUE_NAME;
 
   const createPublicClassificationWorker = () => {
@@ -200,19 +168,6 @@ export function createWorkers(
     return { publicClassificationWorker: createPublicClassificationWorker() };
   }
 
-  if (mode === 'discovery-sync-only') {
-    const discoverySyncWorker = new BullWorker(
-      discoverySyncQueueName,
-      async (job) => {
-        if (job.name !== JOB_DISCOVERY_SYNC) throw new Error(`Unknown discovery sync job: ${job.name}`);
-        return processDiscoverySync(job.data as DiscoverySyncJobData);
-      },
-      { connection },
-    );
-    attachWorkerEvents(discoverySyncWorker, discoverySyncQueueName);
-    return { discoverySyncWorker };
-  }
-
   if (mode === 'discovery-import-only') {
     return { discoveryImportWorker: createDiscoveryImportWorker() };
   }
@@ -224,60 +179,24 @@ export function createWorkers(
     connection,
     concurrency: CLEANUP_WORKER_CONCURRENCY,
   });
-  const personalTagWorker = new BullWorker(
-    PERSONAL_TAG_QUEUE_NAME,
-    async (job) => {
-      if (job.name !== JOB_PERSONAL_TAGGING) throw new Error(`Unknown Personal tag job: ${job.name}`);
-      return processPersonalTaggingJob(job.data as PersonalTaggingJobData);
-    },
-    { connection, concurrency: PERSONAL_TAG_WORKER_CONCURRENCY },
-  );
-  personalTagWorker.on('failed', (job) => {
-    if (job && job.attemptsMade >= Number(job.opts.attempts ?? 1)) {
-      void finalizeFailedPersonalTagRun(job.data as PersonalTaggingJobData).catch((error) => {
-        workerLogger.warn({ err: error, jobId: job.id }, 'Failed to persist Personal tag run failure');
-      });
-    }
-  });
 
   attachWorkerEvents(worker, QUEUE_NAME);
   attachWorkerEvents(cleanupWorker, CLEANUP_QUEUE_NAME);
-  attachWorkerEvents(personalTagWorker, PERSONAL_TAG_QUEUE_NAME);
 
   const publicClassificationWorker =
     options.publicClassificationEnabled === false ? undefined : createPublicClassificationWorker();
   const discoveryImportWorker = createDiscoveryImportWorker();
 
-  return { worker, cleanupWorker, personalTagWorker, publicClassificationWorker, discoveryImportWorker };
+  return { worker, cleanupWorker, publicClassificationWorker, discoveryImportWorker };
 }
 
 async function main(): Promise<void> {
   const mode = resolveWorkerMode();
   const classificationEnabled = publicClassificationEnabled(mode);
   const publicClassificationOnly = mode === 'public-classification-only';
-  const {
-    worker,
-    cleanupWorker,
-    personalTagWorker,
-    publicClassificationWorker,
-    discoverySyncWorker,
-    discoveryImportWorker,
-  } = createWorkers(mode, { publicClassificationEnabled: classificationEnabled });
-  if (mode === 'discovery-sync-only') {
-    workerLogger.info({ queue: DISCOVERY_SYNC_QUEUE_NAME, mode }, 'Worker listening');
-    let shuttingDown = false;
-    const shutdown = async (signal: string) => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      workerLogger.info({ signal }, 'Worker shutting down');
-      await discoverySyncWorker?.close();
-      await closeQueue();
-      process.exit(0);
-    };
-    process.on('SIGINT', () => void shutdown('SIGINT'));
-    process.on('SIGTERM', () => void shutdown('SIGTERM'));
-    return;
-  }
+  const { worker, cleanupWorker, publicClassificationWorker, discoveryImportWorker } = createWorkers(mode, {
+    publicClassificationEnabled: classificationEnabled,
+  });
   if (mode === 'discovery-import-only') {
     workerLogger.info({ queue: DISCOVERY_IMPORT_QUEUE_NAME, mode }, 'Worker listening');
     let shuttingDown = false;
@@ -299,11 +218,6 @@ async function main(): Promise<void> {
     dispatcherRunning = true;
     if (!publicClassificationOnly) {
       try {
-        await dispatchQueuedPersonalTagRuns();
-      } catch (error) {
-        workerLogger.warn({ err: error }, 'Personal tag outbox recovery pass failed');
-      }
-      try {
         // Bounded stale Save Intent recovery: re-queue lost materialization
         // jobs and time out intents whose deadline passed (see save-intent).
         await recoverStaleSaveIntents();
@@ -320,15 +234,14 @@ async function main(): Promise<void> {
     }
   };
   void dispatch();
-  const personalTagDispatchTimer = setInterval(() => void dispatch(), 60_000);
-  personalTagDispatchTimer.unref?.();
+  const dispatchTimer = setInterval(() => void dispatch(), 60_000);
+  dispatchTimer.unref?.();
 
   workerLogger.info(
     {
       queue: QUEUE_NAME,
       discoveryImportQueue: DISCOVERY_IMPORT_QUEUE_NAME,
       cleanupQueue: CLEANUP_QUEUE_NAME,
-      personalTagQueue: PERSONAL_TAG_QUEUE_NAME,
       nodeEnv: commonEnv.NODE_ENV,
       mode,
       publicClassificationEnabled: classificationEnabled,
@@ -342,10 +255,10 @@ async function main(): Promise<void> {
       return;
     }
     shuttingDown = true;
-    clearInterval(personalTagDispatchTimer);
+    clearInterval(dispatchTimer);
     workerLogger.info({ signal }, 'Worker shutting down');
     await Promise.all(
-      [worker, cleanupWorker, personalTagWorker, publicClassificationWorker, discoverySyncWorker, discoveryImportWorker]
+      [worker, cleanupWorker, publicClassificationWorker, discoveryImportWorker]
         .filter((created): created is Worker => created !== undefined)
         .map((created) => created.close()),
     );
