@@ -53,7 +53,6 @@ openspec/
 .agents/*
 !.agents/skills/
 !.agents/skills/**
-.gitnexus/
 .junie/
 
 # Worktrees
