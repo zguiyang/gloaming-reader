@@ -13,18 +13,8 @@ import {
   ttsInvocationWindowForDays,
 } from '@/shared/tts-invocations';
 
-import { LoadingOverlay } from '@/components/loading-overlay';
 import { Badge } from '@/components/ui/badge';
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableCell, TableRow } from '@/components/ui/table';
 import {
   formatAdminCount,
   formatAdminDateTime,
@@ -34,7 +24,11 @@ import {
   formatAdminTtsSource,
 } from '@/features/admin/admin-logs-format';
 import {
-  InvocationLogsFilters,
+  INVOCATION_LOGS_TABLE_REFRESH_MIN_MS,
+  InvocationLogsShell,
+  type InvocationLogsColumn,
+} from '@/features/admin/invocation-logs-shell';
+import {
   type InvocationLogsRange,
   type InvocationLogsRangePreset,
   type InvocationLogsStatusFilter,
@@ -49,86 +43,6 @@ import {
 } from '@/features/admin/tts/tts-logs-api';
 import { useLocale } from '@/lib/locale-context';
 import { usePaginatedQuery } from '@/lib/query';
-import { cn } from '@/lib/utils';
-
-const TABLE_REFRESH_MIN_MS = 300;
-const TABLE_SKELETON_ROW_COUNT = 6;
-
-function LogsTableSkeleton({ rows, locale }: { rows: number; locale: ReturnType<typeof useLocale>['locale'] }) {
-  return (
-    <div aria-hidden>
-      <div className="hidden md:block">
-        <Table className="min-w-[48rem]">
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                {t(locale, 'admin.logs.table.time')}
-              </TableHead>
-              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                {t(locale, 'admin.logs.table.segment')}
-              </TableHead>
-              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                {t(locale, 'admin.logs.table.voice')}
-              </TableHead>
-              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                {t(locale, 'admin.logs.table.source')}
-              </TableHead>
-              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                {t(locale, 'admin.logs.table.status')}
-              </TableHead>
-              <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
-                {t(locale, 'admin.logs.table.latency')}
-              </TableHead>
-              <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                {t(locale, 'admin.logs.table.error')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Array.from({ length: rows }, (_, index) => (
-              <TableRow key={index} className="border-border hover:bg-transparent">
-                <TableCell className="px-5 py-4">
-                  <Skeleton className="h-4 w-36 max-w-full bg-muted/70" />
-                </TableCell>
-                <TableCell className="px-5 py-4">
-                  <Skeleton className="h-4 w-28 bg-muted/70" />
-                </TableCell>
-                <TableCell className="px-5 py-4">
-                  <Skeleton className="h-4 w-24 bg-muted/70" />
-                </TableCell>
-                <TableCell className="px-5 py-4">
-                  <Skeleton className="h-4 w-16 bg-muted/70" />
-                </TableCell>
-                <TableCell className="px-5 py-4">
-                  <Skeleton className="h-5 w-12 rounded-full bg-muted/70" />
-                </TableCell>
-                <TableCell className="px-5 py-4 text-right">
-                  <Skeleton className="ml-auto h-4 w-14 bg-muted/70" />
-                </TableCell>
-                <TableCell className="px-5 py-4">
-                  <Skeleton className="h-4 w-32 bg-muted/70" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <ul className="flex flex-col divide-y divide-border md:hidden">
-        {Array.from({ length: rows }, (_, index) => (
-          <li key={index} className="flex flex-col gap-2 px-4 py-4">
-            <Skeleton className="h-4 w-36 max-w-full bg-muted/70" />
-            <Skeleton className="h-4 w-28 bg-muted/70" />
-            <Skeleton className="h-4 w-24 bg-muted/70" />
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function StatsSkeleton() {
-  return <Skeleton className="h-[7.25rem] w-full rounded-2xl bg-muted/70" />;
-}
 
 function StatsCell({ label, value }: { label: string; value: string }) {
   return (
@@ -181,7 +95,7 @@ export function TtsLogsPage() {
     queryFn: ({ signal }) => listAdminTtsInvocations(listParams, { signal }),
     page,
     onPageChange: setPage,
-    softRefreshMinMs: TABLE_REFRESH_MIN_MS,
+    softRefreshMinMs: INVOCATION_LOGS_TABLE_REFRESH_MIN_MS,
   });
 
   const statsQuery = useQuery({
@@ -189,235 +103,119 @@ export function TtsLogsPage() {
     queryFn: ({ signal }) => getAdminTtsInvocationStats(statsParams, { signal }),
   });
 
+  const columns: InvocationLogsColumn[] = [
+    { label: t(locale, 'admin.logs.table.time'), skeletonClassName: 'h-4 w-36 max-w-full' },
+    { label: t(locale, 'admin.logs.table.segment'), skeletonClassName: 'h-4 w-28' },
+    { label: t(locale, 'admin.logs.table.voice'), skeletonClassName: 'h-4 w-24' },
+    { label: t(locale, 'admin.logs.table.source'), skeletonClassName: 'h-4 w-16' },
+    { label: t(locale, 'admin.logs.table.status'), skeletonClassName: 'h-5 w-12 rounded-full' },
+    { label: t(locale, 'admin.logs.table.latency'), align: 'right', skeletonClassName: 'h-4 w-14' },
+    { label: t(locale, 'admin.logs.table.error'), skeletonClassName: 'h-4 w-32' },
+  ];
+
   return (
-    <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 mx-auto max-w-6xl">
-      <div className="min-w-0">
-        <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.logs.tts.title')}</h1>
-      </div>
-
-      <div className="mt-6 flex flex-col gap-8 md:mt-10">
-        {statsQuery.isPending ? (
-          <StatsSkeleton />
-        ) : statsQuery.isError ? (
-          <p className="rounded-2xl border border-border bg-secondary/60 px-5 py-8 text-sm text-destructive md:px-6">
-            {formatAdminTtsLogsApiError(statsQuery.error)}
-          </p>
-        ) : statsQuery.data ? (
-          <StatsRow stats={statsQuery.data} locale={locale} />
-        ) : null}
-
-        <div className="order-first flex flex-col gap-5 md:order-none">
-          <InvocationLogsFilters
-            rangeTab={rangeTab}
-            range={range}
-            status={status}
-            windowForDays={ttsInvocationWindowForDays}
-            onRangeTabChange={(tab) => {
-              setRangeTab(tab);
-              setPage(DEFAULT_PAGE);
-            }}
-            onRangeChange={(next) => {
-              setRange(next);
-              setPage(DEFAULT_PAGE);
-            }}
-            onStatusChange={(next) => {
-              setStatus(next);
-              setPage(DEFAULT_PAGE);
-            }}
-          />
-
-          <div
-            className="overflow-hidden rounded-2xl border border-border bg-card"
-            aria-busy={list.isInitialLoading || list.isSoftRefreshing}
-          >
-            {list.isInitialLoading ? (
-              <LogsTableSkeleton rows={TABLE_SKELETON_ROW_COUNT} locale={locale} />
-            ) : list.isError && !list.data ? (
-              <Empty className="border-0 py-16">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <Volume2 />
-                  </EmptyMedia>
-                  <EmptyTitle>{t(locale, 'admin.logs.tts.loadFailedTitle')}</EmptyTitle>
-                  <EmptyDescription>{formatAdminTtsLogsApiError(list.error)}</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : list.items.length === 0 ? (
-              <Empty className="border-0 py-16">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <Volume2 />
-                  </EmptyMedia>
-                  <EmptyTitle>{t(locale, 'admin.logs.tts.emptyTitle')}</EmptyTitle>
-                  <EmptyDescription>{t(locale, 'admin.logs.tts.emptyDescription')}</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              <LoadingOverlay active={list.isSoftRefreshing} label={t(locale, 'admin.logs.listRefreshing')}>
-                <div className="hidden md:block">
-                  <Table className="min-w-[48rem]">
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                          {t(locale, 'admin.logs.table.time')}
-                        </TableHead>
-                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                          {t(locale, 'admin.logs.table.segment')}
-                        </TableHead>
-                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                          {t(locale, 'admin.logs.table.voice')}
-                        </TableHead>
-                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                          {t(locale, 'admin.logs.table.source')}
-                        </TableHead>
-                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                          {t(locale, 'admin.logs.table.status')}
-                        </TableHead>
-                        <TableHead className="h-12 bg-surface-container-low px-5 text-right text-muted-foreground">
-                          {t(locale, 'admin.logs.table.latency')}
-                        </TableHead>
-                        <TableHead className="h-12 bg-surface-container-low px-5 text-muted-foreground">
-                          {t(locale, 'admin.logs.table.error')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {list.items.map((log) => (
-                        <TableRow
-                          key={log.id}
-                          className="border-border transition-colors duration-300 ease-out-soft hover:bg-surface-container-low"
-                        >
-                          <TableCell className="px-5 py-4 tabular-nums text-muted-foreground">
-                            {formatAdminDateTime(log.createdAt, locale)}
-                          </TableCell>
-                          <TableCell className="px-5 py-4 text-foreground">
-                            {log.partTitle ??
-                              (log.partId ? log.partId.slice(0, 8) : t(locale, 'admin.logs.emptyValue'))}
-                          </TableCell>
-                          <TableCell className="px-5 py-4 text-muted-foreground">
-                            <span className="block">{log.voice ?? t(locale, 'admin.logs.emptyValue')}</span>
-                            <span className="text-xs">{formatAdminTtsRole(log.role, locale)}</span>
-                          </TableCell>
-                          <TableCell className="px-5 py-4 text-muted-foreground">
-                            {formatAdminTtsSource(log.source, locale)}
-                          </TableCell>
-                          <TableCell className="px-5 py-4">
-                            <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
-                              {formatAdminInvocationStatus(log.status, locale)}
-                            </Badge>
-                            {log.cached ? (
-                              <span className="ml-2 text-xs text-muted-foreground">
-                                {t(locale, 'admin.logs.tts.cached')}
-                              </span>
-                            ) : null}
-                          </TableCell>
-                          <TableCell className="px-5 py-4 text-right tabular-nums text-muted-foreground">
-                            {formatAdminLatencyMs(log.latencyMs, locale)}
-                          </TableCell>
-                          <TableCell className="max-w-[14rem] px-5 py-4 whitespace-normal break-words text-muted-foreground">
-                            {log.errorMessage ?? t(locale, 'admin.logs.emptyValue')}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                <ul className="flex flex-col divide-y divide-border md:hidden">
-                  {list.items.map((log) => (
-                    <li key={log.id} className="flex flex-col gap-2 px-4 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm tabular-nums text-muted-foreground">
-                            {formatAdminDateTime(log.createdAt, locale)}
-                          </p>
-                          <p className="mt-1 font-medium text-foreground">
-                            {log.partTitle ??
-                              (log.partId ? log.partId.slice(0, 8) : t(locale, 'admin.logs.emptyValue'))}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {log.cached ? (
-                            <span className="text-xs text-muted-foreground">{t(locale, 'admin.logs.tts.cached')}</span>
-                          ) : null}
-                          <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
-                            {formatAdminInvocationStatus(log.status, locale)}
-                          </Badge>
-                        </div>
-                      </div>
-                      <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
-                        <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.voice')}</dt>
-                        <dd className="min-w-0 text-foreground">
-                          <span className="block">{log.voice ?? t(locale, 'admin.logs.emptyValue')}</span>
-                          <span className="text-xs text-muted-foreground">{formatAdminTtsRole(log.role, locale)}</span>
-                        </dd>
-                        <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.source')}</dt>
-                        <dd className="min-w-0 text-muted-foreground">{formatAdminTtsSource(log.source, locale)}</dd>
-                        <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.latency')}</dt>
-                        <dd className="min-w-0 tabular-nums text-muted-foreground">
-                          {formatAdminLatencyMs(log.latencyMs, locale)}
-                        </dd>
-                        <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.error')}</dt>
-                        <dd className="min-w-0 break-words text-muted-foreground">
-                          {log.errorMessage ?? t(locale, 'admin.logs.emptyValue')}
-                        </dd>
-                      </dl>
-                    </li>
-                  ))}
-                </ul>
-              </LoadingOverlay>
-            )}
+    <InvocationLogsShell
+      title={t(locale, 'admin.logs.tts.title')}
+      icon={Volume2}
+      stats={{
+        isPending: statsQuery.isPending,
+        isError: statsQuery.isError,
+        error: statsQuery.error,
+        content: statsQuery.data ? <StatsRow stats={statsQuery.data} locale={locale} /> : null,
+      }}
+      formatStatsError={formatAdminTtsLogsApiError}
+      rangeTab={rangeTab}
+      range={range}
+      status={status}
+      windowForDays={ttsInvocationWindowForDays}
+      onRangeTabChange={(tab) => {
+        setRangeTab(tab);
+        setPage(DEFAULT_PAGE);
+      }}
+      onRangeChange={(next) => {
+        setRange(next);
+        setPage(DEFAULT_PAGE);
+      }}
+      onStatusChange={(next) => {
+        setStatus(next);
+        setPage(DEFAULT_PAGE);
+      }}
+      list={list}
+      columns={columns}
+      emptyTitle={t(locale, 'admin.logs.tts.emptyTitle')}
+      emptyDescription={t(locale, 'admin.logs.tts.emptyDescription')}
+      loadFailedTitle={t(locale, 'admin.logs.tts.loadFailedTitle')}
+      formatListError={formatAdminTtsLogsApiError}
+      pageSize={TTS_INVOCATION_DEFAULT_PAGE_SIZE}
+      desktopRows={list.items.map((log) => (
+        <TableRow
+          key={log.id}
+          className="border-border transition-colors duration-300 ease-out-soft hover:bg-surface-container-low"
+        >
+          <TableCell className="px-5 py-4 tabular-nums text-muted-foreground">
+            {formatAdminDateTime(log.createdAt, locale)}
+          </TableCell>
+          <TableCell className="px-5 py-4 text-foreground">
+            {log.partTitle ?? (log.partId ? log.partId.slice(0, 8) : t(locale, 'admin.logs.emptyValue'))}
+          </TableCell>
+          <TableCell className="px-5 py-4 text-muted-foreground">
+            <span className="block">{log.voice ?? t(locale, 'admin.logs.emptyValue')}</span>
+            <span className="text-xs">{formatAdminTtsRole(log.role, locale)}</span>
+          </TableCell>
+          <TableCell className="px-5 py-4 text-muted-foreground">{formatAdminTtsSource(log.source, locale)}</TableCell>
+          <TableCell className="px-5 py-4">
+            <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
+              {formatAdminInvocationStatus(log.status, locale)}
+            </Badge>
+            {log.cached ? (
+              <span className="ml-2 text-xs text-muted-foreground">{t(locale, 'admin.logs.tts.cached')}</span>
+            ) : null}
+          </TableCell>
+          <TableCell className="px-5 py-4 text-right tabular-nums text-muted-foreground">
+            {formatAdminLatencyMs(log.latencyMs, locale)}
+          </TableCell>
+          <TableCell className="max-w-[14rem] px-5 py-4 whitespace-normal break-words text-muted-foreground">
+            {log.errorMessage ?? t(locale, 'admin.logs.emptyValue')}
+          </TableCell>
+        </TableRow>
+      ))}
+      mobileRows={list.items.map((log) => (
+        <li key={log.id} className="flex flex-col gap-2 px-4 py-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm tabular-nums text-muted-foreground">{formatAdminDateTime(log.createdAt, locale)}</p>
+              <p className="mt-1 font-medium text-foreground">
+                {log.partTitle ?? (log.partId ? log.partId.slice(0, 8) : t(locale, 'admin.logs.emptyValue'))}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {log.cached ? (
+                <span className="text-xs text-muted-foreground">{t(locale, 'admin.logs.tts.cached')}</span>
+              ) : null}
+              <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
+                {formatAdminInvocationStatus(log.status, locale)}
+              </Badge>
+            </div>
           </div>
-        </div>
-      </div>
-
-      {!list.isInitialLoading && !list.isError ? (
-        <div className="mt-8 flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <p className="text-sm text-muted-foreground">
-            {t(locale, 'admin.logs.paginationSummary', {
-              total: list.total,
-              page: list.totalPages === 0 ? 0 : list.page,
-              totalPages: list.totalPages,
-              pageSize: TTS_INVOCATION_DEFAULT_PAGE_SIZE,
-            })}
-          </p>
-          {list.hasPrevPage || list.hasNextPage ? (
-            <Pagination className="mx-0 w-auto justify-end">
-              <PaginationContent className="gap-2">
-                <PaginationItem>
-                  <PaginationPrevious
-                    text={t(locale, 'admin.logs.prevPage')}
-                    href="#"
-                    aria-disabled={!list.hasPrevPage}
-                    className={cn(
-                      'h-9 rounded-xl border border-border bg-background px-3.5',
-                      !list.hasPrevPage && 'pointer-events-none opacity-50',
-                    )}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      list.goPrev();
-                    }}
-                  />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext
-                    text={t(locale, 'admin.logs.nextPage')}
-                    href="#"
-                    aria-disabled={!list.hasNextPage}
-                    className={cn(
-                      'h-9 rounded-xl border border-border bg-background px-3.5',
-                      !list.hasNextPage && 'pointer-events-none opacity-50',
-                    )}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      list.goNext();
-                    }}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+          <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+            <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.voice')}</dt>
+            <dd className="min-w-0 text-foreground">
+              <span className="block">{log.voice ?? t(locale, 'admin.logs.emptyValue')}</span>
+              <span className="text-xs text-muted-foreground">{formatAdminTtsRole(log.role, locale)}</span>
+            </dd>
+            <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.source')}</dt>
+            <dd className="min-w-0 text-muted-foreground">{formatAdminTtsSource(log.source, locale)}</dd>
+            <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.latency')}</dt>
+            <dd className="min-w-0 tabular-nums text-muted-foreground">
+              {formatAdminLatencyMs(log.latencyMs, locale)}
+            </dd>
+            <dt className="text-muted-foreground">{t(locale, 'admin.logs.table.error')}</dt>
+            <dd className="min-w-0 break-words text-muted-foreground">
+              {log.errorMessage ?? t(locale, 'admin.logs.emptyValue')}
+            </dd>
+          </dl>
+        </li>
+      ))}
+    />
   );
 }
