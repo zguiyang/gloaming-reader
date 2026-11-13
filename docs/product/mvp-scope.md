@@ -86,7 +86,7 @@ Full navigation SSOT: [`prototype-flows.md`](./prototype-flows.md). There is no 
 ## 7. AI and content constraints
 
 - **Reading assist** is scoped to in-text help and translation of the **current part**; no always-on companion chat.
-- **Organization AI** is separate from reading assistance: personal automatic tagging requires user opt-in and BYOK. See [`personal-tags.md`](./personal-tags.md).
+- **Organization AI** is separate from reading assistance: personal tagging is manual only; the automatic organizer is not available in the current build. See [`personal-tags.md`](./personal-tags.md).
 - Content stance: [`content-strategy.md`](./content-strategy.md) (personal EPUB; accepted source supply direction).
 - **Degrade path:** the work still opens and reads if AI or TTS is off.
 - Planning aids: [`feature-decision-guide.md`](./feature-decision-guide.md) · [`design-guardrails.md`](./design-guardrails.md) · [`engineering-vocabulary.md`](./engineering-vocabulary.md).

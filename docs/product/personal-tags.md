@@ -29,7 +29,7 @@ Related: [`mvp-scope.md`](./mvp-scope.md) · [`content-strategy.md`](./content-s
 - **Translation failure never blocks** the saved tag or reading.
 - A **missing locale uses explicit fallback** to the original name; the UI marks the locale as untranslated rather than pretending it exists.
 - **Manual locale edits are protected**: AI must not overwrite a locale the user edited.
-- Manual translation passes the authenticated user to the existing **User → Instance → Unavailable** provider resolver. This differs from the automatic organizer's strict BYOK-only policy.
+- Manual translation passes the authenticated user to the existing **User → Instance → Unavailable** provider resolver. This differs from the removed automatic organizer's strict BYOK-only policy.
 
 ## 5. Deletion
 
@@ -40,7 +40,11 @@ Related: [`mvp-scope.md`](./mvp-scope.md) · [`content-strategy.md`](./content-s
 
 - Existing management UI: **`/library/tags`** (list, create, rename, per-locale edit, delete), plus book-side assign/unassign dialogs that call module methods.
 
-## 7. Automatic organizer (P2)
+## 7. Automatic organizer (P2) — removed from the current build
+
+The automatic organizer is not part of the current product. `personal-ai-tagging.ts` keeps always-disabled preference stubs only so leftover clients fail soft; there is no Jobs path, API surface, or Settings toggle. Manual tag CRUD, translation, and assignment remain available.
+
+The design rules below are retained as historical requirements, not as current capabilities:
 
 - **Default OFF**; the user must **opt in**.
 - When disabled, or the user's provider is unavailable, there is **no automatic tagging**.
@@ -52,6 +56,8 @@ Related: [`mvp-scope.md`](./mvp-scope.md) · [`content-strategy.md`](./content-s
 - **No daily business quota** (removed); engineering safeguards are retained: generation fencing, provenance, suppression of re-adding removed associations, and manual-protection guards.
 
 ## 8. Acceptance status (current)
+
+Current build: the automatic organizer is removed; entries mentioning automatic runs below are historical records, not current capabilities.
 
 - **Manual tag management (CRUD + localized names at `/library/tags`):** accepted in an earlier round; the previously listed "Next task" for it was stale and has been retired.
 - **Tag-save partial-failure recovery:** accepted this round through targeted component tests only (no page re-acceptance, no real AI calls, no backend change): the save now waits for every assign/unassign request to settle before refreshing, giving feedback, and unlocking, so a fast failure alongside a slower success can no longer make the page diverge from persistent state or start a second save mid-flight; after refresh the persisted state becomes the diff baseline, and a retry sends only the still-missing changes. TDD evidence: the new race tests failed pre-fix against `Promise.all` (early refresh and wrong reopened-dialog baseline), then the full spec passed 40/40 with typecheck, lint, and format checks green.

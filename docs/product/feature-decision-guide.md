@@ -46,20 +46,20 @@ If you cannot place it, it is a side quest. Side quests are out of V1.
 
 ## 3. Feature types and default stance
 
-| Type                   | Examples                               | Default            | Design note                                                    |
-| ---------------------- | -------------------------------------- | ------------------ | -------------------------------------------------------------- |
-| Main-loop strength     | Import, EPUB parse, typography, resume | **Prioritize**     | This _is_ V1                                                   |
-| Comprehension assist   | Inline explain, translation, TTS       | **Yes**            | On demand; do not hijack                                       |
-| Personal organization  | Private tags and localized names       | **MVP required**   | Organize the user's Library; automatic tagging requires opt-in |
-| Public classification  | Instance categories for discovery      | **MVP scope**      | Separate from private tags; do not imply runtime acceptance    |
-| Highlights / bookmarks | Save a line in the book                | **Later**          | Easy to become a vocab inbox                                   |
-| Post-input quizzes     | Practice                               | **No for V1**      | Removed from codebase                                          |
-| Daily review queue     | Review / SRS                           | **No for V1**      | Removed from codebase                                          |
-| Growth dashboard       | Heatmaps, portraits                    | **Keep; optimize** | Reading-history overview                                       |
-| Social competition     | Leaderboards                           | **Default no**     |                                                                |
-| Courseification        | Syllabus, pass walls                   | **Default no**     |                                                                |
-| Free AI chat as home   | Chat without text                      | **Default no**     |                                                                |
-| AI-written library     | Generated stories                      | **Default no**     |                                                                |
+| Type                   | Examples                               | Default            | Design note                                                                |
+| ---------------------- | -------------------------------------- | ------------------ | -------------------------------------------------------------------------- |
+| Main-loop strength     | Import, EPUB parse, typography, resume | **Prioritize**     | This _is_ V1                                                               |
+| Comprehension assist   | Inline explain, translation, TTS       | **Yes**            | On demand; do not hijack                                                   |
+| Personal organization  | Private tags and localized names       | **MVP required**   | Organize the user's Library; automatic tagging is not in the current build |
+| Public classification  | Instance categories for discovery      | **MVP scope**      | Separate from private tags; do not imply runtime acceptance                |
+| Highlights / bookmarks | Save a line in the book                | **Later**          | Easy to become a vocab inbox                                               |
+| Post-input quizzes     | Practice                               | **No for V1**      | Removed from codebase                                                      |
+| Daily review queue     | Review / SRS                           | **No for V1**      | Removed from codebase                                                      |
+| Growth dashboard       | Heatmaps, portraits                    | **Keep; optimize** | Reading-history overview                                                   |
+| Social competition     | Leaderboards                           | **Default no**     |                                                                            |
+| Courseification        | Syllabus, pass walls                   | **Default no**     |                                                                            |
+| Free AI chat as home   | Chat without text                      | **Default no**     |                                                                            |
+| AI-written library     | Generated stories                      | **Default no**     |                                                                            |
 
 ---
 
