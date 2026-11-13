@@ -156,6 +156,15 @@ export async function createEpubIngestWork(
   };
 }
 
+/**
+ * Stable BullMQ job id for a Work's parse attempt. The token is persisted, not
+ * rotated, so the id identifies "the parser job for this Work" across retries —
+ * shared with the stalled-parse recovery sweep so it probes the same job.
+ */
+export function contentParseJobId(workId: string, retryJobToken: string): string {
+  return `${JOB_CONTENT_PARSE}-${workId}-${retryJobToken}`;
+}
+
 /** Queue the existing shared parser with the same lease and failure semantics used by workflow retries. */
 export async function enqueueCoreEpubParse(input: {
   workId: string;
@@ -185,7 +194,7 @@ export async function enqueueCoreEpubParse(input: {
   try {
     await enqueueJob(JOB_CONTENT_PARSE, data, {
       attempts: 2,
-      jobId: `${JOB_CONTENT_PARSE}-${input.workId}-${input.retryJobToken}`,
+      jobId: contentParseJobId(input.workId, input.retryJobToken),
       // The job id is stable across retries (the token is persisted, not rotated),
       // so a retained finished record would make every later `enqueue` a silent
       // no-op: BullMQ sees `EXISTS jobIdKey` and returns without re-queueing.

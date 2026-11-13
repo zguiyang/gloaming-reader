@@ -10,8 +10,10 @@ export type SourceMetadataEnrichJobData = {
 const jobLogger = rootLogger.child({ module: 'SourceMetadataEnrichJob' });
 
 /**
- * Best-effort OPDS metadata fill for personal uploads. Failures are logged and
- * swallowed so a miss or upstream outage never blocks readability.
+ * Best-effort OPDS metadata fill for personal uploads. Readability never depends
+ * on this job: every expected miss is reported as a normal outcome, and only an
+ * unexpected error is rethrown so the queue's `attempts` budget retries it and
+ * the failure stays visible instead of being recorded as a silent success.
  */
 export async function processSourceMetadataEnrich(
   data: SourceMetadataEnrichJobData,
@@ -26,6 +28,6 @@ export async function processSourceMetadataEnrich(
     return { ok: true, workId, outcome };
   } catch (error) {
     jobLogger.warn({ err: error, workId }, 'Source metadata enrich failed');
-    return { ok: true, workId, outcome: 'error' };
+    throw error;
   }
 }

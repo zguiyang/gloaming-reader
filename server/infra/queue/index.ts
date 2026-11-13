@@ -118,6 +118,20 @@ export async function enqueuePing(data?: PingJobData): Promise<string> {
   return enqueue(JOB_PING, payload);
 }
 
+/**
+ * True while a job with this id is still waiting, delayed or running. Recovery
+ * paths use it to tell "queued but backed up" from "finished and never re-driven".
+ */
+export async function hasLiveJob(lane: 'default' | 'discovery', jobId: string): Promise<boolean> {
+  const target = lane === 'discovery' ? getDiscoveryImportQueue() : getQueue();
+  const job = await target.getJob(jobId);
+  if (!job) {
+    return false;
+  }
+  const state = await job.getState();
+  return state !== 'completed' && state !== 'failed';
+}
+
 export async function closeQueue(): Promise<void> {
   if (discoveryImportQueue) {
     await discoveryImportQueue.close();

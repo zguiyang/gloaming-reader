@@ -519,6 +519,7 @@ async function redownloadOriginForRetry(input: {
 async function enqueueParseRetry(
   sourceRecordId: string,
   work: LinkedWorkRow,
+  currentStatus: WorkProcessingStatus = 'failed',
 ): Promise<SourceRecordMaterializationResult> {
   const retryJobToken = persistedRetryJobToken(work);
   if (!retryJobToken) {
@@ -530,7 +531,7 @@ async function enqueueParseRetry(
     await enqueueCoreEpubParse({
       workId: work.id,
       retryJobToken,
-      currentStatus: 'failed',
+      currentStatus,
       processingLane: 'discovery',
     });
   } catch (error) {
@@ -538,7 +539,9 @@ async function enqueueParseRetry(
       return reloadLinkedWorkResult(sourceRecordId, work.id);
     }
     const reloaded = await loadLinkedWork(work.id, sourceRecordId);
-    if (isFailedAtParse(reloaded)) {
+    const stillReservable =
+      currentStatus === 'uploaded' ? reloaded.processingStatus === 'uploaded' : isFailedAtParse(reloaded);
+    if (stillReservable) {
       await setMaterializationStatusForWork(sourceRecordId, work.id, 'failed');
     }
     throw error;
@@ -557,14 +560,20 @@ async function enqueueParseRetry(
 
 /**
  * Reuse an already-linked Work: report `ready` once parse completed, leave an
- * in-flight parse alone, and only re-enqueue the persisted parser job when the
- * Work is failed at the parse step. A failed parse first re-selects the current
- * `content_candidates` URL and re-downloads the origin file when it no longer
- * matches the recorded `originMeta.sourceCandidateUrl` (or the stored origin is
- * unusable); matching, usable bytes keep the existing re-enqueue-only behavior.
+ * in-flight parse alone, re-enqueue a Work whose parse was never reserved
+ * (`uploaded`, e.g. the post-create enqueue failed), and only re-enqueue the
+ * persisted parser job when the Work is failed at the parse step. A failed parse
+ * first re-selects the current `content_candidates` URL and re-downloads the
+ * origin file when it no longer matches the recorded
+ * `originMeta.sourceCandidateUrl` (or the stored origin is unusable); matching,
+ * usable bytes keep the existing re-enqueue-only behavior.
  */
 async function resolveLinkedWork(sourceRecordId: string, workId: string): Promise<SourceRecordMaterializationResult> {
   const work = await loadLinkedWork(workId, sourceRecordId);
+
+  if (work.processingStatus === 'uploaded') {
+    return enqueueParseRetry(sourceRecordId, work, 'uploaded');
+  }
 
   if (isFailedAtParse(work)) {
     return retryFailedParse(sourceRecordId, work);

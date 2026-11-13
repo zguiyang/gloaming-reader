@@ -20,6 +20,7 @@ import {
   processWorkCoverRefresh,
   type WorkCoverRefreshJobData,
 } from '@/jobs/work-cover-refresh';
+import { recoverStalledContentParses } from '@/server/application/commands/recover-stalled-content-parses';
 import { recoverStaleSaveIntents } from '@/server/domains/library/save-intent';
 import { commonEnv } from '@/server/infra/config/env-common';
 import { workerLogger } from '@/server/infra/logging/logger';
@@ -161,6 +162,11 @@ async function main(): Promise<void> {
       await recoverStaleSaveIntents();
     } catch (error) {
       workerLogger.warn({ err: error }, 'Save intent recovery pass failed');
+    }
+    try {
+      await recoverStalledContentParses();
+    } catch (error) {
+      workerLogger.warn({ err: error }, 'Stalled workflow recovery pass failed');
     } finally {
       dispatcherRunning = false;
     }

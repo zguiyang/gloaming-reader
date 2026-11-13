@@ -60,7 +60,16 @@ async function ensureRetryJobToken(
       )
       .returning({ id: readingWorkTable.id });
     if (!prepared) {
-      return false;
+      // Lost the token race: adopt the persisted winner instead of returning false,
+      // which would make this delivery a silent `ok: true` no-op. Ownership is still
+      // decided by the workflow claim below.
+      const [converged] = await db
+        .select({ originMeta: readingWorkTable.originMeta })
+        .from(readingWorkTable)
+        .where(eq(readingWorkTable.id, workId))
+        .limit(1);
+      const winner = converged?.originMeta?.retryJobToken;
+      return typeof winner === 'string' && winner.length > 0 ? winner : false;
     }
   }
   return jobToken;
@@ -143,12 +152,19 @@ async function finalizeContentParseWorkflow(
     .from(readingPartTable)
     .where(eq(readingPartTable.workId, workId))
     .orderBy(readingPartTable.sortOrder);
-  for (const part of parts) {
-    const partStats = computePartReadingStats(part.body);
-    await db
-      .update(readingPartTable)
-      .set({ meta: sql`${readingPartTable.meta} || ${JSON.stringify({ wordCount: partStats.wordCount })}::jsonb` })
-      .where(eq(readingPartTable.id, part.id));
+  // One statement for the whole Work: per-part round trips made finalization
+  // scale with chapter count on every parse.
+  const wordCounts = parts.map((part) => ({ id: part.id, wordCount: computePartReadingStats(part.body).wordCount }));
+  if (wordCounts.length > 0) {
+    await db.execute(sql`
+      update ${readingPartTable} as part
+      set meta = part.meta || jsonb_build_object('wordCount', patch.word_count)
+      from (values ${sql.join(
+        wordCounts.map((entry) => sql`(${entry.id}::text, ${entry.wordCount}::int)`),
+        sql`, `,
+      )}) as patch(id, word_count)
+      where part.id = patch.id
+    `);
   }
 
   workflowLogger.info({ workId }, 'Content parse workflow finalized');
