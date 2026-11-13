@@ -235,10 +235,13 @@ function splitElementIntoSentences(
 }
 
 function sanitizeHtml(html: string): string {
-  if (typeof window !== 'undefined' && typeof DOMPurify?.sanitize === 'function') {
-    return DOMPurify.sanitize(html);
+  // DOMPurify needs a browser DOM. Server rendering has no sanitizer available,
+  // and reading HTML is fetched client-side, so fail closed instead of emitting
+  // raw (potentially EPUB-authored) markup into the SSR payload.
+  if (typeof window === 'undefined' || typeof DOMPurify?.sanitize !== 'function') {
+    return '';
   }
-  return html;
+  return DOMPurify.sanitize(html);
 }
 
 export function transformBilingualHtml(

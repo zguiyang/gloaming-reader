@@ -100,15 +100,9 @@ export const auth = betterAuth({
   },
   rateLimit: {
     // Better Auth applies its built-in limiter to /api/auth/* (stored in secondaryStorage).
-    // Keep off for local hosts even when `next start` sets NODE_ENV=production.
-    enabled: (() => {
-      try {
-        const host = new URL(env.FRONTEND_URL).hostname;
-        return host !== 'localhost' && host !== '127.0.0.1';
-      } catch {
-        return env.NODE_ENV === 'production';
-      }
-    })(),
+    // Explicit configuration only: deriving this from FRONTEND_URL's hostname
+    // meant a production URL mistake silently disabled all auth throttling.
+    enabled: env.AUTH_RATE_LIMIT_ENABLED,
     window: 60,
     max: 60,
     customRules: {

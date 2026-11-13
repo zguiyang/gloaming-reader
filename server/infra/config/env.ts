@@ -10,6 +10,16 @@ const apiEnvSchema = commonEnvSchema.extend({
   FRONTEND_URL: z.string().url(),
   BETTER_AUTH_SECRET: z.string().min(16),
 
+  /**
+   * Better Auth's built-in limiter applies to `/api/auth/*`. On by default —
+   * local setups that replay auth flows against `next start` may opt out
+   * explicitly instead of relying on the FRONTEND_URL host heuristic.
+   */
+  AUTH_RATE_LIMIT_ENABLED: z.preprocess(
+    (value) => (value === '' || value === undefined ? 'true' : value),
+    z.enum(['true', 'false']).transform((value) => value === 'true'),
+  ),
+
   /** Optional OAuth credentials; each provider must be configured as a pair. */
   GITHUB_CLIENT_ID: z.preprocess(
     (value) => (value === '' || value === undefined ? undefined : value),
