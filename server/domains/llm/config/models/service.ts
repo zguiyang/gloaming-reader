@@ -19,6 +19,7 @@ import { db } from '@/server/infra/db';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
+import { isUniqueViolation } from '@/server/shared/errors/db-errors';
 
 type ModelRow = typeof llmModelTable.$inferSelect;
 
@@ -87,9 +88,15 @@ export async function createModel(body: CreateLlmModelBody): Promise<LlmModel> {
         sortOrder: body.sortOrder,
       })
       .returning();
-    return toModel(row!);
-  } catch {
-    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
+    if (!row) throw new Error(`LLM model insert produced no row for ${body.modelId}`);
+    return toModel(row);
+  } catch (error) {
+    // Only a duplicate key is a conflict; a blanket `catch` hid real failures
+    // (connection loss, constraint drift) behind a misleading 409.
+    if (isUniqueViolation(error)) {
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
+    }
+    throw error;
   }
 }
 
@@ -141,9 +148,13 @@ export async function updateModel(id: string, body: UpdateLlmModelBody): Promise
 
   try {
     const [row] = await db.update(llmModelTable).set(patch).where(eq(llmModelTable.id, id)).returning();
-    return toModel(row!);
-  } catch {
-    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
+    if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
+    return toModel(row);
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
+    }
+    throw error;
   }
 }
 

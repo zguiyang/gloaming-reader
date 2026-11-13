@@ -36,10 +36,17 @@ import {
   runtimeActorFromUserId,
 } from '@/server/domains/provider-scope';
 import { db } from '@/server/infra/db';
-import { assertSafeOutboundUrl, decryptApiKey, encryptApiKey, maskApiKey } from '@/server/infra/llm';
+import {
+  assertSafeOutboundUrl,
+  assertSafeProxyUrl,
+  decryptApiKey,
+  encryptApiKey,
+  maskApiKey,
+} from '@/server/infra/llm';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
+import { isUniqueViolation } from '@/server/shared/errors/db-errors';
 
 type ProviderRow = typeof llmProviderTable.$inferSelect;
 type ModelRow = typeof llmModelTable.$inferSelect;
@@ -99,6 +106,7 @@ export async function listUserProviders(userId: string): Promise<LlmProvider[]> 
 export async function createUserProvider(userId: string, body: CreateLlmProviderBody): Promise<LlmProvider> {
   const apiFamily = parseApiFamily(body.apiFamily);
   assertSafeOutboundUrl(body.baseUrl, 'Base URL');
+  assertSafeProxyUrl(body.proxyUrl);
 
   const id = randomUUID();
   const [row] = await db
@@ -136,6 +144,7 @@ export async function updateUserProvider(
     patch.baseUrl = body.baseUrl;
   }
   if (body.proxyUrl !== undefined) {
+    assertSafeProxyUrl(body.proxyUrl);
     patch.proxyUrl = body.proxyUrl;
   }
   if (body.thinkingParam !== undefined) {
@@ -158,7 +167,10 @@ export async function updateUserProvider(
   }
 
   const [row] = await db.update(llmProviderTable).set(patch).where(eq(llmProviderTable.id, id)).returning();
-  return toProvider(row!);
+  // Deleted between the ownership check and this update — surface 404, not a
+  // TypeError from `toProvider(undefined)`.
+  if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
+  return toProvider(row);
 }
 
 export async function deleteUserProvider(userId: string, id: string): Promise<void> {
@@ -194,22 +206,32 @@ export async function createUserModel(userId: string, body: CreateLlmModelBody):
   }
 
   const id = randomUUID();
-  const [row] = await db
-    .insert(llmModelTable)
-    .values({
-      id,
-      providerId: body.providerId,
-      modelId: body.modelId,
-      label: body.label,
-      wireVariant,
-      contextLength: body.contextLength ?? null,
-      temperature: body.temperature ?? null,
-      maxTokens: body.maxTokens ?? null,
-      isEnabled: body.isEnabled,
-      sortOrder: body.sortOrder,
-    })
-    .returning();
-  return toModel(row!);
+  try {
+    const [row] = await db
+      .insert(llmModelTable)
+      .values({
+        id,
+        providerId: body.providerId,
+        modelId: body.modelId,
+        label: body.label,
+        wireVariant,
+        contextLength: body.contextLength ?? null,
+        temperature: body.temperature ?? null,
+        maxTokens: body.maxTokens ?? null,
+        isEnabled: body.isEnabled,
+        sortOrder: body.sortOrder,
+      })
+      .returning();
+    if (!row) throw new Error(`LLM model insert produced no row for ${body.modelId}`);
+    return toModel(row);
+  } catch (error) {
+    // Same contract as the instance-scoped service: a duplicate (provider, model)
+    // is a 409, not an unhandled unique_violation 500.
+    if (isUniqueViolation(error)) {
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
+    }
+    throw error;
+  }
 }
 
 export async function updateUserModel(userId: string, id: string, body: UpdateLlmModelBody): Promise<LlmModel> {
@@ -255,8 +277,18 @@ export async function updateUserModel(userId: string, id: string, body: UpdateLl
     patch.sortOrder = body.sortOrder;
   }
 
-  const [row] = await db.update(llmModelTable).set(patch).where(eq(llmModelTable.id, id)).returning();
-  return toModel(row!);
+  try {
+    const [row] = await db.update(llmModelTable).set(patch).where(eq(llmModelTable.id, id)).returning();
+    // The row can be deleted between the ownership check above and this update;
+    // `row!` would throw a TypeError that surfaces as a 500 instead of a 404.
+    if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
+    return toModel(row);
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
+    }
+    throw error;
+  }
 }
 
 export async function deleteUserModel(userId: string, id: string): Promise<void> {

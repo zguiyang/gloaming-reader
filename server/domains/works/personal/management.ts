@@ -18,6 +18,7 @@ import {
   collectKeysFromOriginMeta,
   collectReferencedStorageKeys,
 } from '@/server/domains/assets/management/referenced-keys';
+import { UPLOAD_DEDUPE_LOCK_PREFIX } from '@/server/domains/assets/uploads/registry';
 import { acquireLockWithWait, releaseLock, startLockRenewal } from '@/server/infra/cache/lock';
 import { db } from '@/server/infra/db';
 import { deleteManyObjects } from '@/server/infra/storage';
@@ -25,7 +26,6 @@ import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const UPLOAD_DEDUPE_LOCK_PREFIX = 'gloaming:upload:dedupe:';
 const UPLOAD_LOCK_TTL_SECONDS = 300;
 
 export type PersonalWorkCleanupJobData = { keys: string[]; uploadContentHash: string | null };

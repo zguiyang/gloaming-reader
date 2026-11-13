@@ -26,6 +26,7 @@ import { requireInstanceProvider } from '@/server/domains/provider-scope';
 import { db } from '@/server/infra/db';
 import {
   assertSafeOutboundUrl,
+  assertSafeProxyUrl,
   decryptApiKey,
   encryptApiKey,
   fetchProviderModelCandidates,
@@ -83,6 +84,7 @@ export async function listProviders(): Promise<LlmProvider[]> {
 export async function createProvider(body: CreateLlmProviderBody): Promise<LlmProvider> {
   const apiFamily = parseApiFamily(body.apiFamily);
   assertSafeOutboundUrl(body.baseUrl, 'Base URL');
+  assertSafeProxyUrl(body.proxyUrl);
   validateProviderOptionalFields(apiFamily, body.thinkingParam);
 
   const id = randomUUID();
@@ -120,6 +122,7 @@ export async function updateProvider(id: string, body: UpdateLlmProviderBody): P
     patch.baseUrl = body.baseUrl;
   }
   if (body.proxyUrl !== undefined) {
+    assertSafeProxyUrl(body.proxyUrl);
     patch.proxyUrl = body.proxyUrl;
   }
   if (body.thinkingParam !== undefined) {
@@ -152,7 +155,10 @@ export async function updateProvider(id: string, body: UpdateLlmProviderBody): P
   }
 
   const [row] = await db.update(llmProviderTable).set(patch).where(eq(llmProviderTable.id, id)).returning();
-  return toProvider(row!);
+  // Deleted between the ownership check and this update — surface 404, not a
+  // TypeError from `toProvider(undefined)`.
+  if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
+  return toProvider(row);
 }
 
 export async function deleteProvider(id: string): Promise<void> {

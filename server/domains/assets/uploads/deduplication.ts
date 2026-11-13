@@ -5,6 +5,7 @@ import {
   incrementUploadedObjectRef,
   registerUploadedObject,
   type UploadedFileMeta,
+  UPLOAD_DEDUPE_LOCK_PREFIX,
 } from '@/server/domains/assets/uploads/registry';
 import { storeValidatedUpload } from '@/server/domains/assets/uploads/storage';
 import {
@@ -30,7 +31,6 @@ export type AcquireUploadedObjectResult = {
 };
 
 const uploadLogger = rootLogger.child({ module: 'Uploads' });
-const UPLOAD_DEDUPE_LOCK_PREFIX = 'gloaming:upload:dedupe:';
 const UPLOAD_DEDUPE_LOCK_TTL_SECONDS = 5 * 60;
 const UPLOAD_DEDUPE_LOCK_MAX_WAIT_MS = 30_000;
 

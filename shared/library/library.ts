@@ -40,6 +40,7 @@ export const userTagWriteSchema = z.object({
 export const userTagTranslationsResultSchema = z.object({
   tag: userTagSchema,
   status: z.enum(['completed', 'incomplete', 'provider_unavailable']),
+  missingLocales: z.array(z.string()),
 });
 
 export type UserTag = z.infer<typeof userTagSchema>;

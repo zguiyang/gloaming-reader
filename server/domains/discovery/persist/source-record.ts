@@ -79,29 +79,7 @@ export async function upsertSourceRecordFromDetail(detail: SourceRecordDetail): 
   const now = new Date();
 
   if (existing) {
-    const shouldRefreshCandidates = existing.workId === null;
-    const [updated] = await db
-      .update(sourceRecordTable)
-      .set({
-        title: detail.title,
-        authors: detail.authors,
-        languages: detail.languages,
-        description: detail.description,
-        rightsStatement: detail.rightsStatement,
-        coverUrl: detail.coverUrl,
-        ...(shouldRefreshCandidates
-          ? {
-              contentCandidates: detail.contentCandidates as SourceRecordContentCandidate[],
-              sourceMeta: detail.sourceMeta as SourceRecordSourceMeta,
-            }
-          : {}),
-        availability: 'available',
-        lastSeenAt: now,
-        sourceUpdatedAt: detail.sourceUpdatedAt ? new Date(detail.sourceUpdatedAt) : existing.sourceUpdatedAt,
-      })
-      .where(eq(sourceRecordTable.id, existing.id))
-      .returning();
-    return updated ?? existing;
+    return applySourceRecordDetail(existing, detail, now);
   }
 
   const [inserted] = await db
@@ -122,12 +100,53 @@ export async function upsertSourceRecordFromDetail(detail: SourceRecordDetail): 
       lastSeenAt: now,
       sourceUpdatedAt: detail.sourceUpdatedAt ? new Date(detail.sourceUpdatedAt) : null,
     })
+    .onConflictDoNothing()
     .returning();
 
-  if (!inserted) {
+  if (inserted) {
+    return inserted;
+  }
+
+  // A concurrent writer created the same (source, externalId) row between our
+  // read and this insert. Without `DO NOTHING` the unique violation escapes to
+  // the route as an unhandled 500 instead of a converging update.
+  const winner = await findSourceRecordByExternalId(detail.sourceKey, detail.externalId);
+  if (!winner) {
     throw new Error(`Failed to insert source record for ${detail.sourceKey}/${detail.externalId}`);
   }
-  return inserted;
+  return applySourceRecordDetail(winner, detail, now);
+}
+
+type ExistingSourceRecord = NonNullable<Awaited<ReturnType<typeof findSourceRecordByExternalId>>>;
+
+async function applySourceRecordDetail(
+  existing: ExistingSourceRecord,
+  detail: SourceRecordDetail,
+  now: Date,
+): Promise<SourceRecordRow> {
+  const shouldRefreshCandidates = existing.workId === null;
+  const [updated] = await db
+    .update(sourceRecordTable)
+    .set({
+      title: detail.title,
+      authors: detail.authors,
+      languages: detail.languages,
+      description: detail.description,
+      rightsStatement: detail.rightsStatement,
+      coverUrl: detail.coverUrl,
+      ...(shouldRefreshCandidates
+        ? {
+            contentCandidates: detail.contentCandidates as SourceRecordContentCandidate[],
+            sourceMeta: detail.sourceMeta as SourceRecordSourceMeta,
+          }
+        : {}),
+      availability: 'available',
+      lastSeenAt: now,
+      sourceUpdatedAt: detail.sourceUpdatedAt ? new Date(detail.sourceUpdatedAt) : existing.sourceUpdatedAt,
+    })
+    .where(eq(sourceRecordTable.id, existing.id))
+    .returning();
+  return updated ?? existing;
 }
 
 /** Fetch OPDS detail and upsert the local SourceRecord used by Save Intent. */

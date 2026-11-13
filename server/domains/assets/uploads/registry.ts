@@ -13,6 +13,12 @@ export type UploadedFileMeta = {
   size: number;
 };
 
+/**
+ * Serializes acquire/release against the same content hash. Both sides must use
+ * this one prefix — a second copy is how the release path drifted off-lock.
+ */
+export const UPLOAD_DEDUPE_LOCK_PREFIX = 'gloaming:upload:dedupe:';
+
 export async function findUploadedObjectByHash(contentHash: string): Promise<UploadedFileMeta | null> {
   const [row] = await db
     .select({

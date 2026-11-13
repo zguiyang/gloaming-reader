@@ -30,36 +30,43 @@ export async function putUserConfig(userId: string, body: PutTtsConfigBody): Pro
   }
 
   const apiKeyCiphertext = body.apiKey?.trim() ? encryptApiKey(body.apiKey.trim()) : existing!.apiKeyCiphertext;
+  const values = {
+    region: body.region,
+    apiKeyCiphertext,
+    isEnabled: body.isEnabled,
+    defaultVoice: body.defaultVoice,
+    usVoice: body.usVoice,
+    ukVoice: body.ukVoice,
+  };
 
   if (existing) {
-    const [row] = await db
-      .update(ttsConfigTable)
-      .set({
-        region: body.region,
-        apiKeyCiphertext,
-        isEnabled: body.isEnabled,
-        defaultVoice: body.defaultVoice,
-        usVoice: body.usVoice,
-        ukVoice: body.ukVoice,
-      })
-      .where(eq(ttsConfigTable.id, existing.id))
-      .returning();
-    return toConfigView(row!);
+    const [row] = await db.update(ttsConfigTable).set(values).where(eq(ttsConfigTable.id, existing.id)).returning();
+    if (row) {
+      return toConfigView(row);
+    }
+    // Deleted between the read and the update; fall through and re-create.
   }
 
-  const [row] = await db
+  const [inserted] = await db
     .insert(ttsConfigTable)
     .values({
       id: randomUUID(),
       ownerUserId: userId,
       provider: TTS_PROVIDER_AZURE,
-      region: body.region,
-      apiKeyCiphertext,
-      isEnabled: body.isEnabled,
-      defaultVoice: body.defaultVoice,
-      usVoice: body.usVoice,
-      ukVoice: body.ukVoice,
+      ...values,
     })
+    // `tts_config_user_uidx` makes a concurrent first save collide; without this
+    // the unique violation escaped as an unhandled 500.
+    .onConflictDoNothing()
     .returning();
-  return toConfigView(row!);
+  if (inserted) {
+    return toConfigView(inserted);
+  }
+
+  const winner = await loadUserConfigRow(userId);
+  if (!winner) {
+    throw new Error(`TTS config row for user ${userId} disappeared during save`);
+  }
+  const [row] = await db.update(ttsConfigTable).set(values).where(eq(ttsConfigTable.id, winner.id)).returning();
+  return toConfigView(row ?? winner);
 }

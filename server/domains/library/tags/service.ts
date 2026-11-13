@@ -20,21 +20,10 @@ import { db } from '@/server/infra/db';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
+import { isUniqueViolation } from '@/server/shared/errors/db-errors';
 
 function tagNameExists(): AppError {
   return new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LIBRARY.USER_TAG_NAME_EXISTS);
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false;
-  if ('code' in error && error.code === '23505') return true;
-  return (
-    'cause' in error &&
-    typeof error.cause === 'object' &&
-    error.cause !== null &&
-    'code' in error.cause &&
-    error.cause.code === '23505'
-  );
 }
 
 function toUserTag(row: {
@@ -281,13 +270,21 @@ export async function completeUserTagTranslations(
     maxRetries?: number;
     authorizationGeneration?: number;
   } = {},
-): Promise<{ tag: UserTag; status: 'completed' | 'incomplete' | 'provider_unavailable' }> {
+): Promise<{ tag: UserTag; status: 'completed' | 'incomplete' | 'provider_unavailable'; missingLocales: string[] }> {
   const initial = await getOwnedTag(userId, tagId);
   if (!initial) throw new NotFoundError(ERROR_CODES.NOT_FOUND.USER_TAG);
 
+  /** The primary name already represents the source locale; only other locales count as missing. */
+  const missingLocalesOf = (localizedNames: Record<string, string>, sourceLocale: string | null) =>
+    SUPPORTED_LOCALES.filter((locale) => locale !== sourceLocale && !localizedNames[locale]);
+
   const sourceLocale = initial.sourceLocale;
   if (!sourceLocale || !SUPPORTED_LOCALES.some((locale) => locale === sourceLocale)) {
-    return { tag: toUserTag(initial), status: 'incomplete' };
+    return {
+      tag: toUserTag(initial),
+      status: 'incomplete',
+      missingLocales: missingLocalesOf(initial.localizedNames, null),
+    };
   }
   const sourceName = initial.localizedNames[sourceLocale] ?? initial.name;
 
@@ -295,12 +292,23 @@ export async function completeUserTagTranslations(
     (locale) =>
       locale !== sourceLocale && !initial.localizedNames[locale] && !initial.userEditedLocales.includes(locale),
   );
-  if (targets.length === 0) return { tag: toUserTag(initial), status: 'completed' };
+  if (targets.length === 0) {
+    const missingLocales = missingLocalesOf(initial.localizedNames, sourceLocale);
+    return {
+      tag: toUserTag(initial),
+      status: missingLocales.length > 0 ? 'incomplete' : 'completed',
+      missingLocales,
+    };
+  }
   if (
     options.authorizationGeneration !== undefined &&
     !(await preferenceAuthorizesGeneration(userId, options.authorizationGeneration))
   ) {
-    return { tag: toUserTag(initial), status: 'incomplete' };
+    return {
+      tag: toUserTag(initial),
+      status: 'incomplete',
+      missingLocales: missingLocalesOf(initial.localizedNames, sourceLocale),
+    };
   }
 
   let translations: Array<{ locale: string; name: string }>;
@@ -338,7 +346,11 @@ export async function completeUserTagTranslations(
       (error.code === ERROR_CODES.AI.MODEL_NOT_CONFIGURED || error.code === ERROR_CODES.AI.UNAVAILABLE);
     const current = await getOwnedTag(userId, tagId);
     if (!current) throw new NotFoundError(ERROR_CODES.NOT_FOUND.USER_TAG);
-    return { tag: toUserTag(current), status: providerUnavailable ? 'provider_unavailable' : 'incomplete' };
+    return {
+      tag: toUserTag(current),
+      status: providerUnavailable ? 'provider_unavailable' : 'incomplete',
+      missingLocales: missingLocalesOf(current.localizedNames, sourceLocale),
+    };
   }
 
   for (const candidate of translations) {
@@ -387,8 +399,12 @@ export async function completeUserTagTranslations(
 
   const current = await getOwnedTag(userId, tagId);
   if (!current) throw new NotFoundError(ERROR_CODES.NOT_FOUND.USER_TAG);
-  const stillMissing = SUPPORTED_LOCALES.some((locale) => !current.localizedNames[locale]);
-  return { tag: toUserTag(current), status: stillMissing ? 'incomplete' : 'completed' };
+  const missingLocales = missingLocalesOf(current.localizedNames, sourceLocale);
+  return {
+    tag: toUserTag(current),
+    status: missingLocales.length > 0 ? 'incomplete' : 'completed',
+    missingLocales,
+  };
 }
 
 export async function deleteUserTag(userId: string, tagId: string): Promise<void> {
