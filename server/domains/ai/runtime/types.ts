@@ -64,6 +64,8 @@ export type AiStreamOptions = {
   maxToolRounds?: number;
   timeoutMs?: number;
   enableThinking?: boolean;
+  providerScope?: 'user-first' | 'user-only';
+  maxTokens?: number;
   requestSummaryExtra?: AiInvocationSummaryExtra;
   signal?: AbortSignal;
 };

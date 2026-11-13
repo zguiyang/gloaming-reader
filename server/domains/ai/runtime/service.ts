@@ -232,10 +232,12 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
       modelRowId: options.modelRowId,
       purpose: purpose ?? undefined,
       userId: options.userId,
+      providerScope: options.providerScope,
     });
     resolved = await resolveLlmByModelRowId(modelRowId);
     const model = createLlmClient(resolved, {
       timeoutMs: options.timeoutMs,
+      maxTokens: options.maxTokens,
       enableThinking: options.enableThinking,
     });
 
@@ -251,6 +253,9 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
       model,
       ...prompt,
       abortSignal,
+      // Same bound `invokeAi` applies: an unbounded stream ignores the model's
+      // configured output cap and can run far past the caller's budget.
+      maxOutputTokens: options.maxTokens ?? resolved.maxTokens ?? undefined,
       ...(tools
         ? {
             tools,
