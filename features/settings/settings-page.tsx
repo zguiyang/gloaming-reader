@@ -49,6 +49,7 @@ import {
 } from '@/features/settings/settings-api';
 import { SettingsTtsSection } from '@/features/settings/tts/settings-tts-section';
 import { authClient } from '@/lib/auth';
+import { getApiFamilyLabel, getWireVariantDisplayLabel } from '@/lib/llm-protocol-labels';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -174,7 +175,7 @@ function ProviderForm({
               value={draft.apiFamily}
               items={LLM_API_FAMILIES.map((familyId) => ({
                 value: familyId,
-                label: `${LLM_WIRE_REGISTRY[familyId].label}${!LLM_WIRE_REGISTRY[familyId].runtimeImplemented ? ` · ${t(locale, 'settings.ai.notAvailableYet')}` : ''}`,
+                label: `${getApiFamilyLabel(locale, familyId)}${!LLM_WIRE_REGISTRY[familyId].runtimeImplemented ? ` · ${t(locale, 'settings.ai.notAvailableYet')}` : ''}`,
               }))}
               onValueChange={(value) => {
                 if (value && LLM_API_FAMILIES.includes(value as LlmApiFamily))
@@ -188,7 +189,7 @@ function ProviderForm({
                 <SelectGroup>
                   {LLM_API_FAMILIES.map((familyId) => (
                     <SelectItem key={familyId} value={familyId}>
-                      {LLM_WIRE_REGISTRY[familyId].label}
+                      {getApiFamilyLabel(locale, familyId)}
                       {!LLM_WIRE_REGISTRY[familyId].runtimeImplemented
                         ? ` · ${t(locale, 'settings.ai.notAvailableYet')}`
                         : ''}
@@ -829,7 +830,7 @@ export function SettingsPage() {
                         {provider.name}
                       </span>
                       <span className="text-sm text-muted-foreground">
-                        {LLM_WIRE_REGISTRY[provider.apiFamily].label}
+                        {getApiFamilyLabel(locale, provider.apiFamily)}
                         {!isRuntimeImplemented ? ` · ${t(locale, 'settings.ai.notAvailableYet')}` : ''}
                       </span>
                       {!provider.isEnabled ? (
@@ -1254,7 +1255,10 @@ function ModelFields({
         <FieldLabel htmlFor="settings-wire-variant">{t(locale, 'settings.ai.connectionType')}</FieldLabel>
         <Select
           value={draft.wireVariant}
-          items={LLM_WIRE_REGISTRY[family].wireVariants.map((variant) => ({ value: variant.id, label: variant.label }))}
+          items={LLM_WIRE_REGISTRY[family].wireVariants.map((variant) => ({
+            value: variant.id,
+            label: getWireVariantDisplayLabel(locale, family, variant.id),
+          }))}
           onValueChange={(value) => {
             if (value) setDraft((v) => ({ ...v, wireVariant: value }));
           }}
@@ -1266,7 +1270,7 @@ function ModelFields({
             <SelectGroup>
               {LLM_WIRE_REGISTRY[family].wireVariants.map((variant) => (
                 <SelectItem key={variant.id} value={variant.id}>
-                  {variant.label}
+                  {getWireVariantDisplayLabel(locale, family, variant.id)}
                 </SelectItem>
               ))}
             </SelectGroup>

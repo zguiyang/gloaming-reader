@@ -5,7 +5,8 @@
     "api": {
       "requestFailed": "Request failed",
       "invalidResponse": "Invalid response format",
-      "requestFailedRetry": "Request failed. Please try again later."
+      "requestFailedRetry": "Request failed. Please try again later.",
+      "detailSeparator": "; "
     },
     "loading": "Loading…",
     "greeting": "Hello, {name}",
@@ -162,6 +163,14 @@
         "default": "Default voice",
         "us": "US English",
         "uk": "UK English"
+      },
+      "voiceName": {
+        "en-US-JennyNeural": "Jenny · US · friendly assistant female voice",
+        "en-US-GuyNeural": "Guy · US · warm male voice",
+        "en-US-AriaNeural": "Aria · US · professional narrative female voice",
+        "en-GB-SoniaNeural": "Sonia · UK · calm female voice",
+        "en-GB-RyanNeural": "Ryan · UK · relaxed male voice",
+        "en-GB-LibbyNeural": "Libby · UK · bright female voice"
       },
       "defaultSummary": "Read-aloud voices provided by the platform; no setup needed.",
       "ownSummary": "Your own read-aloud service is configured and applies after saving.",
@@ -1369,6 +1378,13 @@
       "readInfo": "Reading info",
       "difficulty": "Difficulty",
       "difficultyAria": "Difficulty {label}, {filled} of {total} stars",
+      "difficultyLevel": {
+        "1": "Entry",
+        "2": "Easy",
+        "3": "Medium",
+        "4": "Hard",
+        "5": "Challenging"
+      },
       "estimatedMinutes": "Est. reading time",
       "suggestedVocab": "Suggested vocabulary",
       "suggestedVocabApprox": "~{size}",
@@ -1571,7 +1587,16 @@
         "apiKeyDecryptFailed": "Failed to decrypt API key; re-save the provider",
         "invalidApiFamily": "Provider API family is invalid",
         "modelListNotSupported": "Model list fetch is not supported for this API family",
-        "modelListFetchFailed": "Failed to fetch model list; this platform may not support it — add models manually"
+        "modelListFetchFailed": "Failed to fetch model list; this platform may not support it — add models manually",
+        "balanceEndpointEmpty": "Balance endpoint is required",
+        "balanceEndpointInvalidUrl": "Balance endpoint URL is malformed",
+        "balanceEndpointNotHttp": "Balance endpoint must be an http(s) URL",
+        "balanceEndpointPathEmpty": "Balance endpoint path is required",
+        "balanceEndpointPathOnly": "Enter a path only, without a scheme; it will be joined to the base URL",
+        "balanceEndpointInvalidFormat": "Balance endpoint format is invalid",
+        "proxyUrlNotHttp": "Proxy URL must be http or https",
+        "thinkingParamInvalid": "Thinking parameter must be a valid identifier",
+        "fieldsRequired": "At least one field is required"
       },
       "outboundUrl": {
         "invalid": "{label} format is invalid",

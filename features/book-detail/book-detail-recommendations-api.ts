@@ -4,7 +4,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { difficultyLabelFromScore } from '@/shared/reading-stats';
 import {
   type RecommendationsData,
   recommendationsDataSchema,
@@ -45,7 +44,7 @@ export function workToRecommendationCard(work: Work): RelatedBookCard {
     id: work.id,
     title: work.title,
     coverImageUrl: coverUrlFromAssetId(work.coverAssetId),
-    difficultyLabel: work.difficultyScore != null ? difficultyLabelFromScore(work.difficultyScore) : null,
+    difficultyScore: work.difficultyScore,
     estimatedMinutes: work.estimatedMinutes,
   };
 }

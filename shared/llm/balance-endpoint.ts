@@ -1,14 +1,24 @@
-export type NormalizeBalanceEndpointResult = { ok: true; value: string } | { ok: false; message: string };
+export type BalanceEndpointErrorCode =
+  | 'api.errors.llm.balanceEndpointEmpty'
+  | 'api.errors.llm.balanceEndpointInvalidUrl'
+  | 'api.errors.llm.balanceEndpointNotHttp'
+  | 'api.errors.llm.balanceEndpointPathEmpty'
+  | 'api.errors.llm.balanceEndpointPathOnly'
+  | 'api.errors.llm.balanceEndpointInvalidFormat';
+
+export type NormalizeBalanceEndpointResult =
+  { ok: true; value: string } | { ok: false; code: BalanceEndpointErrorCode };
 
 /**
  * Normalize admin balance endpoint input for storage and {@link resolveProviderBalanceUrl}.
  * Relative paths are joined with the provider base URL. A full http(s) URL on the same
  * origin as baseUrl is reduced to its path; a full URL on another origin is kept as-is.
+ * Failures return an i18n message code, not display text.
  */
 export function normalizeBalanceEndpoint(raw: string, baseUrl: string): NormalizeBalanceEndpointResult {
   const trimmed = raw.trim();
   if (!trimmed) {
-    return { ok: false, message: '余额端点不能为空' };
+    return { ok: false, code: 'api.errors.llm.balanceEndpointEmpty' };
   }
 
   if (/^https?:\/\//i.test(trimmed)) {
@@ -18,10 +28,10 @@ export function normalizeBalanceEndpoint(raw: string, baseUrl: string): Normaliz
       endpointUrl = new URL(trimmed);
       base = new URL(baseUrl.trim());
     } catch {
-      return { ok: false, message: '余额端点 URL 格式不正确' };
+      return { ok: false, code: 'api.errors.llm.balanceEndpointInvalidUrl' };
     }
     if (endpointUrl.protocol !== 'http:' && endpointUrl.protocol !== 'https:') {
-      return { ok: false, message: '余额端点需为 http(s) 地址' };
+      return { ok: false, code: 'api.errors.llm.balanceEndpointNotHttp' };
     }
     if (endpointUrl.origin !== base.origin) {
       return { ok: true, value: trimmed };
@@ -33,25 +43,25 @@ export function normalizeBalanceEndpoint(raw: string, baseUrl: string): Normaliz
     }
     const path = pathPart.replace(/^\/+/, '');
     if (!path) {
-      return { ok: false, message: '余额端点路径不能为空' };
+      return { ok: false, code: 'api.errors.llm.balanceEndpointPathEmpty' };
     }
     return { ok: true, value: path };
   }
 
   if (/^https?:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) {
-    return { ok: false, message: '余额端点请只填路径，不要包含协议；将与 Base URL 自动拼接' };
+    return { ok: false, code: 'api.errors.llm.balanceEndpointPathOnly' };
   }
 
   if (/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)) {
-    return { ok: false, message: '余额端点请只填路径，不要包含协议；将与 Base URL 自动拼接' };
+    return { ok: false, code: 'api.errors.llm.balanceEndpointPathOnly' };
   }
 
   const path = trimmed.replace(/^\/+/, '');
   if (!path) {
-    return { ok: false, message: '余额端点路径不能为空' };
+    return { ok: false, code: 'api.errors.llm.balanceEndpointPathEmpty' };
   }
   if (/[\s<>"']/.test(path)) {
-    return { ok: false, message: '余额端点格式不正确' };
+    return { ok: false, code: 'api.errors.llm.balanceEndpointInvalidFormat' };
   }
   return { ok: true, value: path };
 }

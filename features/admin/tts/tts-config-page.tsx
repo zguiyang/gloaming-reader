@@ -23,12 +23,16 @@ import {
   testTts,
 } from '@/features/admin/tts/tts-config-api';
 import { useLocale } from '@/lib/locale-context';
+import { ttsVoiceLabel } from '@/lib/tts-voice-label';
 import { cn } from '@/lib/utils';
 
 type TestRoleValue = 'default' | TtsVoiceRole;
 
-function voiceSelectItems(list: TtsVoicePreset[], current: string) {
-  const items = list.map((preset) => ({ value: preset.voice, label: preset.label }));
+function voiceSelectItems(list: TtsVoicePreset[], current: string, locale: 'en-US' | 'zh-CN') {
+  const items = list.map((preset) => ({
+    value: preset.voice,
+    label: ttsVoiceLabel(locale, preset.voice, preset.label),
+  }));
   if (current && !items.some((item) => item.value === current)) {
     items.push({ value: current, label: current });
   }
@@ -55,9 +59,12 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
   const ukPresets = useMemo(() => presets.filter((item) => item.role === 'uk'), [presets]);
   const allPresets = useMemo(() => [...usPresets, ...ukPresets], [usPresets, ukPresets]);
 
-  const defaultVoiceItems = useMemo(() => voiceSelectItems(allPresets, defaultVoice), [allPresets, defaultVoice]);
-  const usVoiceItems = useMemo(() => voiceSelectItems(usPresets, usVoice), [usPresets, usVoice]);
-  const ukVoiceItems = useMemo(() => voiceSelectItems(ukPresets, ukVoice), [ukPresets, ukVoice]);
+  const defaultVoiceItems = useMemo(
+    () => voiceSelectItems(allPresets, defaultVoice, locale),
+    [allPresets, defaultVoice, locale],
+  );
+  const usVoiceItems = useMemo(() => voiceSelectItems(usPresets, usVoice, locale), [usPresets, usVoice, locale]);
+  const ukVoiceItems = useMemo(() => voiceSelectItems(ukPresets, ukVoice, locale), [ukPresets, ukVoice, locale]);
 
   const testRoleItems = useMemo(
     () => [

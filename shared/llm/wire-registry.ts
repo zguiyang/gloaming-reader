@@ -13,17 +13,14 @@ export type LlmWireVariantDefinition = {
   id: string;
   label: string;
   endpoint: string;
-  description: string;
 };
 
 export type LlmApiFamilyDefinition = {
   id: LlmApiFamily;
   label: string;
-  description: string;
   runtimeImplemented: boolean;
   provider: {
     baseUrlPlaceholder: string;
-    baseUrlHint: string;
     optionalFields: readonly LlmProviderOptionalField[];
     capabilities: {
       modelList: boolean;
@@ -37,12 +34,10 @@ export type LlmApiFamilyDefinition = {
 export const LLM_WIRE_REGISTRY: Record<LlmApiFamily, LlmApiFamilyDefinition> = {
   openai: {
     id: 'openai',
-    label: 'OpenAI 兼容',
-    description: 'Chat Completions 与 Responses API；当前运行时已接入。',
+    label: 'OpenAI compatible',
     runtimeImplemented: true,
     provider: {
       baseUrlPlaceholder: 'https://api.example.com/v1',
-      baseUrlHint: '需包含协议，通常以 /v1 结尾。',
       optionalFields: ['thinkingParam'],
       capabilities: { modelList: true, balanceQuery: true },
     },
@@ -51,13 +46,11 @@ export const LLM_WIRE_REGISTRY: Record<LlmApiFamily, LlmApiFamilyDefinition> = {
         id: 'chat-completions',
         label: 'Chat Completions',
         endpoint: '/v1/chat/completions',
-        description: '默认线路，兼容性最好。',
       },
       {
         id: 'responses',
         label: 'Responses API',
         endpoint: '/v1/responses',
-        description: 'OpenAI 新响应协议；网关同时提供双端点时可选用。',
       },
     ],
     defaultWireVariant: 'chat-completions',
@@ -65,11 +58,9 @@ export const LLM_WIRE_REGISTRY: Record<LlmApiFamily, LlmApiFamilyDefinition> = {
   anthropic: {
     id: 'anthropic',
     label: 'Anthropic (Claude)',
-    description: 'Messages API；已注册，运行时尚未接入。',
     runtimeImplemented: false,
     provider: {
       baseUrlPlaceholder: 'https://api.anthropic.com',
-      baseUrlHint: 'Anthropic API 根地址（以实现为准）。',
       optionalFields: [],
       capabilities: { modelList: false, balanceQuery: false },
     },
@@ -78,7 +69,6 @@ export const LLM_WIRE_REGISTRY: Record<LlmApiFamily, LlmApiFamilyDefinition> = {
         id: 'messages',
         label: 'Messages API',
         endpoint: '/v1/messages',
-        description: 'Anthropic Messages 线路。',
       },
     ],
     defaultWireVariant: 'messages',
@@ -86,11 +76,9 @@ export const LLM_WIRE_REGISTRY: Record<LlmApiFamily, LlmApiFamilyDefinition> = {
   gemini: {
     id: 'gemini',
     label: 'Google Gemini',
-    description: 'Generate Content API；已注册，运行时尚未接入。',
     runtimeImplemented: false,
     provider: {
       baseUrlPlaceholder: 'https://generativelanguage.googleapis.com',
-      baseUrlHint: 'Google AI Gemini API 根地址（以实现为准）。',
       optionalFields: [],
       capabilities: { modelList: false, balanceQuery: false },
     },
@@ -99,7 +87,6 @@ export const LLM_WIRE_REGISTRY: Record<LlmApiFamily, LlmApiFamilyDefinition> = {
         id: 'generate-content',
         label: 'Generate Content',
         endpoint: '/v1beta/models/{model}:generateContent',
-        description: 'Gemini 内容生成线路。',
       },
     ],
     defaultWireVariant: 'generate-content',

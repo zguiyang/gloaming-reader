@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_LOCALE } from '@/i18n';
 import type { LibraryItem } from '@/shared/library';
 import type { ReaderPartsData, ReadingState } from '@/shared/reader';
-import { difficultyLabelFromScore, estimatedMinutesFromWordCount } from '@/shared/reading-stats';
+import { estimatedMinutesFromWordCount } from '@/shared/reading-stats';
 import { type PartSummary, type Work, workAvailability, workSchema } from '@/shared/works';
 
 import {
@@ -44,7 +44,7 @@ function toIsoString(value: string | Date | null | undefined): string | null {
 function resolveWorkReadingStats(
   work: Work,
   parts: PartSummary[],
-): Pick<BookDetail, 'estimatedMinutes' | 'suggestedVocabSize' | 'difficultyScore' | 'difficultyLabel'> {
+): Pick<BookDetail, 'estimatedMinutes' | 'suggestedVocabSize' | 'difficultyScore'> {
   let estimatedMinutes = work.estimatedMinutes;
   const suggestedVocabSize = work.suggestedVocabSize;
   const difficultyScore = work.difficultyScore;
@@ -61,7 +61,6 @@ function resolveWorkReadingStats(
     estimatedMinutes,
     suggestedVocabSize,
     difficultyScore,
-    difficultyLabel: difficultyScore != null ? difficultyLabelFromScore(difficultyScore) : null,
   };
 }
 
@@ -132,7 +131,6 @@ export function toBookDetail(
     title: work.title,
     author: work.author,
     difficultyScore: readingStats.difficultyScore,
-    difficultyLabel: readingStats.difficultyLabel,
     estimatedMinutes: readingStats.estimatedMinutes,
     suggestedVocabSize: readingStats.suggestedVocabSize,
     teaser,
@@ -174,7 +172,6 @@ export function toPersonalBookDetail(
     title: work.title,
     author: libraryItem.personalMetadata?.author ?? '',
     difficultyScore,
-    difficultyLabel: difficultyScore != null ? difficultyLabelFromScore(difficultyScore) : null,
     estimatedMinutes,
     suggestedVocabSize: libraryItem.personalMetadata?.suggestedVocabSize ?? null,
     teaser: work.description,

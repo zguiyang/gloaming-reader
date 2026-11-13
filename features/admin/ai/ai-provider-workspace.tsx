@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { formatAdminBalance } from '@/features/admin/admin-logs-format';
-import { getApiFamilyLabel } from '@/features/admin/ai/ai-locale';
+import { getApiFamilyLabel } from '@/lib/llm-protocol-labels';
 import { AiModelForm, type ModelFormValues } from '@/features/admin/ai/ai-model-form';
 import { AiModelList } from '@/features/admin/ai/ai-model-list';
 import { AiProviderForm, type ProviderFormValues } from '@/features/admin/ai/ai-provider-form';

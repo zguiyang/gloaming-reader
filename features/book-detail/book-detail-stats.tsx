@@ -4,8 +4,13 @@ import { StarIcon } from 'lucide-react';
 
 import { t } from '@/i18n';
 
-import type { BookDetail } from '@/features/book-detail/book-detail-model';
-import { difficultyStarCount, formatMinutes, formatSuggestedVocabSize } from '@/features/book-detail/book-detail-model';
+import {
+  type BookDetail,
+  difficultyLevelLabel,
+  difficultyStarCount,
+  formatMinutes,
+  formatSuggestedVocabSize,
+} from '@/features/book-detail/book-detail-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +30,7 @@ export function BookDetailStats({ book }: { book: BookDetail }) {
   const gridClass = colCount === 1 ? 'grid-cols-1' : colCount === 2 ? 'grid-cols-2' : 'grid-cols-3';
 
   const filled = hasDifficulty ? difficultyStarCount(book.difficultyScore!) : 0;
-  const levelLabel = book.difficultyLabel ?? '';
+  const levelLabel = difficultyLevelLabel(book.difficultyScore, locale) ?? '';
 
   return (
     <section className="border-b border-border/50 pb-6 md:pb-8">

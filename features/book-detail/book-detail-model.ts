@@ -22,7 +22,6 @@ export type BookDetail = {
   title: string;
   author: string;
   difficultyScore: number | null;
-  difficultyLabel: string | null;
   estimatedMinutes: number | null;
   suggestedVocabSize: number | null;
   teaser: string;
@@ -48,7 +47,7 @@ export type RelatedBookCard = {
   id: string;
   title: string;
   coverImageUrl: string | null;
-  difficultyLabel: string | null;
+  difficultyScore: number | null;
   estimatedMinutes: number | null;
 };
 
@@ -112,6 +111,14 @@ export function formatSuggestedVocabSize(size: number): string {
 /** Filled stars out of 5 from backend difficultyScore (1–5). */
 export function difficultyStarCount(score: number): number {
   return Math.min(5, Math.max(1, Math.round(score)));
+}
+
+/** Localized difficulty label from backend difficultyScore (1–5). */
+export function difficultyLevelLabel(score: number | null, locale: Locale = DEFAULT_LOCALE): string | null {
+  if (score == null) {
+    return null;
+  }
+  return t(locale, `content.bookDetail.difficultyLevel.${difficultyStarCount(score)}`);
 }
 
 export function chapterStatusLabel(status: BookChapterStatus, locale: Locale = DEFAULT_LOCALE): string {

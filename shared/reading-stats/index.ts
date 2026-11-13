@@ -2,7 +2,6 @@ export type { WorkStatsProvenance } from './reading-stats.ts';
 export {
   DIFFICULTY_SCORE_MAX,
   DIFFICULTY_SCORE_MIN,
-  difficultyLabelFromScore,
   difficultyScoreFromVocabSize,
   estimatedMinutesFromWordCount,
   isEnglishLanguage,

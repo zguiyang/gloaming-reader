@@ -16,7 +16,7 @@ function normalizeBalanceEndpointField(
   }
   const result = normalizeBalanceEndpoint(balanceEndpoint, baseUrl);
   if (!result.ok) {
-    ctx.addIssue({ code: 'custom', message: result.message, path: ['balanceEndpoint'] });
+    ctx.addIssue({ code: 'custom', message: result.code, path: ['balanceEndpoint'] });
     return null;
   }
   return result.value;
@@ -57,7 +57,7 @@ export const createLlmProviderBodySchema = z
       .url()
       .max(500)
       // undici's ProxyAgent only dials http/https; socks5 was never supported.
-      .refine((value) => /^https?:\/\//i.test(value), { message: '代理地址需为 http/https' })
+      .refine((value) => /^https?:\/\//i.test(value), { message: 'api.errors.llm.proxyUrlNotHttp' })
       .optional()
       .nullable(),
     thinkingParam: z
@@ -65,7 +65,7 @@ export const createLlmProviderBodySchema = z
       .trim()
       .min(1)
       .max(100)
-      .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, { message: '思考参数名需为合法标识符' })
+      .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, { message: 'api.errors.llm.thinkingParamInvalid' })
       .optional()
       .nullable(),
     balanceEndpoint: balanceEndpointInputSchema,
@@ -97,7 +97,7 @@ export const updateLlmProviderBodySchema = z
       .url()
       .max(500)
       // undici's ProxyAgent only dials http/https; socks5 was never supported.
-      .refine((value) => /^https?:\/\//i.test(value), { message: '代理地址需为 http/https' })
+      .refine((value) => /^https?:\/\//i.test(value), { message: 'api.errors.llm.proxyUrlNotHttp' })
       .optional()
       .nullable(),
     thinkingParam: z
@@ -105,7 +105,7 @@ export const updateLlmProviderBodySchema = z
       .trim()
       .min(1)
       .max(100)
-      .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, { message: '思考参数名需为合法标识符' })
+      .regex(/^[a-zA-Z_][a-zA-Z0-9_]*$/, { message: 'api.errors.llm.thinkingParamInvalid' })
       .optional()
       .nullable(),
     balanceEndpoint: balanceEndpointInputSchema,
@@ -113,7 +113,7 @@ export const updateLlmProviderBodySchema = z
     balanceCurrencyPath: z.string().trim().min(1).max(50).optional().nullable(),
     isEnabled: z.boolean().optional(),
   })
-  .refine((body) => Object.keys(body).length > 0, { message: 'At least one field is required' });
+  .refine((body) => Object.keys(body).length > 0, { message: 'api.errors.llm.fieldsRequired' });
 
 export type UpdateLlmProviderBody = z.infer<typeof updateLlmProviderBodySchema>;
 
@@ -159,7 +159,7 @@ export const updateLlmModelBodySchema = z
     isEnabled: z.boolean().optional(),
     sortOrder: z.number().int().min(0).max(10_000).optional(),
   })
-  .refine((body) => Object.keys(body).length > 0, { message: 'At least one field is required' });
+  .refine((body) => Object.keys(body).length > 0, { message: 'api.errors.llm.fieldsRequired' });
 
 export type UpdateLlmModelBody = z.infer<typeof updateLlmModelBodySchema>;
 

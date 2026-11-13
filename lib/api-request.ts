@@ -157,10 +157,16 @@ export function isUnauthorizedError(error: unknown): boolean {
   return error instanceof ApiRequestError && error.status === 401;
 }
 
+/** Field-level details may carry an i18n key when the server cannot know the locale. */
+function localizeDetailMessage(message: string): string {
+  return t(getClientLocale(), message);
+}
+
 export function formatApiError(error: unknown): string {
   if (error instanceof ApiRequestError) {
     if (error.details?.length) {
-      return error.details.map((d) => d.message).join('；');
+      const separator = t(getClientLocale(), 'common.api.detailSeparator');
+      return error.details.map((d) => localizeDetailMessage(d.message)).join(separator);
     }
     return error.message;
   }

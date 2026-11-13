@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { fetchLlmProviderModels, formatAdminLlmApiError } from '@/features/admin/ai/ai-config-api';
-import { getWireVariantDisplayLabel } from '@/features/admin/ai/ai-locale';
+import { getWireVariantDisplayLabel } from '@/lib/llm-protocol-labels';
 import { useLocale } from '@/lib/locale-context';
 
 export type ModelFormValues = {

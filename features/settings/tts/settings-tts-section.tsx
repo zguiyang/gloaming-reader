@@ -14,6 +14,7 @@ import { SecretField } from '@/components/ui/secret-field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatUserSettingsApiError, putUserTtsConfig, userSettingsQueryKey } from '@/features/settings/settings-api';
 import { useLocale } from '@/lib/locale-context';
+import { ttsVoiceLabel } from '@/lib/tts-voice-label';
 
 export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsConfigView; hideTitle?: boolean }) {
   const { locale } = useLocale();
@@ -146,7 +147,10 @@ export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsC
                     value={value}
                     items={[
                       ...TTS_VOICE_PRESETS.filter((preset) => key === 'default' || preset.role === key).map(
-                        (preset) => ({ value: preset.voice, label: preset.label }),
+                        (preset) => ({
+                          value: preset.voice,
+                          label: ttsVoiceLabel(locale, preset.voice, preset.label),
+                        }),
                       ),
                       ...(!TTS_VOICE_PRESETS.some(
                         (preset) => preset.voice === value && (key === 'default' || preset.role === key),
@@ -166,7 +170,7 @@ export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsC
                         {TTS_VOICE_PRESETS.filter((preset) => key === 'default' || preset.role === key).map(
                           (preset) => (
                             <SelectItem key={preset.voice} value={preset.voice}>
-                              {preset.label}
+                              {ttsVoiceLabel(locale, preset.voice, preset.label)}
                             </SelectItem>
                           ),
                         )}

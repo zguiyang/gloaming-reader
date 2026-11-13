@@ -136,7 +136,7 @@ export async function updateProvider(id: string, body: UpdateLlmProviderBody): P
       const effectiveBaseUrl = body.baseUrl ?? existing[0].baseUrl;
       const normalized = normalizeBalanceEndpoint(body.balanceEndpoint, effectiveBaseUrl);
       if (!normalized.ok) {
-        throw new ValidationFailedError([{ path: 'balanceEndpoint', message: normalized.message }]);
+        throw new ValidationFailedError([{ path: 'balanceEndpoint', code: normalized.code }]);
       }
       patch.balanceEndpoint = normalized.value;
     }

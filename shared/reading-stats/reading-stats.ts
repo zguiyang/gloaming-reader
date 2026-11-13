@@ -27,18 +27,6 @@ export function difficultyScoreFromVocabSize(vocabSize: number): number {
   return 5;
 }
 
-const DIFFICULTY_LABEL: Record<number, string> = {
-  1: '入门',
-  2: '简单',
-  3: '中等',
-  4: '较难',
-  5: '挑战',
-};
-
-export function difficultyLabelFromScore(score: number): string {
-  return DIFFICULTY_LABEL[score] ?? DIFFICULTY_LABEL[3]!;
-}
-
 export function estimatedMinutesFromWordCount(wordCount: number): number | null {
   if (wordCount <= 0) {
     return null;

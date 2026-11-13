@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { SecretField } from '@/components/ui/secret-field';
-import { getApiFamilyLabel } from '@/features/admin/ai/ai-locale';
+import { getApiFamilyLabel } from '@/lib/llm-protocol-labels';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 

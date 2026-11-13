@@ -9,7 +9,7 @@ import { getWireFamilyDefinition } from '@/shared/llm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getWireVariantDisplayLabel } from '@/features/admin/ai/ai-locale';
+import { getWireVariantDisplayLabel } from '@/lib/llm-protocol-labels';
 import { useLocale } from '@/lib/locale-context';
 
 type AiModelListProps = {

@@ -6,16 +6,16 @@ export const ttsVoiceRoleValues = ['us', 'uk'] as const;
 export type TtsVoiceRole = (typeof ttsVoiceRoleValues)[number];
 
 /**
- * Curated Neural voices for admin Select (Azure voice short names).
- * Labels are Chinese for ops UX; value remains the Azure voice id.
+ * Curated Neural voices for the voice pickers (Azure voice short names).
+ * Labels are English fallbacks; UI localizes them via `ttsVoiceLabel`.
  */
 export const TTS_VOICE_PRESETS = [
-  { role: 'us' as const, voice: 'en-US-JennyNeural', label: '珍妮 · 美音 · 亲切助手女声' },
-  { role: 'us' as const, voice: 'en-US-GuyNeural', label: '盖伊 · 美音 · 温暖男声' },
-  { role: 'us' as const, voice: 'en-US-AriaNeural', label: '艾瑞娅 · 美音 · 专业叙事女声' },
-  { role: 'uk' as const, voice: 'en-GB-SoniaNeural', label: '索尼娅 · 英音 · 沉稳女声' },
-  { role: 'uk' as const, voice: 'en-GB-RyanNeural', label: '瑞恩 · 英音 · 轻松男声' },
-  { role: 'uk' as const, voice: 'en-GB-LibbyNeural', label: '莉比 · 英音 · 清亮女声' },
+  { role: 'us' as const, voice: 'en-US-JennyNeural', label: 'Jenny · US · friendly assistant female voice' },
+  { role: 'us' as const, voice: 'en-US-GuyNeural', label: 'Guy · US · warm male voice' },
+  { role: 'us' as const, voice: 'en-US-AriaNeural', label: 'Aria · US · professional narrative female voice' },
+  { role: 'uk' as const, voice: 'en-GB-SoniaNeural', label: 'Sonia · UK · calm female voice' },
+  { role: 'uk' as const, voice: 'en-GB-RyanNeural', label: 'Ryan · UK · relaxed male voice' },
+  { role: 'uk' as const, voice: 'en-GB-LibbyNeural', label: 'Libby · UK · bright female voice' },
 ] as const;
 
 export const DEFAULT_TTS_VOICES = {

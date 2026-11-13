@@ -5,7 +5,8 @@
     "api": {
       "requestFailed": "请求失败",
       "invalidResponse": "响应格式无效",
-      "requestFailedRetry": "请求失败，请稍后重试"
+      "requestFailedRetry": "请求失败，请稍后重试",
+      "detailSeparator": "；"
     },
     "loading": "加载中…",
     "greeting": "你好，{name}",
@@ -162,6 +163,14 @@
         "default": "默认声音",
         "us": "美式英语",
         "uk": "英式英语"
+      },
+      "voiceName": {
+        "en-US-JennyNeural": "珍妮 · 美音 · 亲切助手女声",
+        "en-US-GuyNeural": "盖伊 · 美音 · 温暖男声",
+        "en-US-AriaNeural": "艾瑞娅 · 美音 · 专业叙事女声",
+        "en-GB-SoniaNeural": "索尼娅 · 英音 · 沉稳女声",
+        "en-GB-RyanNeural": "瑞恩 · 英音 · 轻松男声",
+        "en-GB-LibbyNeural": "莉比 · 英音 · 清亮女声"
       },
       "defaultSummary": "平台提供的朗读声音，无需配置。",
       "ownSummary": "已配置自有朗读服务，保存后生效。",
@@ -370,7 +379,7 @@
       "body2": "Gloaming 想做一个安静的阅读环境：活动仍然是读书；只有卡住时，在正文旁帮一把，然后继续读。现在以英文电子书为主。"
     },
     "problem": {
-      "eyebrow": "The Reality",
+      "eyebrow": "现实",
       "title": "真正难的，不是找不到内容，是读着读着就断了。",
       "lead": "问题往往不是生词太难，而是每次遇到，工具都在打断你想享受的阅读沉浸。",
       "items": {
@@ -390,11 +399,11 @@
       "panelTitle": "解释"
     },
     "solution": {
-      "eyebrow": "The Solution",
+      "eyebrow": "我们的做法",
       "title": "我们怎么解决",
       "lead": "把精力全放在“阅读本身”上。从选书、弄懂难句到下次接续，全流程保持克制与从容。",
       "beatA": {
-        "label": "Beat A",
+        "label": "第一步",
         "title": "先把内容放进来",
         "body": "可以从发现里挑选书目，也可以上传自己的文件，收进书库。我们不生产“学习用短文”当主内容。",
         "points": {
@@ -403,7 +412,7 @@
         }
       },
       "beatB": {
-        "label": "Beat B",
+        "label": "第二步",
         "title": "卡住时在正文旁弄懂，然后继续读",
         "body": "选中一段后，可以查词、翻译，或结合上下文解释。需要时也能听朗读，或打开对照。默认仍是原文；关掉帮助，内容照样能读。",
         "points": {
@@ -413,7 +422,7 @@
         }
       },
       "beatC": {
-        "label": "Beat C",
+        "label": "第三步",
         "title": "回家先继续未读完的",
         "body": "书库不是学习仪表盘。打开就能看到继续阅读；你放进来的和你收藏的，都在一起。",
         "points": {
@@ -423,7 +432,7 @@
       }
     },
     "boundaries": {
-      "eyebrow": "Our Boundaries",
+      "eyebrow": "我们的边界",
       "title": "我们故意不做的事",
       "lead": "保护读者的注意力，比塞进更多功能更重要。",
       "items": {
@@ -778,8 +787,8 @@
         "displayName": "显示名称",
         "modelId": "Model ID",
         "apiMode": "API 模式",
-        "temperature": "Temperature",
-        "maxTokens": "Max tokens",
+        "temperature": "温度",
+        "maxTokens": "最大 Token 数",
         "callable": "启用模型",
         "saveModel": "保存模型",
         "addModel": "添加模型",
@@ -828,8 +837,8 @@
         "saveWithConfig": "保存后生效"
       },
       "fields": {
-        "region": "Region",
-        "subscriptionKey": "Subscription Key",
+        "region": "区域",
+        "subscriptionKey": "订阅密钥",
         "apiKeyPlaceholderKeep": "留空则保留现有密钥",
         "apiKeyPlaceholderRequired": "必填",
         "defaultVoice": "默认音色",
@@ -1369,6 +1378,13 @@
       "readInfo": "阅读信息",
       "difficulty": "难度",
       "difficultyAria": "难度 {label}，{filled} 星（共 {total} 星）",
+      "difficultyLevel": {
+        "1": "入门",
+        "2": "简单",
+        "3": "中等",
+        "4": "较难",
+        "5": "挑战"
+      },
       "estimatedMinutes": "预计阅读时间",
       "suggestedVocab": "建议词汇量",
       "suggestedVocabApprox": "约 {size}",
@@ -1574,7 +1590,16 @@
         "apiKeyDecryptFailed": "API Key 解密失败，请重新保存服务商",
         "invalidApiFamily": "服务商 API 协议族无效",
         "modelListNotSupported": "当前 API 协议族不支持拉取模型列表",
-        "modelListFetchFailed": "无法拉取模型列表，该平台可能不支持，请手动添加模型"
+        "modelListFetchFailed": "无法拉取模型列表，该平台可能不支持，请手动添加模型",
+        "balanceEndpointEmpty": "余额端点不能为空",
+        "balanceEndpointInvalidUrl": "余额端点 URL 格式不正确",
+        "balanceEndpointNotHttp": "余额端点需为 http(s) 地址",
+        "balanceEndpointPathEmpty": "余额端点路径不能为空",
+        "balanceEndpointPathOnly": "余额端点请只填路径，不要包含协议；将与 Base URL 自动拼接",
+        "balanceEndpointInvalidFormat": "余额端点格式不正确",
+        "proxyUrlNotHttp": "代理地址需为 http/https",
+        "thinkingParamInvalid": "思考参数名需为合法标识符",
+        "fieldsRequired": "至少需要填写一个字段"
       },
       "outboundUrl": {
         "invalid": "{label} 格式不正确",
