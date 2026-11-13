@@ -3,7 +3,7 @@ import { lookupDictionaryQuerySchema } from '@/shared/dictionary';
 import { lookupWord } from '@/server/domains/dictionary/lookup/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonError, jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
-import { enforceGuestRateLimit } from '@/server/infra/http/next-rate-limit';
+import { enforceGuestRateLimit, enforceUserRateLimit } from '@/server/infra/http/next-rate-limit';
 import { getRequestIdentity } from '@/server/infra/http/next-session';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
@@ -13,11 +13,13 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const identity = await getRequestIdentity(request);
-    const guestBlocked = await enforceGuestRateLimit(request, 'dictionaryLookup', {
-      isAuthenticated: Boolean(identity.user),
-    });
-    if (guestBlocked) {
-      return guestBlocked;
+    // Signed-in lookups still hit external providers (and optional AI
+    // enrichment), so they consume a user quota instead of bypassing the guard.
+    const blocked = identity.user
+      ? await enforceUserRateLimit(request, 'dictionaryLookup', identity.user.id)
+      : await enforceGuestRateLimit(request, 'dictionaryLookup', { isAuthenticated: false });
+    if (blocked) {
+      return blocked;
     }
 
     const url = new URL(request.url);

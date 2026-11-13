@@ -14,6 +14,8 @@ type RateLimitRule = {
 
 type RateLimitPolicy = {
   guest: RateLimitRule;
+  /** Optional quota for signed-in callers, keyed by user id. */
+  user?: RateLimitRule;
 };
 
 type AiRateLimitPolicy = {
@@ -26,6 +28,9 @@ type AiRateLimitPolicy = {
 export const RATE_LIMIT_POLICIES = {
   dictionaryLookup: {
     guest: { points: 60, duration: 10 * 60, blockDuration: 10 * 60 },
+    // Signed-in lookups still reach external providers and AI enrichment, so they
+    // get the same budget as guests instead of no quota at all.
+    user: { points: 60, duration: 10 * 60, blockDuration: 10 * 60 },
   },
 } as const satisfies Record<string, RateLimitPolicy>;
 
@@ -39,6 +44,18 @@ export const AI_RATE_LIMIT_POLICIES = {
     user: { points: 20, duration: 60, blockDuration: 60 },
     ip: { points: 120, duration: 60, blockDuration: 60 },
     maxConcurrent: 3,
+  },
+  /** On-demand TTS synthesis (paid Azure call). Counts the synthesis entry point only. */
+  ttsSynthesis: {
+    user: { points: 60, duration: 60, blockDuration: 60 },
+    ip: { points: 120, duration: 60, blockDuration: 60 },
+    maxConcurrent: 4,
+  },
+  /** Per-tag AI translation completion (LLM call per missing locale). */
+  tagTranslation: {
+    user: { points: 10, duration: 60, blockDuration: 60 },
+    ip: { points: 60, duration: 60, blockDuration: 60 },
+    maxConcurrent: 2,
   },
 } as const satisfies Record<string, AiRateLimitPolicy>;
 
@@ -68,16 +85,38 @@ return redis.call('DECR', KEYS[1])
 `;
 
 /**
- * Edge proxy should overwrite these before they reach the app.
- * Without a trusted proxy, the value is only a client-provided hint.
+ * Best-effort client IP for rate-limit keys.
+ *
+ * Header values are only trustworthy when a proxy rewrites them, so the order
+ * below prefers the ones that are single-valued or appended nearest to this
+ * process: `CF-Connecting-IP` is overwritten by Cloudflare, and the *rightmost*
+ * `X-Forwarded-For` hop is appended by the immediately-upstream proxy. Taking
+ * the leftmost hop instead would let a client pick its own key and walk past
+ * every IP-scoped quota.
  */
 export function getClientIpFromRequest(request: Request): string {
+  const cloudflareIp = request.headers.get('cf-connecting-ip')?.trim();
+  if (cloudflareIp) {
+    return cloudflareIp;
+  }
+
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const hops = forwardedFor
+      .split(',')
+      .map((hop) => hop.trim())
+      .filter(Boolean);
+    const nearestHop = hops.at(-1);
+    if (nearestHop) {
+      return nearestHop;
+    }
+  }
+
   const realIp = request.headers.get('x-real-ip')?.trim();
   if (realIp) {
     return realIp;
   }
-  const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  return forwardedFor || 'unknown';
+  return 'unknown';
 }
 
 function getLimiter(name: string, rule: RateLimitRule): RateLimiterRedis {
@@ -125,6 +164,26 @@ function tooManyRequests(request: Request, headers?: HeadersInit): Response {
   return new Response(response.body, { status: response.status, headers: merged });
 }
 
+/** Consume one fixed-window bucket; returns a 429 Response when the caller is over budget. */
+async function consumeLimit(
+  request: Request,
+  limiterName: string,
+  rule: RateLimitRule,
+  key: string,
+): Promise<Response | null> {
+  const limiter = getLimiter(limiterName, rule);
+  try {
+    await limiter.consume(key);
+    return null;
+  } catch (error) {
+    if (!(error instanceof RateLimiterRes)) {
+      throw error;
+    }
+    const retryAfter = Math.max(1, Math.ceil(error.msBeforeNext / 1000));
+    return tooManyRequests(request, { ...rateLimitHeaders(rule, error), 'Retry-After': String(retryAfter) });
+  }
+}
+
 /** Guest-only policy (authenticated callers skip). Returns a Response when blocked. */
 export async function enforceGuestRateLimit(
   request: Request,
@@ -134,24 +193,24 @@ export async function enforceGuestRateLimit(
   if (options.isAuthenticated) {
     return null;
   }
+  const policy = RATE_LIMIT_POLICIES[policyName];
+  return consumeLimit(request, `${policyName}:guest`, policy.guest, getClientIpFromRequest(request));
+}
 
-  const rule = RATE_LIMIT_POLICIES[policyName].guest;
-  const identity = getClientIpFromRequest(request);
-  const limiter = getLimiter(`${policyName}:guest`, rule);
-
-  try {
-    await limiter.consume(identity);
+/**
+ * Signed-in counterpart of {@link enforceGuestRateLimit}. A policy without a
+ * `user` rule deliberately grants authenticated callers no quota.
+ */
+export async function enforceUserRateLimit(
+  request: Request,
+  policyName: RateLimitPolicyName,
+  userId: string,
+): Promise<Response | null> {
+  const rule = RATE_LIMIT_POLICIES[policyName].user;
+  if (!rule) {
     return null;
-  } catch (error) {
-    if (!(error instanceof RateLimiterRes)) {
-      throw error;
-    }
-    const retryAfter = Math.max(1, Math.ceil(error.msBeforeNext / 1000));
-    return tooManyRequests(request, {
-      ...rateLimitHeaders(rule, error),
-      'Retry-After': String(retryAfter),
-    });
   }
+  return consumeLimit(request, `${policyName}:user`, rule, userId);
 }
 
 function concurrentKey(policyName: AiRateLimitPolicyName, userId: string): string {
@@ -185,15 +244,20 @@ export type AiRateLimitLease = {
 export async function acquireAiRateLimit(
   request: Request,
   policyName: AiRateLimitPolicyName,
-  userId: string,
+  userId: string | null,
 ): Promise<{ ok: true; lease: AiRateLimitLease } | { ok: false; response: Response }> {
   const policy = AI_RATE_LIMIT_POLICIES[policyName];
   const ip = getClientIpFromRequest(request);
+  // Anonymous callers reading a public Work are budgeted per IP instead of per
+  // user; both the user bucket and the concurrency slot key off `actorKey`.
+  const actorKey = userId ?? `ip:${ip}`;
   const userLimiter = getLimiter(`${policyName}:user`, policy.user);
   const ipLimiter = getLimiter(`${policyName}:ip`, policy.ip);
 
   try {
-    await userLimiter.consume(userId);
+    if (userId) {
+      await userLimiter.consume(userId);
+    }
     await ipLimiter.consume(ip);
   } catch (error) {
     if (!(error instanceof RateLimiterRes)) {
@@ -206,7 +270,7 @@ export async function acquireAiRateLimit(
     };
   }
 
-  const acquired = await acquireConcurrentSlot(policyName, userId);
+  const acquired = await acquireConcurrentSlot(policyName, actorKey);
   if (!acquired) {
     return {
       ok: false,
@@ -221,9 +285,9 @@ export async function acquireAiRateLimit(
     }
     released = true;
     try {
-      await releaseConcurrentSlot(policyName, userId);
+      await releaseConcurrentSlot(policyName, actorKey);
     } catch (error) {
-      rateLimitLogger.warn({ err: error, policyName, userId }, 'Failed to release AI concurrency slot');
+      rateLimitLogger.warn({ err: error, policyName, actorKey }, 'Failed to release AI concurrency slot');
     }
   };
 
