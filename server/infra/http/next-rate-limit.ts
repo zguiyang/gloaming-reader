@@ -13,7 +13,8 @@ type RateLimitRule = {
 };
 
 type RateLimitPolicy = {
-  guest: RateLimitRule;
+  /** Anonymous quota; a policy without one deliberately grants guests no quota. */
+  guest?: RateLimitRule;
   /** Optional quota for signed-in callers, keyed by user id. */
   user?: RateLimitRule;
 };
@@ -31,6 +32,10 @@ export const RATE_LIMIT_POLICIES = {
     // Signed-in lookups still reach external providers and AI enrichment, so they
     // get the same budget as guests instead of no quota at all.
     user: { points: 60, duration: 10 * 60, blockDuration: 10 * 60 },
+  },
+  /** Manual "test connection" / model listing / balance probes, one outbound call each. */
+  outboundProbe: {
+    user: { points: 30, duration: 60, blockDuration: 60 },
   },
 } as const satisfies Record<string, RateLimitPolicy>;
 
@@ -193,8 +198,12 @@ export async function enforceGuestRateLimit(
   if (options.isAuthenticated) {
     return null;
   }
-  const policy = RATE_LIMIT_POLICIES[policyName];
-  return consumeLimit(request, `${policyName}:guest`, policy.guest, getClientIpFromRequest(request));
+  const policy: RateLimitPolicy = RATE_LIMIT_POLICIES[policyName];
+  const guest = policy.guest;
+  if (!guest) {
+    return null;
+  }
+  return consumeLimit(request, `${policyName}:guest`, guest, getClientIpFromRequest(request));
 }
 
 /**

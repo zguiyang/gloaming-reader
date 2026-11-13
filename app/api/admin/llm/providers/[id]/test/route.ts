@@ -2,6 +2,7 @@ import { testLlmProviderBodySchema } from '@/shared/llm';
 
 import * as llmProvidersService from '@/server/domains/llm/config/providers/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { enforceUserRateLimit } from '@/server/infra/http/next-rate-limit';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,11 @@ export async function POST(request: Request, context: Ctx) {
           message: issue.message,
         })),
       );
+    }
+
+    const limited = await enforceUserRateLimit(request, 'outboundProbe', identity.user.id);
+    if (limited) {
+      return limited;
     }
 
     return jsonOk(await llmProvidersService.testProvider(id, parsed.data));

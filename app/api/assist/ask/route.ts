@@ -15,16 +15,11 @@ export async function POST(request: Request) {
     const identity = await getRequestIdentity(request);
     assertAuthenticated(identity);
 
-    const limited = await acquireAiRateLimit(request, 'assist', identity.user.id);
-    if (!limited.ok) {
-      return limited.response;
-    }
-    lease = limited.lease;
-
+    // Validate before spending quota: `release()` only returns the concurrency
+    // slot, so a malformed body used to burn a full user/IP point.
     const raw = await request.json().catch(() => null);
     const parsed = assistAskBodySchema.safeParse(raw);
     if (!parsed.success) {
-      await lease.release();
       return jsonValidationError(
         request,
         parsed.error.issues.map((issue) => ({
@@ -33,6 +28,12 @@ export async function POST(request: Request) {
         })),
       );
     }
+
+    const limited = await acquireAiRateLimit(request, 'assist', identity.user.id);
+    if (!limited.ok) {
+      return limited.response;
+    }
+    lease = limited.lease;
 
     const body = parsed.data;
     const userId = identity.user.id;

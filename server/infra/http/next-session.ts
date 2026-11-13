@@ -33,7 +33,11 @@ export function assertAuthenticated(identity: RequestIdentity): asserts identity
   }
 }
 
-export function assertAdmin(identity: RequestIdentity): void {
+/** Admin gate; also narrows `identity` the same way {@link assertAuthenticated} does. */
+export function assertAdmin(identity: RequestIdentity): asserts identity is {
+  user: AuthSessionUser;
+  session: AuthSession;
+} {
   assertAuthenticated(identity);
   const role = (identity.user as AuthSessionUser & { role?: string }).role;
   if (!isAdminRole(role)) {
