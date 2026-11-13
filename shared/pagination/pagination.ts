@@ -5,6 +5,11 @@ export type SortOrder = (typeof SORT_ORDERS)[number];
 
 export const DEFAULT_PAGE = 1 as const;
 export const DEFAULT_PAGE_SIZE = 10 as const;
+/**
+ * Upper bound for `pageSize`. Without it a single `?pageSize=10000000` becomes
+ * an unbounded `LIMIT` over the underlying table.
+ */
+export const MAX_PAGE_SIZE = 100 as const;
 export const DEFAULT_SORT_ORDER = 'desc' as const satisfies SortOrder;
 
 /** Treat missing / blank query values as undefined so Zod defaults apply. */
@@ -22,13 +27,18 @@ function coercedPositiveInt(defaultValue: number) {
   return z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).default(defaultValue));
 }
 
+/** Shared `pageSize` field: coerced positive int, capped at {@link MAX_PAGE_SIZE}. */
+export function pageSizeSchema(defaultValue: number = DEFAULT_PAGE_SIZE) {
+  return z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(defaultValue));
+}
+
 /**
  * Shared list pagination + sort-order query fields.
  * `sortBy` is domain-specific — compose via `createSortByQuerySchema`.
  */
 export const paginationQuerySchema = z.object({
   page: coercedPositiveInt(DEFAULT_PAGE),
-  pageSize: coercedPositiveInt(DEFAULT_PAGE_SIZE),
+  pageSize: pageSizeSchema(DEFAULT_PAGE_SIZE),
   sortOrder: z.preprocess(emptyToUndefined, z.enum(SORT_ORDERS).default(DEFAULT_SORT_ORDER)),
 });
 

@@ -5,6 +5,7 @@ import {
   emptyToUndefined,
   paginationMetaSchema,
   paginationQuerySchema,
+  pageSizeSchema,
 } from '../pagination/index.ts';
 
 export const AI_INVOCATION_STATUSES = ['success', 'failure'] as const;
@@ -85,7 +86,7 @@ export type AiInvocationStatsQuery = z.infer<typeof aiInvocationStatsQuerySchema
 
 export const aiInvocationListQuerySchema = paginationQuerySchema
   .extend({
-    pageSize: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).default(AI_INVOCATION_DEFAULT_PAGE_SIZE)),
+    pageSize: pageSizeSchema(AI_INVOCATION_DEFAULT_PAGE_SIZE),
     sortBy: createSortByQuerySchema(AI_INVOCATION_SORT_FIELDS, DEFAULT_AI_INVOCATION_SORT_BY),
     from: queryDateSchema,
     to: queryDateSchema,

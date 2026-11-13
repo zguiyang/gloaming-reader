@@ -5,6 +5,7 @@ import {
   emptyToUndefined,
   paginationMetaSchema,
   paginationQuerySchema,
+  pageSizeSchema,
 } from '../pagination/index.ts';
 import { ttsVoiceRoleValues } from '../tts/index.ts';
 
@@ -86,7 +87,7 @@ export type TtsInvocationStatsQuery = z.infer<typeof ttsInvocationStatsQuerySche
 
 export const ttsInvocationListQuerySchema = paginationQuerySchema
   .extend({
-    pageSize: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).default(TTS_INVOCATION_DEFAULT_PAGE_SIZE)),
+    pageSize: pageSizeSchema(TTS_INVOCATION_DEFAULT_PAGE_SIZE),
     sortBy: createSortByQuerySchema(TTS_INVOCATION_SORT_FIELDS, DEFAULT_TTS_INVOCATION_SORT_BY),
     from: queryDateSchema,
     to: queryDateSchema,
