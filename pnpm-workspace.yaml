@@ -1,5 +1,7 @@
 # pnpm 11 project settings only — NOT a multi-package workspace (no packages:).
 # Required for native dependency lifecycle scripts (sharp/esbuild/workerd/…).
+packageImportMethod: copy
+confirmModulesPurge: false
 allowBuilds:
   esbuild: true
   msgpackr-extract: true

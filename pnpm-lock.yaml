@@ -56,9 +56,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      date-fns:
-        specifier: ^4.4.0
-        version: 4.4.0
       dompurify:
         specifier: ^3.4.14
         version: 3.4.17
@@ -117,7 +114,7 @@ importers:
         specifier: 19.3.1
         version: 19.3.1(react@19.3.1)
       react-server-dom-webpack:
-        specifier: ^19.3.1
+        specifier: 19.3.1
         version: 19.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(webpack@5.112.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32)(sharp@0.34.5)(uglify-js@3.19.3))
       recharts:
         specifier: ^3.10.1
@@ -125,9 +122,6 @@ importers:
       resend:
         specifier: ^4.8.0
         version: 4.8.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      shadcn:
-        specifier: ^4.23.0
-        version: 4.23.0(supports-color@10.2.2)
       sharp:
         specifier: 0.34.5
         version: 0.34.5
@@ -162,9 +156,6 @@ importers:
       '@cloudflare/vite-plugin':
         specifier: ^2.0.0-beta.v.14
         version: 2.0.0-beta.v.14(@types/node@22.20.5)(vite@8.3.0(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(workerd@1.20261110.1)
-      '@cloudflare/workers-types':
-        specifier: ^5.20261110.1
-        version: 5.20261110.1
       '@commitlint/cli':
         specifier: ^21.2.1
         version: 21.2.4(conventional-commits-parser@7.1.4)(typescript@6.0.3)
@@ -177,9 +168,6 @@ importers:
       '@tailwindcss/turbopack':
         specifier: 4.3.3
         version: 4.3.3
-      '@types/dompurify':
-        specifier: ^3.2.0
-        version: 3.2.0
       '@types/node':
         specifier: ^22.19.7
         version: 22.20.5
@@ -228,6 +216,9 @@ importers:
       prettier:
         specifier: ^3.8.3
         version: 3.10.0
+      shadcn:
+        specifier: ^4.23.0
+        version: 4.23.0(supports-color@10.2.2)
       tailwindcss:
         specifier: 4.3.3
         version: 4.3.3
@@ -2399,10 +2390,6 @@ packages:
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
-
-  '@types/dompurify@3.2.0':
-    resolution: {integrity: sha512-Fgg31wv9QbLDA0SpTOXO3MaxySc4DKGLi8sna4/Utjo4r3ZRPdCt4UQee8BWr+Q5z21yifghREPJGYaEOEIACg==}
-    deprecated: This is a stub types definition. dompurify provides its own type definitions, so you do not need this installed.
 
   '@types/estree-jsx@1.0.5':
     resolution: {integrity: sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==}
@@ -7122,7 +7109,8 @@ snapshots:
 
   '@cloudflare/workers-response-store@1.1.5': {}
 
-  '@cloudflare/workers-types@5.20261110.1': {}
+  '@cloudflare/workers-types@5.20261110.1':
+    optional: true
 
   '@commitlint/cli@21.2.4(conventional-commits-parser@7.1.4)(typescript@6.0.3)':
     dependencies:
@@ -8440,10 +8428,6 @@ snapshots:
       '@types/ms': 2.1.0
 
   '@types/deep-eql@4.0.2': {}
-
-  '@types/dompurify@3.2.0':
-    dependencies:
-      dompurify: 3.4.17
 
   '@types/estree-jsx@1.0.5':
     dependencies:
