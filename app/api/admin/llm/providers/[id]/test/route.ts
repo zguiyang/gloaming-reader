@@ -2,6 +2,7 @@ import { testLlmProviderBodySchema } from '@/shared/llm';
 
 import * as llmProvidersService from '@/server/domains/llm/config/providers/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { enforceUserRateLimit } from '@/server/infra/http/next-rate-limit';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
 
@@ -13,7 +14,7 @@ export async function POST(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAdmin(identity);
-    const { id } = await context.params;
+    const id = pathId((await context.params).id, 'id');
 
     const raw = await request.json().catch(() => null);
     const parsed = testLlmProviderBodySchema.safeParse(raw);

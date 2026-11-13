@@ -1,5 +1,6 @@
 import { completeUserTagTranslations } from '@/server/domains/library/tags/service';
 import { jsonFromThrown, jsonOk } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { acquireAiRateLimit } from '@/server/infra/http/next-rate-limit';
 import { assertAuthenticated, getRequestIdentity } from '@/server/infra/http/next-session';
 
@@ -20,7 +21,7 @@ export async function POST(request: Request, context: Ctx) {
     }
     lease = limited.lease;
 
-    const { tagId } = await context.params;
+    const tagId = pathId((await context.params).tagId, 'tagId');
     return jsonOk(await completeUserTagTranslations(identity.user.id, tagId));
   } catch (error) {
     return jsonFromThrown(request, error);

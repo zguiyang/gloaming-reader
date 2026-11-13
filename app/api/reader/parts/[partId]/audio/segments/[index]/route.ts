@@ -5,6 +5,7 @@ import { readerAudioSegmentQuerySchema } from '@/shared/reader';
 import { getReaderAudioSegment } from '@/server/domains/reader-audio/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { acquireAiRateLimit } from '@/server/infra/http/next-rate-limit';
 import { getRequestIdentity } from '@/server/infra/http/next-session';
 
@@ -17,7 +18,9 @@ type Ctx = { params: Promise<{ partId: string; index: string }> };
 export async function GET(request: Request, context: Ctx) {
   let lease: { release: () => Promise<void> } | undefined;
   try {
-    const { partId, index: indexParam } = await context.params;
+    const params = await context.params;
+    const partId = pathId(params.partId, 'partId');
+    const indexParam = params.index;
     const identity = await getRequestIdentity(request);
     const url = new URL(request.url);
 

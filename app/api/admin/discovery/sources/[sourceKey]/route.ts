@@ -2,6 +2,7 @@ import { discoverySourceEnabledUpdateSchema } from '@/shared/discovery';
 
 import { setDiscoverySourceEnabled } from '@/server/domains/discovery/sources/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     const identity = await getRequestIdentity(request);
     assertAdmin(identity);
 
-    const { sourceKey } = await context.params;
+    const sourceKey = pathId((await context.params).sourceKey, 'sourceKey');
     const raw = await request.json().catch(() => null);
     const parsed = discoverySourceEnabledUpdateSchema.safeParse(raw);
     if (!parsed.success) {
@@ -27,7 +28,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
-    return jsonOk(await setDiscoverySourceEnabled(decodeURIComponent(sourceKey), parsed.data.enabled));
+    return jsonOk(await setDiscoverySourceEnabled(sourceKey, parsed.data.enabled));
   } catch (error) {
     return jsonFromThrown(request, error);
   }

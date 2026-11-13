@@ -2,6 +2,7 @@ import { putLlmAppSettingBodySchema } from '@/shared/llm';
 
 import * as userLlmConfig from '@/server/domains/llm/config/user/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { assertAuthenticated, getRequestIdentity } from '@/server/infra/http/next-session';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ export async function PUT(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAuthenticated(identity);
-    const { key } = await context.params;
+    const key = pathId((await context.params).key, 'key');
 
     const raw = await request.json().catch(() => null);
     const parsed = putLlmAppSettingBodySchema.safeParse(raw);

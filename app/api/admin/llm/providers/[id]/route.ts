@@ -2,6 +2,7 @@ import { updateLlmProviderBodySchema } from '@/shared/llm';
 
 import * as llmProvidersService from '@/server/domains/llm/config/providers/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
 import { HTTP_STATUS } from '@/server/shared/constants';
 
@@ -13,7 +14,7 @@ export async function PATCH(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAdmin(identity);
-    const { id } = await context.params;
+    const id = pathId((await context.params).id, 'id');
 
     const raw = await request.json().catch(() => null);
     const parsed = updateLlmProviderBodySchema.safeParse(raw);
@@ -38,7 +39,7 @@ export async function DELETE(_request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAdmin(identity);
-    const { id } = await context.params;
+    const id = pathId((await context.params).id, 'id');
     await llmProvidersService.deleteProvider(id);
     return new Response(null, { status: HTTP_STATUS.NO_CONTENT });
   } catch (error) {

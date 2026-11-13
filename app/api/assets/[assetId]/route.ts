@@ -1,6 +1,7 @@
 import { isAssetAuthorized, isPublicAsset, resolveAsset, streamAsset } from '@/server/domains/assets/gateway/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonError, jsonFromThrown } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { getRequestIdentity } from '@/server/infra/http/next-session';
 import type { ObjectRange } from '@/server/infra/storage';
 import { HTTP_STATUS } from '@/server/shared/constants';
@@ -33,7 +34,7 @@ function assetNotFound(request: Request): Response {
 
 export async function GET(request: Request, context: Ctx) {
   try {
-    const { assetId } = await context.params;
+    const assetId = pathId((await context.params).assetId, 'assetId');
     const asset = await resolveAsset(assetId);
 
     const identity = await getRequestIdentity(request);

@@ -2,6 +2,7 @@ import { updateLlmModelBodySchema } from '@/shared/llm';
 
 import * as llmModelsService from '@/server/domains/llm/config/models/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
 import { HTTP_STATUS } from '@/server/shared/constants';
 
@@ -13,7 +14,7 @@ export async function PATCH(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAdmin(identity);
-    const { id } = await context.params;
+    const id = pathId((await context.params).id, 'id');
 
     const raw = await request.json().catch(() => null);
     const parsed = updateLlmModelBodySchema.safeParse(raw);
@@ -37,7 +38,7 @@ export async function DELETE(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAdmin(identity);
-    const { id } = await context.params;
+    const id = pathId((await context.params).id, 'id');
     await llmModelsService.deleteModel(id);
     return new Response(null, { status: HTTP_STATUS.NO_CONTENT });
   } catch (error) {

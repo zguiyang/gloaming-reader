@@ -7,6 +7,7 @@ import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import type { ObjectRange } from '@/server/infra/storage';
 import { RangeNotSatisfiableError } from '@/server/infra/storage';
 import { jsonFromThrown, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { getRequestIdentity } from '@/server/infra/http/next-session';
 import { HTTP_STATUS } from '@/server/shared/constants';
 
@@ -42,7 +43,9 @@ function parseRangeHeader(header: string | undefined): ObjectRange | undefined {
 
 export async function GET(request: Request, context: Ctx) {
   try {
-    const { partId, index: indexParam } = await context.params;
+    const params = await context.params;
+    const partId = pathId(params.partId, 'partId');
+    const indexParam = params.index;
     const identity = await getRequestIdentity(request);
     const url = new URL(request.url);
 

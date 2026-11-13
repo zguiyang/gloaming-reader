@@ -2,6 +2,7 @@ import { assetCleanupRequestSchema } from '@/shared/assets';
 
 import * as assetCleanupService from '@/server/domains/assets/cleanup/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
 import { HTTP_STATUS } from '@/server/shared/constants';
 
@@ -13,7 +14,7 @@ export async function POST(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAdmin(identity);
-    const { scanId } = await context.params;
+    const scanId = pathId((await context.params).scanId, 'scanId');
     const raw = await request.json().catch(() => null);
     const parsed = assetCleanupRequestSchema.safeParse(raw);
     if (!parsed.success) {

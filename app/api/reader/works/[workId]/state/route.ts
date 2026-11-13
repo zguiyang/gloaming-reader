@@ -3,6 +3,7 @@ import { updateReadingStateBodySchema } from '@/shared/reader';
 import { getReadingState, updateReadingState } from '@/server/domains/reading/reader';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { assertAuthenticated, getRequestIdentity } from '@/server/infra/http/next-session';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ export async function GET(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAuthenticated(identity);
-    const { workId } = await context.params;
+    const workId = pathId((await context.params).workId, 'workId');
     const actor = workReadActorFromIdentity(identity.user);
     const state = await getReadingState(actor, identity.user.id, workId);
     return jsonOk({ state });
@@ -26,7 +27,7 @@ export async function PATCH(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAuthenticated(identity);
-    const { workId } = await context.params;
+    const workId = pathId((await context.params).workId, 'workId');
     const raw = await request.json().catch(() => null);
     const parsed = updateReadingStateBodySchema.safeParse(raw);
     if (!parsed.success) {

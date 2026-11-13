@@ -5,6 +5,7 @@ import { userTagWriteSchema } from '@/shared/library';
 
 import { deleteUserTag, renameUserTag } from '@/server/domains/library/tags/service';
 import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { assertAuthenticated, getRequestIdentity } from '@/server/infra/http/next-session';
 import { HTTP_STATUS } from '@/server/shared/constants';
 
@@ -18,7 +19,7 @@ export async function PATCH(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAuthenticated(identity);
-    const { tagId } = await context.params;
+    const tagId = pathId((await context.params).tagId, 'tagId');
     const raw = await request.json().catch(() => null);
     const parsed = localeTagWriteSchema.safeParse(raw);
     if (!parsed.success) {
@@ -41,7 +42,7 @@ export async function DELETE(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAuthenticated(identity);
-    const { tagId } = await context.params;
+    const tagId = pathId((await context.params).tagId, 'tagId');
     await deleteUserTag(identity.user.id, tagId);
     return new Response(null, { status: HTTP_STATUS.NO_CONTENT });
   } catch (error) {

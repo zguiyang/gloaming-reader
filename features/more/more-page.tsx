@@ -12,6 +12,7 @@ import { useAuthDialog } from '@/features/auth';
 import { MoreMenuRow } from '@/features/more/more-menu-row';
 import { MoreUserHeader } from '@/features/more/more-user-header';
 import { authClient, resolveAuthErrorMessage } from '@/lib/auth';
+import { useSession } from '@/lib/auth/session';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +20,9 @@ export function MorePage() {
   const router = useRouter();
   const { locale } = useLocale();
   const { openLogin } = useAuthDialog();
-  const session = authClient.useSession();
+  // Only a real auth error (expired/revoked session) prompts a login; guests
+  // are the normal state here and get the header's sign-in action instead.
+  const session = useSession();
 
   useEffect(() => {
     if (!session.isPending && session.error?.status === 401) {

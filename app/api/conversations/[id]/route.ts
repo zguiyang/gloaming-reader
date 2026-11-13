@@ -1,6 +1,7 @@
 import { getConversation } from '@/server/domains/conversations/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonFromThrown, jsonOk } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { assertAuthenticated, getRequestIdentity } from '@/server/infra/http/next-session';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +12,7 @@ export async function GET(request: Request, context: Ctx) {
   try {
     const identity = await getRequestIdentity(request);
     assertAuthenticated(identity);
-    const { id } = await context.params;
+    const id = pathId((await context.params).id, 'id');
     const data = await getConversation(workReadActorFromIdentity(identity.user), identity.user.id, id);
     return jsonOk(data);
   } catch (error) {

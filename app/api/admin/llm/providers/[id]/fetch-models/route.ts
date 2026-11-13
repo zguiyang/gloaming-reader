@@ -1,5 +1,6 @@
 import * as llmProvidersService from '@/server/domains/llm/config/providers/service';
 import { jsonFromThrown, jsonOk } from '@/server/infra/http/next-json';
+import { pathId } from '@/server/infra/http/path-params';
 import { enforceUserRateLimit } from '@/server/infra/http/next-rate-limit';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
 
@@ -17,7 +18,7 @@ export async function POST(request: Request, context: Ctx) {
       return limited;
     }
 
-    const { id } = await context.params;
+    const id = pathId((await context.params).id, 'id');
     return jsonOk(await llmProvidersService.fetchProviderModels(id));
   } catch (error) {
     return jsonFromThrown(request, error);

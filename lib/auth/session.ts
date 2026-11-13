@@ -53,9 +53,10 @@ export function useSession(): SessionState {
       code: typeof err.code === 'string' ? err.code : undefined,
       status: err.status,
     };
-  } else if (!isPending && !user) {
-    error = { message: 'Unauthorized', status: 401 };
   }
+
+  // No session is the normal anonymous state, not an error. Synthesizing a 401
+  // here made every guest look like an expired session to error-driven UIs.
 
   return {
     data: user ? { user } : null,
