@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, sql } from 'drizzle-orm';
 
 import {
   conversation as conversationTable,
@@ -79,11 +79,25 @@ async function listEngagedActivity(userId: string): Promise<ReadingHistoryData['
   }));
 }
 
+/** Statuses the history view shows; the portrait aggregates are separate queries. */
+const VISIBLE_HISTORY_STATUSES: ReadingStateStatus[] = ['in_progress', 'completed'];
+
+/**
+ * Newest-first cap. The endpoint used to load the caller's entire reading state
+ * and filter in JS, so its cost grew with account age instead of with the page.
+ */
+const READING_HISTORY_WORK_LIMIT = 200;
+
 async function listWorks(actor: WorkReadActor, userId: string): Promise<ReadingHistoryWork[]> {
   // The single membership-aware Work Access Policy gates history exactly like
   // Reader parts: owner, published Catalog, or an explicit Library membership.
   const access = workReadAccessSql(actor);
-  const predicates = [eq(readingStateTable.userId, userId)];
+  // Only shown statuses are queried: filtering in JS after loading every row made
+  // the page cost grow with the user's whole reading state.
+  const predicates = [
+    eq(readingStateTable.userId, userId),
+    inArray(readingStateTable.status, VISIBLE_HISTORY_STATUSES),
+  ];
   if (access) {
     predicates.push(access);
   }
@@ -101,7 +115,8 @@ async function listWorks(actor: WorkReadActor, userId: string): Promise<ReadingH
     .from(readingStateTable)
     .innerJoin(readingWorkTable, eq(readingWorkTable.id, readingStateTable.workId))
     .where(and(...predicates))
-    .orderBy(desc(readingStateTable.lastReadAt), asc(readingWorkTable.title));
+    .orderBy(desc(readingStateTable.lastReadAt), asc(readingWorkTable.title))
+    .limit(READING_HISTORY_WORK_LIMIT);
 
   const works = rows.flatMap((row): ReadingHistoryWork[] => {
     const status = row.status as ReadingStateStatus;

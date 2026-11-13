@@ -1,4 +1,4 @@
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 
 import { readingState as readingStateTable, readingWork as readingWorkTable } from '@/server/db';
 import type { RecommendationsData, RecommendationsQuery } from '@/shared/recommendations';
@@ -35,17 +35,6 @@ function toWork(row: WorkRow): Work {
   };
 }
 
-function toFeatures(row: WorkRow): RecommendationFeatures {
-  return {
-    id: row.id,
-    language: row.language,
-    difficultyScore: row.difficultyScore,
-    suggestedVocabSize: row.suggestedVocabSize,
-    estimatedMinutes: row.estimatedMinutes,
-    publishedAt: row.publishedAt,
-  };
-}
-
 export async function getRecommendations(userId: string, query: RecommendationsQuery): Promise<RecommendationsData> {
   const exclude = new Set<string>();
   if (query.excludeWorkId) {
@@ -65,21 +54,28 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
     exclude.add(row.workId);
   }
 
-  const publishedRows = await db
-    .select()
+  // Score from the feature columns only: loading every public row in full (with
+  // description/body-sized text) once per request dominated the query cost.
+  const candidateRows = await db
+    .select({
+      id: readingWorkTable.id,
+      language: readingWorkTable.language,
+      difficultyScore: readingWorkTable.difficultyScore,
+      suggestedVocabSize: readingWorkTable.suggestedVocabSize,
+      estimatedMinutes: readingWorkTable.estimatedMinutes,
+      publishedAt: readingWorkTable.publishedAt,
+    })
     .from(readingWorkTable)
     .where(publicCatalogWorkSql())
     .orderBy(desc(readingWorkTable.publishedAt), desc(readingWorkTable.id));
 
   const featuresById = new Map<string, RecommendationFeatures>();
-  for (const row of publishedRows) {
-    featuresById.set(row.id, toFeatures(row));
+  for (const row of candidateRows) {
+    featuresById.set(row.id, row);
   }
 
   const shelfWorkIds = stateRows.map((row) => row.workId);
-  const shelfWorks = shelfWorkIds
-    .map((id) => featuresById.get(id))
-    .filter((row): row is RecommendationFeatures => row != null);
+  const shelfWorks = shelfWorkIds.map((id) => featuresById.get(id)).filter((row) => row != null);
 
   let current: RecommendationFeatures | null = null;
   const inProgress = stateRows
@@ -90,10 +86,10 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
     current = featuresById.get(currentId) ?? null;
   }
 
-  const candidates = publishedRows
+  const candidates = candidateRows
     .filter((row) => !exclude.has(row.id))
     .map((row) => featuresById.get(row.id))
-    .filter((row): row is RecommendationFeatures => row != null);
+    .filter((row) => row != null);
 
   const plan = resolveRecommendationOrder({
     limit: query.limit,
@@ -102,13 +98,17 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
     candidates,
   });
 
-  const selectedRows = plan.orderedIds
-    .map((id) => publishedRows.find((row) => row.id === id))
-    .filter((row): row is WorkRow => row != null);
+  // Fetch full rows for the selected ids only, then restore the planned order.
+  const selectedRows =
+    plan.orderedIds.length > 0
+      ? await db.select().from(readingWorkTable).where(inArray(readingWorkTable.id, plan.orderedIds))
+      : [];
+  const selectedById = new Map(selectedRows.map((row) => [row.id, row]));
+  const orderedRows = plan.orderedIds.map((id) => selectedById.get(id)).filter((row): row is WorkRow => row != null);
 
   return {
     strategy: plan.strategy,
     anchorWorkId: plan.anchorWorkId,
-    items: selectedRows.map((row) => toWork(row)),
+    items: orderedRows.map((row) => toWork(row)),
   };
 }
