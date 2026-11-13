@@ -269,7 +269,11 @@ export async function runContentParse(
           kind: 'chapter',
           title: chapter.title.slice(0, 200),
           body,
-          meta: {},
+          meta: {
+            sourceHref: chapter.sourceHref,
+            sourceHrefs: chapter.sourceHrefs,
+            sourceAnchors: chapter.sourceAnchors,
+          },
         });
       }
       const [committed] = await tx

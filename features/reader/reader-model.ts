@@ -95,6 +95,81 @@ export function isCurrentChapter(partId: string, currentPartId: string): boolean
   return partId === currentPartId;
 }
 
+export type ReaderInternalLinkTarget = {
+  partId: string;
+  fragment: string | null;
+};
+
+function decodePath(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
+/** Normalize an EPUB container path (POSIX-ish, dot segments collapsed). */
+function normalizeEpubPath(path: string): string {
+  const segments: string[] = [];
+  for (const segment of decodePath(path).split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') segments.pop();
+    else segments.push(segment);
+  }
+  return segments.join('/');
+}
+
+function normalizeEpubHref(href: string): string {
+  return normalizeEpubPath(href.replace(/^\/+/, ''));
+}
+
+/**
+ * Resolve an EPUB link target to a reading part. Relative file links resolve
+ * against the current part's primary container file; `#fragment`-only links
+ * match a part that carries the anchor.
+ */
+export function resolveReaderInternalLink(
+  parts: PartSummary[],
+  currentPartId: string,
+  href: string,
+): ReaderInternalLinkTarget | null {
+  const hashIndex = href.indexOf('#');
+  const path = (hashIndex >= 0 ? href.slice(0, hashIndex) : href).trim();
+  const fragment = hashIndex >= 0 ? decodePath(href.slice(hashIndex + 1)).trim() || null : null;
+
+  if (!path) {
+    if (!fragment) return null;
+    // EPUB `#fragment` is a same-document reference, so it must resolve against
+    // the part being read first. Ids like `toc`, `start` and `cover` recur
+    // across chapters; searching the whole list from the front would jump back
+    // to an earlier chapter instead of staying put.
+    const currentPart = parts.find((part) => part.id === currentPartId);
+    if (currentPart?.sourceAnchors.includes(fragment)) {
+      return { partId: currentPart.id, fragment };
+    }
+    const anchorMatch = parts.find((part) => part.sourceAnchors.includes(fragment));
+    return anchorMatch ? { partId: anchorMatch.id, fragment } : null;
+  }
+
+  const current = parts.find((part) => part.id === currentPartId);
+  const baseDir = current?.sourceHref ? current.sourceHref.split('/').slice(0, -1).join('/') : '';
+  const resolved = path.startsWith('/') ? normalizeEpubPath(path) : normalizeEpubPath(`${baseDir}/${path}`);
+
+  if (fragment) {
+    const anchorMatch = parts.find(
+      (part) =>
+        part.sourceHrefs.some((sourceHref) => normalizeEpubHref(sourceHref) === resolved) &&
+        part.sourceAnchors.includes(fragment),
+    );
+    if (anchorMatch) return { partId: anchorMatch.id, fragment };
+  }
+
+  const fileMatch = parts.find((part) =>
+    part.sourceHrefs.some((sourceHref) => normalizeEpubHref(sourceHref) === resolved),
+  );
+  return fileMatch ? { partId: fileMatch.id, fragment } : null;
+}
+
 /** Minimum delay between within-chapter position writes while scrolling. */
 export const READER_ANCHOR_THROTTLE_MS = 2_000;
 /** Skip a write when the ratio barely changed, to avoid chatty persistence. */

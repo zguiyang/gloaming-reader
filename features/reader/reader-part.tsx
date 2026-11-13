@@ -29,6 +29,8 @@ type ReaderPartProps = {
     left: number;
   }) => void;
   onCenterTap: () => void;
+  /** Handles relative EPUB links; the reader maps them to parts. */
+  onContentLink?: (href: string) => void;
   onScroll: (event: UIEvent<HTMLElement>) => void;
   footer?: ReactNode;
 };
@@ -63,6 +65,7 @@ export function ReaderPart({
   contentRef,
   onSelectText,
   onCenterTap,
+  onContentLink,
   onScroll,
   footer,
 }: ReaderPartProps) {
@@ -123,7 +126,21 @@ export function ReaderPart({
 
   function handleContentClick(event: MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement;
-    if (target.closest('button, a, [data-reader-ui]')) return;
+    const link = target.closest('a');
+    if (link) {
+      const href = link.getAttribute('href')?.trim();
+      event.preventDefault();
+      if (!href) return;
+      if (/^(https?:|mailto:)/i.test(href)) {
+        window.open(href, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      // Non-navigational schemes are blocked; relative paths and fragments are reader-internal.
+      if (/^[a-z][a-z0-9+.-]*:/i.test(href)) return;
+      onContentLink?.(href);
+      return;
+    }
+    if (target.closest('button, [data-reader-ui]')) return;
 
     const y = event.clientY / window.innerHeight;
     const x = event.clientX / window.innerWidth;

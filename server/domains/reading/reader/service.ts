@@ -22,9 +22,19 @@ function sortedParts(parts: PartRow[]): PartRow[] {
   return [...parts].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
 }
 
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
 function toPartSummary(part: PartRow) {
-  const meta = part.meta as { wordCount?: unknown };
+  const meta = part.meta as {
+    wordCount?: unknown;
+    sourceHref?: unknown;
+    sourceHrefs?: unknown;
+    sourceAnchors?: unknown;
+  };
   const wordCount = typeof meta.wordCount === 'number' ? meta.wordCount : null;
+  const sourceHrefs = stringArray(meta.sourceHrefs);
   return {
     id: part.id,
     workId: part.workId,
@@ -33,6 +43,9 @@ function toPartSummary(part: PartRow) {
     title: part.title,
     wordCount,
     estimatedMinutes: wordCount != null ? estimatedMinutesFromWordCount(wordCount) : null,
+    sourceHref: typeof meta.sourceHref === 'string' ? meta.sourceHref : (sourceHrefs[0] ?? null),
+    sourceHrefs,
+    sourceAnchors: stringArray(meta.sourceAnchors),
     createdAt: toIso(part.createdAt),
     updatedAt: toIso(part.updatedAt),
   };

@@ -323,9 +323,26 @@ function resolveChapterTitle(input: {
   return { title: `Section ${chapterNumber}`, hasProperTitle: false };
 }
 
+/** Collect element ids so internal `file#fragment` links can map to the owning part. */
+function collectAnchorIds(html: string): string[] {
+  const $ = cheerio.load(html, null, false);
+  const ids = new Set<string>();
+  $('[id]').each((_, el) => {
+    const id = $(el).attr('id')?.trim();
+    if (id) ids.add(id);
+  });
+  return [...ids];
+}
+
 export type ChapterPlan = {
   title: string;
   html: string;
+  /** Primary container file this part came from (used to resolve relative links). */
+  sourceHref: string;
+  /** All container files merged into this part. */
+  sourceHrefs: string[];
+  /** Element ids present in this part, for `#fragment` link resolution. */
+  sourceAnchors: string[];
 };
 
 /**
@@ -347,7 +364,13 @@ export function planChapters(book: EpubBook, clean: (href: string, rawHtml: stri
         for (const section of sections) {
           const cleaned = clean(href, section.html);
           if (shouldDropTextlessPage(cleaned, href, book.coverHref)) continue;
-          chapters.push({ title: section.title ?? '', html: cleaned.html });
+          chapters.push({
+            title: section.title ?? '',
+            html: cleaned.html,
+            sourceHref: href,
+            sourceHrefs: [href],
+            sourceAnchors: collectAnchorIds(cleaned.html),
+          });
         }
         return finalizeChapterParagraphOrdinals(chapters);
       }
@@ -377,16 +400,26 @@ export function planChapters(book: EpubBook, clean: (href: string, rawHtml: stri
     // Untitled file (no nav/heading/front-matter) → merge into previous chapter.
     if (!hasProperTitle && previous) {
       previous.html = `${previous.html}\n${html}`;
+      previous.sourceHrefs.push(spineItem.href);
+      previous.sourceAnchors.push(...collectAnchorIds(html));
       continue;
     }
 
     // Bare chapter-number stub as previous chapter → merge body in, keep title.
     if (previous && isHeadingNumberStub(previous.html) && hasProperTitle) {
       previous.html = `${previous.html}\n${html}`;
+      previous.sourceHrefs.push(spineItem.href);
+      previous.sourceAnchors.push(...collectAnchorIds(html));
       continue;
     }
 
-    const chapter: ChapterPlan = { title, html };
+    const chapter: ChapterPlan = {
+      title,
+      html,
+      sourceHref: spineItem.href,
+      sourceHrefs: [spineItem.href],
+      sourceAnchors: collectAnchorIds(html),
+    };
     chapters.push(chapter);
     previous = chapter;
   }

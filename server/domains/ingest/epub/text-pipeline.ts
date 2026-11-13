@@ -12,7 +12,7 @@ const SPACE_BEFORE_CLOSE_TAG = /\s+<\/(\w+)>/g;
 const SPACE_AFTER_OPEN_TAG = /<(\w+[^>]*)>\s+/g;
 const SPACE_BEFORE_PUNCTUATION = /\s+([.,;:!?])/g;
 
-const EMPTY_TAG = /<([a-z][a-z0-9]*)(?:\s+[^>]*)?>\s*<\/\1>/gi;
+const EMPTY_TAG = /<([a-z][a-z0-9]*)(\s+[^>]*)?>\s*<\/\1>/gi;
 const SELF_CLOSING_EMPTY_TAG = /<([a-z][a-z0-9]*)\s*\/>/gi;
 
 /** Tags whose empty form adds no value and may be dropped. */
@@ -92,7 +92,11 @@ export function removeEmptyTags(html: string): string {
   let out = html;
   for (let i = 0; i < 10; i += 1) {
     const next = out
-      .replace(EMPTY_TAG, (match, tag: string) => (REMOVABLE_EMPTY_TAGS.has(tag.toLowerCase()) ? '' : match))
+      .replace(EMPTY_TAG, (match, tag: string, attrs: string | undefined) => {
+        // An empty anchor with an id is a fragment target, not removable chrome.
+        if (tag.toLowerCase() === 'a' && attrs && /\bid\s*=/i.test(attrs)) return match;
+        return REMOVABLE_EMPTY_TAGS.has(tag.toLowerCase()) ? '' : match;
+      })
       .replace(SELF_CLOSING_EMPTY_TAG, (match, tag: string) => {
         const name = tag.toLowerCase();
         if (PRESERVED_EMPTY_TAGS.has(name) || !REMOVABLE_EMPTY_TAGS.has(name)) return match;

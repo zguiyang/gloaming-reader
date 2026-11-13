@@ -12,6 +12,12 @@ export type ParsedChapter = {
   title: string;
   /** Normalized reading HTML; local img srcs are placeholder tokens. */
   html: string;
+  /** Primary container file this chapter came from (null for non-EPUB sources). */
+  sourceHref: string | null;
+  /** Container files merged into this chapter. */
+  sourceHrefs: string[];
+  /** Element ids present in this chapter, for internal `#fragment` links. */
+  sourceAnchors: string[];
 };
 
 export type ParsedContentMetadata = {

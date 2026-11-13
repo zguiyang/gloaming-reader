@@ -80,12 +80,20 @@ export function removeNonDisplayableFigures($: cheerio.CheerioAPI): void {
     const $span = $(el);
     const $shell = $span.closest(FIGURE_SHELL_SELECTOR);
     if ($shell.length) {
+      // Keep in-place fragment targets from TOC links before dropping the shell.
+      $shell.find('a[id]').each((__, anchor) => {
+        const id = $(anchor).attr('id');
+        if (id) $shell.before($('<a></a>').attr('id', id));
+      });
       $shell.remove();
       return;
     }
     const $parent = $span.parent();
     if ($parent.is('a') && !$parent.attr('href') && $parent.children().length === 1) {
-      $parent.remove();
+      // Keep an anchor carrying an id: EPUB TOC links use it as a fragment target
+      // even when the illustration/image itself is dropped.
+      if ($parent.attr('id')) $span.remove();
+      else $parent.remove();
       return;
     }
     $span.remove();

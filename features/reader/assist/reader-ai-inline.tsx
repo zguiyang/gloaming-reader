@@ -24,6 +24,7 @@ type ReaderAiInlineProps = {
   top?: number;
   left?: number;
   onSubmitQuestion?: (question: string) => void;
+  onRetry?: () => void;
   onOpenDrawer: () => void;
   onClose: () => void;
 };
@@ -40,6 +41,7 @@ export function ReaderAiInline({
   top,
   left,
   onSubmitQuestion,
+  onRetry,
   onOpenDrawer,
   onClose,
 }: ReaderAiInlineProps) {
@@ -155,7 +157,16 @@ export function ReaderAiInline({
             <div className="mt-3 min-h-5">
               <ReaderMarkdown content={answer} streaming={streaming} />
             </div>
-            {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
+            {error ? (
+              <div className="mt-2 flex items-start justify-between gap-2">
+                <p className="text-xs text-destructive">{error}</p>
+                {onRetry && !streaming ? (
+                  <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 text-xs" onClick={onRetry}>
+                    {t(locale, 'content.reader.assist.retry')}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="mt-4 flex items-center justify-between gap-2">
               <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={onClose}>
                 {t(locale, 'content.reader.assist.close')}

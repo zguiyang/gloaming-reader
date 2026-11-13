@@ -458,7 +458,7 @@
   "admin": {
     "shell": {
       "subtitle": "管理后台",
-      "contentSubtitle": "内容管理",
+      "contentSubtitle": "实例运维",
       "navAssets": "对象存储占用",
       "navDiscoverySources": "发现源",
       "navPublicCategories": "公共分类",
@@ -1327,8 +1327,8 @@
       "statConsecutive": "连续阅读",
       "statConsecutiveValue": "{days} 天",
       "statCompletedWorks": "读完作品",
-      "statLookedUpWords": "查词",
-      "statLookedUpWordsMobile": "查询生词",
+      "statLookedUpWords": "AI 查词",
+      "statLookedUpWordsMobile": "AI 查询生词",
       "worksRead": "读过的作品",
       "statusCompleted": "已读完",
       "statusInProgress": "正在阅读",
@@ -1426,6 +1426,9 @@
         "loginForBilingual": "登录后使用双语对照",
         "sessionExpired": "登录已过期，请重新登录"
       },
+      "link": {
+        "unavailable": "无法跳转到该链接，目标内容未收录"
+      },
       "tts": {
         "play": "播放",
         "pause": "暂停",
@@ -1463,6 +1466,7 @@
         "questionPlaceholder": "针对选中内容提问…",
         "cancel": "取消",
         "send": "发送",
+        "retry": "重试",
         "close": "关闭",
         "continueInDrawer": "继续追问",
         "continueUnavailable": "本次回答未保存，无法继续",

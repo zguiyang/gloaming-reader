@@ -17,6 +17,7 @@ import {
   languageLabelFromCode,
   readingStatusFromState,
 } from '@/features/book-detail/book-detail-model';
+import { bookDetailQueryKey } from '@/features/book-detail/book-detail-query-key';
 import { getLibraryItem } from '@/features/library/library-public';
 import { getReadingState } from '@/features/reader/reader-api';
 import { getWorkParts } from '@/features/reader/reader-parts-public';
@@ -30,10 +31,8 @@ async function getPublishedWork(workId: string, init?: { signal?: AbortSignal })
   });
 }
 
-export const bookDetailQueryKey = {
-  all: ['book-detail'] as const,
-  detail: (workId: string) => [...bookDetailQueryKey.all, workId] as const,
-};
+/** Re-exported so existing consumers keep one import site for the factory. */
+export { bookDetailQueryKey };
 
 function toIsoString(value: string | Date | null | undefined): string | null {
   if (!value) {

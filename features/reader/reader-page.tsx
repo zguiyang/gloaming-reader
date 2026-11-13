@@ -1,12 +1,15 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@/i18n';
 
 import { useAuthDialog } from '@/features/auth';
+import { bookDetailQueryKey } from '@/features/book-detail/book-detail-query-key';
+import { libraryQueryKey } from '@/features/library/library-api';
 import { ReaderAiDrawer } from '@/features/reader/assist/reader-ai-drawer';
 import { ReaderAiInline } from '@/features/reader/assist/reader-ai-inline';
 import { useReaderAssist } from '@/features/reader/assist/use-reader-assist';
@@ -50,6 +53,7 @@ import {
   releaseAnchorRestoreMarkers,
   resolveAnchorFlushRatio,
   resolveAnchorRatio,
+  resolveReaderInternalLink,
   scrollPositionRatio,
   shouldPersistAnchor,
   startAnchorRestore,
@@ -100,6 +104,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preferredPartId = searchParams.get('part')?.trim() || null;
+  const queryClient = useQueryClient();
   const { openLogin } = useAuthDialog();
   const { data: authData } = authClient.useSession();
   const isAuthenticated = Boolean(authData?.user);
@@ -149,6 +154,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     timer: null,
   });
   const activePartIdRef = useRef<string | null>(null);
+  const pendingFragmentRef = useRef<string | null>(null);
 
   const partsData = partsQuery.data;
   const stateData = stateQuery.data ?? null;
@@ -530,11 +536,13 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   }, [preferredPartId, partsData, isAuthenticated, flushAnchorSave, stopAudio, stateMutation]);
 
   const navigateToPart = useCallback(
-    async (partId: string, mode: 'navigate' | 'complete_chapter', nextPartId?: string) => {
+    async (partId: string, mode: 'navigate' | 'complete_chapter', nextPartId?: string, fragment?: string | null) => {
       if (!isAuthenticated) {
         openLogin({ reason: 'sync' });
         return;
       }
+      const partUrl = (targetPartId: string) =>
+        `/read/${workId}?part=${encodeURIComponent(targetPartId)}${fragment ? `#${encodeURIComponent(fragment)}` : ''}`;
       try {
         await flushAnchorSave();
         const updated =
@@ -546,9 +554,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         setActivePartId(updated.currentPartId ?? partId);
         // push (not replace): chapter navigation must create history entries so
         // browser back/forward walks through chapters.
-        router.push(`/read/${workId}?part=${encodeURIComponent(updated.currentPartId ?? partId)}`, {
-          scroll: false,
-        });
+        router.push(partUrl(updated.currentPartId ?? partId), { scroll: false });
       } catch (error) {
         if (isReadingStateRevisionConflict(error)) {
           const refreshed = await refetchState();
@@ -558,7 +564,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
             stopAudio();
             const recoveredPartId = recovered.currentPartId ?? partId;
             setActivePartId(recoveredPartId);
-            router.push(`/read/${workId}?part=${encodeURIComponent(recoveredPartId)}`, { scroll: false });
+            router.push(partUrl(recoveredPartId), { scroll: false });
           }
           toast.info(t(locale, 'content.reader.toast.stateRefreshed'));
           return;
@@ -575,6 +581,50 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     setDictionaryState(null);
     window.getSelection()?.removeAllRanges();
   }
+
+  const scrollToFragment = useCallback((fragment: string | null) => {
+    if (!fragment) return;
+    const root = contentRef.current;
+    if (!root) return;
+    const scope = root.querySelector('article') ?? root;
+    const target = Array.from(scope.querySelectorAll<HTMLElement>('[id]')).find((element) => element.id === fragment);
+    target?.scrollIntoView({ block: 'start' });
+  }, []);
+
+  const handleContentLink = useCallback(
+    (href: string) => {
+      const target = resolveReaderInternalLink(partsData?.parts ?? [], activePartId ?? '', href);
+      if (!target) {
+        toast.info(t(locale, 'content.reader.link.unavailable'));
+        return;
+      }
+      if (target.partId === activePartId) {
+        scrollToFragment(target.fragment);
+        return;
+      }
+      pendingFragmentRef.current = target.fragment;
+      if (isAuthenticated) {
+        void navigateToPart(target.partId, 'navigate', undefined, target.fragment);
+        return;
+      }
+      setActivePartId(target.partId);
+      router.push(
+        `/read/${workId}?part=${encodeURIComponent(target.partId)}${
+          target.fragment ? `#${encodeURIComponent(target.fragment)}` : ''
+        }`,
+        { scroll: false },
+      );
+    },
+    [activePartId, isAuthenticated, locale, navigateToPart, partsData?.parts, router, scrollToFragment, workId],
+  );
+
+  useEffect(() => {
+    if (!pendingFragmentRef.current || !loadedPartId || loadedPartId !== activePartId) return;
+    const fragment = pendingFragmentRef.current;
+    pendingFragmentRef.current = null;
+    const frame = requestAnimationFrame(() => scrollToFragment(fragment));
+    return () => cancelAnimationFrame(frame);
+  }, [activePartId, loadedPartId, scrollToFragment]);
 
   function requestInlineAssist(kind: 'explain' | 'translate') {
     if (!selection) return;
@@ -596,12 +646,22 @@ export function ReaderPage({ workId }: ReaderPageProps) {
       await flushAnchorSave();
       const updated = await stateMutation.mutateAsync({ action: 'finish' });
       setLocalProgressRatio(updated.progressRatio);
+      // Refresh before navigating: a cached Library surface can otherwise show
+      // the pre-finish card until a manual reload.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: libraryQueryKey.all }),
+        queryClient.invalidateQueries({ queryKey: bookDetailQueryKey.all }),
+      ]);
       router.push('/library');
     } catch (error) {
       if (isReadingStateRevisionConflict(error)) {
         const refreshed = await refetchState();
         const recovered = refreshed.data;
         if (recovered?.status === 'completed') {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: libraryQueryKey.all }),
+            queryClient.invalidateQueries({ queryKey: bookDetailQueryKey.all }),
+          ]);
           router.push('/library');
         } else if (recovered) {
           setLocalProgressRatio(recovered.progressRatio);
@@ -753,6 +813,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           setIsChromeVisible((v) => !v);
           if (selection && assist.aiMode !== 'inline') clearSelectionUi();
         }}
+        onContentLink={handleContentLink}
         onScroll={(event) => {
           scheduleAnchorSave(scrollPositionRatio(event.currentTarget));
         }}
@@ -843,12 +904,11 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         mode={assist.inlineSession?.mode ?? 'answer'}
         canOpenDrawer={Boolean(assist.inlineSession?.conversationId)}
         error={assist.error}
-        rect={selection?.rect}
-        top={(selection?.top ?? 0) + 48}
-        left={selection?.left ?? 0}
-        onSubmitQuestion={(question) => {
-          if (selection) void assist.runInlineAssist('ask', selection, question);
-        }}
+        rect={assist.inlineSession?.rect}
+        top={(assist.inlineSession?.top ?? 0) + 48}
+        left={assist.inlineSession?.left ?? 0}
+        onSubmitQuestion={assist.submitInlineQuestion}
+        onRetry={assist.retryInlineAssist}
         onClose={() => {
           assist.closeAiSurface();
           clearSelectionUi();

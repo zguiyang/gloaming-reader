@@ -458,7 +458,7 @@
   "admin": {
     "shell": {
       "subtitle": "Admin",
-      "contentSubtitle": "Content management",
+      "contentSubtitle": "Instance operations",
       "navAssets": "Object storage usage",
       "navDiscoverySources": "Discovery sources",
       "navPublicCategories": "Public categories",
@@ -1327,8 +1327,8 @@
       "statConsecutive": "Streak",
       "statConsecutiveValue": "{days} days",
       "statCompletedWorks": "Finished works",
-      "statLookedUpWords": "Lookups",
-      "statLookedUpWordsMobile": "Word lookups",
+      "statLookedUpWords": "AI lookups",
+      "statLookedUpWordsMobile": "AI word lookups",
       "worksRead": "Works read",
       "statusCompleted": "Finished",
       "statusInProgress": "Reading",
@@ -1426,6 +1426,9 @@
         "loginForBilingual": "Sign in to use bilingual view",
         "sessionExpired": "Session expired — please sign in again"
       },
+      "link": {
+        "unavailable": "Cannot open this link; the target content is not included"
+      },
       "tts": {
         "play": "Play",
         "pause": "Pause",
@@ -1463,6 +1466,7 @@
         "questionPlaceholder": "Ask about the selected text…",
         "cancel": "Cancel",
         "send": "Send",
+        "retry": "Retry",
         "close": "Close",
         "continueInDrawer": "Continue in panel",
         "continueUnavailable": "This answer was not saved and cannot continue",

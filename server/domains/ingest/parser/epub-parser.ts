@@ -68,6 +68,9 @@ export const epubContentParser: ContentParser = {
     const resolvedChapters = chapters.map((chapter) => ({
       title: chapter.title,
       html: stripOrphanImagePlaceholders(chapter.html, keepTokens),
+      sourceHref: chapter.sourceHref,
+      sourceHrefs: chapter.sourceHrefs,
+      sourceAnchors: chapter.sourceAnchors,
     }));
 
     let cover: ParsedContent['cover'] = null;

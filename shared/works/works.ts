@@ -124,6 +124,12 @@ export type Part = z.infer<typeof partSchema>;
 export const partSummarySchema = partSchema.omit({ body: true }).extend({
   wordCount: z.number().int().nonnegative().nullable(),
   estimatedMinutes: z.number().int().nonnegative().nullable(),
+  /** Primary EPUB container file; null for legacy parts or non-EPUB sources. */
+  sourceHref: z.string().nullable(),
+  /** All EPUB container files merged into this part. */
+  sourceHrefs: z.array(z.string()),
+  /** Element ids present in this part, for internal link resolution. */
+  sourceAnchors: z.array(z.string()),
 });
 
 export type PartSummary = z.infer<typeof partSummarySchema>;

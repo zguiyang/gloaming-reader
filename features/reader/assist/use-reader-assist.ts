@@ -21,6 +21,7 @@ import {
   type ReaderAiMode,
   type ReaderInlineAssistKind,
   type ReaderSelection,
+  type ReaderSelectionRect,
 } from '@/features/reader/reader-model';
 import { ApiRequestError } from '@/lib/api-request';
 import { useLocale } from '@/lib/locale-context';
@@ -31,6 +32,12 @@ export type ReaderInlineSession = {
   kind: InlineAssistKind;
   quote: string;
   paragraphId: string;
+  contextSentence?: string;
+  /** Captured at request time so the popover keeps its anchor after focus/selection changes. */
+  rect?: ReaderSelectionRect;
+  top: number;
+  left: number;
+  question?: string;
   answer: string;
   conversationId?: string;
   mode: 'answer' | 'question';
@@ -125,10 +132,19 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
   const [isDrawerSending, setIsDrawerSending] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const assistAbortRef = useRef<AbortController | null>(null);
+  // The inline popover and the drawer are independent surfaces. Each owns its
+  // controller so starting one can never abort the other's in-flight stream —
+  // sharing a single ref let an inline request kill a drawer stream, whose
+  // catch path returned before clearing `isDrawerSending` and left the drawer
+  // input disabled until a full reload.
+  const inlineAbortRef = useRef<AbortController | null>(null);
+  const drawerAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    return () => assistAbortRef.current?.abort();
+    return () => {
+      inlineAbortRef.current?.abort();
+      drawerAbortRef.current?.abort();
+    };
   }, []);
 
   const conversations = useMemo<ConversationSummary[]>(
@@ -182,10 +198,25 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
       kind: 'ask',
       quote: selection.quote,
       paragraphId: selection.paragraphId,
+      contextSentence: selection.contextSentence,
+      rect: selection.rect,
+      top: selection.top,
+      left: selection.left,
       answer: '',
       mode: 'question',
     });
     setAiMode('inline');
+  }
+
+  function selectionFromInlineSession(session: ReaderInlineSession): ReaderSelection {
+    return {
+      quote: session.quote,
+      paragraphId: session.paragraphId,
+      contextSentence: session.contextSentence,
+      rect: session.rect,
+      top: session.top,
+      left: session.left,
+    };
   }
 
   async function runInlineAssist(kind: Exclude<InlineAssistKind, 'ask'>, selection: ReaderSelection): Promise<void>;
@@ -193,9 +224,9 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
   async function runInlineAssist(kind: InlineAssistKind, selection: ReaderSelection, question?: string): Promise<void> {
     if (!partId) return;
 
-    assistAbortRef.current?.abort();
+    inlineAbortRef.current?.abort();
     const controller = new AbortController();
-    assistAbortRef.current = controller;
+    inlineAbortRef.current = controller;
     const userContent = formatInlineAssistPrompt(locale, kind, selection.quote, question);
 
     setError(null);
@@ -205,6 +236,11 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
       kind,
       quote: selection.quote,
       paragraphId: selection.paragraphId,
+      contextSentence: selection.contextSentence,
+      rect: selection.rect,
+      top: selection.top,
+      left: selection.left,
+      question,
       answer: '',
       mode: 'answer',
     });
@@ -264,12 +300,28 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
       ]);
       invalidateHistory();
     } catch (error) {
-      if (controller.signal.aborted) {
-        return;
-      }
+      // A newer request owns this surface now; touching state would clear its flag.
+      if (inlineAbortRef.current !== controller) return;
       setIsInlineStreaming(false);
+      if (controller.signal.aborted) return;
       handleAssistError(error);
     }
+  }
+
+  function submitInlineQuestion(question: string) {
+    if (!inlineSession) return;
+    void runInlineAssist('ask', selectionFromInlineSession(inlineSession), question);
+  }
+
+  function retryInlineAssist() {
+    if (!inlineSession) return;
+    const selection = selectionFromInlineSession(inlineSession);
+    if (inlineSession.kind === 'ask') {
+      if (!inlineSession.question) return;
+      void runInlineAssist('ask', selection, inlineSession.question);
+      return;
+    }
+    void runInlineAssist(inlineSession.kind, selection);
   }
 
   async function sendDrawerMessage(text: string, selection?: ReaderSelection | null) {
@@ -278,9 +330,9 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
 
     const quoteToUse = selection?.quote ?? activeQuote ?? undefined;
 
-    assistAbortRef.current?.abort();
+    drawerAbortRef.current?.abort();
     const controller = new AbortController();
-    assistAbortRef.current = controller;
+    drawerAbortRef.current = controller;
     const userMessage: ReaderAiMessage = {
       id: messageId('user'),
       role: 'user',
@@ -333,11 +385,13 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
       setIsDrawerSending(false);
       invalidateHistory();
     } catch (error) {
-      if (controller.signal.aborted) {
-        return;
-      }
+      if (drawerAbortRef.current !== controller) return;
+      // Always release the guard, including on abort: `sendDrawerMessage`
+      // early-returns on `isDrawerSending`, so a skipped reset left the drawer
+      // input and send button disabled for the rest of the session.
       setIsDrawerSending(false);
       setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      if (controller.signal.aborted) return;
       handleAssistError(error);
     }
   }
@@ -376,6 +430,8 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
     isInlineStreaming,
     openInlineQuestion,
     runInlineAssist,
+    submitInlineQuestion,
+    retryInlineAssist,
     openInlineConversationInDrawer,
     activeConversationId,
     activeQuote,
