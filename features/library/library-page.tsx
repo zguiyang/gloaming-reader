@@ -37,6 +37,11 @@ import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
 const TAG_ID_SEPARATOR = '\u0000';
+const SEARCH_DEBOUNCE_MS = 300;
+
+type LibraryStatus = 'all' | 'reading' | 'unread' | 'completed';
+type LibrarySort = 'added' | 'recent' | 'title';
+type LibraryView = 'grid' | 'list';
 
 function LibraryHeader() {
   const { locale } = useLocale();
@@ -112,21 +117,30 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
   );
   const initialParams = new URLSearchParams(searchKey);
   const [search, setSearch] = useState(() => initialParams.get('q')?.slice(0, 200) ?? '');
-  const [status, setStatus] = useState<'all' | 'reading' | 'unread' | 'completed'>(() => {
+  const [status, setStatus] = useState<LibraryStatus>(() => {
     const value = initialParams.get('status');
     return value === 'reading' || value === 'unread' || value === 'completed' ? value : 'all';
   });
-  const [sort, setSort] = useState<'added' | 'recent' | 'title'>(() => {
+  const [sort, setSort] = useState<LibrarySort>(() => {
     const value = initialParams.get('sort');
     return value === 'recent' || value === 'title' ? value : 'added';
   });
-  const [view, setView] = useState<'grid' | 'list'>(() => (initialParams.get('view') === 'list' ? 'list' : 'grid'));
+  const [view, setView] = useState<LibraryView>(() => (initialParams.get('view') === 'list' ? 'list' : 'grid'));
+  // Typing only updates local state; the query follows a debounced copy so each
+  // keystroke does not fire a browse request.
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const isTagValid = filters.tagId === null || !hasTagsLoaded || tags.some((tag) => tag.id === filters.tagId);
   const effectiveFilters: LibraryFilters = { source: filters.source, tagId: isTagValid ? filters.tagId : null };
   const browse = useLibraryBrowseQuery({
     source: effectiveFilters.source,
     tag: effectiveFilters.tagId ?? undefined,
-    q: search.trim() || undefined,
+    q: debouncedSearch || undefined,
     status,
     sort,
   });
@@ -153,21 +167,41 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
   const applyFilters = (next: LibraryFilters) => {
     if (next.source === effectiveFilters.source && next.tagId === effectiveFilters.tagId) return;
     setFilters(next);
-    const query = buildLibraryFilterQuery(next, currentViewParams());
+    const query = buildLibraryFilterQuery(next, buildViewSearch());
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
-  function currentViewParams() {
+  /**
+   * Serialize the current view controls (plus q) into the URL query. Status, sort
+   * and view are durable state too: refresh and back/forward must restore them.
+   */
+  function buildViewSearch(
+    overrides: { status?: LibraryStatus; sort?: LibrarySort; view?: LibraryView } = {},
+  ): URLSearchParams {
     const params = new URLSearchParams(searchKey);
-    if (search.trim()) params.set('q', search.trim());
+    const nextSearch = search.trim();
+    if (nextSearch) params.set('q', nextSearch);
     else params.delete('q');
-    if (status !== 'all') params.set('status', status);
+    const nextStatus = overrides.status ?? status;
+    if (nextStatus !== 'all') params.set('status', nextStatus);
     else params.delete('status');
-    if (sort !== 'added') params.set('sort', sort);
+    const nextSort = overrides.sort ?? sort;
+    if (nextSort !== 'added') params.set('sort', nextSort);
     else params.delete('sort');
-    if (view !== 'grid') params.set('view', view);
+    const nextView = overrides.view ?? view;
+    if (nextView !== 'grid') params.set('view', nextView);
     else params.delete('view');
     return params;
+  }
+
+  function writeViewSearch(
+    overrides: { status?: LibraryStatus; sort?: LibrarySort; view?: LibraryView },
+    mode: 'push' | 'replace',
+  ) {
+    const query = buildViewSearch(overrides).toString();
+    const href = query ? `${pathname}?${query}` : pathname;
+    if (mode === 'push') router.push(href, { scroll: false });
+    else router.replace(href, { scroll: false });
   }
 
   if (libraryQuery.isPending) {
@@ -253,6 +287,8 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
     );
   }
 
+  const filterQuery = buildLibraryFilterQuery(effectiveFilters, buildViewSearch());
+
   return (
     <div
       className={cn(
@@ -279,7 +315,10 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
                     size={null}
                     key={value}
                     type="button"
-                    onClick={() => setStatus(value)}
+                    onClick={() => {
+                      setStatus(value);
+                      writeViewSearch({ status: value }, 'push');
+                    }}
                     aria-pressed={status === value}
                     className={cn(
                       // Square 2px underline drawn by the pseudo-element: a single-side
@@ -329,7 +368,10 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
                     { value: 'title', label: t(locale, 'content.library.sortTitle') },
                   ]}
                   onValueChange={(value) => {
-                    if (value === 'added' || value === 'recent' || value === 'title') setSort(value);
+                    if (value === 'added' || value === 'recent' || value === 'title') {
+                      setSort(value);
+                      writeViewSearch({ sort: value }, 'push');
+                    }
                   }}
                 >
                   <SelectTrigger aria-label={t(locale, 'content.library.sortBooks')} className="h-9 max-w-32">
@@ -348,7 +390,10 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
                   size="icon"
                   aria-label={t(locale, 'content.library.gridView')}
                   aria-pressed={view === 'grid'}
-                  onClick={() => setView('grid')}
+                  onClick={() => {
+                    setView('grid');
+                    writeViewSearch({ view: 'grid' }, 'replace');
+                  }}
                 >
                   <Grid2X2Icon className="size-4" />
                 </Button>
@@ -357,7 +402,10 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
                   size="icon"
                   aria-label={t(locale, 'content.library.listView')}
                   aria-pressed={view === 'list'}
-                  onClick={() => setView('list')}
+                  onClick={() => {
+                    setView('list');
+                    writeViewSearch({ view: 'list' }, 'replace');
+                  }}
                 >
                   <ListIcon className="size-4" />
                 </Button>
@@ -383,7 +431,7 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
             items={filteredItems}
             tags={tags}
             view={view}
-            returnTo={`${AUTH_ROUTES.library}${buildLibraryFilterQuery(effectiveFilters, currentViewParams()) ? `?${buildLibraryFilterQuery(effectiveFilters, currentViewParams())}` : ''}`}
+            returnTo={`${AUTH_ROUTES.library}${filterQuery ? `?${filterQuery}` : ''}`}
             emptyState={
               browse.isPending || browse.isError ? null : (
                 <div className="flex flex-col items-center gap-3 py-10 text-center" role="status">

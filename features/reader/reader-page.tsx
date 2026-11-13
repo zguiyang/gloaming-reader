@@ -155,6 +155,10 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   });
   const activePartIdRef = useRef<string | null>(null);
   const pendingFragmentRef = useRef<string | null>(null);
+  // Chapter navigation / finish issue a reading-state mutation that carries the
+  // revision read at call time. A second click while one is in flight would
+  // reuse the same revision and 409, so only one state action may run at once.
+  const stateActionInFlightRef = useRef(false);
 
   const partsData = partsQuery.data;
   const stateData = stateQuery.data ?? null;
@@ -537,10 +541,12 @@ export function ReaderPage({ workId }: ReaderPageProps) {
 
   const navigateToPart = useCallback(
     async (partId: string, mode: 'navigate' | 'complete_chapter', nextPartId?: string, fragment?: string | null) => {
+      if (stateActionInFlightRef.current) return;
       if (!isAuthenticated) {
         openLogin({ reason: 'sync' });
         return;
       }
+      stateActionInFlightRef.current = true;
       const partUrl = (targetPartId: string) =>
         `/read/${workId}?part=${encodeURIComponent(targetPartId)}${fragment ? `#${encodeURIComponent(fragment)}` : ''}`;
       try {
@@ -570,6 +576,8 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           return;
         }
         toast.error(formatReaderApiError(error));
+      } finally {
+        stateActionInFlightRef.current = false;
       }
     },
     [flushAnchorSave, isAuthenticated, locale, openLogin, refetchState, router, stateMutation, stopAudio, workId],
@@ -638,10 +646,12 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   }
 
   async function handleFinish() {
+    if (stateActionInFlightRef.current) return;
     if (!isAuthenticated) {
       openLogin({ reason: 'sync' });
       return;
     }
+    stateActionInFlightRef.current = true;
     try {
       await flushAnchorSave();
       const updated = await stateMutation.mutateAsync({ action: 'finish' });
@@ -675,6 +685,8 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         return;
       }
       toast.error(formatReaderApiError(error));
+    } finally {
+      stateActionInFlightRef.current = false;
     }
   }
 

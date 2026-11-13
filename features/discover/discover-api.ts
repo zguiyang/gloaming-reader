@@ -45,6 +45,8 @@ export const discoverQueryKey = {
   legacyWorks: (params: DiscoverLegacyParams) => [...discoverQueryKey.all, 'legacy-works', params] as const,
   saveStatus: (sourceRecordId: string, userId: string | null) =>
     [...discoverQueryKey.all, 'save-status', userId, sourceRecordId] as const,
+  relatedAuthor: (userId: string | null, externalId: string, author: string) =>
+    [...discoverQueryKey.all, 'related-author', userId, externalId, author] as const,
 };
 
 const DEFAULT_RECORD_SORT_BY = 'sourceUpdatedAt' as const;

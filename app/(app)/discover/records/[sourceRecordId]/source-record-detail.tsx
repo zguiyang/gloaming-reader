@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { chaptersFromParts } from '@/features/book-detail/book-detail-api';
 import { BookDetailPage } from '@/features/book-detail/book-detail-page';
 import { BookDetailToc } from '@/features/book-detail/book-detail-toc';
-import { DiscoverSourceCard, fetchDiscoverRecords, toDiscoverItem } from '@/features/discover';
-import { getWorkParts } from '@/features/reader/reader-parts-public';
+import { DiscoverSourceCard, discoverQueryKey, fetchDiscoverRecords, toDiscoverItem } from '@/features/discover';
+import { useReaderPartsQuery } from '@/features/reader/reader-api';
 import { WorkCover } from '@/features/work-cover';
 import { apiRequest } from '@/lib/api-request';
 import { authClient } from '@/lib/auth';
@@ -59,13 +59,12 @@ function SourceDetailExtras({ record, userId }: { record: SourceRecordDetail; us
   const { locale } = useLocale();
   const author = record.authors.find((entry) => entry.name.trim())?.name.trim() ?? '';
   const authorQuery = useQuery({
-    queryKey: ['discover', 'related-author', userId, record.externalId, author],
+    queryKey: discoverQueryKey.relatedAuthor(userId, record.externalId, author),
     queryFn: ({ signal }) => fetchDiscoverRecords({ q: author, pageSize: 30 }, { signal }),
     enabled: Boolean(author),
   });
-  const partsQuery = useQuery({
-    queryKey: ['discover', 'source-parts', userId, record.linkedWorkId],
-    queryFn: ({ signal }) => getWorkParts(record.linkedWorkId!, { signal }),
+  // Same key as the reader's parts query, so both surfaces share one cache entry.
+  const partsQuery = useReaderPartsQuery(record.linkedWorkId ?? '', {
     enabled: record.detailAvailable && Boolean(record.linkedWorkId),
     retry: false,
   });

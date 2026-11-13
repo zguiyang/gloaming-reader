@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -49,6 +49,9 @@ export function useLibraryBrowseQuery(query: Omit<LibraryBrowseQuery, 'page'>) {
       return apiRequest(`/api/library/browse?${params}`, { schema: libraryBrowseDataSchema, signal });
     },
     getNextPageParam: (last, pages) => (last.hasMore ? pages.length + 1 : undefined),
+    // Keep the previous pages rendered while the debounced filter/key changes so
+    // the grid does not flash empty on every keystroke.
+    placeholderData: keepPreviousData,
     refetchInterval: (result) =>
       result.state.data?.pages.some((page) => page.items.some((item) => item.availability === 'processing'))
         ? 2000

@@ -140,11 +140,12 @@ export function toReaderViewModel(
   };
 }
 
-export function useReaderPartsQuery(workId: string, options?: { enabled?: boolean }) {
+export function useReaderPartsQuery(workId: string, options?: { enabled?: boolean; retry?: boolean | number }) {
   return useQuery({
     queryKey: readerQueryKey.parts(workId),
     queryFn: ({ signal }) => getWorkParts(workId, { signal }),
     enabled: options?.enabled ?? Boolean(workId),
+    retry: options?.retry,
   });
 }
 
