@@ -6,7 +6,9 @@ import {
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
   DEFAULT_SORT_ORDER,
+  MAX_PAGE_SIZE,
   paginationQuerySchema,
+  pageSizeSchema,
 } from './pagination.ts';
 
 describe('paginationQuerySchema', () => {
@@ -48,6 +50,22 @@ describe('createSortByQuerySchema', () => {
 
   it('rejects unknown fields', () => {
     expect(sortBy.safeParse('title').success).toBe(false);
+  });
+});
+
+describe('pageSizeSchema', () => {
+  it('caps pageSize so a single request cannot ask for the whole table', () => {
+    expect(pageSizeSchema().parse('10')).toBe(10);
+    expect(pageSizeSchema().parse(String(MAX_PAGE_SIZE))).toBe(MAX_PAGE_SIZE);
+    expect(pageSizeSchema().safeParse(String(MAX_PAGE_SIZE + 1)).success).toBe(false);
+    expect(pageSizeSchema().safeParse('10000000').success).toBe(false);
+    expect(pageSizeSchema().safeParse('0').success).toBe(false);
+    expect(pageSizeSchema().safeParse('abc').success).toBe(false);
+  });
+
+  it('applies the cap to the shared list query schema', () => {
+    expect(paginationQuerySchema.safeParse({ pageSize: '10000000' }).success).toBe(false);
+    expect(paginationQuerySchema.parse({ pageSize: '50' }).pageSize).toBe(50);
   });
 });
 
