@@ -658,11 +658,13 @@ export const contentAsset = pgTable(
   },
   (table) => [
     unique('content_asset_part_kind_uidx').on(table.partId, table.kind),
-    // Work-level assets (origin file, cover) carry `partId IS NULL`, which the
-    // index above cannot constrain — Postgres treats NULLs as distinct.
+    // Work-level singleton assets (origin file, cover) carry `partId IS NULL`,
+    // which the index above cannot constrain — Postgres treats NULLs as distinct.
+    // Book-level extracted images are also `partId IS NULL` but repeat per work,
+    // so only the singleton kinds may be unique here.
     uniqueIndex('content_asset_work_kind_uidx')
       .on(table.workId, table.kind)
-      .where(sql`${table.partId} is null`),
+      .where(sql`${table.partId} is null and ${table.kind} in ('cover', 'origin_file')`),
     uniqueIndex('content_asset_generation_key_uidx')
       .on(table.generationKey)
       .where(sql`${table.generationKey} is not null`),

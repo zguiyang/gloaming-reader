@@ -463,7 +463,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"content_asset\".\"part_id\" is null",
+          "where": "\"content_asset\".\"part_id\" is null and \"content_asset\".\"kind\" in ('cover', 'origin_file')",
           "concurrently": false,
           "method": "btree",
           "with": {}
