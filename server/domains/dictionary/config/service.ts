@@ -10,7 +10,7 @@ import {
 import { isDictionaryProviderRegistered } from '@/server/domains/dictionary/providers/registry';
 import { getRedis } from '@/server/infra/cache';
 import { db } from '@/server/infra/db';
-import { decryptApiKey, encryptApiKey, maskApiKey } from '@/server/infra/llm';
+import { decryptApiKey, encryptApiKey, assertSafeOutboundUrl, maskApiKey } from '@/server/infra/llm';
 import { rootLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';
@@ -99,6 +99,11 @@ export async function putDictionaryConfig(body: PutDictionaryConfigBody): Promis
   const providerId = body.provider.trim();
   if (!isDictionaryProviderRegistered(providerId)) {
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.DICTIONARY.PROVIDER_SAVE_NOT_SUPPORTED, { providerId });
+  }
+  // The endpoint is fetched server-side with the dictionary API key attached,
+  // so it must satisfy the same outbound rules as a provider base URL.
+  if (body.customEndpoint?.trim()) {
+    assertSafeOutboundUrl(body.customEndpoint, '词典端点');
   }
 
   const existing = await loadConfigRow();

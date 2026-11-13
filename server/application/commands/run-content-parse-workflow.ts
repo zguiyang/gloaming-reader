@@ -147,7 +147,7 @@ async function finalizeContentParseWorkflow(
     const partStats = computePartReadingStats(part.body);
     await db
       .update(readingPartTable)
-      .set({ meta: { wordCount: partStats.wordCount } })
+      .set({ meta: sql`${readingPartTable.meta} || ${JSON.stringify({ wordCount: partStats.wordCount })}::jsonb` })
       .where(eq(readingPartTable.id, part.id));
   }
 

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@/server/db';
 
@@ -34,7 +34,7 @@ export async function ensureWorkReadingStatsIfMissing(row: WorkRow): Promise<Wor
       const partStats = computePartReadingStats(part.body);
       await tx
         .update(readingPartTable)
-        .set({ meta: { wordCount: partStats.wordCount } })
+        .set({ meta: sql`${readingPartTable.meta} || ${JSON.stringify({ wordCount: partStats.wordCount })}::jsonb` })
         .where(eq(readingPartTable.id, part.id));
     }
 

@@ -48,7 +48,13 @@ export const ttsConfigSchema = z.object({
 export type TtsConfigView = z.infer<typeof ttsConfigSchema>;
 
 export const putTtsConfigBodySchema = z.object({
-  region: z.string().trim().min(1).max(64),
+  // Interpolated into the Azure regional host; must stay a bare region name.
+  region: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9-]+$/i, 'Region must be a bare Azure region name'),
   apiKey: z.string().min(1).max(2000).optional(),
   isEnabled: z.boolean(),
   defaultVoice: z.string().trim().min(1).max(120),

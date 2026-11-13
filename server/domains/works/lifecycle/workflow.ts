@@ -69,8 +69,9 @@ export function workflowClaimWhere(workId: string, step: WorkflowStep, retryJobT
 
 /**
  * Claim the workflow step before running its job. BullMQ delivery retries that
- * arrive while the lease is active are deliberately no-ops; expired claims
- * are recovered through the explicit admin retry path.
+ * arrive while the lease is active are deliberately no-ops. An expired lease may
+ * be re-claimed by a later enqueue for the same step, but no background sweep
+ * re-dispatches a work left in `processing` — recovery requires a new enqueue.
  */
 export async function claimWorkflowStep(
   workId: string,

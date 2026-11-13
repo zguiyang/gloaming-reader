@@ -51,6 +51,18 @@ function startIndexForPage(page: number, pageSize: number): number {
   return (Math.max(1, page) - 1) * pageSize + 1;
 }
 
+/**
+ * Resolve one page window. The stride **must** be the clamped page size that is
+ * actually returned — stepping by `PROJECT_GUTENBERG_OPDS_PAGE_SIZE` while
+ * slicing by a smaller `pageSize` skips every item between the end of one window
+ * and the start of the next (16..25 for a 15-item page).
+ */
+export function opdsPageWindow(page: number, pageSize: number): { page: number; pageSize: number; startIndex: number } {
+  const safePage = Math.max(1, page);
+  const safePageSize = Math.min(Math.max(1, pageSize), PROJECT_GUTENBERG_OPDS_PAGE_SIZE);
+  return { page: safePage, pageSize: safePageSize, startIndex: startIndexForPage(safePage, safePageSize) };
+}
+
 function toCandidateItem(entry: OpdsFeedEntry, opts?: { detailCandidates?: boolean }): SourceRecordItem {
   const candidates = entry.contentCandidates;
   const isSaveable = opts?.detailCandidates ? hasSelectableEpubCandidate({ contentCandidates: candidates }) : true;
@@ -115,9 +127,7 @@ export async function listGutenbergOpdsRecords(input: {
   facetId?: string;
   language?: string;
 }): Promise<SourceRecordListData> {
-  const page = Math.max(1, input.page);
-  const pageSize = Math.min(Math.max(1, input.pageSize), PROJECT_GUTENBERG_OPDS_PAGE_SIZE);
-  const startIndex = startIndexForPage(page, PROJECT_GUTENBERG_OPDS_PAGE_SIZE);
+  const { page, pageSize, startIndex } = opdsPageWindow(input.page, input.pageSize);
   const language = (input.language ?? DISCOVERY_DEFAULT_LANGUAGE).toLowerCase();
 
   let path: string;

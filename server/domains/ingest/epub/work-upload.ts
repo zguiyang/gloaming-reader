@@ -186,6 +186,11 @@ export async function enqueueCoreEpubParse(input: {
     await enqueueJob(JOB_CONTENT_PARSE, data, {
       attempts: 2,
       jobId: `${JOB_CONTENT_PARSE}-${input.workId}-${input.retryJobToken}`,
+      // The job id is stable across retries (the token is persisted, not rotated),
+      // so a retained finished record would make every later `enqueue` a silent
+      // no-op: BullMQ sees `EXISTS jobIdKey` and returns without re-queueing.
+      removeOnComplete: true,
+      removeOnFail: true,
     });
   } catch (error) {
     await failWorkflowEnqueue(

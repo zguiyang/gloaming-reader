@@ -35,8 +35,29 @@ function isPrivateIpv4(host: string): boolean {
   return false;
 }
 
+/**
+ * Public unicast IPv6 lives in `2000::/3`. Loopback (`::1`), unspecified (`::`),
+ * link/site-local (`fe80::`/`fec0::`), ULA (`fc00::`/`fd00::`), multicast
+ * (`ff00::`) and IPv4-mapped forms (`::ffff:7f00:1`) all fall outside it, so a
+ * single range test replaces the individual prefix checks that previously missed
+ * bracketed literals and IPv4-mapped addresses.
+ */
+function isPublicIpv6(host: string): boolean {
+  const firstHextet = /^([0-9a-f]{1,4}):/i.exec(host)?.[1];
+  if (firstHextet === undefined) {
+    return false;
+  }
+  return (Number.parseInt(firstHextet, 16) & 0xe000) === 0x2000;
+}
+
 function isBlockedHost(hostname: string): boolean {
-  const normalized = hostname.trim().toLowerCase().replace(/\.$/, '');
+  // WHATWG `URL.hostname` keeps the brackets around IPv6 literals
+  // (`http://[::1]` → `[::1]`), so strip them before matching below.
+  const normalized = hostname
+    .trim()
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.$/, '');
   if (!normalized) {
     return true;
   }
@@ -46,13 +67,13 @@ function isBlockedHost(hostname: string): boolean {
   if (normalized.endsWith('.localhost')) {
     return true;
   }
-  if (
-    normalized === '::1' ||
-    normalized.startsWith('fe80:') ||
-    normalized.startsWith('fc') ||
-    normalized.startsWith('fd')
-  ) {
+  // An IPv4 address can still be spelled as an IPv4-mapped IPv6 suffix.
+  const dottedSuffix = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(normalized)?.[1];
+  if (dottedSuffix && isPrivateIpv4(dottedSuffix)) {
     return true;
+  }
+  if (normalized.includes(':')) {
+    return !isPublicIpv6(normalized);
   }
   return isPrivateIpv4(normalized);
 }
@@ -77,6 +98,19 @@ export function assertSafeOutboundUrl(rawUrl: string, label = 'URL'): void {
   if (isBlockedHost(parsed.hostname)) {
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.OUTBOUND_URL.PRIVATE_NETWORK, { label });
   }
+}
+
+/**
+ * An explicit proxy is dialed by undici's `ProxyAgent` (http/https only) and
+ * still carries the provider `Authorization` header to whatever host it points
+ * at, so it needs the same host/credential rules as any other outbound target.
+ * Empty means "no explicit proxy", which is always valid.
+ */
+export function assertSafeProxyUrl(rawUrl: string | null | undefined, label = '代理地址'): void {
+  if (!rawUrl?.trim()) {
+    return;
+  }
+  assertSafeOutboundUrl(rawUrl, label);
 }
 
 /** Resolve a provider balance endpoint that may be absolute or root-relative. */

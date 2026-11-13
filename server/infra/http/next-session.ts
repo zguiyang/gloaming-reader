@@ -3,6 +3,9 @@ import { headers } from 'next/headers';
 import { isAdminRole } from '@/shared/auth';
 
 import { auth, type AuthSession, type AuthSessionUser } from '@/server/infra/auth/auth';
+import { HTTP_STATUS } from '@/server/shared/constants';
+import { AppError } from '@/server/shared/errors/app-error';
+import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 export type RequestIdentity = {
   user: AuthSessionUser | null;
@@ -24,10 +27,9 @@ export function assertAuthenticated(identity: RequestIdentity): asserts identity
   session: AuthSession;
 } {
   if (!identity.user || !identity.session) {
-    const error = new Error('UNAUTHORIZED');
-    (error as Error & { status: number; code: string }).status = 401;
-    (error as Error & { status: number; code: string }).code = 'UNAUTHORIZED';
-    throw error;
+    // AppError carries the stable i18n key; a bare `Error('UNAUTHORIZED')` would
+    // surface the raw string to the client because `t()` falls back to the key.
+    throw new AppError(HTTP_STATUS.UNAUTHORIZED, ERROR_CODES.UNAUTHORIZED);
   }
 }
 
@@ -35,9 +37,6 @@ export function assertAdmin(identity: RequestIdentity): void {
   assertAuthenticated(identity);
   const role = (identity.user as AuthSessionUser & { role?: string }).role;
   if (!isAdminRole(role)) {
-    const error = new Error('FORBIDDEN');
-    (error as Error & { status: number; code: string }).status = 403;
-    (error as Error & { status: number; code: string }).code = 'FORBIDDEN';
-    throw error;
+    throw new AppError(HTTP_STATUS.FORBIDDEN, ERROR_CODES.FORBIDDEN);
   }
 }

@@ -56,7 +56,8 @@ export const createLlmProviderBodySchema = z
       .trim()
       .url()
       .max(500)
-      .refine((value) => /^(https?|socks5):\/\//i.test(value), { message: '代理地址需为 http/https/socks5' })
+      // undici's ProxyAgent only dials http/https; socks5 was never supported.
+      .refine((value) => /^https?:\/\//i.test(value), { message: '代理地址需为 http/https' })
       .optional()
       .nullable(),
     thinkingParam: z
@@ -95,7 +96,8 @@ export const updateLlmProviderBodySchema = z
       .trim()
       .url()
       .max(500)
-      .refine((value) => /^(https?|socks5):\/\//i.test(value), { message: '代理地址需为 http/https/socks5' })
+      // undici's ProxyAgent only dials http/https; socks5 was never supported.
+      .refine((value) => /^https?:\/\//i.test(value), { message: '代理地址需为 http/https' })
       .optional()
       .nullable(),
     thinkingParam: z
