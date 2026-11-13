@@ -32,5 +32,5 @@
     // global Element (HTMLRewriter) that conflicts with the DOM lib and breaks
     // typecheck whenever the generated file exists.
   ],
-  "exclude": ["node_modules", "archive", "**/*.spec.ts", "**/*.test.ts"]
+  "exclude": ["node_modules", "archive"]
 }

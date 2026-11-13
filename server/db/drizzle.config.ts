@@ -13,6 +13,8 @@ if (!databaseUrl) {
 }
 
 export default defineConfig({
+  // Relative to the process cwd — the package scripts therefore run drizzle-kit
+  // from `server/db/` (see `db:generate` / `db:migrate` / `db:push`).
   schema: './schema.ts',
   out: './migrations',
   dialect: 'postgresql',
