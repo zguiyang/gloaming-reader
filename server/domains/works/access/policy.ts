@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@/server/db';
 
@@ -123,4 +123,17 @@ export async function canReadWork(actor: WorkReadActor, workId: string): Promise
   const where = access ? and(eq(readingWorkTable.id, workId), access) : eq(readingWorkTable.id, workId);
   const [row] = await db.select({ id: readingWorkTable.id }).from(readingWorkTable).where(where).limit(1);
   return Boolean(row);
+}
+
+/**
+ * Batch form of {@link canReadWork}: resolves the same policy for many Works in
+ * one query so list endpoints do not issue a lookup per row.
+ */
+export async function listReadableWorkIds(actor: WorkReadActor, workIds: string[]): Promise<Set<string>> {
+  if (workIds.length === 0) return new Set();
+  const access = workReadAccessSql(actor);
+  const ids = inArray(readingWorkTable.id, workIds);
+  const where = access ? and(ids, access) : ids;
+  const rows = await db.select({ id: readingWorkTable.id }).from(readingWorkTable).where(where);
+  return new Set(rows.map((row) => row.id));
 }

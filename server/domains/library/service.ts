@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import {
   readingState as readingStateTable,
@@ -15,6 +15,7 @@ import {
   type LibraryBrowseQuery,
   type LibraryData,
   type LibraryItem,
+  type UserTag,
 } from '@/shared/library';
 import { workAvailability } from '@/shared/works';
 
@@ -27,6 +28,43 @@ import { NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
+
+type MembershipRow = {
+  work: WorkRow;
+  state: typeof readingStateTable.$inferSelect | null;
+  owned: boolean;
+};
+
+type LibraryItemContext = {
+  partsByWork: Map<string, { sortOrder: number }[]>;
+  userTagsByWork: Map<string, UserTag[]>;
+};
+
+/**
+ * Single owner of `LibraryItem` assembly. The browse list, the full shelf and
+ * the single-item lookup used to each restate this mapping, which is how their
+ * `canRemoveFromLibrary` / `libraryItemKind` pairs could drift apart.
+ */
+function buildLibraryItem(row: MembershipRow, ctx: LibraryItemContext): LibraryItem {
+  const parts = ctx.partsByWork.get(row.work.id) ?? [];
+  return {
+    work: toWorkSummary(row.work),
+    state: row.state ? toReadingState(row.state, parts) : null,
+    availability: workAvailability(row.work.processingStatus, parts.length),
+    canRemoveFromLibrary: !row.owned,
+    libraryItemKind: row.owned ? 'personal' : 'saved_catalog',
+    personalMetadata: row.owned
+      ? {
+          author: row.work.author,
+          language: row.work.language,
+          estimatedMinutes: row.work.estimatedMinutes,
+          suggestedVocabSize: row.work.suggestedVocabSize,
+          difficultyScore: row.work.difficultyScore,
+        }
+      : null,
+    userTags: ctx.userTagsByWork.get(row.work.id) ?? [],
+  };
+}
 
 /** Search the complete owner-scoped shelf before limiting results. */
 export async function browseLibrary(userId: string, query: LibraryBrowseQuery): Promise<LibraryBrowseData> {
@@ -70,10 +108,68 @@ export async function browseLibrary(userId: string, query: LibraryBrowseQuery): 
     ORDER BY ${order} LIMIT ${size + 1} OFFSET ${(query.page - 1) * size}
   `);
   const rows = result.rows;
+  const pageIds = rows.slice(0, size).map((row) => row.id);
   return {
-    items: await Promise.all(rows.slice(0, size).map((row) => getLibraryItem(userId, row.id))),
+    items: await getLibraryItems(userId, pageIds),
     hasMore: rows.length > size,
   };
+}
+
+/**
+ * Resolve one page of memberships in a fixed number of queries.
+ *
+ * The previous path called `getLibraryItem` per row, which issued an owner
+ * lookup, a saved lookup, a parts query and a tags query for every item — around
+ * 70 round trips for a 24-row page, growing with `page`.
+ */
+export async function getLibraryItems(userId: string, workIds: string[]): Promise<LibraryItem[]> {
+  if (workIds.length === 0) {
+    return [];
+  }
+
+  const actor = workReadActorFromIdentity({ id: userId });
+  const [ownedRows, savedRows, partsByWork, userTagsByWork] = await Promise.all([
+    db
+      .select({ work: readingWorkTable, state: readingStateTable })
+      .from(readingWorkTable)
+      .leftJoin(
+        readingStateTable,
+        and(eq(readingStateTable.workId, readingWorkTable.id), eq(readingStateTable.userId, userId)),
+      )
+      .where(and(inArray(readingWorkTable.id, workIds), eq(readingWorkTable.ownerUserId, userId))),
+    db
+      .select({ work: readingWorkTable, state: readingStateTable })
+      .from(userLibraryItemTable)
+      .innerJoin(readingWorkTable, eq(userLibraryItemTable.workId, readingWorkTable.id))
+      .leftJoin(
+        readingStateTable,
+        and(eq(readingStateTable.workId, readingWorkTable.id), eq(readingStateTable.userId, userId)),
+      )
+      .where(
+        and(eq(userLibraryItemTable.userId, userId), inArray(readingWorkTable.id, workIds), workReadAccessSql(actor)),
+      ),
+    loadPartSortOrdersByWorkIds(workIds),
+    loadUserTagsByWorkIds(userId, workIds),
+  ]);
+
+  const byId = new Map<string, MembershipRow>();
+  for (const row of ownedRows) {
+    byId.set(row.work.id, { work: row.work, state: row.state, owned: true });
+  }
+  for (const row of savedRows) {
+    // Personal ownership and saved membership are disjoint, but keep the same
+    // precedence `getLibraryItem` used in case they are not.
+    if (!byId.has(row.work.id)) {
+      byId.set(row.work.id, { work: row.work, state: row.state, owned: false });
+    }
+  }
+
+  const ctx: LibraryItemContext = { partsByWork, userTagsByWork };
+  return workIds.map((workId) => {
+    const row = byId.get(workId);
+    if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
+    return buildLibraryItem(row, ctx);
+  });
 }
 
 function toIso(value: Date): string {
@@ -156,27 +252,12 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
     loadPartSortOrdersByWorkIds(workIds),
     loadUserTagsByWorkIds(userId, workIds),
   ]);
+  const itemCtx: LibraryItemContext = { partsByWork, userTagsByWork };
   const toItem = (row: {
     work: WorkRow;
     state: typeof readingStateTable.$inferSelect | null;
     canRemoveFromLibrary: boolean;
-  }): LibraryItem => ({
-    work: toWorkSummary(row.work),
-    state: row.state ? toReadingState(row.state, partsByWork.get(row.work.id) ?? []) : null,
-    availability: workAvailability(row.work.processingStatus, (partsByWork.get(row.work.id) ?? []).length),
-    canRemoveFromLibrary: row.canRemoveFromLibrary,
-    libraryItemKind: row.canRemoveFromLibrary ? 'saved_catalog' : 'personal',
-    personalMetadata: row.canRemoveFromLibrary
-      ? null
-      : {
-          author: row.work.author,
-          language: row.work.language,
-          estimatedMinutes: row.work.estimatedMinutes,
-          suggestedVocabSize: row.work.suggestedVocabSize,
-          difficultyScore: row.work.difficultyScore,
-        },
-    userTags: userTagsByWork.get(row.work.id) ?? [],
-  });
+  }): LibraryItem => buildLibraryItem({ work: row.work, state: row.state, owned: !row.canRemoveFromLibrary }, itemCtx);
 
   return {
     current: currentRow
@@ -221,28 +302,11 @@ export async function getLibraryItem(userId: string, workId: string): Promise<Li
         .limit(1);
   const row = owned ?? saved;
   if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
-  const [parts, tags] = await Promise.all([
+  const [partsByWork, userTagsByWork] = await Promise.all([
     loadPartSortOrdersByWorkIds([workId]),
     loadUserTagsByWorkIds(userId, [workId]),
   ]);
-  const orders = parts.get(workId) ?? [];
-  return {
-    work: toWorkSummary(row.work),
-    state: row.state ? toReadingState(row.state, orders) : null,
-    availability: workAvailability(row.work.processingStatus, orders.length),
-    canRemoveFromLibrary: !owned,
-    libraryItemKind: owned ? 'personal' : 'saved_catalog',
-    personalMetadata: owned
-      ? {
-          author: row.work.author,
-          language: row.work.language,
-          estimatedMinutes: row.work.estimatedMinutes,
-          suggestedVocabSize: row.work.suggestedVocabSize,
-          difficultyScore: row.work.difficultyScore,
-        }
-      : null,
-    userTags: tags.get(workId) ?? [],
-  };
+  return buildLibraryItem({ work: row.work, state: row.state, owned: Boolean(owned) }, { partsByWork, userTagsByWork });
 }
 
 /** Explicitly save a published Catalog work; repeated saves are successful no-ops. */

@@ -25,7 +25,7 @@ import {
 import { findSourceRecordByExternalId } from '@/server/domains/discovery/persist/source-record';
 import { assertDiscoverySourceEnabled, listEnabledDiscoverySources } from '@/server/domains/discovery/sources/service';
 import type { WorkReadActor } from '@/server/domains/works/access';
-import { canReadWork } from '@/server/domains/works/access';
+import { listReadableWorkIds } from '@/server/domains/works/access';
 import { db } from '@/server/infra/db';
 import { NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
@@ -82,25 +82,27 @@ async function enrichItemsWithLocalState(
 
   const byExternalId = new Map(rows.map((row) => [row.externalId, row]));
 
-  return Promise.all(
-    items.map(async (item) => {
-      const local = byExternalId.get(item.externalId);
-      if (!local) return item;
-
-      let detailAvailable = false;
-      if (local.workId && local.processingStatus && isWorkParseCompleted(local.processingStatus)) {
-        detailAvailable = await canReadWork(actor, local.workId);
-      }
-
-      return {
-        ...item,
-        sourceRecordId: local.id,
-        sourceId: local.sourceId,
-        linkedWorkId: local.workId,
-        detailAvailable,
-      };
-    }),
+  // One access-policy query for the whole page instead of one per row — a
+  // Discover page used to issue up to 25 extra lookups.
+  const detailCandidateWorkIds = rows.flatMap((row) =>
+    row.workId && row.processingStatus && isWorkParseCompleted(row.processingStatus) ? [row.workId] : [],
   );
+  const readableWorkIds = await listReadableWorkIds(actor, detailCandidateWorkIds);
+
+  return items.map((item) => {
+    const local = byExternalId.get(item.externalId);
+    if (!local) return item;
+
+    return {
+      ...item,
+      sourceRecordId: local.id,
+      sourceId: local.sourceId,
+      linkedWorkId: local.workId,
+      // Only parse-completed candidates enter `readableWorkIds`, so membership
+      // already encodes both the readability and the access checks.
+      detailAvailable: local.workId != null && readableWorkIds.has(local.workId),
+    };
+  });
 }
 
 export async function listDiscoveryFacets(sourceKey?: string): Promise<DiscoveryFacetListData> {

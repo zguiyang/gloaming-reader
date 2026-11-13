@@ -4,6 +4,7 @@ export type { ReadablePartAccess } from '@/server/domains/works/access/policy';
 export {
   assertCanReadWork,
   canReadWork,
+  listReadableWorkIds,
   requireReadablePart,
   requireReadableWorkWithParts,
   resolveReadableWorkIdForPart,
