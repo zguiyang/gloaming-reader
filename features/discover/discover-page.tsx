@@ -260,12 +260,7 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
         <div className="flex flex-col">
           {recordsItems.length > 0 ? (
             <LoadingOverlay active={recordsList.isSoftRefreshing} label={t(locale, 'content.discover.softRefreshing')}>
-              <div className="md:hidden">
-                <DiscoverGrid items={recordsItems} userId={userId} />
-              </div>
-              <div className="hidden md:block">
-                <DiscoverGrid items={recordsItems} userId={userId} />
-              </div>
+              <DiscoverGrid items={recordsItems} userId={userId} />
               <DiscoverPagination
                 page={recordsList.page}
                 hasMore={recordsList.data?.hasMore ?? recordsList.page < recordsList.totalPages}
@@ -300,12 +295,7 @@ function DiscoverPageContent({ userId }: { userId: string | null }) {
                         {t(locale, 'content.discover.legacySectionDescription')}
                       </p>
                     </div>
-                    <div className="md:hidden">
-                      <DiscoverLegacyGrid items={legacyItems} />
-                    </div>
-                    <div className="hidden md:block">
-                      <DiscoverLegacyGrid items={legacyItems} />
-                    </div>
+                    <DiscoverLegacyGrid items={legacyItems} />
                   </section>
                   <DiscoverPagination
                     page={legacyList.page}

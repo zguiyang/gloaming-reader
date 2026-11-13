@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@/i18n';
@@ -112,7 +112,9 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   const partsQuery = useReaderPartsQuery(workId);
   const stateQuery = useReadingStateQuery(workId);
   const { refetch: refetchState } = stateQuery;
-  const stateMutation = useReaderStateMutation(workId);
+  // `useMutation()` returns a fresh wrapper object on every render; the bound
+  // mutateAsync is stable, so effects and callbacks depend on that instead.
+  const { mutateAsync: mutateReadingState } = useReaderStateMutation(workId);
 
   const [activePartId, setActivePartId] = useState<string | null>(null);
   const partQuery = useReaderPartQuery(activePartId);
@@ -185,6 +187,31 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     openLogin,
   });
 
+  // Stable identity: an inline literal here re-ran the sanitize + DOM transform
+  // memo inside ReadingPartView on every reader render (scroll, selection, audio).
+  const bilingualData = useMemo(
+    () =>
+      translate.isActive
+        ? {
+            sentences: translate.sentences,
+            translationsByIndex: translate.translationsByIndex,
+            titleZh: translate.titleZh,
+            isLoading: translate.isLoading,
+            isStreaming: translate.isStreaming,
+            error: translate.error,
+          }
+        : null,
+    [
+      translate.isActive,
+      translate.sentences,
+      translate.translationsByIndex,
+      translate.titleZh,
+      translate.isLoading,
+      translate.isStreaming,
+      translate.error,
+    ],
+  );
+
   const dictionaryQuery = useDictionaryLookupQuery({
     word: dictionaryState?.word ?? null,
     contextSentence: dictionaryState?.contextSentence,
@@ -232,7 +259,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         return;
       }
       try {
-        const opened = await stateMutation.mutateAsync(
+        const opened = await mutateReadingState(
           getReaderBootstrapCommand({
             stateStatus: stateData?.status ?? null,
             resolvedPartId: partId,
@@ -261,7 +288,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     isAuthenticated,
     preferredPartId,
     refetchState,
-    stateMutation,
+    mutateReadingState,
   ]);
 
   const persistAnchor = useCallback(
@@ -525,8 +552,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- subscribing to an external system (the URL): history navigation must adopt the ?part= value as the open chapter.
     setActivePartId(preferredPartId);
     if (!isAuthenticated) return;
-    void stateMutation
-      .mutateAsync({ action: 'navigate', partId: preferredPartId })
+    void mutateReadingState({ action: 'navigate', partId: preferredPartId })
       .then((updated) => {
         // Ignore a stale response if the reader moved on in the meantime.
         if (activePartIdRef.current === preferredPartId) {
@@ -537,7 +563,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         // History navigation must not surface errors; the chapter already
         // switched locally.
       });
-  }, [preferredPartId, partsData, isAuthenticated, flushAnchorSave, stopAudio, stateMutation]);
+  }, [preferredPartId, partsData, isAuthenticated, flushAnchorSave, stopAudio, mutateReadingState]);
 
   const navigateToPart = useCallback(
     async (partId: string, mode: 'navigate' | 'complete_chapter', nextPartId?: string, fragment?: string | null) => {
@@ -553,8 +579,8 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         await flushAnchorSave();
         const updated =
           mode === 'navigate'
-            ? await stateMutation.mutateAsync({ action: 'navigate', partId })
-            : await stateMutation.mutateAsync({ action: 'complete_chapter', nextPartId });
+            ? await mutateReadingState({ action: 'navigate', partId })
+            : await mutateReadingState({ action: 'complete_chapter', nextPartId });
         setLocalProgressRatio(updated.progressRatio);
         stopAudio();
         setActivePartId(updated.currentPartId ?? partId);
@@ -580,7 +606,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         stateActionInFlightRef.current = false;
       }
     },
-    [flushAnchorSave, isAuthenticated, locale, openLogin, refetchState, router, stateMutation, stopAudio, workId],
+    [flushAnchorSave, isAuthenticated, locale, openLogin, refetchState, router, mutateReadingState, stopAudio, workId],
   );
 
   function clearSelectionUi() {
@@ -654,7 +680,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     stateActionInFlightRef.current = true;
     try {
       await flushAnchorSave();
-      const updated = await stateMutation.mutateAsync({ action: 'finish' });
+      const updated = await mutateReadingState({ action: 'finish' });
       setLocalProgressRatio(updated.progressRatio);
       // Refresh before navigating: a cached Library surface can otherwise show
       // the pre-finish card until a manual reload.
@@ -797,18 +823,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         aiDrawerOpen={isDrawerOpen}
         tocOpen={isTocOpen}
         isBilingual={translate.isActive}
-        bilingualData={
-          translate.isActive
-            ? {
-                sentences: translate.sentences,
-                translationsByIndex: translate.translationsByIndex,
-                titleZh: translate.titleZh,
-                isLoading: translate.isLoading,
-                isStreaming: translate.isStreaming,
-                error: translate.error,
-              }
-            : null
-        }
+        bilingualData={bilingualData}
         focusedSentenceIndex={selectedSentenceIndex ?? tappedSentenceIndex ?? listeningSentenceIndex}
         onSentenceClick={(idx) => {
           setTappedSentenceIndex((prev) => (prev === idx ? null : idx));

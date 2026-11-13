@@ -155,6 +155,15 @@ export class ReaderAudioController {
   private currentIndex = -1;
   private currentSegment: ReaderAudioSegmentView | null = null;
   private readonly manifests = new Map<ReaderAudioRole, ReaderAudioManifest>();
+  /**
+   * Prefix sums over a manifest's segment text lengths, built once when the
+   * manifest is cached. `getChapterProgress` is sampled on a 100ms timer, so it
+   * must not re-scan every segment on each tick.
+   */
+  private readonly manifestWeights = new Map<
+    ReaderAudioRole,
+    { totalTextLength: number; textLengthByIndex: Map<number, number>; spokenBeforeIndex: Map<number, number> }
+  >();
   private readonly segmentCache = new Map<string, ReaderAudioSegment>();
   /** Keyed metadata requests — playback plus up to `BUFFER_CONCURRENCY` buffer fills. */
   private readonly inflight = new Map<string, InflightSegmentRequest>();
@@ -237,24 +246,29 @@ export class ReaderAudioController {
    * it reads state without emitting React updates.
    */
   getChapterProgress(): number {
-    const manifest = this.manifests.get(this.role);
-    if (!manifest || this.currentIndex < 0) {
+    const weights = this.manifestWeights.get(this.role);
+    if (!weights || this.currentIndex < 0 || weights.totalTextLength <= 0) {
       return 0;
     }
-    const totalTextLength = manifest.segments.reduce((sum, segment) => sum + segment.textLength, 0);
-    if (totalTextLength <= 0) {
+    const spokenBefore = weights.spokenBeforeIndex.get(this.currentIndex);
+    const currentTextLength = weights.textLengthByIndex.get(this.currentIndex);
+    if (spokenBefore === undefined || currentTextLength === undefined) {
       return 0;
     }
-    let spokenTextLength = 0;
+    const spokenTextLength = spokenBefore + currentTextLength * this.currentSegmentFraction();
+    return Math.min(1, Math.max(0, spokenTextLength / weights.totalTextLength));
+  }
+
+  private indexManifest(role: ReaderAudioRole, manifest: ReaderAudioManifest): void {
+    let totalTextLength = 0;
+    const textLengthByIndex = new Map<number, number>();
+    const spokenBeforeIndex = new Map<number, number>();
     for (const segment of manifest.segments) {
-      if (segment.index < this.currentIndex) {
-        spokenTextLength += segment.textLength;
-      } else if (segment.index === this.currentIndex) {
-        spokenTextLength += segment.textLength * this.currentSegmentFraction();
-        break;
-      }
+      textLengthByIndex.set(segment.index, segment.textLength);
+      spokenBeforeIndex.set(segment.index, totalTextLength);
+      totalTextLength += segment.textLength;
     }
-    return Math.min(1, Math.max(0, spokenTextLength / totalTextLength));
+    this.manifestWeights.set(role, { totalTextLength, textLengthByIndex, spokenBeforeIndex });
   }
 
   toggle(container: ParentNode | null): void {
@@ -359,6 +373,7 @@ export class ReaderAudioController {
     }
     this.segmentCache.clear();
     this.manifests.clear();
+    this.manifestWeights.clear();
     this.bufferFailed.clear();
     this.setCurrent(-1, null);
     this.setStatus('idle');
@@ -459,6 +474,7 @@ export class ReaderAudioController {
         return null;
       }
       this.manifests.set(role, manifest);
+      this.indexManifest(role, manifest);
       return manifest;
     } catch (error) {
       if (session !== this.session || isAbortError(error)) {
@@ -509,6 +525,7 @@ export class ReaderAudioController {
       this.clearBuffer();
       this.bufferEpoch += 1;
       this.manifests.delete(this.role);
+      this.manifestWeights.delete(this.role);
       const anchor = manifest.segments[index]?.paragraphAnchor ?? null;
       const refreshed = await this.ensureManifest(this.role);
       if (!refreshed || session !== this.session) {

@@ -353,7 +353,6 @@ export function SettingsPage() {
   const [view, setView] = useState<'summary' | 'advanced'>('summary');
   const [editingProvider, setEditingProvider] = useState<LlmProvider | null>(null);
   const [shouldOpenKeyReplacement, setProviderStartReplacingKey] = useState(false);
-  const [modelDraft, setModelDraft] = useState<ModelDraft>(EMPTY_MODEL);
   const [editingModelId, setEditingModelId] = useState('');
   // Provider that owns the currently-open "add model" form (models render inside their provider).
   const [addingModelProviderId, setAddingModelProviderId] = useState('');
@@ -385,7 +384,6 @@ export function SettingsPage() {
     setProviderStartReplacingKey(false);
     setEditingModelId('');
     setAddingModelProviderId('');
-    setModelDraft(EMPTY_MODEL);
   }
 
   // Latest local editor identity, so a slow save closing a stale editor can
@@ -482,7 +480,6 @@ export function SettingsPage() {
         ? editingContextRef.current === 'model' && editingModelIdRef.current === model.id
         : editingContextRef.current === 'model-add' && addingModelProviderIdRef.current === providerId;
       if (isSameEditor) {
-        setModelDraft(EMPTY_MODEL);
         setEditingModelId('');
         setAddingModelProviderId('');
         setEditingContext(null);
@@ -911,7 +908,6 @@ export function SettingsPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                setModelDraft(EMPTY_MODEL);
                                 setAddingModelProviderId(provider.id);
                                 openContext('model-add');
                               }}
@@ -927,35 +923,19 @@ export function SettingsPage() {
                               if (isEditingThisModel) {
                                 return (
                                   <div key={model.id} className="border-t border-border/40 py-3">
-                                    <div className="flex flex-col gap-4">
-                                      <ModelFields
-                                        draft={modelDraft}
-                                        setDraft={setModelDraft}
-                                        family={provider.apiFamily}
-                                        locale={locale}
-                                      />
-                                      <div className="flex justify-end gap-3">
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          className="h-11 rounded-[8px] px-6"
-                                          disabled={modelMutation.isPending}
-                                          onClick={closeContext}
-                                        >
-                                          {t(locale, 'settings.ai.cancelChanges')}
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          className="h-11 rounded-[8px] px-6 dark:bg-[var(--brand-deep)] dark:hover:bg-[var(--brand-deep)]"
-                                          disabled={modelMutation.isPending}
-                                          onClick={() => modelMutation.mutate({ draft: modelDraft, model })}
-                                        >
-                                          {modelMutation.isPending
-                                            ? t(locale, 'settings.saving')
-                                            : t(locale, 'settings.ai.saveModel')}
-                                        </Button>
-                                      </div>
-                                    </div>
+                                    <ModelForm
+                                      initialDraft={{
+                                        modelId: model.modelId,
+                                        label: model.label,
+                                        wireVariant: model.wireVariant,
+                                      }}
+                                      family={provider.apiFamily}
+                                      locale={locale}
+                                      pending={modelMutation.isPending}
+                                      submitLabel={t(locale, 'settings.ai.saveModel')}
+                                      onSubmit={(draft) => modelMutation.mutate({ draft, model })}
+                                      onCancel={closeContext}
+                                    />
                                   </div>
                                 );
                               }
@@ -997,11 +977,6 @@ export function SettingsPage() {
                                         size="sm"
                                         onClick={() => {
                                           setEditingModelId(model.id);
-                                          setModelDraft({
-                                            modelId: model.modelId,
-                                            label: model.label,
-                                            wireVariant: model.wireVariant,
-                                          });
                                           openContext('model');
                                         }}
                                       >
@@ -1042,40 +1017,18 @@ export function SettingsPage() {
 
                             {/* Add-model form renders inside the target provider's context. */}
                             {isAddingModelHere ? (
-                              <form
-                                className="flex flex-col gap-4 border-t border-border/40 py-3"
-                                onSubmit={(event) => {
-                                  event.preventDefault();
-                                  modelMutation.mutate({ draft: modelDraft, model: null, providerId: provider.id });
-                                }}
-                              >
-                                <ModelFields
-                                  draft={modelDraft}
-                                  setDraft={setModelDraft}
-                                  family={provider.apiFamily}
-                                  locale={locale}
-                                />
-                                <div className="flex justify-end gap-3">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="h-11 rounded-[8px] px-6"
-                                    disabled={modelMutation.isPending}
-                                    onClick={closeContext}
-                                  >
-                                    {t(locale, 'settings.ai.cancelChanges')}
-                                  </Button>
-                                  <Button
-                                    type="submit"
-                                    className="h-11 rounded-[8px] px-6 dark:bg-[var(--brand-deep)] dark:hover:bg-[var(--brand-deep)]"
-                                    disabled={modelMutation.isPending}
-                                  >
-                                    {modelMutation.isPending
-                                      ? t(locale, 'settings.saving')
-                                      : t(locale, 'settings.ai.addModelEntry')}
-                                  </Button>
-                                </div>
-                              </form>
+                              <ModelForm
+                                className="border-t border-border/40 py-3"
+                                initialDraft={EMPTY_MODEL}
+                                family={provider.apiFamily}
+                                locale={locale}
+                                pending={modelMutation.isPending}
+                                submitLabel={t(locale, 'settings.ai.addModelEntry')}
+                                onSubmit={(draft) =>
+                                  modelMutation.mutate({ draft, model: null, providerId: provider.id })
+                                }
+                                onCancel={closeContext}
+                              />
                             ) : null}
                           </div>
                         </div>
@@ -1204,6 +1157,63 @@ export function SettingsPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+/**
+ * Owns the model draft so typing re-renders only this form. The page used to
+ * hold the draft, which re-rendered every provider, model row and mutation on
+ * each keystroke.
+ */
+function ModelForm({
+  initialDraft,
+  family,
+  locale,
+  pending,
+  submitLabel,
+  onSubmit,
+  onCancel,
+  className,
+}: {
+  initialDraft: ModelDraft;
+  family: LlmApiFamily;
+  locale: 'en-US' | 'zh-CN';
+  pending: boolean;
+  submitLabel: string;
+  onSubmit: (draft: ModelDraft) => void;
+  onCancel: () => void;
+  className?: string;
+}) {
+  const [draft, setDraft] = useState<ModelDraft>(initialDraft);
+
+  return (
+    <form
+      className={cn('flex flex-col gap-4', className)}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit(draft);
+      }}
+    >
+      <ModelFields draft={draft} setDraft={setDraft} family={family} locale={locale} />
+      <div className="flex justify-end gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 rounded-[8px] px-6"
+          disabled={pending}
+          onClick={onCancel}
+        >
+          {t(locale, 'settings.ai.cancelChanges')}
+        </Button>
+        <Button
+          type="submit"
+          className="h-11 rounded-[8px] px-6 dark:bg-[var(--brand-deep)] dark:hover:bg-[var(--brand-deep)]"
+          disabled={pending}
+        >
+          {pending ? t(locale, 'settings.saving') : submitLabel}
+        </Button>
+      </div>
+    </form>
   );
 }
 
