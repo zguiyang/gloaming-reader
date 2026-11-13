@@ -149,6 +149,13 @@ export const readingWork = pgTable(
     index('reading_work_owner_user_id_idx').on(table.ownerUserId),
     index('reading_work_published_at_idx').on(table.publishedAt),
     check('reading_work_origin_kind_check', sql`${table.originKind} IS NULL OR ${table.originKind} = 'user_epub'`),
+    // Mirrors WORK_PROCESSING_STATUSES / WORK_VISIBILITIES in shared/works so a
+    // script or manual write cannot land a status the read paths cannot bucket.
+    check(
+      'reading_work_processing_status_check',
+      sql`${table.processingStatus} in ('uploaded', 'processing', 'parsed', 'metadata', 'ready', 'failed')`,
+    ),
+    check('reading_work_visibility_check', sql`${table.visibility} in ('catalog', 'private')`),
   ],
 );
 
@@ -364,6 +371,8 @@ export const readingState = pgTable(
   (table) => [
     unique('reading_state_user_work_uidx').on(table.userId, table.workId),
     check('reading_state_revision_nonnegative_chk', sql`${table.revision} >= 0`),
+    // Mirrors READING_STATE_STATUSES in shared/reader.
+    check('reading_state_status_check', sql`${table.status} in ('in_progress', 'completed')`),
     index('reading_state_user_last_read_idx').on(table.userId, table.lastReadAt),
     index('reading_state_work_idx').on(table.workId),
   ],
@@ -418,7 +427,7 @@ export const llmProvider = pgTable(
     name: text('name').notNull(),
     baseUrl: text('base_url').notNull(),
     apiKeyCiphertext: text('api_key_ciphertext').notNull(),
-    /** Optional outbound proxy (http/https/socks5 URI) for reachability-gated gateways. */
+    /** Optional outbound proxy (http/https URI) for reachability-gated gateways. */
     proxyUrl: text('proxy_url'),
     /** Provider-specific thinking-toggle parameter name (e.g. `enable_thinking`); empty = pass nothing. */
     thinkingParam: text('thinking_param'),
@@ -649,6 +658,11 @@ export const contentAsset = pgTable(
   },
   (table) => [
     unique('content_asset_part_kind_uidx').on(table.partId, table.kind),
+    // Work-level assets (origin file, cover) carry `partId IS NULL`, which the
+    // index above cannot constrain — Postgres treats NULLs as distinct.
+    uniqueIndex('content_asset_work_kind_uidx')
+      .on(table.workId, table.kind)
+      .where(sql`${table.partId} is null`),
     uniqueIndex('content_asset_generation_key_uidx')
       .on(table.generationKey)
       .where(sql`${table.generationKey} is not null`),
@@ -909,7 +923,10 @@ export const conversation = pgTable(
       table.subjectId,
       table.lastMessageAt,
     ),
-    index('conversation_user_open_idx')
+    // At most one open thread per scope. The previous non-unique index let two
+    // concurrent creates both insert `ended_at is null` rows, so `listConversations`
+    // and client resume could land on different threads for the same subject.
+    uniqueIndex('conversation_user_open_uidx')
       .on(table.userId, table.surface, table.subjectType, table.subjectId)
       .where(sql`${table.endedAt} is null`),
   ],
@@ -1219,6 +1236,9 @@ export const sourceRecordSaveIntent = pgTable(
     unique('source_record_save_intent_user_record_uidx').on(table.userId, table.sourceRecordId),
     index('source_record_save_intent_user_idx').on(table.userId),
     index('source_record_save_intent_record_status_idx').on(table.sourceRecordId, table.status),
+    // The recovery sweep runs `status = 'pending' AND updated_at < cutoff ORDER BY
+    // updated_at` every 60s; without this it scans the whole table each round.
+    index('source_record_save_intent_status_updated_idx').on(table.status, table.updatedAt),
     check('source_record_save_intent_status_check', sql`${table.status} in ('pending', 'failed', 'completed')`),
     check(
       'source_record_save_intent_failure_code_nonempty_chk',
