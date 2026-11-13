@@ -1,4 +1,3 @@
-import { t } from '@/i18n';
 import {
   TRANSLATE_SSE_EVENT,
   type TranslatePartBody,
@@ -13,13 +12,7 @@ import {
   translateSseTitleSchema,
 } from '@/shared/translate';
 
-import { ApiRequestError } from '@/lib/api-request';
-import { getClientLocale } from '@/lib/client-locale';
-import { applyRequestLocale } from '@/lib/request-language';
-
-function readerTranslateMessage(key: string): string {
-  return t(getClientLocale(), key);
-}
+import { parseSseEvent, postSse, readSse, sseMessage, throwSseHttpError } from '@/lib/sse';
 
 export type TranslateStreamHandlers = {
   onMeta?: (meta: TranslateSseMeta) => void;
@@ -29,108 +22,51 @@ export type TranslateStreamHandlers = {
   signal?: AbortSignal;
 };
 
-async function* readSse(response: Response): AsyncGenerator<{ event: string; data: string }> {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error(readerTranslateMessage('content.reader.translate.noResponseBody'));
-  }
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done: isStreamDone, value } = await reader.read();
-    if (isStreamDone) {
-      break;
-    }
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split('\n\n');
-    buffer = parts.pop() ?? '';
-
-    for (const part of parts) {
-      let event = 'message';
-      let data = '';
-      for (const line of part.split('\n')) {
-        if (line.startsWith('event:')) {
-          event = line.slice(6).trim();
-        } else if (line.startsWith('data:')) {
-          data += line.slice(5).trim();
-        }
-      }
-      if (data) {
-        yield { event, data };
-      }
-    }
-  }
-}
-
 export async function streamTranslatePart(
   body: TranslatePartBody,
   handlers: TranslateStreamHandlers = {},
 ): Promise<TranslateSseDone> {
-  const response = await fetch('/api/translate/part', {
-    method: 'POST',
-    headers: applyRequestLocale({
-      Accept: 'text/event-stream',
-      'Content-Type': 'application/json',
-    }),
-    body: JSON.stringify(body),
-    signal: handlers.signal,
-  });
+  const response = await postSse('/api/translate/part', body, handlers.signal);
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new ApiRequestError({
-        message: readerTranslateMessage('content.reader.api.unauthorized'),
-        status: 401,
-      });
-    }
-    let message = readerTranslateMessage('content.reader.api.translateFailed');
-    try {
-      const json = (await response.json()) as { error?: string };
-      if (json.error?.trim()) {
-        message = json.error.trim();
-      }
-    } catch {
-      // keep default
-    }
-    throw new Error(message);
+    await throwSseHttpError(response, 'content.reader.api.translateFailed');
   }
 
-  for await (const chunk of readSse(response)) {
+  for await (const chunk of readSse(response, 'content.reader.translate.noResponseBody')) {
     if (chunk.event === TRANSLATE_SSE_EVENT.meta) {
-      const parsed = translateSseMetaSchema.safeParse(JSON.parse(chunk.data));
-      if (parsed.success) {
-        handlers.onMeta?.(parsed.data);
+      const parsed = parseSseEvent(chunk.data, translateSseMetaSchema);
+      if (parsed) {
+        handlers.onMeta?.(parsed);
       }
       continue;
     }
     if (chunk.event === TRANSLATE_SSE_EVENT.title) {
-      const parsed = translateSseTitleSchema.safeParse(JSON.parse(chunk.data));
-      if (parsed.success) {
-        handlers.onTitle?.(parsed.data);
+      const parsed = parseSseEvent(chunk.data, translateSseTitleSchema);
+      if (parsed) {
+        handlers.onTitle?.(parsed);
       }
       continue;
     }
     if (chunk.event === TRANSLATE_SSE_EVENT.sentence) {
-      const parsed = translateSseSentenceSchema.safeParse(JSON.parse(chunk.data));
-      if (parsed.success) {
-        handlers.onSentence?.(parsed.data);
+      const parsed = parseSseEvent(chunk.data, translateSseSentenceSchema);
+      if (parsed) {
+        handlers.onSentence?.(parsed);
       }
       continue;
     }
     if (chunk.event === TRANSLATE_SSE_EVENT.error) {
-      const parsed = translateSseErrorSchema.safeParse(JSON.parse(chunk.data));
-      throw new Error(parsed.success ? parsed.data.error : readerTranslateMessage('content.reader.api.aiUnavailable'));
+      const parsed = parseSseEvent(chunk.data, translateSseErrorSchema);
+      throw new Error(parsed ? parsed.error : sseMessage('content.reader.api.aiUnavailable'));
     }
     if (chunk.event === TRANSLATE_SSE_EVENT.done) {
-      const parsed = translateSseDoneSchema.safeParse(JSON.parse(chunk.data));
-      if (!parsed.success) {
-        throw new Error(readerTranslateMessage('content.reader.api.invalidResponse'));
+      const parsed = parseSseEvent(chunk.data, translateSseDoneSchema);
+      if (!parsed) {
+        throw new Error(sseMessage('content.reader.api.invalidResponse'));
       }
-      handlers.onDone?.(parsed.data);
-      return parsed.data;
+      handlers.onDone?.(parsed);
+      return parsed;
     }
   }
 
-  throw new Error(readerTranslateMessage('content.reader.api.aiUnavailable'));
+  throw new Error(sseMessage('content.reader.api.aiUnavailable'));
 }

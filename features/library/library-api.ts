@@ -1,7 +1,8 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
-import type { Locale } from '@/i18n';
+import { t, type Locale } from '@/i18n';
 import {
   libraryBrowseDataSchema,
   type LibraryBrowseQuery,
@@ -122,6 +123,35 @@ export async function completeUserTagTranslations(tagId: string) {
     method: 'POST',
     schema: userTagTranslationsResultSchema,
   });
+}
+
+/**
+ * Single owner for the three-outcome tag-translation feedback. Every caller
+ * used to inline the same status → message → toast-kind mapping.
+ */
+export function reportTagTranslationResult(
+  result: { status: 'completed' | 'incomplete' | 'provider_unavailable' },
+  locale: Locale,
+): void {
+  const messageKey =
+    result.status === 'completed'
+      ? 'content.library.tagTranslationsComplete'
+      : result.status === 'provider_unavailable'
+        ? 'content.library.tagTranslationProviderUnavailable'
+        : 'content.library.tagTranslationsMissing';
+  const message = t(locale, messageKey);
+  if (result.status === 'completed') {
+    toast.success(message);
+  } else if (result.status === 'provider_unavailable') {
+    toast.error(message);
+  } else {
+    toast.info(message);
+  }
+}
+
+/** Feedback for a rejected/failed translation request (as opposed to a partial result). */
+export function reportTagTranslationFailure(locale: Locale): void {
+  toast.error(t(locale, 'content.library.tagTranslationsMissing'));
 }
 
 export async function deleteUserTag(tagId: string): Promise<void> {

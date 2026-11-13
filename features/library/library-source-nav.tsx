@@ -19,6 +19,8 @@ import {
   createUserTag,
   formatLibraryApiError,
   libraryQueryKey,
+  reportTagTranslationFailure,
+  reportTagTranslationResult,
 } from '@/features/library/library-api';
 import {
   isLibraryFilterActive,
@@ -77,18 +79,9 @@ function LibrarySourceNavContent({
         .then(async (result) => {
           await queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags });
           await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
-          toast.info(
-            t(
-              locale,
-              result.status === 'completed'
-                ? 'content.library.tagTranslationsComplete'
-                : result.status === 'provider_unavailable'
-                  ? 'content.library.tagTranslationProviderUnavailable'
-                  : 'content.library.tagTranslationsMissing',
-            ),
-          );
+          reportTagTranslationResult(result, locale);
         })
-        .catch(() => toast.info(t(locale, 'content.library.tagTranslationsMissing')));
+        .catch(() => reportTagTranslationFailure(locale));
     } catch (error) {
       toast.error(formatLibraryApiError(error));
     } finally {

@@ -1,7 +1,7 @@
 'use client';
 
 import { HistoryIcon, MessageSquarePlusIcon, QuoteIcon, XIcon } from 'lucide-react';
-import { useState, useSyncExternalStore } from 'react';
+import { useState } from 'react';
 
 import { type Locale, t } from '@/i18n';
 import type { ConversationSummary } from '@/shared/conversations';
@@ -12,21 +12,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ReaderMarkdown } from '@/features/reader/assist/reader-markdown';
 import type { ReaderAiMessage } from '@/features/reader/reader-model';
 import { useLocale } from '@/lib/locale-context';
+import { useIsDesktop } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
-
-function subscribeMd(onChange: () => void) {
-  const mq = window.matchMedia('(min-width: 768px)');
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
-}
-
-function useIsDesktop() {
-  return useSyncExternalStore(
-    subscribeMd,
-    () => window.matchMedia('(min-width: 768px)').matches,
-    () => true,
-  );
-}
 
 type ReaderAiDrawerProps = {
   open: boolean;

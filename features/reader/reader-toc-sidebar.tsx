@@ -2,7 +2,6 @@
 
 import { ChevronsLeftIcon, ExternalLinkIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useSyncExternalStore } from 'react';
 
 import { t } from '@/i18n';
 
@@ -19,6 +18,7 @@ import { WorkCover } from '@/features/work-cover';
 import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
 import { workDetailHref } from '@/lib/navigation/work-detail-return';
+import { useIsDesktop } from '@/lib/use-media-query';
 import { cn } from '@/lib/utils';
 
 type ReaderTocSidebarProps = {
@@ -29,18 +29,6 @@ type ReaderTocSidebarProps = {
   onSelectChapter: (partId: string) => void;
 };
 
-function useIsDesktopTocLayout() {
-  return useSyncExternalStore(
-    (onStoreChange) => {
-      const media = window.matchMedia('(min-width: 768px)');
-      media.addEventListener('change', onStoreChange);
-      return () => media.removeEventListener('change', onStoreChange);
-    },
-    () => window.matchMedia('(min-width: 768px)').matches,
-    () => true,
-  );
-}
-
 export function ReaderTocSidebar({
   open,
   onOpenChange,
@@ -49,7 +37,7 @@ export function ReaderTocSidebar({
   onSelectChapter,
 }: ReaderTocSidebarProps) {
   const { locale } = useLocale();
-  const isDesktop = useIsDesktopTocLayout();
+  const isDesktop = useIsDesktop();
   const parts = sortedParts(reader.parts);
   const detailHref = workDetailHref(reader.workId, AUTH_ROUTES.readBook(reader.workId, currentPartId));
   const coverImageUrl = coverUrlFromAssetId(reader.coverAssetId);

@@ -1,26 +1,11 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
-
 import type { DictionaryEntry } from '@/shared/dictionary';
 
 import { ReaderDictionaryPopover } from '@/features/reader/dictionary/reader-dictionary-popover';
 import { ReaderDictionarySheet } from '@/features/reader/dictionary/reader-dictionary-sheet';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';
-
-function subscribeMd(onChange: () => void) {
-  const mq = window.matchMedia('(min-width: 768px)');
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
-}
-
-function useIsDesktop() {
-  return useSyncExternalStore(
-    subscribeMd,
-    () => window.matchMedia('(min-width: 768px)').matches,
-    () => true,
-  );
-}
+import { useIsDesktop } from '@/lib/use-media-query';
 
 export type ReaderDictionaryViewProps = {
   open: boolean;

@@ -19,6 +19,8 @@ import {
   createUserTag,
   formatLibraryApiError,
   libraryQueryKey,
+  reportTagTranslationFailure,
+  reportTagTranslationResult,
   unassignUserTag,
 } from '@/features/library/library-api';
 import { useLocale } from '@/lib/locale-context';
@@ -126,18 +128,9 @@ function LibraryTagAssignmentContent({
       void completeUserTagTranslations(tag.id)
         .then(async (result) => {
           await refreshTagViews();
-          toast.info(
-            t(
-              locale,
-              result.status === 'completed'
-                ? 'content.library.tagTranslationsComplete'
-                : result.status === 'provider_unavailable'
-                  ? 'content.library.tagTranslationProviderUnavailable'
-                  : 'content.library.tagTranslationsMissing',
-            ),
-          );
+          reportTagTranslationResult(result, locale);
         })
-        .catch(() => toast.info(t(locale, 'content.library.tagTranslationsMissing')));
+        .catch(() => reportTagTranslationFailure(locale));
     },
     onError: async (error) => {
       await refreshTagViews();

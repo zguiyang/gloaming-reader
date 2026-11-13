@@ -32,6 +32,8 @@ import {
   deleteUserTag,
   formatLibraryApiError,
   libraryQueryKey,
+  reportTagTranslationFailure,
+  reportTagTranslationResult,
   renameUserTag,
   useUserTagsQuery,
 } from '@/features/library/library-api';
@@ -85,18 +87,9 @@ function LibraryTagsPageContent() {
       void completeUserTagTranslations(tag.id)
         .then(async (result) => {
           await refresh();
-          toast.info(
-            t(
-              locale,
-              result.status === 'completed'
-                ? 'content.library.tagTranslationsComplete'
-                : result.status === 'provider_unavailable'
-                  ? 'content.library.tagTranslationProviderUnavailable'
-                  : 'content.library.tagTranslationsMissing',
-            ),
-          );
+          reportTagTranslationResult(result, locale);
         })
-        .catch(() => toast.info(t(locale, 'content.library.tagTranslationsMissing')));
+        .catch(() => reportTagTranslationFailure(locale));
     },
     onError: (error) => toast.error(formatLibraryApiError(error)),
   });
@@ -130,16 +123,7 @@ function LibraryTagsPageContent() {
     mutationFn: (tagId: string) => completeUserTagTranslations(tagId),
     onSuccess: async (result) => {
       await refresh();
-      toast.info(
-        t(
-          locale,
-          result.status === 'completed'
-            ? 'content.library.tagTranslationsComplete'
-            : result.status === 'provider_unavailable'
-              ? 'content.library.tagTranslationProviderUnavailable'
-              : 'content.library.tagTranslationsMissing',
-        ),
-      );
+      reportTagTranslationResult(result, locale);
     },
     onError: (error) => toast.error(formatLibraryApiError(error)),
   });

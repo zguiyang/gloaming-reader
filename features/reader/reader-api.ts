@@ -17,6 +17,8 @@ import {
 import type { TtsVoiceRole } from '@/shared/tts';
 import type { PartSummary } from '@/shared/works';
 
+import { bookDetailQueryKey } from '@/features/book-detail/book-detail-query-key';
+import { libraryQueryKey } from '@/features/library/library-api';
 import type { ReaderViewModel } from '@/features/reader/reader-model';
 import { getWorkParts } from '@/features/reader/reader-parts-public';
 import {
@@ -174,8 +176,8 @@ export function useReaderStateMutation(workId: string) {
     },
     onSuccess: (state) => {
       queryClient.setQueryData(stateKey, state);
-      void queryClient.invalidateQueries({ queryKey: ['library'] });
-      void queryClient.invalidateQueries({ queryKey: ['book-detail'] });
+      void queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
+      void queryClient.invalidateQueries({ queryKey: bookDetailQueryKey.all });
     },
     onError: async (error) => {
       if (isReadingStateRevisionConflict(error)) {
