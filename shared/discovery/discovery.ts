@@ -74,6 +74,12 @@ export const sourceRecordListQuerySchema = paginationQuerySchema.extend({
 });
 export type SourceRecordListQuery = z.infer<typeof sourceRecordListQuerySchema>;
 
+/** Query for `GET /api/discover/facets` — the same optional source filter, validated server-side. */
+export const discoveryFacetListQuerySchema = z.object({
+  sourceKey: z.preprocess(emptyToUndefined, z.string().trim().min(1).max(64).optional()),
+});
+export type DiscoveryFacetListQuery = z.infer<typeof discoveryFacetListQuerySchema>;
+
 /**
  * List/detail projection for Discover. Identity for remote candidates is
  * `(sourceKey, externalId)`. `sourceRecordId` is set only after a Save upsert.

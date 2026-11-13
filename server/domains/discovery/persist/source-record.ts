@@ -17,6 +17,9 @@ import {
 } from '@/server/domains/discovery/gutenberg/constants';
 import { getGutenbergOpdsRecord } from '@/server/domains/discovery/gutenberg/opds-adapter';
 import { db } from '@/server/infra/db';
+import { HTTP_STATUS } from '@/server/shared/constants';
+import { AppError } from '@/server/shared/errors/app-error';
+import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 export type DiscoverySourceRow = typeof discoverySourceTable.$inferSelect;
 export type SourceRecordRow = typeof sourceRecordTable.$inferSelect;
@@ -155,11 +158,11 @@ export async function ensureSourceRecordForDiscoverSave(input: {
   externalId: string;
 }): Promise<SourceRecordRow> {
   if (input.sourceKey !== PROJECT_GUTENBERG_SOURCE_KEY) {
-    throw new Error(`Unsupported discovery source "${input.sourceKey}"`);
+    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_INVALID_INPUT);
   }
   const source = await ensureDiscoverySource(PROJECT_GUTENBERG_SOURCE_KEY, PROJECT_GUTENBERG_SOURCE_TYPE);
   if (!source.enabled) {
-    throw new Error(`Discovery source "${input.sourceKey}" is disabled`);
+    throw new AppError(HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
   }
   const detail = await getGutenbergOpdsRecord(input.externalId);
   return upsertSourceRecordFromDetail(detail);

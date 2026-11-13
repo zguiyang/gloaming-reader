@@ -5,6 +5,7 @@ import {
   DISCOVERY_DEFAULT_LANGUAGE,
   discoverSaveBodySchema,
   discoveryFacetListDataSchema,
+  discoveryFacetListQuerySchema,
   discoveryFacetSchema,
   discoverySourceEnabledUpdateSchema,
   discoverySourceListDataSchema,
@@ -45,6 +46,15 @@ describe('on-demand discovery contracts', () => {
     expect(sourceRecordListQuerySchema.parse({ facetId: '' }).facetId).toBeUndefined();
     expect(sourceRecordListQuerySchema.parse({}).sortBy).toBe(DEFAULT_SOURCE_RECORD_SORT_BY);
     expect(sourceRecordListQuerySchema.parse({}).page).toBe(1);
+  });
+
+  it('validates the facets query the same way as the records query', () => {
+    expect(discoveryFacetListQuerySchema.parse({}).sourceKey).toBeUndefined();
+    expect(discoveryFacetListQuerySchema.parse({ sourceKey: '' }).sourceKey).toBeUndefined();
+    expect(discoveryFacetListQuerySchema.parse({ sourceKey: ' project_gutenberg ' }).sourceKey).toBe(
+      'project_gutenberg',
+    );
+    expect(discoveryFacetListQuerySchema.safeParse({ sourceKey: 'x'.repeat(65) }).success).toBe(false);
   });
 
   it('allows remote candidates with null sourceRecordId and persisted rows after Save', () => {
