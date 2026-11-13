@@ -1,9 +1,10 @@
 import { isAssetAuthorized, isPublicAsset, resolveAsset, streamAsset } from '@/server/domains/assets/gateway/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
-import { jsonFromThrown } from '@/server/infra/http/next-json';
+import { jsonError, jsonFromThrown } from '@/server/infra/http/next-json';
 import { getRequestIdentity } from '@/server/infra/http/next-session';
 import type { ObjectRange } from '@/server/infra/storage';
 import { HTTP_STATUS } from '@/server/shared/constants';
+import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,24 +26,29 @@ function parseRangeHeader(header: string | null): ObjectRange | undefined {
 
 type Ctx = { params: Promise<{ assetId: string }> };
 
+/** Identical body and status for "no such asset" and "not yours" (no enumeration oracle). */
+function assetNotFound(request: Request): Response {
+  return jsonError(request, ERROR_CODES.NOT_FOUND.ASSET, HTTP_STATUS.NOT_FOUND);
+}
+
 export async function GET(request: Request, context: Ctx) {
   try {
     const { assetId } = await context.params;
     const asset = await resolveAsset(assetId);
-    if (!asset) {
-      return new Response(null, { status: HTTP_STATUS.NOT_FOUND });
-    }
 
     const identity = await getRequestIdentity(request);
     const actor = workReadActorFromIdentity(identity.user);
-    if (!(await isAssetAuthorized(actor, asset))) {
-      return new Response(null, { status: HTTP_STATUS.FORBIDDEN });
+    // Authorization runs for every id, and every failure — unknown row, unreadable
+    // Work, or missing object — returns the same 404. A 403 on existing rows would
+    // let a caller tell real asset ids apart from invented ones.
+    if (!asset || !(await isAssetAuthorized(actor, asset))) {
+      return assetNotFound(request);
     }
 
     const range = parseRangeHeader(request.headers.get('range'));
     const object = await streamAsset(asset, range);
     if (!object) {
-      return new Response(null, { status: HTTP_STATUS.NOT_FOUND });
+      return assetNotFound(request);
     }
 
     const headers = new Headers();

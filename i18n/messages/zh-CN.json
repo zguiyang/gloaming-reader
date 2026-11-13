@@ -1529,6 +1529,7 @@
         "wordDefinition": "未找到单词「{word}」的词典释义",
         "userTag": "未找到标签",
         "sourceRecord": "未找到来源记录",
+        "asset": "未找到资源",
         "publicCategory": "未找到分类"
       },
       "upload": {

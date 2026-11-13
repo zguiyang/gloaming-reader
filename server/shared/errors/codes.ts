@@ -18,6 +18,7 @@ export const ERROR_CODES = {
     WORD_DEFINITION: 'api.errors.notFound.wordDefinition',
     USER_TAG: 'api.errors.notFound.userTag',
     SOURCE_RECORD: 'api.errors.notFound.sourceRecord',
+    ASSET: 'api.errors.notFound.asset',
   },
 
   UPLOAD: {
