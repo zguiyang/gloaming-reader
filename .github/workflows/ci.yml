@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      # `server/infra/config/env.ts` validates the environment at import time, and
+      # some routes are evaluated during `next build`. Build-only placeholders keep
+      # CI independent of live infrastructure; never reuse them outside CI.
+      - run: pnpm build
+        env:
+          FRONTEND_URL: http://localhost:3000
+          BETTER_AUTH_SECRET: ci-only-placeholder-secret-000000
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/gloaming_ci
+          REDIS_URL: redis://127.0.0.1:6379
+          LLM_CONFIG_ENCRYPTION_KEY: Y2ktb25seS1wbGFjZWhvbGRlci1rZXktMzItYnl0ZXM=
+          S3_ENDPOINT: https://s3.example.com
+          S3_REGION: auto
+          S3_BUCKET: ci-placeholder
+          S3_ACCESS_KEY_ID: ci-placeholder
+          S3_SECRET_ACCESS_KEY: ci-placeholder
+          S3_FORCE_PATH_STYLE: 'false'
+          RESEND_API_KEY: re_ci_placeholder
+          MAIL_FROM_ADDRESS: noreply@example.com
+          MAIL_FROM_NAME: Gloaming
