@@ -34,7 +34,7 @@ import {
   formatAdminInvocationStatus,
 } from '@/features/admin/admin-logs-format';
 import { adminLlmQueryKey, listLlmProviders } from '@/features/admin/ai/ai-config-api';
-import { AiLogDetailSheet } from '@/features/admin/ai/ai-log-detail-sheet';
+import { AiLogDetailDialog } from '@/features/admin/ai/ai-log-detail-dialog';
 import {
   adminAiLogsQueryKey,
   type AdminInvocationListParams,
@@ -438,7 +438,7 @@ export function AiLogsPage() {
         </div>
       ) : null}
 
-      <AiLogDetailSheet
+      <AiLogDetailDialog
         log={selected}
         sourceLabel={selected ? formatAdminAiSource(selected.source, locale) : ''}
         purposeLabel={selected ? formatAdminAiPurpose(selected.purpose, locale) : ''}

@@ -1,11 +1,14 @@
 'use client';
 
+import { XIcon } from 'lucide-react';
+
 import { t } from '@/i18n';
 import type { AiInvocationLog } from '@/shared/ai-invocations';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   formatAdminCount,
   formatAdminDateTime,
@@ -14,7 +17,7 @@ import {
 } from '@/features/admin/admin-logs-format';
 import { useLocale } from '@/lib/locale-context';
 
-type AiLogDetailSheetProps = {
+type AiLogDetailDialogProps = {
   log: AiInvocationLog | null;
   sourceLabel: string;
   purposeLabel: string;
@@ -30,27 +33,41 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function AiLogDetailSheet({ log, sourceLabel, purposeLabel, onOpenChange }: AiLogDetailSheetProps) {
+export function AiLogDetailDialog({ log, sourceLabel, purposeLabel, onOpenChange }: AiLogDetailDialogProps) {
   const { locale } = useLocale();
   const isOpen = log != null;
   const emptyValue = t(locale, 'admin.logs.emptyValue');
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg" side="right">
-        {log ? (
-          <>
-            <SheetHeader className="border-b border-border pr-12">
-              <div className="flex items-center justify-between gap-3">
-                <SheetTitle>{t(locale, 'admin.logs.ai.detailTitle')}</SheetTitle>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[min(40rem,calc(100dvh-2rem))] max-w-lg gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border/50 px-5 py-4 sm:px-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <DialogTitle className="text-lg font-semibold tracking-tight">
+                {t(locale, 'admin.logs.ai.detailTitle')}
+              </DialogTitle>
+              {log ? (
                 <Badge variant={log.status === 'success' ? 'secondary' : 'destructive'}>
                   {formatAdminInvocationStatus(log.status, locale)}
                 </Badge>
-              </div>
-              <SheetDescription>{formatAdminDateTime(log.createdAt, locale, true)}</SheetDescription>
-            </SheetHeader>
+              ) : null}
+            </div>
+            <DialogDescription className="mt-1 text-sm text-muted-foreground">
+              {log ? formatAdminDateTime(log.createdAt, locale, true) : ''}
+            </DialogDescription>
+          </div>
+          <DialogClose
+            render={<Button type="button" variant="ghost" size="icon-sm" className="-mr-2 -mt-1 shrink-0" />}
+            aria-label={t(locale, 'common.close')}
+          >
+            <XIcon aria-hidden />
+          </DialogClose>
+        </header>
 
-            <div className="flex flex-col gap-6 px-4 pb-8">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-5 sm:px-6">
+          {log ? (
+            <div className="flex flex-col gap-6">
               <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-4 gap-y-3">
                 <DetailRow label={t(locale, 'admin.logs.ai.detailSource')} value={sourceLabel} />
                 <DetailRow label={t(locale, 'admin.logs.ai.detailPurpose')} value={purposeLabel} />
@@ -111,9 +128,9 @@ export function AiLogDetailSheet({ log, sourceLabel, purposeLabel, onOpenChange 
                 </>
               ) : null}
             </div>
-          </>
-        ) : null}
-      </SheetContent>
-    </Sheet>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -19,6 +19,8 @@ export type CreateLlmClientOptions = {
 
 /**
  * Build a Vercel AI SDK language model for the resolved OpenAI-compatible provider (T1).
+ * `wireVariant` selects Chat Completions vs Responses; structured/JSON output is
+ * requested per call through `generateText({ output })`, not through the model.
  */
 export function createLlmClient(resolved: ResolvedLlm, _options?: CreateLlmClientOptions): LanguageModel {
   if (!isRuntimeImplemented(resolved.apiFamily)) {
@@ -40,5 +42,5 @@ export function createLlmClient(resolved: ResolvedLlm, _options?: CreateLlmClien
     fetch: proxiedFetch ?? undefined,
   });
 
-  return openai.chat(resolved.modelId);
+  return resolved.wireVariant === 'responses' ? openai.responses(resolved.modelId) : openai.chat(resolved.modelId);
 }

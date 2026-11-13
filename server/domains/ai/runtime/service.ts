@@ -1,4 +1,4 @@
-import { generateText, stepCountIs, streamText, tool } from 'ai';
+import { generateText, NoObjectGeneratedError, Output, stepCountIs, streamText, tool } from 'ai';
 import type { z, ZodTypeAny } from 'zod';
 
 import { recordInvocation } from '@/server/domains/ai/invocations/log';
@@ -94,9 +94,14 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
 
     const tools = toAiSdkTools(options.tools);
     const prompt = toAiSdkPrompt(options.messages);
-    const result = await generateText({
+    // `createLlmClient` cannot carry per-call policy, so the configured timeout
+    // and retry budget are applied here — otherwise they are silently dropped
+    // and a stalled upstream hangs the request indefinitely.
+    const callOptions = {
       model,
       ...prompt,
+      ...(options.timeoutMs !== undefined ? { abortSignal: AbortSignal.timeout(options.timeoutMs) } : {}),
+      ...(options.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
       maxOutputTokens: options.maxTokens ?? resolved.maxTokens ?? undefined,
       ...(tools
         ? {
@@ -104,18 +109,58 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
             stopWhen: stepCountIs(options.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS),
           }
         : {}),
-    });
-
-    const usage = {
-      inputTokens: result.usage.inputTokens ?? 0,
-      outputTokens: result.usage.outputTokens ?? 0,
-      totalTokens: (result.usage.inputTokens ?? 0) + (result.usage.outputTokens ?? 0),
     };
 
-    let content: unknown = result.text;
+    let content: unknown;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    const applyUsage = (usage: { inputTokens?: number; outputTokens?: number }) => {
+      inputTokens = usage.inputTokens ?? 0;
+      outputTokens = usage.outputTokens ?? 0;
+    };
+
     if (options.outputSchema) {
-      content = options.outputSchema.parse(JSON.parse(result.text));
+      // Provider-native structured output; on gateways that reject/remap the
+      // JSON schema, retry once with plain JSON mode and validate locally.
+      try {
+        const result = await generateText({
+          ...callOptions,
+          output: Output.object({ schema: options.outputSchema }),
+        });
+        content = result.output;
+        applyUsage(result.usage);
+      } catch (error) {
+        if (!NoObjectGeneratedError.isInstance(error)) throw error;
+        aiLogger.warn({ err: error, source: options.source }, 'Structured output failed; retrying with JSON mode');
+        const result = await generateText({ ...callOptions, output: Output.json() });
+        content = options.outputSchema.parse(result.output);
+        applyUsage(result.usage);
+      }
+    } else if (options.jsonObject) {
+      try {
+        const result = await generateText({ ...callOptions, output: Output.json() });
+        content = result.output;
+        applyUsage(result.usage);
+      } catch (error) {
+        if (!NoObjectGeneratedError.isInstance(error)) throw error;
+        // Hand the raw text back instead of failing. Callers such as the
+        // dictionary enrichment run their own repair loop over it; throwing here
+        // would bypass that loop entirely. Token usage is unavailable on this
+        // path, so the invocation records zeros.
+        aiLogger.warn({ err: error, source: options.source }, 'JSON output failed; returning raw text to caller');
+        content = typeof error.text === 'string' ? error.text : '';
+      }
+    } else {
+      const result = await generateText(callOptions);
+      content = result.text;
+      applyUsage(result.usage);
     }
+
+    const usage = {
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+    };
 
     if (options.persistInvocationLog !== false) {
       await recordInvocation({
@@ -137,7 +182,9 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
           messageCount: options.messages.length,
           ...(options.requestSummaryExtra ?? {}),
         },
-        responseSummary: { replyLength: String(content).length },
+        responseSummary: {
+          replyLength: typeof content === 'string' ? content.length : (JSON.stringify(content)?.length ?? 0),
+        },
       }).catch((error) => aiLogger.warn({ err: error }, 'invocation log failed'));
     }
 
@@ -148,6 +195,28 @@ export async function invokeAi<TSchema extends ZodTypeAny | undefined = undefine
     };
   } catch (error) {
     aiLogger.error({ err: error }, 'invokeAi failed');
+    // Failures used to be dropped here, so the admin log only ever showed
+    // successes and the failure rate/latency were unobservable.
+    if (options.persistInvocationLog !== false) {
+      await recordInvocation({
+        status: 'failure',
+        errorCode: error instanceof AppError ? error.code : ERROR_CODES.INTERNAL_SERVER_ERROR,
+        purpose,
+        source: options.source,
+        userId: options.userId,
+        refType: options.ref?.type,
+        refId: options.ref?.id,
+        modelRowId: resolved?.modelRowId ?? null,
+        providerId: resolved?.providerId ?? null,
+        modelId: resolved?.modelId ?? null,
+        baseUrl: resolved?.baseUrl ?? null,
+        latencyMs: Date.now() - started,
+        requestSummary: {
+          messageCount: options.messages.length,
+          ...(options.requestSummaryExtra ?? {}),
+        },
+      }).catch((logError) => aiLogger.warn({ err: logError }, 'invocation log failed'));
+    }
     if (error instanceof AppError) throw error;
     throw new AppError(HTTP_STATUS.BAD_GATEWAY, ERROR_CODES.INTERNAL_SERVER_ERROR);
   }
@@ -172,10 +241,16 @@ export async function* streamAi(options: AiStreamOptions): AsyncGenerator<AiStre
 
     const tools = toAiSdkTools(options.tools);
     const prompt = toAiSdkPrompt(options.messages);
+    const abortSignal =
+      options.timeoutMs !== undefined
+        ? options.signal
+          ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs)])
+          : AbortSignal.timeout(options.timeoutMs)
+        : options.signal;
     const result = streamText({
       model,
       ...prompt,
-      abortSignal: options.signal,
+      abortSignal,
       ...(tools
         ? {
             tools,
