@@ -6,7 +6,6 @@ import { z } from 'zod';
 import {
   readingWork as readingWorkTable,
   userLibraryItem as userLibraryItemTable,
-  userPersonalTagPreference as userPersonalTagPreferenceTable,
   userTag as userTagTable,
   userWorkTag as userWorkTagTable,
   userWorkTagSuppression as userWorkTagSuppressionTable,
@@ -246,19 +245,6 @@ async function getOwnedTag(userId: string, tagId: string) {
   return row;
 }
 
-/** Whether the current preference still authorizes writes for one captured generation. */
-async function preferenceAuthorizesGeneration(userId: string, generation: number): Promise<boolean> {
-  const [preference] = await db
-    .select({
-      enabled: userPersonalTagPreferenceTable.enabled,
-      generation: userPersonalTagPreferenceTable.generation,
-    })
-    .from(userPersonalTagPreferenceTable)
-    .where(eq(userPersonalTagPreferenceTable.userId, userId))
-    .limit(1);
-  return Boolean(preference?.enabled && preference.generation === generation);
-}
-
 /** Fill only missing locale keys. The conditional update protects edits made while AI is running. */
 export async function completeUserTagTranslations(
   userId: string,
@@ -268,7 +254,6 @@ export async function completeUserTagTranslations(
     providerScope?: 'user-first' | 'user-only';
     maxTokens?: number;
     maxRetries?: number;
-    authorizationGeneration?: number;
   } = {},
 ): Promise<{ tag: UserTag; status: 'completed' | 'incomplete' | 'provider_unavailable'; missingLocales: string[] }> {
   const initial = await getOwnedTag(userId, tagId);
@@ -300,17 +285,6 @@ export async function completeUserTagTranslations(
       missingLocales,
     };
   }
-  if (
-    options.authorizationGeneration !== undefined &&
-    !(await preferenceAuthorizesGeneration(userId, options.authorizationGeneration))
-  ) {
-    return {
-      tag: toUserTag(initial),
-      status: 'incomplete',
-      missingLocales: missingLocalesOf(initial.localizedNames, sourceLocale),
-    };
-  }
-
   let translations: Array<{ locale: string; name: string }>;
   try {
     const response = await invokeAi({
@@ -377,24 +351,7 @@ export async function completeUserTagTranslations(
           ),
         );
     };
-    if (options.authorizationGeneration === undefined) {
-      await saveTranslation(db);
-    } else {
-      await db.transaction(async (tx) => {
-        const [preference] = await tx
-          .select({
-            enabled: userPersonalTagPreferenceTable.enabled,
-            generation: userPersonalTagPreferenceTable.generation,
-          })
-          .from(userPersonalTagPreferenceTable)
-          .where(eq(userPersonalTagPreferenceTable.userId, userId))
-          .for('update')
-          .limit(1);
-        if (preference?.enabled && preference.generation === options.authorizationGeneration) {
-          await saveTranslation(tx);
-        }
-      });
-    }
+    await saveTranslation(db);
   }
 
   const current = await getOwnedTag(userId, tagId);

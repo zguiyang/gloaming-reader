@@ -41,8 +41,6 @@ export const ERROR_CODES = {
   TTS: {
     API_KEY_REQUIRED: 'api.errors.tts.apiKeyRequired',
     NOT_CONFIGURED: 'api.errors.tts.notConfigured',
-    DISABLED: 'api.errors.tts.disabled',
-    UNSUPPORTED_PROVIDER: 'api.errors.tts.unsupportedProvider',
     TEXT_REQUIRED: 'api.errors.tts.textRequired',
     INVALID_CREDENTIALS: 'api.errors.tts.invalidCredentials',
     SYNTHESIS_FAILED: 'api.errors.tts.synthesisFailed',

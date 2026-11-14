@@ -7,7 +7,6 @@ import {
   TTS_CACHE_SCHEMA_VERSION,
   TTS_CACHE_TTL_SECONDS,
   TTS_INPUT_NORMALIZATION_VERSION,
-  TTS_PROVIDER_AZURE,
   type TtsCachePayload,
   ttsCachePayloadSchema,
   type TtsVoiceRole,
@@ -215,12 +214,6 @@ async function synthesizeTtsWithConfig(
   if (!row) {
     throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.NOT_CONFIGURED);
   }
-  if (!row.isEnabled) {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.DISABLED);
-  }
-  if (row.provider !== TTS_PROVIDER_AZURE) {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.UNSUPPORTED_PROVIDER);
-  }
 
   const normalizedInput = normalizeTtsInput(options.text);
   const text = normalizedInput.ttsText;
@@ -228,12 +221,8 @@ async function synthesizeTtsWithConfig(
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.TTS.TEXT_REQUIRED);
   }
 
-  let subscriptionKey: string;
-  try {
-    subscriptionKey = decryptApiKey(row.apiKeyCiphertext);
-  } catch {
-    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.INVALID_CREDENTIALS);
-  }
+  // Resolvers only return enabled Azure rows with a decryptable key.
+  const subscriptionKey = decryptApiKey(row.apiKeyCiphertext);
 
   const voice = resolveVoice(row, options);
   const useCache = !options.bypassCache;
