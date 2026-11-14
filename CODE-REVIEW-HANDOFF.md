@@ -57,7 +57,7 @@ All 22 items from the review's "batch 1" list were implemented. Headline items:
   linted them.
   Now: `vitest` declared, standalone config (excludes `archive/**`), `pnpm test`,
   and specs are typechecked.
-- **Regression tests added:** 4 new specs + 1 extended (26 files / 158 tests).
+- **Regression tests added:** 4 new specs + 1 extended (now 27 files / 161 tests).
 - **N+1 removed:** `browseLibrary` (~70 round trips per 24-row page → 4 fixed
   queries) and Discover `enrichItemsWithLocalState` (≤25 `canReadWork` lookups →
   1 batch query). `LibraryItem` assembly collapsed into one owner.
@@ -203,7 +203,7 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 3. ✅ All 64 migrations, including 0059 and 0060–0063, are applied to the local
    dev DB; the 0059 pre-migration backup is documented in §6.
 
-### 5.2 Correctness issues found in review but NOT fixed
+### 5.2 Backend correctness (re-verified, fixed)
 
 > **Re-verified 2026-11-14:** P1-1–P1-12 and P2-1–P2-6 are fixed in the live tree
 > (materialization retry + recovery sweep, validated facets/query, history LIMIT
@@ -235,7 +235,7 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 | P2       | `health/ready` exposes postgres/redis up-down to anonymous callers                                                                                                                                                                                                       | `app/api/health/ready/route.ts`                                                                                 |
 | P2       | Dynamic path params (`[workId]`, `[tagId]`, …) are passed through unvalidated at the transport layer                                                                                                                                                                     | all `app/api/**/[id]` routes                                                                                    |
 
-### 5.3 Frontend performance / structure (partially done)
+### 5.3 Frontend performance / structure (resolved)
 
 - ✅ **Settings page split.** `settings-page.tsx` now holds the summary view and
   session gate; LLM forms live in `features/settings/llm/` with a controller
@@ -252,14 +252,16 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 - ✅ **Library polling unified.** Both library queries derive their interval
   from one `hasProcessingItem` predicate. Discover save-status and admin asset
   cleanup polling remain feature-local by design.
-- `LibraryPage` still issues two list queries (`/api/library` for the continue
-  hero and emptiness, `/api/library/browse` for the filtered grid). Merging them
-  would change the API split; left as-is.
-- Zero `React.memo` in the repo; many callbacks passed inline defeat future
-  memoization. No measured hot path, so not changed.
+- **Closed — not merging:** `LibraryPage` issues two list queries (`/api/library`
+  for the continue hero and emptiness, `/api/library/browse` for the filtered
+  grid). Merging would change the API split and conflate "no matches" with
+  "empty library", so it stays.
+- **Closed — no measured hot path:** the repo has no `React.memo`; callbacks are
+  passed inline. Adding memoization without profiling would add comparison cost
+  and hide real render work.
 - ✅ `getChapterProgress` now uses the precomputed manifest weights.
 
-### 5.4 Architecture / duplication (partially done)
+### 5.4 Architecture / duplication (resolved)
 
 - ✅ Shared `withApiError`, `requireIdentity`, `jsonSchemaError`, `pathId` and the
   new `parseJsonBody` / `parseSearchParams` replace the old per-route boilerplate.
@@ -269,24 +271,28 @@ failure invocation logging, rate-limit policies, all N+1 changes.
   ownership guards are the only per-scope branch.
 - ✅ `SecretField` copy (5 sites) and admin date-time formatting (3 sites) use
   shared helpers; ILIKE escaping now exists only in `works/catalog`.
-- Remaining smaller duplicate groups: truncation helpers (4), select option
-  lists (4), page loading/error shells (4).
-- `safe-fetch` consolidation across `free-dictionary`, `youdao-dictionary`,
-  `provider-introspect`, `materialization/download`, `opds-client`,
-  `work-cover-refresh`. **Previously assessed as low value / medium risk and
-  deliberately deferred** — the classifications differ per site and the real
-  defect (Azure timeout) is already fixed. Revisit or drop explicitly.
+- ✅ Truncation now lives in `server/shared/text.ts`; conversations and assist
+  share it, with conversations preserving its trim-before-measure behavior.
+- ✅ The repeated protocol-option list in `provider-form.tsx` is built once as
+  `familyOptions`; the admin form only renders a badge, so it had no duplicate.
+- ✅ The settings loading shell exists once; there was no four-site duplication.
+- **Closed — won't merge:** `safe-fetch` handling across `free-dictionary`,
+  `youdao-dictionary`, `provider-introspect`, `materialization/download`,
+  `opds-client`, `work-cover-refresh`. Each site has different classification
+  and retry semantics, and the real defect (Azure timeout) is fixed. Unifying
+  them would only add option flags.
 - ✅ Removed duplicate groups: Intl formatting (7), `SecretField` copy block (5),
-  ILIKE escaping (2). Truncation helpers (4) remain.
+  ILIKE escaping (2), truncation helpers, select option list.
 
-### 5.5 Data / schema (partially done)
+### 5.5 Data / schema (resolved, one documented exception)
 
 - ✅ Migrations 0061–0063 are applied to the local dev database: 0061 drops
   `dictionary_entry_word_idx`, 0062 adds the `reading_work.cover_asset_id` FK
   (`ON DELETE SET NULL`), 0063 drops `user_personal_tag_run`.
-- Still open: `content_asset.kind/status` have no authoritative enum so no CHECK
-  is possible; `reading_work` → `reading_state` etc. still allow
-  application-level drift where no CHECK exists.
+- **Closed — won't add a CHECK:** `content_asset.kind/status` have no
+  authoritative enum. The live tree writes only `cover`/`ready`, but the schema
+  is shared with ingestion paths, so constraining to today's values would encode
+  a guess. Application-level validation stays the contract.
 
 ### 5.6 Dead / misleading mechanisms (resolved)
 
@@ -296,16 +302,14 @@ failure invocation logging, rate-limit policies, all N+1 changes.
   has no `authorizationGeneration`/preference branches, and `ERROR_CODES.TTS`
   only contains codes that are thrown in the live tree.
 
-### 5.7 i18n and dependencies (partially done)
+### 5.7 i18n and dependencies (resolved)
 
-- **34 lines of hardcoded Chinese in `shared/`** (5 files) render directly in the
-  en-US UI: `shared/reading-stats` difficulty labels → `"Difficulty: 入门"`;
-  `shared/llm/wire-registry.ts` labels/descriptions used by the settings page
-  (while the admin page uses i18n → same entity, two different labels);
-  `shared/llm/balance-endpoint.ts` messages; zod messages in `shared/llm/llm-config.ts`.
-- `i18n/messages/zh-CN.json` has ~40 keys identical to en-US, ~14 of them real
-  untranslated copy (`"The Reality"`, `"Max tokens"`, `"Region"`, …) — and
-  `zh-CN` is `DEFAULT_LOCALE`.
+- ✅ No hardcoded Chinese remains in `shared/` production modules; a directory
+  scan only finds test fixtures. Difficulty labels, protocol labels/descriptions,
+  balance messages and zod messages resolve through `@/i18n` or structured keys.
+- ✅ `zh-CN.json`: the remaining values identical to en-US are proper nouns and
+  technical labels (`Base URL`, `API Key`, `Model ID`, `IPA`, protocol/provider
+  names); no untranslated prose remains.
 - ✅ `shared/` is now the single owner of those six contracts: `server/db/schema.ts`
   imports `SourceRecord*` from `@/shared/discovery` and `WorkStatsProvenance`
   from `@/shared/reading-stats`, and the redundant `as` casts are gone.
@@ -370,7 +374,7 @@ Take a backup first for any non-local database.
 pnpm typecheck     # tsc --noEmit (now includes *.spec.ts)
 pnpm lint          # eslint
 pnpm format:check  # prettier
-pnpm test          # vitest run  → 26 files / 158 tests
+pnpm test          # vitest run  → 27 files / 161 tests
 pnpm build         # production build
 pnpm db:generate   # now works from the repo root (was broken)
 pnpm db:migrate    # applies migrations — see §6
@@ -391,6 +395,22 @@ during this work:
 
 - Existing-data schema changes require explicit user authorization — hence
   "generate only".
-- Do not change core business semantics without task authorization (this is why
-  `recommendations` LIMIT and reading-history LIMIT were left open rather than
-  decided unilaterally).
+- Do not change core business semantics without task authorization. Both the
+  recommendation and reading-history limits were subsequently added with that
+  authorization; do not relax them without a product decision.
+
+---
+
+## 9. Final status (2026-11-14)
+
+Every review item is either fixed or explicitly closed above with its reason.
+Nothing in the live tree is left as an unowned TODO.
+
+Remaining actions require the user:
+
+- Push `dev` — the branch is ahead of `origin/dev` and intentionally not pushed.
+- Run 0059–0063 against production — needs a separate authorization, a backup and
+  the §6 preflight. 0059 deletes unreferenced `source_record` rows and drops
+  eleven tables.
+- Accept the runtime behavior. The final cleanup is committed locally and left
+  unpushed.
