@@ -17,6 +17,22 @@ import {
 } from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
+import type {
+  SourceRecordAuthor,
+  SourceRecordAvailability,
+  SourceRecordContentCandidate,
+  SourceRecordSourceMeta,
+} from '@/shared/discovery';
+import type { WorkStatsProvenance } from '@/shared/reading-stats';
+
+export type {
+  SourceRecordAuthor,
+  SourceRecordAvailability,
+  SourceRecordContentCandidate,
+  SourceRecordSourceMeta,
+  WorkStatsProvenance,
+};
+
 /** Better Auth core tables (PostgreSQL) + username plugin / product fields. */
 
 export const user = pgTable('user', {
@@ -111,8 +127,7 @@ export const accountRelations = relations(account, ({ one }) => ({
   }),
 }));
 
-/** Work-level reading stats provenance — algorithm from parse vs admin manual override. */
-export type WorkStatsProvenance = 'algorithm' | 'manual';
+/** Work-level description provenance — extracted from source vs AI vs admin manual override. */
 export type WorkDescriptionProvenance = 'extracted' | 'ai' | 'manual';
 
 /** Reading catalog root — metadata only, no body (ADR-001). */
@@ -1049,35 +1064,6 @@ export const discoverySource = pgTable(
     ),
   ],
 );
-
-export type SourceRecordAuthor = {
-  name: string;
-  sortName?: string;
-  role?: string;
-};
-
-/** Compact source-provided metadata preserved from the upstream record. */
-export type SourceRecordSourceMeta = {
-  subjects?: string[];
-  bookshelves?: string[];
-  summary?: string;
-  notes?: string[];
-  extra?: Record<string, unknown>;
-};
-
-/** One upstream content file candidate (e.g. an EPUB); never downloaded by this layer. */
-export type SourceRecordContentCandidate = {
-  /** Source format label (e.g. `epub`, `html`). */
-  format: string;
-  /** Candidate URL as provided by the source. */
-  url: string;
-  mimeType?: string;
-  sizeBytes?: number;
-  /** Upstream file/format update timestamp when the source provides one. */
-  updatedAt?: string;
-};
-
-export type SourceRecordAvailability = 'available' | 'unavailable';
 
 /**
  * Materialization progress for the (optional) SourceRecord → ReadingWork link.

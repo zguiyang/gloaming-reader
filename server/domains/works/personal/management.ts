@@ -4,7 +4,6 @@ import { and, eq, inArray, or, sql } from 'drizzle-orm';
 
 import {
   contentAsset as contentAssetTable,
-  type ContentAssetMeta,
   conversation as conversationTable,
   partAudioSegment as partAudioSegmentTable,
   readingPart as readingPartTable,
@@ -152,7 +151,7 @@ export async function deletePersonalWork(userId: string, workId: string): Promis
         for (const key of collectFormalKeysFromContentAssetRow({
           storageKey: asset.storageKey,
           kind: asset.kind,
-          meta: asset.meta as ContentAssetMeta,
+          meta: asset.meta,
         }))
           keys.add(key);
       }

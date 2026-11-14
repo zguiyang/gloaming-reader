@@ -103,7 +103,7 @@ export async function collectReferencedStorageKeys(): Promise<ReferencedKeyIndex
 
   for (const asset of assets) {
     if (!PROTECTED_ASSET_KINDS.has(asset.kind)) continue;
-    const meta = asset.meta as ContentAssetMeta;
+    const meta = asset.meta;
     for (const key of new Set([asset.storageKey, ...(meta.objectKeys ?? [])])) {
       addFormalReferencedKey(index, key, asset.kind);
     }

@@ -6,8 +6,6 @@ import {
   discoverySource as discoverySourceTable,
   sourceRecord as sourceRecordTable,
   sourceRecordSaveIntent as saveIntentTable,
-  type SourceRecordContentCandidate,
-  type SourceRecordSourceMeta,
 } from '@/server/db/schema';
 import type { SourceRecordDetail } from '@/shared/discovery';
 
@@ -97,8 +95,8 @@ export async function upsertSourceRecordFromDetail(detail: SourceRecordDetail): 
       description: detail.description,
       rightsStatement: detail.rightsStatement,
       coverUrl: detail.coverUrl,
-      contentCandidates: detail.contentCandidates as SourceRecordContentCandidate[],
-      sourceMeta: detail.sourceMeta as SourceRecordSourceMeta,
+      contentCandidates: detail.contentCandidates,
+      sourceMeta: detail.sourceMeta,
       availability: 'available',
       lastSeenAt: now,
       sourceUpdatedAt: detail.sourceUpdatedAt ? new Date(detail.sourceUpdatedAt) : null,
@@ -139,8 +137,8 @@ async function applySourceRecordDetail(
       coverUrl: detail.coverUrl,
       ...(shouldRefreshCandidates
         ? {
-            contentCandidates: detail.contentCandidates as SourceRecordContentCandidate[],
-            sourceMeta: detail.sourceMeta as SourceRecordSourceMeta,
+            contentCandidates: detail.contentCandidates,
+            sourceMeta: detail.sourceMeta,
           }
         : {}),
       availability: 'available',
