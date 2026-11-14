@@ -5,11 +5,10 @@ import type { WorkProcessingStatus } from '@/shared/works';
 
 import { db } from '@/server/infra/db';
 
-type WorkflowStep = 'parse' | 'metadata';
+type WorkflowStep = 'parse';
 
 const STEP_RUNNING_STATUS: Record<WorkflowStep, WorkProcessingStatus> = {
   parse: 'processing',
-  metadata: 'metadata',
 };
 
 const WORKFLOW_LEASE_MS = 15 * 60 * 1000;
@@ -17,12 +16,7 @@ const WORKFLOW_LEASE_MS = 15 * 60 * 1000;
 /** Idle wait statuses that may still claim the next step (manual pipeline). */
 const STEP_IDLE_CLAIM_STATUS: Partial<Record<WorkflowStep, WorkProcessingStatus>> = {
   parse: 'uploaded',
-  metadata: 'parsed',
 };
-
-export function stepRunningStatus(step: WorkflowStep): WorkProcessingStatus {
-  return STEP_RUNNING_STATUS[step];
-}
 
 function workflowTokenMatch(retryJobToken: string) {
   return sql`${readingWorkTable.originMeta}->>'retryJobToken' = ${retryJobToken}`;
@@ -222,43 +216,6 @@ export async function completeWorkflowStep(
     )
     .returning({ id: readingWorkTable.id });
   return Boolean(completed);
-}
-
-/** Rotate the execution identity between sequential jobs in one workflow step. */
-export async function rotateWorkflowJobToken(
-  workId: string,
-  claimStep: WorkflowStep,
-  currentStatus: WorkProcessingStatus,
-  currentToken: string,
-  currentAttemptToken: string,
-  nextToken: string,
-  nextAttemptToken: string,
-  nextEnqueueStep: WorkflowStep,
-  nextStatus: WorkProcessingStatus,
-): Promise<boolean> {
-  const [rotated] = await db
-    .update(readingWorkTable)
-    .set({
-      processingStatus: nextStatus,
-      originMeta: sql`(${readingWorkTable.originMeta} - 'workflowClaimAttempt' - 'workflowClaimStep' - 'workflowClaimLeaseExpiresAt' - 'workflowEnqueueAttempt' - 'workflowEnqueueLeaseExpiresAt') || ${JSON.stringify(
-        {
-          retryJobToken: nextToken,
-          workflowEnqueueStep: nextEnqueueStep,
-          workflowEnqueueAttempt: nextAttemptToken,
-          workflowEnqueueLeaseExpiresAt: workflowLeaseExpiresAt(),
-        },
-      )}::jsonb`,
-    })
-    .where(
-      and(
-        eq(readingWorkTable.id, workId),
-        eq(readingWorkTable.processingStatus, currentStatus),
-        workflowTokenMatch(currentToken),
-        workflowClaimMatch(currentAttemptToken, claimStep),
-      ),
-    )
-    .returning({ id: readingWorkTable.id });
-  return Boolean(rotated);
 }
 
 /** Reserve the enqueue transition before a newly-created workflow is queued. */
