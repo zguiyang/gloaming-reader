@@ -79,6 +79,11 @@ export function ProviderForm({
     if (Object.keys(next).length === 0) onSave(draft);
   }
 
+  const familyOptions = LLM_API_FAMILIES.map((familyId) => ({
+    value: familyId,
+    label: `${getApiFamilyLabel(locale, familyId)}${!LLM_WIRE_REGISTRY[familyId].runtimeImplemented ? ` · ${t(locale, 'settings.ai.notAvailableYet')}` : ''}`,
+  }));
+
   return (
     <form className="flex flex-col gap-4" onSubmit={submit}>
       <FieldGroup className="gap-4">
@@ -87,10 +92,7 @@ export function ProviderForm({
             <FieldLabel htmlFor="settings-provider-family">{t(locale, 'settings.ai.serviceType')}</FieldLabel>
             <Select
               value={draft.apiFamily}
-              items={LLM_API_FAMILIES.map((familyId) => ({
-                value: familyId,
-                label: `${getApiFamilyLabel(locale, familyId)}${!LLM_WIRE_REGISTRY[familyId].runtimeImplemented ? ` · ${t(locale, 'settings.ai.notAvailableYet')}` : ''}`,
-              }))}
+              items={familyOptions}
               onValueChange={(value) => {
                 if (value && LLM_API_FAMILIES.includes(value as LlmApiFamily))
                   setDraft((current) => ({ ...current, apiFamily: value as LlmApiFamily }));
@@ -101,12 +103,9 @@ export function ProviderForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {LLM_API_FAMILIES.map((familyId) => (
-                    <SelectItem key={familyId} value={familyId}>
-                      {getApiFamilyLabel(locale, familyId)}
-                      {!LLM_WIRE_REGISTRY[familyId].runtimeImplemented
-                        ? ` · ${t(locale, 'settings.ai.notAvailableYet')}`
-                        : ''}
+                  {familyOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectGroup>
