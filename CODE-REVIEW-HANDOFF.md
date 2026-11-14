@@ -3,8 +3,9 @@
 > **Audience:** the next agent (or next session) picking up this repo.
 > **Scope:** a two-round static code review of `dev`, plus two fix batches, plus
 > test-infrastructure repair. No runtime/E2E acceptance was performed.
-> **Repo state when this was written:** clean working tree, `dev` is **12 commits
-> ahead of `origin/dev`, nothing pushed.** HEAD = `8d8e13f1`.
+> **Repo state when this was written:** clean working tree, `dev` is ahead of
+> `origin/dev`, nothing pushed. A follow-up cleanup pass on 2026-11-14 is
+> summarised in §1.5 and marked inline in §5.
 
 ---
 
@@ -92,20 +93,40 @@ read the commit body's "Also included" list): `features/reader/reader-page.tsx`,
 `server/domains/library/tags/service.ts`,
 `server/domains/discovery/gutenberg/opds-adapter.ts`, `package.json`.
 
+### 1.5 Cleanup pass — 2026-11-14
+
+A targeted cleanup of the review's remaining mechanical items landed in these
+commits (nothing pushed):
+
+| commit     | subject                                                                |
+| ---------- | ---------------------------------------------------------------------- |
+| `67f3c7d9` | `refactor(workflow): drop the unused metadata step and token rotation` |
+| `41782f2f` | `fix(db): drop the redundant dictionary word index`                    |
+| `e5bb8097` | `fix(db): add cover asset FK and drop the unused tag run table`        |
+| `8d779f7f` | `refactor(settings): split the settings page by owner`                 |
+| `d115a873` | `refactor(llm): share provider, model and setting writes`              |
+| `a1711ddb` | `refactor: make shared modules the single owner of mirrored contracts` |
+| `1e4800a4` | `refactor(ui): share secret-field copy and admin datetime formatting`  |
+| `22d85df5` | `refactor(library): derive polling from one processing predicate`      |
+
+Each commit passed `typecheck`, `lint`, `format:check` and `test`. The schema
+migrations (0061–0063) were applied to the local dev database only; there is no
+production database in this environment.
+
 ---
 
 ## 2. Verification status
 
 Run from the repo root:
 
-| Command             | Result                                                                                                            |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `pnpm typecheck`    | ✅ 0 errors (specs now included)                                                                                  |
-| `pnpm lint`         | ✅ 0 errors, 3 pre-existing warnings (2 in generated `.cloudflare/types/index.d.ts`, 1 in `commitlint.config.js`) |
-| `pnpm format:check` | ✅ clean                                                                                                          |
-| `pnpm test`         | ✅ **26 files / 158 tests**                                                                                       |
-| `pnpm build`        | ✅ production build succeeds                                                                                      |
-| `pnpm db:generate`  | ✅ `No schema changes` (after the script fix)                                                                     |
+| Command             | Result                                                               |
+| ------------------- | -------------------------------------------------------------------- |
+| `pnpm typecheck`    | ✅ 0 errors (specs now included)                                     |
+| `pnpm lint`         | ✅ 0 errors, 0 warnings (generated `.cloudflare/` types are ignored) |
+| `pnpm format:check` | ✅ clean                                                             |
+| `pnpm test`         | ✅ **27 files / 161 tests**                                          |
+| `pnpm build`        | ✅ production build succeeds                                         |
+| `pnpm db:generate`  | ✅ `No schema changes` (after the script fix)                        |
 
 **Not verified:** no runtime acceptance, no E2E, no database migration applied,
 no load/soak testing. Every claim above comes from static reading plus the unit
@@ -163,11 +184,9 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 
 ### 5.1 Highest value, lowest cost — do next
 
-1. **Put `pnpm test` into `.husky/pre-push` (and ideally a CI workflow).**
-   `.husky/pre-push` runs `typecheck`, `lint`, `format:check` but **not** `test`,
-   and there is **no `.github/` at all**. The suite now takes ~1s, so wiring it up
-   costs minutes and is the difference between the baseline being real or
-   decorative.
+1. ✅ **`pnpm test` is in `.husky/pre-push` and CI.** `.github/workflows/ci.yml`
+   runs `format:check`, `lint`, `typecheck`, `test` and `build`; the local
+   pre-push hook runs the same set minus `build`.
 2. **Runtime acceptance (E2E) in an isolated dev environment.** Nothing in §2
    exercises real behavior. Specifically:
    - **Better Auth rate limiting** — only observable when `FRONTEND_URL` is not
@@ -201,18 +220,19 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 | P1       | Parse finalization still updates `part.meta` one row at a time in a loop (the overwrite was fixed, the loop was not)                                                                                                                                                     | `server/application/commands/run-content-parse-workflow.ts`                                                     |
 | P1       | Rate-limit coverage: `/api/works` (50 MB EPUB enqueue), admin test/fetch-models/balance endpoints, `/api/settings/llm/models/[id]/test` are unthrottled                                                                                                                  | `server/infra/http/next-rate-limit.ts` + those routes                                                           |
 | P2       | `more-page` treats a synthesized `{status:401}` from `useSession` as "session expired" and pops the login modal for anonymous visitors                                                                                                                                   | `lib/auth/session.ts`, `features/more/more-page.tsx`                                                            |
-| P2       | Library search has no debounce and the infinite query lacks `placeholderData: keepPreviousData` → a request storm plus the whole grid flashing empty per keystroke                                                                                                       | `features/library/library-page.tsx`, `library-api.ts`                                                           |
-| P2       | Library `status`/`sort`/`view` are never written back to the URL, contradicting the file's own "URL is the durable filter state" comment                                                                                                                                 | `features/library/library-page.tsx`                                                                             |
+| P2       | ~~Library search has no debounce and the infinite query lacks `placeholderData: keepPreviousData`~~ ✅ Fixed: 300ms debounce + `keepPreviousData`                                                                                                                        | `features/library/library-page.tsx`, `library-api.ts`                                                           |
+| P2       | ~~Library `status`/`sort`/`view` are never written back to the URL~~ ✅ Fixed: `writeViewSearch` keeps them durable                                                                                                                                                      | `features/library/library-page.tsx`                                                                             |
 | P2       | Chapter navigation has no in-flight guard and reuses a stale `expectedRevision` → rapid "next chapter" clicks produce 409 toasts                                                                                                                                         | `features/reader/reader-api.ts`, `reader-page.tsx`                                                              |
 | P2       | Two Discover keys are never invalidated: `['discover','related-author']`, `['discover','source-parts']`; the latter also duplicates `readerQueryKey.parts`                                                                                                               | `app/(app)/discover/records/[sourceRecordId]/source-record-detail.tsx`                                          |
 | P2       | Rate-limit auth switch is decided by whether `FRONTEND_URL`'s hostname is localhost — a production misconfiguration silently disables all Better Auth rate limiting                                                                                                      | `server/infra/auth/auth.ts`                                                                                     |
 | P2       | `health/ready` exposes postgres/redis up-down to anonymous callers                                                                                                                                                                                                       | `app/api/health/ready/route.ts`                                                                                 |
 | P2       | Dynamic path params (`[workId]`, `[tagId]`, …) are passed through unvalidated at the transport layer                                                                                                                                                                     | all `app/api/**/[id]` routes                                                                                    |
 
-### 5.3 Frontend performance / structure (not started)
+### 5.3 Frontend performance / structure (partially done)
 
-- `features/settings/settings-page.tsx` — 1268 lines, 15 `useState`; `ModelFields`
-  is un-memoized so every keystroke re-renders the whole page.
+- ✅ **Settings page split.** `settings-page.tsx` now holds the summary view and
+  session gate; LLM forms live in `features/settings/llm/` with a controller
+  hook (`use-own-ai-settings`) and `OwnAiView`. `ModelForm` still owns its draft.
 - `features/reader/reader-page.tsx` — effects depend on the `useMutation()`
   return value, which is a fresh object each render, so they re-run every render.
 - `features/content/reading-part-view.tsx` — the `useMemo` over chapter HTML is
@@ -222,49 +242,56 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 - `features/discover/discover-page.tsx` — renders the same grid twice
   (`md:hidden` / `hidden md:block`) with identical props while the component is
   already responsive.
-- Polling is scattered per card/row; `LibraryPage` fires two list queries.
+- ✅ **Library polling unified.** Both library queries derive their interval
+  from one `hasProcessingItem` predicate. Discover save-status and admin asset
+  cleanup polling remain feature-local by design.
+- `LibraryPage` still issues two list queries (`/api/library` for the continue
+  hero and emptiness, `/api/library/browse` for the filtered grid). Merging them
+  would change the API split; left as-is.
 - Zero `React.memo` in the repo; many callbacks passed inline defeat future
-  memoization.
+  memoization. No measured hot path, so not changed.
 - `getChapterProgress` reduces the whole manifest every 100ms.
 
-### 5.4 Architecture / duplication (not started)
+### 5.4 Architecture / duplication (partially done)
 
 - **75-route boilerplate** in `app/api` (~40% of its 2504 lines): `getRequestIdentity`
   ×87, `catch → jsonFromThrown` ×90, identical zod `issues.map` ×42. Candidate for
   `withApiHandler` / `requireUser` / `parseOr400`. **Large, mechanical — separate PR.**
 - `features/admin/ai/ai-logs-page.tsx` (453) and `tts-logs-page.tsx` (423) are
   structural clones → `<InvocationLogsShell>`.
-- LLM instance vs user services are near-verbatim mirrors
-  (`llm/config/{providers,models,settings}` vs `llm/config/user/service.ts`).
+- ✅ LLM instance and user services now share `llm/config/mutations.ts`; the
+  ownership guards are the only per-scope branch.
+- ✅ `SecretField` copy (5 sites) and admin date-time formatting (3 sites) use
+  shared helpers; ILIKE escaping now exists only in `works/catalog`.
+- Remaining smaller duplicate groups: truncation helpers (4), select option
+  lists (4), page loading/error shells (4).
 - `safe-fetch` consolidation across `free-dictionary`, `youdao-dictionary`,
   `provider-introspect`, `materialization/download`, `opds-client`,
   `work-cover-refresh`. **Previously assessed as low value / medium risk and
   deliberately deferred** — the classifications differ per site and the real
   defect (Azure timeout) is already fixed. Revisit or drop explicitly.
-- Remaining smaller duplicate groups from the review: truncation helpers (4),
-  Intl formatting (7), `SecretField` copy block (5), select option lists (4),
-  page loading/error shells (4), ILIKE escaping (2).
+- ✅ Removed duplicate groups: Intl formatting (7), `SecretField` copy block (5),
+  ILIKE escaping (2). Truncation helpers (4) remain.
 
 ### 5.5 Data / schema (partially done)
 
-- Migration 0060 generated but not applied (§6).
-- Still open: `reading_work.cover_asset_id` has no FK (blocked by a circular
-  Drizzle type reference), `content_asset.kind/status` have no authoritative
-  enum so no CHECK is possible, `dictionary_entry_word` has a redundant
-  non-unique index next to its unique one, `reading_work` → `reading_state` etc.
-  still allow application-level drift where no CHECK exists.
+- ✅ Migrations 0061–0063 are applied to the local dev database: 0061 drops
+  `dictionary_entry_word_idx`, 0062 adds the `reading_work.cover_asset_id` FK
+  (`ON DELETE SET NULL`), 0063 drops `user_personal_tag_run`.
+- Still open: `content_asset.kind/status` have no authoritative enum so no CHECK
+  is possible; `reading_work` → `reading_state` etc. still allow
+  application-level drift where no CHECK exists.
 
-### 5.6 Dead / misleading mechanisms (documented, not removed)
+### 5.6 Dead / misleading mechanisms (partially removed)
 
-- Workflow `metadata` step, `stepRunningStatus`, `rotateWorkflowJobToken` have no
-  callers in the live tree.
-- `user_personal_tag_run` table has no live consumer (only `archive/`).
+- ✅ Workflow `metadata` step, `stepRunningStatus`, `rotateWorkflowJobToken` and
+  the `user_personal_tag_run` table were removed in `67f3c7d9` / `e5bb8097`.
 - `completeUserTagTranslations` authorization/preference branches are never
   reached (no caller passes `authorizationGeneration`).
 - Three TTS error codes in `server/domains/tts/synthesis/service.ts` are
   unreachable because the resolver already filters unusable configs.
 
-### 5.7 i18n and dependencies (not started)
+### 5.7 i18n and dependencies (partially done)
 
 - **34 lines of hardcoded Chinese in `shared/`** (5 files) render directly in the
   en-US UI: `shared/reading-stats` difficulty labels → `"Difficulty: 入门"`;
@@ -274,10 +301,10 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 - `i18n/messages/zh-CN.json` has ~40 keys identical to en-US, ~14 of them real
   untranslated copy (`"The Reality"`, `"Max tokens"`, `"Region"`, …) — and
   `zh-CN` is `DEFAULT_LOCALE`.
-- `shared/` and `server/db/schema.ts` define 6 duplicate contracts
-  (`ContentAssetMeta`, `SourceRecordAuthor/SourceMeta/ContentCandidate/Availability`,
-  `WorkStatsProvenance`) reconciled with `as`, so field drift is invisible to the
-  type system. `shared/content-assets` has zero production consumers.
+- ✅ `shared/` is now the single owner of those six contracts: `server/db/schema.ts`
+  imports `SourceRecord*` from `@/shared/discovery` and `WorkStatsProvenance`
+  from `@/shared/reading-stats`, and the redundant `as` casts are gone.
+  `shared/content-assets` (zero consumers) was deleted.
 - Dependency hygiene (each is a one-liner): `shadcn` is a runtime dependency but
   is CLI-only; `@types/dompurify` is a deprecated stub; `@cloudflare/workers-types`
   is declared but never referenced (Workers typechecking is therefore **not** on);
