@@ -20,6 +20,7 @@ import {
 
 import { invokeAi } from '@/server/domains/ai';
 import { parseApiFamily } from '@/server/domains/llm/config/api-family';
+import { toProviderView } from '@/server/domains/llm/config/mappers';
 import { settingReferencesModel } from '@/server/domains/llm/config/settings/references';
 import { isModelRuntimeReady } from '@/server/domains/llm/runtime/readiness';
 import { requireInstanceProvider } from '@/server/domains/provider-scope';
@@ -30,7 +31,6 @@ import {
   decryptApiKey,
   encryptApiKey,
   fetchProviderModelCandidates,
-  maskApiKey,
   queryProviderBalance as queryProviderBalanceUpstream,
 } from '@/server/infra/llm';
 import { rootLogger } from '@/server/infra/logging/logger';
@@ -46,39 +46,13 @@ function validateProviderOptionalFields(family: LlmApiFamily, thinkingParam: str
   }
 }
 
-function toProvider(row: ProviderRow): LlmProvider {
-  const apiFamily = parseApiFamily(row.apiFamily);
-  let apiKeyMasked: string | null = null;
-  try {
-    apiKeyMasked = maskApiKey(decryptApiKey(row.apiKeyCiphertext));
-  } catch {
-    apiKeyMasked = '****';
-  }
-  return {
-    id: row.id,
-    apiFamily,
-    name: row.name,
-    baseUrl: row.baseUrl,
-    proxyUrl: row.proxyUrl ?? null,
-    thinkingParam: row.thinkingParam ?? null,
-    balanceEndpoint: row.balanceEndpoint ?? null,
-    balanceAmountPath: row.balanceAmountPath ?? null,
-    balanceCurrencyPath: row.balanceCurrencyPath ?? null,
-    isEnabled: row.isEnabled,
-    apiKeySet: true,
-    apiKeyMasked,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
 export async function listProviders(): Promise<LlmProvider[]> {
   const rows = await db
     .select()
     .from(llmProviderTable)
     .where(isNull(llmProviderTable.ownerUserId))
     .orderBy(asc(llmProviderTable.createdAt));
-  return rows.map(toProvider);
+  return rows.map(toProviderView);
 }
 
 export async function createProvider(body: CreateLlmProviderBody): Promise<LlmProvider> {
@@ -105,7 +79,7 @@ export async function createProvider(body: CreateLlmProviderBody): Promise<LlmPr
       ownerUserId: null,
     })
     .returning();
-  return toProvider(row!);
+  return toProviderView(row!);
 }
 
 export async function updateProvider(id: string, body: UpdateLlmProviderBody): Promise<LlmProvider> {
@@ -156,9 +130,9 @@ export async function updateProvider(id: string, body: UpdateLlmProviderBody): P
 
   const [row] = await db.update(llmProviderTable).set(patch).where(eq(llmProviderTable.id, id)).returning();
   // Deleted between the ownership check and this update — surface 404, not a
-  // TypeError from `toProvider(undefined)`.
+  // TypeError from `toProviderView(undefined)`.
   if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
-  return toProvider(row);
+  return toProviderView(row);
 }
 
 export async function deleteProvider(id: string): Promise<void> {

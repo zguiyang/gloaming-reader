@@ -13,6 +13,7 @@ import {
 } from '@/shared/llm';
 
 import { parseApiFamily } from '@/server/domains/llm/config/api-family';
+import { toModelView } from '@/server/domains/llm/config/mappers';
 import { settingReferencesModel } from '@/server/domains/llm/config/settings/references';
 import { requireInstanceProvider } from '@/server/domains/provider-scope';
 import { db } from '@/server/infra/db';
@@ -20,25 +21,6 @@ import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 import { isUniqueViolation } from '@/server/shared/errors/db-errors';
-
-type ModelRow = typeof llmModelTable.$inferSelect;
-
-function toModel(row: ModelRow): LlmModel {
-  return {
-    id: row.id,
-    providerId: row.providerId,
-    modelId: row.modelId,
-    label: row.label,
-    wireVariant: row.wireVariant,
-    contextLength: row.contextLength,
-    temperature: row.temperature,
-    maxTokens: row.maxTokens,
-    isEnabled: row.isEnabled,
-    sortOrder: row.sortOrder,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
 
 export async function listModels(query: LlmModelListQuery): Promise<LlmModel[]> {
   if (query.providerId) {
@@ -57,7 +39,7 @@ export async function listModels(query: LlmModelListQuery): Promise<LlmModel[]> 
         .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
         .where(isNull(llmProviderTable.ownerUserId))
         .orderBy(asc(llmModelTable.sortOrder), asc(llmModelTable.createdAt));
-  return rows.map((row) => toModel(row.model));
+  return rows.map((row) => toModelView(row.model));
 }
 
 export async function createModel(body: CreateLlmModelBody): Promise<LlmModel> {
@@ -89,7 +71,7 @@ export async function createModel(body: CreateLlmModelBody): Promise<LlmModel> {
       })
       .returning();
     if (!row) throw new Error(`LLM model insert produced no row for ${body.modelId}`);
-    return toModel(row);
+    return toModelView(row);
   } catch (error) {
     // Only a duplicate key is a conflict; a blanket `catch` hid real failures
     // (connection loss, constraint drift) behind a misleading 409.
@@ -149,7 +131,7 @@ export async function updateModel(id: string, body: UpdateLlmModelBody): Promise
   try {
     const [row] = await db.update(llmModelTable).set(patch).where(eq(llmModelTable.id, id)).returning();
     if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
-    return toModel(row);
+    return toModelView(row);
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);

@@ -28,6 +28,7 @@ import {
 
 import { invokeAi } from '@/server/domains/ai';
 import { parseApiFamily } from '@/server/domains/llm/config/api-family';
+import { toModelView, toProviderView } from '@/server/domains/llm/config/mappers';
 import { settingReferencesModel } from '@/server/domains/llm/config/settings/references';
 import { isModelRuntimeReady } from '@/server/domains/llm/runtime/readiness';
 import {
@@ -36,63 +37,11 @@ import {
   runtimeActorFromUserId,
 } from '@/server/domains/provider-scope';
 import { db } from '@/server/infra/db';
-import {
-  assertSafeOutboundUrl,
-  assertSafeProxyUrl,
-  decryptApiKey,
-  encryptApiKey,
-  maskApiKey,
-} from '@/server/infra/llm';
+import { assertSafeOutboundUrl, assertSafeProxyUrl, encryptApiKey } from '@/server/infra/llm';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 import { isUniqueViolation } from '@/server/shared/errors/db-errors';
-
-type ProviderRow = typeof llmProviderTable.$inferSelect;
-type ModelRow = typeof llmModelTable.$inferSelect;
-
-function toProvider(row: ProviderRow): LlmProvider {
-  const apiFamily = parseApiFamily(row.apiFamily);
-  let apiKeyMasked: string | null = null;
-  try {
-    apiKeyMasked = maskApiKey(decryptApiKey(row.apiKeyCiphertext));
-  } catch {
-    apiKeyMasked = '****';
-  }
-  return {
-    id: row.id,
-    apiFamily,
-    name: row.name,
-    baseUrl: row.baseUrl,
-    proxyUrl: row.proxyUrl ?? null,
-    thinkingParam: row.thinkingParam ?? null,
-    balanceEndpoint: row.balanceEndpoint ?? null,
-    balanceAmountPath: row.balanceAmountPath ?? null,
-    balanceCurrencyPath: row.balanceCurrencyPath ?? null,
-    isEnabled: row.isEnabled,
-    apiKeySet: true,
-    apiKeyMasked,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
-
-function toModel(row: ModelRow): LlmModel {
-  return {
-    id: row.id,
-    providerId: row.providerId,
-    modelId: row.modelId,
-    label: row.label,
-    wireVariant: row.wireVariant,
-    contextLength: row.contextLength,
-    temperature: row.temperature,
-    maxTokens: row.maxTokens,
-    isEnabled: row.isEnabled,
-    sortOrder: row.sortOrder,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
-}
 
 export async function listUserProviders(userId: string): Promise<LlmProvider[]> {
   const rows = await db
@@ -100,7 +49,7 @@ export async function listUserProviders(userId: string): Promise<LlmProvider[]> 
     .from(llmProviderTable)
     .where(eq(llmProviderTable.ownerUserId, userId))
     .orderBy(asc(llmProviderTable.createdAt));
-  return rows.map(toProvider);
+  return rows.map(toProviderView);
 }
 
 export async function createUserProvider(userId: string, body: CreateLlmProviderBody): Promise<LlmProvider> {
@@ -126,7 +75,7 @@ export async function createUserProvider(userId: string, body: CreateLlmProvider
       ownerUserId: userId,
     })
     .returning();
-  return toProvider(row!);
+  return toProviderView(row!);
 }
 
 export async function updateUserProvider(
@@ -168,9 +117,9 @@ export async function updateUserProvider(
 
   const [row] = await db.update(llmProviderTable).set(patch).where(eq(llmProviderTable.id, id)).returning();
   // Deleted between the ownership check and this update — surface 404, not a
-  // TypeError from `toProvider(undefined)`.
+  // TypeError from `toProviderView(undefined)`.
   if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
-  return toProvider(row);
+  return toProviderView(row);
 }
 
 export async function deleteUserProvider(userId: string, id: string): Promise<void> {
@@ -192,7 +141,7 @@ export async function listUserModels(userId: string, query: LlmModelListQuery): 
     .from(llmModelTable)
     .where(eq(llmModelTable.providerId, query.providerId))
     .orderBy(asc(llmModelTable.sortOrder), asc(llmModelTable.createdAt));
-  return rows.map(toModel);
+  return rows.map(toModelView);
 }
 
 export async function createUserModel(userId: string, body: CreateLlmModelBody): Promise<LlmModel> {
@@ -223,7 +172,7 @@ export async function createUserModel(userId: string, body: CreateLlmModelBody):
       })
       .returning();
     if (!row) throw new Error(`LLM model insert produced no row for ${body.modelId}`);
-    return toModel(row);
+    return toModelView(row);
   } catch (error) {
     // Same contract as the instance-scoped service: a duplicate (provider, model)
     // is a 409, not an unhandled unique_violation 500.
@@ -282,7 +231,7 @@ export async function updateUserModel(userId: string, id: string, body: UpdateLl
     // The row can be deleted between the ownership check above and this update;
     // `row!` would throw a TypeError that surfaces as a 500 instead of a 404.
     if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
-    return toModel(row);
+    return toModelView(row);
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
