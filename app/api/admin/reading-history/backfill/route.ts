@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { backfillReadingDays } from '@/server/domains/reading/history/backfill';
-import { jsonOk, jsonSchemaError } from '@/server/infra/http/next-json';
+import { jsonOk, parseJsonBody } from '@/server/infra/http/next-json';
 import { assertAdmin, requireIdentity } from '@/server/infra/http/next-session';
 import { rootLogger } from '@/server/infra/logging/logger';
 import { withApiError } from '@/server/infra/http/next-route';
@@ -19,11 +19,8 @@ const readingHistoryLogger = rootLogger.child({ module: 'ReadingHistory' });
 export const POST = withApiError(async (request: Request) => {
   const identity = await requireIdentity(request);
   assertAdmin(identity);
-  const raw = await request.json().catch(() => null);
-  const parsed = readingHistoryBackfillBodySchema.safeParse(raw);
-  if (!parsed.success) {
-    return jsonSchemaError(request, parsed.error);
-  }
+  const parsed = await parseJsonBody(request, readingHistoryBackfillBodySchema);
+  if ('response' in parsed) return parsed.response;
   const input = parsed.data;
   const result = await backfillReadingDays(input.userId);
   readingHistoryLogger.info(

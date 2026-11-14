@@ -1,4 +1,4 @@
-import type { ZodError } from 'zod';
+import type { ZodError, ZodType } from 'zod';
 
 import { t, type TranslationParams } from '@/i18n';
 
@@ -88,6 +88,39 @@ export function jsonSchemaError(request: Request, error: ZodError, defaultPath =
     request,
     error.issues.map((issue) => detailFromSchemaIssue(issue, defaultPath)),
   );
+}
+
+export type ParsedJsonBody<T> = { data: T } | { response: Response };
+
+/**
+ * Read and validate a JSON body, returning either the parsed data or the shared
+ * 400 response. Keeps the request/safeParse/error block out of every route.
+ */
+export async function parseJsonBody<T>(
+  request: Request,
+  schema: ZodType<T>,
+  defaultPath = 'body',
+): Promise<ParsedJsonBody<T>> {
+  const raw = await request.json().catch(() => null);
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    return { response: jsonSchemaError(request, parsed.error, defaultPath) };
+  }
+  return { data: parsed.data };
+}
+
+/** Validate `URL.searchParams` with the same 400 contract as JSON bodies. */
+export function parseSearchParams<T>(
+  url: URL,
+  request: Request,
+  schema: ZodType<T>,
+  defaultPath = 'query',
+): ParsedJsonBody<T> {
+  const parsed = schema.safeParse(Object.fromEntries(url.searchParams.entries()));
+  if (!parsed.success) {
+    return { response: jsonSchemaError(request, parsed.error, defaultPath) };
+  }
+  return { data: parsed.data };
 }
 
 export function jsonFromThrown(request: Request, error: unknown): Response {

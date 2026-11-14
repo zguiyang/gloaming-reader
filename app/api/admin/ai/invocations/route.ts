@@ -1,7 +1,7 @@
 import { aiInvocationListQuerySchema } from '@/shared/ai-invocations';
 
 import { listInvocations } from '@/server/domains/ai/invocations/log';
-import { jsonOk, jsonSchemaError } from '@/server/infra/http/next-json';
+import { jsonOk, parseSearchParams } from '@/server/infra/http/next-json';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
 import { withApiError } from '@/server/infra/http/next-route';
 
@@ -12,10 +12,8 @@ export const GET = withApiError(async (request: Request) => {
   assertAdmin(identity);
 
   const url = new URL(request.url);
-  const parsed = aiInvocationListQuerySchema.safeParse(Object.fromEntries(url.searchParams.entries()));
-  if (!parsed.success) {
-    return jsonSchemaError(request, parsed.error, 'query');
-  }
+  const parsed = parseSearchParams(url, request, aiInvocationListQuerySchema);
+  if ('response' in parsed) return parsed.response;
 
   return jsonOk(await listInvocations(parsed.data));
 });

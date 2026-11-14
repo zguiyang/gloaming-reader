@@ -2,7 +2,7 @@ import { lookupDictionaryQuerySchema } from '@/shared/dictionary';
 
 import { lookupWord } from '@/server/domains/dictionary/lookup/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
-import { jsonError, jsonOk, jsonSchemaError } from '@/server/infra/http/next-json';
+import { jsonError, jsonOk, parseSearchParams } from '@/server/infra/http/next-json';
 import { enforceGuestRateLimit, enforceUserRateLimit } from '@/server/infra/http/next-rate-limit';
 import { getRequestIdentity } from '@/server/infra/http/next-session';
 import { HTTP_STATUS } from '@/server/shared/constants';
@@ -23,10 +23,8 @@ export const GET = withApiError(async (request: Request) => {
   }
 
   const url = new URL(request.url);
-  const parsed = lookupDictionaryQuerySchema.safeParse(Object.fromEntries(url.searchParams.entries()));
-  if (!parsed.success) {
-    return jsonSchemaError(request, parsed.error, 'query');
-  }
+  const parsed = parseSearchParams(url, request, lookupDictionaryQuerySchema);
+  if ('response' in parsed) return parsed.response;
 
   const query = parsed.data;
   const entry = await lookupWord({

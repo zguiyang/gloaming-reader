@@ -1,7 +1,7 @@
 import { testLlmProviderBodySchema } from '@/shared/llm';
 
 import * as llmProvidersService from '@/server/domains/llm/config/providers/service';
-import { jsonOk, jsonSchemaError } from '@/server/infra/http/next-json';
+import { jsonOk, parseJsonBody } from '@/server/infra/http/next-json';
 import { pathId } from '@/server/infra/http/path-params';
 import { enforceUserRateLimit } from '@/server/infra/http/next-rate-limit';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
@@ -16,11 +16,8 @@ export const POST = withApiError(async (request: Request, context: Ctx) => {
   assertAdmin(identity);
   const id = pathId((await context.params).id, 'id');
 
-  const raw = await request.json().catch(() => null);
-  const parsed = testLlmProviderBodySchema.safeParse(raw);
-  if (!parsed.success) {
-    return jsonSchemaError(request, parsed.error);
-  }
+  const parsed = await parseJsonBody(request, testLlmProviderBodySchema);
+  if ('response' in parsed) return parsed.response;
 
   const limited = await enforceUserRateLimit(request, 'outboundProbe', identity.user.id);
   if (limited) {

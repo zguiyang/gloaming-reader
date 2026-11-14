@@ -2,7 +2,7 @@ import { ASSIST_SSE_EVENT, assistAskBodySchema } from '@/shared/assist';
 
 import { streamAssistAsk } from '@/server/domains/assist/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
-import { jsonFromThrown, jsonSchemaError } from '@/server/infra/http/next-json';
+import { jsonFromThrown, parseJsonBody } from '@/server/infra/http/next-json';
 import { acquireAiRateLimit, withAiRateLimitRelease } from '@/server/infra/http/next-rate-limit';
 import { requireIdentity } from '@/server/infra/http/next-session';
 import { encodeSseMessage, formatThrownErrorBody, sseResponseHeaders } from '@/server/infra/http/next-sse';
@@ -16,11 +16,8 @@ export async function POST(request: Request) {
 
     // Validate before spending quota: `release()` only returns the concurrency
     // slot, so a malformed body used to burn a full user/IP point.
-    const raw = await request.json().catch(() => null);
-    const parsed = assistAskBodySchema.safeParse(raw);
-    if (!parsed.success) {
-      return jsonSchemaError(request, parsed.error);
-    }
+    const parsed = await parseJsonBody(request, assistAskBodySchema);
+    if ('response' in parsed) return parsed.response;
 
     const limited = await acquireAiRateLimit(request, 'assist', identity.user.id);
     if (!limited.ok) {
