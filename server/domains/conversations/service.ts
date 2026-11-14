@@ -30,6 +30,7 @@ import { db } from '@/server/infra/db';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
+import { truncatePreview } from '@/server/shared/text';
 
 type ConversationRow = typeof conversationTable.$inferSelect;
 type MessageRow = typeof conversationMessageTable.$inferSelect;
@@ -56,14 +57,6 @@ function toMessage(row: MessageRow): ConversationMessageDto {
     metadata: row.metadata ?? {},
     createdAt: row.createdAt.toISOString(),
   };
-}
-
-function truncatePreview(text: string): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= CONVERSATION_PREVIEW_MAX) {
-    return trimmed;
-  }
-  return `${trimmed.slice(0, CONVERSATION_PREVIEW_MAX - 1)}…`;
 }
 
 function clampContent(text: string): string {
@@ -344,7 +337,7 @@ export async function appendAssistTurn(input: AppendTurnInput): Promise<{ conver
         surface: input.surface,
         subjectType: input.subjectType,
         subjectId: input.subjectId,
-        preview: truncatePreview(userContent),
+        preview: truncatePreview(userContent, CONVERSATION_PREVIEW_MAX, { trim: true }),
         endedAt: null,
         lastMessageAt: now,
       });
@@ -382,7 +375,9 @@ export async function appendAssistTurn(input: AppendTurnInput): Promise<{ conver
       .where(eq(conversationTable.id, conversationId))
       .limit(1);
 
-    const previewUpdate = current[0]?.preview?.trim() ? undefined : { preview: truncatePreview(userContent) };
+    const previewUpdate = current[0]?.preview?.trim()
+      ? undefined
+      : { preview: truncatePreview(userContent, CONVERSATION_PREVIEW_MAX, { trim: true }) };
 
     await tx
       .update(conversationTable)

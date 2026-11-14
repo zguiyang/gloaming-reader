@@ -12,7 +12,6 @@ import {
   type PromptMessage,
   renderPrompt,
   streamAi,
-  truncatePreview,
 } from '@/server/domains/ai';
 import { resolveAssistToolsForAction } from '@/server/domains/assist/tools';
 import { appendAssistTurn, assertAssistConversation } from '@/server/domains/conversations';
@@ -20,6 +19,7 @@ import type { WorkReadActor } from '@/server/domains/works/access';
 import { requireReadablePart } from '@/server/domains/works/access';
 import { htmlToPlainText } from '@/server/domains/works/content';
 import { rootLogger } from '@/server/infra/logging/logger';
+import { truncatePreview } from '@/server/shared/text';
 
 const assistLogger = rootLogger.child({ module: 'Assist' });
 
