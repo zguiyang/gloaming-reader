@@ -5,6 +5,7 @@ import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { jsonOk } from '@/server/infra/http/next-json';
+import { enforceUserRateLimit } from '@/server/infra/http/next-rate-limit';
 import { requireIdentity } from '@/server/infra/http/next-session';
 import { withApiError } from '@/server/infra/http/next-route';
 
@@ -12,6 +13,8 @@ export const dynamic = 'force-dynamic';
 
 export const POST = withApiError(async (request: Request) => {
   const identity = await requireIdentity(request);
+  const limited = await enforceUserRateLimit(request, 'epubUpload', identity.user.id);
+  if (limited) return limited;
 
   const contentLength = Number(request.headers.get('content-length') ?? 0);
   if (contentLength > EPUB_UPLOAD_MAX_BYTES + 1024) {

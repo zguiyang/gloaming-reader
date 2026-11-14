@@ -37,6 +37,10 @@ export const RATE_LIMIT_POLICIES = {
   outboundProbe: {
     user: { points: 30, duration: 60, blockDuration: 60 },
   },
+  /** Personal EPUB upload (up to 50 MB plus a parse enqueue). */
+  epubUpload: {
+    user: { points: 10, duration: 10 * 60, blockDuration: 10 * 60 },
+  },
 } as const satisfies Record<string, RateLimitPolicy>;
 
 export const AI_RATE_LIMIT_POLICIES = {
