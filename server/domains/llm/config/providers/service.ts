@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { llmModel as llmModelTable, llmProvider as llmProviderTable } from '@/server/db';
@@ -8,11 +6,8 @@ import {
   type FetchProviderModelsResult,
   getWireFamilyDefinition,
   isLlmApiFamily,
-  type LlmApiFamily,
   type LlmProvider,
-  normalizeBalanceEndpoint,
   type ProviderBalanceResult,
-  providerSupportsOptionalField,
   type TestLlmProviderBody,
   type TestLlmProviderResult,
   type UpdateLlmProviderBody,
@@ -21,30 +16,25 @@ import {
 import { invokeAi } from '@/server/domains/ai';
 import { parseApiFamily } from '@/server/domains/llm/config/api-family';
 import { toProviderView } from '@/server/domains/llm/config/mappers';
-import { settingReferencesModel } from '@/server/domains/llm/config/settings/references';
+import {
+  createProviderRecord,
+  deleteProviderRecord,
+  updateProviderRecord,
+} from '@/server/domains/llm/config/mutations';
 import { isModelRuntimeReady } from '@/server/domains/llm/runtime/readiness';
 import { requireInstanceProvider } from '@/server/domains/provider-scope';
 import { db } from '@/server/infra/db';
 import {
-  assertSafeOutboundUrl,
-  assertSafeProxyUrl,
   decryptApiKey,
-  encryptApiKey,
   fetchProviderModelCandidates,
   queryProviderBalance as queryProviderBalanceUpstream,
 } from '@/server/infra/llm';
 import { rootLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
-import { AppError, NotFoundError, ValidationFailedError } from '@/server/shared/errors/app-error';
+import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 type ProviderRow = typeof llmProviderTable.$inferSelect;
-
-function validateProviderOptionalFields(family: LlmApiFamily, thinkingParam: string | null | undefined): void {
-  if (thinkingParam && !providerSupportsOptionalField(family, 'thinkingParam')) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.THINKING_NOT_SUPPORTED);
-  }
-}
 
 export async function listProviders(): Promise<LlmProvider[]> {
   const rows = await db
@@ -56,94 +46,17 @@ export async function listProviders(): Promise<LlmProvider[]> {
 }
 
 export async function createProvider(body: CreateLlmProviderBody): Promise<LlmProvider> {
-  const apiFamily = parseApiFamily(body.apiFamily);
-  assertSafeOutboundUrl(body.baseUrl, 'Base URL');
-  assertSafeProxyUrl(body.proxyUrl);
-  validateProviderOptionalFields(apiFamily, body.thinkingParam);
-
-  const id = randomUUID();
-  const [row] = await db
-    .insert(llmProviderTable)
-    .values({
-      id,
-      apiFamily,
-      name: body.name,
-      baseUrl: body.baseUrl,
-      apiKeyCiphertext: encryptApiKey(body.apiKey),
-      proxyUrl: body.proxyUrl ?? null,
-      thinkingParam: body.thinkingParam ?? null,
-      balanceEndpoint: body.balanceEndpoint ?? null,
-      balanceAmountPath: body.balanceAmountPath ?? null,
-      balanceCurrencyPath: body.balanceCurrencyPath ?? null,
-      isEnabled: body.isEnabled,
-      ownerUserId: null,
-    })
-    .returning();
-  return toProviderView(row!);
+  return createProviderRecord(null, body);
 }
 
 export async function updateProvider(id: string, body: UpdateLlmProviderBody): Promise<LlmProvider> {
-  const existingRow = await requireInstanceProvider(id);
-  const existing = [existingRow];
-  const apiFamily = parseApiFamily(existing[0].apiFamily);
-
-  const patch: Partial<typeof llmProviderTable.$inferInsert> = {};
-  if (body.name !== undefined) {
-    patch.name = body.name;
-  }
-  if (body.baseUrl !== undefined) {
-    assertSafeOutboundUrl(body.baseUrl, 'Base URL');
-    patch.baseUrl = body.baseUrl;
-  }
-  if (body.proxyUrl !== undefined) {
-    assertSafeProxyUrl(body.proxyUrl);
-    patch.proxyUrl = body.proxyUrl;
-  }
-  if (body.thinkingParam !== undefined) {
-    validateProviderOptionalFields(apiFamily, body.thinkingParam);
-    patch.thinkingParam = body.thinkingParam;
-  }
-  if (body.balanceEndpoint !== undefined) {
-    if (body.balanceEndpoint == null || !body.balanceEndpoint.trim()) {
-      patch.balanceEndpoint = null;
-    } else {
-      const effectiveBaseUrl = body.baseUrl ?? existing[0].baseUrl;
-      const normalized = normalizeBalanceEndpoint(body.balanceEndpoint, effectiveBaseUrl);
-      if (!normalized.ok) {
-        throw new ValidationFailedError([{ path: 'balanceEndpoint', code: normalized.code }]);
-      }
-      patch.balanceEndpoint = normalized.value;
-    }
-  }
-  if (body.balanceAmountPath !== undefined) {
-    patch.balanceAmountPath = body.balanceAmountPath;
-  }
-  if (body.balanceCurrencyPath !== undefined) {
-    patch.balanceCurrencyPath = body.balanceCurrencyPath;
-  }
-  if (body.isEnabled !== undefined) {
-    patch.isEnabled = body.isEnabled;
-  }
-  if (body.apiKey !== undefined) {
-    patch.apiKeyCiphertext = encryptApiKey(body.apiKey);
-  }
-
-  const [row] = await db.update(llmProviderTable).set(patch).where(eq(llmProviderTable.id, id)).returning();
-  // Deleted between the ownership check and this update — surface 404, not a
-  // TypeError from `toProviderView(undefined)`.
-  if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
-  return toProviderView(row);
+  const existing = await requireInstanceProvider(id);
+  return updateProviderRecord(existing, body);
 }
 
 export async function deleteProvider(id: string): Promise<void> {
   await requireInstanceProvider(id);
-
-  const models = await db.select({ id: llmModelTable.id }).from(llmModelTable).where(eq(llmModelTable.providerId, id));
-  if (await settingReferencesModel(models.map((m) => m.id))) {
-    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_REFERENCED);
-  }
-
-  await db.delete(llmProviderTable).where(eq(llmProviderTable.id, id));
+  await deleteProviderRecord(id);
 }
 
 export async function testProvider(providerId: string, body: TestLlmProviderBody): Promise<TestLlmProviderResult> {

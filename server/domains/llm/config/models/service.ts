@@ -1,26 +1,15 @@
-import { randomUUID } from 'node:crypto';
-
 import { and, asc, eq, isNull } from 'drizzle-orm';
 
 import { llmModel as llmModelTable, llmProvider as llmProviderTable } from '@/server/db';
-import {
-  assertWireVariantForFamily,
-  type CreateLlmModelBody,
-  getDefaultWireVariant,
-  type LlmModel,
-  type LlmModelListQuery,
-  type UpdateLlmModelBody,
-} from '@/shared/llm';
+import { type CreateLlmModelBody, type LlmModel, type LlmModelListQuery, type UpdateLlmModelBody } from '@/shared/llm';
 
 import { parseApiFamily } from '@/server/domains/llm/config/api-family';
 import { toModelView } from '@/server/domains/llm/config/mappers';
-import { settingReferencesModel } from '@/server/domains/llm/config/settings/references';
+import { createModelRecord, deleteModelRecord, updateModelRecord } from '@/server/domains/llm/config/mutations';
 import { requireInstanceProvider } from '@/server/domains/provider-scope';
 import { db } from '@/server/infra/db';
-import { HTTP_STATUS } from '@/server/shared/constants';
-import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
+import { NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
-import { isUniqueViolation } from '@/server/shared/errors/db-errors';
 
 export async function listModels(query: LlmModelListQuery): Promise<LlmModel[]> {
   if (query.providerId) {
@@ -44,42 +33,7 @@ export async function listModels(query: LlmModelListQuery): Promise<LlmModel[]> 
 
 export async function createModel(body: CreateLlmModelBody): Promise<LlmModel> {
   const providerRow = await requireInstanceProvider(body.providerId);
-  const provider = [providerRow];
-  const apiFamily = parseApiFamily(provider[0].apiFamily);
-  const wireVariant = body.wireVariant ?? getDefaultWireVariant(apiFamily);
-  try {
-    assertWireVariantForFamily(apiFamily, wireVariant);
-  } catch {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.WIRE_VARIANT_INVALID);
-  }
-
-  const id = randomUUID();
-  try {
-    const [row] = await db
-      .insert(llmModelTable)
-      .values({
-        id,
-        providerId: body.providerId,
-        modelId: body.modelId,
-        label: body.label,
-        wireVariant,
-        contextLength: body.contextLength ?? null,
-        temperature: body.temperature ?? null,
-        maxTokens: body.maxTokens ?? null,
-        isEnabled: body.isEnabled,
-        sortOrder: body.sortOrder,
-      })
-      .returning();
-    if (!row) throw new Error(`LLM model insert produced no row for ${body.modelId}`);
-    return toModelView(row);
-  } catch (error) {
-    // Only a duplicate key is a conflict; a blanket `catch` hid real failures
-    // (connection loss, constraint drift) behind a misleading 409.
-    if (isUniqueViolation(error)) {
-      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
-    }
-    throw error;
-  }
+  return createModelRecord(providerRow, body);
 }
 
 export async function updateModel(id: string, body: UpdateLlmModelBody): Promise<LlmModel> {
@@ -95,49 +49,7 @@ export async function updateModel(id: string, body: UpdateLlmModelBody): Promise
   if (!existing[0]) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
   }
-  const apiFamily = parseApiFamily(existing[0].apiFamily);
-
-  const patch: Partial<typeof llmModelTable.$inferInsert> = {};
-  if (body.modelId !== undefined) {
-    patch.modelId = body.modelId;
-  }
-  if (body.label !== undefined) {
-    patch.label = body.label;
-  }
-  if (body.wireVariant !== undefined) {
-    try {
-      assertWireVariantForFamily(apiFamily, body.wireVariant);
-    } catch {
-      throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.WIRE_VARIANT_INVALID);
-    }
-    patch.wireVariant = body.wireVariant;
-  }
-  if (body.contextLength !== undefined) {
-    patch.contextLength = body.contextLength;
-  }
-  if (body.temperature !== undefined) {
-    patch.temperature = body.temperature;
-  }
-  if (body.maxTokens !== undefined) {
-    patch.maxTokens = body.maxTokens;
-  }
-  if (body.isEnabled !== undefined) {
-    patch.isEnabled = body.isEnabled;
-  }
-  if (body.sortOrder !== undefined) {
-    patch.sortOrder = body.sortOrder;
-  }
-
-  try {
-    const [row] = await db.update(llmModelTable).set(patch).where(eq(llmModelTable.id, id)).returning();
-    if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
-    return toModelView(row);
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
-    }
-    throw error;
-  }
+  return updateModelRecord(id, parseApiFamily(existing[0].apiFamily), body);
 }
 
 export async function deleteModel(id: string): Promise<void> {
@@ -150,8 +62,5 @@ export async function deleteModel(id: string): Promise<void> {
   if (!existing[0]) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
   }
-  if (await settingReferencesModel([id])) {
-    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_REFERENCED);
-  }
-  await db.delete(llmModelTable).where(eq(llmModelTable.id, id));
+  await deleteModelRecord(id);
 }

@@ -1,6 +1,4 @@
-import { randomUUID } from 'node:crypto';
-
-import { asc, eq, inArray, isNotNull } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 
 import {
   llmAppSetting as llmAppSettingTable,
@@ -9,12 +7,8 @@ import {
 } from '@/server/db';
 import {
   AI_SETTING_KEY_VALUES,
-  type AiSettingKey,
-  assertWireVariantForFamily,
   type CreateLlmModelBody,
   type CreateLlmProviderBody,
-  getDefaultWireVariant,
-  isAiSettingKey,
   isLlmApiFamily,
   type LlmAppSettingView,
   type LlmModel,
@@ -29,19 +23,21 @@ import {
 import { invokeAi } from '@/server/domains/ai';
 import { parseApiFamily } from '@/server/domains/llm/config/api-family';
 import { toModelView, toProviderView } from '@/server/domains/llm/config/mappers';
-import { settingReferencesModel } from '@/server/domains/llm/config/settings/references';
-import { isModelRuntimeReady } from '@/server/domains/llm/runtime/readiness';
 import {
-  assertModelAccessibleForActor,
-  requireUserOwnedProvider,
-  runtimeActorFromUserId,
-} from '@/server/domains/provider-scope';
+  createModelRecord,
+  createProviderRecord,
+  deleteModelRecord,
+  deleteProviderRecord,
+  putSettingRecord,
+  updateModelRecord,
+  updateProviderRecord,
+} from '@/server/domains/llm/config/mutations';
+import { isModelRuntimeReady } from '@/server/domains/llm/runtime/readiness';
+import { requireUserOwnedProvider } from '@/server/domains/provider-scope';
 import { db } from '@/server/infra/db';
-import { assertSafeOutboundUrl, assertSafeProxyUrl, encryptApiKey } from '@/server/infra/llm';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
-import { isUniqueViolation } from '@/server/shared/errors/db-errors';
 
 export async function listUserProviders(userId: string): Promise<LlmProvider[]> {
   const rows = await db
@@ -53,29 +49,7 @@ export async function listUserProviders(userId: string): Promise<LlmProvider[]> 
 }
 
 export async function createUserProvider(userId: string, body: CreateLlmProviderBody): Promise<LlmProvider> {
-  const apiFamily = parseApiFamily(body.apiFamily);
-  assertSafeOutboundUrl(body.baseUrl, 'Base URL');
-  assertSafeProxyUrl(body.proxyUrl);
-
-  const id = randomUUID();
-  const [row] = await db
-    .insert(llmProviderTable)
-    .values({
-      id,
-      apiFamily,
-      name: body.name,
-      baseUrl: body.baseUrl,
-      apiKeyCiphertext: encryptApiKey(body.apiKey),
-      proxyUrl: body.proxyUrl ?? null,
-      thinkingParam: body.thinkingParam ?? null,
-      balanceEndpoint: body.balanceEndpoint ?? null,
-      balanceAmountPath: body.balanceAmountPath ?? null,
-      balanceCurrencyPath: body.balanceCurrencyPath ?? null,
-      isEnabled: body.isEnabled,
-      ownerUserId: userId,
-    })
-    .returning();
-  return toProviderView(row!);
+  return createProviderRecord(userId, body);
 }
 
 export async function updateUserProvider(
@@ -83,52 +57,13 @@ export async function updateUserProvider(
   id: string,
   body: UpdateLlmProviderBody,
 ): Promise<LlmProvider> {
-  await requireUserOwnedProvider(id, userId);
-  const patch: Partial<typeof llmProviderTable.$inferInsert> = {};
-  if (body.name !== undefined) {
-    patch.name = body.name;
-  }
-  if (body.baseUrl !== undefined) {
-    assertSafeOutboundUrl(body.baseUrl, 'Base URL');
-    patch.baseUrl = body.baseUrl;
-  }
-  if (body.proxyUrl !== undefined) {
-    assertSafeProxyUrl(body.proxyUrl);
-    patch.proxyUrl = body.proxyUrl;
-  }
-  if (body.thinkingParam !== undefined) {
-    patch.thinkingParam = body.thinkingParam;
-  }
-  if (body.balanceEndpoint !== undefined) {
-    patch.balanceEndpoint = body.balanceEndpoint;
-  }
-  if (body.balanceAmountPath !== undefined) {
-    patch.balanceAmountPath = body.balanceAmountPath;
-  }
-  if (body.balanceCurrencyPath !== undefined) {
-    patch.balanceCurrencyPath = body.balanceCurrencyPath;
-  }
-  if (body.isEnabled !== undefined) {
-    patch.isEnabled = body.isEnabled;
-  }
-  if (body.apiKey !== undefined) {
-    patch.apiKeyCiphertext = encryptApiKey(body.apiKey);
-  }
-
-  const [row] = await db.update(llmProviderTable).set(patch).where(eq(llmProviderTable.id, id)).returning();
-  // Deleted between the ownership check and this update — surface 404, not a
-  // TypeError from `toProviderView(undefined)`.
-  if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_PROVIDER);
-  return toProviderView(row);
+  const existing = await requireUserOwnedProvider(id, userId);
+  return updateProviderRecord(existing, body);
 }
 
 export async function deleteUserProvider(userId: string, id: string): Promise<void> {
   await requireUserOwnedProvider(id, userId);
-  const models = await db.select({ id: llmModelTable.id }).from(llmModelTable).where(eq(llmModelTable.providerId, id));
-  if (await settingReferencesModel(models.map((m) => m.id))) {
-    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_REFERENCED);
-  }
-  await db.delete(llmProviderTable).where(eq(llmProviderTable.id, id));
+  await deleteProviderRecord(id);
 }
 
 export async function listUserModels(userId: string, query: LlmModelListQuery): Promise<LlmModel[]> {
@@ -146,41 +81,7 @@ export async function listUserModels(userId: string, query: LlmModelListQuery): 
 
 export async function createUserModel(userId: string, body: CreateLlmModelBody): Promise<LlmModel> {
   const providerRow = await requireUserOwnedProvider(body.providerId, userId);
-  const apiFamily = parseApiFamily(providerRow.apiFamily);
-  const wireVariant = body.wireVariant ?? getDefaultWireVariant(apiFamily);
-  try {
-    assertWireVariantForFamily(apiFamily, wireVariant);
-  } catch {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.WIRE_VARIANT_INVALID);
-  }
-
-  const id = randomUUID();
-  try {
-    const [row] = await db
-      .insert(llmModelTable)
-      .values({
-        id,
-        providerId: body.providerId,
-        modelId: body.modelId,
-        label: body.label,
-        wireVariant,
-        contextLength: body.contextLength ?? null,
-        temperature: body.temperature ?? null,
-        maxTokens: body.maxTokens ?? null,
-        isEnabled: body.isEnabled,
-        sortOrder: body.sortOrder,
-      })
-      .returning();
-    if (!row) throw new Error(`LLM model insert produced no row for ${body.modelId}`);
-    return toModelView(row);
-  } catch (error) {
-    // Same contract as the instance-scoped service: a duplicate (provider, model)
-    // is a 409, not an unhandled unique_violation 500.
-    if (isUniqueViolation(error)) {
-      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
-    }
-    throw error;
-  }
+  return createModelRecord(providerRow, body);
 }
 
 export async function updateUserModel(userId: string, id: string, body: UpdateLlmModelBody): Promise<LlmModel> {
@@ -197,47 +98,7 @@ export async function updateUserModel(userId: string, id: string, body: UpdateLl
   if (!existing[0] || existing[0].ownerUserId !== userId) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
   }
-  const apiFamily = parseApiFamily(existing[0].apiFamily);
-
-  const patch: Partial<typeof llmModelTable.$inferInsert> = {};
-  if (body.modelId !== undefined) {
-    patch.modelId = body.modelId;
-  }
-  if (body.label !== undefined) {
-    patch.label = body.label;
-  }
-  if (body.wireVariant !== undefined) {
-    assertWireVariantForFamily(apiFamily, body.wireVariant);
-    patch.wireVariant = body.wireVariant;
-  }
-  if (body.contextLength !== undefined) {
-    patch.contextLength = body.contextLength;
-  }
-  if (body.temperature !== undefined) {
-    patch.temperature = body.temperature;
-  }
-  if (body.maxTokens !== undefined) {
-    patch.maxTokens = body.maxTokens;
-  }
-  if (body.isEnabled !== undefined) {
-    patch.isEnabled = body.isEnabled;
-  }
-  if (body.sortOrder !== undefined) {
-    patch.sortOrder = body.sortOrder;
-  }
-
-  try {
-    const [row] = await db.update(llmModelTable).set(patch).where(eq(llmModelTable.id, id)).returning();
-    // The row can be deleted between the ownership check above and this update;
-    // `row!` would throw a TypeError that surfaces as a 500 instead of a 404.
-    if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
-    return toModelView(row);
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_ID_EXISTS);
-    }
-    throw error;
-  }
+  return updateModelRecord(id, parseApiFamily(existing[0].apiFamily), body);
 }
 
 export async function deleteUserModel(userId: string, id: string): Promise<void> {
@@ -250,10 +111,7 @@ export async function deleteUserModel(userId: string, id: string): Promise<void>
   if (!existing[0] || existing[0].ownerUserId !== userId) {
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
   }
-  if (await settingReferencesModel([id])) {
-    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.LLM.MODEL_REFERENCED);
-  }
-  await db.delete(llmModelTable).where(eq(llmModelTable.id, id));
+  await deleteModelRecord(id);
 }
 
 export async function testUserModel(userId: string, id: string): Promise<TestLlmProviderResult> {
@@ -347,57 +205,5 @@ export async function putUserSetting(
   key: string,
   body: PutLlmAppSettingBody,
 ): Promise<LlmAppSettingView> {
-  if (!isAiSettingKey(key)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.UNKNOWN_SETTING_KEY);
-  }
-
-  const actor = runtimeActorFromUserId(userId);
-  await assertModelAccessibleForActor(body.modelId, actor);
-
-  const models = await db
-    .select({
-      id: llmModelTable.id,
-      label: llmModelTable.label,
-      modelEnabled: llmModelTable.isEnabled,
-      providerEnabled: llmProviderTable.isEnabled,
-      apiFamily: llmProviderTable.apiFamily,
-    })
-    .from(llmModelTable)
-    .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
-    .where(eq(llmModelTable.id, body.modelId))
-    .limit(1);
-
-  const model = models[0];
-  if (!model) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
-  }
-  if (!model.modelEnabled || !model.providerEnabled) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.MODEL_OR_PROVIDER_DISABLED);
-  }
-  const apiFamily = parseApiFamily(model.apiFamily);
-  if (!isModelRuntimeReady(apiFamily)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.FAMILY_NOT_IMPLEMENTED, { apiFamily });
-  }
-
-  await db
-    .insert(llmAppSettingTable)
-    .values({
-      id: randomUUID(),
-      ownerUserId: userId,
-      key: key as AiSettingKey,
-      value: body.modelId,
-    })
-    .onConflictDoUpdate({
-      target: [llmAppSettingTable.ownerUserId, llmAppSettingTable.key],
-      targetWhere: isNotNull(llmAppSettingTable.ownerUserId),
-      set: { value: body.modelId, updatedAt: new Date() },
-    });
-
-  return {
-    key: key as AiSettingKey,
-    modelId: model.id,
-    modelLabel: model.label,
-    healthy: true,
-    runtimeReady: true,
-  };
+  return putSettingRecord(userId, key, body);
 }
