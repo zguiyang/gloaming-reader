@@ -31,6 +31,12 @@ export const libraryQueryKey = {
   tags: ['library', 'tags'] as const,
 };
 
+const PROCESSING_POLL_INTERVAL_MS = 2000;
+
+function hasProcessingItem(items: ReadonlyArray<{ availability: string }>): boolean {
+  return items.some((item) => item.availability === 'processing');
+}
+
 export function useLibraryBrowseQuery(query: Omit<LibraryBrowseQuery, 'page'>) {
   const { data: session } = authClient.useSession();
   return useInfiniteQuery({
@@ -53,8 +59,8 @@ export function useLibraryBrowseQuery(query: Omit<LibraryBrowseQuery, 'page'>) {
     // the grid does not flash empty on every keystroke.
     placeholderData: keepPreviousData,
     refetchInterval: (result) =>
-      result.state.data?.pages.some((page) => page.items.some((item) => item.availability === 'processing'))
-        ? 2000
+      result.state.data && hasProcessingItem(result.state.data.pages.flatMap((page) => page.items))
+        ? PROCESSING_POLL_INTERVAL_MS
         : false,
   });
 }
@@ -68,7 +74,7 @@ export function useUserTagsQuery(options?: { enabled?: boolean }) {
 }
 
 export function libraryRefetchInterval(data?: LibraryData): number | false {
-  return data?.items.some((item) => item.availability === 'processing') ? 2000 : false;
+  return data && hasProcessingItem(data.items) ? PROCESSING_POLL_INTERVAL_MS : false;
 }
 
 export function useLibraryQuery(options?: { enabled?: boolean }) {
