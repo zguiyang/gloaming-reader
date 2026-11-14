@@ -15,6 +15,7 @@ import {
   unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 
 /** Better Auth core tables (PostgreSQL) + username plugin / product fields. */
 
@@ -129,7 +130,9 @@ export const readingWork = pgTable(
     originKind: text('origin_kind').$type<'user_epub' | null>(),
     originMeta: jsonb('origin_meta').$type<Record<string, unknown>>().notNull().default({}),
     descriptionProvenance: text('description_provenance').$type<WorkDescriptionProvenance | null>(),
-    coverAssetId: text('cover_asset_id'),
+    // `content_asset` is declared below; the lazy callback keeps the forward
+    // reference type-safe while still emitting a real FK constraint.
+    coverAssetId: text('cover_asset_id').references((): AnyPgColumn => contentAsset.id, { onDelete: 'set null' }),
     /** Running word tokens (not unique lemmas) — set on content parse. */
     wordCount: integer('word_count'),
     estimatedMinutes: integer('estimated_minutes'),
@@ -206,9 +209,6 @@ export const userLibraryItem = pgTable(
 
 /** Provenance of a user-owned tag or tag association. */
 export type UserTagProvenance = 'manual' | 'ai';
-
-/** Lifecycle state of a Personal tag run row (queue recovery and idempotence). */
-export type PersonalTagRunState = 'queued' | 'processing' | 'completed' | 'skipped' | 'failed';
 
 /** Private, user-managed Library labels. */
 export const userTag = pgTable(
@@ -304,40 +304,6 @@ export const userWorkTagSuppression = pgTable(
       name: 'user_work_tag_suppression_user_tag_fk',
     }).onDelete('cascade'),
     unique('user_work_tag_suppression_user_work_tag_uidx').on(table.userId, table.workId, table.tagId),
-  ],
-);
-
-/** Per-user/per-work Personal tag run outbox row; one per captured generation. */
-export const userPersonalTagRun = pgTable(
-  'user_personal_tag_run',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    workId: text('work_id')
-      .notNull()
-      .references(() => readingWork.id, { onDelete: 'cascade' }),
-    /** Preference generation captured when the run was enqueued. */
-    generation: integer('generation').notNull(),
-    state: text('state').$type<PersonalTagRunState>().default('queued').notNull(),
-    attempts: integer('attempts').default(0).notNull(),
-    /** Stable error code only; never prompt, excerpt, or model output. */
-    errorCode: text('error_code'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
-  },
-  (table) => [
-    unique('user_personal_tag_run_user_work_generation_uidx').on(table.userId, table.workId, table.generation),
-    index('user_personal_tag_run_state_idx').on(table.state),
-    check(
-      'user_personal_tag_run_state_check',
-      sql`${table.state} in ('queued', 'processing', 'completed', 'skipped', 'failed')`,
-    ),
-    check('user_personal_tag_run_attempts_nonnegative_chk', sql`${table.attempts} >= 0`),
   ],
 );
 

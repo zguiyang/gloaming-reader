@@ -1,0 +1,1 @@
+ALTER TABLE "reading_work" ADD CONSTRAINT "reading_work_cover_asset_id_content_asset_id_fk" FOREIGN KEY ("cover_asset_id") REFERENCES "public"."content_asset"("id") ON DELETE set null ON UPDATE no action;

@@ -1,0 +1,1 @@
+DROP TABLE "user_personal_tag_run" CASCADE;

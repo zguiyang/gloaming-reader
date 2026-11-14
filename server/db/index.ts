@@ -6,7 +6,6 @@ export type {
   PartAudioSegmentRole,
   PartAudioSegmentStatus,
   PartAudioSegmentWordTiming,
-  PersonalTagRunState,
   UserTagProvenance,
   WorkDescriptionProvenance,
 } from './schema';
@@ -48,7 +47,6 @@ export {
   userLibraryItem,
   userLibraryItemRelations,
   userPersonalTagPreference,
-  userPersonalTagRun,
   userRelations,
   userTag,
   userWorkTag,

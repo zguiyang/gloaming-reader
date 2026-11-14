@@ -435,6 +435,20 @@
       "when": 1794621203443,
       "tag": "0061_burly_sentry",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1794622013678,
+      "tag": "0062_charming_glorian",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1794622060344,
+      "tag": "0063_modern_blur",
+      "breakpoints": true
     }
   ]
 }
