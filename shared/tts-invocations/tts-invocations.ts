@@ -59,7 +59,7 @@ const queryDateSchema = z.preprocess(
   },
   z
     .date()
-    .refine((date) => Number.isFinite(date.getTime()), { message: 'Invalid date' })
+    .refine((date) => Number.isFinite(date.getTime()), { message: 'api.errors.range.invalidDate' })
     .optional(),
 );
 
@@ -70,7 +70,7 @@ function refineInvocationRange(query: { from?: Date; to?: Date }, ctx: z.Refinem
     ctx.addIssue({
       code: 'custom',
       path: ['to'],
-      message: 'to must be on or after from',
+      message: 'api.errors.range.toBeforeFrom',
     });
   }
 }

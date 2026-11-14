@@ -210,21 +210,21 @@ export const updateReadingStateBodySchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['anchor'],
-          message: 'anchor is required for save_position',
+          message: 'api.errors.reader.anchorRequiredForSavePosition',
         });
       }
       if (body.partId || body.nextPartId) {
         ctx.addIssue({
           code: 'custom',
           path: ['anchor'],
-          message: 'partId and nextPartId are not allowed for save_position',
+          message: 'api.errors.reader.partFieldsNotAllowedForSavePosition',
         });
       }
     } else if (body.anchor) {
       ctx.addIssue({
         code: 'custom',
         path: ['anchor'],
-        message: 'anchor is only allowed for save_position',
+        message: 'api.errors.reader.anchorOnlyForSavePosition',
       });
     }
     if ((body.action === 'navigate' || body.action === 'open') && !body.partId) {
@@ -232,7 +232,7 @@ export const updateReadingStateBodySchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['partId'],
-          message: 'partId is required for navigate',
+          message: 'api.errors.reader.partIdRequiredForNavigate',
         });
       }
     }
@@ -240,7 +240,7 @@ export const updateReadingStateBodySchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['partId'],
-        message: 'partId is not allowed for complete_chapter',
+        message: 'api.errors.reader.partIdNotAllowedForComplete',
       });
     }
   });

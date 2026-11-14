@@ -99,7 +99,7 @@ export const conversationListQuerySchema = paginationQuerySchema
       ctx.addIssue({
         code: 'custom',
         path: hasType ? ['subjectId'] : ['subjectType'],
-        message: 'subjectType and subjectId must be provided together',
+        message: 'api.errors.conversation.subjectPairRequired',
       });
     }
   });

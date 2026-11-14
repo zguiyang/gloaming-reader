@@ -22,14 +22,14 @@ export const assistAskBodySchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['question'],
-        message: 'question is required for qa',
+        message: 'api.errors.assist.questionRequired',
       });
     }
     if (SELECTION_REQUIRED_ACTIONS.has(body.actionId) && !body.selection?.trim()) {
       ctx.addIssue({
         code: 'custom',
         path: ['selection'],
-        message: 'selection is required for this action',
+        message: 'api.errors.assist.selectionRequired',
       });
     }
   });

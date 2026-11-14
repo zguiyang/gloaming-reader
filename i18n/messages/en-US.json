@@ -1529,7 +1529,21 @@
       "tooManyRequests": "Too many requests. Please try again later.",
       "validationFailed": "Validation failed",
       "validation": {
-        "invalidInput": "Invalid input"
+        "invalidInput": "Invalid input",
+        "tooBig": "Must be at most {max}",
+        "tooSmall": "Must be at least {min}",
+        "invalidType": "Expected {expected}",
+        "invalidFormat": "Invalid format",
+        "invalidValue": "Value is not allowed",
+        "unrecognizedKeys": "Contains unsupported fields"
+      },
+      "assist": {
+        "questionRequired": "A question is required",
+        "selectionRequired": "This action requires selected text"
+      },
+      "range": {
+        "invalidDate": "Invalid date",
+        "toBeforeFrom": "The end must be on or after the start"
       },
       "notFound": {
         "work": "Work not found",
@@ -1563,8 +1577,6 @@
       "tts": {
         "apiKeyRequired": "API key is required for first-time TTS setup",
         "notConfigured": "TTS is not configured",
-        "disabled": "TTS is disabled",
-        "unsupportedProvider": "Unsupported TTS provider",
         "textRequired": "TTS text is required",
         "invalidCredentials": "TTS credentials are invalid",
         "synthesisFailed": "TTS synthesis failed"
@@ -1623,7 +1635,8 @@
       },
       "conversation": {
         "mismatchSurface": "Conversation does not match surface",
-        "mismatchWork": "Conversation does not match work"
+        "mismatchWork": "Conversation does not match work",
+        "subjectPairRequired": "subjectType and subjectId must be provided together"
       },
       "contentAsset": {
         "noTextToSynthesize": "Part has no text to synthesize",
@@ -1643,7 +1656,12 @@
       "reader": {
         "revisionConflict": "Reading state revision conflict",
         "noNextChapter": "No next chapter — use finish to complete the book",
-        "unsupportedAction": "Unsupported action"
+        "unsupportedAction": "Unsupported action",
+        "anchorRequiredForSavePosition": "An anchor is required when saving a position",
+        "partFieldsNotAllowedForSavePosition": "Part navigation fields are not allowed when saving a position",
+        "anchorOnlyForSavePosition": "An anchor is only allowed when saving a position",
+        "partIdRequiredForNavigate": "A part ID is required to navigate",
+        "partIdNotAllowedForComplete": "A part ID is not allowed when completing a chapter"
       },
       "library": {
         "userTagNameExists": "You already have a tag with that name",

@@ -1532,7 +1532,21 @@
       "tooManyRequests": "请求过于频繁，请稍后再试",
       "validationFailed": "验证失败",
       "validation": {
-        "invalidInput": "输入内容无效"
+        "invalidInput": "输入内容无效",
+        "tooBig": "不能大于 {max}",
+        "tooSmall": "不能小于 {min}",
+        "invalidType": "类型不正确，应为 {expected}",
+        "invalidFormat": "格式不正确",
+        "invalidValue": "取值不在允许范围内",
+        "unrecognizedKeys": "包含不支持的字段"
+      },
+      "assist": {
+        "questionRequired": "提问时必须填写问题",
+        "selectionRequired": "该操作需要选中文本"
+      },
+      "range": {
+        "invalidDate": "日期格式不正确",
+        "toBeforeFrom": "结束时间不能早于开始时间"
       },
       "notFound": {
         "work": "未找到作品",
@@ -1566,8 +1580,6 @@
       "tts": {
         "apiKeyRequired": "首次配置 TTS 需要提供 API Key",
         "notConfigured": "TTS 未配置",
-        "disabled": "TTS 已禁用",
-        "unsupportedProvider": "不支持的 TTS 服务商",
         "textRequired": "TTS 文本不能为空",
         "invalidCredentials": "TTS 凭据无效",
         "synthesisFailed": "TTS 合成失败"
@@ -1626,7 +1638,8 @@
       },
       "conversation": {
         "mismatchSurface": "对话与当前界面不匹配",
-        "mismatchWork": "对话与当前作品不匹配"
+        "mismatchWork": "对话与当前作品不匹配",
+        "subjectPairRequired": "subjectType 与 subjectId 必须同时提供"
       },
       "contentAsset": {
         "noTextToSynthesize": "章节没有可合成的文本",
@@ -1646,7 +1659,12 @@
       "reader": {
         "revisionConflict": "阅读状态版本冲突",
         "noNextChapter": "没有下一章 — 请使用完成操作结束本书",
-        "unsupportedAction": "不支持的操作"
+        "unsupportedAction": "不支持的操作",
+        "anchorRequiredForSavePosition": "保存阅读位置时必须提供锚点",
+        "partFieldsNotAllowedForSavePosition": "保存阅读位置时不能携带章节切换字段",
+        "anchorOnlyForSavePosition": "只有保存阅读位置时才允许携带锚点",
+        "partIdRequiredForNavigate": "跳转章节时必须提供章节 ID",
+        "partIdNotAllowedForComplete": "完成章节时不能携带章节 ID"
       },
       "library": {
         "userTagNameExists": "你已经有一个同名标签",
