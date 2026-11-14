@@ -34,7 +34,7 @@ pnpm db:migrate
 
 The following described the **former** default production topology before N5 demote. Paths now live under `archive/`.
 
-Gloaming can run on a VPS or a PaaS that supports Docker services or supervised Node processes. That legacy application had three independent services:
+Gloaming could run on a VPS or a PaaS that supports Docker services or supervised Node processes. That legacy application had three independent services:
 
 | Service  | Image / entrypoint                                | Public access    | Role                               |
 | -------- | ------------------------------------------------- | ---------------- | ---------------------------------- |
@@ -44,7 +44,10 @@ Gloaming can run on a VPS or a PaaS that supports Docker services or supervised 
 
 PostgreSQL, Redis, and S3-compatible object storage are external dependencies. Resend is used for transactional email and Azure Speech is used for TTS.
 
-## Deploy the services
+## Archived: deploy the three services
+
+Applies only to the archived layout under `archive/`. The default product is the
+repo-root single package described above.
 
 1. Connect the repository to the platform and use the repository root as the build context. Archived Dockerfiles expect the legacy workspace layout under `archive/` (including `archive/tsconfig.base.json`).
 2. Create one `web`, one `api`, and one `worker` service. The `api` and `worker` use the same image. Prefer keeping the image `CMD` and selecting the entrypoint with `GLOAMING_SERVICE` (`api` by default; set `GLOAMING_SERVICE=worker` on the worker service). You can also override the command explicitly:
@@ -63,7 +66,7 @@ The web image requires `API_INTERNAL_URL` during the build as well as at runtime
 
 Discover Save materialization and EPUB parsing use the separate `gloaming-discovery-import` queue. The normal `pnpm worker` mode consumes it alongside the legacy `gloaming` queue so new API jobs always have a consumer; `pnpm --filter @gloaming/backend worker:discovery-import` runs an import-only consumer. If both modes run, they share that queue and add combined capacity; the import-only process creates no other queue consumers or AI dispatchers. During rollout, do not move waiting or active jobs between queues: legacy jobs drain on `gloaming`, while new jobs go to the import queue. BullMQ de-duplicates only within a queue, so overlapping old/new jobs can occur during deployment; SourceRecord row locking and parse workflow claims keep materialization and parsing idempotent. Deploy a consumer-capable worker with the producers, then wait for legacy Discover jobs to drain before considering any later removal of their compatibility handlers.
 
-## Environment variables
+## Archived: environment variables
 
 Use [`archive/apps/web/.env.example`](../archive/apps/web/.env.example), [`archive/apps/backend/.env.example`](../archive/apps/backend/.env.example), and [`archive/apps/backend/.env.worker.example`](../archive/apps/backend/.env.worker.example) as the source of variable names. Inject values through the platform secret manager; never commit them.
 
@@ -101,7 +104,7 @@ pnpm --filter @gloaming/web start
 
 In this mode, set `API_INTERNAL_URL` to the private API address reachable by the web process.
 
-## First deployment
+## Archived: first deployment
 
 Run these steps from a trusted operator environment or the platform's one-off task facility:
 
@@ -135,6 +138,6 @@ Run these steps from a trusted operator environment or the platform's one-off ta
 
 Registration should remain closed or restricted until these checks pass.
 
-## Updates and rollback
+## Archived: updates and rollback
 
 Build and deploy all three application services from the same revision. Roll back by redeploying the previous application image versions. Database migrations are not automatically reversible, so review schema changes separately before a rollback.

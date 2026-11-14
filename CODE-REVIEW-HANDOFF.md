@@ -282,14 +282,13 @@ failure invocation logging, rate-limit policies, all N+1 changes.
   is possible; `reading_work` → `reading_state` etc. still allow
   application-level drift where no CHECK exists.
 
-### 5.6 Dead / misleading mechanisms (partially removed)
+### 5.6 Dead / misleading mechanisms (resolved)
 
 - ✅ Workflow `metadata` step, `stepRunningStatus`, `rotateWorkflowJobToken` and
   the `user_personal_tag_run` table were removed in `67f3c7d9` / `e5bb8097`.
-- `completeUserTagTranslations` authorization/preference branches are never
-  reached (no caller passes `authorizationGeneration`).
-- Three TTS error codes in `server/domains/tts/synthesis/service.ts` are
-  unreachable because the resolver already filters unusable configs.
+- ✅ The unreachable branches are gone: the live `completeUserTagTranslations`
+  has no `authorizationGeneration`/preference branches, and `ERROR_CODES.TTS`
+  only contains codes that are thrown in the live tree.
 
 ### 5.7 i18n and dependencies (partially done)
 
@@ -305,20 +304,18 @@ failure invocation logging, rate-limit policies, all N+1 changes.
   imports `SourceRecord*` from `@/shared/discovery` and `WorkStatsProvenance`
   from `@/shared/reading-stats`, and the redundant `as` casts are gone.
   `shared/content-assets` (zero consumers) was deleted.
-- Dependency hygiene (each is a one-liner): `shadcn` is a runtime dependency but
-  is CLI-only; `@types/dompurify` is a deprecated stub; `@cloudflare/workers-types`
-  is declared but never referenced (Workers typechecking is therefore **not** on);
-  `date-fns` has no direct usage; `react-server-dom-webpack` should be pinned to
-  `19.3.1` like `react`; `.npmrc`'s two settings are ignored by pnpm 11 (verified
-  `pnpm config get` returns `undefined`) and belong in `pnpm-workspace.yaml`.
+- ✅ Dependency hygiene is done: `shadcn` is a dev dependency, the deprecated
+  `@types/dompurify` stub and direct `date-fns` usage are gone,
+  `react-server-dom-webpack` is pinned to `19.3.1`, the stale `.npmrc` settings
+  live in `pnpm-workspace.yaml`, and generated Workers types are no longer linted.
 
-### 5.8 Documentation drift (not started)
+### 5.8 Documentation drift (resolved)
 
-- `docs/deployment.md` still describes the legacy `web`/`api`/`worker`
-  three-service topology and `API_INTERNAL_URL`, which contradicts the current
-  single-package root layout.
-- `server/infra/config/env-common.ts` comment still says "start Jobs from `client/`".
-- A stray `tsconfig.nocf.tsbuildinfo` exists with no matching `tsconfig.nocf.json`.
+- ✅ `docs/deployment.md` keeps the default single-package product first and now
+  labels every legacy three-service section as `Archived:`; `API_INTERNAL_URL`
+  is explicitly scoped to the archive.
+- ✅ `server/infra/config/env-common.ts` already describes loading Jobs from the
+  repo root, and the stray `tsconfig.nocf.tsbuildinfo` is gone.
 
 ---
 
