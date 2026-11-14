@@ -23,6 +23,7 @@ import {
   testTts,
 } from '@/features/admin/tts/tts-config-api';
 import { useLocale } from '@/lib/locale-context';
+import { getSecretFieldCopy } from '@/lib/secret-field-copy';
 import { ttsVoiceLabel } from '@/lib/tts-voice-label';
 import { cn } from '@/lib/utils';
 
@@ -201,13 +202,7 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
               setIsReplacingKey(false);
             }}
             placeholderWhenSet={t(locale, 'admin.tts.fields.apiKeyPlaceholderKeep')}
-            copy={{
-              replaceLabel: t(locale, 'common.secret.newKey'),
-              replaceAction: t(locale, 'common.secret.replace'),
-              cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
-              keepHint: t(locale, 'common.secret.keepHint'),
-              configuredLabel: t(locale, 'common.secret.configured'),
-            }}
+            copy={getSecretFieldCopy(locale)}
           />
 
           <div className="flex flex-col gap-5">

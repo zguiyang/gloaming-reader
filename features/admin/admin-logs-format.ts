@@ -3,6 +3,8 @@ import { enUS, zhCN } from 'react-day-picker/locale';
 
 import { type Locale, t } from '@/i18n';
 
+import { formatDateTimeValue } from '@/lib/format-datetime';
+
 const AI_SOURCE_KEYS: Record<string, string> = {
   'assist.ask': 'assistAsk',
   'assist.ask.followups': 'assistAskFollowups',
@@ -40,19 +42,7 @@ export function getAdminDayPickerLocale(locale: Locale): DayPickerLocale {
 }
 
 export function formatAdminDateTime(iso: string | Date, locale: Locale, withSeconds = false): string {
-  try {
-    return new Intl.DateTimeFormat(locale, {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      ...(withSeconds ? { second: '2-digit' } : {}),
-      hour12: false,
-    }).format(new Date(iso));
-  } catch {
-    return String(iso);
-  }
+  return formatDateTimeValue(iso, locale, { withSeconds });
 }
 
 export function formatAdminCount(value: number | null | undefined, locale: Locale): string {

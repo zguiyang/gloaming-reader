@@ -7,7 +7,7 @@ import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
-type SecretFieldCopy = {
+export type SecretFieldCopy = {
   /** Label of the editable replacement input (e.g. "New key"). */
   replaceLabel: string;
   /** Text action that opens the replacement input (e.g. "Replace key"). */

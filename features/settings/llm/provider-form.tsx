@@ -14,6 +14,7 @@ import { SecretField } from '@/components/ui/secret-field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getApiFamilyLabel } from '@/lib/llm-protocol-labels';
 import { useLocale } from '@/lib/locale-context';
+import { getSecretFieldCopy } from '@/lib/secret-field-copy';
 
 export type ProviderDraft = {
   apiFamily: LlmApiFamily;
@@ -159,13 +160,7 @@ export function ProviderForm({
           error={errors.apiKey}
           disabled={pending}
           placeholderWhenSet={t(locale, 'settings.secret.leaveBlank')}
-          copy={{
-            replaceLabel: t(locale, 'common.secret.newKey'),
-            replaceAction: t(locale, 'common.secret.replace'),
-            cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
-            keepHint: t(locale, 'common.secret.keepHint'),
-            configuredLabel: t(locale, 'common.secret.configured'),
-          }}
+          copy={getSecretFieldCopy(locale)}
         />
         <Collapsible className="border-t border-border/50 pt-3">
           <CollapsibleTrigger

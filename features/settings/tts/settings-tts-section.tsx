@@ -14,6 +14,7 @@ import { SecretField } from '@/components/ui/secret-field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatUserSettingsApiError, putUserTtsConfig, userSettingsQueryKey } from '@/features/settings/settings-api';
 import { useLocale } from '@/lib/locale-context';
+import { getSecretFieldCopy } from '@/lib/secret-field-copy';
 import { ttsVoiceLabel } from '@/lib/tts-voice-label';
 
 export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsConfigView; hideTitle?: boolean }) {
@@ -124,13 +125,7 @@ export function SettingsTtsSection({ config, hideTitle = false }: { config: TtsC
                   setIsReplacingKey(false);
                 }}
                 placeholderWhenSet={t(locale, 'settings.secret.leaveBlank')}
-                copy={{
-                  replaceLabel: t(locale, 'common.secret.newKey'),
-                  replaceAction: t(locale, 'common.secret.replace'),
-                  cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
-                  keepHint: t(locale, 'common.secret.keepHint'),
-                  configuredLabel: t(locale, 'common.secret.configured'),
-                }}
+                copy={getSecretFieldCopy(locale)}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-3">

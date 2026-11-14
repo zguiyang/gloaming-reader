@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { SecretField } from '@/components/ui/secret-field';
 import { getApiFamilyLabel } from '@/lib/llm-protocol-labels';
 import { useLocale } from '@/lib/locale-context';
+import { getSecretFieldCopy } from '@/lib/secret-field-copy';
 import { cn } from '@/lib/utils';
 
 export type ProviderFormValues = {
@@ -217,13 +218,7 @@ export function AiProviderForm({
             error={errors.apiKey}
             disabled={pending}
             placeholderWhenSet={t(locale, 'admin.ai.provider.form.apiKeyPlaceholderEdit')}
-            copy={{
-              replaceLabel: t(locale, 'common.secret.newKey'),
-              replaceAction: t(locale, 'common.secret.replace'),
-              cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
-              keepHint: t(locale, 'common.secret.keepHint'),
-              configuredLabel: t(locale, 'common.secret.configured'),
-            }}
+            copy={getSecretFieldCopy(locale)}
           />
         ) : (
           <Field data-invalid={Boolean(errors.apiKey) || undefined}>

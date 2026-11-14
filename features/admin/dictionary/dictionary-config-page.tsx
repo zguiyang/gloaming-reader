@@ -32,6 +32,7 @@ import {
   testDictionary,
 } from '@/features/admin/dictionary/dictionary-config-api';
 import { useLocale } from '@/lib/locale-context';
+import { getSecretFieldCopy } from '@/lib/secret-field-copy';
 import { cn } from '@/lib/utils';
 
 type ProviderSelectOption = {
@@ -303,13 +304,7 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
             placeholderWhenSet={t(locale, 'admin.dictionary.fields.apiKeyPlaceholderKeep', {
               masked: config.apiKeyMasked ?? '****',
             })}
-            copy={{
-              replaceLabel: t(locale, 'common.secret.newKey'),
-              replaceAction: t(locale, 'common.secret.replace'),
-              cancelReplaceAction: t(locale, 'common.secret.cancelReplace'),
-              keepHint: t(locale, 'common.secret.keepHint'),
-              configuredLabel: t(locale, 'common.secret.configured'),
-            }}
+            copy={getSecretFieldCopy(locale)}
           />
 
           <div className="grid gap-5 sm:grid-cols-2">

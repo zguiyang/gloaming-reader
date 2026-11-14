@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tabs } from '@/components/ui/tabs';
 import { getAdminDayPickerLocale } from '@/features/admin/admin-logs-format';
 import { AdminSegmentedTabsList, AdminSegmentedTabsTrigger } from '@/features/admin/admin-segmented-tabs';
+import { formatDateTimeValue } from '@/lib/format-datetime';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -42,14 +43,7 @@ function pad(value: number): string {
 }
 
 function formatDateTimeLabel(date: Date, locale: Parameters<typeof getAdminDayPickerLocale>[0]): string {
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date);
+  return formatDateTimeValue(date, locale);
 }
 
 function toTimeValue(date: Date): string {

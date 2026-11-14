@@ -1,6 +1,8 @@
 import { type Locale, t } from '@/i18n';
 import type { AssetCategory, AssetCategorySummary, AssetCleanupJobStatus } from '@/shared/assets';
 
+import { formatDateTimeValue } from '@/lib/format-datetime';
+
 const CATEGORY_KEYS: Record<AssetCategory, string> = {
   cover: 'cover',
   image: 'image',
@@ -59,16 +61,7 @@ export function formatStorageBytes(bytes: number): string {
 }
 
 export function formatMeasuredAt(value: string | Date, locale: Locale): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (!Number.isFinite(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date);
+  return formatDateTimeValue(value, locale);
 }
 
 export function buildCategoryChartData(categories: AssetCategorySummary[], locale: Locale) {
