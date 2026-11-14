@@ -200,9 +200,16 @@ failure invocation logging, rate-limit policies, all N+1 changes.
    - Streaming assist/translate (the SSE client was rewritten: reader cancel on
      exit, malformed frame handling).
    - 401/403 rendering on the client with the new error bodies.
-3. **Apply migration 0060** — see §6 first.
+3. ✅ All 64 migrations, including 0059 and 0060–0063, are applied to the local
+   dev DB; the 0059 pre-migration backup is documented in §6.
 
 ### 5.2 Correctness issues found in review but NOT fixed
+
+> **Re-verified 2026-11-14:** P1-1–P1-12 and P2-1–P2-6 are fixed in the live tree
+> (materialization retry + recovery sweep, validated facets/query, history LIMIT
+> with SQL status filter, recommendation feature-column map, batched `part.meta`,
+> per-route rate limits, `pathId`, env-driven auth limiting, aggregate readiness).
+> P1-13 `/api/works` now uses the `epubUpload` policy.
 
 | Severity | Issue                                                                                                                                                                                                                                                                    | Where                                                                                                           |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
@@ -250,15 +257,14 @@ failure invocation logging, rate-limit policies, all N+1 changes.
   would change the API split; left as-is.
 - Zero `React.memo` in the repo; many callbacks passed inline defeat future
   memoization. No measured hot path, so not changed.
-- `getChapterProgress` reduces the whole manifest every 100ms.
+- ✅ `getChapterProgress` now uses the precomputed manifest weights.
 
 ### 5.4 Architecture / duplication (partially done)
 
-- **75-route boilerplate** in `app/api` (~40% of its 2504 lines): `getRequestIdentity`
-  ×87, `catch → jsonFromThrown` ×90, identical zod `issues.map` ×42. Candidate for
-  `withApiHandler` / `requireUser` / `parseOr400`. **Large, mechanical — separate PR.**
-- `features/admin/ai/ai-logs-page.tsx` (453) and `tts-logs-page.tsx` (423) are
-  structural clones → `<InvocationLogsShell>`.
+- ✅ Shared `withApiError`, `requireIdentity`, `jsonSchemaError`, `pathId` and the
+  new `parseJsonBody` / `parseSearchParams` replace the old per-route boilerplate.
+- ✅ Log pages consume `InvocationLogsShell`; `parseJsonBody` / `parseSearchParams`
+  in `server/infra/http/next-json.ts` centralize body/query validation.
 - ✅ LLM instance and user services now share `llm/config/mutations.ts`; the
   ownership guards are the only per-scope branch.
 - ✅ `SecretField` copy (5 sites) and admin date-time formatting (3 sites) use
@@ -319,10 +325,22 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 
 ---
 
-## 6. Before applying migration 0060
+## 6. Migration state
 
-File: `server/db/migrations/0060_natural_robbie_robertson.sql`.
-**It has never been executed.** Run `pnpm db:migrate` only after confirming:
+**Applied locally:** all 64 migrations, including 0059 (applied 2026-11-14) and
+0060–0063. 0059 is destructive: it deleted 79,683 unreferenced `source_record`
+rows and dropped eleven public-category / sync-run tables.
+
+Because Drizzle only applies migrations newer than the last recorded row,
+`pnpm db:migrate` skipped the out-of-order 0059. It was applied in a transaction
+and its hash plus journal timestamp were recorded manually.
+
+**Pre-migration backup:** created as `migration_0059_backup_20261114` (229 MB)
+before applying 0059 and dropped after the result was accepted. The 79,683
+deleted rows and the eleven dropped tables are no longer restorable from this
+database.
+
+If 0060 ever needs to run against another database, confirm first:
 
 1. **No scope has two open conversations** — `conversation_user_open_uidx` fails
    if any `(user_id, surface, subject_type, subject_id)` already has more than one
@@ -342,7 +360,7 @@ File: `server/db/migrations/0060_natural_robbie_robertson.sql`.
    (`reading_work.processing_status`, `reading_work.visibility`,
    `reading_state.status`).
 
-Take a backup first. This migration was explicitly scoped to "generate only".
+Take a backup first for any non-local database.
 
 ---
 
