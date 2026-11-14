@@ -601,7 +601,7 @@ export const dictionaryEntry = pgTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [unique('dictionary_entry_word_uidx').on(table.word), index('dictionary_entry_word_idx').on(table.word)],
+  (table) => [unique('dictionary_entry_word_uidx').on(table.word)],
 );
 
 export type ContentAssetMeta = {

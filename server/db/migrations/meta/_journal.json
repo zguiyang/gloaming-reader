@@ -428,6 +428,13 @@
       "when": 1794552977030,
       "tag": "0060_natural_robbie_robertson",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1794621203443,
+      "tag": "0061_burly_sentry",
+      "breakpoints": true
     }
   ]
 }
