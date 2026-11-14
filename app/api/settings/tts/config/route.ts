@@ -1,40 +1,25 @@
 import { putTtsConfigBodySchema } from '@/shared/tts';
 
 import { getUserConfig, putUserConfig } from '@/server/domains/tts/config/user-service';
-import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
-import { assertAuthenticated, getRequestIdentity } from '@/server/infra/http/next-session';
+import { jsonOk, jsonSchemaError } from '@/server/infra/http/next-json';
+import { requireIdentity } from '@/server/infra/http/next-session';
+import { withApiError } from '@/server/infra/http/next-route';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-  try {
-    const identity = await getRequestIdentity(request);
-    assertAuthenticated(identity);
-    return jsonOk(await getUserConfig(identity.user.id));
-  } catch (error) {
-    return jsonFromThrown(request, error);
+export const GET = withApiError(async (request: Request) => {
+  const identity = await requireIdentity(request);
+  return jsonOk(await getUserConfig(identity.user.id));
+});
+
+export const PUT = withApiError(async (request: Request) => {
+  const identity = await requireIdentity(request);
+
+  const raw = await request.json().catch(() => null);
+  const parsed = putTtsConfigBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return jsonSchemaError(request, parsed.error);
   }
-}
 
-export async function PUT(request: Request) {
-  try {
-    const identity = await getRequestIdentity(request);
-    assertAuthenticated(identity);
-
-    const raw = await request.json().catch(() => null);
-    const parsed = putTtsConfigBodySchema.safeParse(raw);
-    if (!parsed.success) {
-      return jsonValidationError(
-        request,
-        parsed.error.issues.map((issue) => ({
-          path: issue.path.join('.') || 'body',
-          message: issue.message,
-        })),
-      );
-    }
-
-    return jsonOk(await putUserConfig(identity.user.id, parsed.data));
-  } catch (error) {
-    return jsonFromThrown(request, error);
-  }
-}
+  return jsonOk(await putUserConfig(identity.user.id, parsed.data));
+});

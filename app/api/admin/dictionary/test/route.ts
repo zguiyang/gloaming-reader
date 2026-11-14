@@ -2,36 +2,27 @@ import { testDictionaryBodySchema } from '@/shared/dictionary';
 
 import { testDictionary } from '@/server/domains/dictionary/lookup/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
-import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { jsonOk, jsonSchemaError } from '@/server/infra/http/next-json';
 import { enforceUserRateLimit } from '@/server/infra/http/next-rate-limit';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
+import { withApiError } from '@/server/infra/http/next-route';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request) {
-  try {
-    const identity = await getRequestIdentity(request);
-    assertAdmin(identity);
+export const POST = withApiError(async (request: Request) => {
+  const identity = await getRequestIdentity(request);
+  assertAdmin(identity);
 
-    const raw = await request.json().catch(() => null);
-    const parsed = testDictionaryBodySchema.safeParse(raw);
-    if (!parsed.success) {
-      return jsonValidationError(
-        request,
-        parsed.error.issues.map((issue) => ({
-          path: issue.path.join('.') || 'body',
-          message: issue.message,
-        })),
-      );
-    }
-
-    const limited = await enforceUserRateLimit(request, 'outboundProbe', identity.user.id);
-    if (limited) {
-      return limited;
-    }
-
-    return jsonOk(await testDictionary(workReadActorFromIdentity(identity.user), parsed.data));
-  } catch (error) {
-    return jsonFromThrown(request, error);
+  const raw = await request.json().catch(() => null);
+  const parsed = testDictionaryBodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return jsonSchemaError(request, parsed.error);
   }
-}
+
+  const limited = await enforceUserRateLimit(request, 'outboundProbe', identity.user.id);
+  if (limited) {
+    return limited;
+  }
+
+  return jsonOk(await testDictionary(workReadActorFromIdentity(identity.user), parsed.data));
+});

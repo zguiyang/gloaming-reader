@@ -4,7 +4,7 @@ import { readerAudioSegmentQuerySchema } from '@/shared/reader';
 
 import { getReaderAudioSegment } from '@/server/domains/reader-audio/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
-import { jsonFromThrown, jsonOk, jsonValidationError } from '@/server/infra/http/next-json';
+import { jsonFromThrown, jsonOk, jsonValidationError, jsonSchemaError } from '@/server/infra/http/next-json';
 import { pathId } from '@/server/infra/http/path-params';
 import { acquireAiRateLimit } from '@/server/infra/http/next-rate-limit';
 import { getRequestIdentity } from '@/server/infra/http/next-session';
@@ -34,13 +34,7 @@ export async function GET(request: Request, context: Ctx) {
       expectedHash: url.searchParams.get('expectedHash') || undefined,
     });
     if (!queryParsed.success) {
-      return jsonValidationError(
-        request,
-        queryParsed.error.issues.map((issue) => ({
-          path: issue.path.join('.') || 'query',
-          message: issue.message,
-        })),
-      );
+      return jsonSchemaError(request, queryParsed.error, 'query');
     }
 
     // The only on-demand synthesis entry point (a paid Azure call), so this is

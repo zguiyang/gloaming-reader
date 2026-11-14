@@ -2,9 +2,9 @@ import { ASSIST_SSE_EVENT, assistAskBodySchema } from '@/shared/assist';
 
 import { streamAssistAsk } from '@/server/domains/assist/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
-import { jsonFromThrown, jsonValidationError } from '@/server/infra/http/next-json';
+import { jsonFromThrown, jsonSchemaError } from '@/server/infra/http/next-json';
 import { acquireAiRateLimit, withAiRateLimitRelease } from '@/server/infra/http/next-rate-limit';
-import { assertAuthenticated, getRequestIdentity } from '@/server/infra/http/next-session';
+import { requireIdentity } from '@/server/infra/http/next-session';
 import { encodeSseMessage, formatThrownErrorBody, sseResponseHeaders } from '@/server/infra/http/next-sse';
 
 export const dynamic = 'force-dynamic';
@@ -12,21 +12,14 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   let lease: { release: () => Promise<void> } | undefined;
   try {
-    const identity = await getRequestIdentity(request);
-    assertAuthenticated(identity);
+    const identity = await requireIdentity(request);
 
     // Validate before spending quota: `release()` only returns the concurrency
     // slot, so a malformed body used to burn a full user/IP point.
     const raw = await request.json().catch(() => null);
     const parsed = assistAskBodySchema.safeParse(raw);
     if (!parsed.success) {
-      return jsonValidationError(
-        request,
-        parsed.error.issues.map((issue) => ({
-          path: issue.path.join('.') || 'body',
-          message: issue.message,
-        })),
-      );
+      return jsonSchemaError(request, parsed.error);
     }
 
     const limited = await acquireAiRateLimit(request, 'assist', identity.user.id);

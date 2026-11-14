@@ -33,6 +33,16 @@ export function assertAuthenticated(identity: RequestIdentity): asserts identity
   }
 }
 
+/** Resolve the session and require a signed-in user in one step. */
+export async function requireIdentity(request?: Request): Promise<{
+  user: AuthSessionUser;
+  session: AuthSession;
+}> {
+  const identity = await getRequestIdentity(request);
+  assertAuthenticated(identity);
+  return identity;
+}
+
 /** Admin gate; also narrows `identity` the same way {@link assertAuthenticated} does. */
 export function assertAdmin(identity: RequestIdentity): asserts identity is {
   user: AuthSessionUser;
