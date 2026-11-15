@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { AppError } from '@/server/shared/errors/app-error';
 import { assertSafeOutboundUrl, assertSafeProxyUrl, resolveProviderBalanceUrl } from '@/server/infra/llm/outbound-url';
+import { createSafeOutboundFetch } from '@/server/infra/llm/safe-fetch';
 
 function rejectionCode(url: string): string | null {
   try {
@@ -83,5 +84,37 @@ describe('resolveProviderBalanceUrl', () => {
 
   it('validates an absolute balance endpoint', () => {
     expect(() => resolveProviderBalanceUrl('https://api.example.com', 'http://127.0.0.1/balance')).toThrow(AppError);
+  });
+});
+
+describe('createSafeOutboundFetch', () => {
+  it('refuses redirects instead of following them', async () => {
+    const inner = vi.fn(
+      async () => new Response(null, { status: 302, headers: { location: 'http://169.254.169.254/latest/meta-data' } }),
+    );
+    const fetchImpl = createSafeOutboundFetch(inner as unknown as typeof fetch);
+
+    await expect(fetchImpl('https://api.example.com/v1/chat')).rejects.toBeInstanceOf(AppError);
+    expect(inner).toHaveBeenCalledWith(
+      'https://api.example.com/v1/chat',
+      expect.objectContaining({ redirect: 'manual' }),
+    );
+  });
+
+  it('passes non-redirect responses through', async () => {
+    const inner = vi.fn(async () => new Response('{"ok":true}', { status: 200 }));
+    const fetchImpl = createSafeOutboundFetch(inner as unknown as typeof fetch);
+
+    const response = await fetchImpl('https://api.example.com/v1/chat');
+
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it('rejects private targets before the inner fetch runs', async () => {
+    const inner = vi.fn();
+    const fetchImpl = createSafeOutboundFetch(inner as unknown as typeof fetch);
+
+    await expect(fetchImpl('http://127.0.0.1:8080/x')).rejects.toBeInstanceOf(AppError);
+    expect(inner).not.toHaveBeenCalled();
   });
 });

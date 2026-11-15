@@ -4,6 +4,8 @@ import { getWireFamilyDefinition, isLlmApiFamily } from '@/shared/llm';
 
 import { resolveProviderBalanceUrl } from '@/server/infra/llm/outbound-url';
 import { buildProxiedFetch } from '@/server/infra/llm/proxy';
+import { createSafeOutboundFetch } from '@/server/infra/llm/safe-fetch';
+import { AppError } from '@/server/shared/errors/app-error';
 
 type ProviderRow = typeof llmProviderTable.$inferSelect;
 
@@ -20,16 +22,20 @@ class UpstreamRequestError extends Error {
 
 async function requestJson(url: string, apiKey: string, proxyUrl: string | null): Promise<unknown> {
   const proxiedFetch = buildProxiedFetch(proxyUrl);
+  const outboundFetch = createSafeOutboundFetch(proxiedFetch);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let response: Response;
   try {
-    response = await (proxiedFetch ?? fetch)(url, {
+    response = await outboundFetch(url, {
       method: 'GET',
       headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
       signal: controller.signal,
     });
   } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
     const aborted = error instanceof Error && error.name === 'AbortError';
     throw new UpstreamRequestError(aborted ? '请求超时' : '网络请求失败');
   } finally {

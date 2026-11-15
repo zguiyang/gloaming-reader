@@ -14,11 +14,13 @@ import type {
   ProviderLookupOptions,
   RawProviderResult,
 } from '@/server/domains/dictionary/providers/types';
+import { createSafeOutboundFetch } from '@/server/infra/llm/safe-fetch';
 import { rootLogger } from '@/server/infra/logging/logger';
 import { AppError } from '@/server/shared/errors/app-error';
 
 const logger = rootLogger.child({ module: 'YoudaoDictionaryProvider' });
 const PROVIDER_LABEL = 'Youdao Dictionary API';
+const outboundFetch = createSafeOutboundFetch();
 
 const DEFAULT_API_BASE = 'https://dict.youdao.com/jsonapi';
 
@@ -253,7 +255,7 @@ export class YoudaoDictionaryProvider implements DictionaryProvider {
     try {
       let response: Response;
       try {
-        response = await fetch(url, {
+        response = await outboundFetch(url, {
           signal: controller.signal,
           headers: {
             Accept: 'application/json',

@@ -1530,6 +1530,9 @@
       "forbidden": "没有权限执行此操作",
       "internalServerError": "服务器内部错误",
       "tooManyRequests": "请求过于频繁，请稍后再试",
+      "rateLimit": {
+        "unavailable": "限流服务暂时不可用，请稍后重试"
+      },
       "validationFailed": "验证失败",
       "validation": {
         "invalidInput": "输入内容无效",
@@ -1617,7 +1620,8 @@
         "invalid": "{label} 格式不正确",
         "scheme": "{label} 仅允许 http 或 https",
         "credentials": "{label} 不能包含用户名或密码",
-        "privateNetwork": "{label} 不能指向内网或本地地址"
+        "privateNetwork": "{label} 不能指向内网或本地地址",
+        "redirect": "{label} 返回了重定向，出于安全原因已拒绝；请直接配置最终地址"
       },
       "oss": {
         "notConfigured": "对象存储未配置",

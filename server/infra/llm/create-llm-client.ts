@@ -5,6 +5,7 @@ import { isRuntimeImplemented } from '@/shared/llm';
 
 import { buildProxiedFetch } from '@/server/infra/llm/proxy';
 import type { ResolvedLlm } from '@/server/infra/llm/resolve';
+import { createSafeOutboundFetch } from '@/server/infra/llm/safe-fetch';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
@@ -39,7 +40,7 @@ export function createLlmClient(resolved: ResolvedLlm, _options?: CreateLlmClien
   const openai = createOpenAI({
     apiKey: resolved.apiKey,
     baseURL: resolved.baseUrl,
-    fetch: proxiedFetch ?? undefined,
+    fetch: createSafeOutboundFetch(proxiedFetch),
   });
 
   return resolved.wireVariant === 'responses' ? openai.responses(resolved.modelId) : openai.chat(resolved.modelId);

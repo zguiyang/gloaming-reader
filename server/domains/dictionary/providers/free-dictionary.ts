@@ -14,11 +14,13 @@ import type {
   ProviderLookupOptions,
   RawProviderResult,
 } from '@/server/domains/dictionary/providers/types';
+import { createSafeOutboundFetch } from '@/server/infra/llm/safe-fetch';
 import { rootLogger } from '@/server/infra/logging/logger';
 import { AppError } from '@/server/shared/errors/app-error';
 
 const logger = rootLogger.child({ module: 'FreeDictionaryProvider' });
 const PROVIDER_LABEL = 'Free Dictionary API';
+const outboundFetch = createSafeOutboundFetch();
 
 const DEFAULT_API_BASE = 'https://api.dictionaryapi.dev/api/v2/entries/en';
 
@@ -174,7 +176,7 @@ export class FreeDictionaryProvider implements DictionaryProvider {
     try {
       let response: Response;
       try {
-        response = await fetch(url, {
+        response = await outboundFetch(url, {
           signal: controller.signal,
           headers: {
             Accept: 'application/json',

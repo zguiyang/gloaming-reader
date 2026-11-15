@@ -7,6 +7,10 @@ export const ERROR_CODES = {
   VALIDATION_FAILED: 'api.errors.validationFailed',
   VALIDATION_INVALID_INPUT: 'api.errors.validation.invalidInput',
 
+  RATE_LIMIT: {
+    UNAVAILABLE: 'api.errors.rateLimit.unavailable',
+  },
+
   NOT_FOUND: {
     WORK: 'api.errors.notFound.work',
     PART: 'api.errors.notFound.part',
@@ -73,6 +77,7 @@ export const ERROR_CODES = {
     SCHEME: 'api.errors.outboundUrl.scheme',
     CREDENTIALS: 'api.errors.outboundUrl.credentials',
     PRIVATE_NETWORK: 'api.errors.outboundUrl.privateNetwork',
+    REDIRECT: 'api.errors.outboundUrl.redirect',
   },
 
   OSS: {

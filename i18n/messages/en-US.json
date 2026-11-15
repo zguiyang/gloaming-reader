@@ -1527,6 +1527,9 @@
       "forbidden": "Forbidden",
       "internalServerError": "Internal server error",
       "tooManyRequests": "Too many requests. Please try again later.",
+      "rateLimit": {
+        "unavailable": "Rate limiting is temporarily unavailable. Please try again shortly."
+      },
       "validationFailed": "Validation failed",
       "validation": {
         "invalidInput": "Invalid input",
@@ -1614,7 +1617,8 @@
         "invalid": "{label} format is invalid",
         "scheme": "{label} must use http or https",
         "credentials": "{label} must not include a username or password",
-        "privateNetwork": "{label} must not point to a private or local address"
+        "privateNetwork": "{label} must not point to a private or local address",
+        "redirect": "{label} returned a redirect, which is not allowed; configure the final URL directly"
       },
       "oss": {
         "notConfigured": "Object storage is not configured",
