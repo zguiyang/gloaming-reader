@@ -14,9 +14,21 @@ const apiEnvSchema = commonEnvSchema.extend({
    * Better Auth's built-in limiter applies to `/api/auth/*`. On by default —
    * local setups that replay auth flows against `next start` may opt out
    * explicitly instead of relying on the FRONTEND_URL host heuristic.
+   * Production must keep it enabled.
    */
   AUTH_RATE_LIMIT_ENABLED: z.preprocess(
     (value) => (value === '' || value === undefined ? 'true' : value),
+    z.enum(['true', 'false']).transform((value) => value === 'true'),
+  ),
+
+  /**
+   * Trust proxy-supplied client IP headers for rate-limit keys. Enable only
+   * when a trusted proxy overwrites `CF-Connecting-IP`, `X-Forwarded-For`, or
+   * `X-Real-IP`; otherwise a client can rotate the header and bypass IP quotas.
+   * Cloudflare Workers are detected automatically.
+   */
+  TRUST_PROXY_HEADERS: z.preprocess(
+    (value) => (value === '' || value === undefined ? 'false' : value),
     z.enum(['true', 'false']).transform((value) => value === 'true'),
   ),
 
@@ -36,6 +48,14 @@ const apiEnvSchema = commonEnvSchema.extend({
 });
 
 const completeApiEnvSchema = apiEnvSchema.superRefine((config, context) => {
+  if (config.NODE_ENV === 'production' && !config.AUTH_RATE_LIMIT_ENABLED) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['AUTH_RATE_LIMIT_ENABLED'],
+      message: 'must stay enabled in production',
+    });
+  }
+
   const hasClientId = Boolean(config.GITHUB_CLIENT_ID);
   const hasClientSecret = Boolean(config.GITHUB_CLIENT_SECRET);
   if (hasClientId === hasClientSecret) {

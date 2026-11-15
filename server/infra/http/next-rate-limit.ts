@@ -1,6 +1,7 @@
-import { RateLimiterMemory, RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
+import { RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 
 import { getRedis } from '@/server/infra/cache';
+import { env } from '@/server/infra/config/env';
 import { jsonError } from '@/server/infra/http/next-json';
 import { rootLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
@@ -93,17 +94,34 @@ end
 return redis.call('DECR', KEYS[1])
 `;
 
+/** Cloudflare always overwrites `CF-Connecting-IP` before the Worker sees it. */
+function isCloudflareWorkersRuntime(): boolean {
+  return typeof navigator !== 'undefined' && navigator.userAgent === 'Cloudflare-Workers';
+}
+
+function trustsProxyHeaders(): boolean {
+  return env.TRUST_PROXY_HEADERS || isCloudflareWorkersRuntime();
+}
+
 /**
  * Best-effort client IP for rate-limit keys.
  *
- * Header values are only trustworthy when a proxy rewrites them, so the order
- * below prefers the ones that are single-valued or appended nearest to this
- * process: `CF-Connecting-IP` is overwritten by Cloudflare, and the *rightmost*
- * `X-Forwarded-For` hop is appended by the immediately-upstream proxy. Taking
- * the leftmost hop instead would let a client pick its own key and walk past
- * every IP-scoped quota.
+ * Header values are only trustworthy when a proxy rewrites them. Cloudflare
+ * Workers always run behind Cloudflare and receive an overwritten
+ * `CF-Connecting-IP`; any other deployment must opt in with
+ * `TRUST_PROXY_HEADERS=true`. Without that trust we cannot see the peer
+ * address, so callers share the `unknown` bucket instead of letting a client
+ * choose its own key by rotating a header.
+ *
+ * When trusted, prefer single-valued or proxy-appended headers:
+ * `CF-Connecting-IP`, then the *rightmost* `X-Forwarded-For` hop, then
+ * `X-Real-IP`. Taking the leftmost hop would let a client pick its own key.
  */
 export function getClientIpFromRequest(request: Request): string {
+  if (!trustsProxyHeaders()) {
+    return 'unknown';
+  }
+
   const cloudflareIp = request.headers.get('cf-connecting-ip')?.trim();
   if (cloudflareIp) {
     return cloudflareIp;
@@ -140,11 +158,6 @@ function getLimiter(name: string, rule: RateLimitRule): RateLimiterRedis {
     points: rule.points,
     duration: rule.duration,
     blockDuration: rule.blockDuration,
-    insuranceLimiter: new RateLimiterMemory({
-      points: rule.points,
-      duration: rule.duration,
-      blockDuration: rule.blockDuration,
-    }),
   });
 
   limiters.set(name, limiter);
@@ -173,6 +186,15 @@ function tooManyRequests(request: Request, headers?: HeadersInit): Response {
   return new Response(response.body, { status: response.status, headers: merged });
 }
 
+/**
+ * The quota store is a hard dependency: a per-process fallback would multiply
+ * every budget by the number of instances, so an unavailable store fails
+ * closed instead of silently granting extra requests.
+ */
+function rateLimitUnavailable(request: Request): Response {
+  return jsonError(request, ERROR_CODES.RATE_LIMIT.UNAVAILABLE, HTTP_STATUS.SERVICE_UNAVAILABLE);
+}
+
 /** Consume one fixed-window bucket; returns a 429 Response when the caller is over budget. */
 async function consumeLimit(
   request: Request,
@@ -186,7 +208,8 @@ async function consumeLimit(
     return null;
   } catch (error) {
     if (!(error instanceof RateLimiterRes)) {
-      throw error;
+      rateLimitLogger.error({ err: error, limiterName }, 'Rate limit store unavailable');
+      return rateLimitUnavailable(request);
     }
     const retryAfter = Math.max(1, Math.ceil(error.msBeforeNext / 1000));
     return tooManyRequests(request, { ...rateLimitHeaders(rule, error), 'Retry-After': String(retryAfter) });
@@ -274,7 +297,8 @@ export async function acquireAiRateLimit(
     await ipLimiter.consume(ip);
   } catch (error) {
     if (!(error instanceof RateLimiterRes)) {
-      throw error;
+      rateLimitLogger.error({ err: error, policyName }, 'Rate limit store unavailable');
+      return { ok: false, response: rateLimitUnavailable(request) };
     }
     const retryAfter = Math.max(1, Math.ceil(error.msBeforeNext / 1000));
     return {
@@ -283,7 +307,13 @@ export async function acquireAiRateLimit(
     };
   }
 
-  const acquired = await acquireConcurrentSlot(policyName, actorKey);
+  let acquired: boolean;
+  try {
+    acquired = await acquireConcurrentSlot(policyName, actorKey);
+  } catch (error) {
+    rateLimitLogger.error({ err: error, policyName }, 'AI concurrency store unavailable');
+    return { ok: false, response: rateLimitUnavailable(request) };
+  }
   if (!acquired) {
     return {
       ok: false,
