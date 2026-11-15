@@ -209,7 +209,9 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 > (materialization retry + recovery sweep, validated facets/query, history LIMIT
 > with SQL status filter, recommendation feature-column map, batched `part.meta`,
 > per-route rate limits, `pathId`, env-driven auth limiting, aggregate readiness).
-> P1-13 `/api/works` now uses the `epubUpload` policy.
+> P1-13 `/api/works` now uses the `epubUpload` policy and caps the body while
+> it streams (50 MB + 64 KB multipart overhead), so a chunked request without
+> `Content-Length` cannot buffer an unbounded payload.
 
 | Severity | Issue                                                                                                                                                                                                                                                                    | Where                                                                                                           |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
@@ -240,15 +242,14 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 - ✅ **Settings page split.** `settings-page.tsx` now holds the summary view and
   session gate; LLM forms live in `features/settings/llm/` with a controller
   hook (`use-own-ai-settings`) and `OwnAiView`. `ModelForm` still owns its draft.
-- `features/reader/reader-page.tsx` — effects depend on the `useMutation()`
-  return value, which is a fresh object each render, so they re-run every render.
-- `features/content/reading-part-view.tsx` — the `useMemo` over chapter HTML is
-  defeated by an inline `bilingualData` object literal, re-running DOM parsing +
-  DOMPurify per render; `sanitizeHtml` returns **unsanitized** HTML on the
-  server path.
-- `features/discover/discover-page.tsx` — renders the same grid twice
-  (`md:hidden` / `hidden md:block`) with identical props while the component is
-  already responsive.
+- ✅ `features/reader/reader-page.tsx` destructures the stable `mutateAsync` and
+  depends on that in effects (comment at the destructuring plus the dependency
+  arrays); no effect depends on a whole mutation object.
+- ✅ `bilingualData` is memoized in the reader and passed down, so the `useMemo`
+  in `reading-part-view.tsx` holds. Its `sanitizeHtml` fails closed (empty
+  string) when no browser DOM exists, so SSR never emits EPUB-authored markup.
+- ✅ `discover-page.tsx` renders the records grid and the legacy grid once each;
+  the only remaining `md:hidden` is the mobile pagination control.
 - ✅ **Library polling unified.** Both library queries derive their interval
   from one `hasProcessingItem` predicate. Discover save-status and admin asset
   cleanup polling remain feature-local by design.
