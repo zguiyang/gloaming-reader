@@ -52,3 +52,4 @@ Optional: `pnpm build && pnpm start` for production-mode local check.
 
 - Auth, TTS, LLM, and storage need the corresponding keys in `.env` (see `.env.example`).
 - This runbook does **not** use Cloudflare Workers, vinext, or OpenNext.
+- Redis application keys must use TTLs (see [backend Redis key policy](../rules/backend.md#redis-key-policy)). Scan leftovers with `pnpm exec tsx scripts/redis-no-ttl-scan.ts`.

@@ -25,3 +25,17 @@ Edit only `RATE_LIMIT_POLICIES` / `AI_RATE_LIMIT_POLICIES` in `next-rate-limit.t
 - Clear Redis keys `gloaming:ratelimit:*` (and Better Auth secondary keys) if a local session is stuck at 429.
 - Client IP uses `x-real-ip` / `x-forwarded-for`; without a trusted proxy this is advisory only.
 - This module assumes Node + Redis (not edge Workers rate limiting).
+
+## Redis key policy (related)
+
+Application Redis writes must use a finite TTL. Auth secondary storage never
+writes permanent keys; sessions remain in Postgres. To find leftover `TTL=-1`
+keys under `better-auth:`, `gloaming:`, and `asset-management:`:
+
+```bash
+pnpm exec tsx scripts/redis-no-ttl-scan.ts
+# Optional (destructive): expire better-auth leftovers with the default session TTL
+ALLOW_REDIS_NO_TTL_EXPIRE=1 pnpm exec tsx scripts/redis-no-ttl-scan.ts --expire-better-auth --execute
+```
+
+Normative rules: [rules/backend.md](../rules/backend.md) (Redis key policy).

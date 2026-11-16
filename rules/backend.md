@@ -68,3 +68,34 @@ Deploy topology: [AGENTS.md](../AGENTS.md), [deployment.md](../docs/deployment.m
   infer a new persistence policy from a handler or current database state.
 - Environment authorization, secret protection, migrations, and automated-test
   isolation are governed by [AGENTS.md](../AGENTS.md).
+
+## Redis key policy
+
+Redis is for **cache, locks, rate limits, queues, and short-lived ops snapshots**
+— not a second database. Durable domain data belongs in Postgres (or object
+storage for large binaries).
+
+**Do:**
+
+- Give every application `SET` / write of a business or cache key a finite TTL
+  (`EX` / absolute expiry). Prefer absolute TTLs that reads do not renew.
+- Keep large cached values bounded (size cap + shorter TTL), as with TTS.
+- Use Redis for coordination (locks with TTL + renewal, rate-limit windows,
+  BullMQ with `removeOnComplete` / `removeOnFail`) and admin scan/cleanup
+  snapshots that already expire.
+
+**Do not:**
+
+- Write permanent Redis keys (`SET` without expiry) for sessions, dictionaries,
+  translations, TTS audio, or any other business payload.
+- Use Redis as the sole long-term store when the product needs durable reuse —
+  persist in Postgres (or S3 + DB metadata) and keep Redis as an optional L1
+  cache with TTL.
+- Put locks, rate limits, or BullMQ state into Postgres “for consistency” with
+  this policy; those stay on Redis with their own lifecycles.
+- Introduce a single catch-all “Redis mirror” table for unrelated domains.
+
+Auth secondary storage (`server/infra/auth/secondary-storage.ts`) must always
+apply a positive TTL (default/max aligned with Better Auth session lifetime).
+Ops: `pnpm exec tsx scripts/redis-no-ttl-scan.ts` reports `TTL=-1` keys under
+known prefixes; expiry of `better-auth:*` leftovers requires explicit consent.
