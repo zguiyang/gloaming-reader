@@ -120,6 +120,8 @@ function DiscoverSourceCardContent({
       void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'records'] });
       // Refresh an open source detail as well, so its linked Work becomes available.
       void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'record'] });
+      // Same-author rails on the detail page share this prefix.
+      void queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'related-author'] });
     }
     if (serverStatus !== 'ready') {
       wasReady.current = false;
