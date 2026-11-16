@@ -212,30 +212,36 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 > P1-13 `/api/works` now uses the `epubUpload` policy and caps the body while
 > it streams (50 MB + 64 KB multipart overhead), so a chunked request without
 > `Content-Length` cannot buffer an unbounded payload.
+>
+> **Follow-up 2026-11-16:** personal `uploaded` recovery + orphan fail-closed,
+> recommendations candidate pool cap (250), TTS segment cache-hit without
+> synthesis quota, Discover `related-author` invalidation, Azure TTS
+> `redirect: 'manual'`. The table below is a **closed ledger** (✅ = fixed in
+> live tree); do not read unchecked wording as an open backlog.
 
-| Severity | Issue                                                                                                                                                                                                                                                                    | Where                                                                                                           |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| P1       | Materialization enqueue failure leaves the Work in `uploaded`, and `resolveLinkedWork` only re-enqueues when the status is `failed` + `failedStep=parse`, so one Redis blip makes the record permanently unreachable                                                     | `server/domains/discovery/materialization/service.ts` (`resolveLinkedWork`, `markMaterializationFailedForWork`) |
-| P1       | After a crash + stalled redelivery, `claimWorkflowStep` is a no-op while the lease is alive and there is **no** recovery sweep, so a Work can sit in `processing` forever. The comment describing an "admin retry path" was corrected, but the path still does not exist | `server/domains/works/lifecycle/workflow.ts`, `jobs/worker.ts`                                                  |
-| P1       | `source-metadata-enrich` returns `{ ok: true }` from its `catch`, so its `attempts: 2` never triggers a retry and failures are invisible in the queue                                                                                                                    | `jobs/source-metadata-enrich.ts`                                                                                |
-| P1       | `ensureRetryJobToken` has a read-then-write TOCTOU; on loss it returns `false` and the job ends with `ok: true` having done nothing                                                                                                                                      | `server/application/commands/run-content-parse-workflow.ts`                                                     |
-| P1       | `streamAi` still lacks `maxOutputTokens` and `providerScope`, so streaming output is not bounded by model config and resolves models differently from `invokeAi`                                                                                                         | `server/domains/ai/runtime/service.ts`, `runtime/types.ts`                                                      |
-| P1       | assist/translate still consume rate-limit quota **before** parsing the body (the new guards were placed after validation; the old ones were not)                                                                                                                         | `app/api/assist/ask/route.ts`, `app/api/translate/part/route.ts`                                                |
-| P1       | `assets/[assetId]` returns empty-body 404/403 and checks existence before authorization → `assetId` enumeration oracle                                                                                                                                                   | `app/api/assets/[assetId]/route.ts`                                                                             |
-| P1       | `library/discover` maps domain errors by `error.message.startsWith(...)` instead of machine codes                                                                                                                                                                        | `app/api/library/discover/route.ts`                                                                             |
-| P1       | `discover/facets` is the only query parameter not validated with zod                                                                                                                                                                                                     | `app/api/discover/facets/route.ts`                                                                              |
-| P1       | `recommendations` loads the **entire** public catalog into memory per request, then does `publishedRows.find()` inside a loop (O(n·m))                                                                                                                                   | `server/domains/recommendations/service.ts`                                                                     |
-| P1       | Reading history has **no LIMIT**, and status filtering happens in JS after loading every row                                                                                                                                                                             | `server/domains/reading/history/query.ts`                                                                       |
-| P1       | Parse finalization still updates `part.meta` one row at a time in a loop (the overwrite was fixed, the loop was not)                                                                                                                                                     | `server/application/commands/run-content-parse-workflow.ts`                                                     |
-| P1       | Rate-limit coverage: `/api/works` (50 MB EPUB enqueue), admin test/fetch-models/balance endpoints, `/api/settings/llm/models/[id]/test` are unthrottled                                                                                                                  | `server/infra/http/next-rate-limit.ts` + those routes                                                           |
-| P2       | `more-page` treats a synthesized `{status:401}` from `useSession` as "session expired" and pops the login modal for anonymous visitors                                                                                                                                   | `lib/auth/session.ts`, `features/more/more-page.tsx`                                                            |
-| P2       | ~~Library search has no debounce and the infinite query lacks `placeholderData: keepPreviousData`~~ ✅ Fixed: 300ms debounce + `keepPreviousData`                                                                                                                        | `features/library/library-page.tsx`, `library-api.ts`                                                           |
-| P2       | ~~Library `status`/`sort`/`view` are never written back to the URL~~ ✅ Fixed: `writeViewSearch` keeps them durable                                                                                                                                                      | `features/library/library-page.tsx`                                                                             |
-| P2       | Chapter navigation has no in-flight guard and reuses a stale `expectedRevision` → rapid "next chapter" clicks produce 409 toasts                                                                                                                                         | `features/reader/reader-api.ts`, `reader-page.tsx`                                                              |
-| P2       | Two Discover keys are never invalidated: `['discover','related-author']`, `['discover','source-parts']`; the latter also duplicates `readerQueryKey.parts`                                                                                                               | `app/(app)/discover/records/[sourceRecordId]/source-record-detail.tsx`                                          |
-| P2       | Rate-limit auth switch is decided by whether `FRONTEND_URL`'s hostname is localhost — a production misconfiguration silently disables all Better Auth rate limiting                                                                                                      | `server/infra/auth/auth.ts`                                                                                     |
-| P2       | `health/ready` exposes postgres/redis up-down to anonymous callers                                                                                                                                                                                                       | `app/api/health/ready/route.ts`                                                                                 |
-| P2       | Dynamic path params (`[workId]`, `[tagId]`, …) are passed through unvalidated at the transport layer                                                                                                                                                                     | all `app/api/**/[id]` routes                                                                                    |
+| Severity | Status | Issue (original finding)                                                                                 | Where                                                                                        |
+| -------- | ------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| P1       | ✅     | Materialization / `uploaded` re-enqueue + personal orphan fail-closed + recovery sweep covers `uploaded` | `materialization/service.ts`, `personal-epub-upload.ts`, `recover-stalled-content-parses.ts` |
+| P1       | ✅     | Stalled parse recovery sweep after lease expiry                                                          | `workflow.ts`, `jobs/worker.ts`, `recover-stalled-content-parses.ts`                         |
+| P1       | ✅     | `source-metadata-enrich` rethrows on failure                                                             | `jobs/source-metadata-enrich.ts`                                                             |
+| P1       | ✅     | Retry-token / claim path hardened (adopt winner; no silent forever no-op as primary path)                | `run-content-parse-workflow.ts`                                                              |
+| P1       | ✅     | `streamAi` bounds + `providerScope`                                                                      | `server/domains/ai/runtime/service.ts`                                                       |
+| P1       | ✅     | assist/translate parse body before quota                                                                 | `app/api/assist/ask`, `app/api/translate/part`                                               |
+| P1       | ✅     | Asset gateway indistinguishable 404                                                                      | `app/api/assets/[assetId]/route.ts`                                                          |
+| P1       | ✅     | `library/discover` domain error codes via `withApiError`                                                 | `app/api/library/discover/route.ts`                                                          |
+| P1       | ✅     | `discover/facets` zod-validated                                                                          | `app/api/discover/facets/route.ts`                                                           |
+| P1       | ✅     | Recommendations feature columns + **candidate pool LIMIT 250** (shelf anchors by id)                     | `server/domains/recommendations/service.ts`                                                  |
+| P1       | ✅     | Reading history LIMIT + SQL status filter                                                                | `server/domains/reading/history/query.ts`                                                    |
+| P1       | ✅     | Batched `part.meta` word-count update                                                                    | `run-content-parse-workflow.ts`                                                              |
+| P1       | ✅     | `/api/works` `epubUpload` + streaming body cap; admin probes `outboundProbe`                             | `next-rate-limit.ts` + routes                                                                |
+| P2       | ✅     | Guest session no longer synthetic 401 login modal                                                        | `lib/auth/session.ts`, `features/more/more-page.tsx`                                         |
+| P2       | ✅     | Library search debounce + `keepPreviousData`                                                             | `features/library/library-page.tsx`, `library-api.ts`                                        |
+| P2       | ✅     | Library `status`/`sort`/`view` URL durable                                                               | `features/library/library-page.tsx`                                                          |
+| P2       | ✅     | Chapter navigation in-flight guard                                                                       | `features/reader/reader-api.ts`, `reader-page.tsx`                                           |
+| P2       | ✅     | `related-author` invalidated on save-ready; `source-parts` uses `readerQueryKey.parts`                   | `discover-source-card.tsx`, `source-record-detail.tsx`                                       |
+| P2       | ✅     | Auth rate-limit via `AUTH_RATE_LIMIT_ENABLED` (not FRONTEND_URL hostname)                                | `server/infra/auth/auth.ts`                                                                  |
+| P2       | ✅     | `health/ready` aggregate only                                                                            | `app/api/health/ready/route.ts`                                                              |
+| P2       | ✅     | Dynamic path params via `pathId`                                                                         | `app/api/**/[id]` routes                                                                     |
 
 ### 5.3 Frontend performance / structure (resolved)
 
@@ -402,10 +408,12 @@ during this work:
 
 ---
 
-## 9. Final status (2026-11-14)
+## 9. Final status (2026-11-16)
 
-Every review item is either fixed or explicitly closed above with its reason.
-Nothing in the live tree is left as an unowned TODO.
+Static review items in §5.2–§5.8 are fixed or explicitly closed with reasons.
+§5.1 still lists **runtime/E2E acceptance**, **push**, and **production
+migrations** as user/operator actions — those are out of “code closed”, not
+unowned TODOs in the tree.
 
 Remaining actions require the user:
 
@@ -413,5 +421,4 @@ Remaining actions require the user:
 - Run 0059–0063 against production — needs a separate authorization, a backup and
   the §6 preflight. 0059 deletes unreferenced `source_record` rows and drops
   eleven tables.
-- Accept the runtime behavior. The final cleanup is committed locally and left
-  unpushed.
+- Accept the runtime behavior (including follow-ups landed 2026-11-16).

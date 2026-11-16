@@ -8,6 +8,13 @@
 > **本文不是：** 完整 PR 清单、生产切流授权、允许大规模删 `api`/`worker` 的执行令。  
 > **上级文档：** [`cloudflare-fullstack-refactor-guidance.md`](./cloudflare-fullstack-refactor-guidance.md)（锁定项 L1–L8 与禁止项以它为准）。
 
+### 当前态（2026-11-16，以仓库为准）
+
+**Live product = 仓库根单包 Next**（`app/` + `features/` + `server/` + `shared/` + `i18n/` + 可选 `jobs/`）。  
+`migration/` 信封与根级 `client/` **已取消**；旧 `apps/*` / 根 `packages/*` 仅在 **`archive/`** 对照。  
+下文 §0.1 / §4 中大量 `migration/`、`apps/web`、旁路信封叙述是 **P2–P3 历史方案**，不要当作今日执行清单。继续工作以 [`AGENTS.md`](../AGENTS.md)、[`STRUCTURE.md`](../STRUCTURE.md)、[`LOCAL_RUN.md`](./LOCAL_RUN.md)、[`deployment.md`](./deployment.md) 的**当前态**为准。  
+**P4 对象 = 仓库根**（非 `migration/client`）。T3 清单在 [`T3-DEPENDENCY-INVENTORY.md`](./T3-DEPENDENCY-INVENTORY.md)（不再位于 `migration/` 下）。
+
 ---
 
 ## 0. 与其它文档的关系
@@ -16,24 +23,21 @@
 | --------------------------------------- | ------------------------------------------------------ |
 | 北极星 guidance                         | 方向与锁定；防跑偏                                     |
 | [`AGENTS.md`](../AGENTS.md) + `rules/*` | 过渡期规范；当前态 vs 目标态                           |
-| [`deployment.md`](./deployment.md)      | **当前**三服务运维现实（to-be-superseded）             |
+| [`deployment.md`](./deployment.md)      | **当前**默认单包根交付；三服务章节标为 Archived        |
 | **本文**                                | 阶段顺序 + P1 章程；回答「下一步做什么、做到什么算完」 |
 
 未决项（Free CPU、EPUB 重解析落点、Jobs/Queues）在 guidance §0.4；**禁止假装已定**。第三方按需源能力已决：见 guidance §0.4a（Gutenberg 官方 OPDS；禁止全量 RDF 主路径；公共分类已移除）。
 
-### 0.1 正确顺序（防跑偏）— 维护者方案 2026-11-12
+### 0.1 正确顺序（防跑偏）— 维护者方案 2026-11-12（历史；N5 后已完成旁路）
 
 ```text
 对照 Workers 运行约束（选型与依赖纪律）
-    → 旁路建 migration/（迁出暂存区；其内容将来提为新仓库根）
-    → 其内：client 为主；jobs 空占位；自有 packages/与 workspace；暂不接 backend/jobs
-    → 迁基础（Next 最新 + shadcn + 样式）→ 前端 → 后端进 client；共享包按 §4.1.1 处理
-    → 迁入时换技术方案（AI SDK、TTS HTTP/REST、Workers 不友好依赖）
-    → 迁得差不多后再瘦身旧 apps；最后新树才上 Workers（P4）
+    → （历史）旁路建 migration/ → client 迁入 → N5 archive 旧树 → 单包根提升
+    → （今日）在仓库根继续产品与加固；P4 对根树做 Workers 真实兼容
 ```
 
-**禁止：** 拿当前 `web + Hono api + worker` 去证明「整包能否迁上 CF」。该拓扑不是迁移对象。  
-**禁止：** 在旧树原地大改尚未建好新树时，就做「现网上 CF」兼容鉴定。  
+**禁止：** 拿 `archive/` 里的 `web + Hono api + worker` 去证明「整包能否迁上 CF」。该拓扑不是迁移对象。  
+**禁止：** 在已提升的根树上重新发明 `migration/` 旁路信封。  
 **P1 绿场探针的唯一保留价值：** Next 在 Workers 上「有路可走」；**不是**现网三件套已可迁。
 
 ---
@@ -43,18 +47,18 @@
 ```text
 P0  规则对齐（消冲突）                 ✅ 已完成
 P1  Next-on-Workers 前置可行性         ✅ 已完成（绿场探针；见 Appendix A）
-P2  旁路新树 + 迁入切片 backlog        ✅ backlog 已写入 §4；执行仍需逐片授权
-P3  migration/ 建树 → 迁前端 → 迁后端 → 瘦身  ← N3∥N4 本地切流已就绪；N5 另授权
-P4  `client/` 上 Workers 真实兼容       🔄 P4-V1 进行中（vinext 构建 + Preview 薄路径）
+P2  旁路新树 + 迁入切片 backlog        ✅ 历史 backlog 见 §4；旁路信封已取消
+P3  迁入 + 瘦身 + 单包根               ✅ N5 + 单包根已完成（live = 仓库根）
+P4  仓库根上 Workers 真实兼容          🔄 P4-V1 完成；P4-V2 未做
 ```
 
-| 阶段   | 目的                                              | 产出                                   | 明确不做                         |
-| ------ | ------------------------------------------------- | -------------------------------------- | -------------------------------- |
-| **P0** | AI/人不再按「永久三服务」惯性改                   | 规范与交叉引用已入库                   | 不改业务代码                     |
-| **P1** | 证明 Next 在 Workers 工具链上能冒烟（前置）       | 冒烟记录、适配链倾向、已知 blocker     | 不切生产；不证明现网三件套可迁   |
-| **P2** | 把「`migration/` + 迁入 + 换方案」切成有门禁任务  | 切片 backlog + 每片通过标准            | 不发明未决项结论；不做提前平台迁 |
-| **P3** | 旁路 `migration/`、迁 UI/API、换方案、再瘦身      | 可运行的 `migration/client` 与对照策略 | 不把「上 CF 冒烟」当本阶段主线   |
-| **P4** | 对 **`migration/` 新结构**做 Workers 真实兼容验证 | 平台结论（Free / Paid / 再降复杂度）   | 不对未迁完的旧三件套做兼容鉴定   |
+| 阶段   | 目的                                         | 产出                                 | 明确不做                       |
+| ------ | -------------------------------------------- | ------------------------------------ | ------------------------------ |
+| **P0** | AI/人不再按「永久三服务」惯性改              | 规范与交叉引用已入库                 | 不改业务代码                   |
+| **P1** | 证明 Next 在 Workers 工具链上能冒烟（前置）  | 冒烟记录、适配链倾向、已知 blocker   | 不切生产；不证明现网三件套可迁 |
+| **P2** | （历史）把旁路迁入切成有门禁任务             | §4 backlog（对照用）                 | 不重新创建 `migration/` 信封   |
+| **P3** | （历史）旁路迁入、换方案、瘦身、提升为单包根 | 今日 live = 仓库根                   | 不把 archive 当 live           |
+| **P4** | 对 **仓库根**做 Workers 真实兼容验证         | 平台结论（Free / Paid / 再降复杂度） | 不对 archive 三件套做兼容鉴定  |
 
 **P3 本地进度（2026-11-12）：** N0–N2 脚手架/壳已落地；本波完成 **N3∥N4 本地切流**——`client/` 含全量 UI + Next Route Handlers（无嵌 Hono）+ 同包 BullMQ worker 第二进程；T1（AI SDK）/ T2（Azure Speech REST）在迁入路径生效。巩固波：对照表 [`PROCESS_COMPARE.md`](./PROCESS_COMPARE.md)、T3 清单 [`T3-DEPENDENCY-INVENTORY.md`](./T3-DEPENDENCY-INVENTORY.md)、限流 [`RATE_LIMIT.md`](./RATE_LIMIT.md)、assist tools 已接 AI SDK。详见 [`LOCAL_RUN.md`](./LOCAL_RUN.md)。
 
@@ -142,9 +146,9 @@ P4  `client/` 上 Workers 真实兼容       🔄 P4-V1 进行中（vinext 构�
 
 ---
 
-## 4. P2 — 旁路新树 + 迁入切片与门禁（backlog）
+## 4. P2 — 旁路新树 + 迁入切片与门禁（历史 backlog）
 
-**Status:** Backlog revised 2026-11-12（维护者方案：先建新结构再迁入，再瘦身；最后上 CF）  
+**Status:** Historical — N5 + 单包根完成后，本节仅作迁入路径对照；**不要按本节重建 `migration/` 或把 `apps/web` 当 live**。  
 **依据：** guidance L1–L8 / §0.4；[P1 findings](./research/cf-workers-p1-findings.md)。
 
 ### 4.1 维护者方案（整理稿）
