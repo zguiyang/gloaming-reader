@@ -6,10 +6,8 @@ tmp
 out
 .next
 
-# Next / vinext
+# Next
 next-env.d.ts
-.vinext/
-.cloudflare/
 
 # Secrets
 .env

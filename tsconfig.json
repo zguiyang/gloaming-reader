@@ -21,16 +21,6 @@
     "paths": { "@/*": ["./*"] },
     "allowImportingTsExtensions": true
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
-    // ".cloudflare/types" stays excluded: generated runtime types declare a
-    // global Element (HTMLRewriter) that conflicts with the DOM lib and breaks
-    // typecheck whenever the generated file exists.
-  ],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts", "**/*.mts"],
   "exclude": ["node_modules", "archive"]
 }
