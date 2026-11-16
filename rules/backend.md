@@ -6,25 +6,26 @@ or dependency changes, also read [architecture rules](architecture.md).
 
 ## Current vs target (API placement)
 
-| State       | Meaning                                                                                                                                                                                                               |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Current** | HTTP APIs, auth assembly, and job enqueueing live at the **repo root** — Next Route Handlers under `app/api/**` calling `server/domains`. Optional BullMQ worker is the same package (`jobs/`).                       |
-| **Target**  | Same deploy unit on managed data plane; platform goal is Cloudflare Workers. Jobs remain **optional** for open-source delivery; if present, they share DB/Redis with the web app. Hono is not the long-term API host. |
+| State       | Meaning                                                                                                                                                                                                                                 |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Current** | HTTP APIs, auth assembly, and job enqueueing live at the **repo root** — Next Route Handlers under `app/api/**` calling `server/domains`. Optional BullMQ worker is the same package (`jobs/`).                                         |
+| **Target**  | Same deploy unit on a conventional Node host (VPS) + managed data plane; optional Cloudflare DNS/CDN in front. Jobs optional for open-source delivery; if present, share DB/Redis with the web app. Hono is not the long-term API host. |
 
-Deploy/API ownership direction and hard locks: [Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md). Product bans and safety remain in [AGENTS.md](../AGENTS.md).
+Deploy topology: [AGENTS.md](../AGENTS.md), [deployment.md](../docs/deployment.md). Product bans and safety remain in [AGENTS.md](../AGENTS.md).
 
-**While evolving toward Workers:**
+**Do not:**
 
-- Edit the owning path at the repo root unless a task explicitly moves a surface.
-- Do not treat “embed Hono in Next” as the finished architecture. Nested Hono
-  was removed from the live tree; do not reintroduce it.
-- Do not reintroduce always-on BullMQ / three-service delivery as the recommended
-  default (legacy layout is under `archive/apps/*` for comparison only).
-- Do not default TTS onto Workers AI; prefer Azure Speech REST (`fetch`/SSML).
-- Do not default assist/LLM onto LangChain or Workers AI; assist stack is
-  Vercel AI SDK (`ai` + `@ai-sdk/openai`).
-- Keep domain behavior free of HTTP-framework types; transport adapters
+- Edit outside the owning path at the repo root unless a task explicitly moves a surface.
+- Treat “embed Hono in Next” as the finished architecture. Nested Hono was
+  removed from the live tree; do not reintroduce it.
+- Reintroduce three long-lived API services as the recommended default (legacy
+  under `archive/apps/*` for comparison only). App + Jobs as two processes is fine.
+- Default TTS onto Workers AI; prefer Azure Speech REST (`fetch`/SSML).
+- Default assist/LLM onto LangChain or Workers AI; assist stack is Vercel AI SDK
+  (`ai` + `@ai-sdk/openai`).
+- Put HTTP-framework types in domain behavior; transport adapters
   (`app/api/**/route.ts`) stay thin.
+- Reintroduce vinext / Workers as the app runtime.
 
 ## Application boundaries
 

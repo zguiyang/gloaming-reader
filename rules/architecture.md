@@ -6,24 +6,22 @@ review. Use a relevant structure Skill for execution methods.
 
 ## Deploy unit vs logical boundaries
 
-Accepted deploy/API direction:
-[Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md).
+Accepted deploy/API direction: [AGENTS.md](../AGENTS.md),
+[deployment.md](../docs/deployment.md).
 
 - **Current deploy unit:** repo-root single Next package (UI + HTTP APIs) with
   an optional same-package BullMQ worker (`jobs/`). Legacy `web+api+worker`
   sources live under `archive/apps/*` for comparison only.
-- **Target platform:** same Next deploy unit on managed data plane; Cloudflare
-  Workers compatibility is a gated P4 track (P4-V1 build/Preview done; P4-V2 not).
+- **Target platform:** same Next deploy unit on a conventional Node host
+  (typically app + jobs containers) + managed data plane; Cloudflare may provide
+  DNS/CDN only — not Workers as the app runtime.
 - **Logical boundaries remain:** a single deploy unit does **not** authorize
   folding server domain logic into UI modules, dissolving `shared/` or
   `server/db` ownership, or inventing a new shared kitchen-sink layer.
 - **Hono** is not in the live tree and is not the long-term API host. Do not
-  reintroduce nested Hono inside Next unless the guidance is amended.
-- **Jobs / queues** are optional for open-source delivery. Do not treat BullMQ
-  worker presence as required Cloudflare architecture.
-- **Current vs target mismatch** (Node/Jobs vs Workers) is expected. Report it;
-  do not silently pick “code today” or “target doc” and proceed on high-impact
-  moves without an explicit task and gates.
+  reintroduce nested Hono inside Next.
+- **Jobs / queues** are optional for open-source delivery; when present they are
+  a second Node process/container, not a Workers requirement.
 
 ## Ownership and dependency direction
 

@@ -19,9 +19,8 @@ Local cutover target for the repo-root Next app (not Cloudflare).
 
 - Legacy `archive/apps/*` + `archive/packages/*` kept for comparison (**N5 demote**; not the default path).
 - Live install is a **single package** at the repo root (`shared/` + `i18n/` colocated; no product workspace packages).
-- Jobs remain BullMQ on Redis (local default); CF Queues undecided (**R5**).
-- No claim that the dual-process tree runs on Workers (**P4**).
+- Jobs remain BullMQ on Redis (local default / VPS second process).
 
 ## Smoke gaps still expected
 
-Some flows may fail without keys/data (LLM, Azure TTS, S3 upload). Track against [`LOCAL_RUN.md`](./LOCAL_RUN.md); do not treat partial smoke as N5/P4 go-ahead.
+Some flows may fail without keys/data (LLM, Azure TTS, S3 upload). Track against [`LOCAL_RUN.md`](./LOCAL_RUN.md).

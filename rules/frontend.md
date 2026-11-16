@@ -10,23 +10,24 @@ stack. For module ownership or public entries, read
 | State       | Meaning                                                                                                                                              |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Current** | Next.js UI at the **repo root**. HTTP APIs are same-origin `/api/*` Route Handlers in the same package (no separate API origin in the default path). |
-| **Target**  | Same Next app remains the UI + HTTP deploy unit on managed data plane; platform goal is Cloudflare Workers.                                          |
+| **Target**  | Same Next app remains the UI + HTTP deploy unit on a Node host + managed data plane; Cloudflare optional for DNS/CDN only.                           |
 
-Direction and prohibitions: [Cloudflare fullstack refactor guidance](../docs/cloudflare-fullstack-refactor-guidance.md). Product bans remain in [AGENTS.md](../AGENTS.md).
+Direction: [AGENTS.md](../AGENTS.md), [deployment.md](../docs/deployment.md). Product bans remain in [AGENTS.md](../AGENTS.md).
 
-**While evolving toward Workers:**
+**Do not:**
 
-- Do not assume a permanent private `api` service or rebuild features that require
-  a second public API origin. Legacy `archive/apps/web` proxy + Hono is comparison
+- Assume a permanent private `api` service or rebuild features that require a
+  second public API origin. Legacy `archive/apps/web` proxy + Hono is comparison
   only.
-- Do not collapse domain/server modules into client components just because deploy
-  units already merged.
-- Prefer same-origin API access patterns (`/api/*` via `lib/` helpers).
-- Media: public objects may use public R2 domain URLs; personal uploads remain in
-  scope (private + presigned or equivalent)—do not ship “upload disabled” as the
-  target product stance.
-- Label stubs honestly when a flow is incomplete; do not imply backend persistence
-  that is not implemented.
+- Collapse domain/server modules into client components just because deploy units
+  already merged.
+- Use a second public API origin for the default path — prefer same-origin
+  `/api/*` via `lib/` helpers.
+- Ship “upload disabled” as the target product stance — personal uploads remain
+  in scope (private + presigned or equivalent).
+- Label stubs dishonestly; do not imply backend persistence that is not
+  implemented.
+- Treat Cloudflare Workers / vinext as the UI runtime.
 
 ## Composition and dependencies
 

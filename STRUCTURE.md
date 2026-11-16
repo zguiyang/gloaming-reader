@@ -1,8 +1,7 @@
 # Repository structure (live product)
 
 Single-package Next app at the **repository root** (UI + all HTTP APIs + optional same-package Jobs).  
-Stages: [`docs/cloudflare-fullstack-refactor-stages.md`](docs/cloudflare-fullstack-refactor-stages.md).  
-Direction locks: L8 — deploy merge does **not** collapse server domains into UI modules.
+Deploy: conventional Node host (VPS or similar) — typically **app** (+ optional Nginx) and **jobs**; Cloudflare may provide DNS/CDN only.
 
 ## Tree
 
@@ -59,11 +58,11 @@ This repo is a **single pnpm package** (`package.json` at root). There is **no**
 multi-package workspace (`packages:` list).
 
 pnpm 11 stores dependency build approvals in `pnpm-workspace.yaml` (`allowBuilds`
-for `sharp` / `esbuild` / `workerd` / …). That file is **not** a monorepo
+for `sharp` / `esbuild` / …). That file is **not** a monorepo
 manifest here—deleting it makes `pnpm install` recreate placeholders.
 
 ## Explicit non-goals
 
 - Nested Hono as the end-state API host
-- Treating BullMQ worker as Cloudflare-ready
-- Claiming Free CPU / Workers fitness (P4-V2 still open)
+- Cloudflare Workers / vinext as the app runtime
+- Restoring three long-lived `web` + `api` + `worker` services as the default open-source layout

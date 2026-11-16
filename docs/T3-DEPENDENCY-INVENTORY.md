@@ -1,25 +1,24 @@
-# T3 — Workers-hostile dependency inventory (live Next app)
+# T3 — Runtime dependency inventory (live Next app)
 
-**Status:** Working inventory (not a Workers readiness claim).  
-**Scope:** What the local full-stack tree uses today vs what P4 must revisit.
+**Status:** Working inventory for the Node dual-process product (Next + `jobs/`).  
+**Scope:** What the local full-stack tree uses today on a conventional Node host.
 
-| Dependency / pattern                 | Where                                            | Local open-source             | Workers (P4)                                                                                                       |
-| ------------------------------------ | ------------------------------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **BullMQ + Redis queues**            | `jobs/worker.ts`, `server/infra/queue`           | **Keep** as second OS process | Must replace or isolate (Queues / external worker / paid long tasks). Do **not** pretend Free Workers runs BullMQ. |
-| **`pg` / Drizzle**                   | `server/infra/db`, `server/db`                   | Keep (Node)                   | Needs Workers-compatible Postgres driver / Hyperdrive / external fetch DB — decide in P4.                          |
-| **`ioredis`**                        | cache, queue, auth secondary storage, rate limit | Keep                          | Edge Redis client or HTTP Redis; session secondary storage redesign.                                               |
-| **`sharp`**                          | ingest / image optimize                          | Keep for Node worker/API      | Native binary — isolate to Jobs or replace.                                                                        |
-| **`yauzl` / EPUB parse**             | ingest parser                                    | Keep on Node                  | Heavy CPU + filesystem — Jobs lane or paid CPU; open item in guidance.                                             |
-| **`cheerio` / HTML**                 | ingest, content                                  | Keep                          | Bundle size / Node APIs — audit in P4 build.                                                                       |
-| **Azure Speech REST (`fetch`)**      | `server/infra/tts`                               | Keep (T2 done)                | Compatible in principle; secrets stay server-side.                                                                 |
-| **Vercel AI SDK + `@ai-sdk/openai`** | `domains/ai/runtime`                             | Keep (T1 done)                | Compatible in principle; outbound fetch + secrets.                                                                 |
-| **Better Auth + Drizzle adapter**    | `server/infra/auth`                              | Keep                          | Cookie/session + Node crypto paths need P4 verification.                                                           |
-| **`rate-limiter-flexible`**          | Next HTTP rate limit helper                      | Keep with Redis               | Same Redis story as above.                                                                                         |
-| **`iconv-lite`**                     | npm dep (cheerio / encoding)                     | Keep                          | Externalize in Next; not Workers-specific.                                                                         |
-| **Hono / LangChain / Speech SDK**    | `archive/apps/backend` only                      | Not in live graph             | Must stay out of the live app graph.                                                                               |
+| Dependency / pattern                 | Where                                            | Role                                  |
+| ------------------------------------ | ------------------------------------------------ | ------------------------------------- |
+| **BullMQ + Redis queues**            | `jobs/worker.ts`, `server/infra/queue`           | Second OS process / container         |
+| **`pg` / Drizzle**                   | `server/infra/db`, `server/db`                   | Postgres via Node `pg`                |
+| **`ioredis`**                        | cache, queue, auth secondary storage, rate limit | Redis TCP client                      |
+| **`sharp`**                          | ingest / image optimize                          | Native image pipeline (Jobs / server) |
+| **`yauzl` / EPUB parse**             | ingest parser                                    | Heavy CPU + filesystem — Jobs lane    |
+| **`cheerio` / HTML**                 | ingest, content                                  | HTML parse                            |
+| **Azure Speech REST (`fetch`)**      | `server/infra/tts`                               | TTS; secrets stay server-side         |
+| **Vercel AI SDK + `@ai-sdk/openai`** | `domains/ai/runtime`                             | Assist / LLM                          |
+| **Better Auth + Drizzle adapter**    | `server/infra/auth`                              | Cookie/session + Drizzle              |
+| **`rate-limiter-flexible`**          | Next HTTP rate limit helper                      | With Redis                            |
+| **`iconv-lite`**                     | npm dep (cheerio / encoding)                     | Encoding                              |
+| **Hono / LangChain / Speech SDK**    | `archive/apps/backend` only                      | Must stay out of the live app graph   |
 
 ## Explicit non-claims
 
-- Local dual-process green ≠ Free CPU / Workers fitness.
-- R5 (Jobs/Queues strategy) remains an open product/platform decision.
-- This file is input to **P4-V1/V2**, not permission to start N5 deletions.
+- This inventory is for the **Node** app + Jobs topology, not Workers runtime fitness.
+- Cloudflare may front the host for DNS/CDN only; it is not the app runtime.

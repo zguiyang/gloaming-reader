@@ -51,8 +51,7 @@ All 22 items from the review's "batch 1" list were implemented. Headline items:
 
 - **Test baseline repaired.** `vitest` was a _phantom_ dependency (only present as
   an optional peer of `better-auth`); `pnpm test` was `echo "No root tests yet"`;
-  there was no `vitest.config.ts`, so a bare `vitest run` loaded the root
-  `vite.config.ts` (vinext + Cloudflare plugins) and crashed, and also picked up
+  there was no `vitest.config.ts`, so a bare `vitest run` could pick up
   219 archived specs. Specs were excluded from **both** tsconfigs while ESLint
   linted them.
   Now: `vitest` declared, standalone config (excludes `archive/**`), `pnpm test`,
@@ -119,14 +118,14 @@ production database in this environment.
 
 Run from the repo root:
 
-| Command             | Result                                                               |
-| ------------------- | -------------------------------------------------------------------- |
-| `pnpm typecheck`    | ✅ 0 errors (specs now included)                                     |
-| `pnpm lint`         | ✅ 0 errors, 0 warnings (generated `.cloudflare/` types are ignored) |
-| `pnpm format:check` | ✅ clean                                                             |
-| `pnpm test`         | ✅ **27 files / 161 tests**                                          |
-| `pnpm build`        | ✅ production build succeeds                                         |
-| `pnpm db:generate`  | ✅ `No schema changes` (after the script fix)                        |
+| Command             | Result                                        |
+| ------------------- | --------------------------------------------- |
+| `pnpm typecheck`    | ✅ 0 errors (specs now included)              |
+| `pnpm lint`         | ✅ 0 errors, 0 warnings                       |
+| `pnpm format:check` | ✅ clean                                      |
+| `pnpm test`         | ✅ **27 files / 161 tests**                   |
+| `pnpm build`        | ✅ production build succeeds                  |
+| `pnpm db:generate`  | ✅ `No schema changes` (after the script fix) |
 
 **Not verified:** no runtime acceptance, no E2E, no database migration applied,
 no load/soak testing. Every claim above comes from static reading plus the unit
@@ -324,7 +323,7 @@ failure invocation logging, rate-limit policies, all N+1 changes.
 - ✅ Dependency hygiene is done: `shadcn` is a dev dependency, the deprecated
   `@types/dompurify` stub and direct `date-fns` usage are gone,
   `react-server-dom-webpack` is pinned to `19.3.1`, the stale `.npmrc` settings
-  live in `pnpm-workspace.yaml`, and generated Workers types are no longer linted.
+  live in `pnpm-workspace.yaml`.
 
 ### 5.8 Documentation drift (resolved)
 
@@ -387,10 +386,8 @@ pnpm db:generate   # now works from the repo root (was broken)
 pnpm db:migrate    # applies migrations — see §6
 ```
 
-`vitest.config.ts` is intentionally standalone: do **not** point vitest at the
-root `vite.config.ts` (its vinext + Cloudflare plugins make vitest fail to
-start), and keep `archive/**` excluded (its `@/...` aliases no longer resolve and
-its 219 specs drown out real failures).
+`vitest.config.ts` is standalone for the live tree; keep `archive/**` excluded
+(its `@/...` aliases no longer resolve and its 219 specs drown out real failures).
 
 ---
 

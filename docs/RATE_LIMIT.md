@@ -24,4 +24,4 @@ Edit only `RATE_LIMIT_POLICIES` / `AI_RATE_LIMIT_POLICIES` in `next-rate-limit.t
 
 - Clear Redis keys `gloaming:ratelimit:*` (and Better Auth secondary keys) if a local session is stuck at 429.
 - Client IP uses `x-real-ip` / `x-forwarded-for`; without a trusted proxy this is advisory only.
-- Workers / edge rate limiting is **out of scope** until P4; this module assumes Node + Redis.
+- This module assumes Node + Redis (not edge Workers rate limiting).

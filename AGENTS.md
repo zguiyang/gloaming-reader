@@ -24,38 +24,25 @@ the current authoritative model, preserve established invariants, and verify
 affected producers and consumers. Do not change core business semantics without
 task authorization.
 
-## Deploy and API topology (transition)
+## Deploy and API topology
 
-Accepted direction for deploy/API ownership lives in
-[Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md).
-That document is guidance and anti-drift for the refactor, not an execution
-checklist and not permission to start large deletions or route moves by itself.
+| State       | Meaning                                                                                                                                                                                                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Current** | Single-package Next app at repo root (UI + `/api/*`) + optional same-package `jobs/` worker. Legacy `web` + `api` + `worker` remain under **`archive/`** only.                                                                                                                                          |
+| **Target**  | Same app shape on a conventional Node host (e.g. VPS): typically **app** (Next, optionally behind Nginx) + **jobs**; data plane on managed Postgres / Redis / object storage. Cloudflare may front the host for DNS, TLS, and CDN (orange-cloud proxy) — **not** Cloudflare Workers as the app runtime. |
 
-**Priority when sources conflict on deploy topology or API ownership:** the
-guidance above wins for target delivery shape. Product bans (no legacy Article
-revival, no unauthorized business-semantic changes) and safety rules in this
-file still win.
-
-| State       | Meaning                                                                                                                                                                            |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Current** | Single-package Next app at repo root + optional `jobs/` worker. Legacy `web` + `api` + `worker` are under **`archive/`** only. **P4-V1** vinext build/Preview done; **P4-V2** not. |
-| **Target**  | One deployable Next app = UI + all HTTP APIs; data plane on free SaaS (Supabase / Redis / R2); Jobs not in the default open-source topology; platform goal is Cloudflare Workers.  |
-
-**Do not** (unless the guidance is amended and a task explicitly authorizes it):
+**Do not**:
 
 - Treat nested Hono-in-Next as the final API architecture (Hono is not in the live tree)
-- Restore `web+api+worker` / always-on BullMQ as the recommended open-source default
+- Restore `web+api+worker` three long-lived API services as the recommended open-source default (Jobs as a second process/container is fine)
 - Revive Gutenberg **full** sync as the main discovery path
-- Default TTS/LLM onto Workers AI for “edge” or “free”
+- Default TTS/LLM onto Workers AI
 - Claim personal upload is out of scope
-- Pretend open items in the guidance (Free CPU fitness, on-demand source capability, EPUB re-parse placement, Jobs/Queues) are already decided
 - Equate deploy merge with collapsing domain logic into UI modules
-- Treat `archive/apps/*` as the Cloudflare migration object
 - Reintroduce a multi-package pnpm workspace for the live product
+- Reintroduce vinext / Workers deploy tooling or claim the product runs on Cloudflare Workers
 
-Discover owners from current source at the repo root. Prefer moving toward the
-target platform shape only under an explicit task with scope and gates. Do not
-invent a completed Workers migration.
+Discover owners from current source at the repo root.
 
 ## Safety and data
 
@@ -139,11 +126,10 @@ Detailed project rules are maintained in the project-owned `rules/` directory.
 Read only the rules relevant to the current task:
 
 - Deploy/API topology: this file’s
-  [Deploy and API topology](#deploy-and-api-topology-transition) section,
-  [Cloudflare fullstack refactor guidance](docs/cloudflare-fullstack-refactor-guidance.md),
-  and [stage plan](docs/cloudflare-fullstack-refactor-stages.md)
-  (live product = repo root single package; legacy under `archive/`; Workers real
-  compatibility only after gated P4 work).
+  [Deploy and API topology](#deploy-and-api-topology) section,
+  [LOCAL_RUN.md](docs/LOCAL_RUN.md), and [deployment.md](docs/deployment.md)
+  (live product = repo root single package; legacy under `archive/`; Node host +
+  optional Cloudflare DNS/CDN — not Workers runtime).
 - Backend services and APIs: [backend rules](rules/backend.md).
 - Web and UI: [frontend rules](rules/frontend.md) and, for UI work,
   [DESIGN.md](DESIGN.md).
