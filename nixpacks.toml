@@ -1,0 +1,8 @@
+# Nixpacks pins corepack@0.24.1, which cannot launch pnpm 11 on Node 24
+# (ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING). Use current corepack so the
+# packageManager field (pnpm@11.25.0) is honored.
+[phases.install]
+cmds = [
+  "npm install -g corepack@latest && corepack enable",
+  "pnpm i --frozen-lockfile",
+]
