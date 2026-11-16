@@ -8,7 +8,27 @@ import { type RecommendationFeatures, resolveRecommendationOrder } from '@/serve
 import { publicCatalogWorkSql } from '@/server/domains/works/access';
 import { db } from '@/server/infra/db';
 
+/** Soft cap on catalog rows scored per request (newest-first). Shelf anchors are loaded separately. */
+const RECOMMENDATION_CANDIDATE_POOL = 250;
+
 type WorkRow = typeof readingWorkTable.$inferSelect;
+type FeatureRow = {
+  id: string;
+  language: string;
+  difficultyScore: number | null;
+  suggestedVocabSize: number | null;
+  estimatedMinutes: number | null;
+  publishedAt: Date | null;
+};
+
+const featureColumns = {
+  id: readingWorkTable.id,
+  language: readingWorkTable.language,
+  difficultyScore: readingWorkTable.difficultyScore,
+  suggestedVocabSize: readingWorkTable.suggestedVocabSize,
+  estimatedMinutes: readingWorkTable.estimatedMinutes,
+  publishedAt: readingWorkTable.publishedAt,
+} as const;
 
 function toIso(value: Date): string {
   return value.toISOString();
@@ -54,20 +74,16 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
     exclude.add(row.workId);
   }
 
-  // Score from the feature columns only: loading every public row in full (with
-  // description/body-sized text) once per request dominated the query cost.
-  const candidateRows = await db
-    .select({
-      id: readingWorkTable.id,
-      language: readingWorkTable.language,
-      difficultyScore: readingWorkTable.difficultyScore,
-      suggestedVocabSize: readingWorkTable.suggestedVocabSize,
-      estimatedMinutes: readingWorkTable.estimatedMinutes,
-      publishedAt: readingWorkTable.publishedAt,
-    })
+  // Score from the feature columns only, over a bounded newest-first pool.
+  // Loading the entire public catalog per request still dominated cost after the
+  // full-row trim; shelf / current anchors that fall outside the pool are loaded
+  // by id below.
+  const candidateRows: FeatureRow[] = await db
+    .select(featureColumns)
     .from(readingWorkTable)
     .where(publicCatalogWorkSql())
-    .orderBy(desc(readingWorkTable.publishedAt), desc(readingWorkTable.id));
+    .orderBy(desc(readingWorkTable.publishedAt), desc(readingWorkTable.id))
+    .limit(RECOMMENDATION_CANDIDATE_POOL);
 
   const featuresById = new Map<string, RecommendationFeatures>();
   for (const row of candidateRows) {
@@ -75,6 +91,17 @@ export async function getRecommendations(userId: string, query: RecommendationsQ
   }
 
   const shelfWorkIds = stateRows.map((row) => row.workId);
+  const missingShelfIds = shelfWorkIds.filter((id) => !featuresById.has(id));
+  if (missingShelfIds.length > 0) {
+    const shelfFeatureRows: FeatureRow[] = await db
+      .select(featureColumns)
+      .from(readingWorkTable)
+      .where(inArray(readingWorkTable.id, missingShelfIds));
+    for (const row of shelfFeatureRows) {
+      featuresById.set(row.id, row);
+    }
+  }
+
   const shelfWorks = shelfWorkIds.map((id) => featuresById.get(id)).filter((row) => row != null);
 
   let current: RecommendationFeatures | null = null;
