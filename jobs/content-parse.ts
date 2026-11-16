@@ -91,7 +91,7 @@ export async function processContentParse(
       const payload: SourceMetadataEnrichJobData = { workId: data.workId };
       await enqueue(JOB_SOURCE_METADATA_ENRICH, payload, {
         attempts: 2,
-        jobId: `${JOB_SOURCE_METADATA_ENRICH}:${data.workId}`,
+        jobId: `${JOB_SOURCE_METADATA_ENRICH}-${data.workId}`,
       });
     }
   } catch (error) {
