@@ -107,7 +107,6 @@ pnpm run lint
 pnpm run format:check
 pnpm run typecheck
 pnpm run build
-pnpm run build:jobs
 ```
 
 ## Production deployment
