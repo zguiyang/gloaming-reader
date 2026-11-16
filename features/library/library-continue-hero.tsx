@@ -1,12 +1,10 @@
 'use client';
 
-import { BookOpenIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { type Locale, t } from '@/i18n';
 import type { ContinueReadingItem } from '@/shared/library';
 
-import { buttonVariants } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { AUTH_ROUTES } from '@/constants';
 import { WorkCover } from '@/features/work-cover';
@@ -32,25 +30,20 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
       >
         {t(locale, 'content.library.continueReading')}
       </h2>
-      <div className="flex items-center gap-3 md:gap-4">
-        <Link
-          href={readHref}
-          className="shrink-0 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          aria-label={t(locale, 'content.common.openReaderAria', { title: entry.work.title })}
-        >
-          <WorkCover
-            title={entry.work.title}
-            coverImageUrl={coverImageUrl}
-            className="aspect-[2/3] w-12 rounded-sm md:w-14"
-          />
-        </Link>
-
+      <Link
+        href={readHref}
+        className="group flex items-center gap-3 rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:gap-4"
+        aria-label={t(locale, 'content.common.openReaderAria', { title: entry.work.title })}
+      >
+        <WorkCover
+          title={entry.work.title}
+          coverImageUrl={coverImageUrl}
+          className="aspect-[2/3] w-12 shrink-0 rounded-sm md:w-14"
+        />
         <div className="min-w-0 flex-1">
-          <Link href={readHref} className="outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <h2 className="font-heading line-clamp-1 text-sm leading-snug font-semibold text-foreground transition-colors duration-300 ease-out-soft hover:text-primary md:text-base">
-              {entry.work.title}
-            </h2>
-          </Link>
+          <h3 className="font-heading line-clamp-1 text-sm leading-snug font-semibold text-foreground transition-colors duration-300 ease-out-soft group-hover:text-primary md:text-base">
+            {entry.work.title}
+          </h3>
           <p className="mt-1 text-xs text-muted-foreground">
             {t(locale, 'content.library.readingInProgress')}
             {ratio > 0 ? (
@@ -70,20 +63,8 @@ export function LibraryContinueHero({ entry }: { entry: ContinueReadingItem }) {
               indicatorClassName="rounded-full duration-700 ease-out-soft"
             />
           ) : null}
-          <Link
-            href={readHref}
-            aria-label={t(locale, 'content.common.openReaderAria', { title: entry.work.title })}
-            className={buttonVariants({
-              variant: 'ghost',
-              className:
-                '-ml-2 mt-1 h-8 rounded-lg px-2 text-sm font-medium text-primary hover:bg-muted active:scale-[0.98]',
-            })}
-          >
-            <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
-            {t(locale, 'content.library.continueReading')}
-          </Link>
         </div>
-      </div>
+      </Link>
     </section>
   );
 }

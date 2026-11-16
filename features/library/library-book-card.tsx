@@ -1,12 +1,11 @@
 'use client';
 
-import { AlertCircleIcon, BookOpenIcon, LoaderCircleIcon } from 'lucide-react';
+import { AlertCircleIcon, LoaderCircleIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import { t } from '@/i18n';
 import type { LibraryItem, UserTagManagementItem } from '@/shared/library';
 
-import { buttonVariants } from '@/components/ui/button';
 import { AUTH_ROUTES } from '@/constants';
 import { LibraryWorkManagement } from '@/features/library/library-work-management';
 import { WorkCover } from '@/features/work-cover';
@@ -32,6 +31,12 @@ export function LibraryBookCard({
   const detailHref = workDetailHref(work.id, returnTo);
   const isProcessing = entry.availability === 'processing';
   const isFailed = entry.availability === 'failed';
+  const isReady = entry.availability === 'ready';
+  // Cover is the primary resume/start affordance; title stays the detail entry.
+  const coverHref = isReady ? readHref : detailHref;
+  const coverAria = isReady
+    ? t(locale, 'content.common.openReaderAria', { title: work.title })
+    : t(locale, 'content.common.viewBookDetailAria', { title: work.title });
   const status =
     state?.status === 'completed'
       ? t(locale, 'content.library.statusCompleted')
@@ -49,12 +54,12 @@ export function LibraryBookCard({
       )}
     >
       <Link
-        href={detailHref}
+        href={coverHref}
         className={cn(
           'relative block outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
           view === 'list' && 'w-20 shrink-0 sm:w-24',
         )}
-        aria-label={t(locale, 'content.common.viewBookDetailAria', { title: work.title })}
+        aria-label={coverAria}
       >
         <WorkCover
           title={work.title}
@@ -76,7 +81,12 @@ export function LibraryBookCard({
         ) : null}
       </Link>
       <div className="min-w-0 w-full">
-        <div className="flex min-w-0 items-start gap-1">
+        {/*
+          One alignment rule for 1-line and wrapped titles: the overflow control
+          shares the first title line (top / optical), never the mid-point of the
+          whole title block. Status stays on its own row below.
+        */}
+        <div className="flex min-w-0 items-start gap-0.5">
           <Link
             href={detailHref}
             className="min-w-0 flex-1 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -90,26 +100,7 @@ export function LibraryBookCard({
           </Link>
           <LibraryWorkManagement entry={entry} tags={tags} locale={locale} />
         </div>
-        {entry.availability === 'ready' ? (
-          <div className="-mt-1">
-            <p className="text-xs text-muted-foreground">{status}</p>
-            <Link
-              href={readHref}
-              aria-label={t(locale, 'content.common.openReaderAria', { title: work.title })}
-              className={buttonVariants({ variant: 'link', className: 'mt-1 h-auto min-h-9 px-0 text-sm' })}
-            >
-              <BookOpenIcon className="size-4" aria-hidden />
-              {t(
-                locale,
-                state?.status === 'completed'
-                  ? 'content.bookDetail.readAgain'
-                  : state?.status === 'in_progress'
-                    ? 'content.bookDetail.readContinue'
-                    : 'content.bookDetail.readStart',
-              )}
-            </Link>
-          </div>
-        ) : null}
+        {isReady ? <p className="mt-1.5 text-xs leading-snug text-muted-foreground">{status}</p> : null}
       </div>
     </article>
   );
