@@ -251,7 +251,7 @@ export async function processWorkCoverRefresh(
   }
 
   const skip = (reason: WorkCoverRefreshSkipReason): WorkCoverRefreshResult => {
-    coverLogger.info({ workId, urlHost, result: 'skipped', reason }, 'Work cover refresh skipped');
+    coverLogger.debug({ workId, urlHost, result: 'skipped', reason }, 'Work cover refresh skipped');
     return { ok: true, workId, outcome: 'skipped', reason };
   };
 

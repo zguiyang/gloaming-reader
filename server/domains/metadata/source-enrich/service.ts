@@ -80,7 +80,7 @@ export async function enrichPersonalWorkFromSources(workId: string): Promise<Sou
     })),
   );
   if (!match) {
-    enrichLogger.info({ workId, query }, 'Source metadata enrich missed');
+    enrichLogger.debug({ workId, query }, 'Source metadata enrich missed');
     return { ok: true, outcome: 'missed' };
   }
 

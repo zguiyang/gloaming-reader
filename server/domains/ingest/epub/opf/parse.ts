@@ -221,7 +221,7 @@ export async function parseEpub(buffer: Buffer, limits = EPUB_RESOURCE_LIMITS): 
 
     const coverHref = resolveCoverHref(pkg, manifest, entries);
 
-    epubLogger.info(
+    epubLogger.debug(
       { title, authors: authors.join(', '), spineCount: spine.length, navCount: nav.length, coverHref },
       'EPUB parsed',
     );

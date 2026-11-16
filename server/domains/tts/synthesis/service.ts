@@ -180,7 +180,7 @@ async function writeTtsCache(
   try {
     // Absolute TTL via SET EX — reads never renew.
     await getRedis().set(key, JSON.stringify(payload), 'EX', TTS_CACHE_TTL_SECONDS);
-    ttsLogger.info(
+    ttsLogger.debug(
       {
         key,
         cacheOutcome: 'miss_write',
@@ -232,7 +232,7 @@ async function synthesizeTtsWithConfig(
     const cached = await lookupTtsCache(text, voice, row.region);
     if (cached) {
       const audio = Buffer.from(cached.payload.audioBase64, 'base64');
-      ttsLogger.info(
+      ttsLogger.debug(
         {
           key: cached.key,
           cacheVersion: cached.version,
@@ -259,7 +259,7 @@ async function synthesizeTtsWithConfig(
       };
     }
 
-    ttsLogger.info(
+    ttsLogger.debug(
       {
         key: v2Key,
         cacheOutcome: 'miss',
@@ -296,7 +296,7 @@ async function synthesizeTtsWithConfig(
   if (useCache) {
     const rawAudioBytes = result.audio.byteLength;
     if (!shouldWriteTtsCache(rawAudioBytes)) {
-      ttsLogger.info(
+      ttsLogger.debug(
         {
           key: v2Key,
           cacheOutcome: 'skipped_size',
