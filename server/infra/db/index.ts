@@ -4,9 +4,6 @@ import { Pool } from 'pg';
 import * as schema from '@/server/db/schema';
 
 import { commonEnv } from '@/server/infra/config/env-common';
-import { dbLogger } from '@/server/infra/logging/logger';
-
-dbLogger.info('Connecting to PostgreSQL...');
 
 const pool = new Pool({
   connectionString: commonEnv.DATABASE_URL,
@@ -18,9 +15,7 @@ const pool = new Pool({
 export const db = drizzle(pool, { schema });
 export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/** Bounded dependency probe used by the readiness endpoint. */
+/** Bounded dependency probe used by readiness and runtime boot. */
 export async function dbPing(): Promise<void> {
   await pool.query('SELECT 1');
 }
-
-dbLogger.info('Connected to PostgreSQL');

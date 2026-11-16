@@ -24,6 +24,7 @@ import { recoverStalledContentParses } from '@/server/application/commands/recov
 import { recoverStaleSaveIntents } from '@/server/domains/library/save-intent';
 import { commonEnv } from '@/server/infra/config/env-common';
 import { workerLogger } from '@/server/infra/logging/logger';
+import { reportRuntimeBoot } from '@/server/infra/logging/runtime-boot';
 import {
   CLEANUP_QUEUE_NAME,
   closeQueue,
@@ -136,6 +137,7 @@ export function createWorkers(
 }
 
 async function main(): Promise<void> {
+  await reportRuntimeBoot('jobs');
   const mode = resolveWorkerMode();
   const { worker, cleanupWorker, discoveryImportWorker } = createWorkers(mode);
   if (mode === 'discovery-import-only') {

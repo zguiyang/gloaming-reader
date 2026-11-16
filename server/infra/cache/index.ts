@@ -11,12 +11,7 @@ export function getRedis(): Redis {
     return client;
   }
 
-  redisLogger.info('Connecting to Redis...');
   client = new Redis(commonEnv.REDIS_URL);
-
-  client.on('connect', () => {
-    redisLogger.info('Connected to Redis');
-  });
 
   client.on('error', (err) => {
     redisLogger.error({ err }, 'Redis connection error');
