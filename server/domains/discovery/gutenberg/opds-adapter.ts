@@ -107,7 +107,7 @@ function mapOpdsError(error: unknown): never {
     if (error.status === 404) {
       throw new AppError(HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
     }
-    throw new AppError(HTTP_STATUS.BAD_GATEWAY, ERROR_CODES.INTERNAL_SERVER_ERROR);
+    throw new AppError(HTTP_STATUS.BAD_GATEWAY, ERROR_CODES.DISCOVERY.SOURCE_UNAVAILABLE);
   }
   throw error;
 }

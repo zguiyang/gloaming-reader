@@ -139,6 +139,11 @@ export const ERROR_CODES = {
     USER_TAG_NAME_EXISTS: 'api.errors.library.userTagNameExists',
     SOURCE_RECORD_NO_EPUB_CANDIDATE: 'api.errors.library.sourceRecordNoEpubCandidate',
   },
+
+  DISCOVERY: {
+    /** Upstream source (e.g. Project Gutenberg OPDS) failed or did not answer. */
+    SOURCE_UNAVAILABLE: 'api.errors.discovery.sourceUnavailable',
+  },
 } as const;
 
 type DeepStringValues<T> = T extends string ? T : { [K in keyof T]: DeepStringValues<T[K]> }[keyof T];

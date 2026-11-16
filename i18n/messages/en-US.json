@@ -1672,6 +1672,7 @@
         "sourceRecordNoEpubCandidate": "No readable EPUB is available for this source yet, so it cannot be saved to your library"
       },
       "discovery": {
+        "sourceUnavailable": "The source is temporarily unavailable. Please try again.",
         "publicCategoryNameExists": "A category with that name already exists for this language",
         "publicCategoryLimitExceeded": "A source record can have at most {limit} categories",
         "publicCategoryHasAssignments": "This category has {count} source record or source mapping reference(s). Remove them before deleting it.",
