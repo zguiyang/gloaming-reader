@@ -120,6 +120,37 @@ export async function getReaderAudioManifest(
 }
 
 /**
+ * Serve a ready segment without claiming synthesis. Returns `null` when the
+ * segment still needs generation so callers can acquire TTS quota first.
+ */
+export async function peekReadyReaderAudioSegment(
+  actor: WorkReadActor,
+  partId: string,
+  role: TtsVoiceRole,
+  index: number,
+  expectedHash?: string,
+): Promise<ReaderAudioSegment | null> {
+  const access = await requireReadablePart(actor, partId);
+  const derived = requireDerivedSegment(partId, access.body, index);
+
+  if (expectedHash && expectedHash !== derived.segmentHash) {
+    throw new AppError(HTTP_STATUS.CONFLICT, ERROR_CODES.READER_AUDIO.MANIFEST_STALE);
+  }
+
+  const config = await resolveReaderAudioConfig(actor, role);
+  if (!config) {
+    throw new AppError(HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.TTS.NOT_CONFIGURED);
+  }
+
+  const identity = buildIdentity(config, partId, role, derived.segmentHash);
+  const existing = await findSegmentByIdentity(identity);
+  if (existing?.status === 'ready') {
+    return toSegmentPayload(partId, role, derived, existing);
+  }
+  return null;
+}
+
+/**
  * Segment payload with lease single-flight: ready rows are served directly,
  * a miss claims generation, waiters poll and never double-synthesize.
  */

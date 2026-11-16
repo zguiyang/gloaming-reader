@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { readerAudioSegmentQuerySchema } from '@/shared/reader';
 
-import { getReaderAudioSegment } from '@/server/domains/reader-audio/service';
+import { getReaderAudioSegment, peekReadyReaderAudioSegment } from '@/server/domains/reader-audio/service';
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonFromThrown, jsonOk, jsonValidationError, jsonSchemaError } from '@/server/infra/http/next-json';
 import { pathId } from '@/server/infra/http/path-params';
@@ -37,6 +37,19 @@ export async function GET(request: Request, context: Ctx) {
       return jsonSchemaError(request, queryParsed.error, 'query');
     }
 
+    const actor = workReadActorFromIdentity(identity.user);
+    const ready = await peekReadyReaderAudioSegment(
+      actor,
+      partId,
+      queryParsed.data.role,
+      indexParsed.data,
+      queryParsed.data.expectedHash,
+    );
+    if (ready) {
+      // Cache hits must not consume synthesis quota — only paid Azure calls do.
+      return jsonOk(ready);
+    }
+
     // The only on-demand synthesis entry point (a paid Azure call), so this is
     // where the budget applies. Serving already-synthesized bytes goes through
     // the separate `/audio` route and is deliberately unthrottled — a reader
@@ -47,7 +60,6 @@ export async function GET(request: Request, context: Ctx) {
     }
     lease = limited.lease;
 
-    const actor = workReadActorFromIdentity(identity.user);
     const segment = await getReaderAudioSegment(
       actor,
       partId,

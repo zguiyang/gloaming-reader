@@ -23,6 +23,7 @@ export {
 export {
   getReaderAudioManifest,
   getReaderAudioSegment,
+  peekReadyReaderAudioSegment,
   streamReaderAudioSegment,
 } from '@/server/domains/reader-audio/service';
 export type { ReaderAudioManifest, ReaderAudioSegment } from '@/shared/reader';
