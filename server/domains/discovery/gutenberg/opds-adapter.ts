@@ -15,6 +15,7 @@ import {
   PROJECT_GUTENBERG_OPDS_SEARCH_PATH,
   PROJECT_GUTENBERG_SOURCE_KEY,
   PROJECT_GUTENBERG_SOURCE_TYPE,
+  isGutenbergCatalogPlaceholderCover,
   projectGutenbergCoverUrl,
   projectGutenbergOpdsBookPath,
   projectGutenbergOpdsBookshelfPath,
@@ -22,6 +23,9 @@ import {
 import { fetchGutenbergOpdsFeed, GutenbergOpdsError, type OpdsFeedEntry } from './opds-client';
 
 type CacheEntry<T> = { readonly expiresAt: number; readonly value: T };
+
+/** Bump when OPDS projection semantics change so stale in-process entries drop. */
+const OPDS_CACHE_EPOCH = 'cover-v2';
 
 const responseCache = new Map<string, CacheEntry<unknown>>();
 
@@ -63,6 +67,13 @@ export function opdsPageWindow(page: number, pageSize: number): { page: number; 
   return { page: safePage, pageSize: safePageSize, startIndex: startIndexForPage(safePage, safePageSize) };
 }
 
+function resolveGutenbergCoverUrl(externalId: string, opdsCoverUrl: string | null): string {
+  if (opdsCoverUrl && !isGutenbergCatalogPlaceholderCover(opdsCoverUrl)) {
+    return opdsCoverUrl;
+  }
+  return projectGutenbergCoverUrl(externalId);
+}
+
 function toCandidateItem(entry: OpdsFeedEntry, opts?: { detailCandidates?: boolean }): SourceRecordItem {
   const candidates = entry.contentCandidates;
   const isSaveable = opts?.detailCandidates ? hasSelectableEpubCandidate({ contentCandidates: candidates }) : true;
@@ -77,7 +88,7 @@ function toCandidateItem(entry: OpdsFeedEntry, opts?: { detailCandidates?: boole
     authors: entry.authors,
     languages: entry.languages,
     description: entry.description,
-    coverUrl: entry.coverUrl ?? projectGutenbergCoverUrl(entry.externalId),
+    coverUrl: resolveGutenbergCoverUrl(entry.externalId, entry.coverUrl),
     availability: 'available',
     sourceUpdatedAt: entry.sourceUpdatedAt,
     lastSeenAt: null,
@@ -139,7 +150,7 @@ export async function listGutenbergOpdsRecords(input: {
       start_index: String(startIndex),
     });
     path = `${PROJECT_GUTENBERG_OPDS_SEARCH_PATH}?${query.toString()}`;
-    cacheKey = `search:${language}:${query.toString()}`;
+    cacheKey = `${OPDS_CACHE_EPOCH}:search:${language}:${query.toString()}`;
   } else if (input.facetId) {
     const shelf = getGutenbergCategoryBookshelf(input.facetId);
     if (!shelf) {
@@ -147,11 +158,11 @@ export async function listGutenbergOpdsRecords(input: {
     }
     const query = startIndex > 1 ? `?start_index=${startIndex}` : '';
     path = `${projectGutenbergOpdsBookshelfPath(shelf.id)}${query}`;
-    cacheKey = `facet:${shelf.id}:${startIndex}`;
+    cacheKey = `${OPDS_CACHE_EPOCH}:facet:${shelf.id}:${startIndex}`;
   } else {
     const query = startIndex > 1 ? `&start_index=${startIndex}` : '';
     path = `${PROJECT_GUTENBERG_OPDS_POPULAR_PATH}${query}`;
-    cacheKey = `popular:${startIndex}`;
+    cacheKey = `${OPDS_CACHE_EPOCH}:popular:${startIndex}`;
   }
 
   try {
@@ -189,7 +200,7 @@ export async function getGutenbergOpdsRecord(externalId: string): Promise<Source
     throw new AppError(HTTP_STATUS.NOT_FOUND, ERROR_CODES.NOT_FOUND.SOURCE_RECORD);
   }
   try {
-    const feed = await cachedFeed(`book:${id}`, projectGutenbergOpdsBookPath(id));
+    const feed = await cachedFeed(`${OPDS_CACHE_EPOCH}:book:${id}`, projectGutenbergOpdsBookPath(id));
     const entry =
       feed.entries.find((item) => item.externalId === id) ??
       feed.entries.find((item) => item.contentCandidates.length > 0) ??

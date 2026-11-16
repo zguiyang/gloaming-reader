@@ -37,5 +37,20 @@ export const PROJECT_GUTENBERG_OPDS_PAGE_SIZE = 25;
 
 /** Conventional Project Gutenberg cover candidate URL. */
 export function projectGutenbergCoverUrl(externalId: string): string {
-  return `https://www.gutenberg.org/cache/epub/${externalId}/pg${externalId}.cover.medium.jpg`;
+  return `https://www.gutenberg.org/cache/epub/${encodeURIComponent(externalId)}/pg${encodeURIComponent(externalId)}.cover.medium.jpg`;
+}
+
+/**
+ * Gutenberg search/browse OPDS feeds attach the same catalog icon as every
+ * entry's "thumbnail". Treat it as no cover so list cards fall back to the
+ * per-ebook `cache/epub/{id}/pg{id}.cover.medium.jpg` URL (detail feeds already
+ * expose that image).
+ */
+export function isGutenbergCatalogPlaceholderCover(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    return pathname.endsWith('/gutenberg/kdict.png') || pathname.endsWith('/kdict.png');
+  } catch {
+    return /(?:^|\/)kdict\.png(?:\?|$)/i.test(url);
+  }
 }

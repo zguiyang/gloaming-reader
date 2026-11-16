@@ -3,6 +3,7 @@ import { XMLParser } from 'fast-xml-parser';
 import type { SourceRecordAuthor, SourceRecordContentCandidate } from '@/shared/discovery';
 
 import {
+  isGutenbergCatalogPlaceholderCover,
   PROJECT_GUTENBERG_OPDS_ORIGIN,
   PROJECT_GUTENBERG_OPDS_PAGE_SIZE,
   PROJECT_GUTENBERG_OPDS_TIMEOUT_MS,
@@ -168,24 +169,32 @@ function parseSubjectsAndBookshelves(entry: XmlNode): { subjects: string[]; book
   return { subjects: [...new Set(subjects)], bookshelves: [...new Set(bookshelves)] };
 }
 
+function usableCoverHref(href: string): string | null {
+  if (!href || href.startsWith('data:')) return null;
+  const absolute = absoluteUrl(href);
+  if (isGutenbergCatalogPlaceholderCover(absolute)) return null;
+  return absolute;
+}
+
 function parseCoverUrl(entry: XmlNode): string | null {
   for (const link of asArray(entry.link as XmlNode | XmlNode[] | undefined)) {
     const rel = textOf(link['@_rel']);
     const href = textOf(link['@_href']);
     const type = textOf(link['@_type']).toLowerCase();
-    if (!href || href.startsWith('data:')) continue;
     if (
       rel === 'http://opds-spec.org/image' ||
       (rel.includes('image') && type.startsWith('image/') && !rel.includes('thumbnail'))
     ) {
-      return absoluteUrl(href);
+      const cover = usableCoverHref(href);
+      if (cover) return cover;
     }
   }
   for (const link of asArray(entry.link as XmlNode | XmlNode[] | undefined)) {
     const rel = textOf(link['@_rel']);
     const href = textOf(link['@_href']);
-    if (href && !href.startsWith('data:') && rel.includes('thumbnail')) {
-      return absoluteUrl(href);
+    if (rel.includes('thumbnail')) {
+      const cover = usableCoverHref(href);
+      if (cover) return cover;
     }
   }
   return null;
