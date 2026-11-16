@@ -34,6 +34,7 @@ import {
 } from '@/features/library/library-api';
 import { LibraryTagAssignmentDialog } from '@/features/library/library-tag-assignment-dialog';
 import { PersonalWorkEditSheet } from '@/features/library/personal-work-edit-sheet';
+import { cn } from '@/lib/utils';
 
 export function LibraryWorkManagement({
   entry,
@@ -95,13 +96,18 @@ export function LibraryWorkManagement({
           render={
             <Button
               variant="ghost"
-              size="icon"
-              className="size-11 shrink-0"
+              size="icon-sm"
+              className={cn(
+                // Visual size tracks one title line; expanded hit target keeps ≥44px tap.
+                // Sit on the first line for both 1-line and wrapped titles (never mid-block).
+                'relative -mt-0.5 shrink-0 text-muted-foreground hover:text-foreground',
+                'after:absolute after:-inset-2 after:content-[""]',
+              )}
               aria-label={t(locale, 'content.library.manageBookAria', { title: entry.work.title })}
             />
           }
         >
-          <MoreHorizontalIcon className="size-5" aria-hidden />
+          <MoreHorizontalIcon className="size-4" strokeWidth={1.75} aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-auto min-w-40">
           {entry.availability === 'ready' ? (
