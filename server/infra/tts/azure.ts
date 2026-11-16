@@ -94,6 +94,8 @@ export async function synthesizeAzureTts(input: AzureTtsSynthesizeInput): Promis
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), AZURE_TTS_TIMEOUT_MS);
   try {
+    // Refuse redirects the same way LLM/dictionary outbound fetch does: a 3xx
+    // Location could point at a private host even when `region` is validated.
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -104,12 +106,19 @@ export async function synthesizeAzureTts(input: AzureTtsSynthesizeInput): Promis
       },
       body: ssml,
       signal: controller.signal,
+      redirect: 'manual',
     });
+
+    if (response.status >= 300 && response.status < 400) {
+      await response.body?.cancel().catch(() => undefined);
+      azureTtsLogger.error({ status: response.status, region: input.region }, 'Azure TTS refused redirect');
+      throw new AppError(HTTP_STATUS.BAD_GATEWAY, ERROR_CODES.OUTBOUND_URL.REDIRECT);
+    }
 
     if (!response.ok) {
       const detail = (await readBoundedBody(response).catch(() => Buffer.alloc(0))).toString('utf8');
       azureTtsLogger.error({ status: response.status, detail: detail.slice(0, 500) }, 'Azure TTS REST failed');
-      throw new AppError(HTTP_STATUS.BAD_GATEWAY, ERROR_CODES.INTERNAL_SERVER_ERROR);
+      throw new AppError(HTTP_STATUS.BAD_GATEWAY, ERROR_CODES.TTS.SYNTHESIS_FAILED);
     }
 
     const audio = await readBoundedBody(response);
