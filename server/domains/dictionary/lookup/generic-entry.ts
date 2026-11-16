@@ -6,9 +6,9 @@ import type { DictionaryEntry } from '@/shared/dictionary';
 import type { RawProviderResult } from '@/server/domains/dictionary/providers/types';
 import { getRedis } from '@/server/infra/cache';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 
-const logger = rootLogger.child({ module: 'DictionaryService' });
+const logger = createLogger('DictionaryService');
 
 /** Shared Redis/DB must never retain request-scoped contextExamples. */
 export function toGenericDictionaryEntry(entry: DictionaryEntry): DictionaryEntry {

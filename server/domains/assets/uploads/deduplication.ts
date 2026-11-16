@@ -15,7 +15,7 @@ import {
   validateUploadInput,
 } from '@/server/domains/assets/uploads/validation';
 import { acquireLockWithWait, releaseLock, startLockRenewal } from '@/server/infra/cache/lock';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
@@ -30,7 +30,7 @@ export type AcquireUploadedObjectResult = {
   duplicated: boolean;
 };
 
-const uploadLogger = rootLogger.child({ module: 'Uploads' });
+const uploadLogger = createLogger('Uploads');
 const UPLOAD_DEDUPE_LOCK_TTL_SECONDS = 5 * 60;
 const UPLOAD_DEDUPE_LOCK_MAX_WAIT_MS = 30_000;
 

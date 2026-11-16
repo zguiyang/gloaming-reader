@@ -1,5 +1,5 @@
 import { commonEnv } from '@/server/infra/config/env-common';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { createObjectStoreFromEnv } from '@/server/infra/storage/create-store';
 import type {
   ObjectDeleteFailure,
@@ -19,7 +19,7 @@ import { ERROR_CODES } from '@/server/shared/errors/codes';
 const DELETE_MANY_CHUNK_SIZE = 1000;
 const DELETE_MANY_FALLBACK_CONCURRENCY = 8;
 
-const ossLogger = rootLogger.child({ module: 'Oss' });
+const ossLogger = createLogger('Oss');
 
 let cachedStore: ObjectStore | null | undefined;
 

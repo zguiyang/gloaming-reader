@@ -8,12 +8,12 @@ import { SCAN_LOCK_KEY, SCAN_LOCK_TTL_SECONDS } from '@/server/domains/assets/sc
 import { reconcileObjects } from '@/server/domains/assets/scan/reconcile';
 import { loadLatestScanReport, saveScanSnapshot } from '@/server/domains/assets/scan/snapshot';
 import { listBucketObjects } from '@/server/domains/assets/storage/list-bucket-objects';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const logger = rootLogger.child({ module: 'AssetManagement' });
+const logger = createLogger('AssetManagement');
 
 export { loadLatestScanReport as getLatestScanReport };
 

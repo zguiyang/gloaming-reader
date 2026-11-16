@@ -3,7 +3,7 @@ import { RateLimiterRedis, RateLimiterRes } from 'rate-limiter-flexible';
 import { getRedis } from '@/server/infra/cache';
 import { env } from '@/server/infra/config/env';
 import { jsonError } from '@/server/infra/http/next-json';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
@@ -73,7 +73,7 @@ export type RateLimitPolicyName = keyof typeof RATE_LIMIT_POLICIES;
 export type AiRateLimitPolicyName = keyof typeof AI_RATE_LIMIT_POLICIES;
 
 const limiters = new Map<string, RateLimiterRedis>();
-const rateLimitLogger = rootLogger.child({ module: 'RateLimit' });
+const rateLimitLogger = createLogger('RateLimit');
 const CONCURRENCY_SLOT_TTL_SECONDS = 5 * 60;
 
 const ACQUIRE_CONCURRENCY_SCRIPT = `

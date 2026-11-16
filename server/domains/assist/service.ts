@@ -18,10 +18,10 @@ import { appendAssistTurn, assertAssistConversation } from '@/server/domains/con
 import type { WorkReadActor } from '@/server/domains/works/access';
 import { requireReadablePart } from '@/server/domains/works/access';
 import { htmlToPlainText } from '@/server/domains/works/content';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { truncatePreview } from '@/server/shared/text';
 
-const assistLogger = rootLogger.child({ module: 'Assist' });
+const assistLogger = createLogger('Assist');
 
 const followUpSuggestionsSchema = z.object({
   suggestions: z.array(z.string().min(1).max(48)).length(3),

@@ -3,11 +3,11 @@ import type { ZodError, ZodType } from 'zod';
 import { t, type TranslationParams } from '@/i18n';
 
 import { getClientLocale } from '@/lib/client-locale';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { AppError, ValidationFailedError, type ValidationDetail } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const jsonLogger = rootLogger.child({ module: 'NextJson' });
+const jsonLogger = createLogger('NextJson');
 
 function localeFromRequest(request: Request): ReturnType<typeof getClientLocale> {
   return getClientLocale({

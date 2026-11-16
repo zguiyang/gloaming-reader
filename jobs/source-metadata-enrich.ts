@@ -1,5 +1,5 @@
 import { enrichPersonalWorkFromSources } from '@/server/domains/metadata';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 
 export const JOB_SOURCE_METADATA_ENRICH = 'source-metadata-enrich';
 
@@ -7,7 +7,7 @@ export type SourceMetadataEnrichJobData = {
   workId: string;
 };
 
-const jobLogger = rootLogger.child({ module: 'SourceMetadataEnrichJob' });
+const jobLogger = createLogger('SourceMetadataEnrichJob');
 
 /**
  * Best-effort OPDS metadata fill for personal uploads. Readability never depends

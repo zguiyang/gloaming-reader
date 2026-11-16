@@ -7,10 +7,10 @@ import { uploadedObject as uploadedObjectTable } from '@/server/db';
 import { UPLOAD_DEDUPE_LOCK_PREFIX } from '@/server/domains/assets/uploads/registry';
 import { acquireLockWithWait, releaseLock, startLockRenewal } from '@/server/infra/cache/lock';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { deleteObject } from '@/server/infra/storage';
 
-const releaseLogger = rootLogger.child({ module: 'Uploads' });
+const releaseLogger = createLogger('Uploads');
 const RELEASE_LOCK_TTL_SECONDS = 5 * 60;
 
 /**

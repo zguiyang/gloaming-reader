@@ -6,10 +6,10 @@ import { readingWork as readingWorkTable } from '@/server/db';
 
 import { workflowClaimWhere } from '@/server/domains/works/lifecycle';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { deleteObject } from '@/server/infra/storage';
 
-const parseArtifactsLogger = rootLogger.child({ module: 'ContentParser' });
+const parseArtifactsLogger = createLogger('ContentParser');
 
 type WorkOriginMeta = (typeof readingWorkTable.$inferSelect)['originMeta'];
 

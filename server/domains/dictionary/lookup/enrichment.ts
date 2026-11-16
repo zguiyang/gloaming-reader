@@ -12,9 +12,9 @@ import { invokeAi } from '@/server/domains/ai';
 import { toGenericDictionaryEntry } from '@/server/domains/dictionary/lookup/generic-entry';
 import type { WorkReadActor } from '@/server/domains/works/access';
 import { resolveReadableWorkIdForPart, resolveReadableWorkTitle } from '@/server/domains/works/access';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 
-const logger = rootLogger.child({ module: 'DictionaryService' });
+const logger = createLogger('DictionaryService');
 
 const ENRICHMENT_TIMEOUT_MS = 25_000;
 const JSON_RETRY_ATTEMPTS = 2;

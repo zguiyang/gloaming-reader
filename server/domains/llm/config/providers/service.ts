@@ -29,10 +29,12 @@ import {
   fetchProviderModelCandidates,
   queryProviderBalance as queryProviderBalanceUpstream,
 } from '@/server/infra/llm';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
+
+const llmProviderLogger = createLogger('LlmProviders');
 
 type ProviderRow = typeof llmProviderTable.$inferSelect;
 
@@ -136,7 +138,7 @@ export async function fetchProviderModels(providerId: string): Promise<FetchProv
     const models = await fetchProviderModelCandidates(row, apiKey);
     return { models };
   } catch (error) {
-    rootLogger.warn({ err: error, providerId }, 'Failed to fetch provider model list');
+    llmProviderLogger.warn({ err: error, providerId }, 'Failed to fetch provider model list');
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.MODEL_LIST_FETCH_FAILED);
   }
 }

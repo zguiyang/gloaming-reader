@@ -15,10 +15,10 @@ import { acquireLock, releaseLock, startLockRenewal } from '@/server/domains/ass
 import { collectReferencedStorageKeys } from '@/server/domains/assets/management/referenced-keys';
 import { reconcileObjects } from '@/server/domains/assets/scan/reconcile';
 import { listBucketObjects } from '@/server/domains/assets/storage/list-bucket-objects';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { deleteManyObjects } from '@/server/infra/storage';
 
-const logger = rootLogger.child({ module: 'AssetCleanupJob' });
+const logger = createLogger('AssetCleanupJob');
 
 export type AssetCleanupJobData = {
   jobId: string;

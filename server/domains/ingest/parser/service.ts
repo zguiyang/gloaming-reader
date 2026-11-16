@@ -15,7 +15,7 @@ import type { ParsedContent } from '@/server/domains/ingest/parser/types';
 import { resetParseStepOutputs } from '@/server/domains/ingest/reset/service';
 import { workflowClaimWhere } from '@/server/domains/works/lifecycle';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { getObject, putObject } from '@/server/infra/storage';
 
 import { type ImageOptimizeResult, optimizeIngestImage } from './image-optimizer';
@@ -29,7 +29,7 @@ import {
 } from './parse-artifacts';
 import { type ParseWorkflowLease, ParseWorkflowLeaseLostError, startParseWorkflowLease } from './parse-workflow-lease';
 
-const ingestLogger = rootLogger.child({ module: 'ContentParser' });
+const ingestLogger = createLogger('ContentParser');
 
 /** Max images extracted per book (abuse / runaway protection). */
 const MAX_BOOK_IMAGES = 200;

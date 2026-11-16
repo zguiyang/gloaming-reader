@@ -11,9 +11,9 @@ import type { WorkReadActor } from '@/server/domains/works/access';
 import { requireReadablePart } from '@/server/domains/works/access';
 import { hashPartContent, reindexLeafParagraphOrdinals } from '@/server/domains/works/content';
 import { getRedis } from '@/server/infra/cache';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 
-const translateLogger = rootLogger.child({ module: 'Translate' });
+const translateLogger = createLogger('Translate');
 
 /** Absolute bilingual translation cache TTL (30 days). Independent of TTS Redis TTL (7 days). */
 const BILINGUAL_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;

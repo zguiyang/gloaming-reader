@@ -9,12 +9,12 @@ import { upsertSourceRecordFromDetail } from '@/server/domains/discovery/persist
 import { isDiscoverySourceEnabled } from '@/server/domains/discovery/sources/service';
 import { cleanDescription, joinAuthors } from '@/server/domains/ingest/epub';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { enqueueWorkCoverRefresh } from '@/server/infra/queue';
 
 import { isEmptyOrWeakDescription, pickConfidentMatch } from './match';
 
-const enrichLogger = rootLogger.child({ module: 'SourceMetadataEnrich' });
+const enrichLogger = createLogger('SourceMetadataEnrich');
 
 export type SourceMetadataEnrichResult =
   | { ok: true; outcome: 'skipped'; reason: string }

@@ -8,7 +8,7 @@ import { optimizeIngestImage } from '@/server/domains/ingest/parser/image-optimi
 import { coverKey, sha256 } from '@/server/domains/ingest/parser/parse-artifacts';
 import { db } from '@/server/infra/db';
 import { assertSafeOutboundUrl } from '@/server/infra/llm/outbound-url';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { putObject } from '@/server/infra/storage';
 
 export const JOB_WORK_COVER_REFRESH = 'work-cover-refresh';
@@ -84,7 +84,7 @@ export function coverUrlHost(rawUrl: string): string | null {
   }
 }
 
-const coverLogger = rootLogger.child({ module: 'WorkCoverRefreshJob' });
+const coverLogger = createLogger('WorkCoverRefreshJob');
 
 /**
  * HTTPS-only plus the repository outbound URL guard (scheme, credentials,

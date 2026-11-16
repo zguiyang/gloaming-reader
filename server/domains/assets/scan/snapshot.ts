@@ -4,12 +4,12 @@ import { type AssetScanReport, assetScanReportSchema } from '@/shared/assets';
 
 import { snapshotTtlSeconds } from '@/server/domains/assets/scan/config';
 import { getRedis } from '@/server/infra/cache';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const logger = rootLogger.child({ module: 'AssetManagement' });
+const logger = createLogger('AssetManagement');
 
 const SCAN_KEY_PREFIX = 'asset-management:scan:v2:';
 export const LATEST_SCAN_KEY = `${SCAN_KEY_PREFIX}latest`;

@@ -16,13 +16,13 @@ import {
   type SaveIntentFailure,
 } from '@/server/domains/library/save-intent';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { enqueue } from '@/server/infra/queue';
 
 export const JOB_CONTENT_PARSE = 'content-parse';
 export type ContentParseLane = 'default' | 'discovery';
 
-const parseLogger = rootLogger.child({ module: 'ContentParseJob' });
+const parseLogger = createLogger('ContentParseJob');
 
 /** Map a recorded parse failure onto a short stable code plus a cleaned reason. */
 function classifyParseFailure(error: unknown): SaveIntentFailure {

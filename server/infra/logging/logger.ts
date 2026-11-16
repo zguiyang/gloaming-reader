@@ -1,4 +1,4 @@
-import pino from 'pino';
+import pino, { type Logger as PinoLogger } from 'pino';
 
 import { commonEnv } from '@/server/infra/config/env-common';
 import {
@@ -8,6 +8,14 @@ import {
   sanitizeLogValue,
   serializeLogError,
 } from '@/server/infra/logging/log-redaction';
+
+/**
+ * Project logging facade over pino.
+ *
+ * Call sites should use `createLogger('ModuleName')` (or the named helpers below).
+ * Do not import `pino` elsewhere. If the sink later moves to a hosted log
+ * service / shipper, adapt only this module — keep the `AppLogger` shape stable.
+ */
 
 const SENSITIVE_LOG_PATHS = [
   'password',
@@ -60,7 +68,18 @@ const SENSITIVE_LOG_PATHS = [
   '*.headers.Set-Cookie',
 ];
 
-export const rootLogger = pino({
+/** Stable surface for app / jobs code — pino-compatible `(fields, msg)` / `(msg)`. */
+export type AppLogger = Pick<PinoLogger, 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'child' | 'level'>;
+
+export type LoggerBindings = {
+  /** Logical module / feature prefix (shown in pretty output as `{module}: {msg}`). */
+  module: string;
+  /** Process role when useful for multi-service log aggregation. */
+  service?: 'app' | 'jobs';
+  [key: string]: unknown;
+};
+
+const rootPino: PinoLogger = pino({
   level: commonEnv.LOG_LEVEL,
   redact: { paths: SENSITIVE_LOG_PATHS, censor: REDACTED },
   serializers: {
@@ -92,9 +111,21 @@ export const rootLogger = pino({
       : undefined,
 });
 
-export const dbLogger = rootLogger.child({ module: 'Database' });
-export const redisLogger = rootLogger.child({ module: 'Redis' });
-export const queueLogger = rootLogger.child({ module: 'Queue' });
-export const workerLogger = rootLogger.child({ module: 'Worker' });
-export const authLogger = rootLogger.child({ module: 'Auth' });
-export const serverLogger = rootLogger.child({ module: 'Server' });
+/**
+ * Create a module-scoped logger. Prefer this over touching the underlying library.
+ *
+ * @example
+ * const log = createLogger('Tts');
+ * log.info({ key, cacheOutcome: 'hit' }, 'TTS cache hit');
+ * log.warn({ err }, 'Redis TTS cache read failed');
+ */
+export function createLogger(module: string, extra?: Omit<LoggerBindings, 'module'>): AppLogger {
+  return rootPino.child({ module, ...extra });
+}
+
+export const dbLogger = createLogger('Database');
+export const redisLogger = createLogger('Redis');
+export const queueLogger = createLogger('Queue');
+export const workerLogger = createLogger('Worker', { service: 'jobs' });
+export const authLogger = createLogger('Auth');
+export const serverLogger = createLogger('Server', { service: 'app' });

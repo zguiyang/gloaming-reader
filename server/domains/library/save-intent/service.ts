@@ -15,13 +15,13 @@ import { isWorkParseCompleted } from '@/shared/works';
 
 import { hasSelectableEpubCandidate } from '@/server/domains/discovery/materialization';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { enqueueDiscoveryImport } from '@/server/infra/queue';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const saveIntentLogger = rootLogger.child({ module: 'SaveIntent' });
+const saveIntentLogger = createLogger('SaveIntent');
 
 /**
  * SourceRecord "Save intent" lifecycle.

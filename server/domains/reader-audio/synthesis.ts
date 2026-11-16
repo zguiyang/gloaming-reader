@@ -3,13 +3,13 @@ import { type TtsWordTiming, validateAzureWordTimings } from '@/shared/tts';
 import type { TtsConfigRow } from '@/server/domains/provider-scope';
 import { recordTtsInvocation } from '@/server/domains/tts/log';
 import { decryptApiKey } from '@/server/infra/llm';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { synthesizeAzureTts } from '@/server/infra/tts';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const synthesisLogger = rootLogger.child({ module: 'ReaderAudioSynthesis' });
+const synthesisLogger = createLogger('ReaderAudioSynthesis');
 
 const SYNTHESIS_SOURCE = 'reader_segment';
 const TTS_OUTPUT_MIME = 'audio/mpeg';

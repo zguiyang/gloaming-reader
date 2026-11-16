@@ -20,11 +20,11 @@ import {
   textOf,
   textOfDeep,
 } from '@/server/domains/ingest/epub/opf/xml';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 
 import type { EpubBook, EpubNavItem } from '../types';
 
-const epubLogger = rootLogger.child({ module: 'EpubIngest' });
+const epubLogger = createLogger('EpubIngest');
 
 function rootfilePath(containerXml: Buffer): string | null {
   const doc = parseXml(containerXml.toString('utf8')) as { container?: { rootfiles?: unknown } };

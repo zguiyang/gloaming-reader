@@ -12,13 +12,13 @@ import {
   toPublicCleanupJob,
 } from '@/server/domains/assets/cleanup/store';
 import { loadScanSnapshot } from '@/server/domains/assets/scan/snapshot';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { enqueueCleanup } from '@/server/infra/queue';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const logger = rootLogger.child({ module: 'AssetManagement' });
+const logger = createLogger('AssetManagement');
 
 /** Must match `JOB_ASSET_CLEANUP` in `@/jobs/asset-cleanup`. */
 const CLEANUP_JOB_NAME = 'asset-cleanup';

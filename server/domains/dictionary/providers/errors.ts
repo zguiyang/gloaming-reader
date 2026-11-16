@@ -1,9 +1,9 @@
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const providerLogger = rootLogger.child({ module: 'DictionaryProvider' });
+const providerLogger = createLogger('DictionaryProvider');
 
 const TRANSIENT_STATUS_CODES = new Set<number>([
   HTTP_STATUS.BAD_GATEWAY,

@@ -4,10 +4,10 @@ import { readingWork as readingWorkTable } from '@/server/db';
 
 import { contentParseJobId, enqueueCoreEpubParse } from '@/server/domains/ingest/epub/work-upload';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { hasLiveJob } from '@/server/infra/queue';
 
-const recoveryLogger = rootLogger.child({ module: 'StalledContentParseRecovery' });
+const recoveryLogger = createLogger('StalledContentParseRecovery');
 
 const STALLED_PARSE_SCAN_LIMIT = 20;
 

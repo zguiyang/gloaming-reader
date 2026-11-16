@@ -19,7 +19,7 @@ import {
   storeEpubSource,
 } from '@/server/domains/ingest/epub/work-upload';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { objectExists, putObject } from '@/server/infra/storage';
 import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
@@ -27,7 +27,7 @@ import { ERROR_CODES } from '@/server/shared/errors/codes';
 import { downloadGutenbergEpub } from './download';
 import { selectGutenbergEpubCandidate } from './epub-candidate';
 
-const materializationLogger = rootLogger.child({ module: 'SourceRecordMaterialization' });
+const materializationLogger = createLogger('SourceRecordMaterialization');
 
 /**
  * `reading_work.origin_meta` marker written when materialization stores the origin

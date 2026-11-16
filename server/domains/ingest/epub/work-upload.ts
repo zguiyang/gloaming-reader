@@ -14,12 +14,12 @@ import {
 } from '@/server/domains/assets/uploads';
 import { failWorkflowEnqueue, prepareWorkflowEnqueue } from '@/server/domains/works/lifecycle/workflow';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { enqueue, enqueueDiscoveryImport } from '@/server/infra/queue';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const ingestLogger = rootLogger.child({ module: 'EpubWorkIngest' });
+const ingestLogger = createLogger('EpubWorkIngest');
 
 /** Caller-owned transaction; lets an entry point bundle the Work/asset insert into its own atomic unit. */
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

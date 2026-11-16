@@ -20,9 +20,9 @@ import {
   workflowClaimWhere,
 } from '@/server/domains/works/lifecycle';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 
-const workflowLogger = rootLogger.child({ module: 'ContentParseWorkflow' });
+const workflowLogger = createLogger('ContentParseWorkflow');
 
 /**
  * Mirror the parse lifecycle onto the SourceRecord linked to this Work.

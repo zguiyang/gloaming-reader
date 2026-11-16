@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { backfillReadingDays } from '@/server/domains/reading/history/backfill';
 import { jsonOk, parseJsonBody } from '@/server/infra/http/next-json';
 import { assertAdmin, requireIdentity } from '@/server/infra/http/next-session';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { withApiError } from '@/server/infra/http/next-route';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,7 @@ const readingHistoryBackfillBodySchema = z
   })
   .strict();
 
-const readingHistoryLogger = rootLogger.child({ module: 'ReadingHistory' });
+const readingHistoryLogger = createLogger('ReadingHistory');
 
 export const POST = withApiError(async (request: Request) => {
   const identity = await requireIdentity(request);

@@ -9,10 +9,10 @@ import {
 
 import { workflowClaimWhere } from '@/server/domains/works/lifecycle';
 import { db } from '@/server/infra/db';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { deleteObject } from '@/server/infra/storage';
 
-const ingestLogger = rootLogger.child({ module: 'IngestReset' });
+const ingestLogger = createLogger('IngestReset');
 
 type WorkRow = typeof readingWorkTable.$inferSelect;
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

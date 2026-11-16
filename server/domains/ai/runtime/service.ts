@@ -12,12 +12,12 @@ import type {
   AiToolHandle,
 } from '@/server/domains/ai/runtime/types';
 import { createLlmClient, type ResolvedLlm, resolveLlmByModelRowId } from '@/server/infra/llm';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-const aiLogger = rootLogger.child({ module: 'Ai' });
+const aiLogger = createLogger('Ai');
 const DEFAULT_MAX_TOOL_ROUNDS = 5;
 
 function toAiSdkTools(handles: AiToolHandle[] | undefined) {

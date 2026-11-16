@@ -11,14 +11,14 @@ import { isDictionaryProviderRegistered } from '@/server/domains/dictionary/prov
 import { getRedis } from '@/server/infra/cache';
 import { db } from '@/server/infra/db';
 import { decryptApiKey, encryptApiKey, assertSafeOutboundUrl, maskApiKey } from '@/server/infra/llm';
-import { rootLogger } from '@/server/infra/logging/logger';
+import { createLogger } from '@/server/infra/logging/logger';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 export const DICTIONARY_CONFIG_ID = 'default';
 
-const logger = rootLogger.child({ module: 'DictionaryService' });
+const logger = createLogger('DictionaryService');
 
 type DictionaryConfigRow = typeof dictionaryConfigTable.$inferSelect;
 
