@@ -12,8 +12,6 @@ Gloaming means twilight—the quiet light between day and night, reflecting a ca
 
 Who: **no age gate**—students, adult learners, enthusiasts, and advanced readers. Gloaming provides an environment that lets people keep reading, with help when they get stuck.
 
-Product vision and decision docs (English SSOT): [`docs/product/`](./docs/product/). Domain model: [`docs/adr/001-reading-content-domain-model.md`](./docs/adr/001-reading-content-domain-model.md).
-
 ### Product direction (main loop)
 
 ```text
@@ -27,7 +25,7 @@ Choose authentic English → Read → Contextual help when stuck → Keep readin
 | Reader   | Calm reading; lookup, translation, TTS                               |
 | AI       | In-page companion; disappears when not needed                        |
 
-Gloaming is not Duolingo, LingQ, Anki, a ChatGPT reading plugin, or an AI content factory. V1 spec: [`docs/product/mvp-scope.md`](./docs/product/mvp-scope.md). Development priorities: [`docs/product/roadmap.md`](./docs/product/roadmap.md).
+Gloaming is not Duolingo, LingQ, Anki, a ChatGPT reading plugin, or an AI content factory. Product constraints live in [`AGENTS.md`](./AGENTS.md); UI tokens in [`DESIGN.md`](./DESIGN.md).
 
 ## Stack (local default)
 

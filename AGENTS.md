@@ -141,7 +141,8 @@ Read only the rules relevant to the current task:
   not impose it on ordinary local edits.
 - Local run and deploy narratives:
   [LOCAL_RUN.md](docs/LOCAL_RUN.md), [deployment.md](docs/deployment.md).
-- Layout map: [STRUCTURE.md](STRUCTURE.md).
+- Layout and import direction: discover from the repo-root tree and
+  [package rules](rules/packages.md); do not maintain a separate layout map.
 - Next.js may regenerate a short `AGENTS.md` notice block; product policy
   remains this file + `rules/` — do not treat framework notices as a second
   product rulebook.

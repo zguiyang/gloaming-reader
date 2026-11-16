@@ -12,8 +12,6 @@ Gloaming 意为“暮色”，指昼夜交界的微光，也对应一个安静�
 
 目标用户不限年龄，包括学生、成人学习者、英语爱好者和高级读者。Gloaming Reader 提供一个能让用户读下去、卡住时获得帮助的环境。
 
-产品理念与决策文档（英文 SSOT）：[`docs/product/`](./docs/product/)。领域模型：[`docs/adr/001-reading-content-domain-model.md`](./docs/adr/001-reading-content-domain-model.md)。
-
 ### 产品方向（主循环）
 
 ```text
@@ -27,7 +25,7 @@ Gloaming 意为“暮色”，指昼夜交界的微光，也对应一个安静�
 | Reader   | 安静阅读；查词、翻译、TTS                  |
 | AI       | 页内同伴，不需要时消失                     |
 
-Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不是 AI 内容工厂。V1 规格：[`docs/product/mvp-scope.md`](./docs/product/mvp-scope.md)。开发优先级：[`docs/product/roadmap.md`](./docs/product/roadmap.md)。
+Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不是 AI 内容工厂。产品约束见 [`AGENTS.md`](./AGENTS.md)；视觉规范见 [`DESIGN.md`](./DESIGN.md)。
 
 ## 技术栈（本地默认路径）
 

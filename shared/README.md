@@ -8,4 +8,4 @@ Contracts used by both `features/` (and other UI) and `server/` / `app/api`.
 
 **Must not import from:** `features/`, `server/`, or `components/`.
 
-Import via `@/shared/<area>` (see root `tsconfig.json` paths). See [STRUCTURE.md](../STRUCTURE.md).
+Import via `@/shared/<area>` (see root `tsconfig.json` paths). Ownership rules: [rules/packages.md](../rules/packages.md).

@@ -219,7 +219,7 @@ Agent-facing visual identity. **Normative values live in the YAML front matter**
 
 **Status:** MVP foundations with **Light + Dark** token SSOT. Light aligns with Stitch MVP screens (`temp/`, local only). Dark is a designed **warm paper-at-night** palette for night reading — not an invert of Light, not OLED pure black.
 
-**Related:** `docs/product/` (product philosophy + screen flows, not visual tokens) · interaction references: Apple Books, TextStack, Readest — [`docs/product/product-vision.md`](docs/product/product-vision.md) §8 (borrow patterns; `DESIGN.md` still wins on color, type, shape).
+**Related:** interaction references — Apple Books, FreeStack, Readest (borrow patterns; `DESIGN.md` still wins on color, type, shape). Product constraints live in `AGENTS.md`.
 
 ---
 
