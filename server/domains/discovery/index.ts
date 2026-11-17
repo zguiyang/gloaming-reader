@@ -11,3 +11,10 @@ export {
 } from './persist/source-record';
 export { getSourceRecord, listDiscoveryFacets, listSourceRecords } from './read-model';
 export { listAdminDiscoverySources, listEnabledDiscoverySources, setDiscoverySourceEnabled } from './sources/service';
+export {
+  listAdminDiscoverySourceStatuses,
+  listDiscoverySourceSyncRuns,
+  triggerDiscoverySourceSync,
+  updateDiscoverySourceAdminSettings,
+} from './sync/admin';
+export { syncProjectGutenbergCatalog } from './sync/service';

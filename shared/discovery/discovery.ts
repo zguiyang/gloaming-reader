@@ -141,9 +141,29 @@ export const discoverSaveBodySchema = z.object({
 });
 export type DiscoverSaveBody = z.infer<typeof discoverSaveBodySchema>;
 
+/** Source-level sync status for admin surfaces. */
+export const DISCOVERY_SOURCE_SYNC_STATUSES = ['idle', 'queued', 'syncing', 'succeeded', 'failed'] as const;
+export type DiscoverySourceSyncStatus = (typeof DISCOVERY_SOURCE_SYNC_STATUSES)[number];
+export const discoverySourceSyncStatusSchema = z.enum(DISCOVERY_SOURCE_SYNC_STATUSES);
+
+export const DISCOVERY_SYNC_RUN_STAGES = [
+  'queued',
+  'downloading',
+  'processing',
+  'succeeded',
+  'not_modified',
+  'skipped',
+  'failed',
+] as const;
+export type DiscoverySyncRunStage = (typeof DISCOVERY_SYNC_RUN_STAGES)[number];
+export const discoverySyncRunStageSchema = z.enum(DISCOVERY_SYNC_RUN_STAGES);
+
+/** Latest bounded history size exposed per source. */
+export const DISCOVERY_SYNC_RUN_HISTORY_LIMIT = 30 as const;
+
 /**
- * Lightweight DiscoverySource projection for admin management and Discover
- * source picking. No sync-run fields — on-demand adapters do not sync catalogs.
+ * Lightweight DiscoverySource projection for Discover source picking.
+ * Admin status uses {@link discoverySourceStatusSchema}.
  */
 export const discoverySourceSummarySchema = z.object({
   sourceKey: z.string(),
@@ -157,8 +177,69 @@ export const discoverySourceListDataSchema = z.object({
 });
 export type DiscoverySourceListData = z.infer<typeof discoverySourceListDataSchema>;
 
+/** One durable sync-run observation for admins. */
+export const discoverySyncRunSummarySchema = z.object({
+  id: z.string(),
+  stage: discoverySyncRunStageSchema,
+  queuedAt: z.union([z.string(), z.date()]),
+  finishedAt: z.union([z.string(), z.date()]).nullable(),
+  inserted: z.number().int().nonnegative(),
+  refreshed: z.number().int().nonnegative(),
+  evicted: z.number().int().nonnegative(),
+  skippedFilter: z.number().int().nonnegative(),
+  errorSummary: z.string().nullable(),
+});
+export type DiscoverySyncRunSummary = z.infer<typeof discoverySyncRunSummarySchema>;
+
+export const discoverySyncRunHistorySchema = z.object({
+  runs: z.array(discoverySyncRunSummarySchema),
+});
+export type DiscoverySyncRunHistory = z.infer<typeof discoverySyncRunHistorySchema>;
+
+/**
+ * Admin-facing status for a single DiscoverySource (bounded catalog index).
+ */
+export const discoverySourceStatusSchema = z.object({
+  sourceKey: z.string(),
+  sourceType: z.string(),
+  enabled: z.boolean(),
+  maxRows: z.number().int().positive(),
+  syncStatus: discoverySourceSyncStatusSchema,
+  recordCount: z.number().int().nonnegative(),
+  lastSuccessAt: z.union([z.string(), z.date()]).nullable(),
+  lastErrorSummary: z.string().nullable(),
+  /** Approximate index size in MiB (soft reporting). */
+  estimatedIndexMiB: z.number().nonnegative(),
+  /** Soft budget in MiB. */
+  budgetMiB: z.number().nonnegative(),
+});
+export type DiscoverySourceStatus = z.infer<typeof discoverySourceStatusSchema>;
+
+export const discoverySourceStatusListDataSchema = z.object({
+  items: z.array(discoverySourceStatusSchema),
+});
+export type DiscoverySourceStatusListData = z.infer<typeof discoverySourceStatusListDataSchema>;
+
 /** Admin enable/disable body for a DiscoverySource. */
 export const discoverySourceEnabledUpdateSchema = z.object({
   enabled: z.boolean(),
 });
 export type DiscoverySourceEnabledUpdate = z.infer<typeof discoverySourceEnabledUpdateSchema>;
+
+/** Admin settings patch for a DiscoverySource (MVP: enabled + maxRows). */
+export const discoverySourceSettingsUpdateSchema = z.object({
+  enabled: z.boolean().optional(),
+  maxRows: z.number().int().min(100).max(100_000).optional(),
+});
+export type DiscoverySourceSettingsUpdate = z.infer<typeof discoverySourceSettingsUpdateSchema>;
+
+/**
+ * Manual sync trigger outcome. `already_running` means a queued/syncing run is
+ * still pending; `disabled` means the source is off and no new run was claimed.
+ */
+export const DISCOVERY_SYNC_TRIGGER_RESULTS = ['queued', 'already_running', 'disabled'] as const;
+export type DiscoverySyncTriggerResult = (typeof DISCOVERY_SYNC_TRIGGER_RESULTS)[number];
+export const discoverySyncTriggerResultSchema = z.object({
+  result: z.enum(DISCOVERY_SYNC_TRIGGER_RESULTS),
+});
+export type DiscoverySyncTriggerResultData = z.infer<typeof discoverySyncTriggerResultSchema>;
