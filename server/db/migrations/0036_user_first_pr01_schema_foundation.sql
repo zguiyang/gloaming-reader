@@ -49,7 +49,7 @@ SET "processing_status" = CASE
 END;--> statement-breakpoint
 ALTER TABLE "reading_work" ALTER COLUMN "processing_status" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "reading_work" ALTER COLUMN "processing_status" SET DEFAULT 'processing';--> statement-breakpoint
-DROP INDEX "reading_work_status_idx";--> statement-breakpoint
+DROP INDEX IF EXISTS "reading_work_status_idx";--> statement-breakpoint
 ALTER TABLE "reading_work" DROP COLUMN "status";--> statement-breakpoint
 CREATE INDEX "reading_work_processing_status_idx" ON "reading_work" USING btree ("processing_status");--> statement-breakpoint
 INSERT INTO "user_library_item" ("id", "user_id", "work_id", "created_at")

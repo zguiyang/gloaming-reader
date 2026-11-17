@@ -1,1 +1,1 @@
-DROP INDEX "dictionary_entry_word_idx";
+DROP INDEX IF EXISTS "dictionary_entry_word_idx";
