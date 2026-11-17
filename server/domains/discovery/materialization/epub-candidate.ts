@@ -12,8 +12,8 @@ import type { SourceRecordContentCandidate } from '@/server/db/schema';
  *      metadata always selects the same candidate regardless of input order.
  */
 
-/** Official Project Gutenberg content host. */
-const GUTENBERG_HOSTNAME = 'www.gutenberg.org';
+/** Official Project Gutenberg content hosts (primary site + PGLAF mirror). */
+const GUTENBERG_CONTENT_HOSTNAMES = new Set(['www.gutenberg.org', 'gutenberg.pglaf.org']);
 
 /**
  * Official Project Gutenberg EPUB content paths:
@@ -45,7 +45,7 @@ export type EpubCandidateSource = {
   readonly contentCandidates: readonly SourceRecordContentCandidate[];
 };
 
-/** True only for an `https://www.gutenberg.org/...` URL on an official EPUB content path. */
+/** True only for an official Gutenberg HTTPS EPUB URL on an accepted content host. */
 export function isOfficialGutenbergEpubUrl(url: string): boolean {
   let parsed: URL;
   try {
@@ -53,12 +53,61 @@ export function isOfficialGutenbergEpubUrl(url: string): boolean {
   } catch {
     return false;
   }
-  if (parsed.protocol !== 'https:' || parsed.hostname !== GUTENBERG_HOSTNAME) {
+  if (parsed.protocol !== 'https:' || !GUTENBERG_CONTENT_HOSTNAMES.has(parsed.hostname)) {
     return false;
   }
   return (
     GUTENBERG_EPUB_PATH_PATTERN.test(parsed.pathname) || GUTENBERG_CANONICAL_IMAGES_PATH_PATTERN.test(parsed.pathname)
   );
+}
+
+/**
+ * Rewrite a stored Gutenberg EPUB URL onto the PGLAF cache object that mirrors
+ * actually serve. Keeps already-canonical mirror URLs unchanged.
+ *
+ * `/ebooks/{id}.epub.images` is a www convenience path; PGLAF returns 404 for it.
+ * The generated collection stores `pg{id}-images.epub` under `/cache/epub/{id}/`.
+ */
+export function resolveGutenbergEpubDownloadUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+
+  if (parsed.protocol !== 'https:') {
+    return url;
+  }
+
+  if (parsed.hostname === 'www.gutenberg.org' || parsed.hostname === 'gutenberg.org') {
+    parsed.hostname = 'gutenberg.pglaf.org';
+  }
+
+  const ebookImages = parsed.pathname.match(/^\/ebooks\/(\d+)\.(epub|epub3)\.images$/i);
+  if (ebookImages) {
+    const id = ebookImages[1]!;
+    const epub3 = ebookImages[2]!.toLowerCase() === 'epub3';
+    parsed.pathname = epub3 ? `/cache/epub/${id}/pg${id}.epub3.images` : `/cache/epub/${id}/pg${id}-images.epub`;
+    return parsed.toString();
+  }
+
+  const ebookNoimages = parsed.pathname.match(/^\/ebooks\/(\d+)\.(epub|epub3)\.noimages$/i);
+  if (ebookNoimages) {
+    const id = ebookNoimages[1]!;
+    const version = ebookNoimages[2]!.toLowerCase();
+    parsed.pathname = `/cache/epub/${id}/pg${id}.${version}.noimages`;
+    return parsed.toString();
+  }
+
+  const dottedCacheImages = parsed.pathname.match(/^\/cache\/epub\/(\d+)\/pg\1\.(epub|epub3)\.images$/i);
+  if (dottedCacheImages && dottedCacheImages[2]!.toLowerCase() === 'epub') {
+    const id = dottedCacheImages[1]!;
+    parsed.pathname = `/cache/epub/${id}/pg${id}-images.epub`;
+    return parsed.toString();
+  }
+
+  return parsed.toString();
 }
 
 /**

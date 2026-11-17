@@ -3,6 +3,7 @@ export {
   EpubCandidateSelectionError,
   hasSelectableEpubCandidate,
   isOfficialGutenbergEpubUrl,
+  resolveGutenbergEpubDownloadUrl,
   selectGutenbergEpubCandidate,
 } from './epub-candidate';
 export type { SourceRecordMaterializationErrorCode, SourceRecordMaterializationResult } from './service';

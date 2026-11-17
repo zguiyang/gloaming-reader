@@ -1,7 +1,7 @@
 import { EPUB_UPLOAD_MAX_BYTES } from '@/shared/works';
 
 import { PROJECT_GUTENBERG_USER_AGENT } from '../gutenberg/constants';
-import { isOfficialGutenbergEpubUrl } from './epub-candidate';
+import { isOfficialGutenbergEpubUrl, resolveGutenbergEpubDownloadUrl } from './epub-candidate';
 
 /**
  * Bounded, single-URL EPUB downloader for the discovery materialization layer.
@@ -14,8 +14,12 @@ import { isOfficialGutenbergEpubUrl } from './epub-candidate';
  * persisted, linked, or enqueued here.
  */
 
-/** Wall-clock budget for the whole request, including streaming the body. */
-export const GUTENBERG_EPUB_DOWNLOAD_TIMEOUT_MS = 30_000;
+/**
+ * Wall-clock budget for the whole request, including streaming the body.
+ * Illustrated EPUBs on the mirror can be tens of MiB on a slow path; 30s was
+ * too tight and surfaced as `network_error` / abort during Save.
+ */
+export const GUTENBERG_EPUB_DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
 
 /** Maximum number of official redirect hops tolerated before failing. */
 export const GUTENBERG_EPUB_MAX_REDIRECTS = 5;
@@ -82,7 +86,8 @@ export async function downloadGutenbergEpub(
   url: string,
   options: DownloadGutenbergEpubOptions = {},
 ): Promise<DownloadedGutenbergEpub> {
-  if (!isOfficialGutenbergEpubUrl(url)) {
+  const downloadUrl = resolveGutenbergEpubDownloadUrl(url);
+  if (!isOfficialGutenbergEpubUrl(downloadUrl)) {
     throw new GutenbergEpubDownloadError('invalid_url', 'the URL is not an official Project Gutenberg HTTPS EPUB URL');
   }
 
@@ -116,7 +121,7 @@ export async function downloadGutenbergEpub(
   };
 
   try {
-    let currentUrl = url;
+    let currentUrl = downloadUrl;
     let response: Response;
 
     for (let redirects = 0; ; redirects += 1) {

@@ -25,7 +25,7 @@ import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 import { downloadGutenbergEpub } from './download';
-import { selectGutenbergEpubCandidate } from './epub-candidate';
+import { resolveGutenbergEpubDownloadUrl, selectGutenbergEpubCandidate } from './epub-candidate';
 
 const materializationLogger = createLogger('SourceRecordMaterialization');
 
@@ -671,9 +671,20 @@ export async function materializeSourceRecord(sourceRecordId: string): Promise<S
     throw error;
   }
 
+  const downloadUrl = resolveGutenbergEpubDownloadUrl(candidateUrl);
+  materializationLogger.info(
+    {
+      sourceRecordId,
+      externalId: record.externalId,
+      candidateUrl,
+      downloadUrl,
+    },
+    'SourceRecordMaterialize: downloading EPUB',
+  );
+
   let downloaded: Awaited<ReturnType<typeof downloadGutenbergEpub>>;
   try {
-    downloaded = await downloadGutenbergEpub(candidateUrl);
+    downloaded = await downloadGutenbergEpub(downloadUrl);
   } catch (error) {
     await markMaterializationFailedIfUnlinked(sourceRecordId);
     throw error;

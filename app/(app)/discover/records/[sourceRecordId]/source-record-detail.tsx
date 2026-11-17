@@ -10,7 +10,13 @@ import { Button } from '@/components/ui/button';
 import { chaptersFromParts } from '@/features/book-detail/book-detail-api';
 import { BookDetailPage } from '@/features/book-detail/book-detail-page';
 import { BookDetailToc } from '@/features/book-detail/book-detail-toc';
-import { DiscoverSourceCard, discoverQueryKey, fetchDiscoverRecords, toDiscoverItem } from '@/features/discover';
+import {
+  DiscoverSourceCard,
+  buildDiscoverCatalogChips,
+  discoverQueryKey,
+  fetchDiscoverRecords,
+  toDiscoverItem,
+} from '@/features/discover';
 import { useReaderPartsQuery } from '@/features/reader/reader-api';
 import { WorkCover } from '@/features/work-cover';
 import { apiRequest } from '@/lib/api-request';
@@ -46,8 +52,9 @@ export function DiscoverRecordDetailPage({ sourceRecordId }: { sourceRecordId: s
         title: item.title,
         author: item.author,
         coverImageUrl: item.coverImageUrl,
-        description: query.data.sourceMeta.summary ?? null,
-        notes: query.data.sourceMeta.notes ?? (query.data.description ? [query.data.description] : []),
+        description: query.data.sourceMeta.summary?.trim() || query.data.description?.trim() || null,
+        notes: query.data.sourceMeta.notes ?? (query.data.description?.trim() ? [query.data.description.trim()] : []),
+        categories: buildDiscoverCatalogChips(query.data),
         actions: <DiscoverSourceCard item={item} detailMode actionsOnly />,
         children: <SourceDetailExtras record={query.data} userId={session?.user.id ?? null} />,
       }}

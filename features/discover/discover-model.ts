@@ -1,5 +1,8 @@
-import type { SourceRecordItem } from '@/shared/discovery';
+import type { SourceRecordDetail, SourceRecordItem } from '@/shared/discovery';
 import type { CatalogWork } from '@/shared/works';
+
+/** Cap chips so the detail hero stays scannable when a title has many LCSH terms. */
+const DISCOVER_CATALOG_CHIP_LIMIT = 10;
 
 /**
  * Discover membership only; reading progress is carried by the linked Work and
@@ -68,6 +71,26 @@ export function toDiscoverItem(record: SourceRecordItem): DiscoverItem {
     coverImageUrl: record.coverUrl,
     isSaveable: record.isSaveable,
   };
+}
+
+/**
+ * Detail chips from CSV-backed catalog fields (language, bookshelves, subjects).
+ * Used when publisher blurbs are absent so the page still shows basic catalog info.
+ */
+export function buildDiscoverCatalogChips(record: SourceRecordDetail): string[] {
+  const languages = record.languages.map((code) => code.trim().toUpperCase()).filter(Boolean);
+  const shelves = (record.sourceMeta.bookshelves ?? []).map((value) => value.trim()).filter(Boolean);
+  const subjects = (record.sourceMeta.subjects ?? []).map((value) => value.trim()).filter(Boolean);
+  const seen = new Set<string>();
+  const chips: string[] = [];
+  for (const value of [...languages, ...shelves, ...subjects]) {
+    const key = value.toLocaleLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    chips.push(value);
+    if (chips.length >= DISCOVER_CATALOG_CHIP_LIMIT) break;
+  }
+  return chips;
 }
 
 export function toDiscoverLegacyWork(work: CatalogWork, coverImageUrl: string | null): DiscoverLegacyWork {
