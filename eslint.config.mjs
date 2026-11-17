@@ -15,6 +15,7 @@ const eslintConfig = defineConfig([
     'archive/**',
     '.agents/**',
     'node_modules/**',
+    'ecosystem.config.cjs',
   ]),
   {
     rules: {
