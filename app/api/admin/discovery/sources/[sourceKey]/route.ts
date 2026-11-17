@@ -1,6 +1,6 @@
-import { discoverySourceEnabledUpdateSchema } from '@/shared/discovery';
+import { discoverySourceSettingsUpdateSchema } from '@/shared/discovery';
 
-import { setDiscoverySourceEnabled } from '@/server/domains/discovery/sources/service';
+import { updateDiscoverySourceAdminSettings } from '@/server/domains/discovery/sync/admin';
 import { jsonOk, parseJsonBody } from '@/server/infra/http/next-json';
 import { pathId } from '@/server/infra/http/path-params';
 import { assertAdmin, getRequestIdentity } from '@/server/infra/http/next-session';
@@ -10,14 +10,14 @@ export const dynamic = 'force-dynamic';
 
 type RouteContext = { params: Promise<{ sourceKey: string }> };
 
-/** Admin: enable or disable a registered Discover source. */
+/** Admin: update Discover source settings (enabled, maxRows). */
 export const PATCH = withApiError(async (request: Request, context: RouteContext) => {
   const identity = await getRequestIdentity(request);
   assertAdmin(identity);
 
   const sourceKey = pathId((await context.params).sourceKey, 'sourceKey');
-  const parsed = await parseJsonBody(request, discoverySourceEnabledUpdateSchema);
+  const parsed = await parseJsonBody(request, discoverySourceSettingsUpdateSchema);
   if ('response' in parsed) return parsed.response;
 
-  return jsonOk(await setDiscoverySourceEnabled(sourceKey, parsed.data.enabled));
+  return jsonOk(await updateDiscoverySourceAdminSettings(sourceKey, parsed.data));
 });

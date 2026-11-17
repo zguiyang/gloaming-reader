@@ -486,13 +486,60 @@
     "discoverySources": {
       "page": {
         "title": "Discovery sources",
-        "subtitle": "Enable or disable the remote catalogs available on Discover. Sources are on-demand; there is no full catalog sync.",
+        "subtitle": "Discovery sources",
         "loadFailed": "Could not load discovery sources.",
         "operationFailed": "Operation failed"
       },
+      "toast": {
+        "saved": "Saved",
+        "syncQueued": "Sync queued",
+        "syncAlreadyRunning": "Sync already in progress",
+        "syncDisabled": "Source is disabled; sync was not started"
+      },
       "fields": {
         "sourceKey": "Source key",
-        "sourceType": "Adapter"
+        "sourceType": "Adapter",
+        "recordCount": "Index rows",
+        "indexSize": "Index size",
+        "lastSuccess": "Last success",
+        "errorSummary": "Last error",
+        "discoverEnabled": "Show in Discover",
+        "maxRows": "Max rows"
+      },
+      "syncStatus": {
+        "idle": "Idle",
+        "queued": "Queued",
+        "syncing": "Syncing",
+        "succeeded": "Succeeded",
+        "failed": "Failed"
+      },
+      "never": "Never",
+      "recordCount": "{count} rows",
+      "indexSize": "{used} / {budget} MiB",
+      "actions": {
+        "save": "Save",
+        "reset": "Reset",
+        "syncNow": "Sync now",
+        "viewRuns": "Run history"
+      },
+      "run": {
+        "title": "Run history",
+        "elapsedUnknown": "—",
+        "elapsedSeconds": "{count}s",
+        "elapsedMinutes": "{minutes}m {seconds}s",
+        "counters": "Inserted {inserted} · refreshed {refreshed} · evicted {evicted} · filtered {skipped}",
+        "stages": {
+          "queued": "Queued",
+          "downloading": "Downloading",
+          "processing": "Processing",
+          "succeeded": "Succeeded",
+          "not_modified": "Not modified",
+          "failed": "Failed",
+          "skipped": "Skipped"
+        },
+        "recent": {
+          "empty": "No runs yet."
+        }
       },
       "names": {
         "project_gutenberg": "Project Gutenberg"

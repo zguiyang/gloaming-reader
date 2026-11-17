@@ -486,13 +486,60 @@
     "discoverySources": {
       "page": {
         "title": "发现源",
-        "subtitle": "启用或停用 Discover 可用的远程书源。按需拉取，不再做全量目录同步。",
+        "subtitle": "发现源",
         "loadFailed": "无法加载发现源。",
         "operationFailed": "操作失败"
       },
+      "toast": {
+        "saved": "已保存",
+        "syncQueued": "已排队同步",
+        "syncAlreadyRunning": "同步已在进行中",
+        "syncDisabled": "源已停用，未开始同步"
+      },
       "fields": {
         "sourceKey": "源标识",
-        "sourceType": "适配器"
+        "sourceType": "适配器",
+        "recordCount": "索引行数",
+        "indexSize": "索引体积",
+        "lastSuccess": "上次成功",
+        "errorSummary": "上次错误",
+        "discoverEnabled": "Discover 展示",
+        "maxRows": "最大行数"
+      },
+      "syncStatus": {
+        "idle": "空闲",
+        "queued": "已排队",
+        "syncing": "同步中",
+        "succeeded": "成功",
+        "failed": "失败"
+      },
+      "never": "从未",
+      "recordCount": "{count} 行",
+      "indexSize": "{used} / {budget} MiB",
+      "actions": {
+        "save": "保存",
+        "reset": "重置",
+        "syncNow": "立即同步",
+        "viewRuns": "运行记录"
+      },
+      "run": {
+        "title": "运行记录",
+        "elapsedUnknown": "—",
+        "elapsedSeconds": "{count} 秒",
+        "elapsedMinutes": "{minutes} 分 {seconds} 秒",
+        "counters": "新增 {inserted} · 刷新 {refreshed} · 淘汰 {evicted} · 过滤 {skipped}",
+        "stages": {
+          "queued": "已排队",
+          "downloading": "下载中",
+          "processing": "处理中",
+          "succeeded": "成功",
+          "not_modified": "未变更",
+          "failed": "失败",
+          "skipped": "已跳过"
+        },
+        "recent": {
+          "empty": "暂无运行记录。"
+        }
       },
       "names": {
         "project_gutenberg": "Project Gutenberg"
