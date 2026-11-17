@@ -165,10 +165,12 @@ export async function getLibraryItems(userId: string, workIds: string[]): Promis
   }
 
   const ctx: LibraryItemContext = { partsByWork, userTagsByWork };
-  return workIds.map((workId) => {
+  // Membership SQL can surface ids that the access/ownership projection omits
+  // (e.g. incomplete saved works). Skip those instead of failing the whole page.
+  return workIds.flatMap((workId) => {
     const row = byId.get(workId);
-    if (!row) throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
-    return buildLibraryItem(row, ctx);
+    if (!row) return [];
+    return [buildLibraryItem(row, ctx)];
   });
 }
 
