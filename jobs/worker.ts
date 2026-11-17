@@ -15,6 +15,7 @@ import {
   processSourceRecordMaterialize,
   type SourceRecordMaterializeJobData,
 } from '@/jobs/source-record-materialize';
+import { type DiscoverySyncJobData, JOB_DISCOVERY_SYNC, processDiscoverySync } from '@/jobs/discovery-sync';
 import {
   JOB_WORK_COVER_REFRESH,
   processWorkCoverRefresh,
@@ -29,11 +30,14 @@ import {
   CLEANUP_QUEUE_NAME,
   closeQueue,
   DISCOVERY_IMPORT_QUEUE_NAME,
+  DISCOVERY_SYNC_QUEUE_NAME,
   getQueueConnection,
   QUEUE_NAME,
+  upsertProjectGutenbergDiscoverySyncScheduler,
 } from '@/server/infra/queue';
 
 export const CLEANUP_WORKER_CONCURRENCY = 1;
+export const DISCOVERY_SYNC_WORKER_CONCURRENCY = 1;
 
 export const DISCOVERY_IMPORT_ONLY_FLAG = '--discovery-import-only';
 
@@ -82,6 +86,9 @@ export async function processDiscoveryImportJob(job: Pick<Job, 'name' | 'data'>)
 }
 
 function attachWorkerEvents(worker: Worker, queue: string): void {
+  worker.on('active', (job) => {
+    workerLogger.info({ jobId: job.id, name: job.name, queue, data: job.data }, 'Job active');
+  });
   worker.on('completed', (job) => {
     workerLogger.info({ jobId: job.id, name: job.name, queue }, 'Job completed');
   });
@@ -93,18 +100,43 @@ function attachWorkerEvents(worker: Worker, queue: string): void {
   });
 }
 
+export async function processDiscoverySyncJob(job: Pick<Job, 'name' | 'data' | 'id'>): Promise<unknown> {
+  if (job.name !== JOB_DISCOVERY_SYNC) {
+    throw new Error(`Unknown discovery sync job: ${job.name}`);
+  }
+  const startedAt = Date.now();
+  workerLogger.info({ jobId: job.id, data: job.data }, 'Discovery sync processor entered');
+  try {
+    const result = await processDiscoverySync(job.data as DiscoverySyncJobData);
+    workerLogger.info(
+      { jobId: job.id, result, elapsedMs: Date.now() - startedAt },
+      'Discovery sync processor finished',
+    );
+    return result;
+  } catch (error) {
+    workerLogger.error(
+      { err: error, jobId: job.id, elapsedMs: Date.now() - startedAt },
+      'Discovery sync processor threw',
+    );
+    throw error;
+  }
+}
+
 export function createWorkers(
   mode: WorkerMode = 'full',
   options: {
     discoveryImportQueueName?: string;
+    discoverySyncQueueName?: string;
   } = {},
 ): {
   worker?: Worker;
   cleanupWorker?: Worker;
   discoveryImportWorker?: Worker;
+  discoverySyncWorker?: Worker;
 } {
   const connection = getQueueConnection();
   const discoveryImportQueueName = options.discoveryImportQueueName ?? DISCOVERY_IMPORT_QUEUE_NAME;
+  const discoverySyncQueueName = options.discoverySyncQueueName ?? DISCOVERY_SYNC_QUEUE_NAME;
 
   const createDiscoveryImportWorker = () => {
     const discoveryImportWorker = new BullWorker(
@@ -133,13 +165,19 @@ export function createWorkers(
 
   const discoveryImportWorker = createDiscoveryImportWorker();
 
-  return { worker, cleanupWorker, discoveryImportWorker };
+  const discoverySyncWorker = new BullWorker(discoverySyncQueueName, async (job) => processDiscoverySyncJob(job), {
+    connection,
+    concurrency: DISCOVERY_SYNC_WORKER_CONCURRENCY,
+  });
+  attachWorkerEvents(discoverySyncWorker, discoverySyncQueueName);
+
+  return { worker, cleanupWorker, discoveryImportWorker, discoverySyncWorker };
 }
 
 async function main(): Promise<void> {
   await reportRuntimeBoot('jobs');
   const mode = resolveWorkerMode();
-  const { worker, cleanupWorker, discoveryImportWorker } = createWorkers(mode);
+  const { worker, cleanupWorker, discoveryImportWorker, discoverySyncWorker } = createWorkers(mode);
   if (mode === 'discovery-import-only') {
     workerLogger.info({ queue: DISCOVERY_IMPORT_QUEUE_NAME, mode }, 'Worker listening');
     let shuttingDown = false;
@@ -154,6 +192,12 @@ async function main(): Promise<void> {
     process.on('SIGINT', () => void shutdown('SIGINT'));
     process.on('SIGTERM', () => void shutdown('SIGTERM'));
     return;
+  }
+
+  try {
+    await upsertProjectGutenbergDiscoverySyncScheduler();
+  } catch (error) {
+    workerLogger.warn({ err: error }, 'Failed to register discovery catalog sync scheduler');
   }
 
   let dispatcherRunning = false;
@@ -180,6 +224,7 @@ async function main(): Promise<void> {
   workerLogger.info(
     {
       queue: QUEUE_NAME,
+      discoverySyncQueue: DISCOVERY_SYNC_QUEUE_NAME,
       discoveryImportQueue: DISCOVERY_IMPORT_QUEUE_NAME,
       cleanupQueue: CLEANUP_QUEUE_NAME,
       nodeEnv: commonEnv.NODE_ENV,
@@ -197,7 +242,7 @@ async function main(): Promise<void> {
     clearInterval(dispatchTimer);
     workerLogger.info({ signal }, 'Worker shutting down');
     await Promise.all(
-      [worker, cleanupWorker, discoveryImportWorker]
+      [worker, cleanupWorker, discoveryImportWorker, discoverySyncWorker]
         .filter((created): created is Worker => created !== undefined)
         .map((created) => created.close()),
     );

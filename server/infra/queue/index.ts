@@ -1,15 +1,22 @@
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 
+import { type DiscoverySyncJobData, JOB_DISCOVERY_SYNC } from '@/jobs/discovery-sync-contract';
 import type { PingJobData } from '@/jobs/ping';
 import { JOB_PING } from '@/jobs/ping';
 import type { WorkCoverRefreshJobData } from '@/jobs/work-cover-refresh';
 import { JOB_WORK_COVER_REFRESH } from '@/jobs/work-cover-refresh';
+import {
+  PROJECT_GUTENBERG_SOURCE_KEY,
+  PROJECT_GUTENBERG_SYNC_CRON_PATTERN,
+  PROJECT_GUTENBERG_SYNC_SCHEDULER_ID,
+} from '@/server/domains/discovery/gutenberg/constants';
 import { commonEnv } from '@/server/infra/config/env-common';
 import { queueLogger } from '@/server/infra/logging/logger';
 
 export const QUEUE_NAME = 'gloaming';
 export const DISCOVERY_IMPORT_QUEUE_NAME = 'gloaming-discovery-import';
+export const DISCOVERY_SYNC_QUEUE_NAME = 'gloaming-discovery-sync';
 export const CLEANUP_QUEUE_NAME = 'gloaming-asset-cleanup';
 
 const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
@@ -17,6 +24,7 @@ const jobCleanup = { removeOnComplete: 100, removeOnFail: 100 } as const;
 let connection: Redis | null = null;
 let queue: Queue | null = null;
 let discoveryImportQueue: Queue | null = null;
+let discoverySyncQueue: Queue | null = null;
 let cleanupQueue: Queue | null = null;
 
 /** Dedicated BullMQ Redis client. Do not reuse `getRedis()`. */
@@ -53,6 +61,13 @@ export function getDiscoveryImportQueue(): Queue {
   if (discoveryImportQueue) return discoveryImportQueue;
   discoveryImportQueue = createNamedQueue(DISCOVERY_IMPORT_QUEUE_NAME);
   return discoveryImportQueue;
+}
+
+/** Dedicated queue for bounded catalog index sync (metadata only). */
+export function getDiscoverySyncQueue(): Queue {
+  if (discoverySyncQueue) return discoverySyncQueue;
+  discoverySyncQueue = createNamedQueue(DISCOVERY_SYNC_QUEUE_NAME);
+  return discoverySyncQueue;
 }
 
 export function getCleanupQueue(): Queue {
@@ -98,6 +113,39 @@ export async function enqueueDiscoveryImport(
   return addJob(getDiscoveryImportQueue(), name, data, jobOptions);
 }
 
+export async function enqueueDiscoverySync(
+  name: string,
+  data: unknown,
+  jobOptions?: EnqueueJobOptions,
+): Promise<string> {
+  return addJob(getDiscoverySyncQueue(), name, data, jobOptions);
+}
+
+/**
+ * Registers (or updates) the weekly Project Gutenberg catalog sync scheduler.
+ * Scheduled jobs carry `trigger: 'schedule'` and claim ownership inside the worker.
+ */
+export async function upsertProjectGutenbergDiscoverySyncScheduler(): Promise<void> {
+  const queue = getDiscoverySyncQueue();
+  const payload: DiscoverySyncJobData = {
+    sourceKey: PROJECT_GUTENBERG_SOURCE_KEY,
+    trigger: 'schedule',
+  };
+  await queue.upsertJobScheduler(
+    PROJECT_GUTENBERG_SYNC_SCHEDULER_ID,
+    { pattern: PROJECT_GUTENBERG_SYNC_CRON_PATTERN },
+    {
+      name: JOB_DISCOVERY_SYNC,
+      data: payload,
+      opts: { attempts: 1 },
+    },
+  );
+  queueLogger.info(
+    { schedulerId: PROJECT_GUTENBERG_SYNC_SCHEDULER_ID, pattern: PROJECT_GUTENBERG_SYNC_CRON_PATTERN },
+    'Discovery catalog sync scheduler upserted',
+  );
+}
+
 export async function enqueueCleanup(name: string, data: unknown, jobOptions?: EnqueueJobOptions): Promise<string> {
   return addJob(getCleanupQueue(), name, data, jobOptions);
 }
@@ -133,6 +181,10 @@ export async function hasLiveJob(lane: 'default' | 'discovery', jobId: string): 
 }
 
 export async function closeQueue(): Promise<void> {
+  if (discoverySyncQueue) {
+    await discoverySyncQueue.close();
+    discoverySyncQueue = null;
+  }
   if (discoveryImportQueue) {
     await discoveryImportQueue.close();
     discoveryImportQueue = null;

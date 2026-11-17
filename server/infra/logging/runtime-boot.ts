@@ -2,7 +2,6 @@ import { redisPing } from '@/server/infra/cache';
 import { commonEnv, isS3ObjectStorageConfigured } from '@/server/infra/config/env-common';
 import { dbPing } from '@/server/infra/db';
 import { createLogger } from '@/server/infra/logging/logger';
-import { getQueueConnection } from '@/server/infra/queue';
 
 export type RuntimeRole = 'app' | 'jobs';
 
@@ -23,6 +22,8 @@ function sanitizeRedisHost(redisUrl: string): string | undefined {
 }
 
 async function pingQueueRedis(): Promise<void> {
+  // Dynamic import keeps BullMQ / job modules out of the Next app boot graph.
+  const { getQueueConnection } = await import('@/server/infra/queue');
   const connection = getQueueConnection();
   const result = await connection.ping();
   if (result !== 'PONG') {
