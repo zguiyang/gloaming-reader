@@ -1022,11 +1022,16 @@ export const uploadedObject = pgTable(
 /** Source-registry sync status for a DiscoverySource. */
 export type DiscoverySourceSyncStatus = 'idle' | 'queued' | 'syncing' | 'succeeded' | 'failed';
 
+/** Bounded-index eviction when the source is at `maxRows`. */
+export type DiscoverySourceEvictionPolicy = 'hot_swap' | 'freeze_inserts';
+
+/** Lifecycle stages for one `discovery_sync_run`. */
+export type DiscoverySyncRunStage =
+  'queued' | 'downloading' | 'processing' | 'succeeded' | 'not_modified' | 'skipped' | 'failed';
+
 /**
  * External catalog source registry (ADR DS-02).
- * Holds source identity for on-demand adapters (e.g. Gutenberg OPDS).
- * Legacy sync-status columns remain dormant; Discover no longer runs full catalog sync.
- * Source credentials are server configuration, never client-visible; not modeled here.
+ * Bounded catalog sync settings live here; credentials stay in server config.
  */
 export const discoverySource = pgTable(
   'discovery_source',
@@ -1037,6 +1042,19 @@ export const discoverySource = pgTable(
     /** Adapter/protocol family for this source. */
     sourceType: text('source_type').notNull(),
     enabled: boolean('enabled').default(true).notNull(),
+    /** Hard cap of indexed SourceRecord rows for this source. */
+    maxRows: integer('max_rows').notNull().default(10_000),
+    /** Only index records that include at least one listed language. */
+    languages: text('languages')
+      .array()
+      .notNull()
+      .default(sql`ARRAY['en']::text[]`),
+    /** Skip records with no selectable EPUB candidate URL. */
+    requireEpub: boolean('require_epub').notNull().default(true),
+    /** Admission policy once `maxRows` is reached. */
+    evictionPolicy: text('eviction_policy').$type<DiscoverySourceEvictionPolicy>().notNull().default('hot_swap'),
+    /** Soft budget (bytes) for admin warning / sync failure if exceeded. */
+    budgetBytesHint: integer('budget_bytes_hint').notNull().default(104_857_600),
     /** Current sync run status. */
     syncStatus: text('sync_status').$type<DiscoverySourceSyncStatus>().notNull().default('idle'),
     syncStartedAt: timestamp('sync_started_at'),
@@ -1058,6 +1076,9 @@ export const discoverySource = pgTable(
   (table) => [
     unique('discovery_source_key_uidx').on(table.sourceKey),
     check('discovery_source_key_nonempty_chk', sql`length(${table.sourceKey}) > 0`),
+    check('discovery_source_max_rows_positive_chk', sql`${table.maxRows} > 0`),
+    check('discovery_source_budget_bytes_nonnegative_chk', sql`${table.budgetBytesHint} >= 0`),
+    check('discovery_source_eviction_policy_check', sql`${table.evictionPolicy} in ('hot_swap', 'freeze_inserts')`),
     check(
       'discovery_source_sync_status_check',
       sql`${table.syncStatus} in ('idle', 'queued', 'syncing', 'succeeded', 'failed')`,
@@ -1118,6 +1139,8 @@ export const sourceRecord = pgTable(
     sourceUpdatedAt: timestamp('source_updated_at'),
     /** Last successful snapshot sync that observed this record. */
     lastSeenAt: timestamp('last_seen_at'),
+    /** Ranking score for bounded admission (e.g. Gutenberg download_count). */
+    popularityScore: integer('popularity_score').notNull().default(0),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()
@@ -1132,17 +1155,121 @@ export const sourceRecord = pgTable(
       'source_record_materialization_status_check',
       sql`${table.materializationStatus} in ('not_materialized', 'processing', 'ready', 'failed')`,
     ),
+    check('source_record_popularity_score_nonnegative_chk', sql`${table.popularityScore} >= 0`),
     /** At most one SourceRecord per ReadingWork (Postgres unique allows many NULLs). */
     unique('source_record_work_uidx').on(table.workId),
     index('source_record_source_idx').on(table.sourceId),
     index('source_record_source_availability_idx').on(table.sourceId, table.availability),
     index('source_record_languages_gin_idx').using('gin', table.languages),
     index('source_record_last_seen_idx').on(table.lastSeenAt),
+    index('source_record_source_popularity_idx').on(table.sourceId, table.popularityScore),
+  ],
+);
+
+/**
+ * One durable observation of a catalog sync claim/run for admin history.
+ * Counters are current-run facts only; never log raw dump bodies here.
+ */
+export const discoverySyncRun = pgTable(
+  'discovery_sync_run',
+  {
+    id: text('id').primaryKey(),
+    sourceId: text('source_id')
+      .notNull()
+      .references(() => discoverySource.id, { onDelete: 'cascade' }),
+    /** Same generation token as `discovery_source.sync_started_at` for the claim. */
+    claimToken: timestamp('claim_token').notNull(),
+    stage: text('stage').$type<DiscoverySyncRunStage>().notNull().default('queued'),
+    inserted: integer('inserted').notNull().default(0),
+    refreshed: integer('refreshed').notNull().default(0),
+    evicted: integer('evicted').notNull().default(0),
+    skippedFilter: integer('skipped_filter').notNull().default(0),
+    queuedAt: timestamp('queued_at').notNull(),
+    startedAt: timestamp('started_at'),
+    finishedAt: timestamp('finished_at'),
+    errorSummary: text('error_summary'),
+    snapshotLastModified: text('snapshot_last_modified'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique('discovery_sync_run_source_claim_uidx').on(table.sourceId, table.claimToken),
+    check('discovery_sync_run_inserted_nonnegative_chk', sql`${table.inserted} >= 0`),
+    check('discovery_sync_run_refreshed_nonnegative_chk', sql`${table.refreshed} >= 0`),
+    check('discovery_sync_run_evicted_nonnegative_chk', sql`${table.evicted} >= 0`),
+    check('discovery_sync_run_skipped_filter_nonnegative_chk', sql`${table.skippedFilter} >= 0`),
+    check(
+      'discovery_sync_run_stage_check',
+      sql`${table.stage} in ('queued', 'downloading', 'processing', 'succeeded', 'not_modified', 'skipped', 'failed')`,
+    ),
+    index('discovery_sync_run_source_queued_idx').on(table.sourceId, table.queuedAt),
+  ],
+);
+
+/**
+ * Thin upstream catalog staging for a DiscoverySource (sync input, not Discover).
+ * Promote Top-N into `source_record`; never expose this table on public Discover APIs.
+ */
+export const discoveryCatalogEntry = pgTable(
+  'discovery_catalog_entry',
+  {
+    id: text('id').primaryKey(),
+    sourceId: text('source_id')
+      .notNull()
+      .references(() => discoverySource.id, { onDelete: 'cascade' }),
+    externalId: text('external_id').notNull(),
+    title: text('title').notNull().default(''),
+    authors: jsonb('authors').$type<SourceRecordAuthor[]>().notNull().default([]),
+    languages: text('languages')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** Ranking score; CSV v1 derives from Issued; later may overlay RDF downloads. */
+    popularityScore: integer('popularity_score').notNull().default(0),
+    /** Whether an EPUB candidate URL can be synthesized or was observed. */
+    hasEpub: boolean('has_epub').notNull().default(false),
+    /** Upstream release/issued date when known (`YYYY-MM-DD`). */
+    issuedAt: date('issued_at'),
+    coverUrl: text('cover_url'),
+    contentCandidates: jsonb('content_candidates').$type<SourceRecordContentCandidate[]>().notNull().default([]),
+    sourceMeta: jsonb('source_meta').$type<SourceRecordSourceMeta>().notNull().default({}),
+    lastSeenAt: timestamp('last_seen_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at')
+      .defaultNow()
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    unique('discovery_catalog_entry_source_external_uidx').on(table.sourceId, table.externalId),
+    check('discovery_catalog_entry_external_id_nonempty_chk', sql`length(${table.externalId}) > 0`),
+    check('discovery_catalog_entry_popularity_score_nonnegative_chk', sql`${table.popularityScore} >= 0`),
+    index('discovery_catalog_entry_source_popularity_idx').on(table.sourceId, table.popularityScore),
+    index('discovery_catalog_entry_source_last_seen_idx').on(table.sourceId, table.lastSeenAt),
   ],
 );
 
 export const discoverySourceRelations = relations(discoverySource, ({ many }) => ({
   records: many(sourceRecord),
+  syncRuns: many(discoverySyncRun),
+  catalogEntries: many(discoveryCatalogEntry),
+}));
+
+export const discoverySyncRunRelations = relations(discoverySyncRun, ({ one }) => ({
+  source: one(discoverySource, {
+    fields: [discoverySyncRun.sourceId],
+    references: [discoverySource.id],
+  }),
+}));
+
+export const discoveryCatalogEntryRelations = relations(discoveryCatalogEntry, ({ one }) => ({
+  source: one(discoverySource, {
+    fields: [discoveryCatalogEntry.sourceId],
+    references: [discoverySource.id],
+  }),
 }));
 
 export const sourceRecordRelations = relations(sourceRecord, ({ one }) => ({
