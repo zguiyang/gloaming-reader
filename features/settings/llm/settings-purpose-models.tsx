@@ -31,10 +31,17 @@ const PURPOSES: Array<{ key: AiSettingKey; labelKey: string }> = [
   { key: 'translate.default_model_id', labelKey: 'translate' },
 ];
 
-function modelOptionLabel(model: { label: string; modelId: string }, providerName: string): string {
-  return model.label !== model.modelId
-    ? `${model.label} · ${model.modelId} · ${providerName}`
-    : `${model.label} · ${providerName}`;
+function modelDisplayName(model: { label: string }, fallback = ''): string {
+  return model.label.trim() || fallback;
+}
+
+/** Closed trigger keeps provider context; list rows use the group header instead. */
+function selectedModelLabel(model: { label: string }, providerName: string): string {
+  const name = modelDisplayName(model, providerName);
+  if (!providerName || name === providerName) {
+    return name;
+  }
+  return `${name} · ${providerName}`;
 }
 
 export function SettingsPurposeModels({ enabled }: { enabled: boolean }) {
@@ -97,17 +104,17 @@ export function SettingsPurposeModels({ enabled }: { enabled: boolean }) {
             const selectedModel = models.find((model) => model.id === selected);
             const selectedProvider =
               selectedModel && providers.find((provider) => provider.id === selectedModel.providerId);
-            const selectedLabel = selectedModel
-              ? modelOptionLabel(selectedModel, selectedProvider?.name ?? '')
-              : isSavedUnavailable && purposeDraft[key] === undefined
-                ? t(locale, 'settings.ai.unavailablePickAgain')
-                : t(locale, 'settings.ai.notSet');
             const optionGroups = providers
               .map((provider) => ({
                 provider,
                 models: models.filter((model) => model.providerId === provider.id),
               }))
               .filter((group) => group.models.length > 0);
+            const selectedLabel = selectedModel
+              ? selectedModelLabel(selectedModel, selectedProvider?.name ?? '')
+              : isSavedUnavailable && purposeDraft[key] === undefined
+                ? t(locale, 'settings.ai.unavailablePickAgain')
+                : t(locale, 'settings.ai.notSet');
             const hasSaveError =
               settingMutation.isError &&
               settingMutation.variables?.key === key &&
@@ -139,10 +146,10 @@ export function SettingsPurposeModels({ enabled }: { enabled: boolean }) {
                     <SelectContent>
                       {optionGroups.map((group) => (
                         <SelectGroup key={group.provider.id}>
-                          {optionGroups.length > 1 ? <SelectLabel>{group.provider.name}</SelectLabel> : null}
+                          <SelectLabel>{group.provider.name}</SelectLabel>
                           {group.models.map((model) => (
                             <SelectItem key={model.id} value={model.id}>
-                              {modelOptionLabel(model, group.provider.name)}
+                              {modelDisplayName(model, group.provider.name)}
                             </SelectItem>
                           ))}
                         </SelectGroup>
