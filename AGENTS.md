@@ -120,6 +120,17 @@ Discover owners from current source at the repo root.
 - Report what changed and what was actually checked. Distinguish implementation,
   automated test results, runtime acceptance, and anything still unverified.
 
+## UI copy (mandatory)
+
+- **NEVER** restate a title as a subtitle, hint, or description. If a card,
+  section, dialog, or tab is already titled (e.g. “Voice settings”), forbid
+  synonymous filler below it (e.g. “Configure your voice options here”).
+- **NEVER** ship empty guidance: “Welcome to…”, “Adjust the parameters as
+  needed”, “Here you can manage…”, or any equivalent AI filler.
+- Helper / muted copy is allowed **only** for non-obvious constraints
+  (format, size, etc.), irreversible warnings, or live status. Otherwise:
+  title + controls only — no decorative prose.
+
 ## Project instructions
 
 Detailed project rules are maintained in the project-owned `rules/` directory.
@@ -131,8 +142,8 @@ Read only the rules relevant to the current task:
   (live product = repo root single package; legacy under `archive/`; Node host +
   optional Cloudflare DNS/CDN — not Workers runtime).
 - Backend services and APIs: [backend rules](rules/backend.md).
-- Web and UI: [frontend rules](rules/frontend.md) and, for UI work,
-  [DESIGN.md](DESIGN.md).
+- Web and UI: this file’s [UI copy (mandatory)](#ui-copy-mandatory) section,
+  [frontend rules](rules/frontend.md), and, for UI work, [DESIGN.md](DESIGN.md).
 - Shared contracts and i18n: [package rules](rules/packages.md)
   (`shared/`, `i18n/`, `server/db`).
 - Module ownership, public boundaries, or major structural changes:
