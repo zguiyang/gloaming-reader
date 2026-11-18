@@ -1,40 +1,44 @@
 import type { TtsVoiceRole } from '@/shared/tts';
 
 import type { TtsConfigRow } from '@/server/domains/provider-scope';
-import { resolveScopedTtsConfigRow, runtimeActorFromUserId } from '@/server/domains/provider-scope';
+import { resolveInstanceTtsConfigRow } from '@/server/domains/provider-scope';
 import { readerAudioScopeKey } from '@/server/domains/reader-audio/identity';
+import { loadUserTtsVoiceRow } from '@/server/domains/tts/config/user-service';
 import type { WorkReadActor } from '@/server/domains/works/access';
 
 export type ReaderAudioConfig = {
   row: TtsConfigRow;
-  /** `instance` or `user:<sha256-16>` — derived from the resolved row owner. */
+  /** Always instance scope — credentials never come from a user TTS row. */
   scopeKey: string;
   ownerUserId: string | null;
   voice: string;
 };
 
 /**
- * Resolve the TTS configuration this actor would be charged for: user-first,
- * then instance (the shared provider-scope policy). Unusable or disabled rows
- * resolve to null — the caller decides the API semantics (unconfigured vs 503).
+ * Instance TTS credentials + optional user voice overlay.
+ * Unusable/disabled instance config resolves to null.
  */
 export async function resolveReaderAudioConfig(
   actor: WorkReadActor,
   role: TtsVoiceRole,
 ): Promise<ReaderAudioConfig | null> {
-  const row = await resolveScopedTtsConfigRow(runtimeActorFromUserId(actor.userId ?? undefined));
-  if (!row) {
+  const instance = await resolveInstanceTtsConfigRow();
+  if (!instance) {
     return null;
   }
-  const voice = role === 'us' ? row.usVoice : row.ukVoice;
-  // A role without a usable voice is an unconfigured TTS — never call Azure with it.
+
+  const prefs = await loadUserTtsVoiceRow(actor.userId);
+  const usVoice = prefs?.usVoice?.trim() || instance.usVoice;
+  const ukVoice = prefs?.ukVoice?.trim() || instance.ukVoice;
+  const voice = role === 'us' ? usVoice : ukVoice;
   if (!voice || !voice.trim()) {
     return null;
   }
+
   return {
-    row,
-    scopeKey: readerAudioScopeKey(row.ownerUserId),
-    ownerUserId: row.ownerUserId,
+    row: instance,
+    scopeKey: readerAudioScopeKey(instance.ownerUserId),
+    ownerUserId: instance.ownerUserId,
     voice,
   };
 }

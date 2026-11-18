@@ -5,6 +5,7 @@ export { validateAzureWordTimings } from './azure-word-timing-validation.ts';
 export { filterPersistedWordTimings } from './persisted-word-timings.ts';
 export type {
   PutTtsConfigBody,
+  PutUserTtsVoicesBody,
   TestTtsBody,
   TestTtsResult,
   TtsCachePayload,
@@ -12,10 +13,12 @@ export type {
   TtsVoicePreset,
   TtsVoiceRole,
   TtsWordTiming,
+  UserTtsVoicesView,
 } from './tts.ts';
 export {
   DEFAULT_TTS_VOICES,
   putTtsConfigBodySchema,
+  putUserTtsVoicesBodySchema,
   testTtsBodySchema,
   testTtsResultSchema,
   TTS_CACHE_KEY_PREFIX_V1,
@@ -30,6 +33,7 @@ export {
   ttsVoicePresetSchema,
   ttsVoiceRoleValues,
   ttsWordTimingSchema,
+  userTtsVoicesSchema,
 } from './tts.ts';
 export type { TtsInputNormalization } from './tts-input-normalization.ts';
 export {

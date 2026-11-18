@@ -64,6 +64,24 @@ export const putTtsConfigBodySchema = z.object({
 
 export type PutTtsConfigBody = z.infer<typeof putTtsConfigBodySchema>;
 
+/** User reading-settings view: voice prefs only (instance owns TTS credentials). */
+export const userTtsVoicesSchema = z.object({
+  defaultVoice: z.string(),
+  usVoice: z.string(),
+  ukVoice: z.string(),
+  updatedAt: z.union([z.string(), z.date()]).nullable(),
+});
+
+export type UserTtsVoicesView = z.infer<typeof userTtsVoicesSchema>;
+
+export const putUserTtsVoicesBodySchema = z.object({
+  defaultVoice: z.string().trim().min(1).max(120),
+  usVoice: z.string().trim().min(1).max(120),
+  ukVoice: z.string().trim().min(1).max(120),
+});
+
+export type PutUserTtsVoicesBody = z.infer<typeof putUserTtsVoicesBodySchema>;
+
 export const testTtsBodySchema = z.object({
   text: z.string().trim().min(1).max(500),
   role: z.enum(ttsVoiceRoleValues).optional(),

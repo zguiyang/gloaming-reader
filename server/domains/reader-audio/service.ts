@@ -264,8 +264,7 @@ export type ReaderAudioStreamResult = {
 
 /**
  * Byte stream for one ready segment. Access is re-checked and the object-store
- * identity is rebuilt from this actor's own resolved configuration, so a user
- * BYOK segment can never be fetched by another user or anonymously.
+ * identity is rebuilt from this actor's resolved instance TTS configuration.
  */
 export async function streamReaderAudioSegment(
   actor: WorkReadActor,

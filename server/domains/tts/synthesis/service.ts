@@ -14,11 +14,7 @@ import {
   validateAzureWordTimings,
 } from '@/shared/tts';
 
-import {
-  resolveInstanceTtsConfigRow,
-  resolveScopedTtsConfigRow,
-  runtimeActorFromUserId,
-} from '@/server/domains/provider-scope';
+import { resolveInstanceTtsConfigRow } from '@/server/domains/provider-scope';
 import type { TtsConfigRow } from '@/server/domains/tts/config/store';
 import { getRedis } from '@/server/infra/cache';
 import { decryptApiKey } from '@/server/infra/llm';
@@ -59,14 +55,17 @@ function validateWordTimingsInTtsSpace(
   });
 }
 
-export type SynthesizeTtsOptions = {
+type SynthesizeTtsCoreOptions = {
   text: string;
   voice?: string;
   role?: TtsVoiceRole;
   source: string;
-  userId?: string;
   /** Skip Redis read/write (admin connectivity probe). */
   bypassCache?: boolean;
+};
+
+export type SynthesizeTtsOptions = SynthesizeTtsCoreOptions & {
+  userId: string;
 };
 
 export type SynthesizeTtsResult = {
@@ -207,7 +206,7 @@ async function writeTtsCache(
 
 /** Shared synthesis implementation after the caller selects its configuration scope. */
 async function synthesizeTtsWithConfig(
-  options: SynthesizeTtsOptions,
+  options: SynthesizeTtsCoreOptions,
   resolveConfig: () => Promise<TtsConfigRow | null>,
 ): Promise<SynthesizeTtsResult> {
   const row = await resolveConfig();
@@ -325,10 +324,10 @@ async function synthesizeTtsWithConfig(
 }
 
 export function synthesizeTts(options: SynthesizeTtsOptions): Promise<SynthesizeTtsResult> {
-  return synthesizeTtsWithConfig(options, () => resolveScopedTtsConfigRow(runtimeActorFromUserId(options.userId)));
+  // Instance credentials only; reader-audio overlays user voice prefs before calling.
+  return synthesizeTtsWithConfig(options, resolveInstanceTtsConfigRow);
 }
-
 /** Admin diagnostics must validate the Instance configuration, never an Admin's personal row. */
-export function synthesizeInstanceTts(options: Omit<SynthesizeTtsOptions, 'userId'>): Promise<SynthesizeTtsResult> {
+export function synthesizeInstanceTts(options: SynthesizeTtsCoreOptions): Promise<SynthesizeTtsResult> {
   return synthesizeTtsWithConfig(options, resolveInstanceTtsConfigRow);
 }

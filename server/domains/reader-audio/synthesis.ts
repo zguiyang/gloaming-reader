@@ -34,7 +34,7 @@ export type ReaderAudioSynthesisInput = {
   row: TtsConfigRow;
   voice: string;
   synthText: string;
-  userId?: string | null;
+  userId: string;
   workId?: string;
   partId: string;
   role: 'us' | 'uk';
@@ -62,7 +62,7 @@ export async function synthesizeReaderAudioSegment(
 
   const invocationBase = {
     source: SYNTHESIS_SOURCE,
-    userId: input.userId ?? null,
+    userId: input.userId,
     workId: input.workId ?? null,
     partId: input.partId,
     voice,

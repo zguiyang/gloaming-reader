@@ -104,9 +104,8 @@ export async function resolveUserOwnedAppSettingValue(key: AiSettingKey, userId:
 }
 
 /**
- * Resolve a purpose binding to instance-owned configuration only. Public
- * classification and public category label translation run on the instance
- * provider and must never fall back to a user's BYOK setting.
+ * Resolve a purpose binding to instance-owned configuration only.
+ * Instance-scoped jobs must never fall back to a user purpose binding.
  */
 export async function resolveInstanceAppSettingValue(key: AiSettingKey): Promise<string | null> {
   const rows = await db
@@ -127,16 +126,11 @@ export async function resolveInstanceAppSettingValue(key: AiSettingKey): Promise
 }
 
 /**
- * TTS config row for synthesis. Authenticated: usable user row, then usable instance row.
- * Anonymous: usable instance row only. Validation happens before any upstream call.
+ * TTS credentials for synthesis. Always the instance row — users only pick voices
+ * (overlaid in reader-audio); they no longer bring their own TTS keys.
  */
-export async function resolveScopedTtsConfigRow(actor: ProviderRuntimeActor): Promise<TtsConfigRow | null> {
-  const userRows =
-    actor.kind === 'authenticated'
-      ? await db.select().from(ttsConfigTable).where(eq(ttsConfigTable.ownerUserId, actor.userId)).limit(1)
-      : [];
-  const instanceRows = await db.select().from(ttsConfigTable).where(isNull(ttsConfigTable.ownerUserId)).limit(1);
-  return selectUsableTtsConfig(userRows[0] ?? null, instanceRows[0] ?? null);
+export async function resolveScopedTtsConfigRow(_actor: ProviderRuntimeActor): Promise<TtsConfigRow | null> {
+  return resolveInstanceTtsConfigRow();
 }
 
 /** Resolve only the Instance TTS configuration, independent of any authenticated actor. */
