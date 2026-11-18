@@ -35,7 +35,6 @@ export function SettingsTtsVoices({ voices }: { voices: UserTtsVoicesView }) {
     <section className="flex flex-col gap-5">
       <div>
         <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.tts.title')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'settings.tts.voicesDescription')}</p>
       </div>
       <form
         className="flex flex-col gap-4"

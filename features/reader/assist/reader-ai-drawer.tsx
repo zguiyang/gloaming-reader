@@ -100,9 +100,6 @@ function AiHistory({
             <p className="font-heading text-sm text-foreground/80">
               {t(locale, 'content.reader.assist.historyEmptyTitle')}
             </p>
-            <p className="mt-1 max-w-[220px] text-xs leading-relaxed text-muted-foreground">
-              {t(locale, 'content.reader.assist.historyEmptyHint')}
-            </p>
           </div>
         ) : null}
 

@@ -79,7 +79,6 @@ export function SettingsPurposeModels({ enabled }: { enabled: boolean }) {
     <section className="flex flex-col gap-4">
       <div>
         <h2 className="font-heading text-xl font-semibold">{t(locale, 'settings.ai.capabilities')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t(locale, 'settings.ai.capabilitiesDescription')}</p>
       </div>
 
       {isPending ? <p className="text-sm text-muted-foreground">{t(locale, 'settings.loading')}</p> : null}

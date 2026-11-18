@@ -81,8 +81,10 @@ export function LibraryUploadDialog({ open, onOpenChange }: LibraryUploadDialogP
             <DialogTitle className="font-heading text-xl font-semibold tracking-tight sm:text-2xl">
               {t(locale, 'content.library.uploadDialogTitle')}
             </DialogTitle>
-            <DialogDescription className="mt-1.5 text-sm text-muted-foreground">
-              {t(locale, 'content.library.uploadDialogDescription')}
+            <DialogDescription className="sr-only">
+              {t(locale, 'content.library.dropzoneLimit', {
+                size: formatFileSize(EPUB_UPLOAD_MAX_BYTES, locale),
+              })}
             </DialogDescription>
           </div>
           <DialogClose

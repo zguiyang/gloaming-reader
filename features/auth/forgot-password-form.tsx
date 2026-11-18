@@ -88,12 +88,7 @@ export function ForgotPasswordForm({ embedded = false, onSwitchMode }: ForgotPas
 
   return (
     <>
-      {!embedded ? (
-        <AuthIntro
-          title={t(locale, 'auth.forgotPassword.title')}
-          description={t(locale, 'auth.forgotPassword.description')}
-        />
-      ) : null}
+      {!embedded ? <AuthIntro title={t(locale, 'auth.forgotPassword.title')} /> : null}
 
       <AuthPanel variant={embedded ? 'plain' : 'card'}>
         <form
