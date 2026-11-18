@@ -1,4 +1,4 @@
 export { LibraryPage } from './library-page';
 export { LibraryTagsPage } from './library-tags-page';
-/** Public upload entry shared by app navigation and the Library empty state. */
+/** Nav-bar upload entry (dialog). Library empty state uploads in place without a dialog. */
 export { LibraryUploadDialog } from './library-upload-dialog';

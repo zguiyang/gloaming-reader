@@ -23,7 +23,6 @@ import { cn } from '@/lib/utils';
 type LibraryUploadDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialFile?: File | null;
 };
 
 function formatFileSize(size: number, locale: string) {
@@ -33,11 +32,11 @@ function formatFileSize(size: number, locale: string) {
   return `${size} B`;
 }
 
-export function LibraryUploadDialog({ open, onOpenChange, initialFile }: LibraryUploadDialogProps) {
+export function LibraryUploadDialog({ open, onOpenChange }: LibraryUploadDialogProps) {
   const { locale } = useLocale();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(initialFile ?? null);
+  const [file, setFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<'format' | 'size' | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const uploadMutation = useMutation({
