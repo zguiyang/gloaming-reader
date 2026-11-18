@@ -1,7 +1,6 @@
-import { and, asc, count, desc, eq, ilike, notExists, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, type SQL } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@/server/db';
-import { sourceRecord as sourceRecordTable } from '@/server/db/schema';
 import { buildPaginationMeta } from '@/shared/pagination';
 import { type CatalogListData, type CatalogListQuery, type Work } from '@/shared/works';
 
@@ -22,22 +21,10 @@ function catalogPublishedWorkFilter(id?: string): SQL {
   return and(...(id ? [eq(readingWorkTable.id, id)] : []), publicCatalogWorkSql())!;
 }
 
-function publishedListWhere(query: Pick<CatalogListQuery, 'q' | 'sourceLink'>): SQL {
+function publishedListWhere(query: Pick<CatalogListQuery, 'q'>): SQL {
   const parts: SQL[] = [catalogPublishedWorkFilter()];
   if (query.q) {
     parts.push(ilike(readingWorkTable.title, `%${escapeIlikePattern(query.q)}%`));
-  }
-  // Compatibility read for Discover: a Work linked to a SourceRecord is already
-  // represented by that SourceRecord, so it must not render twice.
-  if (query.sourceLink === 'unlinked') {
-    parts.push(
-      notExists(
-        db
-          .select({ id: sourceRecordTable.id })
-          .from(sourceRecordTable)
-          .where(eq(sourceRecordTable.workId, readingWorkTable.id)),
-      ),
-    );
   }
   return and(...parts)!;
 }
@@ -99,19 +86,5 @@ export async function getCatalogWork(actor: WorkReadActor, id: string): Promise<
     throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
   }
   const hydrated = await ensureWorkReadingStatsIfMissing(row);
-  const [source] = await db
-    .select({ meta: sourceRecordTable.sourceMeta, description: sourceRecordTable.description })
-    .from(sourceRecordTable)
-    .where(eq(sourceRecordTable.workId, id))
-    .limit(1);
-  return {
-    ...toWork(hydrated),
-    ...(source
-      ? {
-          sourceSummary:
-            source.meta.summary ?? (hydrated.description !== source.description ? hydrated.description || null : null),
-          sourceNotes: source.meta.notes ?? (source.description ? [source.description] : []),
-        }
-      : {}),
-  };
+  return toWork(hydrated);
 }

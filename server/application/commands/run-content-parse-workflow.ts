@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 
 import { readingPart as readingPartTable, readingWork as readingWorkTable } from '@/server/db';
-import { sourceRecord as sourceRecordTable, type SourceRecordMaterializationStatus } from '@/server/db/schema';
 
 import { cleanBookTitle, cleanDescription, joinAuthors } from '@/server/domains/ingest/epub';
 import {
@@ -23,18 +22,6 @@ import { db } from '@/server/infra/db';
 import { createLogger } from '@/server/infra/logging/logger';
 
 const workflowLogger = createLogger('ContentParseWorkflow');
-
-/**
- * Mirror the parse lifecycle onto the SourceRecord linked to this Work.
- * Only catalog Works created by discovery materialization are linked; an unlinked
- * Work (e.g. Personal upload) updates zero rows and is otherwise unaffected.
- */
-async function syncLinkedSourceRecordMaterialization(
-  workId: string,
-  status: SourceRecordMaterializationStatus,
-): Promise<void> {
-  await db.update(sourceRecordTable).set({ materializationStatus: status }).where(eq(sourceRecordTable.workId, workId));
-}
 
 async function ensureRetryJobToken(
   workId: string,
@@ -213,9 +200,6 @@ export async function runContentParseWorkflow(
     if (!(await finalizeContentParseWorkflow(persisted, jobToken, attemptToken))) {
       return false;
     }
-    if (!persisted.isPersonalWork) {
-      await syncLinkedSourceRecordMaterialization(workId, 'ready');
-    }
     return true;
   } catch (error) {
     if (error instanceof ParseWorkflowLeaseLostError || lease.isLeaseLost()) {
@@ -223,9 +207,7 @@ export async function runContentParseWorkflow(
     }
     // Only the accepted owner records the failure; a losing stale attempt must not
     // clobber a newer successful or in-flight parse.
-    if (await failWorkflowStep(workId, 'parse', jobToken, attemptToken, error)) {
-      await syncLinkedSourceRecordMaterialization(workId, 'failed');
-    }
+    await failWorkflowStep(workId, 'parse', jobToken, attemptToken, error);
     throw error;
   } finally {
     lease.stopHeartbeat();

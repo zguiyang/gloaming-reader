@@ -20,7 +20,7 @@ const STALLED_PARSE_SCAN_LIMIT = 20;
  *
  * Works left in `uploaded` (post-create enqueue never reserved, or the lease
  * expired without a live job — including personal EPUB uploads) are recovered
- * the same way Discover's `resolveLinkedWork` re-enqueues `uploaded`.
+ * the same way.
  */
 const STALLED_PARSE_MAX_RECOVERIES = 3;
 
@@ -158,11 +158,10 @@ export async function recoverStalledContentParses(now = new Date()): Promise<num
     if (!retryJobToken) {
       continue;
     }
-    const lane = row.originKind === 'user_epub' ? 'default' : 'discovery';
     const currentStatus = row.processingStatus === 'uploaded' ? ('uploaded' as const) : ('processing' as const);
     try {
       // Still queued (backlog, delayed retry, or live in another worker): leave it alone.
-      if (await hasLiveJob(lane, contentParseJobId(row.id, retryJobToken))) {
+      if (await hasLiveJob(contentParseJobId(row.id, retryJobToken))) {
         continue;
       }
     } catch (error) {
@@ -182,7 +181,6 @@ export async function recoverStalledContentParses(now = new Date()): Promise<num
         workId: row.id,
         retryJobToken,
         currentStatus,
-        ...(lane === 'discovery' ? { processingLane: 'discovery' as const } : {}),
       });
     } catch (error) {
       // A lost reservation race means another sweep already re-dispatched it.

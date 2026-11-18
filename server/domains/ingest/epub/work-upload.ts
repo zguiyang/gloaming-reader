@@ -4,7 +4,7 @@ import { contentAsset as contentAssetTable, readingWork as readingWorkTable } fr
 import type { WorkProcessingStatus, WorkVisibility } from '@/shared/works';
 import { EPUB_UPLOAD_MAX_BYTES } from '@/shared/works';
 
-import { type ContentParseLane, JOB_CONTENT_PARSE } from '@/jobs/content-parse';
+import { JOB_CONTENT_PARSE } from '@/jobs/content-parse';
 import {
   acquireUploadedObject,
   isZipFile,
@@ -15,7 +15,7 @@ import {
 import { failWorkflowEnqueue, prepareWorkflowEnqueue } from '@/server/domains/works/lifecycle/workflow';
 import { db } from '@/server/infra/db';
 import { createLogger } from '@/server/infra/logging/logger';
-import { enqueue, enqueueDiscoveryImport } from '@/server/infra/queue';
+import { enqueue } from '@/server/infra/queue';
 import { AppError } from '@/server/shared/errors/app-error';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
 
@@ -170,7 +170,6 @@ export async function enqueueCoreEpubParse(input: {
   workId: string;
   retryJobToken: string;
   currentStatus: WorkProcessingStatus;
-  processingLane?: ContentParseLane;
 }): Promise<void> {
   const enqueueAttemptToken = randomUUID();
   if (
@@ -184,15 +183,12 @@ export async function enqueueCoreEpubParse(input: {
   ) {
     throw new AppError(500, ERROR_CODES.WORK.RESERVE_PARSE_FAILED);
   }
-  const discoveryLane = input.processingLane === 'discovery';
-  const enqueueJob = discoveryLane ? enqueueDiscoveryImport : enqueue;
   const data = {
     workId: input.workId,
     retryJobToken: input.retryJobToken,
-    ...(discoveryLane ? { processingLane: 'discovery' as const } : {}),
   };
   try {
-    await enqueueJob(JOB_CONTENT_PARSE, data, {
+    await enqueue(JOB_CONTENT_PARSE, data, {
       attempts: 2,
       jobId: contentParseJobId(input.workId, input.retryJobToken),
       // The job id is stable across retries (the token is persisted, not rotated),

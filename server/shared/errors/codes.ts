@@ -21,7 +21,6 @@ export const ERROR_CODES = {
     CLEANUP_JOB: 'api.errors.notFound.cleanupJob',
     WORD_DEFINITION: 'api.errors.notFound.wordDefinition',
     USER_TAG: 'api.errors.notFound.userTag',
-    SOURCE_RECORD: 'api.errors.notFound.sourceRecord',
     ASSET: 'api.errors.notFound.asset',
   },
 
@@ -137,12 +136,6 @@ export const ERROR_CODES = {
 
   LIBRARY: {
     USER_TAG_NAME_EXISTS: 'api.errors.library.userTagNameExists',
-    SOURCE_RECORD_NO_EPUB_CANDIDATE: 'api.errors.library.sourceRecordNoEpubCandidate',
-  },
-
-  DISCOVERY: {
-    /** Upstream source (e.g. Project Gutenberg OPDS) failed or did not answer. */
-    SOURCE_UNAVAILABLE: 'api.errors.discovery.sourceUnavailable',
   },
 } as const;
 

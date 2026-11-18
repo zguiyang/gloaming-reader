@@ -6,46 +6,17 @@ import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from
 import type { PingJobData } from '@/jobs/ping';
 import { JOB_PING, processPing } from '@/jobs/ping';
 import {
-  JOB_SOURCE_METADATA_ENRICH,
-  processSourceMetadataEnrich,
-  type SourceMetadataEnrichJobData,
-} from '@/jobs/source-metadata-enrich';
-import {
-  JOB_SOURCE_RECORD_MATERIALIZE,
-  processSourceRecordMaterialize,
-  type SourceRecordMaterializeJobData,
-} from '@/jobs/source-record-materialize';
-import { type DiscoverySyncJobData, JOB_DISCOVERY_SYNC, processDiscoverySync } from '@/jobs/discovery-sync';
-import {
   JOB_WORK_COVER_REFRESH,
   processWorkCoverRefresh,
   type WorkCoverRefreshJobData,
 } from '@/jobs/work-cover-refresh';
 import { recoverStalledContentParses } from '@/server/application/commands/recover-stalled-content-parses';
-import { recoverStaleSaveIntents } from '@/server/domains/library/save-intent';
 import { commonEnv } from '@/server/infra/config/env-common';
 import { workerLogger } from '@/server/infra/logging/logger';
 import { reportRuntimeBoot } from '@/server/infra/logging/runtime-boot';
-import {
-  CLEANUP_QUEUE_NAME,
-  closeQueue,
-  DISCOVERY_IMPORT_QUEUE_NAME,
-  DISCOVERY_SYNC_QUEUE_NAME,
-  getQueueConnection,
-  QUEUE_NAME,
-  upsertProjectGutenbergDiscoverySyncScheduler,
-} from '@/server/infra/queue';
+import { CLEANUP_QUEUE_NAME, closeQueue, getQueueConnection, QUEUE_NAME } from '@/server/infra/queue';
 
 export const CLEANUP_WORKER_CONCURRENCY = 1;
-export const DISCOVERY_SYNC_WORKER_CONCURRENCY = 1;
-
-export const DISCOVERY_IMPORT_ONLY_FLAG = '--discovery-import-only';
-
-export type WorkerMode = 'full' | 'discovery-import-only';
-
-export function resolveWorkerMode(argv: readonly string[] = process.argv): WorkerMode {
-  return argv.includes(DISCOVERY_IMPORT_ONLY_FLAG) ? 'discovery-import-only' : 'full';
-}
 
 export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
   switch (job.name) {
@@ -53,10 +24,6 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
       return processPing(job.data as PingJobData);
     case JOB_CONTENT_PARSE:
       return processContentParse(job.data as ContentParseJobData);
-    case JOB_SOURCE_METADATA_ENRICH:
-      return processSourceMetadataEnrich(job.data as SourceMetadataEnrichJobData);
-    case JOB_SOURCE_RECORD_MATERIALIZE:
-      return processSourceRecordMaterialize(job.data as SourceRecordMaterializeJobData);
     case JOB_WORK_COVER_REFRESH:
       return processWorkCoverRefresh(job.data as WorkCoverRefreshJobData);
     default:
@@ -69,20 +36,6 @@ export async function processCleanupJob(job: Pick<Job, 'name' | 'data'>): Promis
     throw new Error(`Unknown cleanup job name: ${job.name}`);
   }
   return processAssetCleanup(job.data as { jobId: string; scanId: string });
-}
-
-export async function processDiscoveryImportJob(job: Pick<Job, 'name' | 'data'>): Promise<unknown> {
-  if (job.name === JOB_SOURCE_RECORD_MATERIALIZE) {
-    return processSourceRecordMaterialize(job.data as SourceRecordMaterializeJobData);
-  }
-  if (job.name === JOB_CONTENT_PARSE) {
-    const data = job.data as ContentParseJobData;
-    if (data.processingLane !== 'discovery') {
-      throw new Error('Discovery import content-parse job is missing its discovery processing lane');
-    }
-    return processContentParse(data);
-  }
-  throw new Error(`Unknown discovery import job: ${job.name}`);
 }
 
 function attachWorkerEvents(worker: Worker, queue: string): void {
@@ -100,57 +53,8 @@ function attachWorkerEvents(worker: Worker, queue: string): void {
   });
 }
 
-export async function processDiscoverySyncJob(job: Pick<Job, 'name' | 'data' | 'id'>): Promise<unknown> {
-  if (job.name !== JOB_DISCOVERY_SYNC) {
-    throw new Error(`Unknown discovery sync job: ${job.name}`);
-  }
-  const startedAt = Date.now();
-  workerLogger.info({ jobId: job.id, data: job.data }, 'Discovery sync processor entered');
-  try {
-    const result = await processDiscoverySync(job.data as DiscoverySyncJobData);
-    workerLogger.info(
-      { jobId: job.id, result, elapsedMs: Date.now() - startedAt },
-      'Discovery sync processor finished',
-    );
-    return result;
-  } catch (error) {
-    workerLogger.error(
-      { err: error, jobId: job.id, elapsedMs: Date.now() - startedAt },
-      'Discovery sync processor threw',
-    );
-    throw error;
-  }
-}
-
-export function createWorkers(
-  mode: WorkerMode = 'full',
-  options: {
-    discoveryImportQueueName?: string;
-    discoverySyncQueueName?: string;
-  } = {},
-): {
-  worker?: Worker;
-  cleanupWorker?: Worker;
-  discoveryImportWorker?: Worker;
-  discoverySyncWorker?: Worker;
-} {
+export function createWorkers(): { worker: Worker; cleanupWorker: Worker } {
   const connection = getQueueConnection();
-  const discoveryImportQueueName = options.discoveryImportQueueName ?? DISCOVERY_IMPORT_QUEUE_NAME;
-  const discoverySyncQueueName = options.discoverySyncQueueName ?? DISCOVERY_SYNC_QUEUE_NAME;
-
-  const createDiscoveryImportWorker = () => {
-    const discoveryImportWorker = new BullWorker(
-      discoveryImportQueueName,
-      async (job) => processDiscoveryImportJob(job),
-      { connection },
-    );
-    attachWorkerEvents(discoveryImportWorker, discoveryImportQueueName);
-    return discoveryImportWorker;
-  };
-
-  if (mode === 'discovery-import-only') {
-    return { discoveryImportWorker: createDiscoveryImportWorker() };
-  }
 
   const worker = new BullWorker(QUEUE_NAME, async (job) => processJob(job), {
     connection,
@@ -163,52 +67,17 @@ export function createWorkers(
   attachWorkerEvents(worker, QUEUE_NAME);
   attachWorkerEvents(cleanupWorker, CLEANUP_QUEUE_NAME);
 
-  const discoveryImportWorker = createDiscoveryImportWorker();
-
-  const discoverySyncWorker = new BullWorker(discoverySyncQueueName, async (job) => processDiscoverySyncJob(job), {
-    connection,
-    concurrency: DISCOVERY_SYNC_WORKER_CONCURRENCY,
-  });
-  attachWorkerEvents(discoverySyncWorker, discoverySyncQueueName);
-
-  return { worker, cleanupWorker, discoveryImportWorker, discoverySyncWorker };
+  return { worker, cleanupWorker };
 }
 
 async function main(): Promise<void> {
   await reportRuntimeBoot('jobs');
-  const mode = resolveWorkerMode();
-  const { worker, cleanupWorker, discoveryImportWorker, discoverySyncWorker } = createWorkers(mode);
-  if (mode === 'discovery-import-only') {
-    workerLogger.info({ queue: DISCOVERY_IMPORT_QUEUE_NAME, mode }, 'Worker listening');
-    let shuttingDown = false;
-    const shutdown = async (signal: string) => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      workerLogger.info({ signal }, 'Worker shutting down');
-      await discoveryImportWorker?.close();
-      await closeQueue();
-      process.exit(0);
-    };
-    process.on('SIGINT', () => void shutdown('SIGINT'));
-    process.on('SIGTERM', () => void shutdown('SIGTERM'));
-    return;
-  }
-
-  try {
-    await upsertProjectGutenbergDiscoverySyncScheduler();
-  } catch (error) {
-    workerLogger.warn({ err: error }, 'Failed to register discovery catalog sync scheduler');
-  }
+  const { worker, cleanupWorker } = createWorkers();
 
   let dispatcherRunning = false;
   const dispatch = async () => {
     if (dispatcherRunning) return;
     dispatcherRunning = true;
-    try {
-      await recoverStaleSaveIntents();
-    } catch (error) {
-      workerLogger.warn({ err: error }, 'Save intent recovery pass failed');
-    }
     try {
       await recoverStalledContentParses();
     } catch (error) {
@@ -224,11 +93,8 @@ async function main(): Promise<void> {
   workerLogger.info(
     {
       queue: QUEUE_NAME,
-      discoverySyncQueue: DISCOVERY_SYNC_QUEUE_NAME,
-      discoveryImportQueue: DISCOVERY_IMPORT_QUEUE_NAME,
       cleanupQueue: CLEANUP_QUEUE_NAME,
       nodeEnv: commonEnv.NODE_ENV,
-      mode,
     },
     'Worker listening',
   );
@@ -241,11 +107,7 @@ async function main(): Promise<void> {
     shuttingDown = true;
     clearInterval(dispatchTimer);
     workerLogger.info({ signal }, 'Worker shutting down');
-    await Promise.all(
-      [worker, cleanupWorker, discoveryImportWorker, discoverySyncWorker]
-        .filter((created): created is Worker => created !== undefined)
-        .map((created) => created.close()),
-    );
+    await Promise.all([worker.close(), cleanupWorker.close()]);
     await closeQueue();
     process.exit(0);
   };

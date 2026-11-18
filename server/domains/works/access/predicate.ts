@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, isNull, or, type SQL, sql } from 'drizzle-orm';
 
 import { readingWork as readingWorkTable } from '@/server/db';
-import { sourceRecord as sourceRecordTable, userLibraryItem as userLibraryItemTable } from '@/server/db/schema';
+import { userLibraryItem as userLibraryItemTable } from '@/server/db/schema';
 
 import type { WorkReadActor } from '@/server/domains/works/access/actor';
 
@@ -25,22 +25,9 @@ export function publicCatalogWorkSql(): SQL {
   )!;
 }
 
-/**
- * An unpublished, ownerless, catalog-visible Work that is linked from a
- * `source_record`. Only this class of Work is readable through a Library
- * membership: a membership must never unlock another user's Personal Work, an
- * unlinked Work, or a private Work.
- */
-function membershipSourceWorkSql(): SQL {
-  return and(
-    isNull(readingWorkTable.ownerUserId),
-    eq(readingWorkTable.visibility, 'catalog'),
-    isNull(readingWorkTable.publishedAt),
-    sql`exists (
-      select 1 from ${sourceRecordTable}
-      where ${sourceRecordTable.workId} = ${readingWorkTable.id}
-    )`,
-  )!;
+/** Ownerless catalog Work (published or not) — readable via the actor's own membership. */
+function membershipCatalogWorkSql(): SQL {
+  return and(isNull(readingWorkTable.ownerUserId), eq(readingWorkTable.visibility, 'catalog'))!;
 }
 
 /** This actor's own Library membership for the Work. */
@@ -53,22 +40,20 @@ function ownMembershipSql(userId: string): SQL {
 }
 
 /**
- * The single central Work Access Policy shared by Reader parts, the asset
- * gateway, reading history, catalog detail, and conversation subjects:
+ * Central Work Access Policy:
  *
  * - Personal Work: readable only by its `owner_user_id`.
  * - Published ownerless Catalog Work: publicly readable.
- * - Unpublished ownerless Source-materialized Work: readable only through this
- *   actor's own `user_library_item` membership.
+ * - Other ownerless Catalog Works: readable only through this actor's own
+ *   `user_library_item` membership (legacy saved catalog works in the library).
  *
- * Exactly `owner OR published public Catalog OR (own membership AND unpublished
- * linked Source Work)`. The Admin role never grants content access by itself.
+ * The Admin role never grants content access by itself.
  */
 export function workReadAccessSql(actor: WorkReadActor): SQL | undefined {
   const parts: SQL[] = [publicCatalogWorkSql()];
   if (actor.userId) {
     parts.push(eq(readingWorkTable.ownerUserId, actor.userId));
-    parts.push(and(ownMembershipSql(actor.userId), membershipSourceWorkSql())!);
+    parts.push(and(ownMembershipSql(actor.userId), membershipCatalogWorkSql())!);
   }
   return or(...parts)!;
 }
