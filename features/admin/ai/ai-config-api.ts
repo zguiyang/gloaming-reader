@@ -1,20 +1,16 @@
 import { z } from 'zod';
 
-import type { AiSettingKey } from '@/shared/llm';
 import {
   type CreateLlmModelBody,
   type CreateLlmProviderBody,
   type FetchProviderModelsResult,
   fetchProviderModelsResultSchema,
-  llmAppSettingSchema,
-  type LlmAppSettingView,
   type LlmModel,
   llmModelSchema,
   type LlmProvider,
   llmProviderSchema,
   type ProviderBalanceResult,
   providerBalanceResultSchema,
-  type PutLlmAppSettingBody,
   type TestLlmProviderBody,
   type TestLlmProviderResult,
   testLlmProviderResultSchema,
@@ -26,13 +22,11 @@ import { apiRequest, formatApiError } from '@/lib/api-request';
 
 const llmProviderListSchema = z.array(llmProviderSchema);
 const llmModelListSchema = z.array(llmModelSchema);
-const llmAppSettingListSchema = z.array(llmAppSettingSchema);
 
 export const adminLlmQueryKey = {
   all: ['admin-llm'] as const,
   providers: () => [...adminLlmQueryKey.all, 'providers'] as const,
   models: () => [...adminLlmQueryKey.all, 'models'] as const,
-  settings: () => [...adminLlmQueryKey.all, 'settings'] as const,
   wireRegistry: () => [...adminLlmQueryKey.all, 'wire-registry'] as const,
 };
 
@@ -123,21 +117,6 @@ export async function deleteLlmModel(id: string): Promise<void> {
   await apiRequest(`/api/admin/llm/models/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     schema: z.void(),
-  });
-}
-
-export async function listLlmSettings(init?: { signal?: AbortSignal }): Promise<LlmAppSettingView[]> {
-  return apiRequest('/api/admin/llm/settings', {
-    schema: llmAppSettingListSchema,
-    signal: init?.signal,
-  });
-}
-
-export async function putLlmSetting(key: AiSettingKey, input: PutLlmAppSettingBody): Promise<LlmAppSettingView> {
-  return apiRequest(`/api/admin/llm/settings/${encodeURIComponent(key)}`, {
-    method: 'PUT',
-    schema: llmAppSettingSchema,
-    json: input,
   });
 }
 

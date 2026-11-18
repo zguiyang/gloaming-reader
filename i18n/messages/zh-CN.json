@@ -72,9 +72,9 @@
         "assist": "阅读辅助",
         "translate": "翻译"
       },
-      "notSet": "未设置（使用实例默认）",
+      "notSet": "未设置",
       "unavailablePickAgain": "原先选择的模型已不可用，请从列表中重新选择。",
-      "defaultOnUnset": "未设置的能力会使用实例默认模型；已保存的模型只能更换，无法清除。",
+      "defaultOnUnset": "请为每项能力选择模型；已保存的模型只能更换，无法清除。",
       "noInstanceModels": "当前还没有可用的实例模型，请先在实例配置中接入 AI 服务商。",
       "purposeSaveFailed": "保存失败，草稿已保留，请重试"
     },
@@ -391,16 +391,11 @@
     "config": {
       "tabAi": "AI",
       "tabTts": "语音",
-      "tabDictionary": "词典",
-      "subAi": "AI 配置",
-      "subTts": "语音",
-      "subDictionary": "词典",
-      "subnavAria": "配置分区"
+      "tabDictionary": "词典"
     },
     "ai": {
-      "title": "AI 配置",
-      "tabPurposes": "用途绑定",
-      "tabProviders": "服务商与模型",
+      "title": "AI 提供商",
+      "subtitle": "接入服务商并启用模型。具体用哪个模型由读者在阅读设置中选择。",
       "toast": {
         "providerAdded": "已添加服务商",
         "providerSaved": "已保存服务商",
@@ -408,12 +403,8 @@
         "modelSaved": "已保存模型",
         "providerDeleted": "已删除服务商",
         "modelDeleted": "已删除模型",
-        "purposeSaved": "已保存用途默认模型",
         "testComplete": "连通测试完成",
         "balanceUpdated": "余额已更新"
-      },
-      "errors": {
-        "selectModelFirst": "请先选择模型"
       },
       "test": {
         "success": "连通成功 · {modelLabel} · {latencyMs} ms"
@@ -421,25 +412,9 @@
       "delete": {
         "providerTitle": "删除服务商？",
         "modelTitle": "删除模型？",
-        "providerDescription": "将同时移除「{name}」下的全部模型。若仍被用途引用则无法删除。",
-        "modelDescription": "将移除模型「{label}」。若仍被用途引用则无法删除。",
+        "providerDescription": "将同时移除「{name}」下的全部模型。若仍被阅读设置引用则无法删除。",
+        "modelDescription": "将移除模型「{label}」。若仍被阅读设置引用则无法删除。",
         "confirm": "确认删除"
-      },
-      "purpose": {
-        "assist": "阅读助手",
-        "translate": "双语翻译",
-        "notConfigured": "未配置",
-        "modelDeleted": "模型已删除",
-        "modelDisabled": "模型已停用",
-        "providerDisabled": "服务商已停用",
-        "runtimeNotSupported": "运行时尚未支持",
-        "bindingNotRunnable": "当前绑定不可运行",
-        "unknownProvider": "未知服务商",
-        "currentBindingUnavailable": "当前绑定（不可用）",
-        "noBindableModels": "暂无可绑定模型",
-        "searchOrSelectModel": "搜索或选择模型",
-        "noMatchingModels": "没有匹配的模型",
-        "notSetRow": "未设置"
       },
       "provider": {
         "filterAll": "全部",

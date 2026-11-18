@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@/i18n';
-import type { AiSettingKey, LlmApiFamily, LlmModel, LlmProvider, ProviderBalanceResult } from '@/shared/llm';
+import type { LlmApiFamily, LlmModel, LlmProvider, ProviderBalanceResult } from '@/shared/llm';
 
 import {
   AlertDialog,
@@ -18,8 +18,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { AdminSegmentedTabsList, AdminSegmentedTabsTrigger } from '@/features/admin/admin-segmented-tabs';
 import {
   adminLlmQueryKey,
   createLlmModel,
@@ -29,8 +27,6 @@ import {
   formatAdminLlmApiError,
   listLlmModels,
   listLlmProviders,
-  listLlmSettings,
-  putLlmSetting,
   queryLlmProviderBalance,
   testLlmProvider,
   updateLlmModel,
@@ -39,7 +35,6 @@ import {
 import type { ModelFormValues } from '@/features/admin/ai/ai-model-form';
 import type { ProviderFormValues } from '@/features/admin/ai/ai-provider-form';
 import { AiProviderWorkspace, type ProviderTestResult } from '@/features/admin/ai/ai-provider-workspace';
-import { AiPurposePanel } from '@/features/admin/ai/ai-purpose-panel';
 import { useLocale } from '@/lib/locale-context';
 
 type DeleteTarget = { kind: 'provider'; provider: LlmProvider } | { kind: 'model'; model: LlmModel } | null;
@@ -53,10 +48,10 @@ function parseOptionalNumber(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/** Instance AI provider + model management. Purpose→model binding lives in reading settings. */
 export function AiConfigPage() {
   const { locale } = useLocale();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'purposes' | 'providers'>('purposes');
 
   const providersQuery = useQuery({
     queryKey: adminLlmQueryKey.providers(),
@@ -66,19 +61,13 @@ export function AiConfigPage() {
     queryKey: adminLlmQueryKey.models(),
     queryFn: ({ signal }) => listLlmModels(undefined, { signal }),
   });
-  const settingsQuery = useQuery({
-    queryKey: adminLlmQueryKey.settings(),
-    queryFn: ({ signal }) => listLlmSettings({ signal }),
-  });
 
   const providers = providersQuery.data ?? [];
   const models = modelsQuery.data ?? [];
-  const settings = settingsQuery.data ?? [];
 
-  const isPending = providersQuery.isPending || modelsQuery.isPending || settingsQuery.isPending;
-  const loadError = providersQuery.error ?? modelsQuery.error ?? settingsQuery.error;
+  const isPending = providersQuery.isPending || modelsQuery.isPending;
+  const loadError = providersQuery.error ?? modelsQuery.error;
 
-  const [purposeDraft, setPurposeDraft] = useState<Partial<Record<AiSettingKey, string>>>({});
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [testingProviderId, setTestingProviderId] = useState<string | null>(null);
   const [togglingProviderId, setTogglingProviderId] = useState<string | null>(null);
@@ -230,28 +219,6 @@ export function AiConfigPage() {
     },
   });
 
-  const purposeMutation = useMutation({
-    mutationFn: async (key: AiSettingKey) => {
-      const modelId = purposeDraft[key];
-      if (!modelId) {
-        throw new Error(t(locale, 'admin.ai.errors.selectModelFirst'));
-      }
-      return putLlmSetting(key, { modelId });
-    },
-    onSuccess: async (_setting, key) => {
-      await invalidateLlmQueries();
-      setPurposeDraft((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-      toast.success(t(locale, 'admin.ai.toast.purposeSaved'));
-    },
-    onError: (error) => {
-      toast.error(formatAdminLlmApiError(error));
-    },
-  });
-
   const testMutation = useMutation({
     mutationFn: async (provider: LlmProvider) => {
       setTestingProviderId(provider.id);
@@ -309,78 +276,53 @@ export function AiConfigPage() {
   });
 
   return (
-    <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-700 max-w-6xl">
+    <div>
       <div className="min-w-0">
         <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.ai.title')}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t(locale, 'admin.ai.subtitle')}</p>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as 'purposes' | 'providers')}
-        className="mt-8"
-      >
-        <AdminSegmentedTabsList>
-          <AdminSegmentedTabsTrigger value="purposes">{t(locale, 'admin.ai.tabPurposes')}</AdminSegmentedTabsTrigger>
-          <AdminSegmentedTabsTrigger value="providers">{t(locale, 'admin.ai.tabProviders')}</AdminSegmentedTabsTrigger>
-        </AdminSegmentedTabsList>
-
-        <TabsContent value={activeTab} className="mt-8">
-          {isPending ? (
-            <>
-              <Skeleton className="h-40 w-full rounded-2xl bg-muted/70" />
-              <Skeleton className="mt-6 h-72 w-full rounded-2xl bg-muted/70" />
-            </>
-          ) : loadError ? (
-            <p className="rounded-2xl border border-border bg-secondary/60 px-5 py-8 text-sm text-destructive md:px-6">
-              {formatAdminLlmApiError(loadError)}
-            </p>
-          ) : activeTab === 'purposes' ? (
-            <AiPurposePanel
-              settings={settings}
-              providers={providers}
-              models={models}
-              draftByKey={purposeDraft}
-              onDraftChange={(key, modelId) =>
-                setPurposeDraft((prev) => ({
-                  ...prev,
-                  [key]: modelId,
-                }))
-              }
-              onSave={(key) => purposeMutation.mutate(key)}
-              savingKey={purposeMutation.isPending ? (purposeMutation.variables ?? null) : null}
-            />
-          ) : (
-            <AiProviderWorkspace
-              providers={providers}
-              models={models}
-              onCreateProvider={async (apiFamily, values) => createProviderMutation.mutateAsync({ apiFamily, values })}
-              onUpdateProvider={async (provider, values) => {
-                await updateProviderMutation.mutateAsync({ provider, values });
-              }}
-              onToggleProviderEnabled={async (provider, isEnabled) => {
-                await toggleProviderMutation.mutateAsync({ provider, isEnabled });
-              }}
-              onDeleteProvider={(provider) => setDeleteTarget({ kind: 'provider', provider })}
-              onCreateModel={async (provider, values) => {
-                await createModelMutation.mutateAsync({ provider, values });
-              }}
-              onUpdateModel={async (model, values) => {
-                await updateModelMutation.mutateAsync({ model, values });
-              }}
-              onDeleteModel={(model) => setDeleteTarget({ kind: 'model', model })}
-              onTestProvider={(provider) => testMutation.mutate(provider)}
-              onQueryBalance={(provider) => balanceMutation.mutate(provider)}
-              testingProviderId={testingProviderId}
-              togglingProviderId={togglingProviderId}
-              testResult={testResult}
-              balanceByProvider={balanceByProvider}
-              queryingBalanceId={queryingBalanceId}
-              isProviderSaving={createProviderMutation.isPending || updateProviderMutation.isPending}
-              isModelSaving={createModelMutation.isPending || updateModelMutation.isPending}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+      <div className="mt-8">
+        {isPending ? (
+          <>
+            <Skeleton className="h-40 w-full rounded-2xl bg-muted/70" />
+            <Skeleton className="mt-6 h-72 w-full rounded-2xl bg-muted/70" />
+          </>
+        ) : loadError ? (
+          <p className="rounded-2xl border border-border bg-secondary/60 px-5 py-8 text-sm text-destructive md:px-6">
+            {formatAdminLlmApiError(loadError)}
+          </p>
+        ) : (
+          <AiProviderWorkspace
+            providers={providers}
+            models={models}
+            onCreateProvider={async (apiFamily, values) => createProviderMutation.mutateAsync({ apiFamily, values })}
+            onUpdateProvider={async (provider, values) => {
+              await updateProviderMutation.mutateAsync({ provider, values });
+            }}
+            onToggleProviderEnabled={async (provider, isEnabled) => {
+              await toggleProviderMutation.mutateAsync({ provider, isEnabled });
+            }}
+            onDeleteProvider={(provider) => setDeleteTarget({ kind: 'provider', provider })}
+            onCreateModel={async (provider, values) => {
+              await createModelMutation.mutateAsync({ provider, values });
+            }}
+            onUpdateModel={async (model, values) => {
+              await updateModelMutation.mutateAsync({ model, values });
+            }}
+            onDeleteModel={(model) => setDeleteTarget({ kind: 'model', model })}
+            onTestProvider={(provider) => testMutation.mutate(provider)}
+            onQueryBalance={(provider) => balanceMutation.mutate(provider)}
+            testingProviderId={testingProviderId}
+            togglingProviderId={togglingProviderId}
+            testResult={testResult}
+            balanceByProvider={balanceByProvider}
+            queryingBalanceId={queryingBalanceId}
+            isProviderSaving={createProviderMutation.isPending || updateProviderMutation.isPending}
+            isModelSaving={createModelMutation.isPending || updateModelMutation.isPending}
+          />
+        )}
+      </div>
 
       <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

@@ -2,8 +2,8 @@
 
 import { ArrowLeft, HardDrive, Menu, ScrollText, Settings } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { Fragment, type ReactNode, Suspense, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { type ReactNode, useState } from 'react';
 
 import { type Locale, t } from '@/i18n';
 import { isAdminRole } from '@/shared/auth';
@@ -50,53 +50,6 @@ function adminNavItems(pathname: string, locale: Locale): AdminNavItem[] {
       isActive: pathname === ADMIN_ROUTES.logs || pathname.startsWith(`${ADMIN_ROUTES.logs}/`),
     },
   ];
-}
-
-type ConfigTabId = 'ai' | 'tts' | 'dictionary';
-
-function parseConfigTab(raw: string | null): ConfigTabId {
-  return raw === 'tts' || raw === 'dictionary' ? raw : 'ai';
-}
-
-const CONFIG_SUBTABS: Array<{ id: ConfigTabId; labelKey: string }> = [
-  { id: 'ai', labelKey: 'admin.config.subAi' },
-  { id: 'tts', labelKey: 'admin.config.subTts' },
-  { id: 'dictionary', labelKey: 'admin.config.subDictionary' },
-];
-
-/** Sidebar sub-navigation for the config area; uses the existing query routes. */
-function AdminConfigSubnav({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const { locale } = useLocale();
-  const activeTab = parseConfigTab(searchParams.get('tab'));
-  const isConfigArea = pathname === ADMIN_ROUTES.config || pathname.startsWith(`${ADMIN_ROUTES.config}/`);
-  if (!isConfigArea) {
-    return null;
-  }
-  return (
-    <nav className="mt-1 flex flex-col gap-1 pl-10" aria-label={t(locale, 'admin.config.subnavAria')}>
-      {CONFIG_SUBTABS.map((tab) => (
-        <Link
-          key={tab.id}
-          href={ADMIN_ROUTES.configTab(tab.id)}
-          onClick={onNavigate}
-          className={buttonVariants({
-            variant: 'ghost',
-            className: cn(
-              'h-auto justify-start gap-2 rounded-lg px-3 py-2 text-sm transition-colors duration-300 ease-out-soft',
-              activeTab === tab.id
-                ? 'bg-brand-soft/60 font-medium text-primary hover:bg-brand-soft/60 hover:text-primary'
-                : 'text-muted-foreground hover:bg-surface-container-high hover:text-foreground',
-            ),
-          })}
-          aria-current={activeTab === tab.id ? 'page' : undefined}
-        >
-          {t(locale, tab.labelKey)}
-        </Link>
-      ))}
-    </nav>
-  );
 }
 
 function AdminNavButton({ item, onNavigate }: { item: AdminNavItem; onNavigate?: () => void }) {
@@ -207,14 +160,7 @@ export function AdminShell({ children }: AdminShellProps) {
                 />
                 <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
                   {navItems.map((item) => (
-                    <Fragment key={item.href}>
-                      <AdminNavButton item={item} onNavigate={() => setIsNavOpen(false)} />
-                      {item.href === ADMIN_ROUTES.config ? (
-                        <Suspense fallback={null}>
-                          <AdminConfigSubnav onNavigate={() => setIsNavOpen(false)} />
-                        </Suspense>
-                      ) : null}
-                    </Fragment>
+                    <AdminNavButton key={item.href} item={item} onNavigate={() => setIsNavOpen(false)} />
                   ))}
                 </nav>
                 <Link
@@ -265,14 +211,7 @@ export function AdminShell({ children }: AdminShellProps) {
 
           <nav className="flex flex-col gap-2">
             {navItems.map((item) => (
-              <Fragment key={item.href}>
-                <AdminNavButton item={item} />
-                {item.href === ADMIN_ROUTES.config ? (
-                  <Suspense fallback={null}>
-                    <AdminConfigSubnav />
-                  </Suspense>
-                ) : null}
-              </Fragment>
+              <AdminNavButton key={item.href} item={item} />
             ))}
           </nav>
         </div>

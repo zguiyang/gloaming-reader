@@ -72,9 +72,9 @@
         "assist": "Reading assistance",
         "translate": "Translation"
       },
-      "notSet": "Not set (uses instance default)",
+      "notSet": "Not set",
       "unavailablePickAgain": "Previous model is unavailable. Choose one from the list.",
-      "defaultOnUnset": "Unset capabilities use the instance default; a saved model can be replaced, not cleared.",
+      "defaultOnUnset": "Choose a model for each capability. A saved model can be replaced, not cleared.",
       "noInstanceModels": "No instance models are available yet. Ask an admin to connect an AI provider.",
       "purposeSaveFailed": "Save failed, draft kept. Please retry."
     },
@@ -390,16 +390,11 @@
     "config": {
       "tabAi": "AI",
       "tabTts": "Speech",
-      "tabDictionary": "Dictionary",
-      "subAi": "AI config",
-      "subTts": "Speech",
-      "subDictionary": "Dictionary",
-      "subnavAria": "Config sections"
+      "tabDictionary": "Dictionary"
     },
     "ai": {
-      "title": "AI configuration",
-      "tabPurposes": "Purpose bindings",
-      "tabProviders": "Providers & models",
+      "title": "AI providers",
+      "subtitle": "Connect providers and enable models. Readers choose models in Reading settings.",
       "toast": {
         "providerAdded": "Provider added",
         "providerSaved": "Provider saved",
@@ -407,12 +402,8 @@
         "modelSaved": "Model saved",
         "providerDeleted": "Provider deleted",
         "modelDeleted": "Model deleted",
-        "purposeSaved": "Default model saved for purpose",
         "testComplete": "Connectivity test complete",
         "balanceUpdated": "Balance updated"
-      },
-      "errors": {
-        "selectModelFirst": "Select a model first"
       },
       "test": {
         "success": "Connected · {modelLabel} · {latencyMs} ms"
@@ -420,25 +411,9 @@
       "delete": {
         "providerTitle": "Delete provider?",
         "modelTitle": "Delete model?",
-        "providerDescription": "This removes all models under \"{name}\". Deletion fails if any purpose still references them.",
-        "modelDescription": "This removes model \"{label}\". Deletion fails if any purpose still references it.",
+        "providerDescription": "This removes all models under \"{name}\". Deletion fails if any reading setting still references them.",
+        "modelDescription": "This removes model \"{label}\". Deletion fails if any reading setting still references it.",
         "confirm": "Delete"
-      },
-      "purpose": {
-        "assist": "Reading assistant",
-        "translate": "Bilingual translation",
-        "notConfigured": "Not configured",
-        "modelDeleted": "Model deleted",
-        "modelDisabled": "Model disabled",
-        "providerDisabled": "Provider disabled",
-        "runtimeNotSupported": "Runtime not supported yet",
-        "bindingNotRunnable": "Current binding cannot run",
-        "unknownProvider": "Unknown provider",
-        "currentBindingUnavailable": "Current binding (unavailable)",
-        "noBindableModels": "No bindable models",
-        "searchOrSelectModel": "Search or select a model",
-        "noMatchingModels": "No matching models",
-        "notSetRow": "Not set"
       },
       "provider": {
         "filterAll": "All",
