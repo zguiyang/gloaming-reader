@@ -24,7 +24,11 @@ export function LibraryGrid({
 
   return (
     <div
-      className={view === 'grid' ? 'grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4' : 'flex flex-col'}
+      className={
+        view === 'grid'
+          ? 'grid grid-cols-3 gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-6 lg:grid-cols-4 xl:grid-cols-5'
+          : 'flex flex-col'
+      }
     >
       {items.map((entry) => (
         <LibraryBookCard key={entry.work.id} entry={entry} tags={tags} returnTo={returnTo} view={view} />

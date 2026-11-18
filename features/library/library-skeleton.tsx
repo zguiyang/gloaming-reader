@@ -19,9 +19,9 @@ export function LibrarySkeleton() {
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-8">
         <Skeleton className="h-20 w-full max-w-2xl rounded-xl" />
-        <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:gap-x-4 sm:gap-y-6 lg:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: GRID_SKELETON_COUNT }, (_, index) => (
-            <div key={index} className="flex flex-col gap-3">
+            <div key={index} className="flex flex-col gap-2">
               <Skeleton className="aspect-[2/3] w-full rounded-sm" />
               <Skeleton className="h-4 w-4/5" />
               <Skeleton className="h-3 w-2/3" />
