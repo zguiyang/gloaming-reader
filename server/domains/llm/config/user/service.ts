@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 
 import {
   llmAppSetting as llmAppSettingTable,
@@ -7,153 +7,56 @@ import {
 } from '@/server/db';
 import {
   AI_SETTING_KEY_VALUES,
-  type CreateLlmModelBody,
-  type CreateLlmProviderBody,
-  isLlmApiFamily,
   type LlmAppSettingView,
   type LlmModel,
-  type LlmModelListQuery,
   type LlmProvider,
   type PutLlmAppSettingBody,
-  type TestLlmProviderResult,
-  type UpdateLlmModelBody,
-  type UpdateLlmProviderBody,
+  isLlmApiFamily,
 } from '@/shared/llm';
 
-import { invokeAi } from '@/server/domains/ai';
-import { parseApiFamily } from '@/server/domains/llm/config/api-family';
 import { toModelView, toProviderView } from '@/server/domains/llm/config/mappers';
-import {
-  createModelRecord,
-  createProviderRecord,
-  deleteModelRecord,
-  deleteProviderRecord,
-  putSettingRecord,
-  updateModelRecord,
-  updateProviderRecord,
-} from '@/server/domains/llm/config/mutations';
+import { putSettingRecord } from '@/server/domains/llm/config/mutations';
 import { isModelRuntimeReady } from '@/server/domains/llm/runtime/readiness';
-import { requireUserOwnedProvider } from '@/server/domains/provider-scope';
 import { db } from '@/server/infra/db';
-import { HTTP_STATUS } from '@/server/shared/constants';
-import { AppError, NotFoundError } from '@/server/shared/errors/app-error';
-import { ERROR_CODES } from '@/server/shared/errors/codes';
 
-export async function listUserProviders(userId: string): Promise<LlmProvider[]> {
-  const rows = await db
+export type AvailableInstanceModels = {
+  providers: LlmProvider[];
+  models: LlmModel[];
+};
+
+/** Instance providers + enabled models users may bind to reading purposes. */
+export async function listAvailableInstanceModels(): Promise<AvailableInstanceModels> {
+  const providerRows = await db
     .select()
     .from(llmProviderTable)
-    .where(eq(llmProviderTable.ownerUserId, userId))
+    .where(and(isNull(llmProviderTable.ownerUserId), eq(llmProviderTable.isEnabled, true)))
     .orderBy(asc(llmProviderTable.createdAt));
-  return rows.map(toProviderView);
-}
 
-export async function createUserProvider(userId: string, body: CreateLlmProviderBody): Promise<LlmProvider> {
-  return createProviderRecord(userId, body);
-}
+  const providers = providerRows
+    .filter((row) => isLlmApiFamily(row.apiFamily) && isModelRuntimeReady(row.apiFamily))
+    .map(toProviderView);
 
-export async function updateUserProvider(
-  userId: string,
-  id: string,
-  body: UpdateLlmProviderBody,
-): Promise<LlmProvider> {
-  const existing = await requireUserOwnedProvider(id, userId);
-  return updateProviderRecord(existing, body);
-}
-
-export async function deleteUserProvider(userId: string, id: string): Promise<void> {
-  await requireUserOwnedProvider(id, userId);
-  await deleteProviderRecord(id);
-}
-
-export async function listUserModels(userId: string, query: LlmModelListQuery): Promise<LlmModel[]> {
-  if (!query.providerId) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.VALIDATION_INVALID_INPUT);
+  if (providers.length === 0) {
+    return { providers: [], models: [] };
   }
-  await requireUserOwnedProvider(query.providerId, userId);
-  const rows = await db
-    .select()
+
+  const providerIds = providers.map((provider) => provider.id);
+  const modelRows = await db
+    .select({ model: llmModelTable })
     .from(llmModelTable)
-    .where(eq(llmModelTable.providerId, query.providerId))
+    .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
+    .where(
+      and(
+        inArray(llmModelTable.providerId, providerIds),
+        eq(llmModelTable.isEnabled, true),
+        isNull(llmProviderTable.ownerUserId),
+      ),
+    )
     .orderBy(asc(llmModelTable.sortOrder), asc(llmModelTable.createdAt));
-  return rows.map(toModelView);
-}
-
-export async function createUserModel(userId: string, body: CreateLlmModelBody): Promise<LlmModel> {
-  const providerRow = await requireUserOwnedProvider(body.providerId, userId);
-  return createModelRecord(providerRow, body);
-}
-
-export async function updateUserModel(userId: string, id: string, body: UpdateLlmModelBody): Promise<LlmModel> {
-  const existing = await db
-    .select({
-      model: llmModelTable,
-      ownerUserId: llmProviderTable.ownerUserId,
-      apiFamily: llmProviderTable.apiFamily,
-    })
-    .from(llmModelTable)
-    .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
-    .where(eq(llmModelTable.id, id))
-    .limit(1);
-  if (!existing[0] || existing[0].ownerUserId !== userId) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
-  }
-  return updateModelRecord(id, parseApiFamily(existing[0].apiFamily), body);
-}
-
-export async function deleteUserModel(userId: string, id: string): Promise<void> {
-  const existing = await db
-    .select({ ownerUserId: llmProviderTable.ownerUserId })
-    .from(llmModelTable)
-    .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
-    .where(eq(llmModelTable.id, id))
-    .limit(1);
-  if (!existing[0] || existing[0].ownerUserId !== userId) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
-  }
-  await deleteModelRecord(id);
-}
-
-export async function testUserModel(userId: string, id: string): Promise<TestLlmProviderResult> {
-  const existing = await db
-    .select({
-      modelEnabled: llmModelTable.isEnabled,
-      ownerUserId: llmProviderTable.ownerUserId,
-      providerEnabled: llmProviderTable.isEnabled,
-      apiFamily: llmProviderTable.apiFamily,
-    })
-    .from(llmModelTable)
-    .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
-    .where(eq(llmModelTable.id, id))
-    .limit(1);
-  if (!existing[0] || existing[0].ownerUserId !== userId) {
-    throw new NotFoundError(ERROR_CODES.NOT_FOUND.LLM_MODEL);
-  }
-  if (!existing[0].modelEnabled || !existing[0].providerEnabled) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.MODEL_OR_PROVIDER_DISABLED);
-  }
-  const apiFamily = parseApiFamily(existing[0].apiFamily);
-  if (!isModelRuntimeReady(apiFamily)) {
-    throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.FAMILY_NOT_IMPLEMENTED, { apiFamily });
-  }
-
-  const started = Date.now();
-  const result = await invokeAi({
-    modelRowId: id,
-    source: 'user.provider_test',
-    userId,
-    messages: [
-      { role: 'system', content: 'Reply with exactly: ok' },
-      { role: 'user', content: 'ping' },
-    ],
-    timeoutMs: 30_000,
-    maxRetries: 0,
-  });
 
   return {
-    ok: true,
-    latencyMs: Date.now() - started,
-    modelLabel: result.model.label,
+    providers,
+    models: modelRows.map((row) => toModelView(row.model)),
   };
 }
 
@@ -176,9 +79,8 @@ export async function listUserSettings(userId: string): Promise<LlmAppSettingVie
           .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
           .where(inArray(llmModelTable.id, modelIds))
       : [];
-  const modelById = new Map(
-    models.filter((m) => isProviderModelVisibleToUser(m.ownerUserId, userId)).map((m) => [m.id, m]),
-  );
+  // Only instance-owned models count as healthy for user purpose bindings.
+  const modelById = new Map(models.filter((m) => m.ownerUserId == null).map((m) => [m.id, m]));
 
   return AI_SETTING_KEY_VALUES.map((key) => {
     const modelId = byKey.get(key) ?? null;
@@ -194,10 +96,6 @@ export async function listUserSettings(userId: string): Promise<LlmAppSettingVie
       runtimeReady,
     };
   });
-}
-
-function isProviderModelVisibleToUser(ownerUserId: string | null, userId: string): boolean {
-  return ownerUserId == null || ownerUserId === userId;
 }
 
 export async function putUserSetting(

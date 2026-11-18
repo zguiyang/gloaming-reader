@@ -29,7 +29,6 @@ import { parseApiFamily } from '@/server/domains/llm/config/api-family';
 import { toModelView, toProviderView } from '@/server/domains/llm/config/mappers';
 import { settingReferencesModel } from '@/server/domains/llm/config/settings/references';
 import { isModelRuntimeReady } from '@/server/domains/llm/runtime/readiness';
-import { assertModelAccessibleForActor, runtimeActorFromUserId } from '@/server/domains/provider-scope';
 import { db } from '@/server/infra/db';
 import { assertSafeOutboundUrl, assertSafeProxyUrl, encryptApiKey } from '@/server/infra/llm';
 import { HTTP_STATUS } from '@/server/shared/constants';
@@ -242,11 +241,7 @@ export async function putSettingRecord(
     throw new AppError(HTTP_STATUS.BAD_REQUEST, ERROR_CODES.LLM.UNKNOWN_SETTING_KEY);
   }
 
-  // User-scoped bindings may point at instance models or the user's own models.
-  if (ownerUserId !== null) {
-    await assertModelAccessibleForActor(body.modelId, runtimeActorFromUserId(ownerUserId));
-  }
-
+  // User bindings may only reference instance-owned models (no personal BYOK providers).
   const modelRows = await db
     .select({
       id: llmModelTable.id,
@@ -257,11 +252,7 @@ export async function putSettingRecord(
     })
     .from(llmModelTable)
     .innerJoin(llmProviderTable, eq(llmModelTable.providerId, llmProviderTable.id))
-    .where(
-      ownerUserId === null
-        ? and(eq(llmModelTable.id, body.modelId), isNull(llmProviderTable.ownerUserId))
-        : eq(llmModelTable.id, body.modelId),
-    )
+    .where(and(eq(llmModelTable.id, body.modelId), isNull(llmProviderTable.ownerUserId)))
     .limit(1);
 
   const model = modelRows[0];

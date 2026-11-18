@@ -15,8 +15,8 @@ function normalizeLlmBaseUrl(baseUrl: string): string {
 }
 
 /**
- * When a (typically user BYOK) provider omits proxyUrl, reuse the instance
- * provider proxy for the same base URL so local outbound routing matches Admin.
+ * When a provider omits proxyUrl, reuse the instance provider proxy for the
+ * same base URL so local outbound routing matches Admin.
  */
 async function resolveInstanceProxyForBaseUrl(baseUrl: string): Promise<string | null> {
   const normalized = normalizeLlmBaseUrl(baseUrl);
