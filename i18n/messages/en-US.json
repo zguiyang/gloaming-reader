@@ -63,101 +63,24 @@
     "saving": "Saving…",
     "saved": "Saved",
     "cancel": "Cancel",
-    "edit": "Edit",
-    "delete": "Delete",
     "loading": "Loading settings…",
     "signInRequired": "Sign in to manage personal settings.",
-    "tabsAria": "Settings categories",
-    "personalTagging": {
-      "title": "Personal EPUB organization",
-      "toggle": "Organize tags after a Personal EPUB is ready",
-      "description": "Uses the Reading assistance model from your own AI service for future uploads only. Existing books are not processed.",
-      "providerUnavailable": "Set a model for Reading assistance in your own AI service to use this feature.",
-      "runState": {
-        "queued": "Tagging queued",
-        "processing": "Tagging in progress",
-        "completed": "Last tagging run completed",
-        "skipped": "Last tagging run skipped",
-        "failed": "Last tagging run failed"
-      },
-      "runError": {
-        "generic": "Tagging did not complete. Please try again later.",
-        "attempts_exhausted": "Tagging did not complete after repeated attempts.",
-        "worker_attempts_exhausted": "The tagging run was interrupted and did not complete."
-      }
-    },
-    "serviceMode": "Service source",
-    "defaultService": "Default service",
-    "validation": {
-      "required": "This field is required.",
-      "url": "Enter a valid URL."
-    },
-    "secret": {
-      "saved": "Configured",
-      "leaveBlank": "Leave blank to keep the saved key",
-      "replace": "Replace key",
-      "newKey": "New key",
-      "cancelReplace": "Cancel replacement"
-    },
     "ai": {
-      "title": "AI",
-      "service": "AI service",
-      "serviceType": "Service type",
-      "notAvailableYet": "Not available yet",
-      "providerName": "Service name",
-      "baseUrl": "API URL",
-      "apiKey": "API key",
-      "advanced": "Advanced settings",
-      "proxyUrl": "Proxy URL",
-      "proxyUrlHint": "Optional. Leave empty to reuse the instance proxy for the same API URL when one is configured.",
-      "thinkingParam": "Thinking parameter name",
-      "noProviders": "No own AI service is configured yet.",
-      "confirmDefault": "Save to turn off your own AI service. Future requests will use the default service.",
-      "confirmOwn": "Save to turn on your own AI service.",
-      "providers": "Service configuration",
-      "addProvider": "Add service",
-      "models": "Models",
-      "provider": "Service",
-      "providerRequired": "Add a service first.",
-      "noModels": "This service has no models yet.",
-      "addModel": "Add model",
-      "testCostNotice": "Testing sends a real model request and may incur provider charges.",
-      "testConnection": "Test connection",
-      "testingConnection": "Testing…",
-      "testSucceeded": "Connected · {latencyMs} ms",
-      "testFailed": "Connection failed: {message}",
-      "modelName": "Display name",
-      "modelId": "Model identifier",
-      "connectionType": "API type",
       "capabilities": "Reading capabilities",
+      "capabilitiesDescription": "Choose which instance model to use for each capability. Providers are configured in Instance configuration.",
       "purpose": {
         "assist": "Reading assistance",
         "translate": "Translation"
       },
-      "notSet": "Not set (uses default service)",
-      "unavailableModel": "This model is unavailable. Choose another one.",
-      "unavailableOption": "· Unavailable",
-      "defaultOnUnset": "Capabilities without a personal model use the default service; a saved model can be replaced, not cleared.",
-      "defaultSummary": "Covers reading assistance and translation.",
-      "ownSummary": "Your own AI service is enabled.",
-      "disabled": "Disabled",
-      "addProviderEntry": "Add and enable provider",
-      "addModelEntry": "Add and enable model",
-      "saveModel": "Save model",
-      "cancelChanges": "Discard changes",
-      "editProvider": "Edit provider",
-      "replaceKey": "Replace key",
-      "connectionsAndModels": "Connections and models",
-      "keyNotSet": "Not configured",
-      "ownService": "Own AI service",
-      "modeOwn": "Own AI service · {count} providers enabled",
-      "modeDefault": "Default service · no providers enabled",
+      "notSet": "Not set (uses instance default)",
+      "unavailablePickAgain": "Previous model is unavailable. Choose one from the list.",
+      "defaultOnUnset": "Unset capabilities use the instance default; a saved model can be replaced, not cleared.",
+      "noInstanceModels": "No instance models are available yet. Ask an admin to connect an AI provider.",
       "purposeSaveFailed": "Save failed, draft kept. Please retry."
     },
     "tts": {
       "title": "Read aloud",
-      "defaultDescription": "Future read-aloud requests will use the default service.",
-      "region": "Region",
+      "voicesDescription": "Choose voices from the instance TTS service.",
       "voice": {
         "default": "Default voice",
         "us": "US English",
@@ -170,22 +93,7 @@
         "en-GB-SoniaNeural": "Sonia · UK · calm female voice",
         "en-GB-RyanNeural": "Ryan · UK · relaxed male voice",
         "en-GB-LibbyNeural": "Libby · UK · bright female voice"
-      },
-      "defaultSummary": "Read-aloud voices provided by the platform; no setup needed.",
-      "ownSummary": "Your own read-aloud service is configured and applies after saving.",
-      "ownService": "Own service"
-    },
-    "readingServices": {
-      "title": "Reading services"
-    },
-    "current": "Current: {source}",
-    "change": "Change",
-    "ownAi": {
-      "title": "Own AI service",
-      "description": "Choose a model for each reading capability first; manage connections and models below.",
-      "enter": "Configure own AI service",
-      "empty": "No providers or models added yet",
-      "back": "Back to reading settings"
+      }
     }
   },
   "auth": {
