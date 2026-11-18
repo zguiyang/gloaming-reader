@@ -67,20 +67,18 @@
     "signInRequired": "请先登录后管理个人设置。",
     "ai": {
       "capabilities": "阅读能力",
-      "capabilitiesDescription": "为每项能力选择实例已接入提供商下的模型。服务接入在「实例配置」中完成。",
       "purpose": {
         "assist": "阅读辅助",
         "translate": "翻译"
       },
       "notSet": "未设置",
       "unavailablePickAgain": "原先选择的模型已不可用，请从列表中重新选择。",
-      "defaultOnUnset": "请为每项能力选择模型；已保存的模型只能更换，无法清除。",
+      "defaultOnUnset": "已保存的模型只能更换，无法清除。",
       "noInstanceModels": "当前还没有可用的实例模型，请先在实例配置中接入 AI 服务商。",
       "purposeSaveFailed": "保存失败，草稿已保留，请重试"
     },
     "tts": {
       "title": "朗读",
-      "voicesDescription": "从实例已接入的 TTS 服务中选择音色。",
       "voice": {
         "default": "默认声音",
         "us": "美式英语",
@@ -147,7 +145,6 @@
     },
     "forgotPassword": {
       "title": "找回密码",
-      "description": "输入注册邮箱，发送重置链接。",
       "emailLabel": "邮箱",
       "emailPlaceholder": "注册时用的邮箱",
       "emailPlaceholderEmbedded": "注册邮箱",
@@ -395,7 +392,6 @@
     },
     "ai": {
       "title": "AI 提供商",
-      "subtitle": "接入服务商并启用模型。具体用哪个模型由读者在阅读设置中选择。",
       "toast": {
         "providerAdded": "已添加服务商",
         "providerSaved": "已保存服务商",
@@ -420,7 +416,7 @@
         "filterAll": "全部",
         "filterAria": "按协议族筛选",
         "add": "添加",
-        "selectFamilyHint": "选择 API 协议族（创建后不可修改）",
+        "selectFamilyHint": "创建后不可修改",
         "emptyTitle": "暂无服务商",
         "modelsCount": "{count} 模型",
         "runtimeNotSupported": "运行时尚未支持",
@@ -517,7 +513,6 @@
     },
     "tts": {
       "title": "语音服务",
-      "subtitle": "为朗读功能提供语音合成。",
       "loadFailed": "配置加载失败",
       "audioPlayFailed": "音频播放失败，请检查浏览器权限",
       "toast": {
@@ -588,7 +583,6 @@
       },
       "aiEnrichment": {
         "title": "AI 增强",
-        "description": "结合当前章节补充中文释义和例句（需要 AI 配置）。",
         "enableAria": "启用 AI 增强"
       },
       "fields": {
@@ -602,7 +596,6 @@
       },
       "test": {
         "sectionTitle": "测试已保存配置",
-        "sectionDescription": "验证词典接口连通性、音标与音频解析，以及 AI 中文释义补充。",
         "word": "测试单词",
         "wordPlaceholder": "输入英文单词，如 serendipity",
         "contextSentence": "模拟语境句子 (选填)",
@@ -620,8 +613,7 @@
         "draftNotice": "上方配置有未保存修改：测试使用已保存的配置，不会提交这些修改。"
       },
       "saveConfig": "保存词典配置",
-      "saving": "保存中...",
-      "subtitle": "为查词提供释义与例句。"
+      "saving": "保存中..."
     },
     "logs": {
       "centerTabAi": "AI 日志",
@@ -884,7 +876,6 @@
       "uploading": "上传中…",
       "uploadStarted": "已加入书库，正在处理",
       "uploadDialogTitle": "上传书籍",
-      "uploadDialogDescription": "选择一本 EPUB 电子书，加入你的书库。",
       "dropzoneAria": "选择或拖入 EPUB 文件",
       "dropzoneTitle": "将 EPUB 拖到这里",
       "dropzoneChoose": "或点击选择文件",
@@ -1135,7 +1126,6 @@
         "historyError": "历史对话加载失败",
         "historyRetry": "重试",
         "historyEmptyTitle": "暂无历史对话",
-        "historyEmptyHint": "当前作品还没有 AI 记录。划词解释或提问后的对话将收录在此。",
         "threadEmptyTitle": "问一句关于正文的问题",
         "removeQuote": "移除当前引用",
         "placeholderWithQuote": "针对引用文本提问…",

@@ -67,20 +67,18 @@
     "signInRequired": "Sign in to manage personal settings.",
     "ai": {
       "capabilities": "Reading capabilities",
-      "capabilitiesDescription": "Choose which instance model to use for each capability. Providers are configured in Instance configuration.",
       "purpose": {
         "assist": "Reading assistance",
         "translate": "Translation"
       },
       "notSet": "Not set",
       "unavailablePickAgain": "Previous model is unavailable. Choose one from the list.",
-      "defaultOnUnset": "Choose a model for each capability. A saved model can be replaced, not cleared.",
+      "defaultOnUnset": "A saved model can be replaced, not cleared.",
       "noInstanceModels": "No instance models are available yet. Ask an admin to connect an AI provider.",
       "purposeSaveFailed": "Save failed, draft kept. Please retry."
     },
     "tts": {
       "title": "Read aloud",
-      "voicesDescription": "Choose voices from the instance TTS service.",
       "voice": {
         "default": "Default voice",
         "us": "US English",
@@ -146,7 +144,6 @@
     },
     "forgotPassword": {
       "title": "Reset password",
-      "description": "Enter your registered email to receive a reset link.",
       "emailLabel": "Email",
       "emailPlaceholder": "Email you registered with",
       "emailPlaceholderEmbedded": "Registered email",
@@ -394,7 +391,6 @@
     },
     "ai": {
       "title": "AI providers",
-      "subtitle": "Connect providers and enable models. Readers choose models in Reading settings.",
       "toast": {
         "providerAdded": "Provider added",
         "providerSaved": "Provider saved",
@@ -419,7 +415,7 @@
         "filterAll": "All",
         "filterAria": "Filter by API family",
         "add": "Add",
-        "selectFamilyHint": "Choose an API family (cannot be changed after creation)",
+        "selectFamilyHint": "Cannot be changed after creation",
         "emptyTitle": "No providers yet",
         "modelsCount": "{count} models",
         "runtimeNotSupported": "Runtime not supported yet",
@@ -516,7 +512,6 @@
     },
     "tts": {
       "title": "Speech service",
-      "subtitle": "Text-to-speech for read-aloud.",
       "loadFailed": "Failed to load configuration",
       "audioPlayFailed": "Could not play audio — check browser permissions",
       "toast": {
@@ -587,7 +582,6 @@
       },
       "aiEnrichment": {
         "title": "AI enrichment",
-        "description": "Add Chinese glosses and examples from the current chapter (requires AI configuration).",
         "enableAria": "Enable AI enrichment"
       },
       "fields": {
@@ -601,7 +595,6 @@
       },
       "test": {
         "sectionTitle": "Test saved configuration",
-        "sectionDescription": "Verify provider connectivity, phonetics/audio parsing, and AI Chinese gloss enrichment.",
         "word": "Test word",
         "wordPlaceholder": "Enter an English word, e.g. serendipity",
         "contextSentence": "Sample context sentence (optional)",
@@ -619,8 +612,7 @@
         "draftNotice": "Unsaved changes above: tests use the saved configuration and never submit these changes."
       },
       "saveConfig": "Save dictionary settings",
-      "saving": "Saving…",
-      "subtitle": "Provides definitions and examples for word lookup."
+      "saving": "Saving…"
     },
     "logs": {
       "centerTabAi": "AI logs",
@@ -883,7 +875,6 @@
       "uploading": "Uploading…",
       "uploadStarted": "Added to Library. Processing has started.",
       "uploadDialogTitle": "Upload book",
-      "uploadDialogDescription": "Choose an EPUB book to add to your Library.",
       "dropzoneAria": "Choose or drop an EPUB file",
       "dropzoneTitle": "Drop an EPUB here",
       "dropzoneChoose": "or choose a file",
@@ -1134,7 +1125,6 @@
         "historyError": "Could not load conversation history",
         "historyRetry": "Retry",
         "historyEmptyTitle": "No conversations yet",
-        "historyEmptyHint": "Explain or ask about text — conversations will appear here.",
         "threadEmptyTitle": "Ask about the text",
         "removeQuote": "Remove quote",
         "placeholderWithQuote": "Ask about the quoted text…",
