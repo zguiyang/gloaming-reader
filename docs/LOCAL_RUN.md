@@ -55,20 +55,23 @@ Optional: `pnpm build && pnpm start` for production-mode local check.
 - This runbook does **not** use Cloudflare Workers, vinext, or OpenNext.
 - Redis application keys must use TTLs (see [backend Redis key policy](../rules/backend.md#redis-key-policy)). Scan leftovers with `pnpm exec tsx scripts/redis-no-ttl-scan.ts`.
 
-### After removing Discover
+### After removing Discover / upload-only reset
 
-Migration `0067_drop_discovery_tables` drops the discovery registry only (`discovery_source`, `discovery_sync_run`, `discovery_catalog_entry`, `source_record`, `source_record_save_intent`). **Keep** `user_library_item` (and materialized `reading_work` rows) for books users already saved from the old catalog.
+Migrations:
 
-Apply on local dev (after `docker compose up -d`):
+- `0067_drop_discovery_tables` — drops discovery registry tables
+- `0068_drop_personal_tag_preference` — drops unused `user_personal_tag_preference`
 
 ```bash
 pnpm db:migrate
 ```
 
-Optional **dev-only** cleanup of stale BullMQ keys for retired discovery workers (local Redis defaults to `127.0.0.1:6380` per compose). Queue names were `gloaming-discovery-sync` and `gloaming-discovery-import`:
+**Dev-only full content wipe** (books, library memberships, reading state, assets metadata, Redis content/queue/rate-limit keys, and objects in the configured development S3/R2 bucket). Keeps auth users and admin LLM/TTS/dictionary config. Stop `pnpm dev` / `pnpm jobs` first:
 
 ```bash
-redis-cli -p 6380 --scan --pattern 'bull:gloaming-discovery-*' | while read -r key; do redis-cli -p 6380 DEL "$key"; done
+pnpm reset:content
 ```
 
-Do **not** `FLUSHDB` if you rely on other queues (`gloaming`, `gloaming-asset-cleanup`).
+Safety checks: local `DATABASE_URL` / `REDIS_URL` only; refuses `NODE_ENV=production`; S3 wipe requires a bucket name that looks like development (or `RESET_CONTENT_ALLOW_BUCKET=1`).
+
+Do **not** `FLUSHDB` on Redis if you still need Better Auth secondary-storage keys (`better-auth:*`) — `reset:content` leaves those alone.
