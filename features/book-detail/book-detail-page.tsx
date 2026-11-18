@@ -1,38 +1,22 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeftIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { toast } from 'sonner';
 
 import { t } from '@/i18n';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { AUTH_ROUTES } from '@/constants';
-import { useAuthDialog, useRequireAuth } from '@/features/auth';
-import {
-  bookDetailQueryKey,
-  formatBookDetailApiError,
-  useBookDetailQuery,
-} from '@/features/book-detail/book-detail-api';
-import {
-  BookDetailHero,
-  BookDetailMobileProgress,
-  BookDetailSourceHero,
-  BookDetailStickyCta,
-} from '@/features/book-detail/book-detail-hero';
+import { formatBookDetailApiError, useBookDetailQuery } from '@/features/book-detail/book-detail-api';
+import { BookDetailHero, BookDetailMobileProgress, BookDetailStickyCta } from '@/features/book-detail/book-detail-hero';
 import type { BookDetail } from '@/features/book-detail/book-detail-model';
-import { BookDetailRecommendations } from '@/features/book-detail/book-detail-recommendations';
-import { recommendationsQueryKey } from '@/features/book-detail/book-detail-recommendations-api';
 import { BookDetailStats } from '@/features/book-detail/book-detail-stats';
 import { BookDetailToc } from '@/features/book-detail/book-detail-toc';
 import { BookDetailUnavailable } from '@/features/book-detail/book-detail-unavailable';
 import { useUserTagsQuery } from '@/features/library/library-api';
-import { useAddToLibraryMutation } from '@/features/library/library-client';
 import { LibraryWorkManagement } from '@/features/library/library-work-management';
-import { formatApiError, isUnauthorizedError } from '@/lib/api-request';
 import { useLocale } from '@/lib/locale-context';
 import { workDetailReturnLabelKey } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
@@ -55,35 +39,7 @@ function BookDetailSkeleton() {
 function BookDetailView({ book, returnTo }: { book: BookDetail; returnTo: string }) {
   const { locale } = useLocale();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { openLogin } = useAuthDialog();
-  const requireAuth = useRequireAuth();
-  const addToLibrary = useAddToLibraryMutation();
   const userTags = useUserTagsQuery({ enabled: Boolean(book.libraryItem) });
-  const isInLibrary = book.libraryStatus === 'in_library';
-
-  function handleAddToLibrary() {
-    if (!requireAuth({ reason: 'bookmark' })) {
-      return;
-    }
-
-    addToLibrary.mutate(book.id, {
-      onSuccess: async () => {
-        toast.success(t(locale, 'content.bookDetail.addedToLibraryToast'));
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: bookDetailQueryKey.detail(book.id) }),
-          queryClient.invalidateQueries({ queryKey: recommendationsQueryKey.all }),
-        ]);
-      },
-      onError: (error) => {
-        if (isUnauthorizedError(error)) {
-          openLogin({ reason: 'bookmark' });
-          return;
-        }
-        toast.error(formatApiError(error));
-      },
-    });
-  }
 
   return (
     <BookDetailPageLayout
@@ -99,29 +55,14 @@ function BookDetailView({ book, returnTo }: { book: BookDetail; returnTo: string
           />
         ) : null
       }
-      hero={
-        <BookDetailHero
-          book={book}
-          inLibrary={isInLibrary}
-          onAddToLibrary={handleAddToLibrary}
-          isAddingToLibrary={addToLibrary.isPending}
-        />
-      }
+      hero={<BookDetailHero book={book} />}
     >
       <BookDetailMobileProgress book={book} />
       <div className="flex flex-col gap-8 md:gap-14">
         <BookDetailStats book={book} />
         {book.isReadable && book.chapters.length > 0 ? <BookDetailToc book={book} /> : null}
-        {book.libraryItem?.libraryItemKind === 'personal' ? null : (
-          <BookDetailRecommendations excludeWorkId={book.id} />
-        )}
       </div>
-      <BookDetailStickyCta
-        book={book}
-        inLibrary={isInLibrary}
-        onAddToLibrary={handleAddToLibrary}
-        isAddingToLibrary={addToLibrary.isPending}
-      />
+      <BookDetailStickyCta book={book} />
     </BookDetailPageLayout>
   );
 }
@@ -167,34 +108,8 @@ function BookDetailPageLayout({
   );
 }
 
-/**
- * Work detail for public Catalog and owner-visible Personal ReadingWorks.
- */
-export type SourceBookDetail = {
-  title: string;
-  author: string;
-  coverImageUrl: string | null;
-  description: string | null;
-  notes?: string[];
-  categories?: string[];
-  actions: ReactNode;
-  children?: ReactNode;
-};
-
-export function BookDetailPage(
-  props: { workId: string; returnTo: string } | { source: SourceBookDetail; returnTo: string },
-) {
-  if ('source' in props) {
-    return (
-      <BookDetailPageLayout returnTo={props.returnTo} readable hero={<BookDetailSourceHero {...props.source} />}>
-        {props.source.children}
-      </BookDetailPageLayout>
-    );
-  }
-  return <ReadableBookDetailPage {...props} />;
-}
-
-function ReadableBookDetailPage({ workId, returnTo }: { workId: string; returnTo: string }) {
+/** Work detail for library ReadingWorks (authenticated, membership required). */
+export function BookDetailPage({ workId, returnTo }: { workId: string; returnTo: string }) {
   const detailQuery = useBookDetailQuery(workId);
 
   if (detailQuery.isPending) {

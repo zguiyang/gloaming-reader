@@ -4,7 +4,7 @@ import type { AssistAskBody } from '@/shared/assist';
 
 import type { AiToolHandle } from '@/server/domains/ai/runtime/types';
 import { lookupWord } from '@/server/domains/dictionary';
-import { anonymousWorkReadActor, type WorkReadActor } from '@/server/domains/works/access';
+import type { WorkReadActor } from '@/server/domains/works/access';
 
 const SLICE_MAX = 2000;
 
@@ -105,7 +105,7 @@ export function createPartAssistTools(actor: WorkReadActor, part: PartRef): AiTo
 export function resolveAssistToolsForAction(
   actionId: AssistAskBody['actionId'],
   part: PartRef,
-  _actor: WorkReadActor = anonymousWorkReadActor(),
+  _actor: WorkReadActor,
 ): AiToolHandle[] {
   const search = createSearchPartTool(part);
   if (actionId === 'lookup') {

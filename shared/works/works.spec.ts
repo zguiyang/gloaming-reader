@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  catalogListQuerySchema,
   isWorkParseCompleted,
   isWorkReadable,
   personalWorkUpdateSchema,
@@ -53,7 +52,7 @@ describe('work contracts', () => {
     expect(workAvailability('failed', 4)).toBe('failed');
   });
 
-  it('keeps the public Catalog Work contract independent of Admin provenance', () => {
+  it('keeps the Work contract independent of Admin provenance', () => {
     const work = workSchema.parse({
       id: 'work-1',
       title: 'Title',
@@ -82,10 +81,7 @@ describe('work contracts', () => {
     expect(work).not.toHaveProperty('sources');
   });
 
-  it('retains Catalog list filters and safe Personal upload results', () => {
-    expect(catalogListQuerySchema.parse({ q: '  book  ' }).q).toBe('book');
-    expect(catalogListQuerySchema.parse({ q: '  ' }).q).toBeUndefined();
-    expect(catalogListQuerySchema.parse({}).sortBy).toBe('publishedAt');
+  it('accepts safe Personal upload results', () => {
     expect(personalWorkUploadResultSchema.parse({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' })).toEqual(
       { id: 'work-1', title: 'Book', processingStatus: 'uploaded' },
     );

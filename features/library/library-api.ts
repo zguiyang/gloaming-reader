@@ -88,10 +88,6 @@ export function useLibraryQuery(options?: { enabled?: boolean }) {
 
 export const formatLibraryApiError = formatApiError;
 
-export async function addToLibrary(workId: string): Promise<void> {
-  await apiRequest(`/api/library/${encodeURIComponent(workId)}`, { method: 'POST', schema: z.undefined() });
-}
-
 export async function removeFromLibrary(workId: string): Promise<void> {
   await apiRequest(`/api/library/${encodeURIComponent(workId)}`, { method: 'DELETE', schema: z.undefined() });
 }

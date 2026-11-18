@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { contentAsset as contentAssetTable, readingWork as readingWorkTable } from '@/server/db';
 
 import type { WorkReadActor } from '@/server/domains/works/access';
-import { canReadWork, isPublicCatalogWork } from '@/server/domains/works/access';
+import { canReadWork } from '@/server/domains/works/access';
 import { db } from '@/server/infra/db';
 import type { ObjectGetStreamResult, ObjectRange } from '@/server/infra/storage';
 import { getObjectStream } from '@/server/infra/storage';
@@ -30,9 +30,9 @@ export type ResolvedAsset = {
   publishedAt: Date | null;
 };
 
-/** Only anonymous-readable catalog work assets may use shared public caching. */
-export function isPublicAsset(asset: ResolvedAsset): boolean {
-  return isPublicAssetKind(asset.kind) && isPublicCatalogWork(asset);
+/** Authenticated-only reads always use private cache semantics. */
+export function isPublicAsset(_asset: ResolvedAsset): boolean {
+  return false;
 }
 
 /** Look up an asset row + owning work fields (assetId → storageKey, never key from caller). */
@@ -89,7 +89,7 @@ export async function isAssetAuthorized(actor: WorkReadActor, asset: ResolvedAss
   if (!(await canReadWork(actor, asset.workId))) {
     return false;
   }
-  if (actor.userId != null && asset.ownerUserId === actor.userId) {
+  if (asset.ownerUserId === actor.userId) {
     return true;
   }
   return isPublicAssetKind(asset.kind);

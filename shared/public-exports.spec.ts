@@ -16,7 +16,6 @@ const ACCEPTED_MODULES = [
   'reader',
   'reading-history',
   'reading-stats',
-  'recommendations',
   'library',
   'translate',
   'tts',
@@ -29,7 +28,7 @@ describe('shared module layout', () => {
     for (const moduleName of ACCEPTED_MODULES) {
       readFileSync(new URL(`./${moduleName}/index.ts`, import.meta.url), 'utf8');
     }
-    expect(ACCEPTED_MODULES).toHaveLength(17);
+    expect(ACCEPTED_MODULES).toHaveLength(16);
   });
 });
 
@@ -52,9 +51,8 @@ describe('shared module entrypoints', () => {
 });
 
 describe('works public entrypoint boundary', () => {
-  it('exposes the Personal and Catalog read contracts', () => {
+  it('exposes Personal upload and Work read contracts', () => {
     expect(works.workSchema).toBeDefined();
-    expect(works.catalogListQuerySchema).toBeDefined();
     expect(works.personalWorkUploadResultSchema).toBeDefined();
     const adminOrLifecycleExports = Object.keys(works).filter((name) =>
       /^(admin|create|update|publish|unpublish|delete|retry)/i.test(name),

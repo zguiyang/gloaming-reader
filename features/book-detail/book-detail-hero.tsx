@@ -1,8 +1,8 @@
 'use client';
 
-import { BookmarkIcon, BookOpenIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, Loader2Icon } from 'lucide-react';
+import { BookOpenIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import Link from 'next/link';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 
 import { t } from '@/i18n';
 
@@ -18,63 +18,47 @@ import {
 } from '@/features/book-detail/book-detail-model';
 import { WorkCover } from '@/features/work-cover';
 import { useLocale } from '@/lib/locale-context';
-import { cn } from '@/lib/utils';
 
 type BookDetailHeroProps = {
   book: BookDetail;
-  inLibrary: boolean;
-  onAddToLibrary: () => void;
-  isAddingToLibrary?: boolean;
 };
 
-function BookDescription({ description, notes }: { description: string | null; notes?: string[] }) {
+function BookDescription({ description }: { description: string | null }) {
   const { locale } = useLocale();
   const [isExpanded, setIsExpanded] = useState(false);
   const text = description?.trim() ?? '';
   const isLong = text.length > 400;
-  if (!text && !notes?.length) return null;
+  if (!text) return null;
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 text-left md:mx-0">
-      {text ? (
-        <p className="font-reading whitespace-pre-line break-words text-base leading-7 text-muted-foreground">
-          {isLong && !isExpanded ? `${text.slice(0, 400).trimEnd()}…` : text}
-          {isLong ? (
-            <Button
-              variant="plain"
-              size={null}
-              type="button"
-              className="ml-1 inline-flex size-8 items-center justify-center rounded text-primary align-middle hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label={t(
-                locale,
-                isExpanded ? 'content.bookDetail.descriptionCollapse' : 'content.bookDetail.descriptionExpand',
-              )}
-              aria-expanded={isExpanded}
-              onClick={() => setIsExpanded((value) => !value)}
-            >
-              {isExpanded ? (
-                <ChevronUpIcon className="size-4" aria-hidden />
-              ) : (
-                <ChevronDownIcon className="size-4" aria-hidden />
-              )}
-            </Button>
-          ) : null}
-        </p>
-      ) : null}
-      {notes?.length ? (
-        <section className="space-y-2">
-          <h2 className="font-heading text-base font-semibold">{t(locale, 'content.bookDetail.sourceNotes')}</h2>
-          {notes.map((note, index) => (
-            <p key={index} className="whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
-              {note}
-            </p>
-          ))}
-        </section>
-      ) : null}
+      <p className="font-reading whitespace-pre-line break-words text-base leading-7 text-muted-foreground">
+        {isLong && !isExpanded ? `${text.slice(0, 400).trimEnd()}…` : text}
+        {isLong ? (
+          <Button
+            variant="plain"
+            size={null}
+            type="button"
+            className="ml-1 inline-flex size-8 items-center justify-center rounded text-primary align-middle hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={t(
+              locale,
+              isExpanded ? 'content.bookDetail.descriptionCollapse' : 'content.bookDetail.descriptionExpand',
+            )}
+            aria-expanded={isExpanded}
+            onClick={() => setIsExpanded((value) => !value)}
+          >
+            {isExpanded ? (
+              <ChevronUpIcon className="size-4" aria-hidden />
+            ) : (
+              <ChevronDownIcon className="size-4" aria-hidden />
+            )}
+          </Button>
+        ) : null}
+      </p>
     </div>
   );
 }
 
-export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibrary }: BookDetailHeroProps) {
+export function BookDetailHero({ book }: BookDetailHeroProps) {
   const { locale } = useLocale();
   const currentPartId = book.chapters.find((chapter) => chapter.status === 'current')?.id;
   const readHref = AUTH_ROUTES.readBook(book.id, currentPartId);
@@ -119,7 +103,7 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
         ) : null}
       </div>
 
-      <BookDescription description={book.teaser} notes={book.sourceNotes} />
+      <BookDescription description={book.teaser} />
 
       <div className="hidden max-w-xl flex-col gap-4 pt-1 md:flex">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -134,12 +118,6 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
               {readLabel}
             </Link>
           ) : null}
-          <LibraryButton
-            inLibrary={inLibrary}
-            onAdd={onAddToLibrary}
-            isAdding={isAddingToLibrary}
-            className="h-11 flex-1 rounded-xl px-8 text-base"
-          />
         </div>
 
         {hasProgress ? (
@@ -161,59 +139,6 @@ export function BookDetailHero({ book, inLibrary, onAddToLibrary, isAddingToLibr
       <p className="text-sm text-muted-foreground md:hidden">
         {[formatMinutes(book.estimatedMinutes, locale)].filter(Boolean).join(' · ')}
       </p>
-    </WorkDetailHeroLayout>
-  );
-}
-
-/** Source records have no readable Work yet, but share the same detail hero. */
-export function BookDetailSourceHero({
-  title,
-  author,
-  coverImageUrl,
-  description,
-  notes,
-  categories,
-  actions,
-}: {
-  title: string;
-  author: string;
-  coverImageUrl: string | null;
-  description: string | null;
-  notes?: string[];
-  categories?: string[];
-  actions: ReactNode;
-}) {
-  return (
-    <WorkDetailHeroLayout
-      cover={
-        <WorkCover
-          title={title}
-          coverImageUrl={coverImageUrl}
-          className="aspect-[2/3] w-48 md:w-full md:max-w-[280px]"
-        />
-      }
-    >
-      <div className="space-y-2">
-        <h1 className="font-heading text-3xl leading-tight font-bold tracking-tight text-foreground text-balance md:text-5xl md:leading-[1.15]">
-          {title}
-        </h1>
-        {author ? (
-          <p className="font-heading text-lg text-muted-foreground italic md:text-2xl md:leading-8">{author}</p>
-        ) : null}
-      </div>
-      <BookDescription description={description} notes={notes} />
-      {categories?.length ? (
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => (
-            <span key={category} className="rounded-full bg-muted px-3 py-1 text-sm text-muted-foreground">
-              {category}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      <div className="fixed inset-x-0 z-40 border-t border-border/60 bg-background/95 p-4 backdrop-blur-md bottom-[var(--app-shell-bottom,0px)] md:static md:max-w-xl md:border-0 md:bg-transparent md:p-0 md:pt-1 md:backdrop-blur-none">
-        {actions}
-      </div>
     </WorkDetailHeroLayout>
   );
 }
@@ -256,17 +181,7 @@ export function BookDetailMobileProgress({ book }: { book: BookDetail }) {
   );
 }
 
-export function BookDetailStickyCta({
-  book,
-  inLibrary,
-  onAddToLibrary,
-  isAddingToLibrary,
-}: {
-  book: BookDetail;
-  inLibrary: boolean;
-  onAddToLibrary: () => void;
-  isAddingToLibrary?: boolean;
-}) {
+export function BookDetailStickyCta({ book }: { book: BookDetail }) {
   const { locale } = useLocale();
   const currentPartId = book.chapters.find((chapter) => chapter.status === 'current')?.id;
   const readHref = AUTH_ROUTES.readBook(book.id, currentPartId);
@@ -276,82 +191,17 @@ export function BookDetailStickyCta({
 
   return (
     <div className="fixed inset-x-0 z-40 border-t border-border/60 bg-background/95 p-4 backdrop-blur-md md:hidden bottom-[var(--app-shell-bottom,0px)]">
-      <div className="mx-auto flex max-w-lg gap-3">
+      <div className="mx-auto flex max-w-lg">
         <Link
           href={readHref}
           className={buttonVariants({
-            className: 'h-12 flex-1 rounded-xl text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]',
+            className: 'h-12 w-full rounded-xl text-base shadow-sm hover:bg-brand-deep active:scale-[0.98]',
           })}
         >
           <BookOpenIcon className="size-4" strokeWidth={1.5} aria-hidden />
           {readLabel}
         </Link>
-        {!inLibrary ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="h-12 shrink-0 rounded-xl px-4"
-            disabled={isAddingToLibrary}
-            onClick={() => {
-              onAddToLibrary();
-            }}
-            aria-label={t(locale, 'content.bookDetail.addToLibraryAria')}
-          >
-            {isAddingToLibrary ? (
-              <Loader2Icon className="size-4 animate-spin" aria-hidden />
-            ) : (
-              <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
-            )}
-          </Button>
-        ) : null}
       </div>
     </div>
-  );
-}
-
-function LibraryButton({
-  inLibrary,
-  onAdd,
-  isAdding,
-  className,
-}: {
-  inLibrary: boolean;
-  onAdd: () => void;
-  isAdding?: boolean;
-  className?: string;
-}) {
-  const { locale } = useLocale();
-
-  if (inLibrary) {
-    return (
-      <Button
-        type="button"
-        variant="secondary"
-        disabled
-        className={cn(
-          'cursor-default gap-2 bg-surface-container-high text-muted-foreground shadow-none disabled:opacity-100',
-          className,
-        )}
-      >
-        <CheckIcon className="size-4" strokeWidth={1.5} aria-hidden />
-        {t(locale, 'content.bookDetail.inLibrary')}
-      </Button>
-    );
-  }
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      disabled={isAdding}
-      className={cn('gap-2 border-outline/50 bg-card shadow-none hover:bg-surface-container-low', className)}
-      onClick={() => {
-        onAdd();
-      }}
-    >
-      {isAdding ? <Loader2Icon className="size-4 animate-spin" aria-hidden /> : null}
-      <BookmarkIcon className="size-4" strokeWidth={1.5} aria-hidden />
-      {t(locale, 'content.bookDetail.addToLibrary')}
-    </Button>
   );
 }

@@ -1,1 +1,1 @@
-export { addToLibrary, getLibrary, removeFromLibrary } from '@/server/domains/library/service';
+export { getLibrary, removeFromLibrary } from '@/server/domains/library/service';

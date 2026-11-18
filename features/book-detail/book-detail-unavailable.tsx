@@ -7,21 +7,12 @@ import { useRouter } from 'next/navigation';
 import { t } from '@/i18n';
 
 import { Button, buttonVariants } from '@/components/ui/button';
-import { BookDetailRecommendations } from '@/features/book-detail/book-detail-recommendations';
 import { useLocale } from '@/lib/locale-context';
 import { workDetailReturnLabelKey } from '@/lib/navigation/work-detail-return';
 import { cn } from '@/lib/utils';
 
 /** Content unavailable / load-failure state for live book detail. */
-export function BookDetailUnavailable({
-  workId,
-  message,
-  returnTo,
-}: {
-  workId?: string;
-  message?: string;
-  returnTo: string;
-}) {
+export function BookDetailUnavailable({ message, returnTo }: { workId?: string; message?: string; returnTo: string }) {
   const router = useRouter();
   const { locale } = useLocale();
 
@@ -62,8 +53,6 @@ export function BookDetailUnavailable({
           </Link>
         </div>
       </div>
-
-      <BookDetailRecommendations excludeWorkId={workId} showDivider={false} />
     </div>
   );
 }

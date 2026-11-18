@@ -25,8 +25,7 @@ export type BookDetail = {
   estimatedMinutes: number | null;
   suggestedVocabSize: number | null;
   teaser: string;
-  sourceNotes?: string[];
-  /** BCP-47 language tag from catalog work — display via {@link languageLabelFromCode}. */
+  /** BCP-47 language tag — display via {@link languageLabelFromCode}. */
   language: string;
   languageLabel: string;
   coverImageUrl: string | null;
@@ -40,15 +39,6 @@ export type BookDetail = {
   completedAt: string | null;
   chapters: BookChapter[];
   relatedIds: string[];
-};
-
-/** Display fields for the book-detail related / recommendations rail only. */
-export type RelatedBookCard = {
-  id: string;
-  title: string;
-  coverImageUrl: string | null;
-  difficultyScore: number | null;
-  estimatedMinutes: number | null;
 };
 
 export function primaryReadLabel(status: BookReadingStatus, locale: Locale = DEFAULT_LOCALE): string {

@@ -1,12 +1,5 @@
 import { z } from 'zod';
 
-import {
-  buildPaginationMeta,
-  createSortByQuerySchema,
-  emptyToUndefined,
-  paginationMetaSchema,
-  paginationQuerySchema,
-} from '../pagination/index.ts';
 import { DIFFICULTY_SCORE_MAX, DIFFICULTY_SCORE_MIN, WORK_STATS_PROVENANCES } from '../reading-stats/index.ts';
 
 /** ReadingWork pipeline processing statuses (publication is `publishedAt`, not a processing value). */
@@ -83,14 +76,12 @@ export const PART_BODY_MAX_CHARS = 1_500_000 as const;
 /** Max EPUB upload size (bytes) — enforced by frontend and backend. */
 export const EPUB_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
 
-/** Public work JSON (catalog — no parts body). */
+/** Work metadata JSON (no part bodies). */
 export const workSchema = z.object({
   id: z.string(),
   title: z.string(),
   author: z.string(),
   description: z.string(),
-  sourceSummary: z.string().nullable().optional(),
-  sourceNotes: z.array(z.string()).optional(),
   language: z.string(),
   processingStatus: workProcessingStatusSchema,
   visibility: workVisibilitySchema,
@@ -163,38 +154,3 @@ export const personalWorkDeleteResultSchema = z.object({ id: z.string(), deleted
 export type PersonalWorkUpdate = z.infer<typeof personalWorkUpdateSchema>;
 export type PersonalWorkUpdateResult = z.infer<typeof personalWorkUpdateResultSchema>;
 export type PersonalWorkDeleteResult = z.infer<typeof personalWorkDeleteResultSchema>;
-
-export const CATALOG_SORT_FIELDS = ['publishedAt', 'updatedAt', 'createdAt'] as const;
-export type CatalogSortField = (typeof CATALOG_SORT_FIELDS)[number];
-export const DEFAULT_CATALOG_SORT_BY = 'publishedAt' as const satisfies CatalogSortField;
-
-const catalogSearchQuerySchema = z.preprocess(
-  emptyToUndefined,
-  z.string().trim().min(1).max(WORK_TITLE_MAX).optional(),
-);
-
-/** Query for `GET /api/catalog/works`. */
-export const catalogListQuerySchema = paginationQuerySchema.extend({
-  sortBy: createSortByQuerySchema(CATALOG_SORT_FIELDS, DEFAULT_CATALOG_SORT_BY),
-  q: catalogSearchQuerySchema,
-});
-
-export type CatalogListQuery = z.infer<typeof catalogListQuerySchema>;
-
-/**
- * Catalog list row — includes `partCount` without shipping part bodies.
- */
-export const catalogWorkSchema = workSchema.extend({
-  partCount: z.number().int().nonnegative(),
-});
-
-export type CatalogWork = z.infer<typeof catalogWorkSchema>;
-
-export const catalogListDataSchema = z.object({
-  items: z.array(catalogWorkSchema),
-  pagination: paginationMetaSchema,
-});
-
-export type CatalogListData = z.infer<typeof catalogListDataSchema>;
-
-export { buildPaginationMeta };

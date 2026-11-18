@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import {
@@ -20,7 +18,7 @@ import { workAvailability } from '@/shared/works';
 
 import { loadUserTagsByWorkIds } from '@/server/domains/library/tags/service';
 import { toReadingState } from '@/server/domains/reading';
-import { publicCatalogWorkSql, workReadAccessSql, workReadActorFromIdentity } from '@/server/domains/works/access';
+import { workReadAccessSql, workReadActorFromIdentity } from '@/server/domains/works/access';
 import { loadPartSortOrdersByWorkIds } from '@/server/domains/works/read-model';
 import { db } from '@/server/infra/db';
 import { NotFoundError } from '@/server/shared/errors/app-error';
@@ -182,7 +180,7 @@ function toWorkSummary(row: WorkRow) {
   };
 }
 
-/** Library membership comes only from ownership or an explicit catalog save. */
+/** Library membership comes only from ownership or saved legacy membership rows. */
 export async function getLibrary(userId: string): Promise<LibraryData> {
   const [[currentRow], ownedRows, savedRows, [ownedCount], [savedCount]] = await Promise.all([
     db
@@ -226,8 +224,6 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
         readingStateTable,
         and(eq(readingStateTable.workId, readingWorkTable.id), eq(readingStateTable.userId, userId)),
       )
-      // Membership, not publication, owns saved Library visibility: a Source work
-      // saved before publication is readable by its member and must appear here.
       .where(eq(userLibraryItemTable.userId, userId))
       .orderBy(desc(userLibraryItemTable.createdAt), desc(readingWorkTable.id))
       .limit(LIBRARY_ITEMS_LIMIT),
@@ -239,8 +235,7 @@ export async function getLibrary(userId: string): Promise<LibraryData> {
   const orderedRows = [...ownedRows, ...savedRows]
     .sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime() || b.work.id.localeCompare(a.work.id))
     .slice(0, LIBRARY_ITEMS_LIMIT);
-  // Saved membership requires an unowned Catalog Work (`publicCatalogWorkSql`), so Personal
-  // ownership and saved membership are disjoint and the union size is the plain sum.
+  // Personal ownership and saved membership rows are disjoint, so the union size is the plain sum.
   const totalMemberCount = Number(ownedCount?.value ?? 0) + Number(savedCount?.value ?? 0);
   const isTruncated = totalMemberCount > orderedRows.length;
   const workIds = [...(currentRow ? [currentRow.work.id] : []), ...orderedRows.map((row) => row.work.id)];
@@ -305,28 +300,8 @@ export async function getLibraryItem(userId: string, workId: string): Promise<Li
   return buildLibraryItem({ work: row.work, state: row.state, owned: Boolean(owned) }, { partsByWork, userTagsByWork });
 }
 
-/** Explicitly save a published Catalog work; repeated saves are successful no-ops. */
-export async function addToLibrary(userId: string, workId: string): Promise<void> {
-  await db.transaction(async (tx) => {
-    const [work] = await tx
-      .select({ id: readingWorkTable.id })
-      .from(readingWorkTable)
-      .where(and(eq(readingWorkTable.id, workId), publicCatalogWorkSql()))
-      .for('share')
-      .limit(1);
-    if (!work) {
-      throw new NotFoundError(ERROR_CODES.NOT_FOUND.WORK);
-    }
-
-    await tx
-      .insert(userLibraryItemTable)
-      .values({ id: randomUUID(), userId, workId })
-      .onConflictDoNothing({ target: [userLibraryItemTable.userId, userLibraryItemTable.workId] });
-  });
-}
-
 /**
- * Remove Catalog membership and its private organization labels, preserving reading facts.
+ * Remove saved membership and its private organization labels, preserving reading facts.
  * Personal Works are unaffected; other users' membership and reading progress stay.
  */
 export async function removeFromLibrary(userId: string, workId: string): Promise<void> {

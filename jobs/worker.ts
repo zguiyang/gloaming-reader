@@ -5,11 +5,6 @@ import { JOB_ASSET_CLEANUP, processAssetCleanup } from '@/jobs/asset-cleanup';
 import { type ContentParseJobData, JOB_CONTENT_PARSE, processContentParse } from '@/jobs/content-parse';
 import type { PingJobData } from '@/jobs/ping';
 import { JOB_PING, processPing } from '@/jobs/ping';
-import {
-  JOB_WORK_COVER_REFRESH,
-  processWorkCoverRefresh,
-  type WorkCoverRefreshJobData,
-} from '@/jobs/work-cover-refresh';
 import { recoverStalledContentParses } from '@/server/application/commands/recover-stalled-content-parses';
 import { commonEnv } from '@/server/infra/config/env-common';
 import { workerLogger } from '@/server/infra/logging/logger';
@@ -24,8 +19,6 @@ export async function processJob(job: Pick<Job, 'name' | 'data'>): Promise<unkno
       return processPing(job.data as PingJobData);
     case JOB_CONTENT_PARSE:
       return processContentParse(job.data as ContentParseJobData);
-    case JOB_WORK_COVER_REFRESH:
-      return processWorkCoverRefresh(job.data as WorkCoverRefreshJobData);
     default:
       throw new Error(`Unknown job name: ${job.name}`);
   }
