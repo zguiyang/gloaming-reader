@@ -35,9 +35,9 @@ task authorization.
 
 - Treat nested Hono-in-Next as the final API architecture (Hono is not in the live tree)
 - Restore `web+api+worker` three long-lived API services as the recommended open-source default (Jobs as a second process/container is fine)
-- Revive Gutenberg **full** sync as the main discovery path
+- Revive Discover, `discovery_source` / `source_record` catalog sync, or Gutenberg ingest as a content path (library content is **personal upload only**)
 - Default TTS/LLM onto Workers AI
-- Claim personal upload is out of scope
+- Treat personal upload as out of scope
 - Equate deploy merge with collapsing domain logic into UI modules
 - Reintroduce a multi-package pnpm workspace for the live product
 - Reintroduce vinext / Workers deploy tooling or claim the product runs on Cloudflare Workers

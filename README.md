@@ -18,12 +18,11 @@ Who: **no age gate**—students, adult learners, enthusiasts, and advanced reade
 Choose authentic English → Read → Contextual help when stuck → Keep reading
 ```
 
-| Surface  | Role                                                                 |
-| -------- | -------------------------------------------------------------------- |
-| Discover | Browse authentic catalog works, then save what you want to read      |
-| Library  | Personal shelf: saved catalog works, uploads, tags, search & filters |
-| Reader   | Calm reading; lookup, translation, TTS                               |
-| AI       | In-page companion; disappears when not needed                        |
+| Surface | Role                                                              |
+| ------- | ----------------------------------------------------------------- |
+| Library | Personal shelf: uploads, tags, search & filters, continue reading |
+| Reader  | Calm reading; lookup, translation, TTS                            |
+| AI      | In-page companion; disappears when not needed                     |
 
 Gloaming is not Duolingo, LingQ, Anki, a ChatGPT reading plugin, or an AI content factory. Product constraints live in [`AGENTS.md`](./AGENTS.md); UI tokens in [`DESIGN.md`](./DESIGN.md).
 

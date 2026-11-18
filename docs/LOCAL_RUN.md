@@ -51,5 +51,24 @@ Optional: `pnpm build && pnpm start` for production-mode local check.
 ## Notes
 
 - Auth, TTS, LLM, and storage need the corresponding keys in `.env` (see `.env.example`).
+- If outbound HTTPS calls (LLM providers, dictionary APIs, etc.) need a local proxy, set `http_proxy` / `https_proxy` (or the channel-specific proxy URL on the provider row in admin). The server uses the same undici proxy helper for all outbound fetches.
 - This runbook does **not** use Cloudflare Workers, vinext, or OpenNext.
 - Redis application keys must use TTLs (see [backend Redis key policy](../rules/backend.md#redis-key-policy)). Scan leftovers with `pnpm exec tsx scripts/redis-no-ttl-scan.ts`.
+
+### After removing Discover
+
+Migration `0067_drop_discovery_tables` drops the discovery registry only (`discovery_source`, `discovery_sync_run`, `discovery_catalog_entry`, `source_record`, `source_record_save_intent`). **Keep** `user_library_item` (and materialized `reading_work` rows) for books users already saved from the old catalog.
+
+Apply on local dev (after `docker compose up -d`):
+
+```bash
+pnpm db:migrate
+```
+
+Optional **dev-only** cleanup of stale BullMQ keys for retired discovery workers (local Redis defaults to `127.0.0.1:6380` per compose). Queue names were `gloaming-discovery-sync` and `gloaming-discovery-import`:
+
+```bash
+redis-cli -p 6380 --scan --pattern 'bull:gloaming-discovery-*' | while read -r key; do redis-cli -p 6380 DEL "$key"; done
+```
+
+Do **not** `FLUSHDB` if you rely on other queues (`gloaming`, `gloaming-asset-cleanup`).

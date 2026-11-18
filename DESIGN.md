@@ -679,7 +679,7 @@ Admin (`/admin/**`) serves operators who already understand Provider, Model, API
 - Page-level intro copy: one line when the task is non-obvious; skip when the nav label + layout already state the job.
 - **Same Light / Dark tokens and visual language as learner UI**; denser layout is OK — **not a second theme or Admin Dark palette**.
 
-**Scope:** stricter economy applies to **admin / configuration** surfaces only. Reader, shelf, discover, auth, and onboarding may keep labels, descriptions, and text actions when unfamiliarity, reading context, accessibility, or discoverability need them. **Reduce cognitive load for the task and audience** — not merely element count globally.
+**Scope:** stricter economy applies to **admin / configuration** surfaces only. Reader, library, auth, and onboarding may keep labels, descriptions, and text actions when unfamiliarity, reading context, accessibility, or discoverability need them. **Reduce cognitive load for the task and audience** — not merely element count globally.
 
 ### Decision order (before drawing UI)
 
@@ -706,7 +706,7 @@ The visual contracts above own **visual quality**; this section owns **product /
 - Implement Dark exclusively as `html.dark { … }` variable overrides (+ documented alias remaps / shadow formulas).
 - Keep one accent; motion nearly invisible (short color transitions; optional light `active:scale` on primary CTA).
 - Keep **system UI language Chinese** (labels, nav, empty states, toasts, placeholders, theme control) until product i18n is explicit; learning content may be EN/ZH.
-- For reader chrome, shelf, and discover flows, borrow interaction from Apple Books / TextStack / Readest — not their visuals or study features (e.g. SRS).
+- For reader chrome and library flows, borrow interaction from Apple Books / TextStack / Readest — not their visuals or study features (e.g. SRS).
 - Prefer `next-themes` for mode persistence and FOUC-safe class application.
 
 **Don't**
