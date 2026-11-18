@@ -951,6 +951,7 @@
       "statusCompleted": "Finished",
       "statusNotStarted": "Not started",
       "statusReadProgress": "{ratio}% read",
+      "viewBookDetail": "View details",
       "aiTagBadge": "AI"
     },
     "history": {

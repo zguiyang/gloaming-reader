@@ -952,6 +952,7 @@
       "statusCompleted": "已读完",
       "statusNotStarted": "未开始",
       "statusReadProgress": "已读 {ratio}%",
+      "viewBookDetail": "查看详情",
       "aiTagBadge": "AI 生成"
     },
     "history": {

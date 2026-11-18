@@ -1,7 +1,8 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontalIcon } from 'lucide-react';
+import { MoreVerticalIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -40,12 +41,16 @@ export function LibraryWorkManagement({
   tags,
   locale,
   onRemoved,
+  detailHref,
 }: {
   entry: LibraryItem;
   tags: UserTagManagementItem[];
   locale: Locale;
   onRemoved?: () => void;
+  /** When set, expose “View details” in the menu (library cards). Omit on the detail page itself. */
+  detailHref?: string;
 }) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [isRemoveConfirmationOpen, setIsRemoveConfirmationOpen] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
@@ -79,8 +84,13 @@ export function LibraryWorkManagement({
     },
     onError: (error) => toast.error(formatLibraryApiError(error)),
   });
-  const canManage = entry.canRemoveFromLibrary || (isPersonal && entry.availability !== 'processing');
-  if (!canManage) return null;
+
+  const canManageTags = entry.availability === 'ready';
+  const canEdit = isPersonal && entry.availability === 'ready';
+  const canDelete = isPersonal;
+  const canRemove = entry.canRemoveFromLibrary;
+  const hasMenuItems = Boolean(detailHref) || canManageTags || canEdit || canDelete || canRemove;
+  if (!hasMenuItems) return null;
 
   return (
     <>
@@ -92,7 +102,6 @@ export function LibraryWorkManagement({
               size="icon-sm"
               className={cn(
                 // Visual size tracks one title line; expanded hit target keeps ≥44px tap.
-                // Sit on the first line for both 1-line and wrapped titles (never mid-block).
                 'relative -mt-0.5 shrink-0 text-muted-foreground hover:text-foreground',
                 'after:absolute after:-inset-2 after:content-[""]',
               )}
@@ -100,25 +109,30 @@ export function LibraryWorkManagement({
             />
           }
         >
-          <MoreHorizontalIcon className="size-4" strokeWidth={1.75} aria-hidden />
+          <MoreVerticalIcon className="size-4" strokeWidth={1.75} aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-auto min-w-40">
-          {entry.availability === 'ready' ? (
+          {detailHref ? (
+            <DropdownMenuItem onClick={() => router.push(detailHref)}>
+              {t(locale, 'content.library.viewBookDetail')}
+            </DropdownMenuItem>
+          ) : null}
+          {canManageTags ? (
             <DropdownMenuItem onClick={() => setIsTagDialogOpen(true)}>
               {t(locale, 'content.library.manageTagsForBook')}
             </DropdownMenuItem>
           ) : null}
-          {isPersonal && entry.availability === 'ready' ? (
+          {canEdit ? (
             <DropdownMenuItem onClick={() => setIsEditSheetOpen(true)}>
               {t(locale, 'content.library.editBookInfo')}
             </DropdownMenuItem>
           ) : null}
-          {isPersonal ? (
+          {canDelete ? (
             <DropdownMenuItem onClick={() => setIsDeleteConfirmationOpen(true)}>
               {t(locale, 'content.library.deleteBook')}
             </DropdownMenuItem>
           ) : null}
-          {entry.canRemoveFromLibrary ? (
+          {canRemove ? (
             <DropdownMenuItem onClick={() => setIsRemoveConfirmationOpen(true)}>
               {t(locale, 'content.library.removeFromLibrary')}
             </DropdownMenuItem>
@@ -160,7 +174,7 @@ export function LibraryWorkManagement({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {entry.availability === 'ready' ? (
+      {canManageTags ? (
         <LibraryTagAssignmentDialog
           entry={entry}
           tags={tags}
@@ -168,7 +182,7 @@ export function LibraryWorkManagement({
           onOpenChange={setIsTagDialogOpen}
         />
       ) : null}
-      {isPersonal && entry.availability === 'ready' && isEditSheetOpen ? (
+      {canEdit && isEditSheetOpen ? (
         <PersonalWorkEditSheet entry={entry} locale={locale} open onOpenChange={setIsEditSheetOpen} />
       ) : null}
     </>
