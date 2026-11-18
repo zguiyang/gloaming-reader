@@ -199,11 +199,10 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
 
   return (
     <div className="flex w-full max-w-[680px] flex-col gap-10">
-      <header className="flex flex-col gap-2">
+      <header>
         <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
           {t(locale, 'admin.dictionary.title')}
         </h1>
-        <p className="text-sm leading-6 text-muted-foreground">{t(locale, 'admin.dictionary.subtitle')}</p>
       </header>
 
       <section className="flex flex-col gap-6">
@@ -261,12 +260,9 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
           </Field>
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-surface-container-low px-4 py-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-foreground">
-                {t(locale, 'admin.dictionary.aiEnrichment.title')}
-              </span>
-              <p className="text-sm text-muted-foreground">{t(locale, 'admin.dictionary.aiEnrichment.description')}</p>
-            </div>
+            <span className="text-sm font-medium text-foreground">
+              {t(locale, 'admin.dictionary.aiEnrichment.title')}
+            </span>
             <Switch
               checked={enableAiEnrichment}
               onCheckedChange={setEnableAiEnrichment}
@@ -366,12 +362,9 @@ function DictionaryConfigForm({ config }: { config: DictionaryConfigView }) {
             desktop). The inactive line is invisible + aria-hidden with no role; only the active
             paragraph carries role=status. Test fields below never shift across clean/dirty/cancel. */}
         <div className="grid gap-1 border-b border-border/60 pb-3">
-          <div className="col-start-1 row-start-1 flex flex-col gap-1">
-            <h2 className="text-base font-semibold text-foreground">
-              {t(locale, 'admin.dictionary.test.sectionTitle')}
-            </h2>
-            <p className="text-sm text-muted-foreground">{t(locale, 'admin.dictionary.test.sectionDescription')}</p>
-          </div>
+          <h2 className="col-start-1 row-start-1 text-base font-semibold text-foreground">
+            {t(locale, 'admin.dictionary.test.sectionTitle')}
+          </h2>
           <p
             role={hasUnsavedChanges ? undefined : 'status'}
             aria-hidden={hasUnsavedChanges ? true : undefined}

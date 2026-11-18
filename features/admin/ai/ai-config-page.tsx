@@ -279,7 +279,6 @@ export function AiConfigPage() {
     <div>
       <div className="min-w-0">
         <h1 className="font-heading text-3xl font-bold tracking-tight">{t(locale, 'admin.ai.title')}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{t(locale, 'admin.ai.subtitle')}</p>
       </div>
 
       <div className="mt-8">

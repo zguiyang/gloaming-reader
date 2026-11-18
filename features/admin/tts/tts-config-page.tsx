@@ -146,11 +146,10 @@ function TtsConfigForm({ config, presets }: { config: TtsConfigView; presets: Tt
 
   return (
     <div className="flex w-full max-w-[680px] flex-col gap-10">
-      <header className="flex flex-col gap-2">
+      <header>
         <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">
           {t(locale, 'admin.tts.title')}
         </h1>
-        <p className="text-sm leading-6 text-muted-foreground">{t(locale, 'admin.tts.subtitle')}</p>
       </header>
 
       <section className="flex flex-col gap-6">
