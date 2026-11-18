@@ -83,7 +83,7 @@ export const PART_BODY_MAX_CHARS = 1_500_000 as const;
 /** Max EPUB upload size (bytes) — enforced by frontend and backend. */
 export const EPUB_UPLOAD_MAX_BYTES = 50 * 1024 * 1024;
 
-/** Public work JSON (catalog / discover — no parts body). */
+/** Public work JSON (catalog — no parts body). */
 export const workSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -173,27 +173,16 @@ const catalogSearchQuerySchema = z.preprocess(
   z.string().trim().min(1).max(WORK_TITLE_MAX).optional(),
 );
 
-/**
- * Catalog list SourceRecord-link filter. `any` keeps the public Catalog behavior;
- * `unlinked` returns only published Works with no `source_record.work_id` link so
- * a Discover compatibility read never duplicates a SourceRecord's materialized Work.
- */
-export const CATALOG_SOURCE_LINKS = ['any', 'unlinked'] as const;
-export type CatalogSourceLink = (typeof CATALOG_SOURCE_LINKS)[number];
-export const DEFAULT_CATALOG_SOURCE_LINK = 'any' as const satisfies CatalogSourceLink;
-
 /** Query for `GET /api/catalog/works`. */
 export const catalogListQuerySchema = paginationQuerySchema.extend({
   sortBy: createSortByQuerySchema(CATALOG_SORT_FIELDS, DEFAULT_CATALOG_SORT_BY),
   q: catalogSearchQuerySchema,
-  sourceLink: z.preprocess(emptyToUndefined, z.enum(CATALOG_SOURCE_LINKS).default(DEFAULT_CATALOG_SOURCE_LINK)),
 });
 
 export type CatalogListQuery = z.infer<typeof catalogListQuerySchema>;
 
 /**
- * Catalog list row — includes `partCount` so discover cards can show chapter
- * counts without shipping part bodies.
+ * Catalog list row — includes `partCount` without shipping part bodies.
  */
 export const catalogWorkSchema = workSchema.extend({
   partCount: z.number().int().nonnegative(),

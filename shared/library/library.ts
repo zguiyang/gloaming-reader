@@ -83,7 +83,10 @@ export type LibraryItem = z.infer<typeof libraryItemSchema>;
 
 export const libraryBrowseQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
-  source: z.enum(['all', 'personal', 'saved']).default('all'),
+  source: z.preprocess(
+    (value) => (value === 'saved' || value === 'saved_catalog' ? 'all' : value),
+    z.enum(['all', 'personal']).default('all'),
+  ),
   tag: z.string().max(200).optional(),
   q: z.string().trim().max(200).optional(),
   status: z.enum(['all', 'reading', 'unread', 'completed']).default('all'),
@@ -109,34 +112,3 @@ export const libraryDataSchema = z.object({
 });
 
 export type LibraryData = z.infer<typeof libraryDataSchema>;
-
-/**
- * Result of an explicit SourceRecord Save Intent (`POST /api/library/source-records/:id`).
- * `pending` means the shared import is queued; `ready` means a readable linked Work
- * already exists and Library membership was completed. No auto-save happens here.
- */
-export const SOURCE_RECORD_SAVE_STATUSES = ['pending', 'ready'] as const;
-export const sourceRecordSaveResultSchema = z.object({
-  status: z.enum(SOURCE_RECORD_SAVE_STATUSES),
-  workId: z.string().nullable(),
-});
-
-export type SourceRecordSaveResult = z.infer<typeof sourceRecordSaveResultSchema>;
-
-/**
- * Owner-scoped Save Intent status (`GET /api/library/source-records/:id`).
- *
- * `status` is authoritative: linked `workId` alone never means the import is
- * readable — materialization links the Work first and keeps parsing. `none`
- * (no intent), `pending` (queued/processing), `ready` (readable Work and
- * membership completed), `failed` (import failed; retryable). `failureReason`
- * is a cleaned, user-visible reason and is only set for `failed`.
- */
-export const SOURCE_RECORD_SAVE_STATUS_VALUES = ['none', 'pending', 'ready', 'failed'] as const;
-export const sourceRecordSaveStatusSchema = z.object({
-  status: z.enum(SOURCE_RECORD_SAVE_STATUS_VALUES),
-  workId: z.string().nullable(),
-  failureReason: z.string().nullable(),
-});
-
-export type SourceRecordSaveStatus = z.infer<typeof sourceRecordSaveStatusSchema>;

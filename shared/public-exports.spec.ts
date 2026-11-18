@@ -11,7 +11,6 @@ const ACCEPTED_MODULES = [
   'auth',
   'conversations',
   'dictionary',
-  'discovery',
   'llm',
   'pagination',
   'reader',
@@ -30,7 +29,7 @@ describe('shared module layout', () => {
     for (const moduleName of ACCEPTED_MODULES) {
       readFileSync(new URL(`./${moduleName}/index.ts`, import.meta.url), 'utf8');
     }
-    expect(ACCEPTED_MODULES).toHaveLength(18);
+    expect(ACCEPTED_MODULES).toHaveLength(17);
   });
 });
 

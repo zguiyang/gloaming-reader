@@ -4,9 +4,9 @@ import {
   continueReadingItemSchema,
   isUserTagTranslationMissing,
   LIBRARY_ITEMS_LIMIT,
+  libraryBrowseQuerySchema,
   libraryDataSchema,
   resolveUserTagName,
-  sourceRecordSaveResultSchema,
   userTagSchema,
   userTagWriteSchema,
 } from './library.ts';
@@ -52,18 +52,6 @@ describe('Library contracts', () => {
     expect(userTagSchema.parse({ id: 'old-tag', name: 'Legacy payload' }).createdBy).toBe('manual');
     expect(userTagSchema.parse({ id: 'ai-tag', name: 'AI label', createdBy: 'ai' }).createdBy).toBe('ai');
     expect(userTagSchema.safeParse({ id: 'x', name: 'x', createdBy: 'robot' }).success).toBe(false);
-  });
-
-  it('keeps SourceRecord Save Intent results pending or ready with an explicit work id', () => {
-    expect(sourceRecordSaveResultSchema.parse({ status: 'pending', workId: null })).toEqual({
-      status: 'pending',
-      workId: null,
-    });
-    expect(sourceRecordSaveResultSchema.parse({ status: 'ready', workId: 'work-1' })).toEqual({
-      status: 'ready',
-      workId: 'work-1',
-    });
-    expect(sourceRecordSaveResultSchema.safeParse({ status: 'completed', workId: 'work-1' }).success).toBe(false);
   });
 
   it('rejects control and bidirectional override characters in manual names', () => {
@@ -145,5 +133,12 @@ describe('Library contracts', () => {
   it('keeps Continue Reading as an independent progress projection', () => {
     expect(continueReadingItemSchema.parse({ work, state })).toEqual({ work, state });
     expect(() => continueReadingItemSchema.parse({ work, state: null })).toThrow();
+  });
+
+  it('narrows browse source to all or personal and maps legacy saved filters to all', () => {
+    expect(libraryBrowseQuerySchema.parse({ source: 'personal' }).source).toBe('personal');
+    expect(libraryBrowseQuerySchema.parse({ source: 'saved' }).source).toBe('all');
+    expect(libraryBrowseQuerySchema.parse({ source: 'saved_catalog' }).source).toBe('all');
+    expect(() => libraryBrowseQuerySchema.parse({ source: 'discover' })).toThrow();
   });
 });
