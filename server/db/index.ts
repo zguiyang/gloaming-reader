@@ -46,7 +46,6 @@ export {
   user,
   userLibraryItem,
   userLibraryItemRelations,
-  userPersonalTagPreference,
   userRelations,
   userTag,
   userWorkTag,

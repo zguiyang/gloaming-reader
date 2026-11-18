@@ -268,25 +268,6 @@ export const userWorkTag = pgTable(
   ],
 );
 
-/** Per-user opt-in for automatic Personal EPUB tagging. */
-export const userPersonalTagPreference = pgTable(
-  'user_personal_tag_preference',
-  {
-    userId: text('user_id')
-      .primaryKey()
-      .references(() => user.id, { onDelete: 'cascade' }),
-    /** Master opt-in; an absent row or false means automatic tagging is off. */
-    enabled: boolean('enabled').default(false).notNull(),
-    /** Monotonic generation bumped when the user requests a fresh automatic run. */
-    generation: integer('generation').default(0).notNull(),
-    updatedAt: timestamp('updated_at')
-      .defaultNow()
-      .$onUpdate(() => /* @__PURE__ */ new Date())
-      .notNull(),
-  },
-  (table) => [check('user_personal_tag_preference_generation_nonnegative_chk', sql`${table.generation} >= 0`)],
-);
-
 /** Exact user/work/tag triple a user removed manually; AI must not restore it. */
 export const userWorkTagSuppression = pgTable(
   'user_work_tag_suppression',
