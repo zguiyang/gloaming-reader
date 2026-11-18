@@ -30,7 +30,6 @@ export function resolveWorkDetailReturnTo(value: string | string[] | undefined, 
 
   const isAllowedPath =
     target.pathname === AUTH_ROUTES.library ||
-    target.pathname === AUTH_ROUTES.discover ||
     target.pathname === AUTH_ROUTES.history ||
     target.pathname === `/read/${encodeURIComponent(workId)}`;
   if (!isAllowedPath) {
@@ -52,14 +51,7 @@ export function legacyWorkDetailRedirect(workId: string, returnTo: string | stri
 
 export function workDetailReturnLabelKey(
   returnTo: string,
-):
-  | 'content.common.backToLibrary'
-  | 'content.common.backToDiscover'
-  | 'content.common.backToHistory'
-  | 'content.common.backToReader' {
-  if (returnTo === AUTH_ROUTES.discover || returnTo.startsWith(`${AUTH_ROUTES.discover}?`)) {
-    return 'content.common.backToDiscover';
-  }
+): 'content.common.backToLibrary' | 'content.common.backToHistory' | 'content.common.backToReader' {
   if (returnTo === AUTH_ROUTES.history || returnTo.startsWith(`${AUTH_ROUTES.history}?`)) {
     return 'content.common.backToHistory';
   }

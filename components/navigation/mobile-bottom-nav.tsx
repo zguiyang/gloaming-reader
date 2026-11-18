@@ -1,6 +1,6 @@
 'use client';
 
-import { BookMarkedIcon, CompassIcon, HistoryIcon, MoreHorizontalIcon } from 'lucide-react';
+import { BookMarkedIcon, HistoryIcon, MoreHorizontalIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useMemo } from 'react';
@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils';
 
 const TAB_ICONS: Record<PrimaryNavId, ReactNode> = {
   library: <BookMarkedIcon className="size-5" strokeWidth={1.5} aria-hidden />,
-  discover: <CompassIcon className="size-5" strokeWidth={1.5} aria-hidden />,
   history: <HistoryIcon className="size-5" strokeWidth={1.5} aria-hidden />,
 };
 
@@ -39,7 +38,7 @@ export function MobileBottomNav() {
       )}
       aria-label={navCopy.mainNav}
     >
-      <div className="mx-auto grid h-14 max-w-lg grid-cols-4">
+      <div className="mx-auto grid h-14 max-w-lg grid-cols-3">
         {MOBILE_PRIMARY_TAB_IDS.map((id) => {
           const item = getPrimaryNavLink(id, locale);
           const isActive = matchesNavPath(pathname, item.href);

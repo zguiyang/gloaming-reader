@@ -28,7 +28,6 @@
   "nav": {
     "wordmark": "Gloaming",
     "brandHomeAria": "返回 Gloaming 首页",
-    "discover": "发现",
     "library": "书库",
     "libraryShort": "书库",
     "history": "阅读历史",
@@ -298,7 +297,7 @@
       "emailNotFound": "GitHub 没有向我们提供这个账号的邮箱地址。",
       "emailNotVerified": "这个 GitHub 邮箱尚未完成验证。",
       "backToPrevious": "返回刚才的位置",
-      "backToProduct": "返回发现页"
+      "backToProduct": "回到书库"
     },
     "api": {
       "requestFailed": "请求失败",
@@ -361,15 +360,14 @@
     "cta": {
       "startReading": "开始阅读",
       "signInToRead": "开始阅读",
-      "goToLibrary": "进入书库",
-      "browseDiscover": "先去发现逛书"
+      "goToLibrary": "进入书库"
     },
     "shot": {
       "reader": "[真实截图占位：阅读器正文]",
       "help": "[真实截图占位：正文旁帮助]",
-      "discover": "[真实截图占位：发现 / 上传]",
       "readerHelp": "[真实截图占位：阅读器 + 旁侧帮助]",
-      "library": "[真实截图占位：书库 · 继续阅读]"
+      "library": "[真实截图占位：书库 · 继续阅读]",
+      "libraryUpload": "[真实截图占位：书库上传]"
     },
     "opening": {
       "eyebrow": "沉浸式阅读环境",
@@ -405,10 +403,10 @@
       "beatA": {
         "label": "第一步",
         "title": "先把内容放进来",
-        "body": "可以从发现里挑选书目，也可以上传自己的文件，收进书库。我们不生产“学习用短文”当主内容。",
+        "body": "上传 EPUB 等文件到书库，或打开你已添加的作品。我们不把「学习用短文」当作主内容。",
         "points": {
-          "1": "发现里有公共领域书目，可按分类浏览",
-          "2": "也可上传自己的 EPUB，收进私人书库"
+          "1": "上传收进私人书库",
+          "2": "在同一入口继续上次阅读"
         }
       },
       "beatB": {
@@ -469,8 +467,6 @@
       "subtitle": "管理后台",
       "contentSubtitle": "实例运维",
       "navAssets": "对象存储占用",
-      "navDiscoverySources": "发现源",
-      "navPublicCategories": "公共分类",
       "navConfig": "配置",
       "navLogs": "日志",
       "signInPrompt": "请先登录后再进入管理后台。",
@@ -482,238 +478,6 @@
       "home": "首页",
       "openNavAria": "打开管理导航",
       "navSrOnly": "管理导航"
-    },
-    "discoverySources": {
-      "page": {
-        "title": "发现源",
-        "subtitle": "发现源",
-        "loadFailed": "无法加载发现源。",
-        "operationFailed": "操作失败"
-      },
-      "toast": {
-        "saved": "已保存",
-        "syncQueued": "已排队同步",
-        "syncAlreadyRunning": "同步已在进行中",
-        "syncDisabled": "源已停用，未开始同步"
-      },
-      "fields": {
-        "sourceKey": "源标识",
-        "sourceType": "适配器",
-        "recordCount": "索引行数",
-        "indexSize": "索引体积",
-        "lastSuccess": "上次成功",
-        "errorSummary": "上次错误",
-        "discoverEnabled": "Discover 展示",
-        "maxRows": "最大行数"
-      },
-      "syncStatus": {
-        "idle": "空闲",
-        "queued": "已排队",
-        "syncing": "同步中",
-        "succeeded": "成功",
-        "failed": "失败"
-      },
-      "never": "从未",
-      "recordCount": "{count} 行",
-      "indexSize": "{used} / {budget} MiB",
-      "actions": {
-        "save": "保存",
-        "reset": "重置",
-        "syncNow": "立即同步",
-        "viewRuns": "运行记录"
-      },
-      "run": {
-        "title": "运行记录",
-        "elapsedUnknown": "—",
-        "elapsedSeconds": "{count} 秒",
-        "elapsedMinutes": "{minutes} 分 {seconds} 秒",
-        "counters": "新增 {inserted} · 刷新 {refreshed} · 淘汰 {evicted} · 过滤 {skipped}",
-        "stages": {
-          "queued": "已排队",
-          "downloading": "下载中",
-          "processing": "处理中",
-          "succeeded": "成功",
-          "not_modified": "未变更",
-          "failed": "失败",
-          "skipped": "已跳过"
-        },
-        "recent": {
-          "empty": "暂无运行记录。"
-        }
-      },
-      "names": {
-        "project_gutenberg": "Project Gutenberg"
-      },
-      "enabled": {
-        "label": "已启用"
-      },
-      "disabled": {
-        "label": "已停用"
-      },
-      "toggleEnableAria": "启用 {name}",
-      "toggleDisableAria": "停用 {name}"
-    },
-    "publicCategories": {
-      "sourceMappings": {
-        "title": "来源分类映射",
-        "description": "确认来源分类与公共分类的对应关系。AI 分析仅在点击时运行。",
-        "empty": "暂无来源分类。",
-        "analyze": "AI 分析",
-        "confirm": "确认使用建议",
-        "create": "创建建议分类",
-        "categoryLanguage": "建议分类的语言",
-        "chooseCategory": "选择已有公共分类",
-        "applyCategory": "应用所选分类",
-        "ignore": "暂不映射",
-        "reconcile": "更新已有作品关联",
-        "reconciling": "已有作品关联待更新；点击后将分批处理，关闭页面后可继续。",
-        "changed": "分类映射已改变，请刷新后重试。",
-        "mappedTo": "映射至",
-        "invalidProposal": "建议无效或与已有分类冲突，请人工检查并决定如何处理。",
-        "omittedDetails": "分类信息过多，部分含义未能参与分析；请人工检查后再决定是否创建分类。",
-        "done": "操作完成。",
-        "previous": "上一页",
-        "next": "下一页",
-        "page": "第 {page} 页",
-        "status": {
-          "pending": "待分析",
-          "analyzing": "分析中",
-          "review": "待确认",
-          "confirmed": "已确认",
-          "ignored": "暂不映射"
-        }
-      },
-      "page": {
-        "title": "公共分类",
-        "subtitle": "管理 Discover 发现页主分类（体裁），并关联 Gutenberg 书架。"
-      },
-      "organize": {
-        "action": "让 AI 归类未分配的来源分类",
-        "actionShort": "AI 归类未分配",
-        "pendingCount": "有 {count} 个未分配来源书架",
-        "pendingCountLoading": "正在统计未分配书架…",
-        "pending": "正在归类…",
-        "assigned": "已把 {count} 个来源分类归入现有主分类。",
-        "assignedLine": "{shelf} → {category}",
-        "none": "没有需要处理的未分配来源分类。",
-        "untouched": "还有 {count} 个来源分类没能归入。",
-        "proposalTitle": "已新建主分类",
-        "proposalShelves": "归入的来源分类",
-        "accept": "接受并创建",
-        "dismiss": "不采纳",
-        "accepted": "已创建主分类，并归入对应的来源分类。",
-        "emptyProposals": "这次没有建议新建主分类。"
-      },
-      "create": {
-        "new": "新建",
-        "formTitle": "新建主分类",
-        "namePlaceholder": "分类中文名称",
-        "localeLabel": "名称语言",
-        "submit": "创建分类",
-        "confirm": "确定",
-        "ready": "分类已就绪。"
-      },
-      "cancel": "取消",
-      "delete": {
-        "action": "删除分类",
-        "confirmTitle": "删除分类？",
-        "confirmDescription": "将永久删除“{name}”，并解除其已关联的 Gutenberg 书架；由这些书架派生的发现记录分类也会被移除。",
-        "confirm": "删除",
-        "deletedToast": "分类已删除。"
-      },
-      "search": {
-        "placeholder": "搜索分类…",
-        "empty": "没有匹配的分类。"
-      },
-      "list": {
-        "empty": "还没有公共分类。",
-        "selectHint": "选择一个分类以编辑名称并管理 Gutenberg 书架。"
-      },
-      "shelves": {
-        "title": "Gutenberg 书架关联",
-        "description": "将原始书架映射至当前体裁，更新客户端分类索引。",
-        "searchPlaceholder": "搜索书架名称或 Gutenberg 原始标签…",
-        "assignedTitle": "已纳入本分类",
-        "assignedTitleCount": "已纳入书架（{count}）",
-        "availableTitle": "未分配书架",
-        "availableTitleCount": "未分配书架（{count}）",
-        "uncheckToRemove": "取消勾选移出",
-        "checkToInclude": "勾选纳入",
-        "assignedEmpty": "尚未关联任何书架。",
-        "availableEmpty": "没有符合条件的未分配书架。",
-        "save": "保存书架关联",
-        "saved": "书架关联已保存。",
-        "loadFailed": "无法加载 Gutenberg 书架。",
-        "recordCount": "{count} 本",
-        "toggleAria": "纳入书架 {name}"
-      },
-      "recordCount": "{count} 条记录",
-      "provenance": {
-        "manual": "手动创建",
-        "ai": "AI 创建"
-      },
-      "labels": {
-        "title": "多语言名称",
-        "edit": "编辑名称",
-        "modify": "修改",
-        "summaryPrefix": "多语言名称：",
-        "summary": "多语言名称：{summary}",
-        "missing": "缺少名称：{locale}",
-        "untranslated": "未翻译",
-        "complete": "各语言名称已填写",
-        "save": "保存 {locale} 名称",
-        "name": "{locale} 分类名称",
-        "saved": "名称已保存。",
-        "nameExists": "该语言下已存在同名分类。"
-      },
-      "translate": {
-        "action": "补齐翻译",
-        "actionAria": "补齐 {name} 的缺失翻译",
-        "completed": "已补齐：{locales}",
-        "nothing": "没有需要补齐的翻译。"
-      },
-      "detail": {
-        "idLabel": "分类 ID",
-        "meaning": "含义",
-        "manualLocales": "手动名称语言：{locales}"
-      },
-      "records": {
-        "title": "已分配来源记录",
-        "searchPlaceholder": "搜索书名、作者或来源 ID",
-        "empty": "该分类还没有来源记录。",
-        "noMatch": "没有匹配的记录。",
-        "assign": "分配",
-        "assigned": "已分配",
-        "remove": "移除",
-        "removeConfirmTitle": "移除来源记录？",
-        "removeConfirmDescription": "将从该分类移除《{title}》，并记录手动抑制，自动分类不会恢复该分配。",
-        "removeAria": "从该分类移除 {title}",
-        "assignAria": "将 {title} 分配到该分类",
-        "assignedToast": "已分配到该分类。",
-        "removedToast": "已从该分类移除。",
-        "assignmentLimit": "该记录已有 3 个分类，无法再分配。",
-        "linked": "已生成作品",
-        "notLinked": "未生成作品",
-        "unavailable": "不可用"
-      },
-      "assign": {
-        "title": "添加来源记录",
-        "searchPlaceholder": "搜索可分配的书名或作者",
-        "hint": "输入至少 2 个字符后搜索。",
-        "noResults": "没有匹配的来源记录。",
-        "includesHiddenHint": "搜索范围包含未公开的来源记录。"
-      },
-      "pagination": {
-        "page": "第 {page} / {total} 页",
-        "prev": "上页",
-        "next": "下页"
-      },
-      "errors": {
-        "loadCategories": "无法加载分类列表。",
-        "loadRecords": "无法加载来源记录。",
-        "searchRecords": "无法搜索来源记录。",
-        "operationFailed": "操作失败"
-      }
     },
     "config": {
       "tabAi": "AI",
@@ -1207,61 +971,9 @@
       "retry": "重试",
       "viewBookDetailAria": "查看《{title}》详情",
       "openReaderAria": "在阅读器中打开《{title}》",
-      "findBookCta": "发现一本书开始阅读",
-      "backToDiscover": "返回发现",
       "backToLibrary": "回到书库",
       "backToHistory": "回到阅读历史",
       "backToReader": "回到阅读器"
-    },
-    "discover": {
-      "title": "发现",
-      "metaTitle": "发现 · Gloaming Reader",
-      "loadFailed": "无法加载目录",
-      "softRefreshing": "书目更新中…",
-      "emptyTitle": "暂时没有可发现的内容",
-      "emptyDescription": "稍后再来看看。",
-      "noMatchTitle": "没有符合条件的内容",
-      "noMatchDescription": "试试更换分类，或清除搜索与筛选条件。",
-      "clearFilters": "清除筛选",
-      "searchLabel": "搜索书目",
-      "searchPlaceholder": "搜索书名或作者",
-      "searchAction": "搜索",
-      "clearSearch": "清除搜索",
-      "categoriesFilterAria": "分类筛选",
-      "categoriesAria": "分类",
-      "allCategories": "全部",
-      "moreCategories": "更多分类",
-      "fewerCategories": "收起分类",
-      "activeFilters": "当前筛选：",
-      "clearCategoryFilter": "清除分类筛选：{category}",
-      "searchFilterChip": "搜索：{query}",
-      "addToLibrary": "加入书库",
-      "viewDetail": "查看详情",
-      "backToDiscover": "返回发现",
-      "descriptionTitle": "作品简介",
-      "descriptionEmpty": "暂无简介。",
-      "preparing": "正在准备…",
-      "preparingHint": "下载与解析完成后会出现在书库。",
-      "inLibrary": "已在书库",
-      "goToLibrary": "去书库",
-      "saveReady": "已加入书库",
-      "savePending": "已加入书库，正在准备内容",
-      "saveFailed": "加入书库失败，请重试",
-      "noEpubHint": "暂无可读 EPUB，暂时无法加入书库。",
-      "legacySectionLabel": "已发布书目",
-      "legacySectionDescription": "这些是已发布但尚无来源记录的书目。",
-      "chapterCount": "{count} 章",
-      "pagination": "分页",
-      "noSearchResults": "没有符合条件的书籍",
-      "prevPage": "上一页",
-      "nextPage": "下一页",
-      "currentPage": "第 {page} 页",
-      "sourcesFilterAria": "来源筛选",
-      "sourcesAria": "来源",
-      "noSourcesTitle": "暂无可用发现源",
-      "noSourcesDescription": "请管理员启用书源，或稍后再试。",
-      "sourceFilterChip": "来源：{source}",
-      "clearSourceFilter": "清除来源筛选：{source}"
     },
     "library": {
       "readingFilter": "阅读状态",
@@ -1300,6 +1012,8 @@
       "indeterminateProgress": "处理中",
       "importFailed": "导入失败",
       "failedHint": "暂时无法读取这本书。",
+      "retryImport": "重新导入",
+      "retryImportStarted": "已重新开始导入，后台会继续整理这本书。",
       "processingFailed": "这本书处理失败",
       "manageBookAria": "管理《{title}》",
       "manageTags": "管理标签",
@@ -1347,7 +1061,6 @@
       "filterNoMatches": "没有使用此标签的书籍",
       "noMatchTitle": "当前分类下没有匹配的书籍",
       "noMatchTruncated": "当前已加载的书籍中没有符合条件的结果",
-      "noSavedBooks": "还没有已保存的书",
       "noUploadedBooks": "还没有上传的书",
       "truncatedHint": "书库仅显示前 {count} 本书，可用标签或来源筛选查看其余书籍。",
       "viewAllBooks": "查看全部书籍",
@@ -1608,9 +1321,7 @@
         "cleanupJob": "未找到清理任务",
         "wordDefinition": "未找到单词「{word}」的词典释义",
         "userTag": "未找到标签",
-        "sourceRecord": "未找到来源记录",
-        "asset": "未找到资源",
-        "publicCategory": "未找到分类"
+        "asset": "未找到资源"
       },
       "upload": {
         "fileTooLarge": "文件大小超过上限（{maxMb}MB）",
@@ -1718,16 +1429,7 @@
         "partIdNotAllowedForComplete": "完成章节时不能携带章节 ID"
       },
       "library": {
-        "userTagNameExists": "你已经有一个同名标签",
-        "sourceRecordNoEpubCandidate": "该来源暂无可读 EPUB，暂时无法加入书库"
-      },
-      "discovery": {
-        "sourceUnavailable": "来源服务暂时不可用，请稍后重试。",
-        "publicCategoryNameExists": "该语言下已存在同名分类",
-        "publicCategoryLimitExceeded": "一条来源记录最多只能有 {limit} 个分类",
-        "publicCategoryHasAssignments": "该分类仍被 {count} 条来源作品或来源映射引用，请先解除引用后再删除。",
-        "sourceCategoryMappingConflict": "映射已发生变化或建议不再有效，请刷新后重试。",
-        "publicCategoryTranslationBusy": "另一项分类或翻译任务正在执行，请稍后重试。"
+        "userTagNameExists": "你已经有一个同名标签"
       }
     }
   }

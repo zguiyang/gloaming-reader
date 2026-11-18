@@ -37,7 +37,7 @@ export function LandingSolution() {
         </LandingReveal>
 
         <div className="space-y-24">
-          <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12" id="discover">
+          <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12" id="library-upload">
             <LandingReveal className="order-2 lg:order-1 lg:col-span-5">
               <div className="mb-3 inline-flex items-center gap-2 rounded bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                 {t(locale, 'landing.solution.beatA.label')}
@@ -51,7 +51,7 @@ export function LandingSolution() {
               <BeatPoints prefix="landing.solution.beatA.points" count={2} />
             </LandingReveal>
             <LandingReveal delay={0.05} className="order-1 lg:order-2 lg:col-span-7">
-              <LandingShot src="/landing/shot-discover.webp" alt={t(locale, 'landing.shot.discover')} />
+              <LandingShot src="/landing/shot-library-upload.webp" alt={t(locale, 'landing.shot.libraryUpload')} />
             </LandingReveal>
           </div>
 

@@ -41,7 +41,7 @@ export function AuthErrorPage() {
             <Link href={returnPath} className={buttonVariants()}>
               {t(locale, 'auth.social.backToPrevious')}
             </Link>
-            <Link href={AUTH_ROUTES.discover} className={buttonVariants({ variant: 'outline' })}>
+            <Link href={AUTH_ROUTES.library} className={buttonVariants({ variant: 'outline' })}>
               {t(locale, 'auth.social.backToProduct')}
             </Link>
           </div>

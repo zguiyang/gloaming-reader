@@ -48,17 +48,11 @@ export function ReaderUnavailable({ onRetry, message }: ReaderUnavailableProps) 
             {t(locale, 'content.bookDetail.reload')}
           </Button>
           <Link
-            href={AUTH_ROUTES.discover}
+            href={AUTH_ROUTES.library}
             className={buttonVariants({
               variant: 'outline',
               className: 'h-11 rounded-xl border-2 border-outline/50 px-8 text-muted-foreground',
             })}
-          >
-            {t(locale, 'content.common.backToDiscover')}
-          </Link>
-          <Link
-            href={AUTH_ROUTES.library}
-            className={buttonVariants({ variant: 'ghost', className: 'h-11 rounded-xl px-6 text-muted-foreground' })}
           >
             {t(locale, 'content.common.backToLibrary')}
           </Link>

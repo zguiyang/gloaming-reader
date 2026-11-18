@@ -55,12 +55,12 @@ export function HistoryEmptyState() {
         {t(locale, 'content.history.emptyTitle')}
       </h2>
       <Link
-        href={AUTH_ROUTES.discover}
+        href={AUTH_ROUTES.library}
         className={buttonVariants({
           className: 'mt-6 h-12 rounded-full px-10 text-base hover:bg-brand-deep active:scale-[0.98]',
         })}
       >
-        {t(locale, 'content.common.findBookCta')}
+        {t(locale, 'landing.cta.goToLibrary')}
       </Link>
     </div>
   );

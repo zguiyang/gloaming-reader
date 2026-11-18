@@ -2,7 +2,7 @@
 
 import { t } from '@/i18n';
 
-import { LandingDiscoverLink, LandingPrimaryCta } from '@/features/landing/landing-auth';
+import { LandingLibraryLink, LandingPrimaryCta } from '@/features/landing/landing-auth';
 import { LandingReveal } from '@/features/landing/landing-motion';
 import { LandingShot } from '@/features/landing/landing-shot';
 import { useLocale } from '@/lib/locale-context';
@@ -31,7 +31,7 @@ export function LandingOpening() {
           </p>
           <div className="flex flex-wrap items-center gap-4">
             <LandingPrimaryCta />
-            <LandingDiscoverLink />
+            <LandingLibraryLink />
           </div>
         </LandingReveal>
 

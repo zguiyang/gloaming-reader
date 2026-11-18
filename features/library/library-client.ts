@@ -10,7 +10,6 @@ export function useAddToLibraryMutation() {
     mutationFn: addToLibrary,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
-      await queryClient.invalidateQueries({ queryKey: ['discover'] });
       await queryClient.invalidateQueries({ queryKey: ['book-detail'] });
     },
   });

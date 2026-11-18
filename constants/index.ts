@@ -6,8 +6,6 @@ export const AUTH_ROUTES = {
   verifyEmail: '/verify-email',
   socialAuthError: '/auth-error',
   library: '/library',
-  /** Discover catalog. */
-  discover: '/discover',
   /** ReadingWork detail; Catalog and Personal works share this page. */
   workDetail: (id: string) => `/works/${id}` as const,
   history: '/reading-history',
@@ -23,7 +21,6 @@ export const AUTH_ROUTES = {
 export const ADMIN_ROUTES = {
   root: '/admin',
   assets: '/admin/assets',
-  discoverySources: '/admin/discovery-sources',
   config: '/admin/config',
   configTab: (tab: 'ai' | 'tts' | 'dictionary') => `/admin/config?tab=${tab}` as const,
   logs: '/admin/log-center',

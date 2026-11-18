@@ -77,19 +77,19 @@ export function LandingPrimaryCta({ className, size = 'default' }: LandingPrimar
   );
 }
 
-export function LandingDiscoverLink({ className }: { className?: string }) {
+export function LandingLibraryLink({ className }: { className?: string }) {
   const { locale } = useLocale();
 
   return (
     <Link
-      href={AUTH_ROUTES.discover}
+      href={AUTH_ROUTES.library}
       className={cn(
         'rounded-xl border border-transparent px-5 py-3.5 text-base font-medium text-muted-foreground',
         'transition-colors hover:border-outline-variant hover:bg-paper hover:text-foreground',
         className,
       )}
     >
-      {t(locale, 'landing.cta.browseDiscover')}
+      {t(locale, 'landing.cta.goToLibrary')}
     </Link>
   );
 }

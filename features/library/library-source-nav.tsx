@@ -35,7 +35,6 @@ import { cn } from '@/lib/utils';
 const SOURCE_OPTIONS = [
   ['all', 'content.library.allBooks'],
   ['personal', 'content.library.sourcePersonal'],
-  ['saved', 'content.library.sourceSaved'],
 ] as const;
 
 type LibrarySourceNavContentProps = {

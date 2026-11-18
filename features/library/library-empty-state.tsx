@@ -1,13 +1,11 @@
 'use client';
 
 import { FileUpIcon } from 'lucide-react';
-import Link from 'next/link';
 import { useState } from 'react';
 
 import { t } from '@/i18n';
 
 import { Button } from '@/components/ui/button';
-import { AUTH_ROUTES } from '@/constants';
 import { LibraryUploadDialog } from '@/features/library/library-upload-dialog';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -59,12 +57,6 @@ export function LibraryEmptyState() {
         <span className="font-medium text-foreground">{t(locale, 'content.library.dropzoneTitle')}</span>
         <span className="mt-1.5 text-sm text-muted-foreground">{t(locale, 'content.library.dropzoneChoose')}</span>
       </Button>
-      <Link
-        href={AUTH_ROUTES.discover}
-        className="mt-5 rounded-sm text-sm text-muted-foreground underline decoration-border underline-offset-4 transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
-      >
-        {t(locale, 'content.common.findBookCta')}
-      </Link>
       <LibraryUploadDialog
         key={isUploadOpen ? 'open' : 'closed'}
         open={isUploadOpen}

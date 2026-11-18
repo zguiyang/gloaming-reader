@@ -1,7 +1,7 @@
 import { AUTH_ROUTES } from '@/constants';
 
 /** Library source groups are organization views over one Library, never separate libraries. */
-export type LibrarySource = 'all' | 'personal' | 'saved';
+export type LibrarySource = 'all' | 'personal';
 
 export type LibraryFilters = {
   source: LibrarySource;
@@ -13,9 +13,9 @@ type SearchParamsLike = { get(name: string): string | null } | null | undefined;
 const SOURCE_PARAM_VALUES: Record<string, LibrarySource> = {
   all: 'all',
   personal: 'personal',
-  saved: 'saved',
-  // Legacy internal value kept readable if it ever appears in a shared URL.
-  saved_catalog: 'saved',
+  // Legacy filter values map to the unified shelf view.
+  saved: 'all',
+  saved_catalog: 'all',
 };
 
 export function normalizeLibrarySource(value: string | null): LibrarySource {

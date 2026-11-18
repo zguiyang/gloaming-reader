@@ -28,7 +28,6 @@
   "nav": {
     "wordmark": "Gloaming",
     "brandHomeAria": "Gloaming home",
-    "discover": "Discover",
     "library": "Library",
     "libraryShort": "Library",
     "history": "Reading history",
@@ -298,7 +297,7 @@
       "emailNotFound": "GitHub did not provide an email address for this account.",
       "emailNotVerified": "This GitHub email has not been verified yet.",
       "backToPrevious": "Back to where you were",
-      "backToProduct": "Back to discover"
+      "backToProduct": "Back to Library"
     },
     "api": {
       "requestFailed": "Request failed",
@@ -361,15 +360,14 @@
     "cta": {
       "startReading": "Start reading",
       "signInToRead": "Start reading",
-      "goToLibrary": "Go to Library",
-      "browseDiscover": "Browse Discover first"
+      "goToLibrary": "Go to Library"
     },
     "shot": {
       "reader": "[Screenshot placeholder: reader]",
       "help": "[Screenshot placeholder: in-text help]",
-      "discover": "[Screenshot placeholder: Discover / upload]",
       "readerHelp": "[Screenshot placeholder: reader + side help]",
-      "library": "[Screenshot placeholder: Library · Continue]"
+      "library": "[Screenshot placeholder: Library · Continue]",
+      "libraryUpload": "[Screenshot placeholder: Library upload]"
     },
     "opening": {
       "eyebrow": "Immersive reading",
@@ -405,10 +403,10 @@
       "beatA": {
         "label": "Beat A",
         "title": "Bring content in first",
-        "body": "Browse the catalog in Discover, or upload your own file into your Library. We don’t invent “learning articles” as the main content.",
+        "body": "Upload EPUBs and other files into your Library, or open works you already added. We don't invent \"learning articles\" as the main content.",
         "points": {
-          "1": "Public-domain titles you can browse by category",
-          "2": "Upload your own EPUB into a private library"
+          "1": "Your uploads stay in a private library shelf",
+          "2": "Continue where you left off from one home surface"
         }
       },
       "beatB": {
@@ -469,8 +467,6 @@
       "subtitle": "Admin",
       "contentSubtitle": "Instance operations",
       "navAssets": "Object storage usage",
-      "navDiscoverySources": "Discovery sources",
-      "navPublicCategories": "Public categories",
       "navConfig": "Configuration",
       "navLogs": "Logs",
       "signInPrompt": "Sign in to access the admin console.",
@@ -482,238 +478,6 @@
       "home": "Home",
       "openNavAria": "Open admin navigation",
       "navSrOnly": "Admin navigation"
-    },
-    "discoverySources": {
-      "page": {
-        "title": "Discovery sources",
-        "subtitle": "Discovery sources",
-        "loadFailed": "Could not load discovery sources.",
-        "operationFailed": "Operation failed"
-      },
-      "toast": {
-        "saved": "Saved",
-        "syncQueued": "Sync queued",
-        "syncAlreadyRunning": "Sync already in progress",
-        "syncDisabled": "Source is disabled; sync was not started"
-      },
-      "fields": {
-        "sourceKey": "Source key",
-        "sourceType": "Adapter",
-        "recordCount": "Index rows",
-        "indexSize": "Index size",
-        "lastSuccess": "Last success",
-        "errorSummary": "Last error",
-        "discoverEnabled": "Show in Discover",
-        "maxRows": "Max rows"
-      },
-      "syncStatus": {
-        "idle": "Idle",
-        "queued": "Queued",
-        "syncing": "Syncing",
-        "succeeded": "Succeeded",
-        "failed": "Failed"
-      },
-      "never": "Never",
-      "recordCount": "{count} rows",
-      "indexSize": "{used} / {budget} MiB",
-      "actions": {
-        "save": "Save",
-        "reset": "Reset",
-        "syncNow": "Sync now",
-        "viewRuns": "Run history"
-      },
-      "run": {
-        "title": "Run history",
-        "elapsedUnknown": "—",
-        "elapsedSeconds": "{count}s",
-        "elapsedMinutes": "{minutes}m {seconds}s",
-        "counters": "Inserted {inserted} · refreshed {refreshed} · evicted {evicted} · filtered {skipped}",
-        "stages": {
-          "queued": "Queued",
-          "downloading": "Downloading",
-          "processing": "Processing",
-          "succeeded": "Succeeded",
-          "not_modified": "Not modified",
-          "failed": "Failed",
-          "skipped": "Skipped"
-        },
-        "recent": {
-          "empty": "No runs yet."
-        }
-      },
-      "names": {
-        "project_gutenberg": "Project Gutenberg"
-      },
-      "enabled": {
-        "label": "Enabled"
-      },
-      "disabled": {
-        "label": "Disabled"
-      },
-      "toggleEnableAria": "Enable {name}",
-      "toggleDisableAria": "Disable {name}"
-    },
-    "publicCategories": {
-      "sourceMappings": {
-        "title": "Source category mappings",
-        "description": "Review how source categories map to public categories. AI runs only when requested.",
-        "empty": "No source categories yet.",
-        "analyze": "Analyze with AI",
-        "confirm": "Confirm suggestion",
-        "create": "Create suggested category",
-        "categoryLanguage": "Suggested category language",
-        "chooseCategory": "Choose an existing category",
-        "applyCategory": "Apply selected category",
-        "ignore": "Leave unmapped",
-        "reconcile": "Update existing work associations",
-        "reconciling": "Existing work associations need updating. Processing runs in batches and can resume if you close this page.",
-        "changed": "The source mapping changed. Refresh and try again.",
-        "mappedTo": "Mapped to",
-        "invalidProposal": "The suggestion is invalid or conflicts with an existing category. Review it and decide how to proceed.",
-        "omittedDetails": "Some category meanings were omitted to fit the input. Review the suggestion before creating a category.",
-        "done": "Action completed.",
-        "previous": "Previous",
-        "next": "Next",
-        "page": "Page {page}",
-        "status": {
-          "pending": "Pending",
-          "analyzing": "Analyzing",
-          "review": "Needs review",
-          "confirmed": "Confirmed",
-          "ignored": "Unmapped"
-        }
-      },
-      "page": {
-        "title": "Public categories",
-        "subtitle": "Manage Discover genres and link Gutenberg Category shelves."
-      },
-      "organize": {
-        "action": "Let AI place unassigned source categories",
-        "actionShort": "AI place unassigned",
-        "pendingCount": "{count} unassigned source shelves",
-        "pendingCountLoading": "Counting unassigned shelves…",
-        "pending": "Placing…",
-        "assigned": "Placed {count} source categories into existing main categories.",
-        "assignedLine": "{shelf} → {category}",
-        "none": "No unassigned source categories to place.",
-        "untouched": "{count} source categories could not be placed.",
-        "proposalTitle": "Created main category",
-        "proposalShelves": "Source categories to include",
-        "accept": "Accept and create",
-        "dismiss": "Dismiss",
-        "accepted": "Created the main category and placed its source categories.",
-        "emptyProposals": "No new main category was suggested."
-      },
-      "create": {
-        "new": "New",
-        "formTitle": "New main category",
-        "namePlaceholder": "Category name",
-        "localeLabel": "Name language",
-        "submit": "Create category",
-        "confirm": "Add",
-        "ready": "Category ready."
-      },
-      "cancel": "Cancel",
-      "delete": {
-        "action": "Delete category",
-        "confirmTitle": "Delete category?",
-        "confirmDescription": "This permanently deletes \"{name}\" and detaches its linked Gutenberg shelves. Discover record assignments derived from those shelves are removed.",
-        "confirm": "Delete",
-        "deletedToast": "Category deleted."
-      },
-      "search": {
-        "placeholder": "Search names",
-        "empty": "No matching categories."
-      },
-      "list": {
-        "empty": "No public categories yet.",
-        "selectHint": "Select a category to edit its names and Gutenberg shelves."
-      },
-      "shelves": {
-        "title": "Gutenberg shelf links",
-        "description": "Link Category: bookshelf strings to this genre. Saving updates Discover assignments immediately.",
-        "searchPlaceholder": "Search shelf name or Gutenberg raw tag…",
-        "assignedTitle": "In this category",
-        "assignedTitleCount": "Included shelves ({count})",
-        "availableTitle": "Unassigned shelves",
-        "availableTitleCount": "Unassigned shelves ({count})",
-        "uncheckToRemove": "Uncheck to remove",
-        "checkToInclude": "Check to include",
-        "assignedEmpty": "No shelves linked yet.",
-        "availableEmpty": "No unassigned shelves match the search.",
-        "save": "Save shelf links",
-        "saved": "Shelf links saved.",
-        "loadFailed": "Could not load Gutenberg shelves.",
-        "recordCount": "{count} books",
-        "toggleAria": "Include shelf {name}"
-      },
-      "recordCount": "{count} records",
-      "provenance": {
-        "manual": "Manual",
-        "ai": "AI"
-      },
-      "labels": {
-        "title": "Localized names",
-        "edit": "Edit name",
-        "modify": "Edit",
-        "summaryPrefix": "Localized names:",
-        "summary": "Localized names: {summary}",
-        "missing": "Missing name: {locale}",
-        "untranslated": "Untranslated",
-        "complete": "All names filled in",
-        "save": "Save {locale} name",
-        "name": "Category name ({locale})",
-        "saved": "Name saved.",
-        "nameExists": "A category with that name already exists for this language."
-      },
-      "translate": {
-        "action": "Complete translations",
-        "actionAria": "Complete missing translations for {name}",
-        "completed": "Filled in: {locales}",
-        "nothing": "No missing translations."
-      },
-      "detail": {
-        "idLabel": "Category ID",
-        "meaning": "Meaning",
-        "manualLocales": "Manually edited names: {locales}"
-      },
-      "records": {
-        "title": "Assigned source records",
-        "searchPlaceholder": "Search title, author, or source ID",
-        "empty": "No source records in this category yet.",
-        "noMatch": "No matching records.",
-        "assign": "Assign",
-        "assigned": "Assigned",
-        "remove": "Remove",
-        "removeConfirmTitle": "Remove source record?",
-        "removeConfirmDescription": "This removes “{title}” from the category and records manual suppression so automatic classification will not restore it.",
-        "removeAria": "Remove {title} from this category",
-        "assignAria": "Assign {title} to this category",
-        "assignedToast": "Assigned to this category.",
-        "removedToast": "Removed from this category.",
-        "assignmentLimit": "This record already has 3 categories and cannot take another.",
-        "linked": "Work created",
-        "notLinked": "No work yet",
-        "unavailable": "Unavailable"
-      },
-      "assign": {
-        "title": "Add source records",
-        "searchPlaceholder": "Search assignable titles or authors",
-        "hint": "Type at least 2 characters to search.",
-        "noResults": "No matching source records.",
-        "includesHiddenHint": "Search includes records hidden from public Discover."
-      },
-      "pagination": {
-        "page": "Page {page} of {total}",
-        "prev": "Previous",
-        "next": "Next"
-      },
-      "errors": {
-        "loadCategories": "Could not load categories.",
-        "loadRecords": "Could not load source records.",
-        "searchRecords": "Could not search source records.",
-        "operationFailed": "Operation failed"
-      }
     },
     "config": {
       "tabAi": "AI",
@@ -1207,61 +971,9 @@
       "retry": "Retry",
       "viewBookDetailAria": "View details for {title}",
       "openReaderAria": "Open {title} in the reader",
-      "findBookCta": "Discover a book to read",
-      "backToDiscover": "Back to Discover",
       "backToLibrary": "Back to Library",
       "backToHistory": "Back to Reading History",
       "backToReader": "Back to Reader"
-    },
-    "discover": {
-      "title": "Discover",
-      "metaTitle": "Discover · Gloaming Reader",
-      "loadFailed": "Could not load catalog",
-      "softRefreshing": "Updating catalog…",
-      "emptyTitle": "Nothing to discover yet",
-      "emptyDescription": "Check back later.",
-      "noMatchTitle": "No matching titles",
-      "noMatchDescription": "Try another category, or clear the search and filters.",
-      "clearFilters": "Clear filters",
-      "searchLabel": "Search titles",
-      "searchPlaceholder": "Search by title or author",
-      "searchAction": "Search",
-      "clearSearch": "Clear search",
-      "categoriesFilterAria": "Category filter",
-      "categoriesAria": "Categories",
-      "allCategories": "All",
-      "moreCategories": "More categories",
-      "fewerCategories": "Fewer categories",
-      "activeFilters": "Filtering by",
-      "clearCategoryFilter": "Clear category filter: {category}",
-      "searchFilterChip": "Search: {query}",
-      "addToLibrary": "Add to Library",
-      "viewDetail": "View details",
-      "backToDiscover": "Back to Discover",
-      "descriptionTitle": "About this book",
-      "descriptionEmpty": "No description available.",
-      "preparing": "Preparing…",
-      "preparingHint": "It will appear in your Library once download and parsing finish.",
-      "inLibrary": "In Library",
-      "goToLibrary": "Go to Library",
-      "saveReady": "Added to your Library",
-      "savePending": "Added to your Library; preparing the content",
-      "saveFailed": "Could not add to Library. Please try again.",
-      "noEpubHint": "No readable EPUB is available yet.",
-      "legacySectionLabel": "Published catalog",
-      "legacySectionDescription": "Titles already published without a source record.",
-      "chapterCount": "{count} chapters",
-      "pagination": "Pagination",
-      "noSearchResults": "No books match these filters",
-      "prevPage": "Previous",
-      "nextPage": "Next",
-      "currentPage": "Page {page}",
-      "sourcesFilterAria": "Source filter",
-      "sourcesAria": "Sources",
-      "noSourcesTitle": "No discovery sources enabled",
-      "noSourcesDescription": "Ask an administrator to enable a source, or check back later.",
-      "sourceFilterChip": "Source: {source}",
-      "clearSourceFilter": "Clear source filter: {source}"
     },
     "library": {
       "readingFilter": "Reading status",
@@ -1300,6 +1012,8 @@
       "indeterminateProgress": "In progress",
       "importFailed": "Import failed",
       "failedHint": "This book could not be read just now.",
+      "retryImport": "Retry import",
+      "retryImportStarted": "Import restarted. We’ll keep arranging this book in the background.",
       "processingFailed": "This book could not be processed",
       "manageBookAria": "Manage {title}",
       "manageTags": "Manage tags",
@@ -1347,7 +1061,6 @@
       "filterNoMatches": "No books use this tag",
       "noMatchTitle": "No books match this category",
       "noMatchTruncated": "No matches in the currently loaded books",
-      "noSavedBooks": "No saved books yet",
       "noUploadedBooks": "No uploads yet",
       "truncatedHint": "Only the first {count} books are shown. Use a tag or source filter to see the rest.",
       "viewAllBooks": "View all books",
@@ -1605,9 +1318,7 @@
         "cleanupJob": "Cleanup job not found",
         "wordDefinition": "No dictionary definition found for \"{word}\"",
         "userTag": "Tag not found",
-        "sourceRecord": "Source record not found",
-        "asset": "Asset not found",
-        "publicCategory": "Category not found"
+        "asset": "Asset not found"
       },
       "upload": {
         "fileTooLarge": "File size exceeds the limit ({maxMb}MB)",
@@ -1715,16 +1426,7 @@
         "partIdNotAllowedForComplete": "A part ID is not allowed when completing a chapter"
       },
       "library": {
-        "userTagNameExists": "You already have a tag with that name",
-        "sourceRecordNoEpubCandidate": "No readable EPUB is available for this source yet, so it cannot be saved to your library"
-      },
-      "discovery": {
-        "sourceUnavailable": "The source is temporarily unavailable. Please try again.",
-        "publicCategoryNameExists": "A category with that name already exists for this language",
-        "publicCategoryLimitExceeded": "A source record can have at most {limit} categories",
-        "publicCategoryHasAssignments": "This category has {count} source record or source mapping reference(s). Remove them before deleting it.",
-        "sourceCategoryMappingConflict": "This mapping changed or the suggestion is no longer valid. Refresh and try again.",
-        "publicCategoryTranslationBusy": "Another classification or translation task is running. Try again in a moment."
+        "userTagNameExists": "You already have a tag with that name"
       }
     }
   }

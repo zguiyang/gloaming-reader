@@ -35,7 +35,7 @@ function navigateReaderBack(router: ReturnType<typeof useRouter>) {
     router.back();
     return;
   }
-  router.replace(AUTH_ROUTES.discover);
+  router.replace(AUTH_ROUTES.library);
 }
 
 export function ReaderChrome({

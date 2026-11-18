@@ -259,9 +259,7 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
   const sourceLabel =
     effectiveFilters.source === 'personal'
       ? t(locale, 'content.library.sourcePersonal')
-      : effectiveFilters.source === 'saved'
-        ? t(locale, 'content.library.sourceSaved')
-        : t(locale, 'content.library.allBooks');
+      : t(locale, 'content.library.allBooks');
   const currentLabel = activeTag ? `${sourceLabel} · ${resolveUserTagName(activeTag, locale)}` : sourceLabel;
 
   const sourceNavProps = {
@@ -442,11 +440,9 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
                         ? 'content.library.noSearchResults'
                         : effectiveFilters.tagId
                           ? 'content.library.noMatchTitle'
-                          : effectiveFilters.source === 'saved'
-                            ? 'content.library.noSavedBooks'
-                            : effectiveFilters.source === 'personal'
-                              ? 'content.library.noUploadedBooks'
-                              : 'content.library.noMatchTitle',
+                          : effectiveFilters.source === 'personal'
+                            ? 'content.library.noUploadedBooks'
+                            : 'content.library.noMatchTitle',
                     )}
                   </p>
                   {!search && status === 'all' && !effectiveFilters.tagId && effectiveFilters.source !== 'all' ? (

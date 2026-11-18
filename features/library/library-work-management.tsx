@@ -25,7 +25,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { discoverQueryKey } from '@/features/discover/discover-api';
 import {
   deletePersonalWork,
   formatLibraryApiError,
@@ -58,11 +57,6 @@ export function LibraryWorkManagement({
     await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
     await queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags });
     await queryClient.invalidateQueries({ queryKey: ['book-detail', entry.work.id] });
-    // Removing a saved Catalog book also drops its Save Intent, so Discover
-    // must re-read the card's save status ("Add to Library" again) and the
-    // records projection instead of keeping a stale "In Library" state.
-    await queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'records'] });
-    await queryClient.invalidateQueries({ queryKey: [...discoverQueryKey.all, 'save-status'] });
   };
 
   const removal = useMutation({
@@ -85,7 +79,6 @@ export function LibraryWorkManagement({
     },
     onError: (error) => toast.error(formatLibraryApiError(error)),
   });
-
   const canManage = entry.canRemoveFromLibrary || (isPersonal && entry.availability !== 'processing');
   if (!canManage) return null;
 
