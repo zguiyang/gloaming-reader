@@ -7,7 +7,7 @@ import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonFromThrown, jsonOk, jsonValidationError, jsonSchemaError } from '@/server/infra/http/next-json';
 import { pathId } from '@/server/infra/http/path-params';
 import { acquireAiRateLimit } from '@/server/infra/http/next-rate-limit';
-import { getRequestIdentity } from '@/server/infra/http/next-session';
+import { requireIdentity } from '@/server/infra/http/next-session';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +21,7 @@ export async function GET(request: Request, context: Ctx) {
     const params = await context.params;
     const partId = pathId(params.partId, 'partId');
     const indexParam = params.index;
-    const identity = await getRequestIdentity(request);
+    const identity = await requireIdentity(request);
     const url = new URL(request.url);
 
     const indexParsed = segmentIndexSchema.safeParse(indexParam);
@@ -54,7 +54,7 @@ export async function GET(request: Request, context: Ctx) {
     // where the budget applies. Serving already-synthesized bytes goes through
     // the separate `/audio` route and is deliberately unthrottled — a reader
     // streaming a chapter must never be rate-limited on cache hits.
-    const limited = await acquireAiRateLimit(request, 'ttsSynthesis', identity.user?.id ?? null);
+    const limited = await acquireAiRateLimit(request, 'ttsSynthesis', identity.user.id);
     if (!limited.ok) {
       return limited.response;
     }

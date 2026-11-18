@@ -2,7 +2,7 @@ import { isAssetAuthorized, isPublicAsset, resolveAsset, streamAsset } from '@/s
 import { workReadActorFromIdentity } from '@/server/domains/works/access';
 import { jsonError } from '@/server/infra/http/next-json';
 import { pathId } from '@/server/infra/http/path-params';
-import { getRequestIdentity } from '@/server/infra/http/next-session';
+import { requireIdentity } from '@/server/infra/http/next-session';
 import type { ObjectRange } from '@/server/infra/storage';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { ERROR_CODES } from '@/server/shared/errors/codes';
@@ -37,7 +37,7 @@ export const GET = withApiError(async (request: Request, context: Ctx) => {
   const assetId = pathId((await context.params).assetId, 'assetId');
   const asset = await resolveAsset(assetId);
 
-  const identity = await getRequestIdentity(request);
+  const identity = await requireIdentity(request);
   const actor = workReadActorFromIdentity(identity.user);
   // Authorization runs for every id, and every failure — unknown row, unreadable
   // Work, or missing object — returns the same 404. A 403 on existing rows would

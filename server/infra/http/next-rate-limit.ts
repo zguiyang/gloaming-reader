@@ -14,9 +14,7 @@ type RateLimitRule = {
 };
 
 type RateLimitPolicy = {
-  /** Anonymous quota; a policy without one deliberately grants guests no quota. */
-  guest?: RateLimitRule;
-  /** Optional quota for signed-in callers, keyed by user id. */
+  /** Quota for signed-in callers, keyed by user id. */
   user?: RateLimitRule;
 };
 
@@ -29,9 +27,6 @@ type AiRateLimitPolicy = {
 /** MVP starting policies — keep numbers here, not scattered across Route Handlers. */
 export const RATE_LIMIT_POLICIES = {
   dictionaryLookup: {
-    guest: { points: 60, duration: 10 * 60, blockDuration: 10 * 60 },
-    // Signed-in lookups still reach external providers and AI enrichment, so they
-    // get the same budget as guests instead of no quota at all.
     user: { points: 60, duration: 10 * 60, blockDuration: 10 * 60 },
   },
   /** Manual "test connection" / model listing / balance probes, one outbound call each. */
@@ -216,27 +211,7 @@ async function consumeLimit(
   }
 }
 
-/** Guest-only policy (authenticated callers skip). Returns a Response when blocked. */
-export async function enforceGuestRateLimit(
-  request: Request,
-  policyName: RateLimitPolicyName,
-  options: { isAuthenticated: boolean },
-): Promise<Response | null> {
-  if (options.isAuthenticated) {
-    return null;
-  }
-  const policy: RateLimitPolicy = RATE_LIMIT_POLICIES[policyName];
-  const guest = policy.guest;
-  if (!guest) {
-    return null;
-  }
-  return consumeLimit(request, `${policyName}:guest`, guest, getClientIpFromRequest(request));
-}
-
-/**
- * Signed-in counterpart of {@link enforceGuestRateLimit}. A policy without a
- * `user` rule deliberately grants authenticated callers no quota.
- */
+/** Per-user API quota. A policy without a `user` rule grants no quota. */
 export async function enforceUserRateLimit(
   request: Request,
   policyName: RateLimitPolicyName,
@@ -280,20 +255,15 @@ export type AiRateLimitLease = {
 export async function acquireAiRateLimit(
   request: Request,
   policyName: AiRateLimitPolicyName,
-  userId: string | null,
+  userId: string,
 ): Promise<{ ok: true; lease: AiRateLimitLease } | { ok: false; response: Response }> {
   const policy = AI_RATE_LIMIT_POLICIES[policyName];
   const ip = getClientIpFromRequest(request);
-  // Anonymous callers reading a public Work are budgeted per IP instead of per
-  // user; both the user bucket and the concurrency slot key off `actorKey`.
-  const actorKey = userId ?? `ip:${ip}`;
   const userLimiter = getLimiter(`${policyName}:user`, policy.user);
   const ipLimiter = getLimiter(`${policyName}:ip`, policy.ip);
 
   try {
-    if (userId) {
-      await userLimiter.consume(userId);
-    }
+    await userLimiter.consume(userId);
     await ipLimiter.consume(ip);
   } catch (error) {
     if (!(error instanceof RateLimiterRes)) {
@@ -309,7 +279,7 @@ export async function acquireAiRateLimit(
 
   let acquired: boolean;
   try {
-    acquired = await acquireConcurrentSlot(policyName, actorKey);
+    acquired = await acquireConcurrentSlot(policyName, userId);
   } catch (error) {
     rateLimitLogger.error({ err: error, policyName }, 'AI concurrency store unavailable');
     return { ok: false, response: rateLimitUnavailable(request) };
@@ -328,9 +298,9 @@ export async function acquireAiRateLimit(
     }
     released = true;
     try {
-      await releaseConcurrentSlot(policyName, actorKey);
+      await releaseConcurrentSlot(policyName, userId);
     } catch (error) {
-      rateLimitLogger.warn({ err: error, policyName, actorKey }, 'Failed to release AI concurrency slot');
+      rateLimitLogger.warn({ err: error, policyName, userId }, 'Failed to release AI concurrency slot');
     }
   };
 

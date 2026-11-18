@@ -8,7 +8,7 @@ import type { ObjectRange } from '@/server/infra/storage';
 import { RangeNotSatisfiableError } from '@/server/infra/storage';
 import { jsonValidationError, jsonSchemaError } from '@/server/infra/http/next-json';
 import { pathId } from '@/server/infra/http/path-params';
-import { getRequestIdentity } from '@/server/infra/http/next-session';
+import { requireIdentity } from '@/server/infra/http/next-session';
 import { HTTP_STATUS } from '@/server/shared/constants';
 import { withApiError } from '@/server/infra/http/next-route';
 
@@ -46,7 +46,7 @@ export const GET = withApiError(async (request: Request, context: Ctx) => {
   const params = await context.params;
   const partId = pathId(params.partId, 'partId');
   const indexParam = params.index;
-  const identity = await getRequestIdentity(request);
+  const identity = await requireIdentity(request);
   const url = new URL(request.url);
 
   const indexParsed = segmentIndexSchema.safeParse(indexParam);
