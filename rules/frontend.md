@@ -17,8 +17,7 @@ Direction: [AGENTS.md](../AGENTS.md), [deployment.md](../docs/deployment.md). Pr
 **Do not:**
 
 - Assume a permanent private `api` service or rebuild features that require a
-  second public API origin. Legacy `archive/apps/web` proxy + Hono is comparison
-  only.
+  second public API origin.
 - Collapse domain/server modules into client components just because deploy units
   already merged.
 - Use a second public API origin for the default path — prefer same-origin

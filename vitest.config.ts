@@ -2,10 +2,7 @@ import { resolve } from 'node:path';
 
 import { defineConfig } from 'vitest/config';
 
-/**
- * Standalone Vitest config for the live tree.
- * `archive/**` is legacy source whose `@/...` aliases no longer resolve.
- */
+/** Standalone Vitest config for the live tree. */
 export default defineConfig({
   resolve: {
     alias: {
@@ -15,6 +12,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['**/*.spec.ts'],
-    exclude: ['node_modules/**', 'archive/**', '.next/**', 'dist/**'],
+    exclude: ['node_modules/**', '.next/**', 'dist/**'],
   },
 });

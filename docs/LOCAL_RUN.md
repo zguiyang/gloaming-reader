@@ -1,15 +1,13 @@
 # Local full-stack runbook
 
-Run the live product locally: Next (UI + Route Handlers) + same-package BullMQ worker.  
-Legacy `archive/apps/web` + `archive/apps/backend` remain for comparison only.
+Run the live product locally: Next (UI + Route Handlers) + same-package BullMQ worker.
 
 ## Processes
 
-| Old (three)                        | New (two)                                       |
-| ---------------------------------- | ----------------------------------------------- |
-| `archive/apps/web` (Next)          | Repo-root Next — UI **and** `/api/*`            |
-| `archive/apps/backend` HTTP (Hono) | _(folded into Next Route Handlers)_             |
-| `archive/apps/backend` worker      | `pnpm jobs` (`jobs/`; second OS process; `tsx`) |
+| Process               | Role                                     |
+| --------------------- | ---------------------------------------- |
+| Repo-root Next        | UI **and** `/api/*`                      |
+| `pnpm jobs` (`jobs/`) | BullMQ worker (second OS process; `tsx`) |
 
 Shared data plane: Postgres + Redis + S3.
 

@@ -1,1 +1,0 @@
-ALTER TABLE "reading_work" ALTER COLUMN "status" SET DEFAULT 'processing';

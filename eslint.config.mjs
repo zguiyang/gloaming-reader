@@ -12,7 +12,6 @@ const eslintConfig = defineConfig([
     'build/**',
     'dist/**',
     'next-env.d.ts',
-    'archive/**',
     '.agents/**',
     'node_modules/**',
     'ecosystem.config.cjs',

@@ -1,1 +1,0 @@
-ALTER TABLE "llm_provider" ADD COLUMN "thinking_param" text;

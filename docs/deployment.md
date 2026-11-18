@@ -7,7 +7,6 @@
 > | **Default open-source local product** | Repo-root single Next package (UI + `/api/*`) + optional `jobs/` worker. See [LOCAL_RUN.md](./LOCAL_RUN.md).            |
 > | **Recommended production topology**   | Conventional Node host (VPS): **app** (Next, often behind Nginx) + **jobs**; Postgres / Redis / object storage managed. |
 > | **Cloudflare (optional)**             | DNS, TLS, CDN (orange-cloud proxy) in front of the origin — **not** Workers as the app runtime.                         |
-> | **Archived legacy**                   | `archive/apps/*` — former `web` + `api` + `worker` three-service Docker topology (below). Comparison only.              |
 
 ## Default product (repo root)
 
@@ -26,12 +25,4 @@ pnpm start          # web
 pnpm jobs           # second process
 ```
 
-Typical production containers: **1** Next (+ Nginx if desired) and **1** Jobs. Do not treat Cloudflare Workers / vinext as part of this topology.
-
----
-
-## Archived: three-service layout (`archive/apps/*`)
-
-The following described the **former** default production topology. Paths now live under `archive/`.
-
-See archive Docker Compose and Dockerfiles under `archive/` for historical reference only. Do not restore three long-lived API services as the recommended open-source default.
+Typical production containers: **1** Next (+ Nginx if desired) and **1** Jobs. Do not treat Cloudflare Workers / vinext as part of this topology. Do not restore three long-lived API services as the recommended open-source default.

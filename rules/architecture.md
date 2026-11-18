@@ -10,8 +10,7 @@ Accepted deploy/API direction: [AGENTS.md](../AGENTS.md),
 [deployment.md](../docs/deployment.md).
 
 - **Current deploy unit:** repo-root single Next package (UI + HTTP APIs) with
-  an optional same-package BullMQ worker (`jobs/`). Legacy `web+api+worker`
-  sources live under `archive/apps/*` for comparison only.
+  an optional same-package BullMQ worker (`jobs/`).
 - **Target platform:** same Next deploy unit on a conventional Node host
   (typically app + jobs containers) + managed data plane; Cloudflare may provide
   DNS/CDN only — not Workers as the app runtime.

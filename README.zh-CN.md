@@ -35,7 +35,7 @@ Gloaming Reader 不是 Duolingo、LingQ、Anki、ChatGPT 阅读插件，也不�
 | 数据        | PostgreSQL、Redis（端口 **6380**）、S3 兼容对象存储                      |
 | 契约 / i18n | `shared/`、`i18n/`；数据库 schema 在 `server/db`                         |
 
-仓库根是**单包** pnpm 工程（不是多包 monorepo）。原 Hono API + 独立 web 在 [`archive/`](./archive/)（仅对照）。
+仓库根是**单包** pnpm 工程（不是多包 monorepo）。
 
 ## 环境要求
 

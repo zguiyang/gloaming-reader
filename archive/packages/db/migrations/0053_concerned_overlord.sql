@@ -1,1 +1,0 @@
-CREATE INDEX "reading_work_owner_user_id_idx" ON "reading_work" USING btree ("owner_user_id");

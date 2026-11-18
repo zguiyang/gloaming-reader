@@ -1,1 +1,0 @@
-ALTER TABLE "reading_work" ADD COLUMN "author" text DEFAULT '' NOT NULL;

@@ -35,7 +35,7 @@ Gloaming is not Duolingo, LingQ, Anki, a ChatGPT reading plugin, or an AI conten
 | Data             | PostgreSQL, Redis (port **6380**), S3-compatible object storage             |
 | Contracts / i18n | `shared/`, `i18n/` (`@/shared/*`, `@/i18n`); DB schema in `server/db`       |
 
-Single pnpm package at the repo root (not a multi-package workspace). Former Hono API + separate web app live under [`archive/`](./archive/) for comparison only.
+Single pnpm package at the repo root (not a multi-package workspace).
 
 ## Requirements
 

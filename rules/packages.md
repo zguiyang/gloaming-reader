@@ -5,9 +5,6 @@
 Database schema and migrations live in `server/db` (not a workspace package).
 This repository is a **single pnpm package** — not a multi-package monorepo.
 
-Legacy `@gloaming/shared` / `@gloaming/i18n` / `@gloaming/db` sources remain
-under `archive/packages/` for the old three-app stack only.
-
 Identify the owning module and public entry from definitions, declared exports,
 consumers, and accepted decisions. Apply [architecture rules](architecture.md)
 when changing boundaries.

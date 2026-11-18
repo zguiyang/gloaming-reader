@@ -15,8 +15,7 @@ product as a Short Article Library.
 **Live product is the repository root** — a single Next.js package (UI + `/api/*`
 Route Handlers + optional `jobs/` worker). Cross-boundary contracts live in
 `shared/` (import `@/shared/*`); i18n in `i18n/` (`@/i18n`); database schema in
-`server/db`. Legacy three-app sources and former workspace packages remain under
-`archive/` for comparison only.
+`server/db`.
 
 Logical server-domain boundaries remain even when the deploy unit is a single
 Next app. When changing persistent domain models or public contracts, identify
@@ -28,7 +27,7 @@ task authorization.
 
 | State       | Meaning                                                                                                                                                                                                                                                                                                 |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Current** | Single-package Next app at repo root (UI + `/api/*`) + optional same-package `jobs/` worker. Legacy `web` + `api` + `worker` remain under **`archive/`** only.                                                                                                                                          |
+| **Current** | Single-package Next app at repo root (UI + `/api/*`) + optional same-package `jobs/` worker.                                                                                                                                                                                                            |
 | **Target**  | Same app shape on a conventional Node host (e.g. VPS): typically **app** (Next, optionally behind Nginx) + **jobs**; data plane on managed Postgres / Redis / object storage. Cloudflare may front the host for DNS, TLS, and CDN (orange-cloud proxy) — **not** Cloudflare Workers as the app runtime. |
 
 **Do not**:
@@ -139,8 +138,8 @@ Read only the rules relevant to the current task:
 - Deploy/API topology: this file’s
   [Deploy and API topology](#deploy-and-api-topology) section,
   [LOCAL_RUN.md](docs/LOCAL_RUN.md), and [deployment.md](docs/deployment.md)
-  (live product = repo root single package; legacy under `archive/`; Node host +
-  optional Cloudflare DNS/CDN — not Workers runtime).
+  (live product = repo root single package; Node host + optional Cloudflare
+  DNS/CDN — not Workers runtime).
 - Backend services and APIs: [backend rules](rules/backend.md).
 - Web and UI: this file’s [UI copy (mandatory)](#ui-copy-mandatory) section,
   [frontend rules](rules/frontend.md), and, for UI work, [DESIGN.md](DESIGN.md).

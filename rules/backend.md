@@ -18,8 +18,8 @@ Deploy topology: [AGENTS.md](../AGENTS.md), [deployment.md](../docs/deployment.m
 - Edit outside the owning path at the repo root unless a task explicitly moves a surface.
 - Treat “embed Hono in Next” as the finished architecture. Nested Hono was
   removed from the live tree; do not reintroduce it.
-- Reintroduce three long-lived API services as the recommended default (legacy
-  under `archive/apps/*` for comparison only). App + Jobs as two processes is fine.
+- Reintroduce three long-lived API services as the recommended default. App +
+  Jobs as two processes is fine.
 - Default TTS onto Workers AI; prefer Azure Speech REST (`fetch`/SSML).
 - Default assist/LLM onto LangChain or Workers AI; assist stack is Vercel AI SDK
   (`ai` + `@ai-sdk/openai`).
