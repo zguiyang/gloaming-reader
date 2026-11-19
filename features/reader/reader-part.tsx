@@ -32,6 +32,7 @@ type ReaderPartProps = {
   /** Handles relative EPUB links; the reader maps them to parts. */
   onContentLink?: (href: string) => void;
   onScroll: (event: UIEvent<HTMLElement>) => void;
+  onBilingualRetry?: () => void;
   footer?: ReactNode;
 };
 
@@ -67,6 +68,7 @@ export function ReaderPart({
   onCenterTap,
   onContentLink,
   onScroll,
+  onBilingualRetry,
   footer,
 }: ReaderPartProps) {
   function handleSelection(target: Element, article: HTMLElement) {
@@ -169,6 +171,7 @@ export function ReaderPart({
         bilingualData={bilingualData}
         focusedSentenceIndex={focusedSentenceIndex}
         onSentenceClick={onSentenceClick}
+        onBilingualRetry={onBilingualRetry}
         onArticleMouseUp={handleMouseUp}
         onArticleKeyUp={handleKeyUp}
         footer={footer}

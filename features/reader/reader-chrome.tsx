@@ -63,10 +63,11 @@ export function ReaderChrome({
   return (
     <header
       className={cn(
-        'fixed inset-x-0 top-0 z-40 border-b border-border/40 bg-background/90 backdrop-blur-md transition-all duration-300 ease-out-soft',
+        'fixed inset-x-0 top-0 border-b border-border/40 bg-background/90 backdrop-blur-md transition-all duration-300 ease-out-soft',
+        // Above the AI drawer (z-50) while visible so chrome controls stay clickable.
         visible
-          ? 'translate-y-0 opacity-100'
-          : 'pointer-events-none -translate-y-2 opacity-0 focus-within:translate-y-0 focus-within:opacity-100',
+          ? 'z-[60] translate-y-0 opacity-100'
+          : 'pointer-events-none z-40 -translate-y-2 opacity-0 focus-within:translate-y-0 focus-within:opacity-100',
       )}
     >
       <div className="flex h-14 items-center justify-between gap-2 px-3 md:gap-3 md:px-6">

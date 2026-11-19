@@ -874,6 +874,7 @@
       "publishedYear": "Published {year}",
       "uploading": "Uploading…",
       "uploadStarted": "Added to Library. Processing has started.",
+      "uploadAlreadyExists": "This book is already in your library.",
       "uploadDialogTitle": "Upload book",
       "dropzoneAria": "Choose or drop an EPUB file",
       "dropzoneTitle": "Drop an EPUB here",
@@ -933,6 +934,7 @@
       "cancel": "Cancel",
       "save": "Save",
       "filterNoMatches": "No books use this tag",
+      "noSearchResults": "No books match the current filters or search",
       "noMatchTitle": "No books match this category",
       "noMatchTruncated": "No matches in the currently loaded books",
       "noUploadedBooks": "No uploads yet",
@@ -952,9 +954,7 @@
       "statusNotStarted": "Not started",
       "statusReadProgress": "{ratio}% read",
       "viewBookDetail": "View details",
-      "aiTagBadge": "AI",
-      "uploadAlreadyExists": "This book is already in your library.",
-      "noSearchResults": "No books match the current filters or search"
+      "aiTagBadge": "AI"
     },
     "history": {
       "title": "Reading history",
@@ -1042,6 +1042,7 @@
       "unavailableTitle": "Could not open this book",
       "unavailableDefault": "Book content is unavailable right now. Please try again later.",
       "chrome": {
+        "tapToShowTools": "Tap the text to show tools",
         "back": "Back",
         "toc": "Contents",
         "bilingual": "Bilingual view",
@@ -1072,7 +1073,11 @@
       },
       "bilingual": {
         "loading": "Loading bilingual view…",
-        "error": "Could not load bilingual view. Try again."
+        "error": "Could not load bilingual view. Try again.",
+        "retry": "Retry",
+        "sentencePending": "Translating…",
+        "sentenceMissing": "Translation unavailable",
+        "partialMissing": "{count} sentences missing translation"
       },
       "toast": {
         "stateRefreshed": "Reading progress synced. Continue from the current chapter.",
@@ -1106,6 +1111,7 @@
         "contextHeading": "In this book",
         "translationPrefix": "Translation: ",
         "notFoundTitle": "No dictionary entry found for \"{word}\"",
+        "weakResultTitle": "No usable definition for \"{word}\"",
         "lookupFailed": "Dictionary lookup failed. Try again.",
         "retry": "Retry",
         "close": "Close",

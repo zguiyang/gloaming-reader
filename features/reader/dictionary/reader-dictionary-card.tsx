@@ -10,6 +10,7 @@ import type { DictionaryEntry } from '@/shared/dictionary';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { entryHasUsefulDefinitions } from '@/features/reader/dictionary/dictionary-entry-content';
 import { formatPhoneticRoleLabel } from '@/features/reader/reader-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -66,6 +67,9 @@ export function ReaderDictionaryCard({
     audio.play().catch(() => setPlayingAudioUrl(null));
   }
 
+  const hasUsefulDefinitions = entry ? entryHasUsefulDefinitions(entry, word) : false;
+  const showAskAiProminent = !isLoading && (isError || !hasUsefulDefinitions);
+
   // Find US and UK phonetics
   const phonetics = entry?.phonetics || [];
   const usPhonetic =
@@ -78,6 +82,26 @@ export function ReaderDictionaryCard({
   const secondaryPhonetic = ukPhonetic && ukPhonetic !== usPhonetic ? ukPhonetic : null;
 
   const contextExample = entry?.contextExamples?.[0];
+
+  function renderEmptyState() {
+    const titleKey = entry ? 'content.reader.dictionary.weakResultTitle' : 'content.reader.dictionary.notFoundTitle';
+
+    return (
+      <div className="flex flex-col items-center justify-center py-6 text-center">
+        <BookOpenIcon className="size-8 text-muted-foreground/50" />
+        <p className="mt-2 text-xs font-medium text-foreground/80">{t(locale, titleKey, { word })}</p>
+        <Button
+          type="button"
+          size="sm"
+          className="mt-4 h-8 rounded-lg text-xs hover:bg-brand-deep"
+          onClick={() => onAskAi(word, contextSentence)}
+        >
+          <SparklesIcon className="mr-1 size-3" />
+          {t(locale, 'content.reader.dictionary.askAiDeepDive')}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className={cn('flex flex-col text-sm text-foreground', className)}>
@@ -185,7 +209,7 @@ export function ReaderDictionaryCard({
               </Button>
             ) : null}
           </div>
-        ) : entry && entry.meanings.length > 0 ? (
+        ) : hasUsefulDefinitions && entry ? (
           <div className="space-y-3.5">
             {/* Meanings */}
             {entry.meanings.map((meaning, mIdx) => (
@@ -252,12 +276,7 @@ export function ReaderDictionaryCard({
             )}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <BookOpenIcon className="size-8 text-muted-foreground/50" />
-            <p className="mt-2 text-xs font-medium text-foreground/80">
-              {t(locale, 'content.reader.dictionary.notFoundTitle', { word })}
-            </p>
-          </div>
+          renderEmptyState()
         )}
       </div>
 
@@ -269,6 +288,7 @@ export function ReaderDictionaryCard({
         <Button
           type="button"
           size="sm"
+          variant={showAskAiProminent ? 'default' : 'secondary'}
           className="h-8 rounded-lg text-xs hover:bg-brand-deep"
           onClick={() => onAskAi(word, contextSentence)}
         >

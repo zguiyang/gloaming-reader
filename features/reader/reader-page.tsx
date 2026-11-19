@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 
 import { t } from '@/i18n';
@@ -30,6 +30,13 @@ import {
 } from '@/features/reader/reader-api';
 import { ReaderChapterNav } from '@/features/reader/reader-chapter-nav';
 import { ReaderChrome } from '@/features/reader/reader-chrome';
+import { ReaderChromeHint } from '@/features/reader/reader-chrome-hint';
+import {
+  getReaderChromeHintEligible,
+  getReaderChromeHintServerSnapshot,
+  markReaderChromeHintSeen,
+  subscribeReaderChromeHint,
+} from '@/features/reader/reader-chrome-hint-state';
 import { useReadingHeartbeat } from '@/features/reader/reader-heartbeat';
 import type {
   ReaderAnchorRestore,
@@ -73,6 +80,7 @@ type ReaderPageProps = {
 };
 
 const FONT_CYCLE: ReaderFontSize[] = ['sm', 'md', 'lg'];
+const READER_CHROME_HINT_TIMEOUT_MS = 10_000;
 
 /** Keydown targets that own scroll/activation keys instead of the reading column. */
 function isInteractiveScrollTarget(target: EventTarget | null): boolean {
@@ -124,6 +132,11 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   useReadingHeartbeat(isAuthenticated && Boolean(activePartId));
 
   const [isChromeVisible, setIsChromeVisible] = useState(false);
+  const chromeHintEligible = useSyncExternalStore(
+    subscribeReaderChromeHint,
+    getReaderChromeHintEligible,
+    getReaderChromeHintServerSnapshot,
+  );
   const [isTocOpen, setIsTocOpen] = useState(false);
   const [fontSize, setFontSize] = useState<ReaderFontSize>('md');
   const [selection, setSelection] = useState<ReaderSelection | null>(null);
@@ -716,12 +729,28 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     }
   }
 
+  const isAiDrawerOpen = assist.aiMode === 'drawer';
+
+  const dismissChromeHint = useCallback(() => {
+    markReaderChromeHintSeen();
+  }, []);
+
   const isWaitingForReadingStateBootstrap =
     isAuthenticated && !stateQuery.isError && (stateQuery.isPending || (Boolean(partsData) && activePartId === null));
 
   // Disabled part queries stay isPending in TanStack Query v5; only wait when a part is selected.
   const isLoading =
     partsQuery.isPending || (Boolean(activePartId) && partQuery.isPending) || isWaitingForReadingStateBootstrap;
+
+  // Gate on !isLoading so the 10s timer cannot fire during the skeleton (when the tip is not painted).
+  const showChromeHint =
+    chromeHintEligible && !isLoading && !isChromeVisible && assist.aiMode !== 'drawer' && !isTocOpen;
+
+  useEffect(() => {
+    if (!showChromeHint) return;
+    const timer = window.setTimeout(dismissChromeHint, READER_CHROME_HINT_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [dismissChromeHint, showChromeHint]);
 
   if (isLoading) {
     return (
@@ -758,11 +787,12 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   const progressRatio = localProgressRatio ?? stateData?.progressRatio ?? reader.state?.progressRatio ?? 0;
   const chapterLabel =
     reader.parts.length > 1 && currentIndex >= 0 ? `${currentIndex + 1} / ${reader.parts.length}` : null;
-  const isDrawerOpen = assist.aiMode === 'drawer';
+  const isDrawerOpen = isAiDrawerOpen;
   const isInlineOpen = assist.aiMode === 'inline' && Boolean(assist.inlineSession);
 
   return (
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background">
+      {showChromeHint ? <ReaderChromeHint visible onDismiss={dismissChromeHint} /> : null}
       <ReaderTocSidebar
         open={isTocOpen}
         onOpenChange={(nextOpen) => {
@@ -775,7 +805,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
       />
 
       <ReaderChrome
-        visible={isChromeVisible}
+        visible={isChromeVisible || isDrawerOpen}
         workTitle={reader.workTitle}
         partTitle={reader.partTitle}
         chapterLabel={chapterLabel}
@@ -795,6 +825,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         isBilingualLoading={translate.isLoading}
         onToggleToc={() => {
           setIsTocOpen((v) => !v);
+          dismissChromeHint();
           setIsChromeVisible(true);
         }}
         onToggleFontSize={() => setFontSize((f) => FONT_CYCLE[(FONT_CYCLE.indexOf(f) + 1) % FONT_CYCLE.length]!)}
@@ -804,14 +835,17 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           } else {
             assist.openDrawer();
           }
+          dismissChromeHint();
           setIsChromeVisible(true);
         }}
         onToggleTts={() => {
           readerAudio.toggle();
+          dismissChromeHint();
           setIsChromeVisible(true);
         }}
         onToggleBilingual={() => {
           translate.toggleBilingual();
+          dismissChromeHint();
           setIsChromeVisible(true);
         }}
       />
@@ -837,10 +871,14 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           assist.resetInline();
         }}
         onCenterTap={() => {
-          setIsChromeVisible((v) => !v);
+          setIsChromeVisible((v) => {
+            if (!v) dismissChromeHint();
+            return !v;
+          });
           if (selection && assist.aiMode !== 'inline') clearSelectionUi();
         }}
         onContentLink={handleContentLink}
+        onBilingualRetry={() => void translate.startTranslate()}
         onScroll={(event) => {
           scheduleAnchorSave(scrollPositionRatio(event.currentTarget));
         }}

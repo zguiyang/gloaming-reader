@@ -3,6 +3,8 @@
 import DOMPurify from 'dompurify';
 import { type KeyboardEvent, type MouseEvent, type ReactNode, useMemo } from 'react';
 
+import { Button } from '@/components/ui/button';
+
 import { t } from '@/i18n';
 import type { TranslateSentenceEn } from '@/shared/translate';
 
@@ -31,13 +33,62 @@ export type ReadingPartViewProps = {
   bilingualData?: BilingualTranslationData | null;
   focusedSentenceIndex?: number | null;
   onSentenceClick?: (index: number) => void;
+  onBilingualRetry?: () => void;
 };
+
+type BilingualTransformLabels = {
+  pendingTranslation: string;
+  missingTranslation: string;
+  isStreaming: boolean;
+};
+
+function appendZhSlot(
+  doc: Document,
+  pairEl: HTMLElement,
+  sentenceIndex: number,
+  zh: string | undefined,
+  labels: BilingualTransformLabels,
+  isFocused: boolean,
+  focusedSentenceIndex?: number | null,
+) {
+  const trimmedZh = zh?.trim();
+  if (trimmedZh) {
+    const zhSpan = doc.createElement('span');
+    zhSpan.setAttribute('data-bilingual-translation', 'true');
+    zhSpan.setAttribute('data-sentence-index', String(sentenceIndex));
+    zhSpan.setAttribute('lang', 'zh');
+    zhSpan.className = cn(
+      'sentence-zh block text-sm font-sans text-muted-foreground/75 leading-relaxed mt-1 select-text transition-[opacity,color] duration-150 group-hover/sentence:text-foreground group-hover/sentence:opacity-100',
+      isFocused
+        ? 'text-foreground opacity-100 font-medium'
+        : focusedSentenceIndex !== null && focusedSentenceIndex !== undefined
+          ? 'opacity-40'
+          : '',
+    );
+    zhSpan.textContent = trimmedZh;
+    pairEl.appendChild(zhSpan);
+    return;
+  }
+
+  const slotSpan = doc.createElement('span');
+  slotSpan.setAttribute('data-bilingual-translation', 'true');
+  slotSpan.setAttribute('data-sentence-index', String(sentenceIndex));
+  slotSpan.setAttribute('data-translation-status', labels.isStreaming ? 'pending' : 'missing');
+  slotSpan.setAttribute('lang', 'zh');
+  slotSpan.className = cn(
+    'sentence-zh block text-sm font-sans leading-relaxed mt-1 italic',
+    labels.isStreaming ? 'text-muted-foreground/50' : 'text-muted-foreground/70',
+  );
+  slotSpan.textContent = labels.isStreaming ? labels.pendingTranslation : labels.missingTranslation;
+  pairEl.appendChild(slotSpan);
+}
 
 function splitElementIntoSentences(
   doc: Document,
   el: Element,
   pSentences: TranslateSentenceEn[],
   translationsByIndex: Record<number, string>,
+  labels: BilingualTransformLabels,
   focusedSentenceIndex?: number | null,
 ) {
   if (pSentences.length === 1) {
@@ -64,24 +115,7 @@ function splitElementIntoSentences(
     }
     pairEl.appendChild(enSpan);
 
-    if (zh) {
-      const zhSpan = doc.createElement('span');
-      zhSpan.setAttribute('data-bilingual-translation', 'true');
-      zhSpan.setAttribute('data-sentence-index', String(sentence.index));
-      // Reading body is lang="en"; translations must not inherit English
-      // hyphenation or pronunciation.
-      zhSpan.setAttribute('lang', 'zh');
-      zhSpan.className = cn(
-        'sentence-zh block text-sm font-sans text-muted-foreground/75 leading-relaxed mt-1 select-text transition-[opacity,color] duration-150 group-hover/sentence:text-foreground group-hover/sentence:opacity-100',
-        isFocused
-          ? 'text-foreground opacity-100 font-medium'
-          : focusedSentenceIndex !== null && focusedSentenceIndex !== undefined
-            ? 'opacity-40'
-            : '',
-      );
-      zhSpan.textContent = zh;
-      pairEl.appendChild(zhSpan);
-    }
+    appendZhSlot(doc, pairEl, sentence.index, zh, labels, isFocused, focusedSentenceIndex);
 
     el.appendChild(pairEl);
     return;
@@ -140,15 +174,23 @@ function splitElementIntoSentences(
     fallbackContainer.className = 'mt-1 mb-2 space-y-1';
     for (const s of pSentences) {
       const zh = translationsByIndex[s.index];
-      if (zh) {
-        const fallbackZh = doc.createElement('div');
-        fallbackZh.setAttribute('data-bilingual-translation', 'true');
-        fallbackZh.setAttribute('data-sentence-index', String(s.index));
-        fallbackZh.setAttribute('lang', 'zh');
+      const trimmedZh = zh?.trim();
+      const fallbackZh = doc.createElement('div');
+      fallbackZh.setAttribute('data-bilingual-translation', 'true');
+      fallbackZh.setAttribute('data-sentence-index', String(s.index));
+      fallbackZh.setAttribute('lang', 'zh');
+      if (trimmedZh) {
         fallbackZh.className = 'text-sm font-sans text-muted-foreground/75 leading-relaxed select-text';
-        fallbackZh.textContent = zh;
-        fallbackContainer.appendChild(fallbackZh);
+        fallbackZh.textContent = trimmedZh;
+      } else {
+        fallbackZh.setAttribute('data-translation-status', labels.isStreaming ? 'pending' : 'missing');
+        fallbackZh.className = cn(
+          'text-sm font-sans leading-relaxed italic',
+          labels.isStreaming ? 'text-muted-foreground/50' : 'text-muted-foreground/70',
+        );
+        fallbackZh.textContent = labels.isStreaming ? labels.pendingTranslation : labels.missingTranslation;
       }
+      fallbackContainer.appendChild(fallbackZh);
     }
     if (fallbackContainer.childNodes.length > 0) {
       el.insertAdjacentElement('afterend', fallbackContainer);
@@ -206,22 +248,7 @@ function splitElementIntoSentences(
     pairEl.appendChild(enSpan);
 
     const zh = translationsByIndex[sentence.index];
-    if (zh) {
-      const zhSpan = doc.createElement('span');
-      zhSpan.setAttribute('data-bilingual-translation', 'true');
-      zhSpan.setAttribute('data-sentence-index', String(sentence.index));
-      zhSpan.setAttribute('lang', 'zh');
-      zhSpan.className = cn(
-        'sentence-zh block text-sm font-sans text-muted-foreground/75 leading-relaxed mt-1 select-text transition-[opacity,color] duration-150 group-hover/sentence:text-foreground group-hover/sentence:opacity-100',
-        isFocused
-          ? 'text-foreground opacity-100 font-medium'
-          : focusedSentenceIndex !== null && focusedSentenceIndex !== undefined
-            ? 'opacity-40'
-            : '',
-      );
-      zhSpan.textContent = zh;
-      pairEl.appendChild(zhSpan);
-    }
+    appendZhSlot(doc, pairEl, sentence.index, zh, labels, isFocused, focusedSentenceIndex);
 
     pairs.push(pairEl);
   }
@@ -251,9 +278,10 @@ export function transformBilingualHtml(
     bilingualData?: BilingualTranslationData | null;
     focusedSentenceIndex?: number | null;
     parserDoc?: Document;
+    labels: BilingualTransformLabels;
   },
 ): string {
-  const { isBilingual = false, bilingualData, focusedSentenceIndex, parserDoc } = options;
+  const { isBilingual = false, bilingualData, focusedSentenceIndex, parserDoc, labels } = options;
   const sanitizedHtml = sanitizeHtml(html);
   if (!isBilingual || !bilingualData) {
     return sanitizedHtml;
@@ -284,7 +312,7 @@ export function transformBilingualHtml(
     const pIndex = Number(el.getAttribute('data-p'));
     const pSentences = sentencesByParagraph.get(pIndex);
     if (pSentences && pSentences.length > 0) {
-      splitElementIntoSentences(doc!, el, pSentences, translationsByIndex, focusedSentenceIndex);
+      splitElementIntoSentences(doc!, el, pSentences, translationsByIndex, labels, focusedSentenceIndex);
     }
   });
 
@@ -308,17 +336,36 @@ export function ReadingPartView({
   bilingualData,
   focusedSentenceIndex,
   onSentenceClick,
+  onBilingualRetry,
 }: ReadingPartViewProps) {
   const { locale } = useLocale();
+  const bilingualLabels = useMemo(
+    () => ({
+      pendingTranslation: t(locale, 'content.reader.bilingual.sentencePending'),
+      missingTranslation: t(locale, 'content.reader.bilingual.sentenceMissing'),
+      isStreaming: Boolean(bilingualData?.isStreaming),
+    }),
+    [locale, bilingualData?.isStreaming],
+  );
+
   const renderedHtml = useMemo(
     () =>
       transformBilingualHtml(html, {
         isBilingual,
         bilingualData,
         focusedSentenceIndex,
+        labels: bilingualLabels,
       }),
-    [html, isBilingual, bilingualData, focusedSentenceIndex],
+    [html, isBilingual, bilingualData, focusedSentenceIndex, bilingualLabels],
   );
+
+  const missingTranslationCount = useMemo(() => {
+    if (!isBilingual || !bilingualData || bilingualData.isLoading || bilingualData.isStreaming || bilingualData.error) {
+      return 0;
+    }
+    return bilingualData.sentences.filter((sentence) => !bilingualData.translationsByIndex[sentence.index]?.trim())
+      .length;
+  }, [isBilingual, bilingualData]);
 
   const handleArticleClick = (event: MouseEvent<HTMLElement>) => {
     if (!onSentenceClick) return;
@@ -354,12 +401,43 @@ export function ReadingPartView({
       ) : null}
 
       {isBilingual && bilingualData?.error ? (
-        <p
+        <div
           className="mb-4 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
           role="alert"
         >
-          {bilingualData.error || t(locale, 'content.reader.bilingual.error')}
-        </p>
+          <p>{bilingualData.error || t(locale, 'content.reader.bilingual.error')}</p>
+          {onBilingualRetry ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-2 h-8 rounded-lg text-xs"
+              onClick={onBilingualRetry}
+            >
+              {t(locale, 'content.reader.bilingual.retry')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {isBilingual && missingTranslationCount > 0 ? (
+        <div
+          className="mb-4 flex flex-col items-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-center text-sm text-foreground/90 sm:flex-row sm:justify-between sm:text-left"
+          role="status"
+        >
+          <p>{t(locale, 'content.reader.bilingual.partialMissing', { count: missingTranslationCount })}</p>
+          {onBilingualRetry ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 rounded-lg text-xs"
+              onClick={onBilingualRetry}
+            >
+              {t(locale, 'content.reader.bilingual.retry')}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       <div
