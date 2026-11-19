@@ -1,6 +1,18 @@
 import type { AssetCleanupJob, AssetCleanupJobStatus, AssetCleanupJobVerification } from '@/shared/assets';
 
-export const ASSET_CLEANUP_JOB_STORAGE_KEY = 'gloaming.admin.assets.cleanupJob.v1';
+export const ASSET_CLEANUP_JOB_STORAGE_KEY = 'gloaming.admin.assets.cleanupJob';
+
+const LEGACY_ASSET_CLEANUP_JOB_STORAGE_KEYS = ['gloaming.admin.assets.cleanupJob.v1'] as const;
+
+function removeLegacyCleanupJobKeys(): void {
+  for (const legacyKey of LEGACY_ASSET_CLEANUP_JOB_STORAGE_KEYS) {
+    try {
+      sessionStorage.removeItem(legacyKey);
+    } catch {
+      // ignore
+    }
+  }
+}
 
 export type AssetsPageStatus =
   | 'idle'
@@ -69,6 +81,7 @@ export function shouldPollCleanupJob(status: AssetCleanupJobStatus | undefined):
 
 export function readStoredCleanupJob(): StoredCleanupJob | null {
   try {
+    removeLegacyCleanupJobKeys();
     const raw = sessionStorage.getItem(ASSET_CLEANUP_JOB_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredCleanupJob;

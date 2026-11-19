@@ -1,7 +1,21 @@
-/** Bump when first-visit hint semantics change so prior false "seen" flags reset. */
-export const READER_CHROME_HINT_STORAGE_KEY = 'gloaming.reader.chromeHint.v2';
+export const READER_CHROME_HINT_STORAGE_KEY = 'gloaming.reader.chromeHint';
+
+const LEGACY_READER_CHROME_HINT_STORAGE_KEYS = [
+  'gloaming.reader.chromeHint.v2',
+  'gloaming.reader.chromeHint.v1',
+] as const;
 
 const SEEN_VALUE = '1';
+
+function removeLegacyChromeHintKeys(): void {
+  for (const legacyKey of LEGACY_READER_CHROME_HINT_STORAGE_KEYS) {
+    try {
+      localStorage.removeItem(legacyKey);
+    } catch {
+      // ignore
+    }
+  }
+}
 
 const listeners = new Set<() => void>();
 
@@ -24,6 +38,7 @@ export function getReaderChromeHintEligible(): boolean {
     return false;
   }
   try {
+    removeLegacyChromeHintKeys();
     return localStorage.getItem(READER_CHROME_HINT_STORAGE_KEY) !== SEEN_VALUE;
   } catch {
     return false;
