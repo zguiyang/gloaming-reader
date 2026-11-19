@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent } from '@/components/ui/popover';
 import { ReaderMarkdown } from '@/features/reader/assist/reader-markdown';
+import { useSuppressReaderChrome } from '@/features/reader/reader-chrome-suppression';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,7 @@ export function ReaderAiInline({
   onOpenDrawer,
   onClose,
 }: ReaderAiInlineProps) {
+  useSuppressReaderChrome(open);
   const { locale } = useLocale();
   const [draft, setDraft] = useState('');
   const popupRef = useRef<HTMLDivElement>(null);

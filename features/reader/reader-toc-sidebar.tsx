@@ -19,6 +19,7 @@ import { coverUrlFromAssetId } from '@/lib/asset-url';
 import { useLocale } from '@/lib/locale-context';
 import { workDetailHref } from '@/lib/navigation/work-detail-return';
 import { useIsDesktop } from '@/lib/use-media-query';
+import { useSuppressReaderChrome } from '@/features/reader/reader-chrome-suppression';
 import { cn } from '@/lib/utils';
 
 type ReaderTocSidebarProps = {
@@ -36,6 +37,7 @@ export function ReaderTocSidebar({
   currentPartId,
   onSelectChapter,
 }: ReaderTocSidebarProps) {
+  useSuppressReaderChrome(open);
   const { locale } = useLocale();
   const isDesktop = useIsDesktop();
   const parts = sortedParts(reader.parts);

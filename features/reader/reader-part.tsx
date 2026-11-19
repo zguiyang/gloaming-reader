@@ -5,6 +5,7 @@ import type { KeyboardEvent, MouseEvent, ReactNode, Ref, UIEvent } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { type BilingualTranslationData, ReadingPartView } from '@/features/content';
 import type { ReaderFontSize, ReaderSelectionRect } from '@/features/reader/reader-model';
+import { isReaderCenterTapZone } from '@/features/reader/reader-content-tap-zone';
 import { cn } from '@/lib/utils';
 
 type ReaderPartProps = {
@@ -144,9 +145,7 @@ export function ReaderPart({
     }
     if (target.closest('button, [data-reader-ui]')) return;
 
-    const y = event.clientY / window.innerHeight;
-    const x = event.clientX / window.innerWidth;
-    if (y > 0.2 && y < 0.8 && x > 0.15 && x < 0.85) {
+    if (isReaderCenterTapZone(event.clientX, event.clientY)) {
       const selection = window.getSelection()?.toString().trim();
       if (selection) return;
       onCenterTap();
@@ -156,6 +155,7 @@ export function ReaderPart({
   return (
     <div
       ref={contentRef}
+      data-reader-content
       className={cn(
         'relative h-full flex-1 overflow-y-auto transition-[margin,padding] duration-300 ease-out-soft',
         aiDrawerOpen && 'md:pr-96',

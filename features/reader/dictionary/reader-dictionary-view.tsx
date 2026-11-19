@@ -4,6 +4,7 @@ import type { DictionaryEntry } from '@/shared/dictionary';
 
 import { ReaderDictionaryPopover } from '@/features/reader/dictionary/reader-dictionary-popover';
 import { ReaderDictionarySheet } from '@/features/reader/dictionary/reader-dictionary-sheet';
+import { useSuppressReaderChrome } from '@/features/reader/reader-chrome-suppression';
 import type { ReaderSelectionRect } from '@/features/reader/reader-model';
 import { useIsDesktop } from '@/lib/use-media-query';
 
@@ -23,6 +24,7 @@ export type ReaderDictionaryViewProps = {
 };
 
 export function ReaderDictionaryView(props: ReaderDictionaryViewProps) {
+  useSuppressReaderChrome(props.open);
   const isDesktop = useIsDesktop();
 
   if (!props.open) return null;

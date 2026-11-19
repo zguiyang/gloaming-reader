@@ -32,6 +32,11 @@ import { ReaderChapterNav } from '@/features/reader/reader-chapter-nav';
 import { ReaderChrome } from '@/features/reader/reader-chrome';
 import { ReaderChromeHint } from '@/features/reader/reader-chrome-hint';
 import {
+  ReaderChromeSuppressionProvider,
+  useReaderChromeSuppressed,
+} from '@/features/reader/reader-chrome-suppression';
+import { useReaderChromeVisibility } from '@/features/reader/use-reader-chrome-visibility';
+import {
   getReaderChromeHintEligible,
   getReaderChromeHintServerSnapshot,
   markReaderChromeHintSeen,
@@ -107,7 +112,15 @@ function focusAfterPanelClose(getTarget: () => HTMLElement | null) {
   });
 }
 
-export function ReaderPage({ workId }: ReaderPageProps) {
+export function ReaderPage(props: ReaderPageProps) {
+  return (
+    <ReaderChromeSuppressionProvider>
+      <ReaderPageContent {...props} />
+    </ReaderChromeSuppressionProvider>
+  );
+}
+
+function ReaderPageContent({ workId }: ReaderPageProps) {
   const { locale } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -131,7 +144,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
 
   useReadingHeartbeat(isAuthenticated && Boolean(activePartId));
 
-  const [isChromeVisible, setIsChromeVisible] = useState(false);
   const chromeHintEligible = useSyncExternalStore(
     subscribeReaderChromeHint,
     getReaderChromeHintEligible,
@@ -193,6 +205,11 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     isAuthenticated,
     openLogin,
   });
+
+  const isAiDrawerOpen = assist.aiMode === 'drawer';
+  const isInlineOpen = assist.aiMode === 'inline' && Boolean(assist.inlineSession);
+  const chromeSuppressed = useReaderChromeSuppressed();
+  const readerChrome = useReaderChromeVisibility();
 
   const translate = useReaderTranslate({
     partId: activePartId,
@@ -729,8 +746,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     }
   }
 
-  const isAiDrawerOpen = assist.aiMode === 'drawer';
-
   const dismissChromeHint = useCallback(() => {
     markReaderChromeHintSeen();
   }, []);
@@ -743,8 +758,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
     partsQuery.isPending || (Boolean(activePartId) && partQuery.isPending) || isWaitingForReadingStateBootstrap;
 
   // Gate on !isLoading so the 10s timer cannot fire during the skeleton (when the tip is not painted).
-  const showChromeHint =
-    chromeHintEligible && !isLoading && !isChromeVisible && assist.aiMode !== 'drawer' && !isTocOpen;
+  const showChromeHint = chromeHintEligible && !isLoading && !readerChrome.visible && !chromeSuppressed;
 
   useEffect(() => {
     if (!showChromeHint) return;
@@ -788,7 +802,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
   const chapterLabel =
     reader.parts.length > 1 && currentIndex >= 0 ? `${currentIndex + 1} / ${reader.parts.length}` : null;
   const isDrawerOpen = isAiDrawerOpen;
-  const isInlineOpen = assist.aiMode === 'inline' && Boolean(assist.inlineSession);
 
   return (
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-background">
@@ -805,7 +818,10 @@ export function ReaderPage({ workId }: ReaderPageProps) {
       />
 
       <ReaderChrome
-        visible={isChromeVisible || isDrawerOpen}
+        visible={readerChrome.visible}
+        onPointerEnter={readerChrome.onChromePointerEnter}
+        onPointerLeave={readerChrome.onChromePointerLeave}
+        onChromeInteract={readerChrome.notifyChromeInteraction}
         workTitle={reader.workTitle}
         partTitle={reader.partTitle}
         chapterLabel={chapterLabel}
@@ -826,7 +842,6 @@ export function ReaderPage({ workId }: ReaderPageProps) {
         onToggleToc={() => {
           setIsTocOpen((v) => !v);
           dismissChromeHint();
-          setIsChromeVisible(true);
         }}
         onToggleFontSize={() => setFontSize((f) => FONT_CYCLE[(FONT_CYCLE.indexOf(f) + 1) % FONT_CYCLE.length]!)}
         onToggleAi={() => {
@@ -836,17 +851,14 @@ export function ReaderPage({ workId }: ReaderPageProps) {
             assist.openDrawer();
           }
           dismissChromeHint();
-          setIsChromeVisible(true);
         }}
         onToggleTts={() => {
           readerAudio.toggle();
           dismissChromeHint();
-          setIsChromeVisible(true);
         }}
         onToggleBilingual={() => {
           translate.toggleBilingual();
           dismissChromeHint();
-          setIsChromeVisible(true);
         }}
       />
 
@@ -869,12 +881,11 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           setDictionaryState(null);
           assist.closeAiSurface();
           assist.resetInline();
+          readerChrome.hide();
         }}
         onCenterTap={() => {
-          setIsChromeVisible((v) => {
-            if (!v) dismissChromeHint();
-            return !v;
-          });
+          readerChrome.toggleFromReaderContent();
+          dismissChromeHint();
           if (selection && assist.aiMode !== 'inline') clearSelectionUi();
         }}
         onContentLink={handleContentLink}
@@ -1013,6 +1024,7 @@ export function ReaderPage({ workId }: ReaderPageProps) {
           assist.clearActiveQuote();
         }}
         onSelectConversation={(conversationId) => void assist.restoreConversation(conversationId)}
+        onRefreshHistory={() => void assist.refetchHistory()}
         onStartNewConversation={() => {
           assist.startNewDrawerConversation();
           clearSelectionUi();
