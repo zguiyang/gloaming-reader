@@ -120,13 +120,24 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, token }) => {
       const verifyUrl = buildVerificationUrl(token);
       logDevAuthLink({ to: user.email, url: verifyUrl, kind: 'verify-email' });
-      await sendAuthMail({
-        operation: 'verification',
-        userId: user.id,
-        to: user.email,
-        subject: 'Verify your Gloaming email',
-        text: `Verify your email: ${verifyUrl}`,
-      });
+      try {
+        await sendAuthMail({
+          operation: 'verification',
+          userId: user.id,
+          to: user.email,
+          subject: 'Verify your Gloaming email',
+          text: `Verify your email: ${verifyUrl}`,
+        });
+      } catch (error) {
+        // Keep local QA unblocked when Resend rejects disposable inboxes.
+        if (env.NODE_ENV === 'development') {
+          logDevAuthLink(
+            { to: user.email, url: verifyUrl, kind: 'verify-email' },
+            { force: true, reason: error instanceof Error ? error.message : 'mail_send_failed' },
+          );
+        }
+        throw error;
+      }
     },
   },
   user: {

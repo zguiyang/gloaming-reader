@@ -12,7 +12,7 @@ type SessionState = {
   data: { user: User } | null;
   error: AuthError | null;
   isPending: boolean;
-  refresh: () => void;
+  refresh: () => Promise<unknown>;
 };
 
 function subscribeToHydration() {
@@ -62,9 +62,7 @@ export function useSession(): SessionState {
     data: user ? { user } : null,
     error,
     isPending,
-    refresh: () => {
-      void session.refetch();
-    },
+    refresh: () => Promise.resolve(session.refetch()),
   };
 }
 

@@ -29,13 +29,18 @@ export function shouldLogDevAuthLink(config: Pick<Env, 'NODE_ENV' | 'RESEND_API_
   return config.NODE_ENV === 'development' && !config.RESEND_API_KEY;
 }
 
-export function logDevAuthLink(input: { to: string; url: string; kind: 'verify-email' }): void {
-  if (!shouldLogDevAuthLink()) {
+export function logDevAuthLink(
+  input: { to: string; url: string; kind: 'verify-email' },
+  options?: { force?: boolean; reason?: string },
+): void {
+  if (!options?.force && !shouldLogDevAuthLink()) {
     return;
   }
   authLogger.info(
-    { to: input.to, url: input.url, kind: input.kind },
-    'Dev auth link (RESEND_API_KEY unset; open in browser)',
+    { to: input.to, url: input.url, kind: input.kind, reason: options?.reason },
+    options?.force
+      ? 'Dev auth link (mail send failed; open in browser)'
+      : 'Dev auth link (RESEND_API_KEY unset; open in browser)',
   );
 }
 

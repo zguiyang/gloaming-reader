@@ -14,6 +14,7 @@ import { HistoryHeatmap } from '@/features/history/history-heatmap';
 import { HistorySummary } from '@/features/history/history-summary';
 import { HistoryWorks } from '@/features/history/history-works';
 import { isUnauthorizedError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -29,13 +30,20 @@ function HistorySkeleton() {
 export function HistoryPage() {
   const { locale } = useLocale();
   const { openLogin } = useAuthDialog();
+  const { data: authData, isPending: authPending } = authClient.useSession();
   const historyQuery = useReadingHistoryQuery();
 
+  const { refetch: refetchHistory } = historyQuery;
+  const historyUnauthorized = historyQuery.isError && isUnauthorizedError(historyQuery.error);
   useEffect(() => {
-    if (historyQuery.isError && isUnauthorizedError(historyQuery.error)) {
-      openLogin({ reason: 'history' });
+    if (!historyUnauthorized) return;
+    if (authPending) return;
+    if (authData?.user) {
+      void refetchHistory();
+      return;
     }
-  }, [historyQuery.error, historyQuery.isError, openLogin]);
+    openLogin({ reason: 'history' });
+  }, [authData?.user, authPending, historyUnauthorized, openLogin, refetchHistory]);
 
   if (historyQuery.isPending) {
     return (

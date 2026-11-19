@@ -43,6 +43,7 @@ import {
   resolveLibraryReturnTo,
 } from '@/features/library/library-filters';
 import { isUnauthorizedError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 
 export function LibraryTagsPage() {
@@ -56,6 +57,7 @@ export function LibraryTagsPage() {
 function LibraryTagsPageContent() {
   const { locale, localeOptions } = useLocale();
   const { openLogin } = useAuthDialog();
+  const { data: authData, isPending: authPending } = authClient.useSession();
   // Friendly endonym per supported language (e.g. "简体中文"), never the raw BCP-47 tag.
   const localeLabel = (language: string) =>
     localeOptions.find((option) => option.value === language)?.label ?? language;
@@ -68,9 +70,17 @@ function LibraryTagsPageContent() {
   const [editingNames, setEditingNames] = useState<Record<string, string>>({});
   const [deletingTag, setDeletingTag] = useState<UserTagManagementItem | null>(null);
 
+  const { refetch: refetchTags } = tagsQuery;
+  const tagsUnauthorized = tagsQuery.isError && isUnauthorizedError(tagsQuery.error);
   useEffect(() => {
-    if (tagsQuery.isError && isUnauthorizedError(tagsQuery.error)) openLogin();
-  }, [openLogin, tagsQuery.error, tagsQuery.isError]);
+    if (!tagsUnauthorized) return;
+    if (authPending) return;
+    if (authData?.user) {
+      void refetchTags();
+      return;
+    }
+    openLogin();
+  }, [authData?.user, authPending, openLogin, refetchTags, tagsUnauthorized]);
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags });

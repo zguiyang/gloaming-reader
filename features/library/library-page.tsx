@@ -33,6 +33,7 @@ import { LibraryGrid } from '@/features/library/library-grid';
 import { LibrarySkeleton } from '@/features/library/library-skeleton';
 import { LibraryMobileSourceNav, LibrarySourceNav } from '@/features/library/library-source-nav';
 import { isUnauthorizedError } from '@/lib/api-request';
+import { authClient } from '@/lib/auth';
 import { useLocale } from '@/lib/locale-context';
 import { cn } from '@/lib/utils';
 
@@ -102,6 +103,7 @@ function LibraryPageWithUrlState() {
 function LibraryPageContent({ searchKey }: { searchKey: string }) {
   const queryClient = useQueryClient();
   const { openLogin } = useAuthDialog();
+  const { data: authData, isPending: authPending } = authClient.useSession();
   const libraryQuery = useLibraryQuery();
   const tagsQuery = useUserTagsQuery();
   const router = useRouter();
@@ -156,11 +158,19 @@ function LibraryPageContent({ searchKey }: { searchKey: string }) {
     }
   }, [pathname, router, searchKey, hasTagsLoaded, validTagIdsKey]);
 
+  const { refetch: refetchLibrary } = libraryQuery;
+  const libraryUnauthorized = libraryQuery.isError && isUnauthorizedError(libraryQuery.error);
   useEffect(() => {
-    if (libraryQuery.isError && isUnauthorizedError(libraryQuery.error)) {
-      openLogin();
+    if (!libraryUnauthorized) return;
+    if (authPending) return;
+    // After a successful sign-in the previous 401 may still be cached briefly.
+    // Refetch instead of reopening the dialog over an authenticated session.
+    if (authData?.user) {
+      void refetchLibrary();
+      return;
     }
-  }, [openLogin, libraryQuery.error, libraryQuery.isError]);
+    openLogin();
+  }, [authData?.user, authPending, libraryUnauthorized, openLogin, refetchLibrary]);
 
   // A tag that is not (or no longer) one of the user's tags is treated as no tag condition.
 

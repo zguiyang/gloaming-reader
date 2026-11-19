@@ -1,9 +1,12 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useRef, useState } from 'react';
 
 import { AuthDialog, type AuthMode, type AuthReason } from '@/features/auth/auth-dialog';
+import { historyQueryKey } from '@/features/history/history-api';
+import { libraryQueryKey } from '@/features/library/library-api';
 import { authClient } from '@/lib/auth';
 import { consumePostAuthPath, rememberAuthReturnPath } from '@/lib/auth/post-auth-redirect';
 
@@ -23,10 +26,12 @@ const AuthDialogContext = createContext<AuthDialogController | null>(null);
 
 export function AuthDialogProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AuthMode>('login');
   const [reason, setReason] = useState<AuthReason>();
   const { refresh } = authClient.useSession();
+  const authSuccessInFlightRef = useRef(false);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -34,6 +39,9 @@ export function AuthDialogProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openWithMode = useCallback((nextMode: AuthMode, options?: AuthDialogOptions) => {
+    if (authSuccessInFlightRef.current) {
+      return;
+    }
     rememberAuthReturnPath();
     setMode(nextMode);
     setReason(options?.reason);
@@ -52,11 +60,27 @@ export function AuthDialogProvider({ children }: { children: ReactNode }) {
   );
 
   async function handleAuthSuccess() {
-    await refresh();
-    close();
-    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined;
-    router.replace(consumePostAuthPath(searchParams));
-    router.refresh();
+    authSuccessInFlightRef.current = true;
+    try {
+      // Close first so stale unauthorized query effects cannot reopen the dialog
+      // while session refresh / query invalidation are still in flight.
+      close();
+      try {
+        await refresh();
+      } catch {
+        // Login already succeeded; leave navigation to recover session state.
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: libraryQueryKey.all }),
+        queryClient.invalidateQueries({ queryKey: historyQueryKey.all }),
+        queryClient.invalidateQueries({ queryKey: libraryQueryKey.tags }),
+      ]);
+      const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined;
+      router.replace(consumePostAuthPath(searchParams));
+      router.refresh();
+    } finally {
+      authSuccessInFlightRef.current = false;
+    }
   }
 
   return (
