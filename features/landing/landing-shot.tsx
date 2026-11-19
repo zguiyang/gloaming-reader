@@ -1,7 +1,13 @@
-import Image from 'next/image';
 import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
+
+/** Bump when replacing `/public/landing/shot-*.webp` so browsers do not serve stale assets. */
+export const LANDING_SHOT_ASSET_VERSION = '20261119-desktop-v4';
+
+export function landingShotSrc(path: string) {
+  return `${path}?v=${LANDING_SHOT_ASSET_VERSION}`;
+}
 
 /** Product frame: real screenshot when `src` is set; otherwise children mock. */
 export function LandingShot({
@@ -36,16 +42,14 @@ export function LandingShot({
         </div>
       ) : null}
       {src ? (
-        <div className="relative aspect-[16/10] w-full bg-paper sm:aspect-[16/9]">
-          <Image
-            src={src}
-            alt={alt}
-            fill
-            className="object-cover object-top"
-            sizes="(max-width: 1200px) 100vw, 1200px"
-            priority={lift}
-          />
-        </div>
+        // eslint-disable-next-line @next/next/no-img-element -- full-frame marketing captures; natural dimensions
+        <img
+          src={landingShotSrc(src)}
+          alt={alt}
+          className="block h-auto w-full"
+          decoding="async"
+          fetchPriority={lift ? 'high' : undefined}
+        />
       ) : (
         children
       )}

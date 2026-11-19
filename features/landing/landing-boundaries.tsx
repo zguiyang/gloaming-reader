@@ -5,7 +5,7 @@ import { t } from '@/i18n';
 import { LandingReveal } from '@/features/landing/landing-motion';
 import { useLocale } from '@/lib/locale-context';
 
-const ITEM_KEYS = ['1', '2', '3', '4'] as const;
+const ITEM_KEYS = ['1', '2', '3', '4', '5'] as const;
 
 export function LandingBoundaries() {
   const { locale } = useLocale();
@@ -23,7 +23,7 @@ export function LandingBoundaries() {
           <p className="text-base leading-relaxed text-muted-foreground">{t(locale, 'landing.boundaries.lead')}</p>
         </LandingReveal>
 
-        <LandingReveal className="mx-auto grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2">
+        <LandingReveal className="mx-auto grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2">
           {ITEM_KEYS.map((key) => (
             <div
               key={key}
