@@ -6,6 +6,7 @@ import { AUTH_ADMIN_ROLE, AUTH_PASSWORD_POLICY, AUTH_USERNAME_POLICY, isValidUse
 import { auth } from '@/server/infra/auth/auth';
 import { withAdminBootstrap } from '@/server/infra/auth/bootstrap';
 import { db } from '@/server/infra/db';
+import { sanitizeLogString } from '@/server/infra/logging/log-redaction';
 
 const ADMIN_NAME = 'Gloaming Admin';
 const ADMIN_USERNAME = 'admin';
@@ -93,6 +94,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error('Admin bootstrap failed:', error instanceof Error ? error.message : error);
+  const message = error instanceof Error ? error.message : String(error);
+  console.error('Admin bootstrap failed:', sanitizeLogString(message));
   process.exit(1);
 });

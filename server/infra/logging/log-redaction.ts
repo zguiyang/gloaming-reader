@@ -22,7 +22,25 @@ const SENSITIVE_FIELD_NAMES = new Set([
   'apikey',
   'secret',
   'clientsecret',
+  'passphrase',
+  'privatekey',
+  'signingkey',
+  'encryptionkey',
+  'credential',
+  'credentials',
+  'secretaccesskey',
+  'accesskeyid',
+  'connectionstring',
+  'authorization',
+  'bearer',
+  'ciphertext',
+  'apikeyciphertext',
 ]);
+
+const LOOKS_LIKE_URL = /^(?:[a-z][a-z\d+.-]*:\/\/|\/|\.\.?\/)/i;
+const EMBEDDED_USERINFO_URL = /([a-z][a-z\d+.-]*:\/\/)([^\s/?#@]+)@/gi;
+const BEARER_IN_TEXT = /\bBearer\s+\S+/gi;
+const BASIC_IN_TEXT = /\bBasic\s+[A-Za-z0-9+/=]+/gi;
 
 function isHeaders(value: unknown): value is Headers {
   return typeof Headers !== 'undefined' && value instanceof Headers;
@@ -44,8 +62,15 @@ function isSensitiveField(name: string): boolean {
   return SENSITIVE_FIELD_NAMES.has(name.replaceAll('_', '').replaceAll('-', '').toLowerCase());
 }
 
+function redactUrlUserinfo(url: URL): void {
+  if (url.username || url.password) {
+    url.username = url.username ? REDACTED : '';
+    url.password = url.password ? REDACTED : '';
+  }
+}
+
 export function sanitizeLogUrl(value: string): string {
-  const isLikelyUrl = /^(?:[a-z][a-z\d+.-]*:\/\/|\/|\.\.?\/|\?)/i.test(value);
+  const isLikelyUrl = LOOKS_LIKE_URL.test(value);
   if (!isLikelyUrl) {
     return value.replace(/([?&])([^=&#\s]+)=([^&#\s]*)/gi, (match, separator: string, key: string) =>
       isSensitiveField(key) || ['code', 'state', 'key'].includes(key.toLowerCase())
@@ -67,6 +92,8 @@ export function sanitizeLogUrl(value: string): string {
     }
   }
 
+  redactUrlUserinfo(url);
+
   for (const key of Array.from(url.searchParams.keys())) {
     if (isSensitiveField(key) || ['code', 'state', 'key'].includes(key.toLowerCase())) {
       url.searchParams.set(key, REDACTED);
@@ -74,6 +101,46 @@ export function sanitizeLogUrl(value: string): string {
   }
 
   return isRelative ? `${url.pathname}${url.search}${url.hash}` : url.toString();
+}
+
+/** Scrub secrets from free-text log fields (messages, stacks, opaque strings). */
+export function sanitizeLogString(value: string): string {
+  const trimmed = value.trim();
+  let result = LOOKS_LIKE_URL.test(trimmed) ? sanitizeLogUrl(value) : value;
+  result = result.replace(EMBEDDED_USERINFO_URL, `$1${REDACTED}@`);
+  result = result.replace(BEARER_IN_TEXT, `Bearer ${REDACTED}`);
+  result = result.replace(BASIC_IN_TEXT, `Basic ${REDACTED}`);
+  return result;
+}
+
+type RedisCommandShape = { name?: unknown; args?: unknown };
+
+function sanitizeRedisCommand(command: unknown, seen: WeakSet<object>): unknown {
+  if (!command || typeof command !== 'object') {
+    return sanitizeValue(command, seen);
+  }
+  const cmd = command as RedisCommandShape;
+  const name = typeof cmd.name === 'string' ? cmd.name.toLowerCase() : '';
+  const rawArgs = Array.isArray(cmd.args) ? cmd.args : [];
+  const args = rawArgs.map((arg, index) => {
+    if (name === 'auth' && index >= 1) {
+      return REDACTED;
+    }
+    if (name === 'hello') {
+      const authIndex = rawArgs.findIndex((entry) => String(entry).toUpperCase() === 'AUTH');
+      if (authIndex >= 0 && index > authIndex) {
+        return REDACTED;
+      }
+    }
+    if (name === 'config' && String(rawArgs[0] ?? '').toLowerCase() === 'set') {
+      const option = String(rawArgs[1] ?? '').toLowerCase();
+      if (option.includes('pass') && index >= 2) {
+        return REDACTED;
+      }
+    }
+    return sanitizeValue(arg, seen);
+  });
+  return { name: cmd.name, args };
 }
 
 export function sanitizeHeaders(headers: Headers | Record<string, unknown> | undefined): Record<string, unknown> {
@@ -88,7 +155,7 @@ export function sanitizeHeaders(headers: Headers | Record<string, unknown> | und
 }
 
 function sanitizeValue(value: unknown, seen: WeakSet<object>): unknown {
-  if (typeof value === 'string') return value;
+  if (typeof value === 'string') return sanitizeLogString(value);
   if (value === null || typeof value !== 'object') return value;
   if (seen.has(value)) return '[Circular]';
   seen.add(value);
@@ -118,6 +185,8 @@ function sanitizeValue(value: unknown, seen: WeakSet<object>): unknown {
         sanitized[key] = sanitizeHeaders(entry as Headers | Record<string, unknown>);
       } else if (normalizedKey === 'url' || normalizedKey === 'uri' || normalizedKey.endsWith('url')) {
         sanitized[key] = typeof entry === 'string' ? sanitizeLogUrl(entry) : sanitizeValue(entry, seen);
+      } else if (normalizedKey === 'command') {
+        sanitized[key] = sanitizeRedisCommand(entry, seen);
       } else {
         sanitized[key] = sanitizeValue(entry, seen);
       }
@@ -131,12 +200,18 @@ function sanitizeValue(value: unknown, seen: WeakSet<object>): unknown {
 function sanitizeError(error: Error, seen: WeakSet<object> = new WeakSet()): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {
     type: error.name,
-    message: sanitizeLogUrl(error.message),
-    stack: error.stack ? sanitizeLogUrl(error.stack) : undefined,
+    message: sanitizeLogString(error.message),
+    stack: error.stack ? sanitizeLogString(error.stack) : undefined,
   };
   for (const [key, value] of Object.entries(error)) {
     if (key === 'name' || key === 'message' || key === 'stack') continue;
-    sanitized[key] = isSensitiveField(key) ? REDACTED : sanitizeValue(value, seen);
+    if (isSensitiveField(key)) {
+      sanitized[key] = REDACTED;
+    } else if (key === 'command') {
+      sanitized[key] = sanitizeRedisCommand(value, seen);
+    } else {
+      sanitized[key] = sanitizeValue(value, seen);
+    }
   }
   return sanitized;
 }

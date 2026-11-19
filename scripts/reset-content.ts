@@ -13,6 +13,7 @@
  */
 import Redis from 'ioredis';
 
+import { serializeLogError } from '@/server/infra/logging/log-redaction';
 import {
   aiInvocationLog,
   contentAsset,
@@ -164,6 +165,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error('Content reset failed:', error);
+  console.error('Content reset failed:', JSON.stringify(serializeLogError(error)));
   process.exit(1);
 });
