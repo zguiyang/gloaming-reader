@@ -103,5 +103,8 @@ export const POST = withApiError(async (request: Request) => {
     body: bytes,
     contentType: uploadFile.type,
   });
-  return jsonOk(personalWorkUploadResultSchema.parse(work), { status: HTTP_STATUS.CREATED });
+  const result = personalWorkUploadResultSchema.parse(work);
+  return jsonOk(result, {
+    status: result.alreadyExists ? HTTP_STATUS.OK : HTTP_STATUS.CREATED,
+  });
 });

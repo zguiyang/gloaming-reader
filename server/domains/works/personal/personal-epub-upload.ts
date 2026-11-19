@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 
 import type { WorkProcessingStatus } from '@/shared/works';
 
-import { readingWork as readingWorkTable } from '@/server/db';
+import { contentAsset as contentAssetTable, readingWork as readingWorkTable } from '@/server/db';
+import { releaseUploadedObject } from '@/server/domains/assets/uploads';
 import {
   createEpubIngestWork,
   enqueueCoreEpubParse,
@@ -19,6 +20,8 @@ export type PersonalEpubUploadResult = {
   id: string;
   title: string;
   processingStatus: WorkProcessingStatus;
+  /** Same bytes already owned by this user — no new shelf row was created. */
+  alreadyExists: boolean;
 };
 
 /**
@@ -50,6 +53,38 @@ async function failOrphanUploadedPersonalParse(workId: string, retryJobToken: st
     );
 }
 
+/** Same bytes already owned by this user (non-failed) — avoid duplicate shelf rows. */
+async function findOwnedActiveWorkByContentHash(
+  userId: string,
+  contentHash: string,
+): Promise<PersonalEpubUploadResult | null> {
+  const [row] = await db
+    .select({
+      id: readingWorkTable.id,
+      title: readingWorkTable.title,
+      processingStatus: readingWorkTable.processingStatus,
+    })
+    .from(contentAssetTable)
+    .innerJoin(readingWorkTable, eq(readingWorkTable.id, contentAssetTable.workId))
+    .where(
+      and(
+        eq(contentAssetTable.kind, 'origin_file'),
+        eq(contentAssetTable.contentHash, contentHash),
+        eq(readingWorkTable.ownerUserId, userId),
+        eq(readingWorkTable.originKind, 'user_epub'),
+        ne(readingWorkTable.processingStatus, 'failed'),
+      ),
+    )
+    .limit(1);
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    processingStatus: row.processingStatus as WorkProcessingStatus,
+    alreadyExists: true,
+  };
+}
+
 /** Personal policy is applied here; parsing and durable ingest stay in the shared core. */
 export async function createPersonalEpubWork(input: {
   userId: string;
@@ -65,6 +100,17 @@ export async function createPersonalEpubWork(input: {
   }
   const source = await storeEpubSource({ fileName, body: input.body, contentType: input.contentType });
   if (!source) throw new AppError(500, ERROR_CODES.WORK.UPLOAD_EPUB_FAILED);
+
+  const existing = await findOwnedActiveWorkByContentHash(input.userId, source.meta.contentHash);
+  if (existing) {
+    // storeEpubSource bumped the object ref; undo it because no new Work was created.
+    try {
+      await releaseUploadedObject(source.meta.storageKey);
+    } catch {
+      // Best-effort; orphaned refs are recoverable via admin object scan.
+    }
+    return existing;
+  }
 
   const retryJobToken = randomUUID();
   const work = await createEpubIngestWork({
@@ -84,5 +130,10 @@ export async function createPersonalEpubWork(input: {
     await failOrphanUploadedPersonalParse(work.id, retryJobToken, error);
     throw error;
   }
-  return { id: work.id, title: work.title, processingStatus: work.processingStatus };
+  return {
+    id: work.id,
+    title: work.title,
+    processingStatus: work.processingStatus,
+    alreadyExists: false,
+  };
 }

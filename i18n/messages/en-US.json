@@ -952,7 +952,9 @@
       "statusNotStarted": "Not started",
       "statusReadProgress": "{ratio}% read",
       "viewBookDetail": "View details",
-      "aiTagBadge": "AI"
+      "aiTagBadge": "AI",
+      "uploadAlreadyExists": "This book is already in your library.",
+      "noSearchResults": "No books match the current filters or search"
     },
     "history": {
       "title": "Reading history",

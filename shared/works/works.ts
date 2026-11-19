@@ -130,6 +130,7 @@ export const personalWorkUploadResultSchema = z.object({
   id: z.string(),
   title: z.string(),
   processingStatus: workProcessingStatusSchema,
+  alreadyExists: z.boolean(),
 });
 export type PersonalWorkUploadResult = z.infer<typeof personalWorkUploadResultSchema>;
 

@@ -82,17 +82,23 @@ describe('work contracts', () => {
   });
 
   it('accepts safe Personal upload results', () => {
-    expect(personalWorkUploadResultSchema.parse({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' })).toEqual(
-      { id: 'work-1', title: 'Book', processingStatus: 'uploaded' },
-    );
     expect(
       personalWorkUploadResultSchema.parse({
         id: 'work-1',
         title: 'Book',
         processingStatus: 'uploaded',
+        alreadyExists: false,
+      }),
+    ).toEqual({ id: 'work-1', title: 'Book', processingStatus: 'uploaded', alreadyExists: false });
+    expect(
+      personalWorkUploadResultSchema.parse({
+        id: 'work-1',
+        title: 'Book',
+        processingStatus: 'uploaded',
+        alreadyExists: true,
         storageKey: 'epub/private.epub',
       }),
-    ).toEqual({ id: 'work-1', title: 'Book', processingStatus: 'uploaded' });
+    ).toEqual({ id: 'work-1', title: 'Book', processingStatus: 'uploaded', alreadyExists: true });
   });
 
   it('accepts only owner-editable Personal Work metadata', () => {

@@ -196,3 +196,11 @@ export async function uploadPersonalEpub(file: File): Promise<PersonalWorkUpload
     schema: personalWorkUploadResultSchema,
   });
 }
+
+export function reportPersonalEpubUploadResult(result: PersonalWorkUploadResult, locale: Locale): void {
+  if (result.alreadyExists) {
+    toast.info(t(locale, 'content.library.uploadAlreadyExists'));
+    return;
+  }
+  toast.success(t(locale, 'content.library.uploadStarted'));
+}

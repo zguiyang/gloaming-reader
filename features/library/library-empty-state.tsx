@@ -13,6 +13,7 @@ import {
   formatLibraryApiError,
   libraryQueryKey,
   personalEpubValidationError,
+  reportPersonalEpubUploadResult,
   uploadPersonalEpub,
 } from '@/features/library/library-api';
 import { useLocale } from '@/lib/locale-context';
@@ -27,8 +28,8 @@ export function LibraryEmptyState() {
 
   const uploadMutation = useMutation({
     mutationFn: uploadPersonalEpub,
-    onSuccess: async () => {
-      toast.success(t(locale, 'content.library.uploadStarted'));
+    onSuccess: async (result) => {
+      reportPersonalEpubUploadResult(result, locale);
       await queryClient.invalidateQueries({ queryKey: libraryQueryKey.all });
     },
     onError: (error) => toast.error(formatLibraryApiError(error)),

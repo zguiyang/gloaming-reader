@@ -94,7 +94,6 @@
       }
     }
   },
-
   "auth": {
     "signOutFailed": "退出登录失败，请稍后重试",
     "signOutSuccess": "已退出登录",
@@ -953,7 +952,9 @@
       "statusNotStarted": "未开始",
       "statusReadProgress": "已读 {ratio}%",
       "viewBookDetail": "查看详情",
-      "aiTagBadge": "AI 生成"
+      "aiTagBadge": "AI 生成",
+      "uploadAlreadyExists": "这本书已在你的书库中",
+      "noSearchResults": "没有符合当前筛选或搜索条件的书籍"
     },
     "history": {
       "title": "阅读历史",
