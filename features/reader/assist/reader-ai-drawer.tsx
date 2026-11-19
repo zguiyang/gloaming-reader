@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ReaderMarkdown } from '@/features/reader/assist/reader-markdown';
+import { useSuppressReaderChrome } from '@/features/reader/reader-chrome-suppression';
 import type { ReaderAiMessage } from '@/features/reader/reader-model';
 import { useLocale } from '@/lib/locale-context';
 import { useIsDesktop } from '@/lib/use-media-query';
@@ -32,6 +33,7 @@ type ReaderAiDrawerProps = {
   onClearQuote?: () => void;
   onSelectConversation: (conversationId: string) => void;
   onStartNewConversation: () => void;
+  onRefreshHistory?: () => void;
 };
 
 type DrawerPanel = 'thread' | 'history';
@@ -292,7 +294,9 @@ export function ReaderAiDrawer({
   onClearQuote,
   onSelectConversation,
   onStartNewConversation,
+  onRefreshHistory,
 }: ReaderAiDrawerProps) {
+  useSuppressReaderChrome(open);
   const { locale } = useLocale();
   const isDesktop = useIsDesktop();
   const isSheetOpen = open && !isDesktop;
@@ -303,6 +307,7 @@ export function ReaderAiDrawer({
   }
 
   function openHistory() {
+    onRefreshHistory?.();
     setPanel('history');
   }
 
@@ -400,7 +405,7 @@ export function ReaderAiDrawer({
         <SheetContent
           side="bottom"
           className="flex h-[70vh] max-h-[640px] flex-col gap-0 rounded-t-3xl border-border/40 bg-surface-container-low p-0"
-          showCloseButton
+          showCloseButton={false}
         >
           <SheetHeader className="border-b border-border/40 px-5 pt-4 pb-3">
             <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-outline-variant" aria-hidden />
@@ -432,6 +437,16 @@ export function ReaderAiDrawer({
                   onClick={startNewConversation}
                 >
                   <MessageSquarePlusIcon className="size-4" strokeWidth={1.75} />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-lg text-muted-foreground hover:bg-surface-container-high hover:text-foreground"
+                  aria-label={t(locale, 'content.reader.assist.closePanelAria')}
+                  onClick={closeDrawer}
+                >
+                  <XIcon className="size-4" strokeWidth={1.75} />
                 </Button>
               </div>
             </div>

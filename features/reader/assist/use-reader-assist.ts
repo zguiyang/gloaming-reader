@@ -181,6 +181,7 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
       setActiveConversationId(conversationId);
     }
     setAiMode('drawer');
+    void historyQuery.refetch();
   }
 
   function startNewDrawerConversation() {
@@ -413,8 +414,12 @@ export function useReaderAssist({ workId, partId, isAuthenticated, openLogin }: 
     }
   }
 
-  function openInlineConversationInDrawer() {
-    openDrawer(inlineSession?.conversationId ?? activeConversationId);
+  async function openInlineConversationInDrawer() {
+    const conversationId = inlineSession?.conversationId ?? activeConversationId;
+    openDrawer(conversationId);
+    if (conversationId && messages.length === 0) {
+      await restoreConversation(conversationId);
+    }
   }
 
   function clearActiveQuote() {
