@@ -13,6 +13,9 @@ import { cn } from '@/lib/utils';
 
 type ReaderChromeProps = {
   visible: boolean;
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
+  onChromeInteract?: () => void;
   workTitle: string;
   partTitle: string;
   chapterLabel: string | null;
@@ -40,6 +43,9 @@ function navigateReaderBack(router: ReturnType<typeof useRouter>) {
 
 export function ReaderChrome({
   visible,
+  onPointerEnter,
+  onPointerLeave,
+  onChromeInteract,
   workTitle,
   partTitle,
   chapterLabel,
@@ -60,14 +66,21 @@ export function ReaderChrome({
   const { locale } = useLocale();
   const fill = Math.min(100, Math.max(0, Math.round(progressRatio)));
 
+  function wrapChromeAction(action: () => void) {
+    return () => {
+      onChromeInteract?.();
+      action();
+    };
+  }
+
   return (
     <header
+      data-reader-chrome
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
       className={cn(
         'fixed inset-x-0 top-0 border-b border-border/40 bg-background/90 backdrop-blur-md transition-all duration-300 ease-out-soft',
-        // Above the AI drawer (z-50) while visible so chrome controls stay clickable.
-        visible
-          ? 'z-[60] translate-y-0 opacity-100'
-          : 'pointer-events-none z-40 -translate-y-2 opacity-0 focus-within:translate-y-0 focus-within:opacity-100',
+        visible ? 'z-[60] translate-y-0 opacity-100' : 'pointer-events-none z-40 -translate-y-2 opacity-0',
       )}
     >
       <div className="flex h-14 items-center justify-between gap-2 px-3 md:gap-3 md:px-6">
@@ -78,7 +91,7 @@ export function ReaderChrome({
             size="icon"
             className="size-10 shrink-0 text-muted-foreground hover:text-foreground"
             aria-label={t(locale, 'content.reader.chrome.back')}
-            onClick={() => navigateReaderBack(router)}
+            onClick={wrapChromeAction(() => navigateReaderBack(router))}
           >
             <ArrowLeftIcon className="size-5" strokeWidth={1.5} />
           </Button>
@@ -90,7 +103,7 @@ export function ReaderChrome({
             className={cn('size-10 shrink-0 text-muted-foreground hover:text-foreground', tocOpen && 'text-primary')}
             aria-label={t(locale, 'content.reader.chrome.toc')}
             aria-pressed={tocOpen}
-            onClick={onToggleToc}
+            onClick={wrapChromeAction(onToggleToc)}
           >
             <MenuIcon className="size-5" strokeWidth={1.5} />
           </Button>
@@ -117,7 +130,7 @@ export function ReaderChrome({
             aria-label={t(locale, 'content.reader.chrome.bilingual')}
             aria-pressed={isBilingual}
             disabled={isBilingualLoading}
-            onClick={onToggleBilingual}
+            onClick={wrapChromeAction(onToggleBilingual)}
           >
             <LanguagesIcon className="size-5" strokeWidth={1.5} />
           </Button>
@@ -127,7 +140,7 @@ export function ReaderChrome({
             size="icon"
             className="size-10 text-muted-foreground hover:text-foreground"
             aria-label={readerFontSizeAriaLabel(fontSize, locale)}
-            onClick={onToggleFontSize}
+            onClick={wrapChromeAction(onToggleFontSize)}
           >
             <TypeIcon className="size-5" strokeWidth={1.5} />
           </Button>
@@ -139,7 +152,7 @@ export function ReaderChrome({
             className={cn('size-10 text-muted-foreground hover:text-foreground', aiOpen && 'bg-accent text-brand-deep')}
             aria-label={t(locale, 'content.reader.chrome.aiAssist')}
             aria-pressed={aiOpen}
-            onClick={onToggleAi}
+            onClick={wrapChromeAction(onToggleAi)}
           >
             <SparklesIcon className="size-5" strokeWidth={1.5} />
           </Button>
@@ -153,7 +166,7 @@ export function ReaderChrome({
             )}
             aria-label={t(locale, 'content.reader.chrome.listen')}
             aria-pressed={isListening}
-            onClick={onToggleTts}
+            onClick={wrapChromeAction(onToggleTts)}
           >
             <HeadphonesIcon className="size-5" strokeWidth={1.5} />
           </Button>
