@@ -33,7 +33,7 @@ import {
   removeFromLibrary,
 } from '@/features/library/library-api';
 import { LibraryTagAssignmentDialog } from '@/features/library/library-tag-assignment-dialog';
-import { PersonalWorkEditSheet } from '@/features/library/personal-work-edit-sheet';
+import { PersonalWorkEditDialog } from '@/features/library/personal-work-edit-dialog';
 import { cn } from '@/lib/utils';
 
 export function LibraryWorkManagement({
@@ -55,7 +55,7 @@ export function LibraryWorkManagement({
   const [isRemoveConfirmationOpen, setIsRemoveConfirmationOpen] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
   const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
-  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const isPersonal = entry.libraryItemKind === 'personal';
 
   const refreshLibrary = async () => {
@@ -123,7 +123,7 @@ export function LibraryWorkManagement({
             </DropdownMenuItem>
           ) : null}
           {canEdit ? (
-            <DropdownMenuItem onClick={() => setIsEditSheetOpen(true)}>
+            <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
               {t(locale, 'content.library.editBookInfo')}
             </DropdownMenuItem>
           ) : null}
@@ -182,8 +182,13 @@ export function LibraryWorkManagement({
           onOpenChange={setIsTagDialogOpen}
         />
       ) : null}
-      {canEdit && isEditSheetOpen ? (
-        <PersonalWorkEditSheet entry={entry} locale={locale} open onOpenChange={setIsEditSheetOpen} />
+      {canEdit ? (
+        <PersonalWorkEditDialog
+          entry={entry}
+          locale={locale}
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+        />
       ) : null}
     </>
   );
