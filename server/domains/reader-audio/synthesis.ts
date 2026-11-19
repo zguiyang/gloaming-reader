@@ -50,7 +50,7 @@ export type ReaderAudioSynthesisResult = {
 
 /**
  * One direct Azure call for one segment. Deliberately bypasses the whole-chapter
- * Redis v2 cache (different scope/identity model) — the `part_audio_segment`
+ * Whole-chapter TTS Redis cache (different scope/identity model) — the `part_audio_segment`
  * ready row is the cache. Every call is recorded in the TTS invocation log.
  */
 export async function synthesizeReaderAudioSegment(

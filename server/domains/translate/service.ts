@@ -50,12 +50,11 @@ export type StreamTranslatePartOptions = {
 };
 
 function cacheKey(partId: string, contentHash: string): string {
-  return `gloaming:bilingual:v3:${partId}:${contentHash}`;
+  return `gloaming:bilingual:${partId}:${contentHash}`;
 }
 
 function bilingualCacheMatch(partId: string): string {
-  // Include legacy v2 keys so part updates invalidate stale bilingual caches.
-  return `gloaming:bilingual:*:${partId}:*`;
+  return `gloaming:bilingual:${partId}:*`;
 }
 
 export async function deleteBilingualCacheForPart(partId: string): Promise<void> {

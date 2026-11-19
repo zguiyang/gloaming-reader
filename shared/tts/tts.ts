@@ -110,15 +110,11 @@ export const testTtsResultSchema = z.object({
 
 export type TestTtsResult = z.infer<typeof testTtsResultSchema>;
 
-/** Legacy Redis TTS cache key prefix (`gloaming:tts:v1:{digest}`). */
-export const TTS_CACHE_KEY_PREFIX_V1 = 'gloaming:tts:v1:' as const;
-
-/** Current Redis TTS cache key prefix (`gloaming:tts:v2:{digest}`). */
-export const TTS_CACHE_KEY_PREFIX_V2 = 'gloaming:tts:v2:' as const;
+/** Redis TTS cache key prefix (`gloaming:tts:{digest}`). */
+export const TTS_CACHE_KEY_PREFIX = 'gloaming:tts:' as const;
 
 /**
- * Cache payload / key material version embedded in v2 digests.
- * Bump when Redis payload shape (e.g. wordTimings coordinate space) or digest inputs change.
+ * Digest salt for cache key material — bump when payload shape (e.g. wordTimings) or digest inputs change.
  */
 export const TTS_CACHE_SCHEMA_VERSION = 3 as const;
 

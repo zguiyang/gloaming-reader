@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import {
   normalizeTtsInput,
-  TTS_CACHE_KEY_PREFIX_V2,
+  TTS_CACHE_KEY_PREFIX,
   TTS_CACHE_MAX_RAW_AUDIO_BYTES,
   TTS_CACHE_SCHEMA_VERSION,
   TTS_CACHE_TTL_SECONDS,
@@ -84,7 +84,6 @@ export type SynthesizeTtsResult = {
 type TtsCacheLookup = {
   payload: TtsCachePayload;
   key: string;
-  version: 'v2';
   cachePayloadBytes: number;
 };
 
@@ -106,8 +105,8 @@ export function normalizeTtsText(text: string): string {
   return normalizeTtsInput(text).ttsText;
 }
 
-/** v2 digest: schema version + normalization version + synth text + voice + mime + region. */
-export function buildTtsCacheKeyV2(synthText: string, voice: string, region: string): string {
+/** Cache key digest: schema version + normalization version + synth text + voice + mime + region. */
+export function buildTtsCacheKey(synthText: string, voice: string, region: string): string {
   const digest = createHash('sha256')
     .update(
       `${TTS_CACHE_SCHEMA_VERSION}\0${TTS_INPUT_NORMALIZATION_VERSION}\0${synthText}\0` +
@@ -115,7 +114,7 @@ export function buildTtsCacheKeyV2(synthText: string, voice: string, region: str
       'utf8',
     )
     .digest('hex');
-  return `${TTS_CACHE_KEY_PREFIX_V2}${digest}`;
+  return `${TTS_CACHE_KEY_PREFIX}${digest}`;
 }
 
 export function shouldWriteTtsCache(rawAudioBytes: number): boolean {
@@ -141,26 +140,23 @@ async function readTtsCacheKey(key: string): Promise<{ payload: TtsCachePayload;
   }
 }
 
-/**
- * Read v2 cache only. Legacy v1 keys are not served — they expire via governance scripts
- * or natural TTL. Redis errors are logged and treated as miss so synthesis continues.
- */
+/** Redis read errors are logged and treated as miss so synthesis continues. */
 async function lookupTtsCache(normalizedText: string, voice: string, region: string): Promise<TtsCacheLookup | null> {
-  const v2Key = buildTtsCacheKeyV2(normalizedText, voice, region);
+  const cacheKey = buildTtsCacheKey(normalizedText, voice, region);
   try {
-    const v2Hit = await readTtsCacheKey(v2Key);
-    if (v2Hit) {
-      return { ...v2Hit, key: v2Key, version: 'v2' };
+    const hit = await readTtsCacheKey(cacheKey);
+    if (hit) {
+      return { ...hit, key: cacheKey };
     }
   } catch (error) {
     ttsLogger.warn(
       {
         err: error,
-        key: v2Key,
+        key: cacheKey,
         cacheOutcome: 'redis_error',
         ttlSeconds: TTS_CACHE_TTL_SECONDS,
       },
-      'Redis TTS v2 cache read failed; continuing to provider',
+      'Redis TTS cache read failed; continuing to provider',
     );
     return null;
   }
@@ -187,7 +183,7 @@ async function writeTtsCache(
         cachePayloadBytes: meta.cachePayloadBytes,
         ttlSeconds: TTS_CACHE_TTL_SECONDS,
       },
-      'TTS cache miss; wrote v2 entry',
+      'TTS cache miss; wrote entry',
     );
   } catch (error) {
     ttsLogger.warn(
@@ -225,7 +221,7 @@ async function synthesizeTtsWithConfig(
 
   const voice = resolveVoice(row, options);
   const useCache = !options.bypassCache;
-  const v2Key = buildTtsCacheKeyV2(text, voice, row.region);
+  const cacheKey = buildTtsCacheKey(text, voice, row.region);
 
   if (useCache) {
     const cached = await lookupTtsCache(text, voice, row.region);
@@ -234,7 +230,6 @@ async function synthesizeTtsWithConfig(
       ttsLogger.debug(
         {
           key: cached.key,
-          cacheVersion: cached.version,
           cacheOutcome: 'hit',
           rawAudioBytes: audio.byteLength,
           cachePayloadBytes: cached.cachePayloadBytes,
@@ -260,7 +255,7 @@ async function synthesizeTtsWithConfig(
 
     ttsLogger.debug(
       {
-        key: v2Key,
+        key: cacheKey,
         cacheOutcome: 'miss',
         ttlSeconds: TTS_CACHE_TTL_SECONDS,
       },
@@ -297,7 +292,7 @@ async function synthesizeTtsWithConfig(
     if (!shouldWriteTtsCache(rawAudioBytes)) {
       ttsLogger.debug(
         {
-          key: v2Key,
+          key: cacheKey,
           cacheOutcome: 'skipped_size',
           rawAudioBytes,
           ttlSeconds: TTS_CACHE_TTL_SECONDS,
@@ -313,7 +308,7 @@ async function synthesizeTtsWithConfig(
         wordTimings: ttsSpaceTimings,
       };
       const serialized = JSON.stringify(payload);
-      await writeTtsCache(v2Key, payload, {
+      await writeTtsCache(cacheKey, payload, {
         rawAudioBytes,
         cachePayloadBytes: Buffer.byteLength(serialized, 'utf8'),
       });

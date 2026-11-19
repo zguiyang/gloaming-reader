@@ -37,10 +37,8 @@ import { db } from '@/server/infra/db';
 import { deleteManyObjects, listObjects } from '@/server/infra/storage';
 
 const CACHE_PATTERNS = [
-  'gloaming:tts:v2:*',
-  'gloaming:tts:v1:*',
-  'gloaming:bilingual:v3:*',
-  'gloaming:bilingual:v2:*',
+  'gloaming:tts:*',
+  'gloaming:bilingual:*',
   'gloaming:dictionary:*',
   'gloaming:upload:dedupe:*',
   'gloaming:ratelimit:*',

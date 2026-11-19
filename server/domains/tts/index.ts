@@ -6,7 +6,7 @@ export type { TtsInvocationLogInput } from '@/server/domains/tts/log';
 export { getTtsInvocationStats, listTtsInvocations, recordTtsInvocation } from '@/server/domains/tts/log';
 export type { SynthesizeTtsOptions, SynthesizeTtsResult } from '@/server/domains/tts/synthesis/service';
 export {
-  buildTtsCacheKeyV2,
+  buildTtsCacheKey,
   normalizeTtsText,
   shouldWriteTtsCache,
   synthesizeInstanceTts,

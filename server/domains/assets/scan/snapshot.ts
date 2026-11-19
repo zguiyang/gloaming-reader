@@ -11,7 +11,7 @@ import { ERROR_CODES } from '@/server/shared/errors/codes';
 
 const logger = createLogger('AssetManagement');
 
-const SCAN_KEY_PREFIX = 'asset-management:scan:v2:';
+const SCAN_KEY_PREFIX = 'asset-management:scan:';
 export const LATEST_SCAN_KEY = `${SCAN_KEY_PREFIX}latest`;
 
 const scanSnapshotSchema = z.strictObject({

@@ -37,7 +37,7 @@ import { ERROR_CODES } from '@/server/shared/errors/codes';
 const logger = createLogger('DictionaryService');
 
 function wordCacheKey(word: string): string {
-  return `gloaming:dictionary:v1:word:${encodeURIComponent(word.trim().toLowerCase())}`;
+  return `gloaming:dictionary:word:${encodeURIComponent(word.trim().toLowerCase())}`;
 }
 
 export type LookupWordOptions = {
