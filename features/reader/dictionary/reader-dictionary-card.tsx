@@ -92,8 +92,9 @@ export function ReaderDictionaryCard({
         <p className="mt-2 text-xs font-medium text-foreground/80">{t(locale, titleKey, { word })}</p>
         <Button
           type="button"
+          variant="default"
           size="sm"
-          className="mt-4 h-8 rounded-lg text-xs hover:bg-brand-deep"
+          className="mt-4 h-8 rounded-lg text-xs hover:bg-brand-deep hover:text-primary-foreground"
           onClick={() => onAskAi(word, contextSentence)}
         >
           <SparklesIcon className="mr-1 size-3" />
@@ -288,8 +289,11 @@ export function ReaderDictionaryCard({
         <Button
           type="button"
           size="sm"
-          variant={showAskAiProminent ? 'default' : 'secondary'}
-          className="h-8 rounded-lg text-xs hover:bg-brand-deep"
+          variant={showAskAiProminent ? 'default' : 'outline'}
+          className={cn(
+            'h-8 rounded-lg text-xs',
+            showAskAiProminent && 'hover:bg-brand-deep hover:text-primary-foreground',
+          )}
           onClick={() => onAskAi(word, contextSentence)}
         >
           <SparklesIcon className="mr-1 size-3" />
