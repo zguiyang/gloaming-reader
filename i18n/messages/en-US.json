@@ -1132,7 +1132,6 @@
         "retry": "Retry",
         "close": "Close",
         "continueInDrawer": "Continue in panel",
-        "continueUnavailable": "This answer was not saved and cannot continue",
         "historyTitle": "History",
         "historyLoading": "Loading history…",
         "historyError": "Could not load conversation history",

@@ -1132,7 +1132,6 @@
         "retry": "重试",
         "close": "关闭",
         "continueInDrawer": "继续追问",
-        "continueUnavailable": "本次回答未保存，无法继续",
         "historyTitle": "历史对话",
         "historyLoading": "加载历史中…",
         "historyError": "历史对话加载失败",

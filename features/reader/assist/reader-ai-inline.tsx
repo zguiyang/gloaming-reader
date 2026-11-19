@@ -169,10 +169,7 @@ export function ReaderAiInline({
                 ) : null}
               </div>
             ) : null}
-            <div className="mt-4 flex items-center justify-between gap-2">
-              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={onClose}>
-                {t(locale, 'content.reader.assist.close')}
-              </Button>
+            <div className="mt-4 flex items-center justify-end gap-2">
               {canOpenDrawer ? (
                 <Button
                   type="button"
@@ -183,11 +180,10 @@ export function ReaderAiInline({
                 >
                   {t(locale, 'content.reader.assist.continueInDrawer')}
                 </Button>
-              ) : (
-                <p className="max-w-[12rem] text-right text-[11px] leading-snug text-muted-foreground">
-                  {t(locale, 'content.reader.assist.continueUnavailable')}
-                </p>
-              )}
+              ) : null}
+              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={onClose}>
+                {t(locale, 'content.reader.assist.close')}
+              </Button>
             </div>
           </>
         )}
