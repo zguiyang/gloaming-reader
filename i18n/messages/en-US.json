@@ -260,7 +260,7 @@
   "landing": {
     "meta": {
       "title": "Gloaming · A quiet place for real reading",
-      "description": "Read source texts you chose. When stuck, get help beside the page—then keep reading."
+      "description": "Upload EPUBs to your private Library. When stuck, get help beside the page—then keep reading."
     },
     "cta": {
       "startReading": "Start reading",
@@ -268,22 +268,22 @@
       "goToLibrary": "Go to Library"
     },
     "shot": {
-      "reader": "[Screenshot placeholder: reader]",
-      "help": "[Screenshot placeholder: in-text help]",
-      "readerHelp": "[Screenshot placeholder: reader + side help]",
-      "library": "[Screenshot placeholder: Library · Continue]",
-      "libraryUpload": "[Screenshot placeholder: Library upload]"
+      "reader": "Reader",
+      "help": "In-text dictionary help",
+      "readerHelp": "Reader with reading assistant",
+      "library": "Library: continue reading and shelf",
+      "libraryUpload": "Upload EPUB to Library"
     },
     "opening": {
       "eyebrow": "Immersive reading",
       "titleLine1": "Real source texts are worth reading,",
       "titleLine2": "but they’re hard to finish.",
       "body1": "When you hit a hard passage, you leave the page to look something up, open a translator, or ask a chatbot. By the time you return, the reading is broken.",
-      "body2": "Gloaming is a quiet reading environment: the activity stays reading. Help appears beside the text only when you’re stuck—then you continue. English ebooks are the focus today."
+      "body2": "Gloaming is a quiet reading environment: the activity stays reading. Help appears beside the text only when you’re stuck—then you continue. You bring the books—upload EPUBs; there is no built-in catalog to browse. English ebooks are the focus today."
     },
     "problem": {
       "eyebrow": "The Reality",
-      "title": "The hard part isn’t finding content. It’s stopping mid-read.",
+      "title": "The hard part is getting pulled out of the page you wanted to stay in.",
       "lead": "It often isn’t that a word is too hard—it’s that every tool pulls you out of the page you wanted to stay in.",
       "items": {
         "1": {
@@ -304,14 +304,14 @@
     "solution": {
       "eyebrow": "The Solution",
       "title": "How we solve it",
-      "lead": "Keep the energy on reading itself—from choosing a text, through hard lines, to picking up again.",
+      "lead": "Keep the energy on reading itself—from importing a book, through hard lines, to picking up again.",
       "beatA": {
         "label": "Beat A",
         "title": "Bring content in first",
         "body": "Upload EPUBs and other files into your Library, or open works you already added. We don't invent \"learning articles\" as the main content.",
         "points": {
-          "1": "Your uploads stay in a private library shelf",
-          "2": "Continue where you left off from one home surface"
+          "1": "EPUB uploads stay in your private Library",
+          "2": "Open to read from the same shelf once processing finishes"
         }
       },
       "beatB": {
@@ -327,7 +327,7 @@
       "beatC": {
         "label": "Beat C",
         "title": "Come home to what you left unfinished",
-        "body": "Library isn’t a study dashboard. Open it and continue reading—uploads and saved titles live together.",
+        "body": "Library isn’t a study dashboard. Open it and continue reading—all your uploads live in one place.",
         "points": {
           "1": "Continue Reading returns you to where you stopped",
           "2": "No streak badges, no vocab homework alerts"
@@ -354,11 +354,15 @@
         "4": {
           "title": "Chat is not the home screen",
           "body": "Home is the shelf and the text. Help appears only when asked."
+        },
+        "5": {
+          "title": "No public book discovery",
+          "body": "No built-in catalog or browse-to-save flow—bring the titles you want to read."
         }
       }
     },
     "invite": {
-      "titleLine1": "Find a source text you want,",
+      "titleLine1": "Bring the EPUB you want to read,",
       "titleLine2": "and keep reading.",
       "body": "When stuck, understand beside the page—then continue. Not a class. Not a chat.",
       "footnote": "Open and read · Import your own files · Keep reading first"
