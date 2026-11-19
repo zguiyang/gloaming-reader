@@ -97,5 +97,3 @@ storage for large binaries).
 
 Auth secondary storage (`server/infra/auth/secondary-storage.ts`) must always
 apply a positive TTL (default/max aligned with Better Auth session lifetime).
-Ops: `pnpm exec tsx scripts/redis-no-ttl-scan.ts` reports `TTL=-1` keys under
-known prefixes; expiry of `better-auth:*` leftovers requires explicit consent.

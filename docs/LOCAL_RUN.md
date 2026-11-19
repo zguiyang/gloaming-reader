@@ -51,7 +51,7 @@ Optional: `pnpm build && pnpm start` for production-mode local check.
 - Auth, TTS, LLM, and storage need the corresponding keys in `.env` (see `.env.example`).
 - If outbound HTTPS calls (LLM providers, dictionary APIs, etc.) need a local proxy, set `http_proxy` / `https_proxy` (or the channel-specific proxy URL on the provider row in admin). The server uses the same undici proxy helper for all outbound fetches.
 - This runbook does **not** use Cloudflare Workers, vinext, or OpenNext.
-- Redis application keys must use TTLs (see [backend Redis key policy](../rules/backend.md#redis-key-policy)). Scan leftovers with `pnpm exec tsx scripts/redis-no-ttl-scan.ts`.
+- Redis application keys must use TTLs (see [backend Redis key policy](../rules/backend.md#redis-key-policy)).
 
 ### After removing Discover / upload-only reset
 
