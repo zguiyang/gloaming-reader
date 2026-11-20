@@ -54,8 +54,9 @@ Discover owners from current source at the repo root.
 - **Automated tests:** Any automated test that writes persistent data must use a
   verified isolated test environment. If it cannot be confirmed, stop; never
   fall back to a development or production environment. Clean up only data
-  created by the test. Use the [test database Skill](.agents/skills/test-database-workflow/SKILL.md)
-  for its applicable workflow.
+  created by the test. When using local agent skills, install
+  `test-database-workflow` from [zguiyang/agent-skills](https://github.com/zguiyang/agent-skills)
+  under `.agents/skills/` (that directory is gitignored and not part of the repo).
 - **Development:** Local development, API debugging, routine development writes,
   interactive browser acceptance, and authorized development migrations may use
   a verified development environment under normal application authorization and

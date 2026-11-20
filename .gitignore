@@ -31,7 +31,8 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Editors
+# Editors and local IDE / agent tooling (not for the repo)
+.cursor/
 .fleet
 .idea
 .vscode/
@@ -51,9 +52,8 @@ openspec/
 .opencode/
 .claude/
 .orca/
-.agents/*
-!.agents/skills/
-!.agents/skills/**
+.agents/
+skills-lock.json
 .junie/
 
 # Worktrees
@@ -72,3 +72,6 @@ __screenshots__/
 .pnpm-store/
 
 temp/
+
+# Local promo assets (not for the repo)
+promo/
